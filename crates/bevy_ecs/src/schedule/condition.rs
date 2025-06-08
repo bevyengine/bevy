@@ -71,8 +71,8 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-pub trait SystemCondition<Marker, In: SystemInput = ()>:
-    sealed::SystemCondition<Marker, In>
+pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
+    sealed::SystemCondition<Marker, In, Out>
 {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
@@ -371,28 +371,61 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     }
 }
 
-impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where
-    F: sealed::SystemCondition<Marker, In>
+impl<Marker, In: SystemInput, Out, F> SystemCondition<Marker, In, Out> for F where
+    F: sealed::SystemCondition<Marker, In, Out>
 {
 }
 
 mod sealed {
-    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
+    use crate::{
+        error::BevyError,
+        system::{IntoSystem, ReadOnlySystem, SystemInput},
+    };
 
-    pub trait SystemCondition<Marker, In: SystemInput>:
-        IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
+    pub trait SystemCondition<Marker, In: SystemInput, Out>:
+        IntoSystem<In, Out, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
         // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
+        type ReadOnlySystem: ReadOnlySystem<In = In, Out = Out>;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool>;
     }
 
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, bool> for F
     where
         F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+            IntoSystem::into_system(self)
+        }
+    }
+
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<(), BevyError>> for F
+    where
+        F: IntoSystem<In, Result<(), BevyError>, Marker>,
+        F::System: ReadOnlySystem,
+    {
+        type ReadOnlySystem = F::System;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+            IntoSystem::into_system(self.map(|result| result.is_ok()))
+        }
+    }
+
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<bool, BevyError>> for F
+    where
+        F: IntoSystem<In, Result<bool, BevyError>, Marker>,
+        F::System: ReadOnlySystem,
+    {
+        type ReadOnlySystem = F::System;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+            IntoSystem::into_system(self.map(|result| matches!(result, Ok(true))))
+        }
     }
 }
 
