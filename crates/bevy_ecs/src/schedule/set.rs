@@ -118,7 +118,7 @@ define_label!(
     /// To add systems to a system set, call [`in_set`](crate::prelude::IntoScheduleConfigs::in_set) on the system function
     /// while adding it to your app or schedule.
     ///
-    /// Like usual, these methods can be chained with other configuration methods like [`before`]crate::prelude::IntoScheduleConfigs::before),
+    /// Like usual, these methods can be chained with other configuration methods like [`before`](crate::prelude::IntoScheduleConfigs::before),
     /// or repeated to add systems to multiple sets.
     ///
     /// ```rust
