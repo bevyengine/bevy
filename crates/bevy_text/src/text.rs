@@ -1,8 +1,3 @@
-pub use cosmic_text::{
-    self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
-    Weight as FontWeight,
-};
-
 use crate::{Font, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
