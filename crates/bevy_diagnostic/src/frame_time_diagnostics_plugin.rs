@@ -1,10 +1,12 @@
 use crate::{
-    Diagnostic, DiagnosticPath, Diagnostics, FrameCount, RegisterDiagnostic,
-    DEFAULT_MAX_HISTORY_LENGTH,
+    Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic, DEFAULT_MAX_HISTORY_LENGTH,
 };
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, FrameCount};
 use bevy_ecs::prelude::*;
 use bevy_time::{Real, Time};
+
+#[cfg(feature = "serialize")]
+mod frame_count;
 
 /// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"
 ///

@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, FrameCount, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
@@ -6,7 +6,6 @@ use bevy_core_pipeline::{
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
-use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::{Component, Entity, ReflectComponent},
     query::{QueryItem, With},

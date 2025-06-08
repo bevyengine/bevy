@@ -19,7 +19,8 @@
 //!
 //! Let's look at an example of each.
 
-use bevy::{diagnostic::FrameCount, ecs::event::EventCursor, prelude::*};
+use bevy::{ecs::event::EventCursor, prelude::*};
+use bevy_app::FrameCount;
 
 fn main() {
     let mut app = App::new();

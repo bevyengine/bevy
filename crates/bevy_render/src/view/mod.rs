@@ -1,7 +1,6 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
@@ -26,7 +25,7 @@ use crate::{
     Render, RenderApp, RenderSystems,
 };
 use alloc::sync::Arc;
-use bevy_app::{App, Plugin};
+use bevy_app::{App, FrameCount, Plugin};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;

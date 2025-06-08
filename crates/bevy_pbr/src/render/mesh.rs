@@ -1,5 +1,6 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
+use bevy_app::FrameCount;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -8,7 +9,6 @@ use bevy_core_pipeline::{
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::*,
     query::{QueryData, ROQueryItem},

@@ -551,6 +551,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1.7"
 bevy_render = { path = "crates/bevy_render", version = "0.16.0-dev", default-features = false }
+bevy_app = { path = "crates/bevy_app", version = "0.16.0-dev", default-features = false }
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
 bevy_ecs = { path = "crates/bevy_ecs", version = "0.16.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.16.0-dev", default-features = false }
