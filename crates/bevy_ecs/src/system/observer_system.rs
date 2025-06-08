@@ -127,18 +127,8 @@ where
     }
 
     #[inline]
-    fn is_send(&self) -> bool {
-        self.observer.is_send()
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        self.observer.is_exclusive()
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
-        self.observer.has_deferred()
+    fn flags(&self) -> super::SystemStateFlags {
+        self.observer.flags()
     }
 
     #[inline]
