@@ -7,7 +7,7 @@ use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use async_lock::RwLockReadGuardArc;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::trace;
 
 use super::{AsyncSeekForward, ErasedAssetReader};
@@ -43,9 +43,9 @@ impl ProcessorGatedReader {
         path: &AssetPath<'static>,
     ) -> Result<RwLockReadGuardArc<()>, AssetReaderError> {
         let infos = self.processor_data.asset_infos.read().await;
-        let info = infos
-            .get(path)
-            .ok_or_else(|| AssetReaderError::NotFound(path.path().to_owned()))?;
+        let info = infos.get(path).ok_or_else(|| {
+            AssetReaderError::NotFound(PathBuf::from(path.path()).to_str().unwrap().to_owned())
+        })?;
         Ok(info.file_transaction_lock.read_arc().await)
     }
 }
@@ -61,7 +61,9 @@ impl AssetReader for ProcessorGatedReader {
         match process_result {
             ProcessStatus::Processed => {}
             ProcessStatus::Failed | ProcessStatus::NonExistent => {
-                return Err(AssetReaderError::NotFound(path.to_owned()));
+                return Err(AssetReaderError::NotFound(
+                    path.to_path_buf().to_str().unwrap().to_owned(),
+                ));
             }
         }
         trace!("Processing finished with {asset_path}, reading {process_result:?}",);
@@ -81,7 +83,9 @@ impl AssetReader for ProcessorGatedReader {
         match process_result {
             ProcessStatus::Processed => {}
             ProcessStatus::Failed | ProcessStatus::NonExistent => {
-                return Err(AssetReaderError::NotFound(path.to_owned()));
+                return Err(AssetReaderError::NotFound(
+                    path.to_path_buf().to_str().unwrap().to_owned(),
+                ));
             }
         }
         trace!("Processing finished with {process_result:?}, reading meta for {asset_path}",);

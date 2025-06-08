@@ -38,7 +38,7 @@ impl AssetReader for FileAssetReader {
         let full_path = self.root_path.join(path);
         File::open(&full_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                AssetReaderError::NotFound(full_path)
+                AssetReaderError::NotFound(full_path.to_path_buf().to_str().unwrap().to_owned())
             } else {
                 e.into()
             }
@@ -50,7 +50,7 @@ impl AssetReader for FileAssetReader {
         let full_path = self.root_path.join(meta_path);
         File::open(&full_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                AssetReaderError::NotFound(full_path)
+                AssetReaderError::NotFound(full_path.to_path_buf().to_str().unwrap().to_owned())
             } else {
                 e.into()
             }
@@ -92,7 +92,9 @@ impl AssetReader for FileAssetReader {
             }
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
-                    Err(AssetReaderError::NotFound(full_path))
+                    Err(AssetReaderError::NotFound(
+                        full_path.to_path_buf().to_str().unwrap().to_owned(),
+                    ))
                 } else {
                     Err(e.into())
                 }
@@ -102,9 +104,9 @@ impl AssetReader for FileAssetReader {
 
     async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
         let full_path = self.root_path.join(path);
-        let metadata = full_path
-            .metadata()
-            .map_err(|_e| AssetReaderError::NotFound(path.to_owned()))?;
+        let metadata = full_path.metadata().map_err(|_e| {
+            AssetReaderError::NotFound(path.to_path_buf().to_str().unwrap().to_owned())
+        })?;
         Ok(metadata.file_type().is_dir())
     }
 }
