@@ -5,10 +5,10 @@ use crate::{
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
+    component_lifecycle::RemovedComponents,
     entity::Entity,
     hierarchy::{ChildOf, Children},
     query::With,
-    component_lifecycle::RemovedComponents,
     system::{Commands, Query, ResMut},
     world::Ref,
 };

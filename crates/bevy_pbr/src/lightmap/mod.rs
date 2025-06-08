@@ -36,10 +36,10 @@ use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
+    component_lifecycle::RemovedComponents,
     entity::Entity,
     query::{Changed, Or},
     reflect::ReflectComponent,
-    component_lifecycle::RemovedComponents,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},

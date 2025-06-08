@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use bevy_ecs::{
+    component_lifecycle::RemovedComponents,
     entity::Entity,
     event::EventWriter,
     prelude::{Changed, Component},
     query::QueryFilter,
-    component_lifecycle::RemovedComponents,
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
