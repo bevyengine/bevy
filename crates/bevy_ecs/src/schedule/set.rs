@@ -89,7 +89,7 @@ define_label!(
     /// ```rust
     /// # use bevy_ecs::prelude::*;
     ///
-    /// #[derive(SystemSet, Debug, Default, Clone, PartialEq, Eq, Hash)]
+    /// #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
     /// struct PhysicsSystems;
     /// ```
     ///
@@ -100,7 +100,7 @@ define_label!(
     /// ```rust
     /// # use bevy_ecs::prelude::*;
     ///
-    /// #[derive(SystemSet, Debug, Default, Clone, PartialEq, Eq, Hash)]
+    /// #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
     /// enum CombatSystems {
     ///    TargetSelection,
     ///    DamageCalculation,
@@ -124,7 +124,7 @@ define_label!(
     /// ```rust
     /// use bevy_ecs::prelude::*;
     ///
-    /// #[derive(SystemSet, Debug, Default, Clone, PartialEq, Eq, Hash)]
+    /// #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
     /// enum CombatSystems {
     ///    TargetSelection,
     ///    DamageCalculation,
@@ -137,12 +137,12 @@ define_label!(
     ///
     /// fn player_damage_calculation() {}
     ///
-    /// let mut schedule = Schedule::new();
+    /// let mut schedule = Schedule::default();
     /// // Configuring the sets to run in order.
     /// schedule.configure_sets((CombatSystems::TargetSelection, CombatSystems::DamageCalculation, CombatSystems::Cleanup).chain());
     ///
     /// // Adding a single system to a set.
-    /// schedule.add_systems(target_selection_system.in_set(CombatSystems::TargetSelection));
+    /// schedule.add_systems(target_selection.in_set(CombatSystems::TargetSelection));
     ///
     /// // Adding multiple systems to a set.
     /// schedule.add_systems((player_damage_calculation, enemy_damage_calculation).in_set(CombatSystems::DamageCalculation));
