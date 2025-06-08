@@ -1,5 +1,6 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
+use alloc::borrow::Cow;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration, TypeRegistry,
@@ -14,11 +15,11 @@ use crate::schemas::SchemaTypesMetadata;
 /// Helper trait for converting `TypeRegistration` to `JsonSchemaBevyType`
 pub trait TypeRegistrySchemaReader {
     /// Export type JSON Schema.
-    fn export_type_json_schema<T: GetTypeRegistration>(
+    fn export_type_json_schema<T: GetTypeRegistration + 'static>(
         &self,
         extra_info: &SchemaTypesMetadata,
     ) -> Option<JsonSchemaBevyType> {
-        self.export_type_json_schema_for_id(extra_info, T::get_type_registration().type_id())
+        self.export_type_json_schema_for_id(extra_info, TypeId::of::<T>())
     }
     /// Export type JSON Schema.
     fn export_type_json_schema_for_id(
@@ -43,11 +44,8 @@ impl TypeRegistrySchemaReader for TypeRegistry {
 pub fn export_type(
     reg: &TypeRegistration,
     metadata: &SchemaTypesMetadata,
-) -> (String, JsonSchemaBevyType) {
-    (
-        reg.type_info().type_path().to_owned(),
-        (reg, metadata).into(),
-    )
+) -> (Cow<'static, str>, JsonSchemaBevyType) {
+    (reg.type_info().type_path().into(), (reg, metadata).into())
 }
 
 impl From<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
@@ -517,7 +515,7 @@ mod tests {
             register.register_type_data::<EnumComponent, ReflectCustomData>();
         }
         let mut metadata = SchemaTypesMetadata::default();
-        metadata.register_type::<ReflectCustomData>("CustomData");
+        metadata.map_type_data::<ReflectCustomData>("CustomData");
         let type_registry = atr.read();
         let foo_registration = type_registry
             .get(TypeId::of::<EnumComponent>())
@@ -525,19 +523,19 @@ mod tests {
             .clone();
         let (_, schema) = export_type(&foo_registration, &metadata);
         assert!(
-            !metadata.has_data_type::<ReflectComponent>(&schema.reflect_types),
+            !metadata.has_type_data::<ReflectComponent>(&schema.reflect_types),
             "Should not be a component"
         );
         assert!(
-            !metadata.has_data_type::<ReflectResource>(&schema.reflect_types),
+            !metadata.has_type_data::<ReflectResource>(&schema.reflect_types),
             "Should not be a resource"
         );
         assert!(
-            metadata.has_data_type::<ReflectDefault>(&schema.reflect_types),
+            metadata.has_type_data::<ReflectDefault>(&schema.reflect_types),
             "Should have default"
         );
         assert!(
-            metadata.has_data_type::<ReflectCustomData>(&schema.reflect_types),
+            metadata.has_type_data::<ReflectCustomData>(&schema.reflect_types),
             "Should have CustomData"
         );
         assert!(schema.properties.is_empty(), "Should not have any field");
@@ -619,10 +617,9 @@ mod tests {
         assert_normalized_values(schema_as_value, value);
     }
 
-    fn assert_normalized_values(one: Value, two: Value) {
-        let mut one = one.clone();
+    /// This function exist to avoid false failures due to ordering differences between `serde_json` values.
+    fn assert_normalized_values(mut one: Value, mut two: Value) {
         normalize_json(&mut one);
-        let mut two = two.clone();
         normalize_json(&mut two);
         assert_eq!(one, two);
 

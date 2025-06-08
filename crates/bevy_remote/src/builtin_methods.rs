@@ -1231,25 +1231,21 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
     let types = types.read();
     let schemas = types
         .iter()
-        .filter(|type_reg| {
+        .filter_map(|type_reg| {
             let path_table = type_reg.type_info().type_path_table();
             if let Some(crate_name) = &path_table.crate_name() {
                 if !filter.with_crates.is_empty()
                     && !filter.with_crates.iter().any(|c| crate_name.eq(c))
                 {
-                    return false;
+                    return None;
                 }
                 if !filter.without_crates.is_empty()
                     && filter.without_crates.iter().any(|c| crate_name.eq(c))
                 {
-                    return false;
+                    return None;
                 }
             }
-
-            true
-        })
-        .flat_map(|e| {
-            let (id, schema) = export_type(e, extra_info);
+            let (id, schema) = export_type(type_reg, extra_info);
 
             if !filter.type_limit.with.is_empty()
                 && !filter
@@ -1269,7 +1265,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
             {
                 return None;
             }
-            Some((id, schema))
+            Some((id.to_string(), schema))
         })
         .collect::<HashMap<String, JsonSchemaBevyType>>();
 
