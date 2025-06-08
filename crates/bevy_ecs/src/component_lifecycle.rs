@@ -1,6 +1,32 @@
-//! This module also contains several constants for these lifecycle events (like [`OnAdd`]),
-//! which are assigned tointernal components used by bevy with a fixed [`ComponentId`].
-//! Constants are used to skip [`TypeId`](core::any::TypeId) lookups in hot paths.
+//! This module contains various tools to allow you to react to component insertion or removal,
+//! as well as entity spawning and despawning.
+//!
+//! There are four main ways to react to these lifecycle events:
+//!
+//! 1. Using component hooks, which act as inherent constructors and destructors for components.
+//! 2. Using [observers], which are a user-extensible way to respond to events, including component lifecycle events.
+//! 3. Using the [`RemovedComponents`] system parameter, which offers an event-style interface.
+//! 4. Using the [`Added`] query filter, which checks each component to see if it has been added since the last time a system ran.
+//!
+//! [observers]: crate::observer
+//!
+//! # Types of lifecycle events
+//!
+//! There are five types of lifecycle events:
+//! - [`OnAdd`]: Triggered when a component is added to an entity that did not already have it.
+//! - [`OnInsert`]: Triggered when a component is added to an entity, regardless of whether it already had it.
+//! - [`OnReplace`]: Triggered when a component is added to an entity that already had it, before the value is replaced.
+//! - [`OnRemove`]: Triggered when a component is removed from an entity, before the component is removed.
+//! - [`OnDespawn`]: Triggered for each component on an entity when it is despawned.
+//!
+//! Each lifecycle event is associated with a specific component.
+//! When defining a component hook for a [`Component`] type, that component is used.
+//! When listening to lifecycle events for observers, the `B: Bundle` generic is used.
+//!
+//! Each of these lifecycle events also corresponds to a fixed [`ComponentId`],
+//! which are assigned during [`World::bootstrap`].
+//! For example, [`OnAdd`] corresponds to [`ON_ADD`].
+//! This is used to skip [`TypeId`](core::any::TypeId) lookups in hot paths.
 use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentIdFor, Tick},
