@@ -39,7 +39,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or},
     reflect::ReflectComponent,
-    removal_detection::RemovedComponents,
+    component_lifecycle::RemovedComponents,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},

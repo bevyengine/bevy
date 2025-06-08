@@ -401,10 +401,10 @@ pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
+        component_lifecycle::RemovedComponents,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         query::QueryFilter,
-        removal_detection::RemovedComponents,
         resource::Resource,
         system::{In, IntoSystem, Local, Res, System, SystemInput},
     };

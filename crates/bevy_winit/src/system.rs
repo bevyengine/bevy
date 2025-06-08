@@ -5,7 +5,7 @@ use bevy_ecs::{
     event::EventWriter,
     prelude::{Changed, Component},
     query::QueryFilter,
-    removal_detection::RemovedComponents,
+    component_lifecycle::RemovedComponents,
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};

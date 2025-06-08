@@ -8,7 +8,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     query::With,
-    removal_detection::RemovedComponents,
+    component_lifecycle::RemovedComponents,
     system::{Commands, Query, ResMut},
     world::Ref,
 };

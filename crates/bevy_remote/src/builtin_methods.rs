@@ -5,12 +5,12 @@ use core::any::TypeId;
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
     component::ComponentId,
+    component_lifecycle::RemovedComponentEntity,
     entity::Entity,
     event::EventCursor,
     hierarchy::ChildOf,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-    removal_detection::RemovedComponentEntity,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };

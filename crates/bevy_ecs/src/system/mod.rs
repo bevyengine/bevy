@@ -97,7 +97,7 @@
 //! - [`EventWriter`](crate::event::EventWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
-//! - [`RemovedComponents`](crate::removal_detection::RemovedComponents)
+//! - [`RemovedComponents`](crate::component_lifecycle::RemovedComponents)
 //! - [`SystemName`]
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
@@ -406,12 +406,12 @@ mod tests {
         bundle::Bundles,
         change_detection::DetectChanges,
         component::{Component, Components},
+        component_lifecycle::RemovedComponents,
         entity::{Entities, Entity},
         error::Result,
         name::Name,
         prelude::{AnyOf, EntityRef, OnAdd, Trigger},
         query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
-        removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, IntoScheduleConfigs, Schedule,

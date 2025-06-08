@@ -12,7 +12,7 @@ use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     query::{Changed, With},
     reflect::ReflectComponent,
-    removal_detection::RemovedComponents,
+    component_lifecycle::RemovedComponents,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{Local, Query, Res, ResMut},

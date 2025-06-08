@@ -49,7 +49,6 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod relationship;
-pub mod removal_detection;
 pub mod resource;
 pub mod schedule;
 pub mod spawn;
@@ -73,7 +72,7 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
         component::Component,
-        component_lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace},
+        component_lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, RemovedComponents},
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
@@ -83,7 +82,6 @@ pub mod prelude {
         query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
-        removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
             common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,

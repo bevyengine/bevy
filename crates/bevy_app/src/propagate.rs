@@ -4,11 +4,11 @@ use core::marker::PhantomData;
 use crate::{App, Plugin, Update};
 use bevy_ecs::{
     component::Component,
+    component_lifecycle::RemovedComponents,
     entity::Entity,
     hierarchy::ChildOf,
     query::{Changed, Or, QueryFilter, With, Without},
     relationship::{Relationship, RelationshipTarget},
-    removal_detection::RemovedComponents,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Local, Query},
 };
