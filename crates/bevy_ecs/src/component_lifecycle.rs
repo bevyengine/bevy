@@ -22,11 +22,16 @@
 //!
 //! Next, we have lifecycle events that are triggered when a component is removed from an entity:
 //!
-//! - [`OnReplace`]: Triggered when a component is added to an entity that already had it, before the value is replaced.
-//! - [`OnRemove`]: Triggered when a component is removed from an entity, before the component is removed.
+//! - [`OnReplace`]: Triggered when a component is removed from an entity, regardless if it is then replaced with a new value.
+//! - [`OnRemove`]: Triggered when a component is removed from an entity and not replaced, before the component is removed.
 //! - [`OnDespawn`]: Triggered for each component on an entity when it is despawned.
 //!
 //! [`OnReplace`] hooks are evaluated before [`OnRemove`], then finally [`OnDespawn`] hooks are evaluated.
+//!
+//! [`OnAdd`] and [`OnRemove`] are counterparts: they are only triggered when a component is added or removed
+//! from an entity in such a way as to cause a change in the component's presence on that entity.
+//! Similarly, [`OnInsert`] and [`OnReplace`] are counterparts: they are triggered when a component is added or replaced
+//! on an entity, regardless of whether this results in a change in the component's presence on that entity.
 //!
 //! To reliably synchronize data structures using with component lifecycle events,
 //! you can combine [`OnInsert`] and [`OnReplace`] to fully capture any changes to the data.
@@ -329,7 +334,9 @@ pub struct OnAdd;
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct OnInsert;
 
-/// Trigger emitted when a component is inserted onto an entity that already has that component.
+/// Trigger emitted when a component is removed from an entity, regardless
+/// of whether or not it is later replaced.
+///
 /// Runs before the value is replaced, so you can still access the original component data.
 /// See [`crate::component::ComponentHooks::on_replace`] for more information.
 #[derive(Event, Debug)]
