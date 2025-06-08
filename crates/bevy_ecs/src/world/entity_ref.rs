@@ -2995,7 +2995,7 @@ impl<'w, 'a, T: Component + Default> ComponentEntry<'w, 'a, T> {
     }
 }
 
-/// A view into an occupied entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
+/// A view into an occupied entry in a [`EntityWorldMut`]. It is part of the [`OccupiedComponentEntry`] enum.
 ///
 /// The contained entity must have the component type parameter if we have this struct.
 pub struct OccupiedComponentEntry<'w, 'a, T: Component> {
@@ -3078,7 +3078,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// Gets a mutable reference to the component in the entry.
     ///
     /// If you need a reference to the `OccupiedComponentEntry` which may outlive the destruction of
-    /// the `Entry` value, see [`into_mut`].
+    /// the [`OccupiedComponentEntry`] value, see [`into_mut`].
     ///
     /// [`into_mut`]: Self::into_mut
     ///
