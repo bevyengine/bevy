@@ -67,6 +67,31 @@ pub fn spawn_many(criterion: &mut Criterion) {
         });
     });
 
+    group.bench_function("option_one_some", |bencher| {
+        bencher.iter(|| {
+            let mut world = World::new();
+            for _ in 0..ENTITY_COUNT {
+                world.spawn(black_box((
+                    C::<0>(1),
+                    C::<1>(1),
+                    C::<2>(1),
+                    C::<3>(1),
+                    C::<4>(1),
+                    C::<5>(1),
+                    C::<6>(1),
+                    C::<7>(1),
+                    C::<8>(1),
+                    C::<9>(1),
+                    C::<10>(1),
+                    C::<11>(1),
+                    C::<12>(1),
+                    C::<13>(1),
+                    Some(C::<14>(1)),
+                )));
+            }
+        });
+    });
+
     group.bench_function("option_many_some", |bencher| {
         bencher.iter(|| {
             let mut world = World::new();
@@ -115,6 +140,31 @@ pub fn spawn_many(criterion: &mut Criterion) {
                         C<14>,
                     )>,
                 ));
+            }
+        });
+    });
+
+    group.bench_function("option_one_none", |bencher| {
+        bencher.iter(|| {
+            let mut world = World::new();
+            for _ in 0..ENTITY_COUNT {
+                world.spawn(black_box((
+                    C::<0>(1),
+                    C::<1>(1),
+                    C::<2>(1),
+                    C::<3>(1),
+                    C::<4>(1),
+                    C::<5>(1),
+                    C::<6>(1),
+                    C::<7>(1),
+                    C::<8>(1),
+                    C::<9>(1),
+                    C::<10>(1),
+                    C::<11>(1),
+                    C::<12>(1),
+                    C::<13>(1),
+                    None::<C<14>>,
+                )));
             }
         });
     });
