@@ -1,6 +1,6 @@
 ---
 title: Component lifecycle reorganization
-pull_requests: [TODO]
+pull_requests: [19543]
 ---
 
 To improve documentation, discoverability and internal organization, we've gathered all of the component lifecycle-related code we could and moved it into a dedicated `component_lifecycle` module.
