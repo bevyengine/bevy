@@ -43,9 +43,9 @@ impl ProcessorGatedReader {
         path: &AssetPath<'static>,
     ) -> Result<RwLockReadGuardArc<()>, AssetReaderError> {
         let infos = self.processor_data.asset_infos.read().await;
-        let info = infos.get(path).ok_or_else(|| {
-            AssetReaderError::NotFound(PathBuf::from(path.path()).to_str().unwrap().to_owned())
-        })?;
+        let info = infos
+            .get(path)
+            .ok_or_else(|| AssetReaderError::NotFound(path.internal_path().to_owned()))?;
         Ok(info.file_transaction_lock.read_arc().await)
     }
 }

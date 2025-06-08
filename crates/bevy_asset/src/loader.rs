@@ -357,7 +357,7 @@ impl<'a> LoadContext<'a> {
     /// # use bevy_reflect::TypePath;
     /// # #[derive(Asset, TypePath, Default)]
     /// # struct Image;
-    /// # let load_context: LoadContext = panic!();
+    /// # let mut load_context: LoadContext = panic!();
     /// let mut handles = Vec::new();
     /// for i in 0..2 {
     ///     let mut labeled = load_context.begin_labeled_asset();
@@ -459,8 +459,8 @@ impl<'a> LoadContext<'a> {
     }
 
     /// Gets the source path for this load context.
-    pub fn path(&self) -> &Path {
-        self.asset_path.path()
+    pub fn path(&self) -> &str {
+        self.asset_path.internal_path()
     }
 
     /// Gets the source asset path for this load context.

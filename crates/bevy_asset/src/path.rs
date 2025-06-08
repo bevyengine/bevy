@@ -304,6 +304,10 @@ impl<'a> AssetPath<'a> {
         Path::new(self.path.as_ref())
     }
 
+    pub fn internal_path(&self) -> &str {
+        self.path.as_ref()
+    }
+
     /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
     #[inline]
     pub fn without_label(&self) -> AssetPath<'_> {
@@ -510,7 +514,14 @@ impl<'a> AssetPath<'a> {
     /// Returns the file name
     /// Ex: Returns `"a.json"` for `"a/b/c/a.json"`
     pub fn file_name(&self) -> Option<String> {
-        self.path().file_name()?.to_str().map(String::from)
+        self.path.split("/").last().map(ToString::to_string)
+    }
+
+    /// Returns a new AssetPath with the additional extension, joined by a `/`.
+    pub fn join(&self, suffix: &str) -> AssetPath<'a> {
+        let mut new_path = self.clone();
+        new_path.path = CowArc::from(alloc::format!("{new_path}/{suffix}"));
+        new_path
     }
 
     /// Returns the full extension (including multiple '.' values).

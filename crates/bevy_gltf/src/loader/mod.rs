@@ -11,7 +11,7 @@ use std::{
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
+    io::Reader, AssetLoadError, AssetLoader, AssetPath, Handle, LoadContext, ReadAssetBytesError,
     RenderAssetUsages,
 };
 use bevy_color::{Color, LinearRgba};
@@ -237,15 +237,7 @@ async fn load_gltf<'a, 'b, 'c>(
 ) -> Result<Gltf, GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
 
-    let file_name = load_context
-        .asset_path()
-        .path()
-        .to_str()
-        .ok_or(GltfError::Gltf(gltf::Error::Io(Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Gltf file name invalid",
-        ))))?
-        .to_string();
+    let file_name = load_context.asset_path().internal_path().to_string();
     let buffer_data = load_buffers(&gltf, load_context).await?;
 
     let linear_textures = get_linear_textures(&gltf.document);
@@ -531,12 +523,12 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut _texture_handles = Vec::new();
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
         for texture in gltf.textures() {
-            let parent_path = load_context.path().parent().unwrap();
+            let parent_path = load_context.asset_path().parent().unwrap();
             let image = load_image(
                 texture,
                 &buffer_data,
                 &linear_textures,
-                parent_path,
+                &parent_path,
                 loader.supported_compressed_formats,
                 default_sampler,
                 settings,
@@ -549,7 +541,7 @@ async fn load_gltf<'a, 'b, 'c>(
         IoTaskPool::get()
             .scope(|scope| {
                 gltf.textures().for_each(|gltf_texture| {
-                    let parent_path = load_context.path().parent().unwrap();
+                    let parent_path = load_context.asset_path().parent().unwrap();
                     let linear_textures = &linear_textures;
                     let buffer_data = &buffer_data;
                     scope.spawn(async move {
@@ -557,7 +549,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             gltf_texture,
                             buffer_data,
                             linear_textures,
-                            parent_path,
+                            &parent_path,
                             loader.supported_compressed_formats,
                             default_sampler,
                             settings,
@@ -970,11 +962,11 @@ async fn load_gltf<'a, 'b, 'c>(
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
-async fn load_image<'a, 'b>(
+async fn load_image<'a, 'b, 'c>(
     gltf_texture: gltf::Texture<'a>,
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
-    parent_path: &'b Path,
+    parent_path: &'b AssetPath<'c>,
     supported_compressed_formats: CompressedImageFormats,
     default_sampler: &ImageSamplerDescriptor,
     settings: &GltfLoaderSettings,
@@ -1026,7 +1018,7 @@ async fn load_image<'a, 'b>(
             } else {
                 let image_path = parent_path.join(uri);
                 Ok(ImageOrPath::Path {
-                    path: image_path,
+                    path: PathBuf::from(image_path),
                     is_srgb,
                     sampler_descriptor,
                 })
@@ -1624,7 +1616,7 @@ async fn load_buffers(
                     Ok(_) => return Err(GltfError::BufferFormatUnsupported),
                     Err(()) => {
                         // TODO: Remove this and add dep
-                        let buffer_path = load_context.path().parent().unwrap().join(uri);
+                        let buffer_path = load_context.asset_path().parent().unwrap().join(uri);
                         load_context.read_asset_bytes(buffer_path).await?
                     }
                 };
