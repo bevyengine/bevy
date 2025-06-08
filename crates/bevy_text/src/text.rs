@@ -3,6 +3,7 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::once;
 use cosmic_text::{Buffer, Metrics};
@@ -575,6 +576,28 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 break;
             };
             parent = next_child_of.parent();
+        }
+    }
+}
+
+/// Adds a shadow behind text
+///
+/// Not supported by `Text2d`.
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct TextShadow {
+    /// Shadow displacement in logical pixels
+    /// With a value of zero the shadow will be hidden directly behind the text
+    pub offset: Vec2,
+    /// Color of the shadow
+    pub color: Color,
+}
+
+impl Default for TextShadow {
+    fn default() -> Self {
+        Self {
+            offset: Vec2::splat(4.),
+            color: Color::linear_rgba(0., 0., 0., 0.75),
         }
     }
 }
