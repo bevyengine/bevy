@@ -8,7 +8,7 @@ use crate::{
     lifecycle::{ComponentHook, ComponentHooks},
     query::DebugCheckedUnwrap,
     resource::Resource,
-    storage::{SparseSetIndex, SparseSets, Table, TableRow},
+    storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     system::{Local, SystemParam},
     world::{FromWorld, World},
 };
@@ -1734,6 +1734,9 @@ impl<'w> ComponentsRegistrator<'w> {
 pub struct Components {
     components: Vec<Option<ComponentInfo>>,
     indices: TypeIdMap<ComponentId>,
+    // Each resource corresponds to a single entity,
+    // and the resource data is stored as a component on that entity:
+    resource_entities: HashMap<ComponentId, Entity>,
     resource_indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occor.
     queued: bevy_platform::sync::RwLock<QueuedComponents>,
@@ -1761,6 +1764,65 @@ impl Components {
         // Caller ensures id is unique
         debug_assert!(slot.is_none());
         *slot = Some(info);
+    }
+
+    /// Store a new resource entity of type `R`.
+    ///
+    /// This doesn't register the Resource, it must first be registered via `ComponentsRegistrator`.
+    #[expect(dead_code, reason = "resources as entities work in progress")]
+    #[inline]
+    pub(crate) fn cache_resource_entity<R: Resource>(
+        &mut self,
+        _storages: &mut Storages,
+        entity: Entity,
+    ) {
+        if let Some(id) = self.resource_id::<R>() {
+            self.cache_resource_entity_by_id(entity, id);
+        }
+    }
+
+    /// Stores a new resource entity associated with the given component ID.
+    #[inline]
+    pub(crate) fn cache_resource_entity_by_id(&mut self, entity: Entity, id: ComponentId) {
+        self.resource_entities.insert(id, entity);
+    }
+
+    /// Removes the resource entity associated
+    #[inline]
+    pub(crate) fn remove_resource_entity<R: Resource>(&mut self) -> Option<Entity> {
+        let Some(id) = self.resource_id::<R>() else {
+            // If the component ID was not found, we can't have registered an entity of this type
+            return None;
+        };
+
+        self.remove_resource_entity_by_id(id)
+    }
+
+    /// Removes the resource entity associated with the given component ID.
+    #[inline]
+    pub(crate) fn remove_resource_entity_by_id(&mut self, id: ComponentId) -> Option<Entity> {
+        self.resource_entities.remove(&id)
+    }
+
+    /// Looks up the entity associated with the given resource by type.
+    ///
+    /// If no such entity exists, this will return `None`.
+    ///
+    /// Also see [`Components::get_resource_entity_by_id`].
+    #[inline]
+    pub fn get_resource_entity<R: Resource>(&self) -> Option<Entity> {
+        let id = self.resource_id::<R>()?;
+        self.get_resource_entity_by_id(id)
+    }
+
+    /// Looks up the entity associated with the given resource by [`ComponentId`].
+    ///
+    /// If no such entity exists, this will return `None`.
+    ///
+    /// Also see [`Components::get_resource_entity`].
+    #[inline]
+    pub fn get_resource_entity_by_id(&self, id: ComponentId) -> Option<Entity> {
+        self.resource_entities.get(&id).copied()
     }
 
     /// Returns the number of components registered or queued with this instance.

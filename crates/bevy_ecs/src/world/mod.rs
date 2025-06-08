@@ -54,7 +54,8 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::Resource,
+    removal_detection::RemovedComponentEvents,
+    resource::{Resource, ResourceEntity},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Commands,
@@ -1678,7 +1679,15 @@ impl World {
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let caller = MaybeLocation::caller();
+        let already_exists = self.components.resource_id::<R>().is_some();
         let component_id = self.components_registrator().register_resource::<R>();
+
+        if !already_exists {
+            let entity = self.spawn(ResourceEntity::<R>::default()).id();
+            self.components
+                .cache_resource_entity_by_id(entity, component_id);
+        }
+
         if self
             .storages
             .resources
@@ -1715,7 +1724,15 @@ impl World {
         value: R,
         caller: MaybeLocation,
     ) {
+        let already_exists = self.components.resource_id::<R>().is_some();
         let component_id = self.components_registrator().register_resource::<R>();
+
+        if !already_exists {
+            let entity = self.spawn(ResourceEntity::<R>::default()).id();
+            self.components
+                .cache_resource_entity_by_id(entity, component_id);
+        }
+
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -1782,6 +1799,7 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
+        let _ = self.components.remove_resource_entity::<R>();
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type

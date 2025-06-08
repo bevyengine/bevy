@@ -1,7 +1,9 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
+use crate::prelude::Component;
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
+use core::marker::PhantomData;
 
 /// A type that can be inserted into a [`World`] as a singleton.
 ///
@@ -73,3 +75,30 @@ pub use bevy_ecs_macros::Resource;
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
 pub trait Resource: Send + Sync + 'static {}
+
+/// A marker component for the entity that stores the resource of type `T`.
+///
+/// This component is automatically inserted when a resource of type `T` is inserted into the world,
+/// and can be used to find the entity that stores a particular resource.
+///
+/// By contrast, the [`IsResource`] component is used to find all entities that store resources,
+/// regardless of the type of resource they store.
+///
+/// This component comes with a hook that ensures that at most one entity has this component for any given `R`:
+/// adding this component to an entity (or spawning an entity with this component) will despawn any other entity with this component.
+#[derive(Component, Debug)]
+#[require(IsResource)]
+pub struct ResourceEntity<R: Resource>(PhantomData<R>);
+
+impl<R: Resource> Default for ResourceEntity<R> {
+    fn default() -> Self {
+        ResourceEntity(PhantomData)
+    }
+}
+
+/// A marker component for entities which store resources.
+///
+/// By contrast, the [`ResourceEntity<R>`] component is used to find the entity that stores a particular resource.
+/// This component is required by the [`ResourceEntity<R>`] component, and will automatically be added.
+#[derive(Component, Default, Debug)]
+pub struct IsResource;
