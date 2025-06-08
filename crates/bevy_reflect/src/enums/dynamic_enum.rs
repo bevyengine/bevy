@@ -114,8 +114,7 @@ impl DynamicEnum {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Enum(_)),
-                "expected TypeInfo::Enum but received: {:?}",
-                represented_type
+                "expected TypeInfo::Enum but received: {represented_type:?}",
             );
         }
 

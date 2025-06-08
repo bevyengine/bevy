@@ -7,7 +7,7 @@ authors = [
   "Carter Anderson <mcanders1@gmail.com>",
 ]
 description = "Provides a core render pipeline for Bevy Engine."
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]

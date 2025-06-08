@@ -3,7 +3,7 @@ name = "bevy_gltf"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Bevy Engine GLTF loading"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -61,7 +61,7 @@ fixedbitset = "0.5"
 itertools = "0.14"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1"
+serde_json = "1.0.140"
 smallvec = "1.11"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 

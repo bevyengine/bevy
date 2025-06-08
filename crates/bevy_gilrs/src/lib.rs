@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Systems and type definitions for gamepad handling in Bevy.
@@ -15,7 +15,7 @@ mod gilrs_system;
 mod rumble;
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_utils::synccell::SyncCell;
+use bevy_platform::cell::SyncCell;
 
 #[cfg(target_arch = "wasm32")]
 use core::cell::RefCell;
