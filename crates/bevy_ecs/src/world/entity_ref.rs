@@ -2886,7 +2886,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> ComponentEntry<'w, 'a, T> {
 }
 
 impl<'w, 'a, T: Component> ComponentEntry<'w, 'a, T> {
-    /// Replaces the component of the entry, and returns an [`OccupiedEntry`].
+    /// Replaces the component of the entry, and returns an [`OccupiedComponentEntry`].
     ///
     /// # Examples
     ///
@@ -3022,7 +3022,7 @@ impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn get(&self) -> &T {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        // This shouldn't panic because if we have an OccupiedComponentEntry the component must exist.
         self.entity_world.get::<T>().unwrap()
     }
 
@@ -3069,7 +3069,7 @@ impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn take(self) -> T {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        // This shouldn't panic because if we have an OccupiedComponentEntry the component must exist.
         self.entity_world.take().unwrap()
     }
 }
@@ -3077,7 +3077,7 @@ impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
 impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, T> {
     /// Gets a mutable reference to the component in the entry.
     ///
-    /// If you need a reference to the `OccupiedEntry` which may outlive the destruction of
+    /// If you need a reference to the `OccupiedComponentEntry` which may outlive the destruction of
     /// the `Entry` value, see [`into_mut`].
     ///
     /// [`into_mut`]: Self::into_mut
@@ -3104,14 +3104,14 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// ```
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        // This shouldn't panic because if we have an OccupiedComponentEntry the component must exist.
         self.entity_world.get_mut::<T>().unwrap()
     }
 
-    /// Converts the `OccupiedEntry` into a mutable reference to the value in the entry with
+    /// Converts the `OccupiedComponentEntry` into a mutable reference to the value in the entry with
     /// a lifetime bound to the `EntityWorldMut`.
     ///
-    /// If you need multiple references to the `OccupiedEntry`, see [`get_mut`].
+    /// If you need multiple references to the `OccupiedComponentEntry`, see [`get_mut`].
     ///
     /// [`get_mut`]: Self::get_mut
     ///
@@ -3133,7 +3133,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// ```
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        // This shouldn't panic because if we have an OccupiedComponentEntry the component must exist.
         self.entity_world.get_mut().unwrap()
     }
 }
@@ -3145,7 +3145,7 @@ pub struct VacantComponentEntry<'w, 'a, T: Component> {
 }
 
 impl<'w, 'a, T: Component> VacantComponentEntry<'w, 'a, T> {
-    /// Inserts the component into the `VacantEntry` and returns an `OccupiedEntry`.
+    /// Inserts the component into the [`VacantComponentEntry`] and returns an `OccupiedComponentEntry`.
     ///
     /// # Examples
     ///
