@@ -179,7 +179,6 @@ impl Plugin for UiPlugin {
             .register_type::<Outline>()
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
-            .register_type::<TextShadow>()
             .register_type::<ColorStop>()
             .register_type::<AngularColorStop>()
             .register_type::<UiPosition>()

@@ -11,7 +11,7 @@ mod gradient;
 use crate::widget::{ImageNode, ViewportNode};
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
-    ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
+    ComputedNodeTarget, Outline, ResolvedBorderRadius, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetId, Assets};
@@ -55,7 +55,7 @@ use gradient::GradientPlugin;
 use crate::{Display, Node};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo, TextShadow,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
