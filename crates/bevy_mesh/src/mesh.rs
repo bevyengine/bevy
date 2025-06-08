@@ -114,9 +114,8 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// [`ReflectDeserializerProcessor`](bevy_reflect::serde::ReflectDeserializerProcessor). The
 /// serialized format should not be considered stable, and may not be compatible between versions.
 #[derive(Asset, Debug, Clone, Reflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 #[reflect(Clone)]
-#[cfg_attr(feature = "serialize", reflect(Serialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), reflect(Serialize))]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
@@ -1558,6 +1557,31 @@ mod tests {
                 },
             ],
             mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "serialize")]
+    fn mesh_serialization() {
+        use bevy_app::{App, TaskPoolPlugin};
+        use bevy_asset::{ron, AssetApp, AssetPlugin, AssetServer};
+        use bevy_image::Image;
+
+        let mut app = App::new();
+
+        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<Image>();
+
+        let image = app
+            .world()
+            .resource::<AssetServer>()
+            .load("pixel/bevy_pixel_dark.png");
+
+        let mesh = Mesh::from(Triangle3d::default()).with_morph_targets(image);
+
+        assert_eq!(
+            ron::to_string(&mesh).unwrap(),
+            r#"(primitive_topology:r#triangle-list,attributes:{0:(attribute:(id:0,format:float32x3),values:Float32x3([(0.0,0.5,0.0),(-0.5,-0.5,0.0),(0.5,-0.5,0.0)])),1:(attribute:(id:1,format:float32x3),values:Float32x3([(0.0,0.0,1.0),(0.0,0.0,1.0),(0.0,0.0,1.0)])),2:(attribute:(id:2,format:float32x2),values:Float32x2([(0.0,0.0),(1.0,0.0),(0.59999996,1.0)]))},indices:Some(U32([0,1,2])),morph_targets:Some("pixel/bevy_pixel_dark.png"),morph_target_names:None,asset_usage:("MAIN_WORLD | RENDER_WORLD"))"#
         );
     }
 }

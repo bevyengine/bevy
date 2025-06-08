@@ -38,6 +38,9 @@ hexasphere = "15.0"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
+[dev-dependencies]
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
+
 [lints]
 workspace = true
 

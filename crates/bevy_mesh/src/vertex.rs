@@ -51,7 +51,8 @@ impl MeshVertexAttribute {
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
+    reflect(Serialize, Deserialize),
+    serde(transparent)
 )]
 pub struct MeshVertexAttributeId(u64);
 
