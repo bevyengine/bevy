@@ -107,9 +107,12 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 ///   which means that Bevy would *only* render the "front" of each triangle, which
 ///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 ///
+/// ## Serialization
+///
 /// Note that, when serialization is enabled, a `Mesh` cannot be deserialized without special
-/// handling of `Handle`s. See [`ReflectDeserializerProcessor`]. The serialized format should not be
-/// considered stable, and may not be compatible between versions.
+/// handling of `Handle`s. See
+/// [`ReflectDeserializerProcessor`](bevy_reflect::serde::ReflectDeserializerProcessor). The
+/// serialized format should not be considered stable, and may not be compatible between versions.
 #[derive(Asset, Debug, Clone, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 #[reflect(Clone)]

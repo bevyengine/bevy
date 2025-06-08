@@ -138,8 +138,9 @@ pub enum Handle<A: Asset> {
     Weak(AssetId<A>),
 }
 
-/// Serialize `Handle`s as [`AssetPath`]s. This means types containing handles cannot be deserialized
-/// without special handling (see [`ReflectDeserializerProcessor`]).
+/// Serialize `Handle`s as [`AssetPath`]s. This means types containing handles cannot be
+/// deserialized without special handling. See
+/// [`ReflectDeserializerProcessor`](bevy_reflect::serde::ReflectDeserializerProcessor).
 impl<A: Asset> serde::Serialize for Handle<A> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
