@@ -3077,7 +3077,7 @@ impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
 impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, T> {
     /// Gets a mutable reference to the component in the entry.
     ///
-    /// If you need a reference to the `OccupiedComponentEntry` which may outlive the destruction of
+    /// If you need a reference to the [`OccupiedComponentEntry`] which may outlive the destruction of
     /// the [`OccupiedComponentEntry`] value, see [`into_mut`].
     ///
     /// [`into_mut`]: Self::into_mut
@@ -3092,7 +3092,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// # let mut world = World::new();
     /// let mut entity = world.spawn(Comp(5));
     ///
-    /// if let Entry::Occupied(mut o) = entity.entry::<Comp>() {
+    /// if let ComponentEntry::Occupied(mut o) = entity.entry::<Comp>() {
     ///     o.get_mut().0 += 10;
     ///     assert_eq!(o.get().0, 15);
     ///
@@ -3108,10 +3108,10 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
         self.entity_world.get_mut::<T>().unwrap()
     }
 
-    /// Converts the `OccupiedComponentEntry` into a mutable reference to the value in the entry with
+    /// Converts the [`OccupiedComponentEntry`] into a mutable reference to the value in the entry with
     /// a lifetime bound to the `EntityWorldMut`.
     ///
-    /// If you need multiple references to the `OccupiedComponentEntry`, see [`get_mut`].
+    /// If you need multiple references to the [`OccupiedComponentEntry`], see [`get_mut`].
     ///
     /// [`get_mut`]: Self::get_mut
     ///
@@ -3145,7 +3145,7 @@ pub struct VacantComponentEntry<'w, 'a, T: Component> {
 }
 
 impl<'w, 'a, T: Component> VacantComponentEntry<'w, 'a, T> {
-    /// Inserts the component into the [`VacantComponentEntry`] and returns an `OccupiedComponentEntry`.
+    /// Inserts the component into the [`VacantComponentEntry`] and returns an [`OccupiedComponentEntry`].
     ///
     /// # Examples
     ///
@@ -3177,7 +3177,7 @@ impl<'w, 'a, T: Component> VacantComponentEntry<'w, 'a, T> {
 ///
 /// To define the access when used as a [`QueryData`](crate::query::QueryData),
 /// use a [`QueryBuilder`](crate::query::QueryBuilder) or [`QueryParamBuilder`](crate::system::QueryParamBuilder).
-/// The `FilteredEntityRef` must be the entire `QueryData`, and not nested inside a tuple with other data.
+/// The [`FilteredEntityRef`] must be the entire [`QueryData`](crate::query::QueryData), and not nested inside a tuple with other data.
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, world::FilteredEntityRef};
