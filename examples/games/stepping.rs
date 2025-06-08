@@ -104,7 +104,10 @@ fn build_ui(
     mut state: ResMut<State>,
 ) {
     let mut text_spans = Vec::new();
-    let mut always_run = Vec::new();
+    let mut always_run: Vec<(
+        bevy_ecs::intern::Interned<dyn ScheduleLabel + 'static>,
+        NodeId,
+    )> = Vec::new();
 
     let Ok(schedule_order) = stepping.schedules() else {
         return;
@@ -129,9 +132,10 @@ fn build_ui(
             return;
         };
 
-        for (node_id, system) in systems {
+        for (node_id, _system) in systems {
             // skip bevy default systems; we don't want to step those
-            if system.name().starts_with("bevy") {
+            #[cfg(feature = "debug")]
+            if _system.name().starts_with("bevy") {
                 always_run.push((*label, node_id));
                 continue;
             }
@@ -149,8 +153,9 @@ fn build_ui(
             ));
 
             // add the name of the system to the ui
+            #[cfg(feature = "debug")]
             text_spans.push((
-                TextSpan(format!("{}\n", system.name())),
+                TextSpan(format!("{}\n", _system.name())),
                 TextFont::default(),
                 TextColor(FONT_COLOR),
             ));

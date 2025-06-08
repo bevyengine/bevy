@@ -109,9 +109,10 @@ impl<T: 'static> SystemTypeSet<T> {
 
 impl<T> Debug for SystemTypeSet<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("SystemTypeSet")
-            .field(&format_args!("fn {}()", &core::any::type_name::<T>()))
-            .finish()
+        let mut debugging = f.debug_tuple("SystemTypeSet");
+        #[cfg(feature = "debug")]
+        debugging.field(&format_args!("fn {}()", &core::any::type_name::<T>()));
+        debugging.finish()
     }
 }
 

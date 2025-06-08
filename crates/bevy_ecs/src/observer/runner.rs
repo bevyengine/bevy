@@ -207,6 +207,7 @@ impl Observer {
     /// Panics if the given system is an exclusive system.
     pub fn new<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
         let system = Box::new(IntoObserverSystem::into_system(system));
+        #[cfg(feature = "debug")]
         assert!(
             !system.is_exclusive(),
             concat!(
@@ -214,6 +215,14 @@ impl Observer {
                 "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
             ),
             system.name()
+        );
+        #[cfg(not(feature = "debug"))]
+        assert!(
+            !system.is_exclusive(),
+            concat!(
+                "Exclusive system may not be used as observer.\n",
+                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
+            ),
         );
         Self {
             system,
@@ -384,10 +393,13 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
                         .unwrap_or_else(|| world.default_error_handler());
                     handler(
                         err,
+                        #[cfg(feature = "debug")]
                         ErrorContext::Observer {
                             name: (*system).name(),
                             last_run: (*system).get_last_run(),
                         },
+                        #[cfg(not(feature = "debug"))]
+                        ErrorContext::Anonymous,
                     );
                 };
                 (*system).queue_deferred(world.into_deferred());
@@ -399,10 +411,13 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
                         .unwrap_or_else(|| world.default_error_handler());
                     handler(
                         e.into(),
+                        #[cfg(feature = "debug")]
                         ErrorContext::Observer {
                             name: (*system).name(),
                             last_run: (*system).get_last_run(),
                         },
+                        #[cfg(not(feature = "debug"))]
+                        ErrorContext::Anonymous,
                     );
                 }
             }

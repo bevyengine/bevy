@@ -3,6 +3,7 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
     storage::{blob_vec::BlobVec, SparseSet},
 };
+#[cfg(feature = "debug")]
 use alloc::string::String;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, mem::ManuallyDrop, panic::Location};
@@ -23,6 +24,7 @@ pub struct ResourceData<const SEND: bool> {
         not(feature = "std"),
         expect(dead_code, reason = "currently only used with the std feature")
     )]
+    #[cfg(feature = "debug")]
     type_name: String,
     #[cfg(feature = "std")]
     origin_thread_id: Option<ThreadId>,
@@ -78,9 +80,16 @@ impl<const SEND: bool> ResourceData<SEND> {
         #[cfg(feature = "std")]
         if self.origin_thread_id != Some(std::thread::current().id()) {
             // Panic in tests, as testing for aborting is nearly impossible
+            #[cfg(feature = "debug")]
             panic!(
                 "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
                 self.type_name,
+                self.origin_thread_id,
+                std::thread::current().id()
+            );
+            #[cfg(not(feature = "debug"))]
+            panic!(
+                "Attempted to access or drop non-send resource from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
                 self.origin_thread_id,
                 std::thread::current().id()
             );
@@ -367,10 +376,16 @@ impl<const SEND: bool> Resources<SEND> {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
             if SEND {
+                #[cfg(feature = "debug")]
                 assert!(
                     component_info.is_send_and_sync(),
                     "Send + Sync resource {} initialized as non_send. It may have been inserted via World::insert_non_send_resource by accident. Try using World::insert_resource instead.",
                     component_info.name(),
+                );
+                #[cfg(not(feature = "debug"))]
+                assert!(
+                    component_info.is_send_and_sync(),
+                    "Send + Sync resource initialized as non_send. It may have been inserted via World::insert_non_send_resource by accident. Try using World::insert_resource instead.",
                 );
             }
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
@@ -385,6 +400,7 @@ impl<const SEND: bool> Resources<SEND> {
                 data: ManuallyDrop::new(data),
                 added_ticks: UnsafeCell::new(Tick::new(0)),
                 changed_ticks: UnsafeCell::new(Tick::new(0)),
+                #[cfg(feature = "debug")]
                 type_name: String::from(component_info.name()),
                 #[cfg(feature = "std")]
                 origin_thread_id: None,

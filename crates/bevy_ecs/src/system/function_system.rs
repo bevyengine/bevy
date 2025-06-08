@@ -1,16 +1,17 @@
+#[cfg(feature = "debug")]
+use crate::system::check_system_change_tick;
 use crate::{
     component::{ComponentId, Tick},
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
-    system::{
-        check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
-        SystemParamItem,
-    },
+    system::{ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam, SystemParamItem},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
-use alloc::{borrow::Cow, vec, vec::Vec};
+#[cfg(feature = "debug")]
+use alloc::borrow::Cow;
+use alloc::{vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -24,6 +25,7 @@ use super::{
 /// The metadata of a [`System`].
 #[derive(Clone)]
 pub struct SystemMeta {
+    #[cfg(feature = "debug")]
     pub(crate) name: Cow<'static, str>,
     /// The set of component accesses for this system. This is used to determine
     /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
@@ -41,8 +43,10 @@ pub struct SystemMeta {
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
+        #[cfg(feature = "debug")]
         let name = core::any::type_name::<T>();
         Self {
+            #[cfg(feature = "debug")]
             name: name.into(),
             component_access_set: FilteredAccessSet::default(),
             flags: SystemStateFlags::empty(),
@@ -56,6 +60,7 @@ impl SystemMeta {
 
     /// Returns the system's name
     #[inline]
+    #[cfg(feature = "debug")]
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -64,6 +69,7 @@ impl SystemMeta {
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
     #[inline]
+    #[cfg(feature = "debug")]
     pub fn set_name(&mut self, new_name: impl Into<Cow<'static, str>>) {
         let new_name: Cow<'static, str> = new_name.into();
         #[cfg(feature = "trace")]
@@ -549,6 +555,7 @@ where
     /// Return this system with a new name.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    #[cfg(feature = "debug")]
     pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
         self.system_meta.set_name(new_name.into());
         self
@@ -616,6 +623,7 @@ where
     type Out = F::Out;
 
     #[inline]
+    #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
     }
@@ -727,7 +735,9 @@ where
     }
 
     #[inline]
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn check_change_tick(&mut self, change_tick: Tick) {
+        #[cfg(feature = "debug")]
         check_system_change_tick(
             &mut self.system_meta.last_run,
             change_tick,

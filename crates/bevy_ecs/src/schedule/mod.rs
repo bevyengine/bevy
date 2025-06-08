@@ -26,7 +26,9 @@ pub mod passes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::{string::ToString, vec, vec::Vec};
+    #[cfg(feature = "debug")]
+    use alloc::string::ToString;
+    use alloc::{vec, vec::Vec};
     use core::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate::{
@@ -727,6 +729,7 @@ mod tests {
     }
 
     mod system_ambiguity {
+        #[cfg(feature = "debug")]
         use alloc::collections::BTreeSet;
 
         use super::*;
@@ -1069,6 +1072,7 @@ mod tests {
 
         // Tests that the correct ambiguities were reported in the correct order.
         #[test]
+        #[cfg(feature = "debug")]
         fn correct_ambiguities() {
             fn system_a(_res: ResMut<R>) {}
             fn system_b(_res: ResMut<R>) {}
@@ -1142,6 +1146,7 @@ mod tests {
         // Test that anonymous set names work properly
         // Related issue https://github.com/bevyengine/bevy/issues/9641
         #[test]
+        #[cfg(feature = "debug")]
         fn anonymous_set_name() {
             let mut schedule = Schedule::new(TestSchedule);
             schedule.add_systems((resmut_system, resmut_system).run_if(|| true));

@@ -4,6 +4,7 @@
 )]
 use bitflags::bitflags;
 use core::fmt::Debug;
+#[cfg(feature = "debug")]
 use log::warn;
 use thiserror::Error;
 
@@ -49,7 +50,9 @@ pub trait System: Send + Sync + 'static {
     type In: SystemInput;
     /// The system's output.
     type Out;
+
     /// Returns the system's name.
+    #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str>;
     /// Returns the [`TypeId`] of the underlying system type.
     #[inline]
@@ -228,6 +231,7 @@ pub unsafe trait ReadOnlySystem: System {
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
+#[cfg(feature = "debug")]
 pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
     if last_run.check_tick(this_run) {
         let age = this_run.relative_to(*last_run).get();
@@ -239,6 +243,7 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
     }
 }
 
+#[cfg(feature = "debug")]
 impl<In, Out> Debug for dyn System<In = In, Out = Out>
 where
     In: SystemInput + 'static,
@@ -380,12 +385,15 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        system
-            .validate_param(self)
-            .map_err(|err| RunSystemError::InvalidParams {
+        system.validate_param(self).map_err(|err| {
+            #[cfg(feature = "debug")]
+            return RunSystemError::InvalidParams {
                 system: system.name(),
                 err,
-            })?;
+            };
+            #[cfg(not(feature = "debug"))]
+            return RunSystemError::AnonymousInvalidParams { err };
+        })?;
         Ok(system.run(input, self))
     }
 }
@@ -399,6 +407,13 @@ pub enum RunSystemError {
     InvalidParams {
         /// The identifier of the system that was run.
         system: Cow<'static, str>,
+        /// The returned parameter validation error.
+        err: SystemParamValidationError,
+    },
+    /// System could not be run due to parameters that failed validation.
+    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
+    #[error("A system did not run due to failed parameter validation: {err}")]
+    AnonymousInvalidParams {
         /// The returned parameter validation error.
         err: SystemParamValidationError,
     },

@@ -602,9 +602,14 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
         let combined_access = meta.component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(&access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            #[cfg(feature = "debug")]
+            {
+                let accesses = conflicts.format_conflict_list(world);
+                let system_name = &meta.name;
+                panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            }
+            #[cfg(not(feature = "debug"))]
+            panic!("error[B0002]: FilteredResources in a system accesses resources(s) in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
@@ -661,9 +666,14 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
         let combined_access = meta.component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(&access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            #[cfg(feature = "debug")]
+            {
+                let accesses = conflicts.format_conflict_list(world);
+                let system_name = &meta.name;
+                panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            }
+            #[cfg(not(feature = "debug"))]
+            panic!("error[B0002]: FilteredResourcesMut in a system accesses resources(s) in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
