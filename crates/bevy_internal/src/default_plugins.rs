@@ -54,6 +54,8 @@ plugin_group! {
         // compressed texture formats.
         #[cfg(feature = "bevy_gltf")]
         bevy_gltf:::GltfPlugin,
+        #[cfg(feature = "bevy_fbx")]
+        bevy_fbx:::FbxPlugin,
         #[cfg(feature = "bevy_audio")]
         bevy_audio:::AudioPlugin,
         #[cfg(feature = "bevy_gilrs")]

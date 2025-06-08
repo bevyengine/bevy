@@ -45,6 +45,8 @@ pub use bevy_gilrs as gilrs;
 pub use bevy_gizmos as gizmos;
 #[cfg(feature = "bevy_gltf")]
 pub use bevy_gltf as gltf;
+#[cfg(feature = "bevy_fbx")]
+pub use bevy_fbx as fbx;
 #[cfg(feature = "bevy_image")]
 pub use bevy_image as image;
 pub use bevy_input as input;

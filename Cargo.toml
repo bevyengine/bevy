@@ -138,6 +138,7 @@ default = [
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_fbx",
   "bevy_input_focus",
   "bevy_log",
   "bevy_mesh_picking_backend",
@@ -230,6 +231,8 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
 # [glTF](https://www.khronos.org/gltf/) support
 bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
+# [FBX](https://www.autodesk.com/products/fbx)
+bevy_fbx = ["bevy_internal/bevy_fbx", "bevy_asset", "bevy_scene", "bevy_pbr", "bevy_animation"]
 
 # Adds PBR rendering
 bevy_pbr = [
@@ -1195,6 +1198,17 @@ name = "Load glTF extras"
 description = "Loads and renders a glTF file as a scene, including the gltf extras"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "load_fbx"
+path = "examples/3d/load_fbx.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_fbx]
+name = "Load FBX"
+description = "Loads and renders an FBX file as a scene"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "query_gltf_primitives"
