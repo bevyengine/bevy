@@ -20,8 +20,11 @@ use tracing::error;
 
 /// A trait that allows constructing different variants of a render pipeline from a key.
 ///
-/// Note: If your key is a ZST, you do not need to "specialize" anything. Just create the render
-/// pipeline once and store its ID.
+/// Note: This is intended for modifying your pipeline descriptor on the basis of a key. If your key
+/// contains no data then you don't need to specialize. For example, if you are using the
+/// [`AsBindGroup`](crate::render_resource::AsBindGroup) without the `#[bind_group_data]` attribute,
+/// you don't need to specialize. Instead, create the pipeline directly from [`PipelineCache`] and
+/// store its ID.
 ///
 /// See [`SpecializedRenderPipelines`] for more info.
 pub trait SpecializedRenderPipeline {
@@ -39,8 +42,11 @@ pub trait SpecializedRenderPipeline {
 /// making it easy to A) construct the necessary pipelines, and B) reuse already constructed
 /// pipelines.
 ///
-/// Note: If your key is a ZST, you do not need to "specialize" anything. Just create the render
-/// pipeline once and store its ID.
+/// Note: This is intended for modifying your pipeline descriptor on the basis of a key. If your key
+/// contains no data then you don't need to specialize. For example, if you are using the
+/// [`AsBindGroup`](crate::render_resource::AsBindGroup) without the `#[bind_group_data]` attribute,
+/// you don't need to specialize. Instead, create the pipeline directly from [`PipelineCache`] and
+/// store its ID.
 #[derive(Resource)]
 pub struct SpecializedRenderPipelines<S: SpecializedRenderPipeline> {
     cache: HashMap<S::Key, CachedRenderPipelineId>,
@@ -69,8 +75,11 @@ impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
 
 /// A trait that allows constructing different variants of a compute pipeline from a key.
 ///
-/// Note: If your key is a ZST, you do not need to "specialize" anything. Just create the compute
-/// pipeline once and store its ID.
+/// Note: This is intended for modifying your pipeline descriptor on the basis of a key. If your key
+/// contains no data then you don't need to specialize. For example, if you are using the
+/// [`AsBindGroup`](crate::render_resource::AsBindGroup) without the `#[bind_group_data]` attribute,
+/// you don't need to specialize. Instead, create the pipeline directly from [`PipelineCache`] and
+/// store its ID.
 ///
 /// See [`SpecializedComputePipelines`] for more info.
 pub trait SpecializedComputePipeline {
@@ -88,8 +97,11 @@ pub trait SpecializedComputePipeline {
 /// making it easy to A) construct the necessary pipelines, and B) reuse already constructed
 /// pipelines.
 ///
-/// Note: If your key is a ZST, you do not need to "specialize" anything. Just create the compute
-/// pipeline once and store its ID.
+/// Note: This is intended for modifying your pipeline descriptor on the basis of a key. If your key
+/// contains no data then you don't need to specialize. For example, if you are using the
+/// [`AsBindGroup`](crate::render_resource::AsBindGroup) without the `#[bind_group_data]` attribute,
+/// you don't need to specialize. Instead, create the pipeline directly from [`PipelineCache`] and
+/// store its ID.
 #[derive(Resource)]
 pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
     cache: HashMap<S::Key, CachedComputePipelineId>,
