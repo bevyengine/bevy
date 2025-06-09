@@ -23,9 +23,9 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    lifecycle::HookContext,
     entity::{ContainsEntity, Entity},
     event::EventReader,
+    lifecycle::HookContext,
     prelude::With,
     query::Has,
     reflect::ReflectComponent,

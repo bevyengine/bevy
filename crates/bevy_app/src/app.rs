@@ -1481,9 +1481,9 @@ mod tests {
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},
         component::Component,
-        lifecycle::RemovedComponents,
         entity::Entity,
         event::{Event, EventWriter, Events},
+        lifecycle::RemovedComponents,
         query::With,
         resource::Resource,
         schedule::{IntoScheduleConfigs, ScheduleLabel},

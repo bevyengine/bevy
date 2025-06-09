@@ -5,10 +5,10 @@ use core::any::TypeId;
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
     component::ComponentId,
-    lifecycle::RemovedComponentEntity,
     entity::Entity,
     event::EventCursor,
     hierarchy::ChildOf,
+    lifecycle::RemovedComponentEntity,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     system::{In, Local},

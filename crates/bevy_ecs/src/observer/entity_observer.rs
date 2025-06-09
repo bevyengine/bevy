@@ -1,7 +1,7 @@
 use crate::{
     component::{Component, ComponentCloneBehavior, Mutable, StorageType},
-    lifecycle::{ComponentHook, HookContext},
     entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
+    lifecycle::{ComponentHook, HookContext},
     world::World,
 };
 use alloc::vec::Vec;

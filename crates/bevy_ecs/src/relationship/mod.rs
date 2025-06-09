@@ -12,9 +12,9 @@ pub use relationship_source_collection::*;
 
 use crate::{
     component::{Component, Mutable},
-    lifecycle::HookContext,
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     error::{ignore, CommandWithEntity, HandleError},
+    lifecycle::HookContext,
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;

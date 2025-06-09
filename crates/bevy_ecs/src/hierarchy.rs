@@ -11,8 +11,8 @@ use crate::reflect::{ReflectComponent, ReflectFromWorld};
 use crate::{
     bundle::Bundle,
     component::Component,
-    lifecycle::HookContext,
     entity::Entity,
+    lifecycle::HookContext,
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},

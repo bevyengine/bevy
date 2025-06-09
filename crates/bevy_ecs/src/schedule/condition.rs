@@ -401,8 +401,8 @@ pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
-        lifecycle::RemovedComponents,
         event::{Event, EventReader},
+        lifecycle::RemovedComponents,
         prelude::{Component, Query, With},
         query::QueryFilter,
         resource::Resource,

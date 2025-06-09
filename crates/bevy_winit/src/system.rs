@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use bevy_ecs::{
-    lifecycle::RemovedComponents,
     entity::Entity,
     event::EventWriter,
+    lifecycle::RemovedComponents,
     prelude::{Changed, Component},
     query::QueryFilter,
     system::{Local, NonSendMarker, Query, SystemParamItem},

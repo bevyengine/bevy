@@ -9,12 +9,12 @@ use crate::{
         Component, ComponentId, ComponentTicks, Components, ComponentsRegistrator, Mutable,
         StorageType, Tick,
     },
-    lifecycle::{ON_DESPAWN, ON_REMOVE, ON_REPLACE},
     entity::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation,
     },
     event::Event,
+    lifecycle::{ON_DESPAWN, ON_REMOVE, ON_REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
     relationship::RelationshipHookMode,

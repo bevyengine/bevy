@@ -1,7 +1,7 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::lifecycle::{OnAdd, OnRemove};
 use bevy_ecs::entity::EntityHash;
+use bevy_ecs::lifecycle::{OnAdd, OnRemove};
 use bevy_ecs::{
     component::Component,
     entity::{ContainsEntity, Entity, EntityEquivalent},
@@ -490,8 +490,8 @@ mod render_entities_world_query_impls {
 mod tests {
     use bevy_ecs::{
         component::Component,
-        lifecycle::{OnAdd, OnRemove},
         entity::Entity,
+        lifecycle::{OnAdd, OnRemove},
         observer::Trigger,
         query::With,
         system::{Query, ResMut},

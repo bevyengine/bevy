@@ -34,7 +34,6 @@ pub mod batching;
 pub mod bundle;
 pub mod change_detection;
 pub mod component;
-pub mod lifecycle;
 pub mod entity;
 pub mod entity_disabling;
 pub mod error;
@@ -42,6 +41,7 @@ pub mod event;
 pub mod hierarchy;
 pub mod intern;
 pub mod label;
+pub mod lifecycle;
 pub mod name;
 pub mod never;
 pub mod observer;
@@ -72,11 +72,11 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
         component::Component,
-        lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, RemovedComponents},
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
+        lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, RemovedComponents},
         name::{Name, NameOrEntity},
         observer::{Observer, Trigger},
         query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
