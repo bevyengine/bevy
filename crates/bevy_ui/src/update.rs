@@ -2,133 +2,18 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
-    UiTargetCamera,
+    ComputedNodeTarget, DefaultUiCamera, UiScale, UiTargetCamera,
 };
 
-use super::ComputedNode;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     hierarchy::ChildOf,
     query::{Changed, With},
-    system::{Commands, Query, Res},
+    system::{Query, Res},
 };
-use bevy_math::{Rect, UVec2};
+use bevy_math::UVec2;
 use bevy_render::camera::Camera;
-use bevy_sprite::BorderRect;
-use bevy_transform::components::GlobalTransform;
-
-/// Updates clipping for all nodes
-pub fn update_clipping_system(
-    mut commands: Commands,
-    root_nodes: UiRootNodes,
-    mut node_query: Query<(
-        &Node,
-        &ComputedNode,
-        &GlobalTransform,
-        Option<&mut CalculatedClip>,
-    )>,
-    ui_children: UiChildren,
-) {
-    for root_node in root_nodes.iter() {
-        update_clipping(
-            &mut commands,
-            &ui_children,
-            &mut node_query,
-            root_node,
-            None,
-        );
-    }
-}
-
-fn update_clipping(
-    commands: &mut Commands,
-    ui_children: &UiChildren,
-    node_query: &mut Query<(
-        &Node,
-        &ComputedNode,
-        &GlobalTransform,
-        Option<&mut CalculatedClip>,
-    )>,
-    entity: Entity,
-    mut maybe_inherited_clip: Option<Rect>,
-) {
-    let Ok((node, computed_node, global_transform, maybe_calculated_clip)) =
-        node_query.get_mut(entity)
-    else {
-        return;
-    };
-
-    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
-    if node.display == Display::None {
-        maybe_inherited_clip = Some(Rect::default());
-    }
-
-    // Update this node's CalculatedClip component
-    if let Some(mut calculated_clip) = maybe_calculated_clip {
-        if let Some(inherited_clip) = maybe_inherited_clip {
-            // Replace the previous calculated clip with the inherited clipping rect
-            if calculated_clip.clip != inherited_clip {
-                *calculated_clip = CalculatedClip {
-                    clip: inherited_clip,
-                };
-            }
-        } else {
-            // No inherited clipping rect, remove the component
-            commands.entity(entity).remove::<CalculatedClip>();
-        }
-    } else if let Some(inherited_clip) = maybe_inherited_clip {
-        // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
-        commands.entity(entity).try_insert(CalculatedClip {
-            clip: inherited_clip,
-        });
-    }
-
-    // Calculate new clip rectangle for children nodes
-    let children_clip = if node.overflow.is_visible() {
-        // The current node doesn't clip, propagate the optional inherited clipping rect to any children
-        maybe_inherited_clip
-    } else {
-        // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
-        let mut clip_rect = Rect::from_center_size(
-            global_transform.translation().truncate(),
-            computed_node.size(),
-        );
-
-        // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
-        //
-        // `clip_inset` should always fit inside `node_rect`.
-        // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.
-        let clip_inset = match node.overflow_clip_margin.visual_box {
-            crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
-            crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
-            crate::OverflowClipBox::PaddingBox => computed_node.border(),
-        };
-
-        clip_rect.min.x += clip_inset.left;
-        clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
-
-        clip_rect = clip_rect
-            .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
-
-        if node.overflow.x == OverflowAxis::Visible {
-            clip_rect.min.x = -f32::INFINITY;
-            clip_rect.max.x = f32::INFINITY;
-        }
-        if node.overflow.y == OverflowAxis::Visible {
-            clip_rect.min.y = -f32::INFINITY;
-            clip_rect.max.y = f32::INFINITY;
-        }
-        Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
-    };
-
-    for child in ui_children.iter_ui_children(entity) {
-        update_clipping(commands, ui_children, node_query, child, children_clip);
-    }
-}
 
 pub fn update_ui_context_system(
     default_ui_camera: DefaultUiCamera,
