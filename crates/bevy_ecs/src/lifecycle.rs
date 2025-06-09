@@ -190,7 +190,7 @@ impl ComponentHooks {
     /// # Warning
     ///
     /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
-    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    /// As a result, this needs to be combined with immutable components to serve as a mechanism for reliably updating indexes and other caches.
     ///
     /// # Panics
     ///
@@ -212,7 +212,7 @@ impl ComponentHooks {
     /// # Warning
     ///
     /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
-    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    /// As a result, this needs to be combined with immutable components to serve as a mechanism for reliably updating indexes and other caches.
     ///
     /// # Panics
     ///
