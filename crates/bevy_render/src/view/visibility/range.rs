@@ -9,7 +9,7 @@ use core::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
-    component_lifecycle::RemovedComponents,
+    lifecycle::RemovedComponents,
     entity::{Entity, EntityHashMap},
     query::{Changed, With},
     reflect::ReflectComponent,

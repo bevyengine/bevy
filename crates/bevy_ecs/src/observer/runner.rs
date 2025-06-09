@@ -3,7 +3,7 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentId, Mutable, StorageType},
-    component_lifecycle::{ComponentHook, HookContext},
+    lifecycle::{ComponentHook, HookContext},
     error::{ErrorContext, ErrorHandler},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy_ecs::{
-    component_lifecycle::RemovedComponents,
+    lifecycle::RemovedComponents,
     entity::Entity,
     event::EventWriter,
     prelude::{Changed, Component},

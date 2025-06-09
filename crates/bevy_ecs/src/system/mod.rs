@@ -97,7 +97,7 @@
 //! - [`EventWriter`](crate::event::EventWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
-//! - [`RemovedComponents`](crate::component_lifecycle::RemovedComponents)
+//! - [`RemovedComponents`](crate::lifecycle::RemovedComponents)
 //! - [`SystemName`]
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
@@ -406,9 +406,9 @@ mod tests {
         bundle::Bundles,
         change_detection::DetectChanges,
         component::{Component, Components},
-        component_lifecycle::RemovedComponents,
         entity::{Entities, Entity},
         error::Result,
+        lifecycle::RemovedComponents,
         name::Name,
         prelude::{AnyOf, EntityRef, OnAdd, Trigger},
         query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},

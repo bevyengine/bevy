@@ -3,7 +3,7 @@
 use bevy::{
     ecs::{
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentId, StorageType},
-        component_lifecycle::HookContext,
+        lifecycle::HookContext,
         world::DeferredWorld,
     },
     platform::collections::HashMap,

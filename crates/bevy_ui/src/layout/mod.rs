@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    component_lifecycle::RemovedComponents,
+    lifecycle::RemovedComponents,
     entity::Entity,
     hierarchy::{ChildOf, Children},
     query::With,

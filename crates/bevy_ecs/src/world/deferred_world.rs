@@ -4,7 +4,7 @@ use crate::{
     archetype::Archetype,
     change_detection::{MaybeLocation, MutUntyped},
     component::{ComponentId, Mutable},
-    component_lifecycle::{HookContext, ON_INSERT, ON_REPLACE},
+    lifecycle::{HookContext, ON_INSERT, ON_REPLACE},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},

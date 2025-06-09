@@ -12,7 +12,7 @@ pub use relationship_source_collection::*;
 
 use crate::{
     component::{Component, Mutable},
-    component_lifecycle::HookContext,
+    lifecycle::HookContext,
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     error::{ignore, CommandWithEntity, HandleError},
     world::{DeferredWorld, EntityWorldMut},

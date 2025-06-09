@@ -9,7 +9,7 @@ use crate::{
         Component, ComponentId, ComponentTicks, Components, ComponentsRegistrator, Mutable,
         StorageType, Tick,
     },
-    component_lifecycle::{ON_DESPAWN, ON_REMOVE, ON_REPLACE},
+    lifecycle::{ON_DESPAWN, ON_REMOVE, ON_REPLACE},
     entity::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation,
@@ -4755,7 +4755,7 @@ mod tests {
     use std::sync::OnceLock;
 
     use crate::component::Tick;
-    use crate::component_lifecycle::HookContext;
+    use crate::lifecycle::HookContext;
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,

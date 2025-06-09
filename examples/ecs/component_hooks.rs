@@ -15,7 +15,7 @@
 
 use bevy::{
     ecs::component::{Mutable, StorageType},
-    ecs::component_lifecycle::{ComponentHook, HookContext},
+    ecs::lifecycle::{ComponentHook, HookContext},
     prelude::*,
 };
 use std::collections::HashMap;

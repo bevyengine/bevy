@@ -18,8 +18,8 @@ pub use crate::{
     world::command_queue::CommandQueue,
 };
 use crate::{
-    component_lifecycle::{ComponentHooks, ON_ADD, ON_DESPAWN, ON_INSERT, ON_REMOVE, ON_REPLACE},
     error::{DefaultErrorHandler, ErrorHandler},
+    lifecycle::{ComponentHooks, ON_ADD, ON_DESPAWN, ON_INSERT, ON_REMOVE, ON_REPLACE},
     prelude::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace},
 };
 pub use bevy_ecs_macros::FromWorld;
@@ -45,10 +45,10 @@ use crate::{
         Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
-    component_lifecycle::RemovedComponentEvents,
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
+    lifecycle::RemovedComponentEvents,
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
@@ -1446,7 +1446,7 @@ impl World {
     /// assert!(!transform.is_changed());
     /// ```
     ///
-    /// [`RemovedComponents`]: crate::component_lifecycle::RemovedComponents
+    /// [`RemovedComponents`]: crate::lifecycle::RemovedComponents
     pub fn clear_trackers(&mut self) {
         self.removed_components.update();
         self.last_change_tick = self.increment_change_tick();

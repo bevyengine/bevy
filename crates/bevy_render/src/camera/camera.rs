@@ -23,7 +23,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    component_lifecycle::HookContext,
+    lifecycle::HookContext,
     entity::{ContainsEntity, Entity},
     event::EventReader,
     prelude::With,

@@ -658,7 +658,7 @@ fn hook_register_function_call(
 ) -> Option<TokenStream2> {
     function.map(|meta| {
         quote! {
-            fn #hook() -> ::core::option::Option<#bevy_ecs_path::component_lifecycle::ComponentHook> {
+            fn #hook() -> ::core::option::Option<#bevy_ecs_path::lifecycle::ComponentHook> {
                 ::core::option::Option::Some(#meta)
             }
         }

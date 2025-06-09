@@ -14,7 +14,7 @@ use crate::{
         Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
         RequiredComponents, StorageType, Tick,
     },
-    component_lifecycle::{ON_ADD, ON_INSERT, ON_REMOVE, ON_REPLACE},
+    lifecycle::{ON_ADD, ON_INSERT, ON_REMOVE, ON_REPLACE},
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::World,
@@ -2070,7 +2070,7 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 #[cfg(test)]
 mod tests {
     use crate::{
-        archetype::ArchetypeCreated, component_lifecycle::HookContext, prelude::*,
+        archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*,
         world::DeferredWorld,
     };
     use alloc::vec;

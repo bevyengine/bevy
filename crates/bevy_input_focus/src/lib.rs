@@ -369,7 +369,7 @@ mod tests {
 
     use alloc::string::String;
     use bevy_ecs::{
-        component_lifecycle::HookContext, observer::Trigger, system::RunSystemOnce,
+        lifecycle::HookContext, observer::Trigger, system::RunSystemOnce,
         world::DeferredWorld,
     };
     use bevy_input::{

@@ -36,8 +36,8 @@ use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
-    component_lifecycle::RemovedComponents,
     entity::Entity,
+    lifecycle::RemovedComponents,
     query::{Changed, Or},
     reflect::ReflectComponent,
     resource::Resource,

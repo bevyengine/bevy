@@ -21,7 +21,7 @@ use bevy_ecs::system::Res;
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    component_lifecycle::OnRemove,
+    lifecycle::OnRemove,
     entity::Entity,
     observer::Trigger,
     query::With,

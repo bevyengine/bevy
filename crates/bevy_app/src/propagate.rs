@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use crate::{App, Plugin, Update};
 use bevy_ecs::{
     component::Component,
-    component_lifecycle::RemovedComponents,
+    lifecycle::RemovedComponents,
     entity::Entity,
     hierarchy::ChildOf,
     query::{Changed, Or, QueryFilter, With, Without},

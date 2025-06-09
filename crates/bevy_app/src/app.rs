@@ -1481,7 +1481,7 @@ mod tests {
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},
         component::Component,
-        component_lifecycle::RemovedComponents,
+        lifecycle::RemovedComponents,
         entity::Entity,
         event::{Event, EventWriter, Events},
         query::With,
