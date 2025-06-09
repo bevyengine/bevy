@@ -3044,7 +3044,7 @@ pub fn enforce_no_required_components_recursion(
             );
             #[cfg(not(feature = "debug"))]
             panic!(
-                "Recursive required components detected\n help: {}\nEnable the default feature to get more details",
+                "Recursive required components detected\n help: {}\nEnable the debug feature to get more details",
                 if direct_recursion {
                     "Remove the recursing required component."
                 } else {
