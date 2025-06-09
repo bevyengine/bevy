@@ -1049,7 +1049,7 @@ doc-scrape-examples = true
 name = "Screen Space Ambient Occlusion"
 description = "A scene showcasing screen space ambient occlusion"
 category = "3D Rendering"
-# Requires computation shaders, which are not supported by WebGL.
+# Requires compute shaders, which are not supported by WebGL.
 wasm = false
 
 [[example]]
@@ -1361,7 +1361,7 @@ doc-scrape-examples = true
 name = "Irradiance Volumes"
 description = "Demonstrates irradiance volumes"
 category = "3D Rendering"
-# On WebGL and WebGPU, the number of texture bindings when deferred rendering is in use
+# On WebGL and WebGPU, the number of texture bindings is too low
 # See <https://github.com/bevyengine/bevy/issues/11885>
 wasm = false
 
