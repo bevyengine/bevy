@@ -2053,7 +2053,7 @@ impl Components {
     }
 
     /// Gets the metadata associated with the given component, if it is registered.
-    /// This will return `None` if the id is not regiserted or is queued.
+    /// This will return `None` if the id is not registered or is queued.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
