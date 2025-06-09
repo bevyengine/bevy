@@ -25,7 +25,7 @@ The problem with these methods is that they all have large downsides:
 
 Bevy Solari is intended as a completely alternate, high-end lighting solution for Bevy that uses GPU-accelerated raytracing to fix all of the above problems. Emissive meshes will properly cast light and shadows, you will be able to have hundreds of shadow casting lights, quality will be much better, it will require no baking time, and it will support _fully_ dynamic scenes!
 
-While Bevy 0.17 adds the bevy_solari crate, it's intended as a long-term project. Currently there is only a non-realtime path tracer intended as a reference and testbed for developing Bevy Solari. There is nothing usable yet for game developers. However, feel free to run the solari example to see the path tracer is action, and look forwards to more work on Bevy Solari in future releases! (TODO: Is this burying the lede?)
+While Bevy 0.17 adds the bevy_solari crate, it's intended as a long-term project. Currently there is only a non-realtime path tracer intended as a reference and testbed for developing Bevy Solari. There is nothing usable yet for game developers. However, feel free to run the solari example to see the path tracer in action, and look forwards to more work on Bevy Solari in future releases! (TODO: Is this burying the lede?)
 
 (TODO: Embed bevy_solari logo here, or somewhere else that looks good)
 
