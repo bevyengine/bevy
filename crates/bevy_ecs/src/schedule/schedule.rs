@@ -1732,7 +1732,7 @@ impl ScheduleGraph {
         #[cfg(feature = "debug")]
         let message = self.get_hierarchy_conflicts_error_message(transitive_edges);
         #[cfg(not(feature = "debug"))]
-        let message = "Enable debug feature for more informations".to_string();
+        let message = "Enable debug feature for more information".to_string();
         match self.settings.hierarchy_detection {
             LogLevel::Ignore => unreachable!(),
             LogLevel::Warn => {
