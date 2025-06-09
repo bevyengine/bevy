@@ -334,6 +334,15 @@ impl DynamicBindGroupLayoutEntries {
         }
     }
 
+    pub fn new(
+        default_visibility: ShaderStages,
+    ) -> Self {
+        Self {
+            default_visibility,
+            entries: Vec::new(),
+        }
+    }
+
     pub fn extend_with_indices<const N: usize>(
         mut self,
         entries: impl IntoIndexedBindGroupLayoutEntryBuilderArray<N>,

@@ -152,9 +152,9 @@ type DrawSpecializedPipelineCommands = (
     // Set the pipeline
     SetItemPipeline,
     // Set the view uniform at bind group 0
-    SetMeshViewBindGroup<0>,
+    SetMeshViewBindGroup<0, 1>,
     // Set the mesh uniform at bind group 1
-    SetMeshBindGroup<1>,
+    SetMeshBindGroup<2>,
     // Draw the mesh
     DrawMesh,
 );
@@ -209,16 +209,15 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
         // This will automatically generate the correct `VertexBufferLayout` based on the vertex attributes
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
+        let mut layout = self.mesh_pipeline
+            .get_view_layout(MeshPipelineViewLayoutKey::from(mesh_key))
+            .clone()
+            .to_vec();
+        layout.push(self.mesh_pipeline.mesh_layouts.model_only.clone());
+
         Ok(RenderPipelineDescriptor {
             label: Some("Specialized Mesh Pipeline".into()),
-            layout: vec![
-                // Bind group 0 is the view uniform
-                self.mesh_pipeline
-                    .get_view_layout(MeshPipelineViewLayoutKey::from(mesh_key))
-                    .clone(),
-                // Bind group 1 is the mesh uniform
-                self.mesh_pipeline.mesh_layouts.model_only.clone(),
-            ],
+            layout,
             push_constant_ranges: vec![],
             vertex: VertexState {
                 shader: self.shader_handle.clone(),

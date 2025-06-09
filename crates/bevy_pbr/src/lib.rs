@@ -152,8 +152,8 @@ fn shader_ref(path: PathBuf) -> ShaderRef {
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("69187376-3dea-4d0f-b3f5-185bde63d6a2");
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 26;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 27;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 18;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 19;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {

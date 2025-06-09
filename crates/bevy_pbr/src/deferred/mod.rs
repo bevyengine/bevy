@@ -346,12 +346,12 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
+        let mut layout = self.mesh_pipeline.get_view_layout(key.into()).to_vec();
+        layout.push(self.bind_group_layout_1.clone());
+
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
-            layout: vec![
-                self.mesh_pipeline.get_view_layout(key.into()).clone(),
-                self.bind_group_layout_1.clone(),
-            ],
+            layout,
             vertex: VertexState {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs: shader_defs.clone(),

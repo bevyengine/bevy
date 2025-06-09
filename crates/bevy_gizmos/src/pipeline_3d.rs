@@ -124,7 +124,8 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             .get_view_layout(key.view_key.into())
             .clone();
 
-        let layout = vec![view_layout, self.uniform_layout.clone()];
+        let mut layout = view_layout.to_vec();
+        layout.push(self.uniform_layout.clone());
 
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
@@ -221,7 +222,8 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             .get_view_layout(key.view_key.into())
             .clone();
 
-        let layout = vec![view_layout, self.uniform_layout.clone()];
+        let mut layout = view_layout.to_vec();
+        layout.push(self.uniform_layout.clone());
 
         if key.joints == GizmoLineJoint::None {
             error!("There is no entry point for line joints with GizmoLineJoints::None. Please consider aborting the drawing process before reaching this stage.");
@@ -273,20 +275,20 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
 type DrawLineGizmo3d = (
     SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetLineGizmoBindGroup<1>,
+    SetMeshViewBindGroup<0, 1>,
+    SetLineGizmoBindGroup<2>,
     DrawLineGizmo<false>,
 );
 type DrawLineGizmo3dStrip = (
     SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetLineGizmoBindGroup<1>,
+    SetMeshViewBindGroup<0, 1>,
+    SetLineGizmoBindGroup<2>,
     DrawLineGizmo<true>,
 );
 type DrawLineJointGizmo3d = (
     SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetLineGizmoBindGroup<1>,
+    SetMeshViewBindGroup<0, 1>,
+    SetLineGizmoBindGroup<2>,
     DrawLineJointGizmo,
 );
 

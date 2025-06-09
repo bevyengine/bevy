@@ -1864,7 +1864,7 @@ impl MeshPipeline {
         }
     }
 
-    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
+    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &[BindGroupLayout; 2] {
         self.view_layouts.get_view_layout(layout_key)
     }
 }
@@ -2320,7 +2320,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
         }
 
-        let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
+        let mut bind_group_layout = self.get_view_layout(key.into()).to_vec();
 
         if key.msaa_samples() > 1 {
             shader_defs.push("MULTISAMPLED".into());
@@ -2847,8 +2847,8 @@ fn prepare_mesh_bind_groups_for_phase(
     groups
 }
 
-pub struct SetMeshViewBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
+pub struct SetMeshViewBindGroup<const I: usize, const J: usize>;
+impl<P: PhaseItem, const I: usize, const J: usize> RenderCommand<P> for SetMeshViewBindGroup<I, J> {
     type Param = ();
     type ViewQuery = (
         Read<ViewUniformOffset>,
@@ -2891,6 +2891,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             offsets.push(layers_count_offset.offset);
         }
         pass.set_bind_group(I, &mesh_view_bind_group.value, &offsets);
+        pass.set_bind_group(J, &mesh_view_bind_group.value_binding_array, &[]);
 
         RenderCommandResult::Success
     }
