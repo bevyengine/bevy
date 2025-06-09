@@ -164,6 +164,7 @@ default = [
   "vorbis",
   "webgl2",
   "x11",
+  "debug",
 ]
 
 # Recommended defaults for no_std applications

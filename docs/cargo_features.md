@@ -40,6 +40,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
+|debug|Enable collecting debug information about systems and components to help with diagnostics|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
@@ -72,7 +73,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bmp|BMP image format support|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |dds|DDS compressed texture support|
-|debug|Enable collecting debug information about systems and components to help with diagnostics|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
 |default_no_std|Recommended defaults for no_std applications|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
