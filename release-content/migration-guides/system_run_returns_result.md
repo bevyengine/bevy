@@ -25,10 +25,10 @@ error[E0283]: type annotations needed
     --> lib.rs:100:5
      |
 100  |     IntoSystem::into_system(example_system);
-     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type for struct `function_system::FallibleFunctionSystem<fn() -> core::result::Result<(), bevy_error::BevyError> {example_system}, _>`
+     |     ^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type of the type parameter `Out` declared on the trait `IntoSystem`
      |
-note: multiple `impl`s satisfying `function_system::FallibleFunctionSystem<fn() -> core::result::Result<(), bevy_error::BevyError> {example_system}, _>: function_system::SystemParamFunction<_>` found        
-    --> crates\bevy_ecs\src\system\function_system.rs:696:1
+note: multiple `impl`s satisfying `core::result::Result<(), bevy_error::BevyError>: function_system::IntoResult<_>` found
+    --> crates\bevy_ecs\src\system\function_system.rs:618:1
 ```
 
 A function that returns `Result<T, BevyError>` may be considered either a fallible system that returns `T` or an infallible system that returns `Result`, and a function that returns `!` may be considered a system that returns *any* type.

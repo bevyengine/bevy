@@ -13,8 +13,8 @@ use crate::{
     define_label,
     intern::Interned,
     system::{
-        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FallibleFunctionSystem,
-        FunctionSystem, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem, IntoResult,
+        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
     },
 };
 
@@ -204,13 +204,14 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
     Marker: 'static,
-    FallibleFunctionSystem<F>: SystemParamFunction<Marker>,
+    F::Out: IntoResult<()>,
+    F: SystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<FunctionSystem<Marker, FallibleFunctionSystem<F>>>;
+    type Set = SystemTypeSet<FunctionSystem<Marker, (), F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<FunctionSystem<Marker, FallibleFunctionSystem<F>>>::new()
+        SystemTypeSet::<FunctionSystem<Marker, (), F>>::new()
     }
 }
 
@@ -218,13 +219,14 @@ where
 impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
 where
     Marker: 'static,
-    FallibleFunctionSystem<F>: ExclusiveSystemParamFunction<Marker>,
+    F::Out: IntoResult<()>,
+    F: ExclusiveSystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, FallibleFunctionSystem<F>>>;
+    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, (), F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<ExclusiveFunctionSystem<Marker, FallibleFunctionSystem<F>>>::new()
+        SystemTypeSet::<ExclusiveFunctionSystem<Marker, (), F>>::new()
     }
 }
 

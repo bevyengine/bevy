@@ -1,6 +1,6 @@
 use crate::{
     component::{ComponentId, Tick},
-    error::Result,
+    error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
@@ -235,13 +235,17 @@ macro_rules! impl_build_system {
             /// Create a [`FunctionSystem`] from a [`SystemState`].
             /// This method signature allows type inference of closure parameters for a system with no input.
             /// You can use [`SystemState::build_system_with_input()`] if you have input, or [`SystemState::build_any_system()`] if you don't need type inference.
-            pub fn build_system<Out: 'static, WrappedOut: 'static, Marker: 'static, F>(
+            pub fn build_system<
+                InnerOut: IntoResult<Out>,
+                Out: 'static,
+                Marker,
+                F: FnMut($(SystemParamItem<$param>),*) -> InnerOut
+                    + SystemParamFunction<Marker, Param = ($($param,)*), In = (), Out = InnerOut>
+            >
+            (
                 self,
                 func: F,
-            ) -> impl System<In = (), Out = WrappedOut>
-            where
-                F: FnMut($(SystemParamItem<$param>),*) -> Out,
-                FallibleFunctionSystem<F, WrappedOut>: SystemParamFunction<Marker, Param = ($($param,)*), In = (), Out = Result<WrappedOut, RunSystemError>>,
+            ) -> FunctionSystem<Marker, Out, F>
             {
                 self.build_any_system(func)
             }
@@ -249,15 +253,17 @@ macro_rules! impl_build_system {
             /// Create a [`FunctionSystem`] from a [`SystemState`].
             /// This method signature allows type inference of closure parameters for a system with input.
             /// You can use [`SystemState::build_system()`] if you have no input, or [`SystemState::build_any_system()`] if you don't need type inference.
-            pub fn build_system_with_input<Input, Out: 'static, WrappedOut: 'static, Marker: 'static, F>(
+            pub fn build_system_with_input<
+                Input: SystemInput,
+                InnerOut: IntoResult<Out>,
+                Out: 'static,
+                Marker,
+                F: FnMut(Input, $(SystemParamItem<$param>),*) -> InnerOut
+                    + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = InnerOut>,
+            >(
                 self,
                 func: F,
-            ) -> impl System<In = Input, Out = WrappedOut>
-            where
-                Input: SystemInput,
-                F: FnMut(Input, $(SystemParamItem<$param>),*) -> Out,
-                FallibleFunctionSystem<F, WrappedOut>: SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = Result<WrappedOut, RunSystemError>>,
-            {
+            ) -> FunctionSystem<Marker, Out, F> {
                 self.build_any_system(func)
             }
         }
@@ -300,16 +306,12 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Create a [`FunctionSystem`] from a [`SystemState`].
     /// This method signature allows any system function, but the compiler will not perform type inference on closure parameters.
     /// You can use [`SystemState::build_system()`] or [`SystemState::build_system_with_input()`] to get type inference on parameters.
-    pub fn build_any_system<In: SystemInput, Out: 'static, Marker: 'static, F>(
-        self,
-        func: F,
-    ) -> impl System<In = In, Out = Out>
+    pub fn build_any_system<Marker, Out, F>(self, func: F) -> FunctionSystem<Marker, Out, F>
     where
-        FallibleFunctionSystem<F, Out>:
-            SystemParamFunction<Marker, In = In, Out = Result<Out, RunSystemError>, Param = Param>,
+        F: SystemParamFunction<Marker, Param = Param, Out: IntoResult<Out>>,
     {
         FunctionSystem {
-            func: FallibleFunctionSystem::new(func),
+            func,
             #[cfg(feature = "hotpatching")]
             current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
                 .ptr_address(),
@@ -521,7 +523,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// The [`Clone`] implementation for [`FunctionSystem`] returns a new instance which
 /// is NOT initialized. The cloned system must also be `.initialized` before it can be run.
-pub struct FunctionSystem<Marker, F>
+pub struct FunctionSystem<Marker, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -531,7 +533,7 @@ where
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> Marker>,
+    marker: PhantomData<fn() -> (Marker, Out)>,
 }
 
 /// The state of a [`FunctionSystem`], which must be initialized with
@@ -546,7 +548,7 @@ struct FunctionSystemState<P: SystemParam> {
     world_id: WorldId,
 }
 
-impl<Marker, F> FunctionSystem<Marker, F>
+impl<Marker, Out, F> FunctionSystem<Marker, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -560,7 +562,7 @@ where
 }
 
 // De-initializes the cloned system.
-impl<Marker, F> Clone for FunctionSystem<Marker, F>
+impl<Marker, Out, F> Clone for FunctionSystem<Marker, Out, F>
 where
     F: SystemParamFunction<Marker> + Clone,
 {
@@ -581,18 +583,16 @@ where
 #[doc(hidden)]
 pub struct IsFunctionSystem;
 
-impl<In, Out, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Marker)> for F
+impl<Marker, Out, F> IntoSystem<F::In, Out, (IsFunctionSystem, Marker)> for F
 where
-    In: SystemInput,
     Out: 'static,
     Marker: 'static,
-    FallibleFunctionSystem<F, Out>:
-        SystemParamFunction<Marker, In = In, Out = Result<Out, RunSystemError>>,
+    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
 {
-    type System = FunctionSystem<Marker, FallibleFunctionSystem<F, Out>>;
+    type System = FunctionSystem<Marker, Out, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
-            func: FallibleFunctionSystem::new(func),
+            func,
             #[cfg(feature = "hotpatching")]
             current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
                 .ptr_address(),
@@ -603,105 +603,48 @@ where
     }
 }
 
-/// Wrapper type for [`SystemParamFunction`] implementations
-/// that adapts the return type to `Result<Out, RunSystemError>`.
-// The `Out` type parameter is used to help type inference by
-// letting the desired `Out` type from `IntoSystem` determine
-// the type of `FallibleFunctionSystem` directly.
-// Without it, they would only be linked by the `Marker` type in
-// the `SystemParamFunction` trait impl, and the compiler would
-// not be able to infer either `Out` or `Marker` without the other.
-#[derive(Copy, Clone, Debug)]
-pub struct FallibleFunctionSystem<F, Out = ()>(pub F, PhantomData<fn() -> Out>);
+/// A type that may be converted to the output of a [`System`].
+/// This is used to allow systems to return either a plain value or a [`Result`].
+pub trait IntoResult<Out>: Sized {
+    /// Converts this type into the system output type.
+    fn into_result(self) -> Result<Out, RunSystemError>;
+}
 
-impl<F, Out> FallibleFunctionSystem<F, Out> {
-    /// Creates a new [`FallibleFunctionSystem`] wrapping the given function.
-    pub fn new(func: F) -> Self {
-        Self(func, PhantomData)
+impl<T> IntoResult<T> for T {
+    fn into_result(self) -> Result<T, RunSystemError> {
+        Ok(self)
     }
 }
 
-/// Marker component to allow for conflicting implementations of [`SystemParamFunction`]
-#[doc(hidden)]
-pub struct Infallible;
-
-impl<Marker, F, Out> SystemParamFunction<(Marker, Infallible)> for FallibleFunctionSystem<F, Out>
-where
-    Out: 'static,
-    F: SystemParamFunction<Marker, Out = Out>,
-{
-    type In = F::In;
-    type Out = Result<Out, RunSystemError>;
-    type Param = F::Param;
-    fn run(
-        &mut self,
-        input: <Self::In as SystemInput>::Inner<'_>,
-        param_value: SystemParamItem<Self::Param>,
-    ) -> Self::Out {
-        Ok(self.0.run(input, param_value))
+impl<T> IntoResult<T> for Result<T, RunSystemError> {
+    fn into_result(self) -> Result<T, RunSystemError> {
+        self
     }
 }
 
-/// Marker component to allow for conflicting implementations of [`SystemParamFunction`]
-#[doc(hidden)]
-pub struct Fallible;
-
-impl<Marker, Out, F> SystemParamFunction<(Marker, Fallible)> for FallibleFunctionSystem<F, Out>
-where
-    Out: 'static,
-    F: SystemParamFunction<Marker, Out = Result<Out>>,
-{
-    type In = F::In;
-    type Out = Result<Out, RunSystemError>;
-    type Param = F::Param;
-    fn run(
-        &mut self,
-        input: <Self::In as SystemInput>::Inner<'_>,
-        param_value: SystemParamItem<Self::Param>,
-    ) -> Self::Out {
-        Ok(self.0.run(input, param_value)?)
+impl<T> IntoResult<T> for Result<T, BevyError> {
+    fn into_result(self) -> Result<T, RunSystemError> {
+        Ok(self?)
     }
 }
 
-impl<Marker, Out, F> SystemParamFunction<(Marker, Out, Never)> for FallibleFunctionSystem<F, Out>
-where
-    Out: 'static,
-    F: SystemParamFunction<Marker, Out = Never>,
-{
-    type In = F::In;
-    type Out = Result<Out, RunSystemError>;
-    type Param = F::Param;
-    fn run(
-        &mut self,
-        input: <Self::In as SystemInput>::Inner<'_>,
-        param_value: SystemParamItem<Self::Param>,
-    ) -> Self::Out {
-        self.0.run(input, param_value)
+// The `!` impl can't be generic in `Out`, since that would overlap with
+// `impl<T> IntoResult<T> for T` when `T` = `!`.
+// Use explicit impls for `()` and `bool` so diverging functions
+// can be used for systems and conditions.
+impl IntoResult<()> for Never {
+    fn into_result(self) -> Result<(), RunSystemError> {
+        self
     }
 }
 
-/// Marker component to allow for conflicting implementations of [`SystemParamFunction`]
-#[doc(hidden)]
-pub struct Skippable;
-
-impl<Marker, Out, F> SystemParamFunction<(Marker, Skippable)> for FallibleFunctionSystem<F, Out>
-where
-    Out: 'static,
-    F: SystemParamFunction<Marker, Out = Result<Out, RunSystemError>>,
-{
-    type In = F::In;
-    type Out = Result<Out, RunSystemError>;
-    type Param = F::Param;
-    fn run(
-        &mut self,
-        input: <Self::In as SystemInput>::Inner<'_>,
-        param_value: SystemParamItem<Self::Param>,
-    ) -> Self::Out {
-        self.0.run(input, param_value)
+impl IntoResult<bool> for Never {
+    fn into_result(self) -> Result<bool, RunSystemError> {
+        self
     }
 }
 
-impl<Marker, F> FunctionSystem<Marker, F>
+impl<Marker, Out, F> FunctionSystem<Marker, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -712,11 +655,11 @@ where
         "System's state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<Marker, Out, F> System for FunctionSystem<Marker, F>
+impl<Marker, Out, F> System for FunctionSystem<Marker, Out, F>
 where
     Marker: 'static,
     Out: 'static,
-    F: SystemParamFunction<Marker, Out = Result<Out, RunSystemError>>,
+    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
 {
     type In = F::In;
     type Out = Out;
@@ -786,7 +729,7 @@ where
         let out = self.func.run(input, params);
 
         self.system_meta.last_run = change_tick;
-        out
+        IntoResult::into_result(out)
     }
 
     #[cfg(feature = "hotpatching")]
@@ -866,11 +809,11 @@ where
 }
 
 /// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
-unsafe impl<Marker, Out, F> ReadOnlySystem for FunctionSystem<Marker, F>
+unsafe impl<Marker, Out, F> ReadOnlySystem for FunctionSystem<Marker, Out, F>
 where
     Marker: 'static,
     Out: 'static,
-    F: SystemParamFunction<Marker, Out = Result<Out, RunSystemError>>,
+    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
     F::Param: ReadOnlySystemParam,
 {
 }
