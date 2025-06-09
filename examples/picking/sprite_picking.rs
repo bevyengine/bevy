@@ -152,7 +152,7 @@ fn setup_atlas(
 // An observer listener that changes the target entity's color.
 fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
     move |ev, mut sprites| {
-        let Ok(mut sprite) = sprites.get_mut(ev.target()) else {
+        let Ok(mut sprite) = sprites.get_mut(ev.target().unwrap()) else {
             return;
         };
         sprite.color = color;
