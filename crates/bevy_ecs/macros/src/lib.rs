@@ -1,4 +1,5 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+//! Macros for deriving ECS traits.
+
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 extern crate proc_macro;
@@ -29,29 +30,50 @@ enum BundleFieldKind {
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_DYNAMIC: &str = "dynamic";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
+const BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS: &str = "ignore_from_components";
 
+#[derive(Debug)]
+struct BundleAttributes {
+    impl_from_components: bool,
+    dynamic: bool,
+}
+
+impl Default for BundleAttributes {
+    fn default() -> Self {
+        Self {
+            impl_from_components: true,
+            dynamic: false,
+        }
+    }
+}
+
+/// Implement the `Bundle` trait.
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let mut is_dynamic = false;
-    for attr in ast
-        .attrs
-        .iter()
-        .filter(|a| a.path().is_ident(BUNDLE_ATTRIBUTE_NAME))
-    {
-        if let Err(error) = attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident(BUNDLE_ATTRIBUTE_DYNAMIC) {
-                is_dynamic = true;
-                Ok(())
-            } else {
-                Err(meta.error(format!(
-                    "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_DYNAMIC}`"
-                )))
+    let mut errors = vec![];
+    let mut attributes = BundleAttributes::default();
+
+    for attr in &ast.attrs {
+        if attr.path().is_ident(BUNDLE_ATTRIBUTE_NAME) {
+            let parsing = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident(BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS) {
+                    attributes.impl_from_components = false;
+                    return Ok(());
+                }
+                if meta.path.is_ident(BUNDLE_ATTRIBUTE_DYNAMIC) {
+                    attributes.dynamic = true;
+                    return Ok(());
+                }
+
+                Err(meta.error(format!("Invalid bundle container attribute. Allowed attributes: `{BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS}`, `{BUNDLE_ATTRIBUTE_DYNAMIC}`")))
+            });
+
+            if let Err(error) = parsing {
+                errors.push(error.into_compile_error());
             }
-        }) {
-            return error.into_compile_error().into();
         }
     }
 
@@ -124,7 +146,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
-    let static_bundle_impl = (!is_dynamic).then(|| quote! {
+    let static_bundle_impl = (!attributes.dynamic).then(|| quote! {
         // SAFETY:
         // - all the active fields must implement `StaticBundle` for the function bodies to compile, and hence
         //   this bundle also represents a static set of components;
@@ -197,7 +219,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         }
     };
 
-    let bundle_from_components_impl = (!is_dynamic).then(|| quote! {
+    let bundle_from_components_impl = (attributes.impl_from_components && !attributes.dynamic).then(|| quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
         #[allow(deprecated)]
@@ -231,6 +253,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(quote! {
+        #(#errors)*
         #static_bundle_impl
         #bundle_impl
         #bundle_from_components_impl
@@ -238,6 +261,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Implement the `MapEntities` trait.
 #[proc_macro_derive(MapEntities, attributes(entities))]
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -573,16 +597,19 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_ecs")
 }
 
+/// Implement the `Event` trait.
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
 
+/// Implement the `Resource` trait.
 #[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
+/// Implement the `Component` trait.
 #[proc_macro_derive(
     Component,
     attributes(component, require, relationship, relationship_target, entities)
@@ -591,6 +618,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
 
+/// Implement the `FromWorld` trait.
 #[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let bevy_ecs_path = bevy_ecs_path();

@@ -93,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     mut commands: Commands
                                 | {
                                     if trigger.event().button == PointerButton::Primary {
-                                        commands.entity(trigger.target()).despawn();
+                                        commands.entity(trigger.target().unwrap()).despawn();
                                     }
                                 });
                             }
