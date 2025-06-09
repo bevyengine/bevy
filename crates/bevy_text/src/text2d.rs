@@ -183,10 +183,16 @@ pub fn extract_text2d_sprite(
             text_bounds.height.unwrap_or(text_layout_info.size.y),
         );
 
-        let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
-        let transform =
-            *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
+        // <<<<<<< HEAD
+        //         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
+        //         let transform =
+        //             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
 
+        // =======
+        let transform = *global_transform
+            * GlobalTransform::from_translation((anchor.as_vec() * size).extend(0.))
+            * scaling;
+        //>>>>>>> 3486c46142 (Change to object centered coordinated for the text layout stored in `TextLayoutInfo`.)
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
 
