@@ -1255,7 +1255,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
 }
 
 pub struct SetPrepassViewBindGroup<const I: usize, const J: usize>;
-impl<P: PhaseItem, const I: usize, const J: usize> RenderCommand<P> for SetPrepassViewBindGroup<I, J> {
+impl<P: PhaseItem, const I: usize, const J: usize> RenderCommand<P>
+    for SetPrepassViewBindGroup<I, J>
+{
     type Param = SRes<PrepassViewBindGroup>;
     type ViewQuery = (
         Read<ViewUniformOffset>,
@@ -1297,11 +1299,7 @@ impl<P: PhaseItem, const I: usize, const J: usize> RenderCommand<P> for SetPrepa
                 );
             }
         }
-        pass.set_bind_group(
-            J,
-            &prepass_view_bind_group.empty_bind_group,
-            &[],
-        );
+        pass.set_bind_group(J, &prepass_view_bind_group.empty_bind_group, &[]);
 
         RenderCommandResult::Success
     }

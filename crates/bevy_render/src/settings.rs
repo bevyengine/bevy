@@ -3,11 +3,11 @@ use crate::renderer::{
 };
 use alloc::borrow::Cow;
 
+use wgpu::DxcShaderModel;
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
     Limits as WgpuLimits, MemoryHints, PowerPreference,
 };
-use wgpu::DxcShaderModel;
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
 #[derive(Clone)]

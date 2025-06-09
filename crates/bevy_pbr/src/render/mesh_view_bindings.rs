@@ -352,25 +352,25 @@ fn layout_entries(
         (25, sampler(SamplerBindingType::Filtering)),
     ));
 
-    // // OIT
-    // if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
-    //     // Check if we can use OIT. This is a hack to avoid errors on webgl --
-    //     // the OIT plugin will warn the user that OIT is not supported on their
-    //     // platform, so we don't need to do it here.
-    //     if is_oit_supported(render_adapter, render_device, false) {
-    //         entries = entries.extend_with_indices((
-    //             // oit_layers
-    //             (26, storage_buffer_sized(false, None)),
-    //             // oit_layer_ids,
-    //             (27, storage_buffer_sized(false, None)),
-    //             // oit_layer_count
-    //             (
-    //                 28,
-    //                 uniform_buffer::<OrderIndependentTransparencySettings>(true),
-    //             ),
-    //         ));
-    //     }
-    // }
+    // OIT
+    if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
+        // Check if we can use OIT. This is a hack to avoid errors on webgl --
+        // the OIT plugin will warn the user that OIT is not supported on their
+        // platform, so we don't need to do it here.
+        if is_oit_supported(render_adapter, render_device, false) {
+            entries = entries.extend_with_indices((
+                // oit_layers
+                (26, storage_buffer_sized(false, None)),
+                // oit_layer_ids,
+                (27, storage_buffer_sized(false, None)),
+                // oit_layer_count
+                (
+                    28,
+                    uniform_buffer::<OrderIndependentTransparencySettings>(true),
+                ),
+            ));
+        }
+    }
 
     let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
     binding_array_entries = binding_array_entries.extend_with_indices((
@@ -665,23 +665,23 @@ pub fn prepare_mesh_view_bind_groups(
             entries =
                 entries.extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
 
-            // if has_oit {
-            //     if let (
-            //         Some(oit_layers_binding),
-            //         Some(oit_layer_ids_binding),
-            //         Some(oit_settings_binding),
-            //     ) = (
-            //         oit_buffers.layers.binding(),
-            //         oit_buffers.layer_ids.binding(),
-            //         oit_buffers.settings.binding(),
-            //     ) {
-            //         entries = entries.extend_with_indices((
-            //             (26, oit_layers_binding.clone()),
-            //             (27, oit_layer_ids_binding.clone()),
-            //             (28, oit_settings_binding.clone()),
-            //         ));
-            //     }
-            // }
+            if has_oit {
+                if let (
+                    Some(oit_layers_binding),
+                    Some(oit_layer_ids_binding),
+                    Some(oit_settings_binding),
+                ) = (
+                    oit_buffers.layers.binding(),
+                    oit_buffers.layer_ids.binding(),
+                    oit_buffers.settings.binding(),
+                ) {
+                    entries = entries.extend_with_indices((
+                        (26, oit_layers_binding.clone()),
+                        (27, oit_layer_ids_binding.clone()),
+                        (28, oit_settings_binding.clone()),
+                    ));
+                }
+            }
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();
 

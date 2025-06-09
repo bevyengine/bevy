@@ -357,9 +357,7 @@ impl Plugin for RenderPlugin {
                                 dx12: wgpu::Dx12BackendOptions {
                                     shader_compiler: settings.dx12_shader_compiler.clone(),
                                 },
-                                noop: wgpu::NoopBackendOptions {
-                                    enable: false,
-                                },
+                                noop: wgpu::NoopBackendOptions { enable: false },
                             },
                         });
 

@@ -21,7 +21,10 @@ use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
 use bevy_time::TimeSender;
-use wgpu::{Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue, RequestAdapterOptions, Trace};
+use wgpu::{
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
+    RequestAdapterOptions, Trace,
+};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
@@ -313,16 +316,14 @@ pub async fn initialize_renderer(
     }
 
     let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(AsRef::as_ref),
-                required_features: features,
-                required_limits: limits,
-                memory_hints: options.memory_hints.clone(),
-                // See https://github.com/gfx-rs/wgpu/issues/5974
-                trace: Trace::Off,
-            },
-        )
+        .request_device(&wgpu::DeviceDescriptor {
+            label: options.device_label.as_ref().map(AsRef::as_ref),
+            required_features: features,
+            required_limits: limits,
+            memory_hints: options.memory_hints.clone(),
+            // See https://github.com/gfx-rs/wgpu/issues/5974
+            trace: Trace::Off,
+        })
         .await
         .unwrap();
     let queue = Arc::new(WgpuWrapper::new(queue));

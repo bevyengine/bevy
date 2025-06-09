@@ -1164,7 +1164,7 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     );
     capabilities.set(
         Capabilities::UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS)
+        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS),
     );
     // TODO: This needs a proper wgpu feature
     capabilities.set(

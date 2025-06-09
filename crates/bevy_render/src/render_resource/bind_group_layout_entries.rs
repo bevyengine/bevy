@@ -334,9 +334,7 @@ impl DynamicBindGroupLayoutEntries {
         }
     }
 
-    pub fn new(
-        default_visibility: ShaderStages,
-    ) -> Self {
+    pub fn new(default_visibility: ShaderStages) -> Self {
         Self {
             default_visibility,
             entries: Vec::new(),
@@ -581,12 +579,14 @@ pub mod binding_types {
     pub fn acceleration_structure() -> BindGroupLayoutEntryBuilder {
         BindingType::AccelerationStructure {
             vertex_return: false,
-        }.into_bind_group_layout_entry_builder()
+        }
+        .into_bind_group_layout_entry_builder()
     }
 
     pub fn acceleration_structure_vertex_return() -> BindGroupLayoutEntryBuilder {
         BindingType::AccelerationStructure {
             vertex_return: true,
-        }.into_bind_group_layout_entry_builder()
+        }
+        .into_bind_group_layout_entry_builder()
     }
 }

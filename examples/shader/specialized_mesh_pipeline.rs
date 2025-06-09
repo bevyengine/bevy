@@ -209,7 +209,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
         // This will automatically generate the correct `VertexBufferLayout` based on the vertex attributes
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let mut layout = self.mesh_pipeline
+        let mut layout = self
+            .mesh_pipeline
             .get_view_layout(MeshPipelineViewLayoutKey::from(mesh_key))
             .clone()
             .to_vec();
