@@ -497,7 +497,7 @@ embedded_watcher = ["bevy_internal/embedded_watcher"]
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = [
   "bevy_internal/bevy_debug_stepping",
-  "bevy_internal/debug"
+  "bevy_internal/debug",
 ]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
