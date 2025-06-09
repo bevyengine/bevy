@@ -278,10 +278,10 @@ impl Plugin for UiPlugin {
 
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextNodeFlags;
-    use bevy_text::TextLayoutInfo;
+    use bevy_text::ComputedTextLayout;
     use widget::Text;
 
-    app.register_type::<TextLayoutInfo>()
+    app.register_type::<ComputedTextLayout>()
         .register_type::<TextNodeFlags>()
         .register_type::<Text>();
 

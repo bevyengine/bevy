@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{Font, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -20,32 +20,31 @@ impl Default for CosmicBuffer {
     }
 }
 
-/// A sub-entity of a [`ComputedTextBlock`].
+/// A sub-entity of a [`TextBuffer`].
 ///
-/// Returned by [`ComputedTextBlock::entities`].
+/// Returned by [`TextBuffer::entities`].
 #[derive(Debug, Copy, Clone, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct TextEntity {
     /// The entity.
     pub entity: Entity,
-    /// Records the hierarchy depth of the entity within a `TextLayout`.
+    /// Records the hierarchy depth of the entity within a `TextBuffer`.
     pub depth: usize,
 }
 
 /// Computed information for a text block.
 ///
-/// See [`TextLayout`].
+/// See [`ComputedTextLayout`](crate::ComputedTextLayout).
 ///
 /// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
-pub struct ComputedTextBlock {
-    /// Buffer for managing text layout and creating [`TextLayoutInfo`].
+pub struct TextBuffer {
+    /// Buffer for managing text layout and creating [`ComputedTextLayout`](crate::ComputedTextLayout).
     ///
     /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
-    /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
+    /// `ComputedTextLayout`. If you want to control the buffer contents manually or use the `cosmic-text`
+    /// editor, then you need to manually implement the conversion to `ComputedTextLayout`.
     #[reflect(ignore, clone)]
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
@@ -55,7 +54,7 @@ pub struct ComputedTextBlock {
     /// Flag set when any change has been made to this block that should cause it to be rerendered.
     ///
     /// Includes:
-    /// - [`TextLayout`] changes.
+    /// - Changes to [`JustifyText`] and [`LineBreak`].
     /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
     // TODO: This encompasses both structural changes like font size or justification and non-structural
     // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
@@ -65,16 +64,16 @@ pub struct ComputedTextBlock {
     pub(crate) needs_rerender: bool,
 }
 
-impl ComputedTextBlock {
+impl TextBuffer {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`ComputedTextLayout`](crate::ComputedTextLayout) using the `span_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
     }
 
-    /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
+    /// Indicates if the text needs to be refreshed in [`ComputedTextLayout`](crate::ComputedTextLayout).
     ///
     /// Updated automatically by [`detect_text_needs_rerender`] and cleared
     /// by [`TextPipeline`](crate::TextPipeline) methods.
@@ -86,14 +85,14 @@ impl ComputedTextBlock {
     ///
     /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
     /// If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
+    /// editor, then you need to not use `TextBuffer` and instead manually implement the conversion to
+    /// `ComputedTextLayout`.
     pub fn buffer(&self) -> &CosmicBuffer {
         &self.buffer
     }
 }
 
-impl Default for ComputedTextBlock {
+impl Default for TextBuffer {
     fn default() -> Self {
         Self {
             buffer: CosmicBuffer::default(),
@@ -103,79 +102,19 @@ impl Default for ComputedTextBlock {
     }
 }
 
-/// Component with text format settings for a block of text.
-///
-/// A block of text is composed of text spans, which each have a separate string value and [`TextFont`]. Text
-/// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
-/// to [`TextLayoutInfo`] for rendering.
-///
-/// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
-#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-#[require(ComputedTextBlock, TextLayoutInfo)]
-pub struct TextLayout {
-    /// The text's internal alignment.
-    /// Should not affect its position within a container.
-    pub justify: JustifyText,
-    /// How the text should linebreak when running out of the bounds determined by `max_size`.
-    pub linebreak: LineBreak,
-}
-
-impl TextLayout {
-    /// Makes a new [`TextLayout`].
-    pub const fn new(justify: JustifyText, linebreak: LineBreak) -> Self {
-        Self { justify, linebreak }
-    }
-
-    /// Makes a new [`TextLayout`] with the specified [`JustifyText`].
-    pub fn new_with_justify(justify: JustifyText) -> Self {
-        Self::default().with_justify(justify)
-    }
-
-    /// Makes a new [`TextLayout`] with the specified [`LineBreak`].
-    pub fn new_with_linebreak(linebreak: LineBreak) -> Self {
-        Self::default().with_linebreak(linebreak)
-    }
-
-    /// Makes a new [`TextLayout`] with soft wrapping disabled.
-    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
-    pub fn new_with_no_wrap() -> Self {
-        Self::default().with_no_wrap()
-    }
-
-    /// Returns this [`TextLayout`] with the specified [`JustifyText`].
-    pub const fn with_justify(mut self, justify: JustifyText) -> Self {
-        self.justify = justify;
-        self
-    }
-
-    /// Returns this [`TextLayout`] with the specified [`LineBreak`].
-    pub const fn with_linebreak(mut self, linebreak: LineBreak) -> Self {
-        self.linebreak = linebreak;
-        self
-    }
-
-    /// Returns this [`TextLayout`] with soft wrapping disabled.
-    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
-    pub const fn with_no_wrap(mut self) -> Self {
-        self.linebreak = LineBreak::NoWrap;
-        self
-    }
-}
-
 /// A span of text in a tree of spans.
 ///
-/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
+/// `TextSpan` is only valid as a child of an entity with [`TextBuffer`], which is provided by `Text`
 /// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
 ///
-/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+/// Spans are collected in hierarchy traversal order into a [`TextBuffer`] for layout.
 ///
 /// ```
 /// # use bevy_asset::Handle;
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
+/// # use bevy_text::{Font, TextFont, JustifyText, LineBreak, TextSpan, TextColor};
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -183,7 +122,8 @@ impl TextLayout {
 /// world.spawn((
 ///     // `Text` or `Text2d` are needed, and will provide default instances
 ///     // of the following components.
-///     TextLayout::default(),
+///     JustifyText::default(),
+///     LineBreak::default(),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
 ///         font_size: 60.0,
@@ -244,7 +184,9 @@ impl From<String> for TextSpan {
 ///
 /// _Has no affect on a single line text entity_, unless used together with a
 /// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize, Component,
+)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash)]
 pub enum JustifyText {
     /// Leftmost character is immediately to the right of the render position.
@@ -274,7 +216,7 @@ impl From<JustifyText> for cosmic_text::Align {
     }
 }
 
-/// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
+/// `TextFont` determines the style of a text span within a [`ComputedTextLayout`](crate::ComputedTextLayout), specifically
 /// the font face, the font size, and the color.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -427,7 +369,9 @@ impl TextBackgroundColor {
 }
 
 /// Determines how lines will be broken when preventing text from running out of bounds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize, Component,
+)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
 pub enum LineBreak {
     /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
@@ -470,7 +414,7 @@ pub enum FontSmoothing {
     // SubpixelAntiAliased,
 }
 
-/// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
+/// System that detects changes to text blocks and sets `TextBuffer::should_rerender`.
 ///
 /// Generic over the root text component and text span component. For example, [`Text2d`](crate::Text2d)/[`TextSpan`] for
 /// 2d or `Text`/[`TextSpan`] for UI.
@@ -481,33 +425,32 @@ pub fn detect_text_needs_rerender<Root: Component>(
             Or<(
                 Changed<Root>,
                 Changed<TextFont>,
-                Changed<TextLayout>,
+                Changed<JustifyText>,
+                Changed<LineBreak>,
                 Changed<Children>,
             )>,
             With<Root>,
             With<TextFont>,
-            With<TextLayout>,
+            With<JustifyText>,
+            With<LineBreak>,
         ),
     >,
     changed_spans: Query<
-        (Entity, Option<&ChildOf>, Has<TextLayout>),
+        (Entity, Option<&ChildOf>, Has<JustifyText>, Has<LineBreak>),
         (
             Or<(
                 Changed<TextSpan>,
                 Changed<TextFont>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
-                Added<TextLayout>,
+                Added<JustifyText>,
+                Added<LineBreak>,
             )>,
             With<TextSpan>,
             With<TextFont>,
         ),
     >,
-    mut computed: Query<(
-        Option<&ChildOf>,
-        Option<&mut ComputedTextBlock>,
-        Has<TextSpan>,
-    )>,
+    mut buffers: Query<(Option<&ChildOf>, Option<&mut TextBuffer>, Has<TextSpan>)>,
 ) {
     // Root entity:
     // - Root component changed.
@@ -515,8 +458,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - TextLayout changed.
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
-        let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
+        let Ok((_, Some(mut computed), _)) = buffers.get_mut(root) else {
+            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextLayout; this warning only \
                 prints once", root, core::any::type_name::<Root>()));
             continue;
         };
@@ -527,9 +470,15 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Span component changed.
     // - Span TextFont changed.
     // - Span children changed (can include additions and removals).
-    for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
-        if has_text_block {
-            once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
+    for (entity, maybe_span_child_of, has_justify_text, has_line_break) in changed_spans.iter() {
+        if has_justify_text {
+            once!(warn!("found entity {} with a TextSpan that has a JustifyText, which should only be on root \
+                text entities (that have {}); this warning only prints once",
+                entity, core::any::type_name::<Root>()));
+        }
+
+        if has_line_break {
+            once!(warn!("found entity {} with a TextSpan that has a LineBreak, which should only be on root \
                 text entities (that have {}); this warning only prints once",
                 entity, core::any::type_name::<Root>()));
         }
@@ -545,11 +494,11 @@ pub fn detect_text_needs_rerender<Root: Component>(
         };
         let mut parent: Entity = span_child_of.parent();
 
-        // Search for the nearest ancestor with ComputedTextBlock.
+        // Search for the nearest ancestor with TextBuffer.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
         // is outweighed by the expense of tracking visited spans.
         loop {
-            let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
+            let Ok((maybe_child_of, maybe_computed, has_span)) = buffers.get_mut(parent) else {
                 once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
                     component that points at non-existent entity {}; this warning only prints once",
                     entity, parent));
@@ -561,7 +510,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
             }
             if !has_span {
                 once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
-                span component or a ComputedTextBlock component; this warning only prints once",
+                span component or a TextBuffer component; this warning only prints once",
                     entity, parent));
                 break;
             }

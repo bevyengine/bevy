@@ -21,7 +21,7 @@ pub struct MeasureArgs<'a> {
     pub available_width: AvailableSpace,
     pub available_height: AvailableSpace,
     pub font_system: &'a mut CosmicFontSystem,
-    pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
+    pub buffer: Option<&'a mut bevy_text::TextBuffer>,
 }
 
 /// A `Measure` is used to compute the size of a ui node

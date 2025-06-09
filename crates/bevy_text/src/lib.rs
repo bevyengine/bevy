@@ -26,7 +26,7 @@
 //! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlasSet`]s if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
-//! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
+//! 3. [`PositionedGlyph`]s are stored in a [`ComputedTextLayout`],
 //!    which contains all the information that downstream systems need for rendering.
 
 extern crate alloc;
@@ -62,7 +62,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Font, JustifyText, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
-        TextFont, TextLayout, TextSpan,
+        TextFont, TextSpan,
     };
 }
 
@@ -105,8 +105,9 @@ impl Plugin for TextPlugin {
             .register_type::<TextBackgroundColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
-            .register_type::<TextLayout>()
-            .register_type::<ComputedTextBlock>()
+            .register_type::<JustifyText>()
+            .register_type::<LineBreak>()
+            .register_type::<TextBuffer>()
             .register_type::<TextEntity>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()

@@ -46,21 +46,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text2d::new("translation"),
         text_font.clone(),
-        TextLayout::new_with_justify(text_justification),
+        text_justification,
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
     commands.spawn((
         Text2d::new("rotation"),
         text_font.clone(),
-        TextLayout::new_with_justify(text_justification),
+        text_justification,
         AnimateRotation,
     ));
     // Demonstrate changing scale
     commands.spawn((
         Text2d::new("scale"),
         text_font,
-        TextLayout::new_with_justify(text_justification),
+        text_justification,
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
         AnimateScale,
     ));
@@ -78,7 +78,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![(
             Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
             slightly_smaller_text_font.clone(),
-            TextLayout::new(JustifyText::Left, LineBreak::WordBoundary),
+            JustifyText::Left,
+            LineBreak::WordBoundary,
             // Wrap text in the rectangle
             TextBounds::from(box_size),
             // Ensure the text is drawn on top of the box
@@ -94,7 +95,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![(
             Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
             slightly_smaller_text_font.clone(),
-            TextLayout::new(JustifyText::Left, LineBreak::AnyCharacter),
+            JustifyText::Left,
+            LineBreak::AnyCharacter,
             // Wrap text in the rectangle
             TextBounds::from(other_box_size),
             // Ensure the text is drawn on top of the box
@@ -108,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         slightly_smaller_text_font
             .clone()
             .with_font_smoothing(FontSmoothing::None),
-        TextLayout::new_with_justify(JustifyText::Center),
+        JustifyText::Center,
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
     ));
 

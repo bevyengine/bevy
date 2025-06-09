@@ -16,8 +16,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    error::TextError, Font, FontAtlasSets, FontSmoothing, JustifyText, LineBreak, PositionedGlyph,
+    TextBounds, TextBuffer, TextEntity, TextFont,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -91,7 +91,7 @@ impl TextPipeline {
         justify: JustifyText,
         bounds: TextBounds,
         scale_factor: f64,
-        computed: &mut ComputedTextBlock,
+        text_buffer: &mut TextBuffer,
         font_system: &mut CosmicFontSystem,
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
@@ -106,11 +106,11 @@ impl TextPipeline {
                 .map(|_| -> (usize, &str, &TextFont, FontFaceInfo, Color) { unreachable!() })
                 .collect();
 
-        computed.entities.clear();
+        text_buffer.entities.clear();
 
         for (span_index, (entity, depth, span, text_font, color)) in text_spans.enumerate() {
             // Save this span entity in the computed text block.
-            computed.entities.push(TextEntity { entity, depth });
+            text_buffer.entities.push(TextEntity { entity, depth });
 
             if span.is_empty() {
                 continue;
@@ -176,7 +176,7 @@ impl TextPipeline {
             });
 
         // Update the buffer.
-        let buffer = &mut computed.buffer;
+        let buffer = &mut text_buffer.buffer;
         buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
 
         buffer.set_wrap(
@@ -219,20 +219,21 @@ impl TextPipeline {
 
     /// Queues text for rendering
     ///
-    /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
+    /// Produces a [`ComputedTextLayout`], containing [`PositionedGlyph`]s
     /// which contain information for rendering the text.
     pub fn queue_text<'a>(
         &mut self,
-        layout_info: &mut TextLayoutInfo,
+        layout_info: &mut ComputedTextLayout,
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
         scale_factor: f64,
-        layout: &TextLayout,
+        linebreak: LineBreak,
+        justify: JustifyText,
         bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
-        computed: &mut ComputedTextBlock,
+        computed: &mut TextBuffer,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
@@ -253,8 +254,8 @@ impl TextPipeline {
         let update_result = self.update_buffer(
             fonts,
             text_spans,
-            layout.linebreak,
-            layout.justify,
+            linebreak,
+            justify,
             bounds,
             scale_factor,
             computed,
@@ -396,8 +397,9 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
         scale_factor: f64,
-        layout: &TextLayout,
-        computed: &mut ComputedTextBlock,
+        linebreak: LineBreak,
+        justify: JustifyText,
+        computed: &mut TextBuffer,
         font_system: &mut CosmicFontSystem,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
@@ -409,8 +411,8 @@ impl TextPipeline {
         self.update_buffer(
             fonts,
             text_spans,
-            layout.linebreak,
-            layout.justify,
+            linebreak,
+            justify,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,
             computed,
@@ -445,10 +447,10 @@ impl TextPipeline {
 /// Render information for a corresponding text block.
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
-/// [`TextLayout`] and [`ComputedTextBlock`] components.
+/// [`JustifyText`], [`LineBreak`] and [`TextBuffer`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-pub struct TextLayoutInfo {
+pub struct ComputedTextLayout {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
     /// Rects bounding the text block's text sections.
@@ -458,7 +460,7 @@ pub struct TextLayoutInfo {
     pub size: Vec2,
 }
 
-/// Size information for a corresponding [`ComputedTextBlock`] component.
+/// Size information for a corresponding [`TextBuffer`] component.
 ///
 /// Generated via [`TextPipeline::create_text_measure`].
 #[derive(Debug)]
@@ -476,7 +478,7 @@ impl TextMeasureInfo {
     pub fn compute_size(
         &mut self,
         bounds: TextBounds,
-        computed: &mut ComputedTextBlock,
+        computed: &mut TextBuffer,
         font_system: &mut CosmicFontSystem,
     ) -> Vec2 {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'

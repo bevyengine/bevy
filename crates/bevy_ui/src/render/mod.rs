@@ -54,9 +54,7 @@ use gradient::GradientPlugin;
 
 use crate::{Display, Node};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
-};
+use bevy_text::{ComputedTextLayout, PositionedGlyph, TextBackgroundColor, TextBuffer, TextColor};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
@@ -816,8 +814,8 @@ pub fn extract_text_sections(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
-            &ComputedTextBlock,
-            &TextLayoutInfo,
+            &TextBuffer,
+            &ComputedTextLayout,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -914,7 +912,7 @@ pub fn extract_text_shadows(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &TextLayoutInfo,
+            &ComputedTextLayout,
             &TextShadow,
         )>,
     >,
@@ -1002,7 +1000,7 @@ pub fn extract_text_background_colors(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
-            &TextLayoutInfo,
+            &ComputedTextLayout,
         )>,
     >,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
