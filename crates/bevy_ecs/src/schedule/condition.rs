@@ -16,12 +16,13 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// [`System<Out = bool>`](System), [`System<Out = Result<(), BevyError>>`](System) or
 /// [`System<Out = Result<bool, BevyError>>`](System).
 ///
-/// `SystemCondition` is typically used with [`run_if`](crate::schedule::IntoScheduleConfigs::run_if)
-/// as in `system.run_if(condition)` where `condition` implements `SystemCondition`.
-/// Depending on the output type of `condition`:
-/// - `bool`: `system` will run if and only if `condition` returns true;
-/// - `Result<(), BevyError>`: `system` will run if and only if `condition` returns `Ok(())`
-/// - `Result<bool, BevyError>`: `system` will run if and only if `condition` returns `Ok(true)`
+/// `SystemCondition` offers a private method
+/// (called by [`run_if`](crate::schedule::IntoScheduleConfigs::run_if) and the provided methods)
+/// that converts the implementing system into a condition (system) returning a bool.
+/// Depending on the output type of the implementing system:
+/// - `bool`: the implementing system is used as the condition;
+/// - `Result<(), BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(())`;
+/// - `Result<bool, BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(true)`.
 ///
 /// # Marker type parameter
 ///
@@ -86,20 +87,20 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # #[derive(Component)] struct Foo;
-/// fn single_foo(q_foo: Query<(), With<Foo>>) -> Result {
-///     Ok(q_foo.single()?)
+/// # #[derive(Component)] struct Player;
+/// fn player_exists(q_player: Query<(), With<Player>>) -> Result {
+///     Ok(q_player.single()?)
 /// }
 ///
 /// # let mut app = Schedule::default();
 /// # #[derive(Resource)] struct DidRun(bool);
 /// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// app.add_systems(my_system.run_if(single_foo));
+/// app.add_systems(my_system.run_if(player_exists));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(!world.resource::<DidRun>().0);
-/// # world.spawn(Foo);
+/// # world.spawn(Player);
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
 pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
