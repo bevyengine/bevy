@@ -1418,25 +1418,23 @@ impl ScheduleGraph {
             if system_a.is_exclusive() || system_b.is_exclusive() {
                 conflicting_systems.push((a, b, Vec::new()));
             } else {
-                let access_a = system_a.component_access();
-                let access_b = system_b.component_access();
-                if !access_a.is_compatible(access_b) {
-                    match access_a.get_conflicts(access_b) {
-                        AccessConflicts::Individual(conflicts) => {
-                            let conflicts: Vec<_> = conflicts
-                                .ones()
-                                .map(ComponentId::get_sparse_set_index)
-                                .filter(|id| !ignored_ambiguities.contains(id))
-                                .collect();
-                            if !conflicts.is_empty() {
-                                conflicting_systems.push((a, b, conflicts));
-                            }
+                let access_a = system_a.component_access_set();
+                let access_b = system_b.component_access_set();
+                match access_a.get_conflicts(access_b) {
+                    AccessConflicts::Individual(conflicts) => {
+                        let conflicts: Vec<_> = conflicts
+                            .ones()
+                            .map(ComponentId::get_sparse_set_index)
+                            .filter(|id| !ignored_ambiguities.contains(id))
+                            .collect();
+                        if !conflicts.is_empty() {
+                            conflicting_systems.push((a, b, conflicts));
                         }
-                        AccessConflicts::All => {
-                            // there is no specific component conflicting, but the systems are overall incompatible
-                            // for example 2 systems with `Query<EntityMut>`
-                            conflicting_systems.push((a, b, Vec::new()));
-                        }
+                    }
+                    AccessConflicts::All => {
+                        // there is no specific component conflicting, but the systems are overall incompatible
+                        // for example 2 systems with `Query<EntityMut>`
+                        conflicting_systems.push((a, b, Vec::new()));
                     }
                 }
             }

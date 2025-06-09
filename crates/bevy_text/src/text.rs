@@ -116,19 +116,19 @@ impl Default for ComputedTextBlock {
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
-    pub justify: JustifyText,
+    pub justify: Justify,
     /// How the text should linebreak when running out of the bounds determined by `max_size`.
     pub linebreak: LineBreak,
 }
 
 impl TextLayout {
     /// Makes a new [`TextLayout`].
-    pub const fn new(justify: JustifyText, linebreak: LineBreak) -> Self {
+    pub const fn new(justify: Justify, linebreak: LineBreak) -> Self {
         Self { justify, linebreak }
     }
 
-    /// Makes a new [`TextLayout`] with the specified [`JustifyText`].
-    pub fn new_with_justify(justify: JustifyText) -> Self {
+    /// Makes a new [`TextLayout`] with the specified [`Justify`].
+    pub fn new_with_justify(justify: Justify) -> Self {
         Self::default().with_justify(justify)
     }
 
@@ -143,8 +143,8 @@ impl TextLayout {
         Self::default().with_no_wrap()
     }
 
-    /// Returns this [`TextLayout`] with the specified [`JustifyText`].
-    pub const fn with_justify(mut self, justify: JustifyText) -> Self {
+    /// Returns this [`TextLayout`] with the specified [`Justify`].
+    pub const fn with_justify(mut self, justify: Justify) -> Self {
         self.justify = justify;
         self
     }
@@ -246,7 +246,7 @@ impl From<String> for TextSpan {
 /// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash)]
-pub enum JustifyText {
+pub enum Justify {
     /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
     #[default]
@@ -263,13 +263,13 @@ pub enum JustifyText {
     Justified,
 }
 
-impl From<JustifyText> for cosmic_text::Align {
-    fn from(justify: JustifyText) -> Self {
+impl From<Justify> for cosmic_text::Align {
+    fn from(justify: Justify) -> Self {
         match justify {
-            JustifyText::Left => cosmic_text::Align::Left,
-            JustifyText::Center => cosmic_text::Align::Center,
-            JustifyText::Right => cosmic_text::Align::Right,
-            JustifyText::Justified => cosmic_text::Align::Justified,
+            Justify::Left => cosmic_text::Align::Left,
+            Justify::Center => cosmic_text::Align::Center,
+            Justify::Right => cosmic_text::Align::Right,
+            Justify::Justified => cosmic_text::Align::Justified,
         }
     }
 }
