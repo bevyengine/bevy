@@ -457,6 +457,7 @@ impl<'w> EntityMut<'w> {
     /// - `cell` must have permission to mutate every component of the entity.
     /// - No accesses to any of the entity's components may exist
     ///   at the same time as the returned [`EntityMut`].
+    #[inline]
     pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
         Self { cell }
     }
@@ -1010,6 +1011,7 @@ impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
 }
 
 impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
+    #[inline]
     fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe { EntityMut::new(entity.as_unsafe_entity_cell()) }
@@ -1122,6 +1124,7 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
+    #[inline(always)]
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
         let location = self.location();
         let last_change_tick = self.world.last_change_tick;
@@ -1134,6 +1137,8 @@ impl<'w> EntityWorldMut<'w> {
             change_tick,
         )
     }
+
+    #[inline(always)]
     fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         let location = self.location();
         let last_change_tick = self.world.last_change_tick;
@@ -1146,6 +1151,8 @@ impl<'w> EntityWorldMut<'w> {
             change_tick,
         )
     }
+
+    #[inline(always)]
     fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
         let location = self.location();
         let last_change_tick = self.world.last_change_tick;
@@ -1188,6 +1195,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Gets read-only access to all of the entity's components.
+    #[inline]
     pub fn as_readonly(&self) -> EntityRef<'_> {
         EntityRef::from(self)
     }
@@ -1199,6 +1207,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Gets non-structural mutable access to all of the entity's components.
+    #[inline]
     pub fn as_mutable(&mut self) -> EntityMut<'_> {
         EntityMut::from(self)
     }
@@ -3279,7 +3288,11 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
+        let id = self
+            .entity
+            .world()
+            .components()
+            .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_read(id)
             // SAFETY: We have read access
@@ -3293,7 +3306,11 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
-        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
+        let id = self
+            .entity
+            .world()
+            .components()
+            .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_read(id)
             // SAFETY: We have read access
@@ -3305,7 +3322,11 @@ impl<'w> FilteredEntityRef<'w> {
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
+        let id = self
+            .entity
+            .world()
+            .components()
+            .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_read(id)
             // SAFETY: We have read access
@@ -3637,7 +3658,11 @@ impl<'w> FilteredEntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
-        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
+        let id = self
+            .entity
+            .world()
+            .components()
+            .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
             // SAFETY: We have write access
@@ -3665,7 +3690,11 @@ impl<'w> FilteredEntityMut<'w> {
     /// - `T` must be a mutable component
     #[inline]
     pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
-        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
+        let id = self
+            .entity
+            .world()
+            .components()
+            .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
             // SAFETY:
@@ -3895,7 +3924,7 @@ where
         C: Component,
     {
         let components = self.entity.world().components();
-        let id = components.component_id::<C>()?;
+        let id = components.valid_component_id::<C>()?;
         if bundle_contains_component::<B>(components, id) {
             None
         } else {
@@ -3915,7 +3944,7 @@ where
         C: Component,
     {
         let components = self.entity.world().components();
-        let id = components.component_id::<C>()?;
+        let id = components.valid_component_id::<C>()?;
         if bundle_contains_component::<B>(components, id) {
             None
         } else {
@@ -3995,7 +4024,11 @@ where
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        let component_id = self.entity.world().components().get_id(TypeId::of::<T>())?;
+        let component_id = self
+            .entity
+            .world()
+            .components()
+            .get_valid_id(TypeId::of::<T>())?;
         let components = self.entity.world().components();
         (!bundle_contains_component::<B>(components, component_id))
             .then(|| {
@@ -4164,7 +4197,7 @@ where
         C: Component<Mutability = Mutable>,
     {
         let components = self.entity.world().components();
-        let id = components.component_id::<C>()?;
+        let id = components.valid_component_id::<C>()?;
         if bundle_contains_component::<B>(components, id) {
             None
         } else {
@@ -4747,7 +4780,7 @@ mod tests {
         let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
-            .get_id(core::any::TypeId::of::<TestComponent>())
+            .get_valid_id(core::any::TypeId::of::<TestComponent>())
             .unwrap();
 
         let entity = world.entity(entity);
@@ -4764,7 +4797,7 @@ mod tests {
         let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
-            .get_id(core::any::TypeId::of::<TestComponent>())
+            .get_valid_id(core::any::TypeId::of::<TestComponent>())
             .unwrap();
 
         let mut entity_mut = world.entity_mut(entity);

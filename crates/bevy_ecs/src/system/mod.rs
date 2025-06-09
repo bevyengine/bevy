@@ -1630,7 +1630,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_world_and_entity_mut_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_world_and_entity_mut_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001"
     )]
     fn assert_world_and_entity_mut_system_does_conflict_first() {
         fn system(_query: &World, _q2: Query<EntityMut>) {}
@@ -1648,7 +1648,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_ref_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_ref_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001"
     )]
     fn assert_entity_ref_and_entity_mut_system_does_conflict() {
         fn system(_query: Query<EntityRef>, _q2: Query<EntityMut>) {}
@@ -1657,7 +1657,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001"
     )]
     fn assert_entity_mut_system_does_conflict() {
         fn system(_query: Query<EntityMut>, _q2: Query<EntityMut>) {}
@@ -1666,7 +1666,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "error[B0001]: Query<EntityRef, ()> in system bevy_ecs::system::tests::assert_deferred_world_and_entity_ref_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+        expected = "error[B0001]: Query<EntityRef, ()> in system bevy_ecs::system::tests::assert_deferred_world_and_entity_ref_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001"
     )]
     fn assert_deferred_world_and_entity_ref_system_does_conflict_first() {
         fn system(_world: DeferredWorld, _query: Query<EntityRef>) {}
