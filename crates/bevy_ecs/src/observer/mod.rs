@@ -68,7 +68,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
-    /// be [`Entity::PLACEHOLDER`].
+    /// be [`None`] if the trigger is not for a particular entity.
     ///
     /// Observable events can target specific entities. When those events fire, they will trigger
     /// any observers on the targeted entities. In this case, the `target()` and `observer()` are
