@@ -1060,6 +1060,7 @@ pub fn camera_system(
 #[reflect(opaque)]
 #[reflect(Component, Default, Clone)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
+
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
         Self(
@@ -1067,6 +1068,13 @@ impl Default for CameraMainTextureUsages {
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
         )
+    }
+}
+
+impl CameraMainTextureUsages {
+    pub fn with(mut self, usages: TextureUsages) -> Self {
+        self.0 |= usages;
+        self
     }
 }
 
