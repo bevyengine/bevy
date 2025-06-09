@@ -20,9 +20,9 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_observer(on_insert_pressed)
+        .add_observer(on_add_pressed)
         .add_observer(on_remove_pressed)
-        .add_observer(on_insert_disabled)
+        .add_observer(on_add_disabled)
         .add_observer(on_remove_disabled)
         .add_observer(on_change_hover)
         .add_systems(Update, toggle_disabled)
@@ -37,8 +37,8 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 #[derive(Component)]
 struct DemoButton;
 
-fn on_insert_pressed(
-    trigger: Trigger<OnInsert, Depressed>,
+fn on_add_pressed(
+    trigger: Trigger<OnAdd, Depressed>,
     mut buttons: Query<
         (
             &IsHovered,
@@ -95,8 +95,8 @@ fn on_remove_pressed(
     }
 }
 
-fn on_insert_disabled(
-    trigger: Trigger<OnInsert, InteractionDisabled>,
+fn on_add_disabled(
+    trigger: Trigger<OnAdd, InteractionDisabled>,
     mut buttons: Query<
         (
             Has<Depressed>,

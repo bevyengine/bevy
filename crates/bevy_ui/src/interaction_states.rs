@@ -3,7 +3,7 @@ use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
     component::Component,
     observer::Trigger,
-    world::{DeferredWorld, OnInsert, OnRemove},
+    world::{DeferredWorld, OnAdd, OnInsert, OnRemove},
 };
 
 /// A component indicating that a widget is disabled and should be "grayed out".
@@ -17,8 +17,8 @@ use bevy_ecs::{
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct InteractionDisabled;
 
-pub(crate) fn on_insert_disabled(
-    trigger: Trigger<OnInsert, InteractionDisabled>,
+pub(crate) fn on_add_disabled(
+    trigger: Trigger<OnAdd, InteractionDisabled>,
     mut world: DeferredWorld,
 ) {
     let mut entity = world.entity_mut(trigger.target());
