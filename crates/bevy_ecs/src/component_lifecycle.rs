@@ -103,7 +103,7 @@ pub struct HookContext {
 /// 1. Defining the relevant hooks on the [`Component`] implementation
 /// 2. Using the [`World::register_component_hooks`] method
 ///
-/// # Example 2
+/// # Example
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
