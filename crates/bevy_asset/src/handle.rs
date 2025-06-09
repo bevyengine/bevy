@@ -148,8 +148,9 @@ impl<A: Asset> serde::Serialize for Handle<A> {
     {
         match self.path() {
             Some(asset_path) => asset_path.serialize(serializer),
-            // Maybe this should be an error?
-            None => AssetPath::default().serialize(serializer),
+            None => Err(serde::ser::Error::custom(
+                "only handles with asset paths can be serialized",
+            )),
         }
     }
 }
