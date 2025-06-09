@@ -847,8 +847,7 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform = global_transform.affine()
-            * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
+        let transform = global_transform.affine();
 
         for (
             i,
@@ -945,9 +944,7 @@ pub fn extract_text_shadows(
         };
 
         let transform = global_transform.affine()
-            * Mat4::from_translation(
-                (-0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor()).extend(0.),
-            );
+            * Mat4::from_translation((shadow.offset / uinode.inverse_scale_factor()).extend(0.));
 
         for (
             i,
