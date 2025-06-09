@@ -7,7 +7,7 @@ use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 
-/// A pair of [`Val`]s used to representin a 2-dimensional size or offset.
+/// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
