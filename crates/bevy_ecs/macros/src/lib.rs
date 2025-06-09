@@ -1,4 +1,5 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+//! Macros for deriving ECS traits.
+
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 extern crate proc_macro;
@@ -29,12 +30,13 @@ enum BundleFieldKind {
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 
+/// Implement the `Bundle` trait.
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match get_struct_fields(&ast.data) {
+    let named_fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
         Ok(fields) => fields,
         Err(e) => return e.into_compile_error().into(),
     };
@@ -187,16 +189,19 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Implement the `MapEntities` trait.
 #[proc_macro_derive(MapEntities, attributes(entities))]
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
+
     let map_entities_impl = map_entities(
         &ast.data,
         Ident::new("self", Span::call_site()),
         false,
         false,
     );
+
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     TokenStream::from(quote! {
@@ -240,7 +245,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .as_ref()
             .map(|f| quote! { #f })
             .unwrap_or_else(|| quote! { #i });
-        field_names.push(format!("::{}", field_value));
+        field_names.push(format!("::{field_value}"));
         fields.push(field_value);
         field_types.push(&field.ty);
         let mut field_message = None;
@@ -430,11 +435,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                unsafe fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                    unsafe { <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta) }
-                }
-
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
@@ -445,7 +445,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
                 #[inline]
                 unsafe fn validate_param<'w, 's>(
-                    state: &'s Self::State,
+                    state: &'s mut Self::State,
                     _system_meta: &#path::system::SystemMeta,
                     _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                 ) -> Result<(), #path::system::SystemParamValidationError> {
@@ -503,12 +503,10 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
-    let mut dyn_eq_path = trait_path.clone();
     trait_path
         .segments
         .push(format_ident!("ScheduleLabel").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "ScheduleLabel", &trait_path, &dyn_eq_path)
+    derive_label(input, "ScheduleLabel", &trait_path)
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.
@@ -519,26 +517,27 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
-    let mut dyn_eq_path = trait_path.clone();
     trait_path.segments.push(format_ident!("SystemSet").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "SystemSet", &trait_path, &dyn_eq_path)
+    derive_label(input, "SystemSet", &trait_path)
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_ecs")
 }
 
+/// Implement the `Event` trait.
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
 
+/// Implement the `Resource` trait.
 #[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
+/// Implement the `Component` trait.
 #[proc_macro_derive(
     Component,
     attributes(component, require, relationship, relationship_target, entities)
@@ -547,6 +546,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
 
+/// Implement the `FromWorld` trait.
 #[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let bevy_ecs_path = bevy_ecs_path();

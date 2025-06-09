@@ -39,14 +39,14 @@ impl Display for ErrorContext {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::System { name, .. } => {
-                write!(f, "System `{}` failed", name)
+                write!(f, "System `{name}` failed")
             }
-            Self::Command { name } => write!(f, "Command `{}` failed", name),
+            Self::Command { name } => write!(f, "Command `{name}` failed"),
             Self::Observer { name, .. } => {
-                write!(f, "Observer `{}` failed", name)
+                write!(f, "Observer `{name}` failed")
             }
             Self::RunCondition { name, .. } => {
-                write!(f, "Run condition `{}` failed", name)
+                write!(f, "Run condition `{name}` failed")
             }
         }
     }

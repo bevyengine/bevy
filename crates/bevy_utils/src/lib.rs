@@ -1,13 +1,13 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
 //! General utilities for first-party [Bevy] engine crates.
 //!
-//! [Bevy]: https://bevyengine.org/
+//! [Bevy]: https://bevy.org/
 
 /// Configuration information for this crate.
 pub mod cfg {
@@ -46,8 +46,8 @@ pub mod prelude {
     pub use crate::default;
 }
 
-pub mod synccell;
-pub mod syncunsafecell;
+#[cfg(feature = "wgpu_wrapper")]
+mod wgpu_wrapper;
 
 mod default;
 mod once;
@@ -56,6 +56,9 @@ mod once;
 pub use once::OnceFlag;
 
 pub use default::default;
+
+#[cfg(feature = "wgpu_wrapper")]
+pub use wgpu_wrapper::WgpuWrapper;
 
 use core::mem::ManuallyDrop;
 

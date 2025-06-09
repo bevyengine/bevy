@@ -7,7 +7,7 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::embedded_asset;
 use bevy_ecs::{
     component::Component,
     query::{QueryItem, With},
@@ -19,7 +19,7 @@ use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, ShaderType, SpecializedRenderPipelines},
+    render_resource::{ShaderType, SpecializedRenderPipelines},
     Render, RenderApp, RenderSystems,
 };
 
@@ -126,19 +126,12 @@ pub struct MotionBlurUniform {
     _webgl2_padding: bevy_math::Vec2,
 }
 
-pub const MOTION_BLUR_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d9ca74af-fa0a-4f11-b0f2-19613b618b93");
-
 /// Adds support for per-object motion blur to the app. See [`MotionBlur`] for details.
 pub struct MotionBlurPlugin;
 impl Plugin for MotionBlurPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            MOTION_BLUR_SHADER_HANDLE,
-            "motion_blur.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "motion_blur.wgsl");
+
         app.add_plugins((
             ExtractComponentPlugin::<MotionBlur>::default(),
             UniformComponentPlugin::<MotionBlurUniform>::default(),

@@ -610,12 +610,11 @@ pub mod common_conditions {
     }
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
-    /// if the resource of the given type has had its value changed since the condition
-    /// was last checked.
+    /// if the resource of the given type has been added or mutably dereferenced
+    /// since the condition was last checked.
     ///
-    /// The value is considered changed when it is added. The first time this condition
-    /// is checked after the resource was added, it will return `true`.
-    /// Change detection behaves like this everywhere in Bevy.
+    /// **Note** that simply *mutably dereferencing* a resource is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare resources to their previous values.
     ///
     /// # Panics
     ///
@@ -664,14 +663,11 @@ pub mod common_conditions {
     }
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
-    /// if the resource of the given type has had its value changed since the condition
+    /// if the resource of the given type has been added or mutably dereferenced since the condition
     /// was last checked.
     ///
-    /// The value is considered changed when it is added. The first time this condition
-    /// is checked after the resource was added, it will return `true`.
-    /// Change detection behaves like this everywhere in Bevy.
-    ///
-    /// This run condition does not detect when the resource is removed.
+    /// **Note** that simply *mutably dereferencing* a resource is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare resources to their previous values.
     ///
     /// The condition will return `false` if the resource does not exist.
     ///
@@ -724,15 +720,11 @@ pub mod common_conditions {
     }
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
-    /// if the resource of the given type has had its value changed since the condition
+    /// if the resource of the given type has been added, removed or mutably dereferenced since the condition
     /// was last checked.
     ///
-    /// The value is considered changed when it is added. The first time this condition
-    /// is checked after the resource was added, it will return `true`.
-    /// Change detection behaves like this everywhere in Bevy.
-    ///
-    /// This run condition also detects removal. It will return `true` if the resource
-    /// has been removed since the run condition was last checked.
+    /// **Note** that simply *mutably dereferencing* a resource is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare resources to their previous values.
     ///
     /// The condition will return `false` if the resource does not exist.
     ///

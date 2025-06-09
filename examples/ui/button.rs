@@ -44,7 +44,7 @@ fn button_system(
                 input_focus.set(entity);
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = RED.into();
+                *border_color = BorderColor::all(RED.into());
 
                 // The accessibility system's only update the button's state when the `Button` component is marked as changed.
                 button.set_changed();
@@ -53,14 +53,14 @@ fn button_system(
                 input_focus.set(entity);
                 **text = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                *border_color = BorderColor::all(Color::WHITE);
                 button.set_changed();
             }
             Interaction::None => {
                 input_focus.clear();
                 **text = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
+                *border_color = BorderColor::all(Color::BLACK);
             }
         }
     }
@@ -93,7 +93,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle + use<> {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
             BorderRadius::MAX,
             BackgroundColor(NORMAL_BUTTON),
             children![(

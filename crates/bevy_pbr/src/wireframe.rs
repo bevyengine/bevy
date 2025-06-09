@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
-    load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp,
+    embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, Assets, Handle, UntypedAssetId,
 };
 use bevy_color::{Color, ColorToComponents};
@@ -56,9 +56,6 @@ use bevy_render::{
 use core::{hash::Hash, ops::Range};
 use tracing::error;
 
-pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("2646a633-f8e3-4380-87ae-b44d881abbce");
-
 /// A [`Plugin`] that draws wireframes.
 ///
 /// Wireframes currently do not work when using webgl or webgpu.
@@ -83,12 +80,7 @@ impl WireframePlugin {
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            WIREFRAME_SHADER_HANDLE,
-            "render/wireframe.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "render/wireframe.wgsl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::new(self.debug_flags),
@@ -341,7 +333,7 @@ impl FromWorld for Wireframe3dPipeline {
     fn from_world(render_world: &mut World) -> Self {
         Wireframe3dPipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: WIREFRAME_SHADER_HANDLE,
+            shader: load_embedded_asset!(render_world, "render/wireframe.wgsl"),
         }
     }
 }

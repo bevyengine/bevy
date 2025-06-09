@@ -32,7 +32,7 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeId, ArchetypeRow, Archetypes},
+    archetype::{ArchetypeId, Archetypes},
     bundle::{
         Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
@@ -43,7 +43,7 @@ use crate::{
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
-    entity::{Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
@@ -299,7 +299,7 @@ impl World {
         &mut self,
         id: ComponentId,
     ) -> Option<&mut ComponentHooks> {
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {:?} may already be in use", id);
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {id:?} may already be in use");
         self.components.get_hooks_mut(id)
     }
 
@@ -531,7 +531,7 @@ impl World {
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
     pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
-        let id = self.components().component_id::<C>()?;
+        let id = self.components().valid_component_id::<C>()?;
         let component_info = self.components().get_info(id)?;
         Some(component_info.required_components())
     }
@@ -960,18 +960,8 @@ impl World {
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
         self.archetypes.iter().flat_map(|archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(|(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(|(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
                     let cell = UnsafeEntityCell::new(
                         self.as_unsafe_world_cell_readonly(),
@@ -993,18 +983,8 @@ impl World {
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(move |(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(move |(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
                     let cell = UnsafeEntityCell::new(
                         world_cell,
@@ -1174,16 +1154,15 @@ impl World {
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
         // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-        let (mut entity_location, after_effect) =
+        let (entity_location, after_effect) =
             unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+
+        let mut entity_location = Some(entity_location);
 
         // SAFETY: command_queue is not referenced anywhere else
         if !unsafe { self.command_queue.is_empty() } {
             self.flush();
-            entity_location = self
-                .entities()
-                .get(entity)
-                .unwrap_or(EntityLocation::INVALID);
+            entity_location = self.entities().get(entity);
         }
 
         // SAFETY: entity and location are valid, as they were just created above
@@ -1206,10 +1185,11 @@ impl World {
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
         let change_tick = self.change_tick();
+        self.entities.set(entity.index(), Some(location));
         self.entities
-            .set_spawn_despawn(entity.index(), location, caller, change_tick);
+            .mark_spawn_despawn(entity.index(), caller, change_tick);
 
-        EntityWorldMut::new(self, entity, location)
+        EntityWorldMut::new(self, entity, Some(location))
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
@@ -1643,7 +1623,7 @@ impl World {
     /// since the last call to [`World::clear_trackers`].
     pub fn removed<T: Component>(&self) -> impl Iterator<Item = Entity> + '_ {
         self.components
-            .get_id(TypeId::of::<T>())
+            .get_valid_id(TypeId::of::<T>())
             .map(|component_id| self.removed_with_id(component_id))
             .into_iter()
             .flatten()
@@ -1792,7 +1772,7 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
@@ -1811,7 +1791,7 @@ impl World {
     /// thread than where the value was inserted from.
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self
             .storages
             .non_send_resources
@@ -1825,7 +1805,7 @@ impl World {
     #[inline]
     pub fn contains_resource<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
             .is_some_and(ResourceData::is_present)
     }
@@ -1843,7 +1823,7 @@ impl World {
     #[inline]
     pub fn contains_non_send<R: 'static>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
             .is_some_and(ResourceData::is_present)
     }
@@ -1866,7 +1846,7 @@ impl World {
     ///   was called.
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .is_some_and(|component_id| self.is_resource_added_by_id(component_id))
     }
 
@@ -1897,7 +1877,7 @@ impl World {
     ///   was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .is_some_and(|component_id| self.is_resource_changed_by_id(component_id))
     }
 
@@ -1922,7 +1902,7 @@ impl World {
     /// Retrieves the change ticks for the given resource.
     pub fn get_resource_change_ticks<R: Resource>(&self) -> Option<ComponentTicks> {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.get_resource_change_ticks_by_id(component_id))
     }
 
@@ -2359,11 +2339,11 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevy.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevy.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
             }
         }
     }
@@ -2578,7 +2558,7 @@ impl World {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, mut ticks, mut caller) = self
             .storages
             .resources
@@ -2710,12 +2690,9 @@ impl World {
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
         self.flush_components();
-        let archetypes = &mut self.archetypes;
         self.storages
             .resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// # Panics
@@ -2726,28 +2703,32 @@ impl World {
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
         self.flush_components();
-        let archetypes = &mut self.archetypes;
         self.storages
             .non_send_resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [`Component`].
+    #[track_caller]
     pub(crate) fn flush_entities(&mut self) {
+        let by = MaybeLocation::caller();
+        let at = self.change_tick();
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
         // PERF: consider pre-allocating space for flushed entities
         // SAFETY: entity is set to a valid location
         unsafe {
-            self.entities.flush(|entity, location| {
-                // SAFETY: no components are allocated by archetype.allocate() because the archetype
-                // is empty
-                *location = empty_archetype.allocate(entity, table.allocate(entity));
-            });
+            self.entities.flush(
+                |entity, location| {
+                    // SAFETY: no components are allocated by archetype.allocate() because the archetype
+                    // is empty
+                    *location = Some(empty_archetype.allocate(entity, table.allocate(entity)));
+                },
+                by,
+                at,
+            );
         }
     }
 
@@ -2782,6 +2763,7 @@ impl World {
     ///
     /// Queued entities will be spawned, and then commands will be applied.
     #[inline]
+    #[track_caller]
     pub fn flush(&mut self) {
         self.flush_entities();
         self.flush_components();
@@ -3768,7 +3750,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(TypeId::of::<TestResource>())
+            .get_valid_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -3784,7 +3766,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(TypeId::of::<TestResource>())
+            .get_valid_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         {
