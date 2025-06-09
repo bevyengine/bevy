@@ -447,13 +447,11 @@ impl RemovedComponentEvents {
 ///
 /// This acts effectively the same as an [`EventReader`](crate::event::EventReader).
 ///
-/// Note that this does not allow you to see which data existed before removal.
-/// If you need this, you will need to track the component data value on your own,
-/// using a regularly scheduled system that requests `Query<(Entity, &T), Changed<T>>`
-/// and stores the data somewhere safe to later cross-reference.
+/// Unlike hooks or observers (see the [lifecycle](crate) module docs),
+/// this does not allow you to see which data existed before removal.
 ///
 /// If you are using `bevy_ecs` as a standalone crate,
-/// note that the `RemovedComponents` list will not be automatically cleared for you,
+/// note that the [`RemovedComponents`] list will not be automatically cleared for you,
 /// and will need to be manually flushed using [`World::clear_trackers`](World::clear_trackers).
 ///
 /// For users of `bevy` and `bevy_app`, [`World::clear_trackers`](World::clear_trackers) is
