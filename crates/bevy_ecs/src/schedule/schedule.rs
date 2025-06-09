@@ -4,13 +4,11 @@
 )]
 #[cfg(feature = "debug")]
 use alloc::borrow::Cow;
-#[cfg(feature = "debug")]
-use alloc::string::ToString;
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
     format,
-    string::String,
+    string::{String, ToString},
     vec,
     vec::Vec,
 };
@@ -29,8 +27,6 @@ use log::error;
 #[cfg(feature = "debug")]
 use log::{info, warn};
 use pass::ScheduleBuildPassObj;
-#[cfg(not(feature = "debug"))]
-use std::string::ToString;
 use thiserror::Error;
 #[cfg(all(feature = "trace", feature = "debug"))]
 use tracing::info_span;
