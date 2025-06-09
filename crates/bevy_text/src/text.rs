@@ -354,8 +354,8 @@ impl Default for TextFont {
 /// Specifies the height of each line of text for `Text` and `Text2d`
 ///
 /// Default is 1.2x the font size
-#[derive(Debug, Clone, Copy, Reflect)]
-#[reflect(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels
     Px(f32),
