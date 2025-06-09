@@ -99,7 +99,7 @@ pub struct HookContext {
 ///
 /// This information is stored in the [`ComponentInfo`] of the associated component.
 ///
-/// There is two ways of configuring hooks for a component:
+/// There are two ways of configuring hooks for a component:
 /// 1. Defining the relevant hooks on the [`Component`] implementation
 /// 2. Using the [`World::register_component_hooks`] method
 ///
