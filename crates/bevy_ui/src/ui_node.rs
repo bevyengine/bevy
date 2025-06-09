@@ -2796,6 +2796,8 @@ impl ComputedNodeTarget {
 }
 
 /// Adds a shadow behind text
+///
+/// Not supported by `Text2d`
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextShadow {
