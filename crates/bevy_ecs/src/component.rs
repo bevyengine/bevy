@@ -375,7 +375,8 @@ use thiserror::Error;
 /// - `#[component(on_remove = on_remove_function)]`
 ///
 /// ```
-/// # use bevy_ecs::component::{Component, HookContext};
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::lifecycle::HookContext;
 /// # use bevy_ecs::world::DeferredWorld;
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::component::ComponentId;
@@ -404,7 +405,8 @@ use thiserror::Error;
 /// This also supports function calls that yield closures
 ///
 /// ```
-/// # use bevy_ecs::component::{Component, HookContext};
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::lifecycle::HookContext;
 /// # use bevy_ecs::world::DeferredWorld;
 /// #
 /// #[derive(Component)]
