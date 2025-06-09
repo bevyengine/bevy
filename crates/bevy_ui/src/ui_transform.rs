@@ -21,7 +21,7 @@ pub struct Val2 {
     /// `Val::Auto` is resolved to `0.`.
     pub x: Val,
     /// Translate the node along the y-axis.
-    /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
+    /// `Val::Percent` values are resolved based on the computed height of the UI Node.
     /// `Val::Auto` is resolved to `0.`.
     pub y: Val,
 }
