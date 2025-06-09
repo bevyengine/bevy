@@ -127,16 +127,9 @@ where
         self.name.clone()
     }
 
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> super::SystemStateFlags {
+        self.system.flags()
     }
 
     #[inline]

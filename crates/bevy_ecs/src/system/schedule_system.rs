@@ -8,7 +8,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
-use super::{IntoSystem, SystemParamValidationError};
+use super::{IntoSystem, SystemParamValidationError, SystemStateFlags};
 
 /// A wrapper system to change a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
 pub struct InfallibleSystemWrapper<S: System<In = ()>>(S);
@@ -34,18 +34,8 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn is_send(&self) -> bool {
-        self.0.is_send()
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        self.0.is_exclusive()
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
-        self.0.has_deferred()
+    fn flags(&self) -> SystemStateFlags {
+        self.0.flags()
     }
 
     #[inline]
@@ -154,16 +144,9 @@ where
         self.system.name()
     }
 
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
     }
 
     unsafe fn run_unsafe(
@@ -255,16 +238,9 @@ where
         self.system.name()
     }
 
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
     }
 
     unsafe fn run_unsafe(

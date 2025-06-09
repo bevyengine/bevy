@@ -2,6 +2,7 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17353."
 )]
+use bitflags::bitflags;
 use core::fmt::Debug;
 use log::warn;
 use thiserror::Error;
@@ -19,6 +20,18 @@ use core::any::TypeId;
 
 use super::{IntoSystem, SystemParamValidationError};
 
+bitflags! {
+    /// Bitflags representing system states and requirements.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct SystemStateFlags: u8 {
+        /// Set if system cannot be sent across threads
+        const NON_SEND       = 1 << 0;
+        /// Set if system requires exclusive World access
+        const EXCLUSIVE      = 1 << 1;
+        /// Set if system has deferred buffers.
+        const DEFERRED       = 1 << 2;
+    }
+}
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
 /// Systems are functions with all arguments implementing
@@ -44,14 +57,26 @@ pub trait System: Send + Sync + 'static {
         TypeId::of::<Self>()
     }
 
+    /// Returns the [`SystemStateFlags`] of the system.
+    fn flags(&self) -> SystemStateFlags;
+
     /// Returns true if the system is [`Send`].
-    fn is_send(&self) -> bool;
+    #[inline]
+    fn is_send(&self) -> bool {
+        !self.flags().intersects(SystemStateFlags::NON_SEND)
+    }
 
     /// Returns true if the system must be run exclusively.
-    fn is_exclusive(&self) -> bool;
+    #[inline]
+    fn is_exclusive(&self) -> bool {
+        self.flags().intersects(SystemStateFlags::EXCLUSIVE)
+    }
 
     /// Returns true if system has deferred buffers.
-    fn has_deferred(&self) -> bool;
+    #[inline]
+    fn has_deferred(&self) -> bool {
+        self.flags().intersects(SystemStateFlags::DEFERRED)
+    }
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// can be called in parallel with other systems and may break Rust's aliasing rules

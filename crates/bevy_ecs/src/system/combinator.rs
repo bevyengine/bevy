@@ -142,16 +142,9 @@ where
         self.name.clone()
     }
 
-    fn is_send(&self) -> bool {
-        self.a.is_send() && self.b.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.a.is_exclusive() || self.b.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.a.has_deferred() || self.b.has_deferred()
+    #[inline]
+    fn flags(&self) -> super::SystemStateFlags {
+        self.a.flags() | self.b.flags()
     }
 
     unsafe fn run_unsafe(
@@ -352,16 +345,9 @@ where
         self.name.clone()
     }
 
-    fn is_send(&self) -> bool {
-        self.a.is_send() && self.b.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.a.is_exclusive() || self.b.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.a.has_deferred() || self.b.has_deferred()
+    #[inline]
+    fn flags(&self) -> super::SystemStateFlags {
+        self.a.flags() | self.b.flags()
     }
 
     unsafe fn run_unsafe(
