@@ -2,12 +2,12 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17353."
 )]
+use bitflags::bitflags;
 use core::fmt::Debug;
 use log::warn;
 use thiserror::Error;
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     query::{Access, FilteredAccessSet},
     schedule::InternedSystemSet,
@@ -20,6 +20,18 @@ use core::any::TypeId;
 
 use super::{IntoSystem, SystemParamValidationError};
 
+bitflags! {
+    /// Bitflags representing system states and requirements.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct SystemStateFlags: u8 {
+        /// Set if system cannot be sent across threads
+        const NON_SEND       = 1 << 0;
+        /// Set if system requires exclusive World access
+        const EXCLUSIVE      = 1 << 1;
+        /// Set if system has deferred buffers.
+        const DEFERRED       = 1 << 2;
+    }
+}
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
 /// Systems are functions with all arguments implementing
@@ -51,16 +63,26 @@ pub trait System: Send + Sync + 'static {
     /// Returns the system's component [`FilteredAccessSet`].
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId>;
 
-    /// Returns the system's archetype component [`Access`].
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
+    /// Returns the [`SystemStateFlags`] of the system.
+    fn flags(&self) -> SystemStateFlags;
+
     /// Returns true if the system is [`Send`].
-    fn is_send(&self) -> bool;
+    #[inline]
+    fn is_send(&self) -> bool {
+        !self.flags().intersects(SystemStateFlags::NON_SEND)
+    }
 
     /// Returns true if the system must be run exclusively.
-    fn is_exclusive(&self) -> bool;
+    #[inline]
+    fn is_exclusive(&self) -> bool {
+        self.flags().intersects(SystemStateFlags::EXCLUSIVE)
+    }
 
     /// Returns true if system has deferred buffers.
-    fn has_deferred(&self) -> bool;
+    #[inline]
+    fn has_deferred(&self) -> bool {
+        self.flags().intersects(SystemStateFlags::DEFERRED)
+    }
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// can be called in parallel with other systems and may break Rust's aliasing rules
@@ -72,15 +94,16 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `archetype_component_access`. There must be no conflicting
+    ///   registered in `component_access_set`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
     ///   [`UnsafeWorldCell::world_mut`] on `world`.
-    /// - The method [`System::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
-    ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
         -> Self::Out;
+
+    /// Refresh the inner pointer based on the latest hot patch jump table
+    #[cfg(feature = "hotpatching")]
+    fn refresh_hotpatch(&mut self);
 
     /// Runs the system with the given input in the world.
     ///
@@ -104,10 +127,8 @@ pub trait System: Send + Sync + 'static {
         world: &mut World,
     ) -> Self::Out {
         let world_cell = world.as_unsafe_world_cell();
-        self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world_cell) }
     }
 
@@ -134,11 +155,8 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `archetype_component_access`. There must be no conflicting
+    ///   registered in `component_access_set`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - The method [`System::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
-    ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn validate_param_unsafe(
         &mut self,
         world: UnsafeWorldCell,
@@ -148,22 +166,13 @@ pub trait System: Send + Sync + 'static {
     /// that runs on exclusive, single-threaded `world` pointer.
     fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
         let world_cell = world.as_unsafe_world_cell_readonly();
-        self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.validate_param_unsafe(world_cell) }
     }
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
-
-    /// Update the system's archetype component [`Access`].
-    ///
-    /// ## Note for implementers
-    /// `world` may only be used to access metadata. This can be done in safe code
-    /// via functions such as [`UnsafeWorldCell::archetypes`].
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -210,10 +219,8 @@ pub unsafe trait ReadOnlySystem: System {
     /// since this system is known not to modify the world.
     fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Self::Out {
         let world = world.as_unsafe_world_cell_readonly();
-        self.update_archetype_component_access(world);
         // SAFETY:
         // - We have read-only access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
 }
@@ -474,7 +481,7 @@ mod tests {
         let result = world.run_system_once(system);
 
         assert!(matches!(result, Err(RunSystemError::InvalidParams { .. })));
-        let expected = "System bevy_ecs::system::system::tests::run_system_once_invalid_params::system did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist";
+        let expected = "System bevy_ecs::system::system::tests::run_system_once_invalid_params::system did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `When<T>` to skip the system when it happens.";
         assert_eq!(expected, result.unwrap_err().to_string());
     }
 }

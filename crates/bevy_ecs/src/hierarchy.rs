@@ -440,11 +440,11 @@ pub fn validate_parent_has_component<C: Component>(
         let name: Option<String> = None;
         warn!(
             "warning[B0004]: {}{name} with the {ty_name} component has a parent without {ty_name}.\n\
-            This will cause inconsistent behaviors! See: https://bevyengine.org/learn/errors/b0004",
+            This will cause inconsistent behaviors! See: https://bevy.org/learn/errors/b0004",
             caller.map(|c| format!("{c}: ")).unwrap_or_default(),
             ty_name = ShortName::of::<C>(),
             name = name.map_or_else(
-                || format!("Entity {}", entity),
+                || format!("Entity {entity}"),
                 |s| format!("The {s} entity")
             ),
         );

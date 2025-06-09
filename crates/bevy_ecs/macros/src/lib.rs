@@ -1,4 +1,5 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+//! Macros for deriving ECS traits.
+
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 extern crate proc_macro;
@@ -29,6 +30,7 @@ enum BundleFieldKind {
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 
+/// Implement the `Bundle` trait.
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -187,6 +189,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Implement the `MapEntities` trait.
 #[proc_macro_derive(MapEntities, attributes(entities))]
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -242,7 +245,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .as_ref()
             .map(|f| quote! { #f })
             .unwrap_or_else(|| quote! { #i });
-        field_names.push(format!("::{}", field_value));
+        field_names.push(format!("::{field_value}"));
         fields.push(field_value);
         field_types.push(&field.ty);
         let mut field_message = None;
@@ -432,11 +435,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                unsafe fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                    unsafe { <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta) }
-                }
-
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
@@ -447,7 +445,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
                 #[inline]
                 unsafe fn validate_param<'w, 's>(
-                    state: &'s Self::State,
+                    state: &'s mut Self::State,
                     _system_meta: &#path::system::SystemMeta,
                     _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                 ) -> Result<(), #path::system::SystemParamValidationError> {
@@ -527,16 +525,19 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_ecs")
 }
 
+/// Implement the `Event` trait.
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
 
+/// Implement the `Resource` trait.
 #[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
+/// Implement the `Component` trait.
 #[proc_macro_derive(
     Component,
     attributes(component, require, relationship, relationship_target, entities)
@@ -545,6 +546,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
 
+/// Implement the `FromWorld` trait.
 #[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let bevy_ecs_path = bevy_ecs_path();

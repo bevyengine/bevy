@@ -281,6 +281,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[2D on Bevy UI](../examples/camera/2d_on_ui.rs) | Shows how to render 2D objects on top of Bevy UI
 [2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
 [Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
@@ -319,6 +320,7 @@ Example | Description
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
+[Hotpatching Systems](../examples/ecs/hotpatching_systems.rs) | Demonstrates how to hotpatch systems
 [Immutable Components](../examples/ecs/immutable_components.rs) | Demonstrates the creation and utility of immutable components
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
@@ -553,7 +555,6 @@ Example | Description
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
-[Radial Gradients](../examples/ui/radial_gradients.rs) | An example demonstrating radial gradients
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
 [Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers
@@ -580,6 +581,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Context Menu](../examples/usages/context_menu.rs) | Example of a context menu
 [Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
 
 ## Window
@@ -804,7 +806,7 @@ In browsers, audio is not authorized to start without being triggered by an user
 
 On the web, it's useful to reduce the size of the files that are distributed.
 With rust, there are many ways to improve your executable sizes, starting with
-the steps described in [the quick-start guide](https://bevyengine.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
+the steps described in [the quick-start guide](https://bevy.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:
 

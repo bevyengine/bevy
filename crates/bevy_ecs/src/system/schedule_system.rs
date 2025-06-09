@@ -1,7 +1,6 @@
 use alloc::{borrow::Cow, vec::Vec};
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::Result,
     query::{Access, FilteredAccessSet},
@@ -9,7 +8,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
-use super::{IntoSystem, SystemParamValidationError};
+use super::{IntoSystem, SystemParamValidationError, SystemStateFlags};
 
 /// A wrapper system to change a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
 pub struct InfallibleSystemWrapper<S: System<In = ()>>(S);
@@ -44,24 +43,9 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
         self.0.component_access_set()
     }
 
-    #[inline(always)]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.0.archetype_component_access()
-    }
-
     #[inline]
-    fn is_send(&self) -> bool {
-        self.0.is_send()
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        self.0.is_exclusive()
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
-        self.0.has_deferred()
+    fn flags(&self) -> SystemStateFlags {
+        self.0.flags()
     }
 
     #[inline]
@@ -72,6 +56,12 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     ) -> Self::Out {
         self.0.run_unsafe(input, world);
         Ok(())
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.0.refresh_hotpatch();
     }
 
     #[inline]
@@ -95,11 +85,6 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.0.initialize(world);
-    }
-
-    #[inline]
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.0.update_archetype_component_access(world);
     }
 
     #[inline]
@@ -177,20 +162,9 @@ where
         self.system.component_access_set()
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.system.archetype_component_access()
-    }
-
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
     }
 
     unsafe fn run_unsafe(
@@ -199,6 +173,12 @@ where
         world: UnsafeWorldCell,
     ) -> Self::Out {
         self.system.run_unsafe(&mut self.value, world)
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
     }
 
     fn apply_deferred(&mut self, world: &mut World) {
@@ -218,10 +198,6 @@ where
 
     fn initialize(&mut self, world: &mut World) {
         self.system.initialize(world);
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {
@@ -288,20 +264,9 @@ where
         self.system.component_access_set()
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.system.archetype_component_access()
-    }
-
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
     }
 
     unsafe fn run_unsafe(
@@ -314,6 +279,12 @@ where
             .as_mut()
             .expect("System input value was not found. Did you forget to initialize the system before running it?");
         self.system.run_unsafe(value, world)
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
     }
 
     fn apply_deferred(&mut self, world: &mut World) {
@@ -336,10 +307,6 @@ where
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {

@@ -2,7 +2,6 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::marker::PhantomData;
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::Result,
     never::Never,
@@ -128,23 +127,8 @@ where
     }
 
     #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.observer.archetype_component_access()
-    }
-
-    #[inline]
-    fn is_send(&self) -> bool {
-        self.observer.is_send()
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        self.observer.is_exclusive()
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
-        self.observer.has_deferred()
+    fn flags(&self) -> super::SystemStateFlags {
+        self.observer.flags()
     }
 
     #[inline]
@@ -155,6 +139,12 @@ where
     ) -> Self::Out {
         self.observer.run_unsafe(input, world);
         Ok(())
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.observer.refresh_hotpatch();
     }
 
     #[inline]
@@ -178,11 +168,6 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.observer.initialize(world);
-    }
-
-    #[inline]
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.observer.update_archetype_component_access(world);
     }
 
     #[inline]

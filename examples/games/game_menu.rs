@@ -101,7 +101,7 @@ mod splash {
         time: Res<Time>,
         mut timer: ResMut<SplashTimer>,
     ) {
-        if timer.tick(time.delta()).finished() {
+        if timer.tick(time.delta()).is_finished() {
             game_state.set(GameState::Menu);
         }
     }
@@ -215,7 +215,7 @@ mod game {
         mut game_state: ResMut<NextState<GameState>>,
         mut timer: ResMut<GameTimer>,
     ) {
-        if timer.tick(time.delta()).finished() {
+        if timer.tick(time.delta()).is_finished() {
             game_state.set(GameState::Menu);
         }
     }

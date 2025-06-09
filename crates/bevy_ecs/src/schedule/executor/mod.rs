@@ -15,13 +15,12 @@ pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
     query::{Access, FilteredAccessSet},
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
-    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError},
+    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -172,31 +171,9 @@ impl System for ApplyDeferred {
         const { &FilteredAccessSet::new() }
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        // This system accesses no archetype components.
-        const { &Access::new() }
-    }
-
-    fn is_send(&self) -> bool {
-        // Although this system itself does nothing on its own, the system
-        // executor uses it to apply deferred commands. Commands must be allowed
-        // to access non-send resources, so this system must be non-send for
-        // scheduling purposes.
-        false
-    }
-
-    fn is_exclusive(&self) -> bool {
-        // This system is labeled exclusive because it is used by the system
-        // executor to find places where deferred commands should be applied,
-        // and commands can only be applied with exclusive access to the world.
-        true
-    }
-
-    fn has_deferred(&self) -> bool {
-        // This system itself doesn't have any commands to apply, but when it
-        // is pulled from the schedule to be ran, the executor will apply
-        // deferred commands from other systems.
-        false
+    fn flags(&self) -> SystemStateFlags {
+        // non-send , exclusive , no deferred
+        SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
     }
 
     unsafe fn run_unsafe(
@@ -208,6 +185,10 @@ impl System for ApplyDeferred {
         // commands from other systems instead of running this system.
         Ok(())
     }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {}
 
     fn run(&mut self, _input: SystemIn<'_, Self>, _world: &mut World) -> Self::Out {
         // This system does nothing on its own. The executor will apply deferred
@@ -229,8 +210,6 @@ impl System for ApplyDeferred {
     }
 
     fn initialize(&mut self, _world: &mut World) {}
-
-    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
 
     fn check_change_tick(&mut self, _change_tick: Tick) {}
 
@@ -370,7 +349,7 @@ mod tests {
     #[expect(clippy::print_stdout, reason = "std and println are allowed in tests")]
     fn single_and_populated_skipped_and_run() {
         for executor in EXECUTORS {
-            std::println!("Testing executor: {:?}", executor);
+            std::println!("Testing executor: {executor:?}");
 
             let mut world = World::new();
             world.init_resource::<TestState>();

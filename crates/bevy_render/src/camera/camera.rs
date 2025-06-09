@@ -1109,6 +1109,7 @@ pub fn extract_cameras(
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
+            Option<&MipBias>,
             Option<&RenderLayers>,
             Option<&Projection>,
             Has<NoIndirectDrawing>,
@@ -1131,6 +1132,7 @@ pub fn extract_cameras(
         color_grading,
         exposure,
         temporal_jitter,
+        mip_bias,
         render_layers,
         projection,
         no_indirect_drawing,
@@ -1142,6 +1144,7 @@ pub fn extract_cameras(
                 ExtractedView,
                 RenderVisibleEntities,
                 TemporalJitter,
+                MipBias,
                 RenderLayers,
                 Projection,
                 NoIndirectDrawing,
@@ -1228,14 +1231,26 @@ pub fn extract_cameras(
 
             if let Some(temporal_jitter) = temporal_jitter {
                 commands.insert(temporal_jitter.clone());
+            } else {
+                commands.remove::<TemporalJitter>();
+            }
+
+            if let Some(mip_bias) = mip_bias {
+                commands.insert(mip_bias.clone());
+            } else {
+                commands.remove::<MipBias>();
             }
 
             if let Some(render_layers) = render_layers {
                 commands.insert(render_layers.clone());
+            } else {
+                commands.remove::<RenderLayers>();
             }
 
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
+            } else {
+                commands.remove::<Projection>();
             }
 
             if no_indirect_drawing
@@ -1245,6 +1260,8 @@ pub fn extract_cameras(
                 )
             {
                 commands.insert(NoIndirectDrawing);
+            } else {
+                commands.remove::<NoIndirectDrawing>();
             }
         };
     }
@@ -1345,6 +1362,12 @@ impl TemporalJitter {
 /// Camera component specifying a mip bias to apply when sampling from material textures.
 ///
 /// Often used in conjunction with antialiasing post-process effects to reduce textures blurriness.
-#[derive(Default, Component, Reflect)]
+#[derive(Component, Reflect, Clone)]
 #[reflect(Default, Component)]
 pub struct MipBias(pub f32);
+
+impl Default for MipBias {
+    fn default() -> Self {
+        Self(-1.0)
+    }
+}

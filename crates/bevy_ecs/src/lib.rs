@@ -13,8 +13,8 @@
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -58,6 +58,9 @@ pub mod traversal;
 pub mod world;
 
 pub use bevy_ptr as ptr;
+
+#[cfg(feature = "hotpatching")]
+use event::Event;
 
 /// The ECS prelude.
 ///
@@ -122,6 +125,13 @@ pub mod __macro_exports {
     // to `Vec` in `no_std` and `std` contexts.
     pub use alloc::vec::Vec;
 }
+
+/// Event sent when a hotpatch happens.
+///
+/// Systems should refresh their inner pointers.
+#[cfg(feature = "hotpatching")]
+#[derive(Event, Default)]
+pub struct HotPatched;
 
 #[cfg(test)]
 mod tests {
@@ -1228,7 +1238,6 @@ mod tests {
             .components()
             .get_resource_id(TypeId::of::<Num>())
             .unwrap();
-        let archetype_component_id = world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(world.resource::<Num>().0, 123);
         assert!(world.contains_resource::<Num>());
@@ -1289,14 +1298,6 @@ mod tests {
         assert_eq!(
             resource_id, current_resource_id,
             "resource id does not change after removing / re-adding"
-        );
-
-        let current_archetype_component_id =
-            world.storages().resources.get(resource_id).unwrap().id();
-
-        assert_eq!(
-            archetype_component_id, current_archetype_component_id,
-            "resource archetype component id does not change after removing / re-adding"
         );
     }
 

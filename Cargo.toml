@@ -5,7 +5,7 @@ edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
@@ -72,6 +72,7 @@ allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
+mismatched_lifetime_syntaxes = "allow"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
@@ -543,6 +544,9 @@ libm = ["bevy_internal/libm"]
 # Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_internal/web"]
 
+# Enable hotpatching of Bevy systems
+hotpatching = ["bevy_internal/hotpatching"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
@@ -590,6 +594,17 @@ ureq = { version = "3.0.8", features = ["json"] }
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
+
+[[example]]
+name = "context_menu"
+path = "examples/usages/context_menu.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.context_menu]
+name = "Context Menu"
+description = "Example of a context menu"
+category = "Usage"
+wasm = true
 
 [[example]]
 name = "hello_world"
@@ -3462,17 +3477,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "radial_gradients"
-path = "examples/ui/radial_gradients.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.radial_gradients]
-name = "Radial Gradients"
-description = "An example demonstrating radial gradients"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "scroll"
 path = "examples/ui/scroll.rs"
 doc-scrape-examples = true
@@ -3943,6 +3947,16 @@ description = "A simple 2D screen shake effect"
 category = "Camera"
 wasm = true
 
+[[example]]
+name = "2d_on_ui"
+path = "examples/camera/2d_on_ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_on_ui]
+name = "2D on Bevy UI"
+description = "Shows how to render 2D objects on top of Bevy UI"
+category = "Camera"
+wasm = true
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
@@ -4422,3 +4436,15 @@ name = "Cooldown"
 description = "Example for cooldown on button clicks"
 category = "Usage"
 wasm = true
+
+[[example]]
+name = "hotpatching_systems"
+path = "examples/ecs/hotpatching_systems.rs"
+doc-scrape-examples = true
+required-features = ["hotpatching"]
+
+[package.metadata.example.hotpatching_systems]
+name = "Hotpatching Systems"
+description = "Demonstrates how to hotpatch systems"
+category = "ECS (Entity Component System)"
+wasm = false
