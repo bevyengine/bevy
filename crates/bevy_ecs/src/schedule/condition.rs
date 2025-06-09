@@ -11,8 +11,17 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
-/// Implemented for functions and closures that convert into [`System<Out=bool>`](System)
-/// with [read-only](crate::system::ReadOnlySystemParam) parameters.
+/// `SystemCondition` is sealed and implemented for functions and closures with
+/// [read-only](crate::system::ReadOnlySystemParam) parameters that convert into
+/// [`System<Out = bool>`](System), [`System<Out = Result<(), BevyError>>`](System) or
+/// [`System<Out = Result<bool, BevyError>>`](System).
+///
+/// `SystemCondition` is typically used with [`run_if`](crate::schedule::IntoScheduleConfigs::run_if)
+/// as in `system.run_if(condition)` where `condition` implements `SystemCondition`.
+/// Depending on the output type of `condition`:
+/// - `bool`: `system` will run if and only if `condition` returns true;
+/// - `Result<(), BevyError>`: `system` will run if and only if `condition` returns `Ok(())`
+/// - `Result<bool, BevyError>`: `system` will run if and only if `condition` returns `Ok(true)`
 ///
 /// # Marker type parameter
 ///
@@ -31,7 +40,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// ```
 ///
 /// # Examples
-/// A condition that returns true every other time it's called.
+/// A condition that returns `true` every other time it's called.
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn every_other_time() -> impl SystemCondition<()> {
@@ -54,7 +63,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # assert!(!world.resource::<DidRun>().0);
 /// ```
 ///
-/// A condition that takes a bool as an input and returns it unchanged.
+/// A condition that takes a `bool` as an input and returns it unchanged.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -69,6 +78,28 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// app.add_systems(my_system.run_if(always_true.pipe(identity())));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
+/// # app.run(&mut world);
+/// # assert!(world.resource::<DidRun>().0);
+/// ```
+///
+/// A condition returning a `Result<(), BevyError>`
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)] struct Foo;
+/// fn single_foo(q_foo: Query<(), With<Foo>>) -> Result {
+///     Ok(q_foo.single()?)
+/// }
+///
+/// # let mut app = Schedule::default();
+/// # #[derive(Resource)] struct DidRun(bool);
+/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
+/// app.add_systems(my_system.run_if(single_foo));
+/// # let mut world = World::new();
+/// # world.insert_resource(DidRun(false));
+/// # app.run(&mut world);
+/// # assert!(!world.resource::<DidRun>().0);
+/// # world.spawn(Foo);
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
 pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
