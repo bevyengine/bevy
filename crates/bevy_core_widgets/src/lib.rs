@@ -22,6 +22,6 @@ pub struct CoreWidgetsPlugin;
 
 impl Plugin for CoreWidgetsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((CoreButtonPlugin,));
+        app.add_plugins(CoreButtonPlugin);
     }
 }
