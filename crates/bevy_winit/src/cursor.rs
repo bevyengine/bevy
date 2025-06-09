@@ -194,7 +194,7 @@ fn update_cursors(
 fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
-        .entity(trigger.target())
+        .entity(trigger.target().unwrap())
         .try_insert(PendingCursor(Some(CursorSource::System(
             convert_system_cursor_icon(SystemCursorIcon::Default),
         ))));

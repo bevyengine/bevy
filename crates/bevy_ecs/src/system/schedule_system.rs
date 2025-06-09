@@ -3,7 +3,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use crate::{
     component::{ComponentId, Tick},
     error::Result,
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     system::{input::SystemIn, BoxedSystem, System, SystemInput},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
@@ -31,11 +31,6 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
 
     fn type_id(&self) -> core::any::TypeId {
         self.0.type_id()
-    }
-
-    #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.0.component_access()
     }
 
     #[inline]
@@ -154,10 +149,6 @@ where
         self.system.name()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system.component_access()
-    }
-
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
         self.system.component_access_set()
     }
@@ -254,10 +245,6 @@ where
 
     fn name(&self) -> Cow<'static, str> {
         self.system.name()
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system.component_access()
     }
 
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
