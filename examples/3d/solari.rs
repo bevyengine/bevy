@@ -71,7 +71,7 @@ fn add_raytracing_meshes_on_scene_load(
         }
     }
 
-    for descendant in children.iter_descendants(trigger.target()) {
+    for descendant in children.iter_descendants(trigger.target().unwrap()) {
         if let Ok(mesh) = mesh.get(descendant) {
             commands
                 .entity(descendant)
