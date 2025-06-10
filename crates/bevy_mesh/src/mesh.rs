@@ -125,8 +125,11 @@ pub struct Mesh {
     /// This field just controls whether or not a BLAS gets built for this mesh, assuming that
     /// the mesh is compatible.
     ///
-    /// The use case for this field is setting it to true for low resolution proxy meshes you want to use for raytracing,
-    /// and false for higher resolution versions of the mesh that you want to use for raster.
+    /// The use case for this field is using lower-resolution proxy meshes for raytracing (to save on BLAS memory usage),
+    /// while using higher-resolution meshes for raster. You can set this field to true for the lower-resolution proxy mesh,
+    /// and to false for the high-resolution raster mesh.
+    ///
+    /// Alternatively, you can use the same mesh for both raster and raytracing, with this field set to true.
     ///
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
