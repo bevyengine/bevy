@@ -471,6 +471,7 @@ impl<A: Asset> Assets<A> {
         // SAFETY: Each value has been fully initialized.
         let values = values.map(|x| unsafe { x.assume_init().map(|raw| &mut *raw) });
         Some(values)
+    }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
     ///
