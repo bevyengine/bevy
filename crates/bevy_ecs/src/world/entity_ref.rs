@@ -14,15 +14,13 @@ use crate::{
         EntityIdLocation, EntityLocation,
     },
     event::Event,
+    lifecycle::{ON_DESPAWN, ON_REMOVE, ON_REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
     resource::Resource,
     system::IntoObserverSystem,
-    world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World,
-        ON_DESPAWN, ON_REMOVE, ON_REPLACE,
-    },
+    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -4756,7 +4754,8 @@ mod tests {
     use core::panic::AssertUnwindSafe;
     use std::sync::OnceLock;
 
-    use crate::component::{HookContext, Tick};
+    use crate::component::Tick;
+    use crate::lifecycle::HookContext;
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,

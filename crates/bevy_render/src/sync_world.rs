@@ -1,6 +1,7 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHash;
+use bevy_ecs::lifecycle::{OnAdd, OnRemove};
 use bevy_ecs::{
     component::Component,
     entity::{ContainsEntity, Entity, EntityEquivalent},
@@ -9,7 +10,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     system::{Local, Query, ResMut, SystemState},
-    world::{Mut, OnAdd, OnRemove, World},
+    world::{Mut, World},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -490,10 +491,11 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
+        lifecycle::{OnAdd, OnRemove},
         observer::Trigger,
         query::With,
         system::{Query, ResMut},
-        world::{OnAdd, OnRemove, World},
+        world::World,
     };
 
     use super::{

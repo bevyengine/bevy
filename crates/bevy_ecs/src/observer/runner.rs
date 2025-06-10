@@ -2,8 +2,9 @@ use alloc::{boxed::Box, vec};
 use core::any::Any;
 
 use crate::{
-    component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
+    component::{ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
+    lifecycle::{ComponentHook, HookContext},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -410,7 +411,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
 }
 
-/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::component::ComponentHooks::on_add`).
+/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::lifecycle::ComponentHooks::on_add`).
 ///
 /// This function exists separate from [`Observer`] to allow [`Observer`] to have its type parameters
 /// erased.

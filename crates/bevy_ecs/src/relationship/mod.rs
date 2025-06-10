@@ -11,9 +11,10 @@ pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
 use crate::{
-    component::{Component, HookContext, Mutable},
+    component::{Component, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     error::{ignore, CommandWithEntity, HandleError},
+    lifecycle::HookContext,
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
