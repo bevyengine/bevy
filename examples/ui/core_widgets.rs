@@ -3,6 +3,7 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{CoreButton, CoreWidgetsPlugin},
+    ecs::system::SystemId,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex},
         InputDispatchPlugin,
@@ -12,7 +13,6 @@ use bevy::{
     ui::{Depressed, InteractionDisabled},
     winit::WinitSettings,
 };
-use bevy_ecs::system::SystemId;
 
 fn main() {
     App::new()
