@@ -297,7 +297,7 @@ fn merge_interaction_states(
 /// complex widgets can have this component added to each hoverable part.
 ///
 /// The computational cost of keeping the `IsHovered` components up to date is relatively cheap, and
-/// linear in the number of entities that have the `IsHovered` component inserted.
+/// linear in the number of entities that have the [`IsHovered`] component inserted.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[component(immutable)]
