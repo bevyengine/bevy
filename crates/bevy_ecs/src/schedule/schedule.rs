@@ -167,7 +167,7 @@ impl Schedules {
             writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
         }
 
-        info!("{}", message);
+        info!("{message}");
     }
 
     /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
@@ -559,7 +559,7 @@ impl Schedule {
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub fn check_change_ticks(&mut self, change_tick: Tick) {
         for SystemWithAccess { system, .. } in &mut self.executable.systems {
             if !is_apply_deferred(system) {
                 system.check_change_tick(change_tick);
@@ -1765,10 +1765,7 @@ impl ScheduleGraph {
         match self.settings.hierarchy_detection {
             LogLevel::Ignore => unreachable!(),
             LogLevel::Warn => {
-                error!(
-                    "Schedule {schedule_label:?} has redundant edges:\n {}",
-                    message
-                );
+                error!("Schedule {schedule_label:?} has redundant edges:\n {message}");
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::HierarchyRedundancy(message)),
@@ -1970,7 +1967,7 @@ impl ScheduleGraph {
         match self.settings.ambiguity_detection {
             LogLevel::Ignore => Ok(()),
             LogLevel::Warn => {
-                warn!("Schedule {schedule_label:?} has ambiguities.\n{}", message);
+                warn!("Schedule {schedule_label:?} has ambiguities.\n{message}");
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::Ambiguity(message)),
