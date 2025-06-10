@@ -15,7 +15,12 @@ default = ["std", "async_executor"]
 
 ## Enables multi-threading support.
 ## Without this feature, all tasks will be run on a single thread.
-multi_threaded = ["std", "dep:async-channel", "dep:concurrent-queue"]
+multi_threaded = [
+  "std",
+  "dep:async-channel",
+  "dep:concurrent-queue",
+  "async_executor",
+]
 
 ## Uses `async-executor` as a task execution backend.
 ## This backend is incompatible with `no_std` targets.

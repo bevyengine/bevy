@@ -392,6 +392,8 @@ pub struct Observers {
 
 impl Observers {
     pub(crate) fn get_observers(&mut self, event_type: ComponentId) -> &mut CachedObservers {
+        use crate::lifecycle::*;
+
         match event_type {
             ON_ADD => &mut self.on_add,
             ON_INSERT => &mut self.on_insert,
@@ -403,6 +405,8 @@ impl Observers {
     }
 
     pub(crate) fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
+        use crate::lifecycle::*;
+
         match event_type {
             ON_ADD => Some(&self.on_add),
             ON_INSERT => Some(&self.on_insert),
@@ -480,6 +484,8 @@ impl Observers {
     }
 
     pub(crate) fn is_archetype_cached(event_type: ComponentId) -> Option<ArchetypeFlags> {
+        use crate::lifecycle::*;
+
         match event_type {
             ON_ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
             ON_INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),

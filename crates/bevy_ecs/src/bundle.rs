@@ -66,15 +66,13 @@ use crate::{
         RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
+    lifecycle::{ON_ADD, ON_INSERT, ON_REMOVE, ON_REPLACE},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REMOVE,
-        ON_REPLACE,
-    },
+    world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -2700,7 +2698,7 @@ impl<E: BundleEffect> BundleEffect for Vec<E> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        archetype::ArchetypeCreated, component::HookContext, prelude::*, world::DeferredWorld,
+        archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*, world::DeferredWorld,
     };
     use alloc::{boxed::Box, vec};
 
