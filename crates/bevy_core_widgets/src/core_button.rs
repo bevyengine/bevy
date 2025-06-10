@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
-use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Pressed, Released};
+use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_ui::{InteractionDisabled, IsPressed};
 
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
@@ -63,7 +63,7 @@ fn button_on_pointer_click(
 }
 
 fn button_on_pointer_down(
-    mut trigger: Trigger<Pointer<Pressed>>,
+    mut trigger: Trigger<Pointer<Press>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<IsPressed>), With<CoreButton>>,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
@@ -88,7 +88,7 @@ fn button_on_pointer_down(
 }
 
 fn button_on_pointer_up(
-    mut trigger: Trigger<Pointer<Released>>,
+    mut trigger: Trigger<Pointer<Release>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<IsPressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
