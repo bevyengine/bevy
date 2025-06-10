@@ -92,12 +92,15 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(err) => err.into_compile_error().into(),
     };
 
-    let map_entities = map_entities(
+    let map_entities = match map_entities(
         &ast.data,
         Ident::new("this", Span::call_site()),
         relationship.is_some(),
         relationship_target.is_some(),
-    ).map(|map_entities_impl| quote! {
+    ) {
+        Ok(map) => map,
+        Err(err) => return err.into_compile_error().into()
+    }.map(|map_entities_impl| quote! {
         fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(this: &mut Self, mapper: &mut M) {
             use #bevy_ecs_path::entity::MapEntities;
             #map_entities_impl
@@ -308,7 +311,7 @@ pub(crate) fn map_entities(
     self_ident: Ident,
     is_relationship: bool,
     is_relationship_target: bool,
-) -> Option<TokenStream2> {
+) -> Result<Option<TokenStream2>> {
     match data {
         Data::Struct(DataStruct { fields, .. }) => {
             let mut map = Vec::with_capacity(fields.len());
@@ -334,16 +337,23 @@ pub(crate) fn map_entities(
                     map.push(quote!(#self_ident.#field_member.map_entities(mapper);));
                 });
             if map.is_empty() {
-                return None;
+                return Ok(None);
             };
-            Some(quote!(
+            Ok(Some(quote!(
                 #(#map)*
-            ))
+            )))
         }
         Data::Enum(DataEnum { variants, .. }) => {
             let mut map = Vec::with_capacity(variants.len());
 
             for variant in variants.iter() {
+                if let Some(attr) = variant.attrs.iter().find(|a| a.path().is_ident(ENTITIES)) {
+                    return Err(syn::Error::new(
+                        attr.span(),
+                        "`#[entities]` should be on the associated type, not on the variant.",
+                    ));
+                }
+
                 let field_members = variant
                     .fields
                     .iter()
@@ -371,17 +381,17 @@ pub(crate) fn map_entities(
             }
 
             if map.is_empty() {
-                return None;
+                return Ok(None);
             };
 
-            Some(quote!(
+            Ok(Some(quote!(
                 match #self_ident {
                     #(#map,)*
                     _ => {}
                 }
-            ))
+            )))
         }
-        Data::Union(_) => None,
+        Data::Union(_) => Ok(None),
     }
 }
 
