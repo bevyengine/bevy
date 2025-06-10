@@ -1,6 +1,6 @@
 ---
 title: Stop storing access in systems
-pull_requests: [TODO]
+pull_requests: [19496, 19477]
 ---
 
 Bevy used to store component access in all systems,
