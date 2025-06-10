@@ -716,12 +716,13 @@ impl Camera {
     }
 }
 
-/// Control how this camera outputs once rendering is completed.
+/// Control how this [`Camera`] outputs once rendering is completed.
 #[derive(Debug, Clone, Copy)]
 pub enum CameraOutputMode {
     /// Writes the camera output to configured render target.
     Write {
         /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
+        /// If not set, the output will be written as-is, ignoring `clear_color` and the existing data in the final render target texture.
         blend_state: Option<BlendState>,
         /// The clear color operation to perform on the final render target texture.
         clear_color: ClearColorConfig,
@@ -1061,6 +1062,7 @@ pub fn camera_system(
 #[reflect(opaque)]
 #[reflect(Component, Default, Clone)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
+
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
         Self(
@@ -1068,6 +1070,13 @@ impl Default for CameraMainTextureUsages {
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
         )
+    }
+}
+
+impl CameraMainTextureUsages {
+    pub fn with(mut self, usages: TextureUsages) -> Self {
+        self.0 |= usages;
+        self
     }
 }
 

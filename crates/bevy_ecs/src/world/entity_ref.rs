@@ -2369,7 +2369,7 @@ impl<'w> EntityWorldMut<'w> {
             if archetype.has_despawn_observer() {
                 deferred_world.trigger_observers(
                     ON_DESPAWN,
-                    self.entity,
+                    Some(self.entity),
                     archetype.components(),
                     caller,
                 );
@@ -2383,7 +2383,7 @@ impl<'w> EntityWorldMut<'w> {
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(
                     ON_REPLACE,
-                    self.entity,
+                    Some(self.entity),
                     archetype.components(),
                     caller,
                 );
@@ -2398,7 +2398,7 @@ impl<'w> EntityWorldMut<'w> {
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
-                    self.entity,
+                    Some(self.entity),
                     archetype.components(),
                     caller,
                 );
@@ -5748,7 +5748,9 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|trigger: Trigger<TestEvent>, mut commands: Commands| {
-                commands.entity(trigger.target()).insert(TestComponent(0));
+                commands
+                    .entity(trigger.target().unwrap())
+                    .insert(TestComponent(0));
             })
             .id();
 
@@ -5768,7 +5770,7 @@ mod tests {
         let mut world = World::new();
         world.add_observer(
             |trigger: Trigger<OnAdd, TestComponent>, mut commands: Commands| {
-                commands.entity(trigger.target()).despawn();
+                commands.entity(trigger.target().unwrap()).despawn();
             },
         );
         let entity = world.spawn_empty().id();
