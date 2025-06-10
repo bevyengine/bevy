@@ -91,8 +91,8 @@ fn setup_scene(
             ))
             .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
             .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Pressed>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Released>>(hover_matl.clone()))
+            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
+            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
             .observe(rotate_on_drag);
     }
 
@@ -114,8 +114,8 @@ fn setup_scene(
             ))
             .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
             .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Pressed>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Released>>(hover_matl.clone()))
+            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
+            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
             .observe(rotate_on_drag);
     }
 

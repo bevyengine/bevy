@@ -44,12 +44,12 @@ These components include:
 - `InteractionDisabled` - a boolean component used to indicate that a component should be
   "grayed out" and non-interactive. Note that these disabled widgets are still visible and can
   have keyboard focus (otherwise the user would have no way to discover them).
-- `IsHovered` is a simple boolean component that allows detection of whether the widget is being
+- `Hovered` is a simple boolean component that allows detection of whether the widget is being
   hovered using regular Bevy change detection.
 - `Checked` is a boolean component that stores the checked state of a checkbox or radio button.
-- `Depressed` is used for a button-like widget, and will be true while the button is held down.
+- `Pressed` is used for a button-like widget, and will be true while the button is held down.
 
-The combination of `IsHovered` and `ButtonPressed` fulfills the same purpose as the old
+The combination of `Hovered` and `Pressed` fulfills the same purpose as the old
 `Interaction` component, except that now we can also represent "roll-off" behavior (the state where
 you click on a button and then, while holding the mouse down, move the pointer out of the button's
 bounds). It also provides additional flexibility in cases where a widget has multiple hoverable
