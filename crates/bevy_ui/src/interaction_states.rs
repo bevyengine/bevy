@@ -2,8 +2,9 @@
 use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
     component::Component,
+    lifecycle::{OnAdd, OnInsert, OnRemove},
     observer::Trigger,
-    world::{DeferredWorld, OnAdd, OnInsert, OnRemove},
+    world::DeferredWorld,
 };
 
 /// A component indicating that a widget is disabled and should be "grayed out".
