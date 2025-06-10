@@ -422,7 +422,7 @@ pub struct PickingEventWriters<'w> {
 /// + [`DragEnter`] → [`Over`].
 /// + Any number of any of the following:
 ///   + For each movement: [`DragStart`] → [`Drag`] → [`DragOver`] → [`Move`].
-///   + For each button press: [`Pressed`] or [`Click`] → [`Release`] → [`DragDrop`] → [`DragEnd`] → [`DragLeave`].
+///   + For each button press: [`Press`] or [`Click`] → [`Release`] → [`DragDrop`] → [`DragEnd`] → [`DragLeave`].
 ///   + For each pointer cancellation: [`Cancel`].
 ///
 /// Additionally, across multiple frames, the following are also strictly
@@ -430,7 +430,7 @@ pub struct PickingEventWriters<'w> {
 /// + When a pointer moves over the target:
 ///   [`Over`], [`Move`], [`Out`].
 /// + When a pointer presses buttons on the target:
-///   [`Pressed`], [`Click`], [`Release`].
+///   [`Press`], [`Click`], [`Release`].
 /// + When a pointer drags the target:
 ///   [`DragStart`], [`Drag`], [`DragEnd`].
 /// + When a pointer drags something over the target:
