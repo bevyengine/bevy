@@ -11,7 +11,7 @@ The word `destroy` has also been replaced with `despawn` to match the rest of th
 | `bevy/query`           | `world.query`                 |
 | `bevy/spawn`           | `world.spawn_entity`          |
 | `bevy/destroy`         | `world.despawn_entity`        |
-| `bevy/reparent`        | `world.reparent_entity`       |
+| `bevy/reparent`        | `world.reparent_entities`     |
 | `bevy/get`             | `world.get_components`        |
 | `bevy/insert`          | `world.insert_components`     |
 | `bevy/remove`          | `world.remove_components`     |

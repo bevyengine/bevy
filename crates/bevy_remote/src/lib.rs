@@ -206,7 +206,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `world.reparent_entity`
+//! ### `world.reparent_entities`
 //!
 //! Assign a new parent to one or more entities.
 //!
@@ -463,8 +463,8 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_despawn_entity_request,
             )
             .with_method(
-                builtin_methods::BRP_REPARENT_ENTITY_METHOD,
-                builtin_methods::process_remote_reparent_entity_request,
+                builtin_methods::BRP_REPARENT_ENTITIES_METHOD,
+                builtin_methods::process_remote_reparent_entities_request,
             )
             .with_method(
                 builtin_methods::BRP_LIST_COMPONENTS_METHOD,

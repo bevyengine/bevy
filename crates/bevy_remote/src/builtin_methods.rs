@@ -49,8 +49,8 @@ pub const BRP_REMOVE_COMPONENTS_METHOD: &str = "world.remove_components";
 /// The method path for a `world.despawn_entity` request.
 pub const BRP_DESPAWN_COMPONENTS_METHOD: &str = "world.despawn_entity";
 
-/// The method path for a `world.reparent_entity` request.
-pub const BRP_REPARENT_ENTITY_METHOD: &str = "world.reparent_entity";
+/// The method path for a `world.reparent_entities` request.
+pub const BRP_REPARENT_ENTITIES_METHOD: &str = "world.reparent_entities";
 
 /// The method path for a `world.list_components` request.
 pub const BRP_LIST_COMPONENTS_METHOD: &str = "world.list_components";
@@ -227,11 +227,11 @@ pub struct BrpInsertResourcesParams {
     pub value: Value,
 }
 
-/// `world.reparent_entity`: Assign a new parent to one or more entities.
+/// `world.reparent_entities`: Assign a new parent to one or more entities.
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct BrpReparentEntityParams {
+pub struct BrpReparentEntitiesParams {
     /// The IDs of the entities that are to become the new children of the
     /// `parent`.
     pub entities: Vec<Entity>,
@@ -1090,12 +1090,12 @@ pub fn process_remote_despawn_entity_request(
     Ok(Value::Null)
 }
 
-/// Handles a `world.reparent_entity` request coming from a client.
-pub fn process_remote_reparent_entity_request(
+/// Handles a `world.reparent_entities` request coming from a client.
+pub fn process_remote_reparent_entities_request(
     In(params): In<Option<Value>>,
     world: &mut World,
 ) -> BrpResult {
-    let BrpReparentEntityParams {
+    let BrpReparentEntitiesParams {
         entities,
         parent: maybe_parent,
     } = parse_some(params)?;
