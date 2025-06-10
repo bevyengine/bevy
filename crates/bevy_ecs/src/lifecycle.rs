@@ -9,6 +9,7 @@
 //! 4. Using the [`Added`] query filter, which checks each component to see if it has been added since the last time a system ran.
 //!
 //! [observers]: crate::observer
+//! [`Added`]: crate::query::Added
 //!
 //! # Types of lifecycle events
 //!
@@ -45,7 +46,7 @@
 //! When listening to lifecycle events for observers, the `B: Bundle` generic is used.
 //!
 //! Each of these lifecycle events also corresponds to a fixed [`ComponentId`],
-//! which are assigned during [`World::bootstrap`].
+//! which are assigned during [`World`] initialization.
 //! For example, [`OnAdd`] corresponds to [`ON_ADD`].
 //! This is used to skip [`TypeId`](core::any::TypeId) lookups in hot paths.
 use crate::{
@@ -97,7 +98,7 @@ pub struct HookContext {
 /// to clean up resources when a component is removed,
 /// or to keep hierarchical data structures across entities in sync.
 ///
-/// This information is stored in the [`ComponentInfo`] of the associated component.
+/// This information is stored in the [`ComponentInfo`](crate::component::ComponentInfo) of the associated component.
 ///
 /// There are two ways of configuring hooks for a component:
 /// 1. Defining the relevant hooks on the [`Component`] implementation
