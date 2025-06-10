@@ -2130,6 +2130,16 @@ impl BorderColor {
         }
     }
 
+    /// Helper to set all border colors to a given color.
+    pub fn set_all(&mut self, color: impl Into<Color>) -> &mut Self {
+        let color: Color = color.into();
+        self.top = color;
+        self.bottom = color;
+        self.left = color;
+        self.right = color;
+        self
+    }
+
     /// Check if all contained border colors are transparent
     pub fn is_fully_transparent(&self) -> bool {
         self.top.is_fully_transparent()

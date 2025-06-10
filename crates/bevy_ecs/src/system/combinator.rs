@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use crate::{
     component::{ComponentId, Tick},
     prelude::World,
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn, SystemParamValidationError},
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -142,10 +142,6 @@ where
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.component_access_set.combined_access()
     }
 
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
@@ -361,10 +357,6 @@ where
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.component_access_set.combined_access()
     }
 
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {

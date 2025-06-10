@@ -395,6 +395,7 @@ bevy_color = { path = "../bevy_color", optional = true, version = "0.16.0-dev", 
   "bevy_reflect",
 ] }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.16.0-dev" }
+bevy_core_widgets = { path = "../bevy_core_widgets", optional = true, version = "0.16.0-dev" }
 bevy_anti_aliasing = { path = "../bevy_anti_aliasing", optional = true, version = "0.16.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.16.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.16.0-dev" }
