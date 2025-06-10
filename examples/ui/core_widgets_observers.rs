@@ -10,7 +10,7 @@ use bevy::{
     },
     picking::hover::IsHovered,
     prelude::*,
-    ui::{Depressed, InteractionDisabled},
+    ui::{InteractionDisabled, IsPressed},
     winit::WinitSettings,
 };
 
@@ -38,7 +38,7 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 struct DemoButton;
 
 fn on_add_pressed(
-    trigger: Trigger<OnAdd, Depressed>,
+    trigger: Trigger<OnAdd, IsPressed>,
     mut buttons: Query<
         (
             &IsHovered,
@@ -67,7 +67,7 @@ fn on_add_pressed(
 }
 
 fn on_remove_pressed(
-    trigger: Trigger<OnRemove, Depressed>,
+    trigger: Trigger<OnRemove, IsPressed>,
     mut buttons: Query<
         (
             &IsHovered,
@@ -99,7 +99,7 @@ fn on_add_disabled(
     trigger: Trigger<OnAdd, InteractionDisabled>,
     mut buttons: Query<
         (
-            Has<Depressed>,
+            Has<IsPressed>,
             &IsHovered,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -109,14 +109,14 @@ fn on_add_disabled(
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    if let Ok((depressed, hovered, mut color, mut border_color, children)) =
+    if let Ok((pressed, hovered, mut color, mut border_color, children)) =
         buttons.get_mut(trigger.target().unwrap())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
             true,
             hovered.get(),
-            depressed,
+            pressed,
             &mut color,
             &mut border_color,
             &mut text,
@@ -128,7 +128,7 @@ fn on_remove_disabled(
     trigger: Trigger<OnRemove, InteractionDisabled>,
     mut buttons: Query<
         (
-            Has<Depressed>,
+            Has<IsPressed>,
             &IsHovered,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -138,14 +138,14 @@ fn on_remove_disabled(
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    if let Ok((depressed, hovered, mut color, mut border_color, children)) =
+    if let Ok((pressed, hovered, mut color, mut border_color, children)) =
         buttons.get_mut(trigger.target().unwrap())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
             false,
             hovered.get(),
-            depressed,
+            pressed,
             &mut color,
             &mut border_color,
             &mut text,
@@ -157,7 +157,7 @@ fn on_change_hover(
     trigger: Trigger<OnInsert, IsHovered>,
     mut buttons: Query<
         (
-            Has<Depressed>,
+            Has<IsPressed>,
             &IsHovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
@@ -168,7 +168,7 @@ fn on_change_hover(
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    if let Ok((depressed, hovered, disabled, mut color, mut border_color, children)) =
+    if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
         buttons.get_mut(trigger.target().unwrap())
     {
         if children.is_empty() {
@@ -180,7 +180,7 @@ fn on_change_hover(
         set_button_style(
             disabled,
             hovered.get(),
-            depressed,
+            pressed,
             &mut color,
             &mut border_color,
             &mut text,
@@ -191,12 +191,12 @@ fn on_change_hover(
 fn set_button_style(
     disabled: bool,
     hovered: bool,
-    depressed: bool,
+    pressed: bool,
     color: &mut BackgroundColor,
     border_color: &mut BorderColor,
     text: &mut Text,
 ) {
-    match (disabled, hovered, depressed) {
+    match (disabled, hovered, pressed) {
         // Disabled button
         (true, _, _) => {
             **text = "Disabled".to_string();

@@ -46,10 +46,10 @@ These components include:
   have keyboard focus (otherwise the user would have no way to discover them).
 - `IsHovered` is a simple boolean component that allows detection of whether the widget is being
   hovered using regular Bevy change detection.
-- `Checked` is a boolean component that stores the checked state of a checkbox or radio button.
-- `Depressed` is used for a button-like widget, and will be true while the button is held down.
+- `IsChecked` is a boolean component that stores the checked state of a checkbox or radio button.
+- `IsPressed` is used for a button-like widget, and will be true while the button is held down.
 
-The combination of `IsHovered` and `ButtonPressed` fulfills the same purpose as the old
+The combination of `IsHovered` and `IsPressed` fulfills the same purpose as the old
 `Interaction` component, except that now we can also represent "roll-off" behavior (the state where
 you click on a button and then, while holding the mouse down, move the pointer out of the button's
 bounds). It also provides additional flexibility in cases where a widget has multiple hoverable
