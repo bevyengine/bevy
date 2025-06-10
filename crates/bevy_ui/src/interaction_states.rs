@@ -21,7 +21,7 @@ pub(crate) fn on_add_disabled(
     trigger: Trigger<OnAdd, InteractionDisabled>,
     mut world: DeferredWorld,
 ) {
-    let mut entity = world.entity_mut(trigger.target());
+    let mut entity = world.entity_mut(trigger.target().unwrap());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_disabled();
     }
@@ -31,7 +31,7 @@ pub(crate) fn on_remove_disabled(
     trigger: Trigger<OnRemove, InteractionDisabled>,
     mut world: DeferredWorld,
 ) {
-    let mut entity = world.entity_mut(trigger.target());
+    let mut entity = world.entity_mut(trigger.target().unwrap());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.clear_disabled();
     }
@@ -55,7 +55,7 @@ impl Checked {
 }
 
 pub(crate) fn on_insert_checked(trigger: Trigger<OnInsert, Checked>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target());
+    let mut entity = world.entity_mut(trigger.target().unwrap());
     let checked = entity.get::<Checked>().unwrap().get();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(match checked {
@@ -66,7 +66,7 @@ pub(crate) fn on_insert_checked(trigger: Trigger<OnInsert, Checked>, mut world: 
 }
 
 pub(crate) fn on_remove_checked(trigger: Trigger<OnRemove, Checked>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target());
+    let mut entity = world.entity_mut(trigger.target().unwrap());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::False);
     }

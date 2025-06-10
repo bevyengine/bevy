@@ -131,28 +131,28 @@ fn set_button_style(
         (true, _, _) => {
             **text = "Disabled".to_string();
             *color = NORMAL_BUTTON.into();
-            border_color.0 = GRAY.into();
+            border_color.set_all(GRAY);
         }
 
         // Pressed and hovered button
         (false, true, true) => {
             **text = "Press".to_string();
             *color = PRESSED_BUTTON.into();
-            border_color.0 = RED.into();
+            border_color.set_all(RED);
         }
 
         // Hovered, unpressed button
         (false, true, false) => {
             **text = "Hover".to_string();
             *color = HOVERED_BUTTON.into();
-            border_color.0 = Color::WHITE;
+            border_color.set_all(WHITE);
         }
 
         // Unhovered button (either pressed or not).
         (false, false, _) => {
             **text = "Button".to_string();
             *color = NORMAL_BUTTON.into();
-            border_color.0 = Color::BLACK;
+            border_color.set_all(BLACK);
         }
     }
 }
@@ -194,7 +194,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
                 },
                 IsHovered::default(),
                 TabIndex(0),
-                BorderColor(Color::BLACK),
+                BorderColor::all(Color::BLACK),
                 BorderRadius::MAX,
                 BackgroundColor(NORMAL_BUTTON),
                 children![(
