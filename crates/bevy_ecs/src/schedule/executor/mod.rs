@@ -20,7 +20,7 @@ use crate::{
     component::{ComponentId, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn, SystemParamValidationError, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -165,12 +165,8 @@ impl System for ApplyDeferred {
         Cow::Borrowed("bevy_ecs::apply_deferred")
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        // This system accesses no components.
-        const { &Access::new() }
-    }
-
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        // This system accesses no components.
         const { &FilteredAccessSet::new() }
     }
 

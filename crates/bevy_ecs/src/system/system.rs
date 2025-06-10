@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     component::{ComponentId, Tick},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -59,9 +59,6 @@ pub trait System: Send + Sync + 'static {
     fn type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
-
-    /// Returns the system's component [`Access`].
-    fn component_access(&self) -> &Access<ComponentId>;
 
     /// Returns the system's component [`FilteredAccessSet`].
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId>;

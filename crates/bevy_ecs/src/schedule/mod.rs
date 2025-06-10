@@ -31,6 +31,7 @@ mod tests {
     use alloc::{vec, vec::Vec};
     use core::sync::atomic::{AtomicU32, Ordering};
 
+    use crate::error::BevyError;
     pub use crate::{
         prelude::World,
         resource::Resource,
@@ -51,10 +52,10 @@ mod tests {
     struct SystemOrder(Vec<u32>);
 
     #[derive(Resource, Default)]
-    struct RunConditionBool(pub bool);
+    struct RunConditionBool(bool);
 
     #[derive(Resource, Default)]
-    struct Counter(pub AtomicU32);
+    struct Counter(AtomicU32);
 
     fn make_exclusive_system(tag: u32) -> impl FnMut(&mut World) {
         move |world| world.resource_mut::<SystemOrder>().0.push(tag)
@@ -254,12 +255,13 @@ mod tests {
     }
 
     mod conditions {
+
         use crate::change_detection::DetectChanges;
 
         use super::*;
 
         #[test]
-        fn system_with_condition() {
+        fn system_with_condition_bool() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
@@ -276,6 +278,47 @@ mod tests {
             world.resource_mut::<RunConditionBool>().0 = true;
             schedule.run(&mut world);
             assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
+        }
+
+        #[test]
+        fn system_with_condition_result_unit() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            schedule.add_systems(
+                make_function_system(0).run_if(|| Err::<(), BevyError>(core::fmt::Error.into())),
+            );
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
+
+            schedule.add_systems(make_function_system(1).run_if(|| Ok(())));
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
+        }
+
+        #[test]
+        fn system_with_condition_result_bool() {
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            schedule.add_systems((
+                make_function_system(0).run_if(|| Err::<bool, BevyError>(core::fmt::Error.into())),
+                make_function_system(1).run_if(|| Ok(false)),
+            ));
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
+
+            schedule.add_systems(make_function_system(2).run_if(|| Ok(true)));
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![2]);
         }
 
         #[test]
@@ -877,7 +920,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "Known failing but fix is non-trivial: https://github.com/bevyengine/bevy/issues/4381"]
         fn filtered_components() {
             let mut world = World::new();
             world.spawn(A);

@@ -2,8 +2,9 @@ use alloc::{boxed::Box, vec};
 use core::any::Any;
 
 use crate::{
-    component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
+    component::{ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
+    lifecycle::{ComponentHook, HookContext},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -123,8 +124,8 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// struct Explode;
 ///
 /// world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
-///     println!("Entity {} goes BOOM!", trigger.target());
-///     commands.entity(trigger.target()).despawn();
+///     println!("Entity {} goes BOOM!", trigger.target().unwrap());
+///     commands.entity(trigger.target().unwrap()).despawn();
 /// });
 ///
 /// world.flush();
@@ -157,7 +158,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # struct Explode;
 /// world.entity_mut(e1).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
-///     commands.entity(trigger.target()).despawn();
+///     commands.entity(trigger.target().unwrap()).despawn();
 /// });
 ///
 /// world.entity_mut(e2).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
@@ -425,7 +426,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
 }
 
-/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::component::ComponentHooks::on_add`).
+/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::lifecycle::ComponentHooks::on_add`).
 ///
 /// This function exists separate from [`Observer`] to allow [`Observer`] to have its type parameters
 /// erased.

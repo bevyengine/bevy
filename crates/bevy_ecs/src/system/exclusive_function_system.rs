@@ -2,7 +2,7 @@
 use crate::system::check_system_change_tick;
 use crate::{
     component::{ComponentId, Tick},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
         ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem, System, SystemIn, SystemInput,
@@ -91,11 +91,6 @@ where
     #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
     }
 
     #[inline]

@@ -2,6 +2,57 @@
 //!
 //! This module contains the [`Bundle`] trait and some other helper types.
 
+/// Derive the [`Bundle`] trait
+///
+/// You can apply this derive macro to structs that are
+/// composed of [`Component`]s or
+/// other [`Bundle`]s.
+///
+/// ## Attributes
+///
+/// Sometimes parts of the Bundle should not be inserted.
+/// Those can be marked with `#[bundle(ignore)]`, and they will be skipped.
+/// In that case, the field needs to implement [`Default`] unless you also ignore
+/// the [`BundleFromComponents`] implementation.
+///
+/// ```rust
+/// # use bevy_ecs::prelude::{Component, Bundle};
+/// # #[derive(Component)]
+/// # struct Hitpoint;
+/// #
+/// #[derive(Bundle)]
+/// struct HitpointMarker {
+///     hitpoints: Hitpoint,
+///
+///     #[bundle(ignore)]
+///     creator: Option<String>
+/// }
+/// ```
+///
+/// Some fields may be bundles that do not implement
+/// [`BundleFromComponents`]. This happens for bundles that cannot be extracted.
+/// For example with [`SpawnRelatedBundle`](bevy_ecs::spawn::SpawnRelatedBundle), see below for an
+/// example usage.
+/// In those cases you can either ignore it as above,
+/// or you can opt out the whole Struct by marking it as ignored with
+/// `#[bundle(ignore_from_components)]`.
+///
+/// ```rust
+/// # use bevy_ecs::prelude::{Component, Bundle, ChildOf, Spawn};
+/// # #[derive(Component)]
+/// # struct Hitpoint;
+/// # #[derive(Component)]
+/// # struct Marker;
+/// #
+/// use bevy_ecs::spawn::SpawnRelatedBundle;
+///
+/// #[derive(Bundle)]
+/// #[bundle(ignore_from_components)]
+/// struct HitpointMarker {
+///     hitpoints: Hitpoint,
+///     related_spawner: SpawnRelatedBundle<ChildOf, Spawn<Marker>>,
+/// }
+/// ```
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
@@ -15,15 +66,13 @@ use crate::{
         RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
+    lifecycle::{ON_ADD, ON_INSERT, ON_REMOVE, ON_REPLACE},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REMOVE,
-        ON_REPLACE,
-    },
+    world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -1148,7 +1197,7 @@ impl<'w> BundleInserter<'w> {
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
                         ON_REPLACE,
-                        entity,
+                        Some(entity),
                         archetype_after_insert.iter_existing(),
                         caller,
                     );
@@ -1333,7 +1382,7 @@ impl<'w> BundleInserter<'w> {
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(
                     ON_ADD,
-                    entity,
+                    Some(entity),
                     archetype_after_insert.iter_added(),
                     caller,
                 );
@@ -1351,7 +1400,7 @@ impl<'w> BundleInserter<'w> {
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
-                            entity,
+                            Some(entity),
                             archetype_after_insert.iter_inserted(),
                             caller,
                         );
@@ -1370,7 +1419,7 @@ impl<'w> BundleInserter<'w> {
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
-                            entity,
+                            Some(entity),
                             archetype_after_insert.iter_added(),
                             caller,
                         );
@@ -1524,7 +1573,7 @@ impl<'w> BundleRemover<'w> {
             if self.old_archetype.as_ref().has_replace_observer() {
                 deferred_world.trigger_observers(
                     ON_REPLACE,
-                    entity,
+                    Some(entity),
                     bundle_components_in_archetype(),
                     caller,
                 );
@@ -1539,7 +1588,7 @@ impl<'w> BundleRemover<'w> {
             if self.old_archetype.as_ref().has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
-                    entity,
+                    Some(entity),
                     bundle_components_in_archetype(),
                     caller,
                 );
@@ -1790,7 +1839,7 @@ impl<'w> BundleSpawner<'w> {
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(
                     ON_ADD,
-                    entity,
+                    Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
                 );
@@ -1805,7 +1854,7 @@ impl<'w> BundleSpawner<'w> {
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
                     ON_INSERT,
-                    entity,
+                    Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
                 );
@@ -2077,7 +2126,7 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 #[cfg(test)]
 mod tests {
     use crate::{
-        archetype::ArchetypeCreated, component::HookContext, prelude::*, world::DeferredWorld,
+        archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*, world::DeferredWorld,
     };
     use alloc::vec;
 
@@ -2125,6 +2174,26 @@ mod tests {
             assert_eq!(count, self.0);
             self.0 += 1;
         }
+    }
+
+    #[derive(Bundle)]
+    #[bundle(ignore_from_components)]
+    struct BundleNoExtract {
+        b: B,
+        no_from_comp: crate::spawn::SpawnRelatedBundle<ChildOf, Spawn<C>>,
+    }
+
+    #[test]
+    fn can_spawn_bundle_without_extract() {
+        let mut world = World::new();
+        let id = world
+            .spawn(BundleNoExtract {
+                b: B,
+                no_from_comp: Children::spawn(Spawn(C)),
+            })
+            .id();
+
+        assert!(world.entity(id).get::<Children>().is_some());
     }
 
     #[test]

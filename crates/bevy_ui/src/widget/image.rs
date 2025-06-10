@@ -138,8 +138,8 @@ impl From<Handle<Image>> for ImageNode {
 }
 
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
-#[derive(Default, Debug, Clone, Reflect)]
-#[reflect(Clone, Default)]
+#[derive(Default, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Clone, Default, PartialEq)]
 pub enum NodeImageMode {
     /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]

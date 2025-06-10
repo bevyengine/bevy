@@ -1,7 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
-mod component_constants;
 mod deferred_world;
 mod entity_fetch;
 mod entity_ref;
@@ -14,18 +13,22 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::error::{DefaultErrorHandler, ErrorHandler};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
+use crate::{
+    error::{DefaultErrorHandler, ErrorHandler},
+    lifecycle::{ComponentHooks, ON_ADD, ON_DESPAWN, ON_INSERT, ON_REMOVE, ON_REPLACE},
+    prelude::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace},
+};
 pub use bevy_ecs_macros::FromWorld;
-pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
-    DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
-    Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
+    ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
+    EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
+    TryFromFilteredError, VacantComponentEntry,
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;
@@ -39,17 +42,17 @@ use crate::{
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentIds, ComponentInfo,
+        CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
+    lifecycle::RemovedComponentEvents,
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    removal_detection::RemovedComponentEvents,
     resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -1444,7 +1447,7 @@ impl World {
     /// assert!(!transform.is_changed());
     /// ```
     ///
-    /// [`RemovedComponents`]: crate::removal_detection::RemovedComponents
+    /// [`RemovedComponents`]: crate::lifecycle::RemovedComponents
     pub fn clear_trackers(&mut self) {
         self.removed_components.update();
         self.last_change_tick = self.increment_change_tick();
@@ -2963,6 +2966,8 @@ impl World {
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(change_tick);
         }
+
+        self.trigger(CheckChangeTicks(change_tick));
 
         self.last_check_tick = change_tick;
     }

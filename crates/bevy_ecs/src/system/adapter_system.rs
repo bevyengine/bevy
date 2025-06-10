@@ -146,10 +146,6 @@ where
         self.name.clone()
     }
 
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
-        self.system.component_access()
-    }
-
     fn component_access_set(
         &self,
     ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
