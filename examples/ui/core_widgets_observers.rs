@@ -10,7 +10,7 @@ use bevy::{
     },
     picking::hover::IsHovered,
     prelude::*,
-    ui::{InteractionDisabled, IsPressed},
+    ui::{InteractionDisabled, Pressed},
     winit::WinitSettings,
 };
 
@@ -38,7 +38,7 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 struct DemoButton;
 
 fn on_add_pressed(
-    trigger: Trigger<OnAdd, IsPressed>,
+    trigger: Trigger<OnAdd, Pressed>,
     mut buttons: Query<
         (
             &IsHovered,
@@ -67,7 +67,7 @@ fn on_add_pressed(
 }
 
 fn on_remove_pressed(
-    trigger: Trigger<OnRemove, IsPressed>,
+    trigger: Trigger<OnRemove, Pressed>,
     mut buttons: Query<
         (
             &IsHovered,
@@ -99,7 +99,7 @@ fn on_add_disabled(
     trigger: Trigger<OnAdd, InteractionDisabled>,
     mut buttons: Query<
         (
-            Has<IsPressed>,
+            Has<Pressed>,
             &IsHovered,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -128,7 +128,7 @@ fn on_remove_disabled(
     trigger: Trigger<OnRemove, InteractionDisabled>,
     mut buttons: Query<
         (
-            Has<IsPressed>,
+            Has<Pressed>,
             &IsHovered,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -157,7 +157,7 @@ fn on_change_hover(
     trigger: Trigger<OnInsert, IsHovered>,
     mut buttons: Query<
         (
-            Has<IsPressed>,
+            Has<Pressed>,
             &IsHovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,

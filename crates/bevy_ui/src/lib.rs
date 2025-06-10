@@ -39,7 +39,7 @@ mod ui_node;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
-pub use interaction_states::{InteractionDisabled, IsChecked, IsPressed};
+pub use interaction_states::{Checked, InteractionDisabled, Pressed};
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;

@@ -10,7 +10,7 @@ use bevy::{
     },
     picking::hover::IsHovered,
     prelude::*,
-    ui::{InteractionDisabled, IsPressed},
+    ui::{InteractionDisabled, Pressed},
     winit::WinitSettings,
 };
 
@@ -38,7 +38,7 @@ struct DemoButton;
 fn update_button_style(
     mut buttons: Query<
         (
-            Has<IsPressed>,
+            Has<Pressed>,
             &IsHovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
@@ -47,7 +47,7 @@ fn update_button_style(
         ),
         (
             Or<(
-                Changed<IsPressed>,
+                Changed<Pressed>,
                 Changed<IsHovered>,
                 Added<InteractionDisabled>,
             )>,
@@ -73,7 +73,7 @@ fn update_button_style(
 fn update_button_style2(
     mut buttons: Query<
         (
-            Has<IsPressed>,
+            Has<Pressed>,
             &IsHovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
@@ -82,7 +82,7 @@ fn update_button_style2(
         ),
         With<DemoButton>,
     >,
-    mut removed_depressed: RemovedComponents<IsPressed>,
+    mut removed_depressed: RemovedComponents<Pressed>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut text_query: Query<&mut Text>,
 ) {

@@ -41,26 +41,23 @@ pub(crate) fn on_remove_disabled(
 /// Component that indicates whether a button or widget is currently in a pressed or "held down"
 /// state.
 #[derive(Component, Default, Debug)]
-pub struct IsPressed;
+pub struct Pressed;
 
 /// Component that indicates whether a checkbox or radio button is in a checked state.
 #[derive(Component, Default, Debug)]
 #[component(immutable)]
-pub struct IsChecked(pub bool);
+pub struct Checked(pub bool);
 
-impl IsChecked {
+impl Checked {
     /// Returns whether the checkbox or radio button is currently checked.
     pub fn get(&self) -> bool {
         self.0
     }
 }
 
-pub(crate) fn on_insert_is_checked(
-    trigger: Trigger<OnInsert, IsChecked>,
-    mut world: DeferredWorld,
-) {
+pub(crate) fn on_insert_is_checked(trigger: Trigger<OnInsert, Checked>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
-    let checked = entity.get::<IsChecked>().unwrap().get();
+    let checked = entity.get::<Checked>().unwrap().get();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(match checked {
             true => accesskit::Toggled::True,
@@ -69,10 +66,7 @@ pub(crate) fn on_insert_is_checked(
     }
 }
 
-pub(crate) fn on_remove_is_checked(
-    trigger: Trigger<OnRemove, IsChecked>,
-    mut world: DeferredWorld,
-) {
+pub(crate) fn on_remove_is_checked(trigger: Trigger<OnRemove, Checked>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::False);
