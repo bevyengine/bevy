@@ -126,7 +126,7 @@ fn button_on_pointer_cancel(
     }
 }
 
-/// Plugin that adds the observers for the `CoreButton` widget.
+/// Plugin that adds the observers for the [`CoreButton`] widget.
 pub struct CoreButtonPlugin;
 
 impl Plugin for CoreButtonPlugin {
