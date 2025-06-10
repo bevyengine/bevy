@@ -8,7 +8,7 @@ use bevy::{
         tab_navigation::{TabGroup, TabIndex},
         InputDispatchPlugin,
     },
-    picking::hover::IsHovered,
+    picking::hover::Hovered,
     prelude::*,
     ui::{InteractionDisabled, Pressed},
     winit::WinitSettings,
@@ -39,7 +39,7 @@ fn update_button_style(
     mut buttons: Query<
         (
             Has<Pressed>,
-            &IsHovered,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -48,7 +48,7 @@ fn update_button_style(
         (
             Or<(
                 Changed<Pressed>,
-                Changed<IsHovered>,
+                Changed<Hovered>,
                 Added<InteractionDisabled>,
             )>,
             With<DemoButton>,
@@ -74,7 +74,7 @@ fn update_button_style2(
     mut buttons: Query<
         (
             Has<Pressed>,
-            &IsHovered,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -192,7 +192,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
                 CoreButton {
                     on_click: Some(on_click),
                 },
-                IsHovered::default(),
+                Hovered::default(),
                 TabIndex(0),
                 BorderColor::all(Color::BLACK),
                 BorderRadius::MAX,

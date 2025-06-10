@@ -8,7 +8,7 @@ use bevy::{
         tab_navigation::{TabGroup, TabIndex},
         InputDispatchPlugin,
     },
-    picking::hover::IsHovered,
+    picking::hover::Hovered,
     prelude::*,
     ui::{InteractionDisabled, Pressed},
     winit::WinitSettings,
@@ -41,7 +41,7 @@ fn on_add_pressed(
     trigger: Trigger<OnAdd, Pressed>,
     mut buttons: Query<
         (
-            &IsHovered,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -70,7 +70,7 @@ fn on_remove_pressed(
     trigger: Trigger<OnRemove, Pressed>,
     mut buttons: Query<
         (
-            &IsHovered,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -100,7 +100,7 @@ fn on_add_disabled(
     mut buttons: Query<
         (
             Has<Pressed>,
-            &IsHovered,
+            &Hovered,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
@@ -129,7 +129,7 @@ fn on_remove_disabled(
     mut buttons: Query<
         (
             Has<Pressed>,
-            &IsHovered,
+            &Hovered,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
@@ -154,11 +154,11 @@ fn on_remove_disabled(
 }
 
 fn on_change_hover(
-    trigger: Trigger<OnInsert, IsHovered>,
+    trigger: Trigger<OnInsert, Hovered>,
     mut buttons: Query<
         (
             Has<Pressed>,
-            &IsHovered,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -262,7 +262,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
                 CoreButton {
                     on_click: Some(on_click),
                 },
-                IsHovered::default(),
+                Hovered::default(),
                 TabIndex(0),
                 BorderColor::all(Color::BLACK),
                 BorderRadius::MAX,
