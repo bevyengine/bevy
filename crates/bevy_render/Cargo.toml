@@ -3,7 +3,7 @@ name = "bevy_render"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Provides rendering functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -119,7 +119,7 @@ wesl = { version = "0.1.2", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.17", default-features = false, features = [
+naga_oil = { version = "0.17.1", default-features = false, features = [
   "test_shader",
 ] }
 
@@ -127,7 +127,7 @@ naga_oil = { version = "0.17", default-features = false, features = [
 proptest = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = "0.17"
+naga_oil = "0.17.1"
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',

@@ -1,10 +1,10 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
+//! This crate provides logging functions and configuration for [Bevy](https://bevy.org)
 //! apps, and automatically configures platform specific log handlers (i.e. Wasm or Android).
 //!
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
