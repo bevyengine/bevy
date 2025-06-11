@@ -70,7 +70,7 @@ fn universal_button_click_behavior(
     mut trigger: Trigger<Pointer<Click>>,
     mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
 ) {
-    let button_entity = trigger.target();
+    let button_entity = trigger.target().unwrap();
     if let Ok((mut color, mut reset_timer)) = button_query.get_mut(button_entity) {
         // This would be a great place to play a little sound effect too!
         color.0 = PRESSED_BUTTON.into();
@@ -186,7 +186,7 @@ fn setup_ui(
                     Text::new(button_name),
                     // And center the text if it flows onto multiple lines
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                 ))

@@ -1,6 +1,7 @@
 use crate::{
     bundle::Bundle,
     entity::{hash_set::EntityHashSet, Entity},
+    prelude::Children,
     relationship::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
     },
@@ -302,6 +303,15 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Despawns the children of this entity.
+    /// This entity will not be despawned.
+    ///
+    /// This is a specialization of [`despawn_related`](EntityWorldMut::despawn_related), a more general method for despawning via relationships.
+    pub fn despawn_children(&mut self) -> &mut Self {
+        self.despawn_related::<Children>();
+        self
+    }
+
     /// Inserts a component or bundle of components into the entity and all related entities,
     /// traversing the relationship tracked in `S` in a breadth-first manner.
     ///
@@ -465,6 +475,14 @@ impl<'a> EntityCommands<'a> {
         self.queue(move |mut entity: EntityWorldMut| {
             entity.despawn_related::<S>();
         })
+    }
+
+    /// Despawns the children of this entity.
+    /// This entity will not be despawned.
+    ///
+    /// This is a specialization of [`despawn_related`](EntityCommands::despawn_related), a more general method for despawning via relationships.
+    pub fn despawn_children(&mut self) -> &mut Self {
+        self.despawn_related::<Children>()
     }
 
     /// Inserts a component or bundle of components into the entity and all related entities,

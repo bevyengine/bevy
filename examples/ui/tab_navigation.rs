@@ -142,7 +142,7 @@ fn setup(mut commands: Commands) {
                                 .observe(
                                     |mut trigger: Trigger<Pointer<Click>>,
                                     mut focus: ResMut<InputFocus>| {
-                                        focus.0 = Some(trigger.target());
+                                        focus.0 = Some(trigger.target().unwrap());
                                         trigger.propagate(false);
                                     },
                                 );

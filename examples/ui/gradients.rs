@@ -26,20 +26,20 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(Node {
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(30.),
-            margin: UiRect::all(Val::Px(30.)),
+            row_gap: Val::Px(20.),
+            margin: UiRect::all(Val::Px(20.)),
             ..Default::default()
         })
         .with_children(|commands| {
             for (b, stops) in [
                 (
-                    5.,
+                    4.,
                     vec![
                         ColorStop::new(Color::WHITE, Val::Percent(15.)),
                         ColorStop::new(Color::BLACK, Val::Percent(85.)),
                     ],
                 ),
-                (5., vec![RED.into(), BLUE.into(), LIME.into()]),
+                (4., vec![RED.into(), BLUE.into(), LIME.into()]),
                 (
                     0.,
                     vec![
@@ -64,11 +64,11 @@ fn setup(mut commands: Commands) {
                     commands
                         .spawn(Node {
                             flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(10.),
+                            row_gap: Val::Px(5.),
                             ..Default::default()
                         })
                         .with_children(|commands| {
-                            for (w, h) in [(100., 100.), (50., 100.), (100., 50.)] {
+                            for (w, h) in [(70., 70.), (35., 70.), (70., 35.)] {
                                 commands
                                     .spawn(Node {
                                         column_gap: Val::Px(10.),
@@ -108,7 +108,7 @@ fn setup(mut commands: Commands) {
                                 aspect_ratio: Some(1.),
                                 height: Val::Percent(100.),
                                 border: UiRect::all(Val::Px(b)),
-                                margin: UiRect::left(Val::Px(30.)),
+                                margin: UiRect::left(Val::Px(20.)),
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
@@ -128,7 +128,7 @@ fn setup(mut commands: Commands) {
                                 aspect_ratio: Some(1.),
                                 height: Val::Percent(100.),
                                 border: UiRect::all(Val::Px(b)),
-                                margin: UiRect::left(Val::Px(30.)),
+                                margin: UiRect::left(Val::Px(20.)),
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
@@ -148,7 +148,7 @@ fn setup(mut commands: Commands) {
                                 aspect_ratio: Some(1.),
                                 height: Val::Percent(100.),
                                 border: UiRect::all(Val::Px(b)),
-                                margin: UiRect::left(Val::Px(30.)),
+                                margin: UiRect::left(Val::Px(20.)),
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),

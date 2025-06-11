@@ -166,7 +166,7 @@ impl Schedules {
             writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
         }
 
-        info!("{}", message);
+        info!("{message}");
     }
 
     /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
@@ -558,7 +558,7 @@ impl Schedule {
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub fn check_change_ticks(&mut self, change_tick: Tick) {
         for system in &mut self.executable.systems {
             if !is_apply_deferred(system) {
                 system.check_change_tick(change_tick);
@@ -1418,25 +1418,23 @@ impl ScheduleGraph {
             if system_a.is_exclusive() || system_b.is_exclusive() {
                 conflicting_systems.push((a, b, Vec::new()));
             } else {
-                let access_a = system_a.component_access();
-                let access_b = system_b.component_access();
-                if !access_a.is_compatible(access_b) {
-                    match access_a.get_conflicts(access_b) {
-                        AccessConflicts::Individual(conflicts) => {
-                            let conflicts: Vec<_> = conflicts
-                                .ones()
-                                .map(ComponentId::get_sparse_set_index)
-                                .filter(|id| !ignored_ambiguities.contains(id))
-                                .collect();
-                            if !conflicts.is_empty() {
-                                conflicting_systems.push((a, b, conflicts));
-                            }
+                let access_a = system_a.component_access_set();
+                let access_b = system_b.component_access_set();
+                match access_a.get_conflicts(access_b) {
+                    AccessConflicts::Individual(conflicts) => {
+                        let conflicts: Vec<_> = conflicts
+                            .ones()
+                            .map(ComponentId::get_sparse_set_index)
+                            .filter(|id| !ignored_ambiguities.contains(id))
+                            .collect();
+                        if !conflicts.is_empty() {
+                            conflicting_systems.push((a, b, conflicts));
                         }
-                        AccessConflicts::All => {
-                            // there is no specific component conflicting, but the systems are overall incompatible
-                            // for example 2 systems with `Query<EntityMut>`
-                            conflicting_systems.push((a, b, Vec::new()));
-                        }
+                    }
+                    AccessConflicts::All => {
+                        // there is no specific component conflicting, but the systems are overall incompatible
+                        // for example 2 systems with `Query<EntityMut>`
+                        conflicting_systems.push((a, b, Vec::new()));
                     }
                 }
             }
@@ -1707,10 +1705,7 @@ impl ScheduleGraph {
         match self.settings.hierarchy_detection {
             LogLevel::Ignore => unreachable!(),
             LogLevel::Warn => {
-                error!(
-                    "Schedule {schedule_label:?} has redundant edges:\n {}",
-                    message
-                );
+                error!("Schedule {schedule_label:?} has redundant edges:\n {message}");
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::HierarchyRedundancy(message)),
@@ -1912,7 +1907,7 @@ impl ScheduleGraph {
         match self.settings.ambiguity_detection {
             LogLevel::Ignore => Ok(()),
             LogLevel::Warn => {
-                warn!("Schedule {schedule_label:?} has ambiguities.\n{}", message);
+                warn!("Schedule {schedule_label:?} has ambiguities.\n{message}");
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::Ambiguity(message)),

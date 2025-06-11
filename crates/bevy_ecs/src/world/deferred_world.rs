@@ -3,9 +3,10 @@ use core::ops::Deref;
 use crate::{
     archetype::Archetype,
     change_detection::{MaybeLocation, MutUntyped},
-    component::{ComponentId, HookContext, Mutable},
+    component::{ComponentId, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
+    lifecycle::{HookContext, ON_INSERT, ON_REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
@@ -16,14 +17,14 @@ use crate::{
     world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
+use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
 ///
 /// This means that in order to add entities, for example, you will need to use commands instead of the world directly.
 pub struct DeferredWorld<'w> {
-    // SAFETY: Implementors must not use this reference to make structural changes
+    // SAFETY: Implementers must not use this reference to make structural changes
     world: UnsafeWorldCell<'w>,
 }
 
@@ -157,7 +158,7 @@ impl<'w> DeferredWorld<'w> {
             if archetype.has_replace_observer() {
                 self.trigger_observers(
                     ON_REPLACE,
-                    entity,
+                    Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
                 );
@@ -197,7 +198,7 @@ impl<'w> DeferredWorld<'w> {
             if archetype.has_insert_observer() {
                 self.trigger_observers(
                     ON_INSERT,
-                    entity,
+                    Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
                 );
@@ -738,7 +739,7 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers(
         &mut self,
         event: ComponentId,
-        target: Entity,
+        target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
     ) {
@@ -761,7 +762,7 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
         event: ComponentId,
-        mut target: Entity,
+        target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
@@ -769,18 +770,20 @@ impl<'w> DeferredWorld<'w> {
     ) where
         T: Traversal<E>,
     {
+        Observers::invoke::<_>(
+            self.reborrow(),
+            event,
+            target,
+            components.clone(),
+            data,
+            &mut propagate,
+            caller,
+        );
+        let Some(mut target) = target else { return };
+
         loop {
-            Observers::invoke::<_>(
-                self.reborrow(),
-                event,
-                target,
-                components.clone(),
-                data,
-                &mut propagate,
-                caller,
-            );
             if !propagate {
-                break;
+                return;
             }
             if let Some(traverse_to) = self
                 .get_entity(target)
@@ -792,6 +795,15 @@ impl<'w> DeferredWorld<'w> {
             } else {
                 break;
             }
+            Observers::invoke::<_>(
+                self.reborrow(),
+                event,
+                Some(target),
+                components.clone(),
+                data,
+                &mut propagate,
+                caller,
+            );
         }
     }
 

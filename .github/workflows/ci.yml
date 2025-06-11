@@ -293,7 +293,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.32.0
+        uses: crate-ci/typos@v1.33.1
       - name: Typos info
         if: failure()
         run: |

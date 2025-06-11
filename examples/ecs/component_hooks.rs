@@ -14,7 +14,8 @@
 //!   between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::{
-    ecs::component::{ComponentHook, HookContext, Mutable, StorageType},
+    ecs::component::{Mutable, StorageType},
+    ecs::lifecycle::{ComponentHook, HookContext},
     prelude::*,
 };
 use std::collections::HashMap;

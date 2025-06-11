@@ -18,9 +18,9 @@ use crate::{
     component::{ComponentId, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
-    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError},
+    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -162,35 +162,14 @@ impl System for ApplyDeferred {
         Cow::Borrowed("bevy_ecs::apply_deferred")
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        // This system accesses no components.
-        const { &Access::new() }
-    }
-
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        // This system accesses no components.
         const { &FilteredAccessSet::new() }
     }
 
-    fn is_send(&self) -> bool {
-        // Although this system itself does nothing on its own, the system
-        // executor uses it to apply deferred commands. Commands must be allowed
-        // to access non-send resources, so this system must be non-send for
-        // scheduling purposes.
-        false
-    }
-
-    fn is_exclusive(&self) -> bool {
-        // This system is labeled exclusive because it is used by the system
-        // executor to find places where deferred commands should be applied,
-        // and commands can only be applied with exclusive access to the world.
-        true
-    }
-
-    fn has_deferred(&self) -> bool {
-        // This system itself doesn't have any commands to apply, but when it
-        // is pulled from the schedule to be ran, the executor will apply
-        // deferred commands from other systems.
-        false
+    fn flags(&self) -> SystemStateFlags {
+        // non-send , exclusive , no deferred
+        SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
     }
 
     unsafe fn run_unsafe(

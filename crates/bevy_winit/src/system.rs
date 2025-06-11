@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
+    lifecycle::RemovedComponents,
     prelude::{Changed, Component},
     query::QueryFilter,
-    removal_detection::RemovedComponents,
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};

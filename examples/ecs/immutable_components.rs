@@ -2,9 +2,8 @@
 
 use bevy::{
     ecs::{
-        component::{
-            ComponentCloneBehavior, ComponentDescriptor, ComponentId, HookContext, StorageType,
-        },
+        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentId, StorageType},
+        lifecycle::HookContext,
         world::DeferredWorld,
     },
     platform::collections::HashMap,

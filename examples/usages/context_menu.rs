@@ -62,7 +62,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn(background_and_button()).observe(
         // any click bubbling up here should lead to closing any open menu
-        |_: Trigger<Pointer<Pressed>>, mut commands: Commands| {
+        |_: Trigger<Pointer<Press>>, mut commands: Commands| {
             commands.trigger(CloseContextMenus);
         },
     );
@@ -108,11 +108,11 @@ fn on_trigger_menu(trigger: Trigger<OpenContextMenu>, mut commands: Commands) {
             ],
         ))
         .observe(
-            |trigger: Trigger<Pointer<Pressed>>,
+            |trigger: Trigger<Pointer<Press>>,
              menu_items: Query<&ContextMenuItem>,
              mut clear_col: ResMut<ClearColor>,
              mut commands: Commands| {
-                // Note that we want to know the target of the `Pointer<Pressed>` event (Button) here.
+                // Note that we want to know the target of the `Pointer<Press>` event (Button) here.
                 // Not to be confused with the trigger `target`
                 let target = trigger.event().target;
 
@@ -184,7 +184,7 @@ fn background_and_button() -> impl Bundle + use<> {
                     )],
                 ))
                 .observe(
-                    |mut trigger: Trigger<Pointer<Pressed>>, mut commands: Commands| {
+                    |mut trigger: Trigger<Pointer<Press>>, mut commands: Commands| {
                         // by default this event would bubble up further leading to the `CloseContextMenus`
                         // event being triggered and undoing the opening of one here right away.
                         trigger.propagate(false);

@@ -8,7 +8,9 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 mod gradient;
 
+use crate::prelude::UiGlobalTransform;
 use crate::widget::{ImageNode, ViewportNode};
+
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
     ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
@@ -22,7 +24,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
-use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::load_shader_library;
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
@@ -243,7 +245,7 @@ pub enum ExtractedUiItem {
         /// Ordering: left, top, right, bottom.
         border: BorderRect,
         node_type: NodeType,
-        transform: Mat4,
+        transform: Affine2,
     },
     /// A contiguous sequence of text glyphs from the same section
     Glyphs {
@@ -253,7 +255,7 @@ pub enum ExtractedUiItem {
 }
 
 pub struct ExtractedGlyph {
-    pub transform: Mat4,
+    pub transform: Affine2,
     pub rect: Rect,
 }
 
@@ -344,7 +346,7 @@ pub fn extract_uinode_background_colors(
         Query<(
             Entity,
             &ComputedNode,
-            &GlobalTransform,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -383,7 +385,7 @@ pub fn extract_uinode_background_colors(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
-                transform: transform.compute_matrix(),
+                transform: transform.into(),
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
@@ -403,7 +405,7 @@ pub fn extract_uinode_images(
         Query<(
             Entity,
             &ComputedNode,
-            &GlobalTransform,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -467,7 +469,7 @@ pub fn extract_uinode_images(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling,
-                transform: transform.compute_matrix(),
+                transform: transform.into(),
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 border: uinode.border,
@@ -487,7 +489,7 @@ pub fn extract_uinode_borders(
             Entity,
             &Node,
             &ComputedNode,
-            &GlobalTransform,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -503,7 +505,7 @@ pub fn extract_uinode_borders(
         entity,
         node,
         computed_node,
-        global_transform,
+        transform,
         inherited_visibility,
         maybe_clip,
         camera,
@@ -567,7 +569,7 @@ pub fn extract_uinode_borders(
                         extracted_camera_entity,
                         item: ExtractedUiItem::Node {
                             atlas_scaling: None,
-                            transform: global_transform.compute_matrix(),
+                            transform: transform.into(),
                             flip_x: false,
                             flip_y: false,
                             border: computed_node.border(),
@@ -600,7 +602,7 @@ pub fn extract_uinode_borders(
                 clip: maybe_clip.map(|clip| clip.clip),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
-                    transform: global_transform.compute_matrix(),
+                    transform: transform.into(),
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,
@@ -749,7 +751,7 @@ pub fn extract_viewport_nodes(
         Query<(
             Entity,
             &ComputedNode,
-            &GlobalTransform,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -792,7 +794,7 @@ pub fn extract_viewport_nodes(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
-                transform: transform.compute_matrix(),
+                transform: transform.into(),
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
@@ -812,7 +814,7 @@ pub fn extract_text_sections(
         Query<(
             Entity,
             &ComputedNode,
-            &GlobalTransform,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -830,7 +832,7 @@ pub fn extract_text_sections(
     for (
         entity,
         uinode,
-        global_transform,
+        transform,
         inherited_visibility,
         clip,
         camera,
@@ -847,8 +849,7 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform = global_transform.affine()
-            * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
+        let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
 
         for (
             i,
@@ -866,7 +867,7 @@ pub fn extract_text_sections(
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
-                transform: transform * Mat4::from_translation(position.extend(0.)),
+                transform: transform * Affine2::from_translation(*position),
                 rect,
             });
 
@@ -910,8 +911,8 @@ pub fn extract_text_shadows(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &ComputedNodeTarget,
-            &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &TextLayoutInfo,
@@ -924,16 +925,8 @@ pub fn extract_text_shadows(
     let mut end = start + 1;
 
     let mut camera_mapper = camera_map.get_mapper();
-    for (
-        entity,
-        uinode,
-        target,
-        global_transform,
-        inherited_visibility,
-        clip,
-        text_layout_info,
-        shadow,
-    ) in &uinode_query
+    for (entity, uinode, transform, target, inherited_visibility, clip, text_layout_info, shadow) in
+        &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -944,9 +937,9 @@ pub fn extract_text_shadows(
             continue;
         };
 
-        let transform = global_transform.affine()
-            * Mat4::from_translation(
-                (-0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor()).extend(0.),
+        let node_transform = Affine2::from(*transform)
+            * Affine2::from_translation(
+                -0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor(),
             );
 
         for (
@@ -965,7 +958,7 @@ pub fn extract_text_shadows(
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
-                transform: transform * Mat4::from_translation(position.extend(0.)),
+                transform: node_transform * Affine2::from_translation(*position),
                 rect,
             });
 
@@ -998,7 +991,7 @@ pub fn extract_text_background_colors(
         Query<(
             Entity,
             &ComputedNode,
-            &GlobalTransform,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -1021,8 +1014,8 @@ pub fn extract_text_background_colors(
             continue;
         };
 
-        let transform = global_transform.affine()
-            * bevy_math::Affine3A::from_translation(-0.5 * uinode.size().extend(0.));
+        let transform =
+            Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
         for &(section_entity, rect) in text_layout_info.section_rects.iter() {
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
@@ -1042,7 +1035,7 @@ pub fn extract_text_background_colors(
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
-                    transform: transform * Mat4::from_translation(rect.center().extend(0.)),
+                    transform: transform * Affine2::from_translation(rect.center()),
                     flip_x: false,
                     flip_y: false,
                     border: uinode.border(),
@@ -1093,11 +1086,11 @@ impl Default for UiMeta {
     }
 }
 
-pub(crate) const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
-    Vec3::new(-0.5, -0.5, 0.0),
-    Vec3::new(0.5, -0.5, 0.0),
-    Vec3::new(0.5, 0.5, 0.0),
-    Vec3::new(-0.5, 0.5, 0.0),
+pub(crate) const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
+    Vec2::new(-0.5, -0.5),
+    Vec2::new(0.5, -0.5),
+    Vec2::new(0.5, 0.5),
+    Vec2::new(-0.5, 0.5),
 ];
 
 pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
@@ -1321,12 +1314,12 @@ pub fn prepare_uinodes(
 
                             let mut uinode_rect = extracted_uinode.rect;
 
-                            let rect_size = uinode_rect.size().extend(1.0);
+                            let rect_size = uinode_rect.size();
 
                             // Specify the corners of the node
                             let positions = QUAD_VERTEX_POSITIONS
-                                .map(|pos| (*transform * (pos * rect_size).extend(1.)).xyz());
-                            let points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
+                                .map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
+                            let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
 
                             // Calculate the effect of clipping
                             // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -1367,7 +1360,7 @@ pub fn prepare_uinodes(
                                 points[3] + positions_diff[3],
                             ];
 
-                            let transformed_rect_size = transform.transform_vector3(rect_size);
+                            let transformed_rect_size = transform.transform_vector2(rect_size);
 
                             // Don't try to cull nodes that have a rotation
                             // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -1448,7 +1441,7 @@ pub fn prepare_uinodes(
                                         border_radius.bottom_left,
                                     ],
                                     border: [border.left, border.top, border.right, border.bottom],
-                                    size: rect_size.xy().into(),
+                                    size: rect_size.into(),
                                     point: points[i].into(),
                                 });
                             }
@@ -1470,13 +1463,14 @@ pub fn prepare_uinodes(
                             let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {
                                 let glyph_rect = glyph.rect;
-                                let size = glyph.rect.size();
-
-                                let rect_size = glyph_rect.size().extend(1.0);
+                                let rect_size = glyph_rect.size();
 
                                 // Specify the corners of the glyph
                                 let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                                    (glyph.transform * (pos * rect_size).extend(1.)).xyz()
+                                    glyph
+                                        .transform
+                                        .transform_point2(pos * glyph_rect.size())
+                                        .extend(0.)
                                 });
 
                                 let positions_diff = if let Some(clip) = extracted_uinode.clip {
@@ -1511,7 +1505,7 @@ pub fn prepare_uinodes(
 
                                 // cull nodes that are completely clipped
                                 let transformed_rect_size =
-                                    glyph.transform.transform_vector3(rect_size);
+                                    glyph.transform.transform_vector2(rect_size);
                                 if positions_diff[0].x - positions_diff[1].x
                                     >= transformed_rect_size.x.abs()
                                     || positions_diff[1].y - positions_diff[2].y
@@ -1548,7 +1542,7 @@ pub fn prepare_uinodes(
                                         flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
                                         radius: [0.0; 4],
                                         border: [0.0; 4],
-                                        size: size.into(),
+                                        size: rect_size.into(),
                                         point: [0.0; 2],
                                     });
                                 }

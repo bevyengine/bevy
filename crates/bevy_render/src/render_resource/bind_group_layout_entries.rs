@@ -568,4 +568,8 @@ pub mod binding_types {
         }
         .into_bind_group_layout_entry_builder()
     }
+
+    pub fn acceleration_structure() -> BindGroupLayoutEntryBuilder {
+        BindingType::AccelerationStructure.into_bind_group_layout_entry_builder()
+    }
 }

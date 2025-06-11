@@ -369,7 +369,7 @@ mod tests {
 
     use alloc::string::String;
     use bevy_ecs::{
-        component::HookContext, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
+        lifecycle::HookContext, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
     };
     use bevy_input::{
         keyboard::{Key, KeyCode},
@@ -394,7 +394,7 @@ mod tests {
         trigger: Trigger<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(trigger.target()) {
+        if let Ok(mut gather) = query.get_mut(trigger.target().unwrap()) {
             if let Key::Character(c) = &trigger.input.logical_key {
                 gather.0.push_str(c.as_str());
             }

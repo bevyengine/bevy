@@ -97,7 +97,7 @@
 //! - [`EventWriter`](crate::event::EventWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
-//! - [`RemovedComponents`](crate::removal_detection::RemovedComponents)
+//! - [`RemovedComponents`](crate::lifecycle::RemovedComponents)
 //! - [`SystemName`]
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
@@ -408,10 +408,10 @@ mod tests {
         component::{Component, Components},
         entity::{Entities, Entity},
         error::Result,
+        lifecycle::RemovedComponents,
         name::Name,
-        prelude::{AnyOf, EntityRef, Trigger},
+        prelude::{AnyOf, EntityRef, OnAdd, Trigger},
         query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
-        removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, IntoScheduleConfigs, Schedule,
@@ -421,7 +421,7 @@ mod tests {
             Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
             ResMut, Single, StaticSystemParam, System, SystemState,
         },
-        world::{DeferredWorld, EntityMut, FromWorld, OnAdd, World},
+        world::{DeferredWorld, EntityMut, FromWorld, World},
     };
 
     use super::ScheduleSystem;
@@ -1166,7 +1166,9 @@ mod tests {
         x.initialize(&mut world);
         y.initialize(&mut world);
 
-        let conflicts = x.component_access().get_conflicts(y.component_access());
+        let conflicts = x
+            .component_access_set()
+            .get_conflicts(y.component_access_set());
         let b_id = world
             .components()
             .get_resource_id(TypeId::of::<B>())
