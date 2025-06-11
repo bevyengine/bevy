@@ -14,12 +14,12 @@ pub mod json_schema;
 pub mod open_rpc;
 pub mod reflect_info;
 
-/// Holds mapping of reflect [type data](TypeData) to strings,
+/// Holds mapping of reflect [type data](TypeData) to human-readable type names,
 /// later on used in Bevy Json Schema.
 #[derive(Debug, Resource, Reflect)]
 #[reflect(Resource)]
 pub struct SchemaTypesMetadata {
-    /// Type Data id mapping to strings.
+    /// Type Data id mapping to human-readable type names.
     pub type_data_map: HashMap<TypeId, String>,
 }
 
@@ -42,7 +42,7 @@ impl Default for SchemaTypesMetadata {
 }
 
 impl SchemaTypesMetadata {
-    /// Map `TypeId` of `TypeData` to string
+    /// Map `TypeId` of `TypeData` to a human-readable type name
     pub fn map_type_data<T: TypeData>(&mut self, name: impl Into<String>) {
         self.type_data_map.insert(TypeId::of::<T>(), name.into());
     }
@@ -55,12 +55,12 @@ impl SchemaTypesMetadata {
             .collect()
     }
 
-    /// Checks if slice contains string value that matches checked `TypeData`
+    /// Checks if slice contains a type name that matches the checked `TypeData`
     pub fn has_type_data<T: TypeData>(&self, types_string_slice: &[String]) -> bool {
         self.has_type_data_by_id(TypeId::of::<T>(), types_string_slice)
     }
 
-    /// Checks if slice contains string value that matches checked `TypeData` by id.
+    /// Checks if slice contains a type name that matches the checked `TypeData` by id.
     pub fn has_type_data_by_id(&self, id: TypeId, types_string_slice: &[String]) -> bool {
         self.type_data_map
             .get(&id)

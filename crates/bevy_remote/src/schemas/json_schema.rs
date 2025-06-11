@@ -2,12 +2,10 @@
 //!  It tries to follow this standard: <https://json-schema.org/specification>
 use alloc::borrow::Cow;
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{
-    GetTypeRegistration, NamedField, OpaqueInfo, Reflect, TypeInfo, TypeRegistration, TypeRegistry,
-};
+use bevy_reflect::{GetTypeRegistration, Reflect, TypeRegistration, TypeRegistry};
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::schemas::{
     reflect_info::{SchemaInfoReflect, SchemaNumber},
@@ -60,72 +58,7 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
             return JsonSchemaBevyType::default();
         };
         typed_schema.reflect_types = metadata.get_registered_reflect_types(reg);
-        match type_info {
-            TypeInfo::Struct(info) => {
-                // typed_schema.properties = info
-                //     .iter()
-                //     .map(|field| (field.name().to_owned(), field.build_schema()))
-                //     .collect::<HashMap<_, _>>();
-                // typed_schema.required = info
-                //     .iter()
-                //     .filter(|field| !field.type_path().starts_with("core::option::Option"))
-                //     .map(|f| f.name().to_owned())
-                //     .collect::<Vec<_>>();
-                // typed_schema.additional_properties = Some(false);
-                // typed_schema.schema_type = Some(SchemaType::Object);
-                // typed_schema.kind = SchemaKind::Struct;
-            }
-            TypeInfo::Enum(info) => {
-                typed_schema.kind = SchemaKind::Enum;
-                typed_schema.one_of = info
-                    .iter()
-                    .map(|variant| variant.build_schema())
-                    .collect::<Vec<_>>();
-            }
-            TypeInfo::TupleStruct(info) => {
-                typed_schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Array));
-                typed_schema.kind = SchemaKind::TupleStruct;
-                // typed_schema.prefix_items = info
-                //     .iter()
-                //     .map(SchemaJsonReference::ref_type)
-                //     .collect::<Vec<_>>();
-                // typed_schema.items = Some(false.into());
-            }
-            TypeInfo::List(info) => {
-                typed_schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Array));
-                typed_schema.kind = SchemaKind::List;
-                // typed_schema.items = info.item_ty().ref_type().into();
-            }
-            TypeInfo::Array(info) => {
-                typed_schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Array));
-                typed_schema.kind = SchemaKind::Array;
-                // typed_schema.items = info.item_ty().ref_type().into();
-            }
-            TypeInfo::Map(info) => {
-                typed_schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Array));
-                typed_schema.kind = SchemaKind::Map;
-                typed_schema.key_type = info.key_ty().ref_type().into();
-                typed_schema.value_type = info.value_ty().ref_type().into();
-            }
-            TypeInfo::Tuple(info) => {
-                typed_schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Array));
-                typed_schema.kind = SchemaKind::Tuple;
-                // typed_schema.prefix_items = info
-                //     .iter()
-                //     .map(SchemaJsonReference::ref_type)
-                //     .collect::<Vec<_>>();
-                // typed_schema.items = Some(false.into());
-            }
-            TypeInfo::Set(info) => {
-                typed_schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Array));
-                typed_schema.kind = SchemaKind::Set;
-                // typed_schema.items = info.value_ty().ref_type().into();
-            }
-            TypeInfo::Opaque(info) => {
-                typed_schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Array));
-                typed_schema.kind = SchemaKind::Value;
-            }
-        };
+
         *typed_schema
     }
 }
@@ -138,8 +71,10 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
 #[serde(rename_all = "camelCase")]
 pub struct JsonSchemaBevyType {
     /// Bevy specific field, short path of the type.
+    #[serde(skip_serializing_if = "String::is_empty", default)]
     pub short_path: String,
     /// Bevy specific field, full path of the type.
+    #[serde(skip_serializing_if = "String::is_empty", default)]
     pub type_path: String,
     /// Bevy specific field, path of the module that type is part of.
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -156,12 +91,12 @@ pub struct JsonSchemaBevyType {
     ///
     /// It contains type info of key of the Map.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub key_type: Option<Value>,
+    pub key_type: Option<JsonSchemaVariant>,
     /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
     ///
     /// It contains type info of value of the Map.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub value_type: Option<Value>,
+    pub value_type: Option<JsonSchemaVariant>,
     /// The type keyword is fundamental to JSON Schema. It specifies the data type for a schema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     #[serde(rename = "type")]
@@ -171,7 +106,7 @@ pub struct JsonSchemaBevyType {
     /// Validation with "additionalProperties" applies only to the child
     /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub additional_properties: Option<bool>,
+    pub additional_properties: Option<JsonSchemaVariant>,
     /// Validation succeeds if, for each name that appears in both the instance and as a name
     /// within this keyword's value, the child instance for that name successfully validates
     /// against the corresponding schema.
@@ -202,12 +137,39 @@ pub struct JsonSchemaBevyType {
     /// array elements have been evaluated against this keyword's subschema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub items: Option<JsonSchemaVariant>,
+    /// The value of this keyword MUST be a non-negative integer.
+    /// An array instance is valid against "minItems" if its size is greater than,
+    /// or equal to, the value of this keyword.
+    /// Omitting this keyword has the same behavior as a value of 0.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub min_items: Option<u64>,
+    /// The value of this keyword MUST be a non-negative integer.
+    /// An array instance is valid against "maxItems" if its size is less than,
+    /// or equal to, the value of this keyword.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub max_items: Option<u64>,
+    /// The value of "minimum" MUST be a number,
+    /// representing an inclusive lower limit for a numeric instance.
+    /// If the instance is a number, then this keyword validates only
+    /// if the instance is greater than or exactly equal to "minimum".
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub minimum: Option<SchemaNumber>,
+    /// The value of "maximum" MUST be a number,
+    /// representing an inclusive upper limit for a numeric instance.
+    /// If the instance is a number, then this keyword validates only
+    /// if the instance is less than or exactly equal to "maximum".
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub maximum: Option<SchemaNumber>,
+    /// The value of "exclusiveMinimum" MUST be a number,
+    /// representing an exclusive lower limit for a numeric instance.
+    /// If the instance is a number, then this keyword validates only
+    /// if the instance is greater than "exclusiveMinimum".
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub exclusive_minimum: Option<SchemaNumber>,
+    /// The value of "exclusiveMaximum" MUST be a number,
+    /// representing an exclusive upper limit for a numeric instance.
+    /// If the instance is a number, then this keyword validates only
+    /// if the instance is less than "exclusiveMaximum".
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub exclusive_maximum: Option<SchemaNumber>,
     /// Type description
@@ -215,20 +177,52 @@ pub struct JsonSchemaBevyType {
     pub description: Option<String>,
 }
 
+/// Represents different types of JSON Schema values that can be used in schema definitions.
+///
+/// This enum supports the various ways a JSON Schema property can be defined,
+/// including boolean values, constant values, and complex schema objects.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Reflect)]
 #[serde(untagged)]
 pub enum JsonSchemaVariant {
+    /// A simple boolean value used in schema definitions.
+    ///
+    /// This is commonly used for properties like `additionalProperties` where
+    /// a boolean true/false indicates whether additional properties are allowed.
     BoolValue(bool),
+    /// A constant value with an optional description.
+    ///
+    /// This variant represents a JSON Schema `const` keyword, which specifies
+    /// that a value must be exactly equal to the given constant value.
     Const {
+        /// The constant value that must be matched exactly.
         #[reflect(ignore)]
         #[serde(rename = "const")]
         value: Value,
+        /// Optional human-readable description of the constant value.
         #[serde(skip_serializing_if = "Option::is_none", default)]
         description: Option<String>,
     },
+    /// A full JSON Schema definition.
+    ///
+    /// This variant contains a complete schema object that defines the structure,
+    /// validation rules, and metadata for a particular type or property.
     Schema(#[reflect(ignore)] Box<JsonSchemaBevyType>),
 }
+
 impl JsonSchemaVariant {
+    /// Creates a new constant value variant from any serializable type.
+    ///
+    /// This is a convenience constructor that serializes the provided value
+    /// to JSON and wraps it in the `Const` variant with an optional description.
+    ///
+    /// # Arguments
+    ///
+    /// * `serializable` - Any value that implements `Serialize`
+    /// * `description` - Optional description for the constant value
+    ///
+    /// # Returns
+    ///
+    /// A new `JsonSchemaVariant::Const` with the serialized value
     pub fn const_value(serializable: impl Serialize, description: Option<String>) -> Self {
         Self::Const {
             value: serde_json::to_value(serializable).unwrap_or_default(),
@@ -264,10 +258,20 @@ pub enum SchemaKind {
     /// Optional type
     Optional,
 }
+/// Represents the possible type variants for a JSON Schema.
+///
+/// In JSON Schema, the `type` keyword can either specify a single type
+/// or an array of types to allow multiple valid types for a property.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Reflect, Eq, PartialOrd, Ord)]
 #[serde(untagged)]
 pub enum SchemaTypeVariant {
+    /// A single schema type (e.g., "string", "number", "object").
+    /// This is the most common case where a property has exactly one valid type.
     Single(SchemaType),
+    /// Multiple schema types allowed for the same property.
+    /// This variant is used when a property can accept multiple types,
+    /// such as allowing both "string" and "number" for the same field.
+    /// In Rust case it most often means it is a Option type.
     Multiple(Vec<SchemaType>),
 }
 
@@ -346,58 +350,6 @@ impl SchemaType {
     }
 }
 
-/// Helper trait for generating json schema reference
-trait SchemaJsonReference {
-    /// Reference to another type in schema.
-    /// The value `$ref` is a URI-reference that is resolved against the schema.
-    fn ref_type(self) -> Value;
-}
-
-/// Helper trait for mapping bevy type path into json schema type
-pub trait SchemaJsonType {
-    /// Bevy Reflect type path
-    fn get_type_path(&self) -> &'static str;
-
-    /// JSON Schema type keyword from Bevy reflect type path into
-    fn map_json_type(&self) -> SchemaType {
-        match self.get_type_path() {
-            "bool" => SchemaType::Boolean,
-            "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => SchemaType::Integer,
-            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => SchemaType::Integer,
-            "f32" | "f64" => SchemaType::Number,
-            "char" | "str" | "alloc::string::String" => SchemaType::String,
-            _ => SchemaType::Object,
-        }
-    }
-}
-
-impl SchemaJsonType for OpaqueInfo {
-    fn get_type_path(&self) -> &'static str {
-        self.type_path()
-    }
-}
-
-impl SchemaJsonReference for &bevy_reflect::Type {
-    fn ref_type(self) -> Value {
-        let path = self.path();
-        json!({"type": json!({ "$ref": format!("#/$defs/{path}") })})
-    }
-}
-
-impl SchemaJsonReference for &bevy_reflect::UnnamedField {
-    fn ref_type(self) -> Value {
-        let path = self.type_path();
-        json!({"type": json!({ "$ref": format!("#/$defs/{path}") })})
-    }
-}
-
-impl SchemaJsonReference for &NamedField {
-    fn ref_type(self) -> Value {
-        let type_path = self.type_path();
-        json!({"type": json!({ "$ref": format!("#/$defs/{type_path}") }), "typePath": self.name()})
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -407,6 +359,7 @@ mod tests {
     use bevy_ecs::{component::Component, reflect::AppTypeRegistry, resource::Resource};
     use bevy_reflect::prelude::ReflectDefault;
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+    use serde_json::json;
 
     #[test]
     fn reflect_export_struct() {
@@ -654,8 +607,8 @@ mod tests {
               "minimum": 0,
               "type": "integer",
               "description": "Test doc",
-              "shortPath": "",
-              "typePath": "",
+              "shortPath": "u16",
+              "typePath": "u16",
 
             },
           },
