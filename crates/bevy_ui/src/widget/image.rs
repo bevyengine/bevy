@@ -220,24 +220,81 @@ impl Measure for ImageMeasure {
         let s_min_height = style.min_size.height.maybe_resolve(parent_height);
         let s_max_height = style.max_size.height.maybe_resolve(parent_height);
 
-        // Determine width and height from styles and known_sizes (if a size is available
-        // from any of these sources)
-        let width = width.or(s_width
-            .or(s_min_width)
-            .maybe_clamp(s_min_width, s_max_width));
-        let height = height.or(s_height
-            .or(s_min_height)
-            .maybe_clamp(s_min_height, s_max_height));
+        // Determine width and height from styles and known sizes (if a size is available
+        // from any of these sources).
+        let mut width = width.or(s_width).maybe_clamp(s_min_width, s_max_width);
+        let height = height.or(s_height).maybe_clamp(s_min_height, s_max_height);
+
+        // If there is no width/height then fall back to the image's size.
+        if width.is_none() && height.is_none() {
+            width = Some(self.size.x).maybe_clamp(s_min_width, s_max_width);
+        }
 
         // Use aspect_ratio from style, fall back to inherent aspect ratio
         let aspect_ratio = s_aspect_ratio.unwrap_or_else(|| self.size.x / self.size.y);
 
         // Apply aspect ratio
         // If only one of width or height was determined at this point, then the other is set beyond this point using the aspect ratio.
-        let taffy_size = taffy::Size { width, height }.maybe_apply_aspect_ratio(Some(aspect_ratio));
+        let aspect_applied =
+            (width.is_some() && height.is_none()) || (width.is_none() && height.is_some());
+        let mut taffy_size =
+            taffy::Size { width, height }.maybe_apply_aspect_ratio(Some(aspect_ratio));
+        tracing::info!("{taffy_size:?} {aspect_applied} {s_min_width:?} {s_max_width:?} {s_min_height:?} {s_max_height:?}");
 
-        // Use computed sizes or fall back to image's inherent size
-        Vec2 {
+        // Pull back if applying aspect ratio violated a min/max.
+        if aspect_applied {
+            // Check max violation.
+            if taffy_size
+                .width
+                .map(|w| w > s_max_width.unwrap_or(f32::MAX))
+                .unwrap_or(false)
+            {
+                taffy_size = taffy::Size {
+                    width: s_max_width,
+                    height: None,
+                }
+                .maybe_apply_aspect_ratio(Some(aspect_ratio));
+            }
+            if taffy_size
+                .height
+                .map(|h| h > s_max_height.unwrap_or(f32::MAX))
+                .unwrap_or(false)
+            {
+                taffy_size = taffy::Size {
+                    width: None,
+                    height: s_max_height,
+                }
+                .maybe_apply_aspect_ratio(Some(aspect_ratio));
+            }
+
+            // Check min violation.
+            if taffy_size
+                .width
+                .map(|w| w < s_min_width.unwrap_or(0.))
+                .unwrap_or(false)
+            {
+                taffy_size = taffy::Size {
+                    width: s_min_width,
+                    height: None,
+                }
+                .maybe_apply_aspect_ratio(Some(aspect_ratio));
+            }
+            if taffy_size
+                .height
+                .map(|h| h < s_min_height.unwrap_or(0.))
+                .unwrap_or(false)
+            {
+                taffy_size = taffy::Size {
+                    width: None,
+                    height: s_min_height,
+                }
+                .maybe_apply_aspect_ratio(Some(aspect_ratio));
+            }
+        }
+        tracing::info!("{taffy_size:?}");
+        // Use computed sizes or fall back to image's inherent size.
+        // Note that clamping to min/max is allowed to stretch the image at this point.
+        let res = Vec2 {
             x: taffy_size
                 .width
                 .unwrap_or(self.size.x)
@@ -246,7 +303,9 @@ impl Measure for ImageMeasure {
                 .height
                 .unwrap_or(self.size.y)
                 .maybe_clamp(s_min_height, s_max_height),
-        }
+        };
+        tracing::info!("{res:?}");
+        res
     }
 }
 
