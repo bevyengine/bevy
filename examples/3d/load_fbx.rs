@@ -1,6 +1,6 @@
 //! This example demonstrates how to load FBX files using the `bevy_fbx` crate.
-//! 
-//! The example loads a simple cube model from an FBX file and displays it 
+//!
+//! The example loads a simple cube model from an FBX file and displays it
 //! with proper lighting and shadows. The cube should rotate in the scene.
 
 use bevy::{
@@ -47,6 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }
         .build(),
     ));
+
     // Load the FBX file and spawn its default scene
     commands.spawn(SceneRoot(
         asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/cube/cube.fbx")),
