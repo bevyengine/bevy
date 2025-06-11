@@ -24,9 +24,9 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
-        .spawn(SceneRoot(
-            asset_server.load("models/CornellBox/box_modified.glb#Scene0"),
-        ))
+        .spawn(SceneRoot(asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
+        )))
         .observe(add_raytracing_meshes_on_scene_load);
 
     commands.spawn((
@@ -44,15 +44,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        CameraController::default(),
+        CameraController {
+            walk_speed: 500.0,
+            run_speed: 1500.0,
+            ..Default::default()
+        },
         Pathtracer::default(),
         CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
-        Transform::from_matrix(Mat4 {
-            x_axis: Vec4::new(0.99480534, 0.0, -0.10179563, 0.0),
-            y_axis: Vec4::new(-0.019938117, 0.98063105, -0.19484669, 0.0),
-            z_axis: Vec4::new(0.09982395, 0.19586414, 0.975537, 0.0),
-            w_axis: Vec4::new(0.68394995, 2.2785425, 6.68395, 1.0),
-        }),
+        Transform::from_xyz(-278.0, 273.0, 800.0),
     ));
 }
 
@@ -63,7 +62,11 @@ fn add_raytracing_meshes_on_scene_load(
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
 ) {
+    // Ensure meshes are bery_solari compatible
     for (_, mesh) in meshes.iter_mut() {
+        mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1.id);
+        mesh.generate_tangents().unwrap();
+
         if let Some(indices) = mesh.indices_mut() {
             if let Indices::U16(u16_indices) = indices {
                 *indices = Indices::U32(u16_indices.iter().map(|i| *i as u32).collect());
