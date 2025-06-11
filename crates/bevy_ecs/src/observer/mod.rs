@@ -59,8 +59,10 @@
 //! via [`Commands::trigger`] (for untargeted events) or [`Commands::trigger_targets`] (for targeted events).
 //! Like usual, equivalent methods are available on [`World`], allowing you to reduce overhead when working with exclusive world access.
 //!
-//! To trigger events for a specific set of components, pass in a [`ComponentId`] or a collection of them
-//! into [`Commands::trigger_targets`] by using the [`TriggerTargets`] trait.
+//! If your observer is configured to watch for a specific component or set of components instead,
+//! you can pass in [`ComponentId`]s into [`Commands::trigger_targets`] by using the [`TriggerTargets`] trait.
+//! As discussed in the [`Trigger`] documentation, this use case is rare, and is currently only used
+//! for [lifecycle](crate::lifecycle) events, which are automatically emitted.
 //!
 //! ## Observer bubbling
 //!
