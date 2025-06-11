@@ -147,7 +147,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: We eventually return the correctly initialized collection into the target.
         let mut existing_collection = mem::replace(
             existing_relations.into_inner(),
-            <<R as Relationship>::RelationshipTarget as RelationshipTarget>::from_collection_risky(
+            <R as Relationship>::RelationshipTarget::from_collection_risky(
                 Collection::<R>::with_capacity(0),
             ),
         );
