@@ -12,6 +12,13 @@ use super::Observer;
 #[derive(Default)]
 pub struct ObservedBy(pub(crate) Vec<Entity>);
 
+impl ObservedBy {
+    /// Provides a read-only reference to the list of entities observing this entity.
+    pub fn get(&self) -> &[Entity] {
+        &self.0
+    }
+}
+
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
