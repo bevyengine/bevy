@@ -110,6 +110,17 @@ use smallvec::SmallVec;
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`Trigger::propagate`] for more information.
+///
+/// The generic `B: Bundle` is used to further specialize the events that this observer is interested in.
+/// The entity involved *does not* have to have these components, but the observer will only be
+/// triggered if the event matches the components in `B`.
+///
+/// This is used to to avoid providing a generic argument in your event, as is done for [`OnAdd`]
+/// and the other lifecycle events.
+///
+/// Providing multiple components in this bundle will cause this event to be triggered by any
+/// matching component in the bundle,
+/// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
 pub struct Trigger<'w, E, B: Bundle = ()> {
     event: &'w mut E,
     propagate: &'w mut bool,
