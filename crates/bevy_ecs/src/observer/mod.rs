@@ -262,10 +262,14 @@ impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
     }
 }
 
-/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of type [`Entity`] or [`ComponentId`].
+/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`].
 ///
 /// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches for that specific event-target combination
 /// will run.
+///
+/// This trait is implemented for both [`Entity`] and [`ComponentId`], allowing you to target specific entities or components.
+/// It is also implemented for various collections of these types, such as [`Vec`], arrays, and tuples,
+/// allowing you to trigger events for multiple targets at once.
 pub trait TriggerTargets {
     /// The components the trigger should target.
     fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_;
