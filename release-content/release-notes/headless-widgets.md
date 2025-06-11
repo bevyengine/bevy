@@ -33,7 +33,7 @@ The `bevy_core_widgets` crate provides implementations of unstyled widgets, such
 sliders, checkboxes and radio buttons.
 
 - `CoreButton` is a push button. It emits an activation event when clicked.
-- (More to be added in subsequent PRs)
+- `CoreSlider` is a standard slider, which lets you edit an `f32` value in a given range.
 
 ## Widget Interaction States
 
