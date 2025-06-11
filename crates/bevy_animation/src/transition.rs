@@ -57,7 +57,7 @@ pub struct AnimationTransition {
     weight: f32,
 }
 impl AnimationTransitions {
-    /// Initializes the [`AnimationTransitions`] component, with ONE SINGLE flow meaning. It is expected to play only one animation at once.
+    /// Initializes the [`AnimationTransitions`] component, with ONE SINGLE flow meaning. It is expected to play only one animation at once
     pub fn new() -> Self {
         Self {
             flows: vec![None; 1 as usize],
@@ -65,7 +65,7 @@ impl AnimationTransitions {
         }
     }
 
-    /// Define your flow amount and initializes your component, renember flow_amount is the amount of animation you want to be playing at onces
+    /// Define your flow amount and initializes your component, renember flow_amount is the amount of animation you want to be playing at once
     pub fn new_with_flow(flow_amount: usize) -> Self {
         Self {
             flows: vec![None; flow_amount],
