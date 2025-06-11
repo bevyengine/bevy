@@ -82,7 +82,7 @@ fn setup(
     commands.spawn((
         Mesh3d(cube_handle),
         MeshMaterial3d(material_handle.clone()),
-        Transform::from_xyz(0.0, 3.0, 0.0),
+        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
     // sphere
     commands.spawn((
@@ -90,14 +90,6 @@ fn setup(
         MeshMaterial3d(material_handle),
         Transform::from_xyz(3.0, 0.0, 0.0),
     ));
-    // TODO: don't touch this example
-    commands.spawn(SceneRoot(
-        asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/cube/cube.fbx")),
-    ));
-    // commands.spawn(SceneRoot(
-    //     asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cube/cube.gltf")),
-    // ));
-
     // light
     commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 5.0, 4.0)));
     // camera
