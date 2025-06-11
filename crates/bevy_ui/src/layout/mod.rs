@@ -8,8 +8,8 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     hierarchy::{ChildOf, Children},
+    lifecycle::RemovedComponents,
     query::With,
-    removal_detection::RemovedComponents,
     system::{Commands, Query, ResMut},
     world::Ref,
 };
