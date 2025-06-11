@@ -285,11 +285,7 @@ mod animation {
             if let Ok((entity, mut player)) = players.get_mut(child) {
                 let mut transitions = AnimationTransitions::new();
                 transitions
-                    .transition(
-                        &mut player,
-                        animation.animation,
-                        Duration::from_millis(200),
-                    )
+                    .transition(&mut player, animation.animation, Duration::from_millis(200))
                     .seek_to(0.5)
                     .pause();
 
