@@ -23,6 +23,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = ["std"] }
 bevy_animation = { path = "../bevy_animation", version = "0.16.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.16.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 thiserror = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 ufbx = "0.8"
