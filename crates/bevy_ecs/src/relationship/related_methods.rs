@@ -1,6 +1,7 @@
 use crate::{
     bundle::Bundle,
     entity::{hash_set::EntityHashSet, Entity},
+    prelude::Children,
     relationship::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
     },
@@ -86,7 +87,7 @@ impl<'w> EntityWorldMut<'w> {
         let id = self.id();
         self.world_scope(|world| {
             for (offset, related) in related.iter().enumerate() {
-                let index = index + offset;
+                let index = index.saturating_add(offset);
                 if world
                     .get::<R>(*related)
                     .is_some_and(|relationship| relationship.get() == id)
@@ -302,6 +303,15 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Despawns the children of this entity.
+    /// This entity will not be despawned.
+    ///
+    /// This is a specialization of [`despawn_related`](EntityWorldMut::despawn_related), a more general method for despawning via relationships.
+    pub fn despawn_children(&mut self) -> &mut Self {
+        self.despawn_related::<Children>();
+        self
+    }
+
     /// Inserts a component or bundle of components into the entity and all related entities,
     /// traversing the relationship tracked in `S` in a breadth-first manner.
     ///
@@ -467,6 +477,14 @@ impl<'a> EntityCommands<'a> {
         })
     }
 
+    /// Despawns the children of this entity.
+    /// This entity will not be despawned.
+    ///
+    /// This is a specialization of [`despawn_related`](EntityCommands::despawn_related), a more general method for despawning via relationships.
+    pub fn despawn_children(&mut self) -> &mut Self {
+        self.despawn_related::<Children>()
+    }
+
     /// Inserts a component or bundle of components into the entity and all related entities,
     /// traversing the relationship tracked in `S` in a breadth-first manner.
     ///
@@ -530,6 +548,16 @@ impl<'w, R: Relationship> RelatedSpawner<'w, R> {
     /// Returns the "target entity" used when spawning entities with an `R` [`Relationship`].
     pub fn target_entity(&self) -> Entity {
         self.target
+    }
+
+    /// Returns a reference to the underlying [`World`].
+    pub fn world(&self) -> &World {
+        self.world
+    }
+
+    /// Returns a mutable reference to the underlying [`World`].
+    pub fn world_mut(&mut self) -> &mut World {
+        self.world
     }
 }
 

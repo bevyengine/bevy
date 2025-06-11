@@ -16,8 +16,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout, YAxisOrientation,
+    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, Justify, LineBreak,
+    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -53,11 +53,15 @@ impl Default for SwashCache {
 
 /// Information about a font collected as part of preparing for text layout.
 #[derive(Clone)]
-struct FontFaceInfo {
-    stretch: cosmic_text::fontdb::Stretch,
-    style: cosmic_text::fontdb::Style,
-    weight: cosmic_text::fontdb::Weight,
-    family_name: Arc<str>,
+pub struct FontFaceInfo {
+    /// Width class: <https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>
+    pub stretch: cosmic_text::fontdb::Stretch,
+    /// Allows italic or oblique faces to be selected
+    pub style: cosmic_text::fontdb::Style,
+    /// The degree of blackness or stroke thickness
+    pub weight: cosmic_text::fontdb::Weight,
+    /// Font family name
+    pub family_name: Arc<str>,
 }
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
@@ -66,7 +70,7 @@ struct FontFaceInfo {
 #[derive(Default, Resource)]
 pub struct TextPipeline {
     /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
-    map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
+    pub map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
@@ -84,7 +88,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
         linebreak: LineBreak,
-        justify: JustifyText,
+        justify: Justify,
         bounds: TextBounds,
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
@@ -197,7 +201,7 @@ impl TextPipeline {
 
         // Workaround for alignment not working for unbounded text.
         // See https://github.com/pop-os/cosmic-text/issues/343
-        if bounds.width.is_none() && justify != JustifyText::Left {
+        if bounds.width.is_none() && justify != Justify::Left {
             let dimensions = buffer_dimensions(buffer);
             // `set_size` causes a re-layout to occur.
             buffer.set_size(font_system, Some(dimensions.x), bounds.height);
@@ -228,7 +232,6 @@ impl TextPipeline {
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
-        y_axis_orientation: YAxisOrientation,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
@@ -348,10 +351,6 @@ impl TextPipeline {
                     let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
                     let y =
                         line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
-                    let y = match y_axis_orientation {
-                        YAxisOrientation::TopToBottom => y,
-                        YAxisOrientation::BottomToTop => box_size.y - y,
-                    };
 
                     let position = Vec2::new(x, y);
 
@@ -489,7 +488,8 @@ impl TextMeasureInfo {
     }
 }
 
-fn load_font_to_fontdb(
+/// Add the font to the cosmic text's `FontSystem`'s in-memory font database
+pub fn load_font_to_fontdb(
     text_font: &TextFont,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
@@ -532,7 +532,7 @@ fn get_attrs<'a>(
     face_info: &'a FontFaceInfo,
     scale_factor: f64,
 ) -> Attrs<'a> {
-    let attrs = Attrs::new()
+    Attrs::new()
         .metadata(span_index)
         .family(Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
@@ -545,8 +545,7 @@ fn get_attrs<'a>(
             }
             .scale(scale_factor as f32),
         )
-        .color(cosmic_text::Color(color.to_linear().as_u32()));
-    attrs
+        .color(cosmic_text::Color(color.to_linear().as_u32()))
 }
 
 /// Calculate the size of the text area for the given buffer.

@@ -1,12 +1,12 @@
 use crate::{
-    component::{
-        Component, ComponentCloneBehavior, ComponentHook, HookContext, Mutable, StorageType,
-    },
+    component::{Component, ComponentCloneBehavior, Mutable, StorageType},
     entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
-    observer::ObserverState,
+    lifecycle::{ComponentHook, HookContext},
     world::World,
 };
 use alloc::vec::Vec;
+
+use super::Observer;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
 #[derive(Default)]
@@ -27,7 +27,7 @@ impl Component for ObservedBy {
                     let Ok(mut entity_mut) = world.get_entity_mut(e) else {
                         continue;
                     };
-                    let Some(mut state) = entity_mut.get_mut::<ObserverState>() else {
+                    let Some(mut state) = entity_mut.get_mut::<Observer>() else {
                         continue;
                     };
                     state.despawned_watched_entities += 1;
@@ -77,10 +77,10 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
             .entity_mut(target)
             .insert(ObservedBy(observed_by.clone()));
 
-        for observer in &observed_by {
+        for observer_entity in observed_by.iter().copied() {
             let mut observer_state = world
-                .get_mut::<ObserverState>(*observer)
-                .expect("Source observer entity must have ObserverState");
+                .get_mut::<Observer>(observer_entity)
+                .expect("Source observer entity must have Observer");
             observer_state.descriptor.entities.push(target);
             let event_types = observer_state.descriptor.events.clone();
             let components = observer_state.descriptor.components.clone();

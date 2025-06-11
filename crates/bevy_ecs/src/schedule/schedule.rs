@@ -27,7 +27,6 @@ use tracing::info_span;
 
 use crate::{
     component::{ComponentId, Components, Tick},
-    error::default_error_handler,
     prelude::Component,
     resource::Resource,
     schedule::*,
@@ -167,7 +166,7 @@ impl Schedules {
             writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
         }
 
-        info!("{}", message);
+        info!("{message}");
     }
 
     /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
@@ -218,6 +217,7 @@ impl Schedules {
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
     match kind {
+        #[expect(deprecated, reason = "We still need to support this.")]
         ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
         ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
         #[cfg(feature = "std")]
@@ -257,8 +257,16 @@ impl Chain {
 /// A collection of systems, and the metadata and executor needed to run them
 /// in a certain order under certain conditions.
 ///
+/// # Schedule labels
+///
+/// Each schedule has a [`ScheduleLabel`] value. This value is used to uniquely identify the
+/// schedule when added to a [`World`]’s [`Schedules`], and may be used to specify which schedule
+/// a system should be added to.
+///
 /// # Example
+///
 /// Here is an example of a `Schedule` running a "Hello world" system:
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn hello_world() { println!("Hello world!") }
@@ -273,6 +281,7 @@ impl Chain {
 /// ```
 ///
 /// A schedule can also run several systems in an ordered way:
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn system_one() { println!("System 1 works!") }
@@ -289,6 +298,32 @@ impl Chain {
 ///     ));
 ///
 ///     schedule.run(&mut world);
+/// }
+/// ```
+///
+/// Schedules are often inserted into a [`World`] and identified by their [`ScheduleLabel`] only:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::schedule::ScheduleLabel;
+///
+/// // Declare a new schedule label.
+/// #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+/// struct Update;
+///
+/// // This system shall be part of the schedule.
+/// fn an_update_system() {
+///     println!("Hello world!");
+/// }
+///
+/// fn main() {
+///     let mut world = World::new();
+///
+///     // Add a system to the schedule with that label (creating it automatically).
+///     world.get_resource_or_init::<Schedules>().add_systems(Update, an_update_system);
+///
+///     // Run the schedule, and therefore run the system.
+///     world.run_schedule(Update);
 /// }
 /// ```
 pub struct Schedule {
@@ -327,7 +362,8 @@ impl Schedule {
         this
     }
 
-    /// Get the `InternedScheduleLabel` for this `Schedule`.
+    /// Returns the [`InternedScheduleLabel`] for this `Schedule`,
+    /// corresponding to the [`ScheduleLabel`] this schedule was created with.
     pub fn label(&self) -> InternedScheduleLabel {
         self.label
     }
@@ -394,9 +430,21 @@ impl Schedule {
     }
 
     /// Changes miscellaneous build settings.
+    ///
+    /// If [`settings.auto_insert_apply_deferred`][ScheduleBuildSettings::auto_insert_apply_deferred]
+    /// is `false`, this clears `*_ignore_deferred` edge settings configured so far.
+    ///
+    /// Generally this method should be used before adding systems or set configurations to the schedule,
+    /// not after.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         if settings.auto_insert_apply_deferred {
-            self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
+            if !self
+                .graph
+                .passes
+                .contains_key(&TypeId::of::<passes::AutoInsertApplyDeferredPass>())
+            {
+                self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
+            }
         } else {
             self.remove_build_pass::<passes::AutoInsertApplyDeferredPass>();
         }
@@ -441,7 +489,7 @@ impl Schedule {
         self.initialize(world)
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
-        let error_handler = default_error_handler();
+        let error_handler = world.default_error_handler();
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
@@ -510,7 +558,7 @@ impl Schedule {
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub fn check_change_ticks(&mut self, change_tick: Tick) {
         for system in &mut self.executable.systems {
             if !is_apply_deferred(system) {
                 system.check_change_tick(change_tick);
@@ -1370,25 +1418,23 @@ impl ScheduleGraph {
             if system_a.is_exclusive() || system_b.is_exclusive() {
                 conflicting_systems.push((a, b, Vec::new()));
             } else {
-                let access_a = system_a.component_access();
-                let access_b = system_b.component_access();
-                if !access_a.is_compatible(access_b) {
-                    match access_a.get_conflicts(access_b) {
-                        AccessConflicts::Individual(conflicts) => {
-                            let conflicts: Vec<_> = conflicts
-                                .ones()
-                                .map(ComponentId::get_sparse_set_index)
-                                .filter(|id| !ignored_ambiguities.contains(id))
-                                .collect();
-                            if !conflicts.is_empty() {
-                                conflicting_systems.push((a, b, conflicts));
-                            }
+                let access_a = system_a.component_access_set();
+                let access_b = system_b.component_access_set();
+                match access_a.get_conflicts(access_b) {
+                    AccessConflicts::Individual(conflicts) => {
+                        let conflicts: Vec<_> = conflicts
+                            .ones()
+                            .map(ComponentId::get_sparse_set_index)
+                            .filter(|id| !ignored_ambiguities.contains(id))
+                            .collect();
+                        if !conflicts.is_empty() {
+                            conflicting_systems.push((a, b, conflicts));
                         }
-                        AccessConflicts::All => {
-                            // there is no specific component conflicting, but the systems are overall incompatible
-                            // for example 2 systems with `Query<EntityMut>`
-                            conflicting_systems.push((a, b, Vec::new()));
-                        }
+                    }
+                    AccessConflicts::All => {
+                        // there is no specific component conflicting, but the systems are overall incompatible
+                        // for example 2 systems with `Query<EntityMut>`
+                        conflicting_systems.push((a, b, Vec::new()));
                     }
                 }
             }
@@ -1659,10 +1705,7 @@ impl ScheduleGraph {
         match self.settings.hierarchy_detection {
             LogLevel::Ignore => unreachable!(),
             LogLevel::Warn => {
-                error!(
-                    "Schedule {schedule_label:?} has redundant edges:\n {}",
-                    message
-                );
+                error!("Schedule {schedule_label:?} has redundant edges:\n {message}");
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::HierarchyRedundancy(message)),
@@ -1864,7 +1907,7 @@ impl ScheduleGraph {
         match self.settings.ambiguity_detection {
             LogLevel::Ignore => Ok(()),
             LogLevel::Warn => {
-                warn!("Schedule {schedule_label:?} has ambiguities.\n{}", message);
+                warn!("Schedule {schedule_label:?} has ambiguities.\n{message}");
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::Ambiguity(message)),
@@ -2060,6 +2103,7 @@ mod tests {
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
+        error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, Res, Resource},
         schedule::{
             tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, SystemSet,
@@ -2075,6 +2119,46 @@ mod tests {
 
     #[derive(Resource)]
     struct Resource2;
+
+    #[test]
+    fn unchanged_auto_insert_apply_deferred_has_no_effect() {
+        use alloc::{vec, vec::Vec};
+
+        #[derive(PartialEq, Debug)]
+        enum Entry {
+            System(usize),
+            SyncPoint(usize),
+        }
+
+        #[derive(Resource, Default)]
+        struct Log(Vec<Entry>);
+
+        fn system<const N: usize>(mut res: ResMut<Log>, mut commands: Commands) {
+            res.0.push(Entry::System(N));
+            commands
+                .queue(|world: &mut World| world.resource_mut::<Log>().0.push(Entry::SyncPoint(N)));
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Log>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system::<1>, system::<2>).chain_ignore_deferred());
+        schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_apply_deferred: true,
+            ..Default::default()
+        });
+        schedule.run(&mut world);
+        let actual = world.remove_resource::<Log>().unwrap().0;
+
+        let expected = vec![
+            Entry::System(1),
+            Entry::System(2),
+            Entry::SyncPoint(1),
+            Entry::SyncPoint(2),
+        ];
+
+        assert_eq!(actual, expected);
+    }
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]
@@ -2808,5 +2892,33 @@ mod tests {
             .get_resource::<CheckSystemRan>()
             .expect("CheckSystemRan Resource Should Exist");
         assert_eq!(value.0, 2);
+    }
+
+    #[test]
+    fn test_default_error_handler() {
+        #[derive(Resource, Default)]
+        struct Ran(bool);
+
+        fn system(mut ran: ResMut<Ran>) -> Result {
+            ran.0 = true;
+            Err("I failed!".into())
+        }
+
+        // Test that the default error handler is used
+        let mut world = World::default();
+        world.init_resource::<Ran>();
+        world.insert_resource(DefaultErrorHandler(ignore));
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system).run(&mut world);
+        assert!(world.resource::<Ran>().0);
+
+        // Test that the handler doesn't change within the schedule
+        schedule.add_systems(
+            (|world: &mut World| {
+                world.insert_resource(DefaultErrorHandler(panic));
+            })
+            .before(system),
+        );
+        schedule.run(&mut world);
     }
 }

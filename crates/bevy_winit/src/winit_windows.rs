@@ -42,6 +42,16 @@ pub struct WinitWindows {
 }
 
 impl WinitWindows {
+    /// Creates a new instance of `WinitWindows`.
+    pub const fn new() -> Self {
+        Self {
+            windows: HashMap::new(),
+            entity_to_winit: EntityHashMap::new(),
+            winit_to_entity: HashMap::new(),
+            _not_send_sync: core::marker::PhantomData,
+        }
+    }
+
     /// Creates a `winit` window and associates it with our entity.
     pub fn create_window(
         &mut self,
@@ -119,7 +129,8 @@ impl WinitWindows {
             .with_resizable(window.resizable)
             .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
-            .with_transparent(window.transparent);
+            .with_transparent(window.transparent)
+            .with_active(window.focused);
 
         #[cfg(target_os = "windows")]
         {

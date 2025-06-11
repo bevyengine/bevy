@@ -1,7 +1,7 @@
 use alloc::{boxed::Box, vec::Vec};
+use bevy_platform::cell::SyncUnsafeCell;
 use bevy_platform::sync::Arc;
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
-use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
@@ -13,14 +13,14 @@ use std::sync::{Mutex, MutexGuard};
 use tracing::{info_span, Span};
 
 use crate::{
-    archetype::ArchetypeComponentId,
-    error::{default_error_handler, BevyError, ErrorContext, Result},
+    error::{ErrorContext, ErrorHandler, Result},
     prelude::Resource,
-    query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
+#[cfg(feature = "hotpatching")]
+use crate::{event::Events, HotPatched};
 
 use super::__rust_begin_short_backtrace;
 
@@ -62,8 +62,13 @@ impl<'env, 'sys> Environment<'env, 'sys> {
 /// Per-system data used by the [`MultiThreadedExecutor`].
 // Copied here because it can't be read from the system when it's running.
 struct SystemTaskMetadata {
-    /// The [`ArchetypeComponentId`] access of the system.
-    archetype_component_access: Access<ArchetypeComponentId>,
+    /// The set of systems whose `component_access_set()` conflicts with this one.
+    conflicting_systems: FixedBitSet,
+    /// The set of systems whose `component_access_set()` conflicts with this system's conditions.
+    /// Note that this is separate from `conflicting_systems` to handle the case where
+    /// a system is skipped by an earlier system set condition or system stepping,
+    /// and needs access to run its conditions but not for itself.
+    condition_conflicting_systems: FixedBitSet,
     /// Indices of the systems that directly depend on the system.
     dependents: Vec<usize>,
     /// Is `true` if the system does not access `!Send` data.
@@ -97,8 +102,8 @@ pub struct MultiThreadedExecutor {
 pub struct ExecutorState {
     /// Metadata for scheduling and running system tasks.
     system_task_metadata: Vec<SystemTaskMetadata>,
-    /// Union of the accesses of all currently running systems.
-    active_access: Access<ArchetypeComponentId>,
+    /// The set of systems whose `component_access_set()` conflicts with this system set's conditions.
+    set_condition_conflicting_systems: Vec<FixedBitSet>,
     /// Returns `true` if a system with non-`Send` access is running.
     local_thread_running: bool,
     /// Returns `true` if an exclusive system is running.
@@ -131,7 +136,7 @@ pub struct ExecutorState {
 struct Context<'scope, 'env, 'sys> {
     environment: &'env Environment<'env, 'sys>,
     scope: &'scope Scope<'scope, 'env, ()>,
-    error_handler: fn(BevyError, ErrorContext),
+    error_handler: ErrorHandler,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -164,13 +169,68 @@ impl SystemExecutor for MultiThreadedExecutor {
         state.system_task_metadata = Vec::with_capacity(sys_count);
         for index in 0..sys_count {
             state.system_task_metadata.push(SystemTaskMetadata {
-                archetype_component_access: default(),
+                conflicting_systems: FixedBitSet::with_capacity(sys_count),
+                condition_conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].is_send(),
                 is_exclusive: schedule.systems[index].is_exclusive(),
             });
             if schedule.system_dependencies[index] == 0 {
                 self.starting_systems.insert(index);
+            }
+        }
+
+        {
+            #[cfg(feature = "trace")]
+            let _span = info_span!("calculate conflicting systems").entered();
+            for index1 in 0..sys_count {
+                let system1 = &schedule.systems[index1];
+                for index2 in 0..index1 {
+                    let system2 = &schedule.systems[index2];
+                    if !system2
+                        .component_access_set()
+                        .is_compatible(system1.component_access_set())
+                    {
+                        state.system_task_metadata[index1]
+                            .conflicting_systems
+                            .insert(index2);
+                        state.system_task_metadata[index2]
+                            .conflicting_systems
+                            .insert(index1);
+                    }
+                }
+
+                for index2 in 0..sys_count {
+                    let system2 = &schedule.systems[index2];
+                    if schedule.system_conditions[index1].iter().any(|condition| {
+                        !system2
+                            .component_access_set()
+                            .is_compatible(condition.component_access_set())
+                    }) {
+                        state.system_task_metadata[index1]
+                            .condition_conflicting_systems
+                            .insert(index2);
+                    }
+                }
+            }
+
+            state.set_condition_conflicting_systems.clear();
+            state.set_condition_conflicting_systems.reserve(set_count);
+            for set_idx in 0..set_count {
+                let mut conflicting_systems = FixedBitSet::with_capacity(sys_count);
+                for sys_index in 0..sys_count {
+                    let system = &schedule.systems[sys_index];
+                    if schedule.set_conditions[set_idx].iter().any(|condition| {
+                        !system
+                            .component_access_set()
+                            .is_compatible(condition.component_access_set())
+                    }) {
+                        conflicting_systems.insert(sys_index);
+                    }
+                }
+                state
+                    .set_condition_conflicting_systems
+                    .push(conflicting_systems);
             }
         }
 
@@ -182,7 +242,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: ErrorHandler,
     ) {
         let state = self.state.get_mut().unwrap();
         // reset counts
@@ -257,7 +317,6 @@ impl SystemExecutor for MultiThreadedExecutor {
 
         debug_assert!(state.ready_systems.is_clear());
         debug_assert!(state.running_systems.is_clear());
-        state.active_access.clear();
         state.evaluated_sets.clear();
         state.skipped_systems.clear();
         state.completed_systems.clear();
@@ -345,9 +404,9 @@ impl ExecutorState {
     fn new() -> Self {
         Self {
             system_task_metadata: Vec::new(),
+            set_condition_conflicting_systems: Vec::new(),
             num_running_systems: 0,
             num_dependencies_remaining: Vec::new(),
-            active_access: default(),
             local_thread_running: false,
             exclusive_running: false,
             evaluated_sets: FixedBitSet::new(),
@@ -368,8 +427,6 @@ impl ExecutorState {
             self.finish_system_and_handle_dependents(result);
         }
 
-        self.rebuild_active_access();
-
         // SAFETY:
         // - `finish_system_and_handle_dependents` has updated the currently running systems.
         // - `rebuild_active_access` locks access for all currently running systems.
@@ -388,6 +445,14 @@ impl ExecutorState {
             return;
         }
 
+        #[cfg(feature = "hotpatching")]
+        let should_update_hotpatch = !context
+            .environment
+            .world_cell
+            .get_resource::<Events<HotPatched>>()
+            .map(Events::is_empty)
+            .unwrap_or(true);
+
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);
 
@@ -405,12 +470,12 @@ impl ExecutorState {
                 // Therefore, no other reference to this system exists and there is no aliasing.
                 let system = unsafe { &mut *context.environment.systems[system_index].get() };
 
-                if !self.can_run(
-                    system_index,
-                    system,
-                    conditions,
-                    context.environment.world_cell,
-                ) {
+                #[cfg(feature = "hotpatching")]
+                if should_update_hotpatch {
+                    system.refresh_hotpatch();
+                }
+
+                if !self.can_run(system_index, conditions) {
                     // NOTE: exclusive systems with ambiguities are susceptible to
                     // being significantly displaced here (compared to single-threaded order)
                     // if systems after them in topological order can run
@@ -421,7 +486,6 @@ impl ExecutorState {
                 self.ready_systems.remove(system_index);
 
                 // SAFETY: `can_run` returned true, which means that:
-                // - It must have called `update_archetype_component_access` for each run condition.
                 // - There can be no systems running whose accesses would conflict with any conditions.
                 if unsafe {
                     !self.should_run(
@@ -429,6 +493,7 @@ impl ExecutorState {
                         system,
                         conditions,
                         context.environment.world_cell,
+                        context.error_handler,
                     )
                 } {
                     self.skip_system_and_signal_dependents(system_index);
@@ -454,7 +519,6 @@ impl ExecutorState {
                 // - Caller ensured no other reference to this system exists.
                 // - `system_task_metadata[system_index].is_exclusive` is `false`,
                 //   so `System::is_exclusive` returned `false` when we called it.
-                // - `can_run` has been called, which calls `update_archetype_component_access` with this system.
                 // - `can_run` returned true, so no systems with conflicting world access are running.
                 unsafe {
                     self.spawn_system_task(context, system_index);
@@ -466,13 +530,7 @@ impl ExecutorState {
         self.ready_systems_copy = ready_systems;
     }
 
-    fn can_run(
-        &mut self,
-        system_index: usize,
-        system: &mut ScheduleSystem,
-        conditions: &mut Conditions,
-        world: UnsafeWorldCell,
-    ) -> bool {
+    fn can_run(&mut self, system_index: usize, conditions: &mut Conditions) -> bool {
         let system_meta = &self.system_task_metadata[system_index];
         if system_meta.is_exclusive && self.num_running_systems > 0 {
             return false;
@@ -486,39 +544,24 @@ impl ExecutorState {
         for set_idx in conditions.sets_with_conditions_of_systems[system_index]
             .difference(&self.evaluated_sets)
         {
-            for condition in &mut conditions.set_conditions[set_idx] {
-                condition.update_archetype_component_access(world);
-                if !condition
-                    .archetype_component_access()
-                    .is_compatible(&self.active_access)
-                {
-                    return false;
-                }
-            }
-        }
-
-        for condition in &mut conditions.system_conditions[system_index] {
-            condition.update_archetype_component_access(world);
-            if !condition
-                .archetype_component_access()
-                .is_compatible(&self.active_access)
-            {
+            if !self.set_condition_conflicting_systems[set_idx].is_disjoint(&self.running_systems) {
                 return false;
             }
         }
 
-        if !self.skipped_systems.contains(system_index) {
-            system.update_archetype_component_access(world);
-            if !system
-                .archetype_component_access()
-                .is_compatible(&self.active_access)
-            {
-                return false;
-            }
+        if !system_meta
+            .condition_conflicting_systems
+            .is_disjoint(&self.running_systems)
+        {
+            return false;
+        }
 
-            self.system_task_metadata[system_index]
-                .archetype_component_access
-                .clone_from(system.archetype_component_access());
+        if !self.skipped_systems.contains(system_index)
+            && !system_meta
+                .conflicting_systems
+                .is_disjoint(&self.running_systems)
+        {
+            return false;
         }
 
         true
@@ -528,17 +571,15 @@ impl ExecutorState {
     /// * `world` must have permission to read any world data required by
     ///   the system's conditions: this includes conditions for the system
     ///   itself, and conditions for any of the system's sets.
-    /// * `update_archetype_component` must have been called with `world`
-    ///   for the system as well as system and system set's run conditions.
     unsafe fn should_run(
         &mut self,
         system_index: usize,
         system: &mut ScheduleSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
+        error_handler: ErrorHandler,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
-        let error_handler = default_error_handler();
 
         for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
@@ -549,9 +590,12 @@ impl ExecutorState {
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the conditions.
-            // - `update_archetype_component_access` has been called for each run condition.
             let set_conditions_met = unsafe {
-                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world)
+                evaluate_and_fold_conditions(
+                    &mut conditions.set_conditions[set_idx],
+                    world,
+                    error_handler,
+                )
             };
 
             if !set_conditions_met {
@@ -567,9 +611,12 @@ impl ExecutorState {
         // SAFETY:
         // - The caller ensures that `world` has permission to read any data
         //   required by the conditions.
-        // - `update_archetype_component_access` has been called for each run condition.
         let system_conditions_met = unsafe {
-            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world)
+            evaluate_and_fold_conditions(
+                &mut conditions.system_conditions[system_index],
+                world,
+                error_handler,
+            )
         };
 
         if !system_conditions_met {
@@ -582,7 +629,6 @@ impl ExecutorState {
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the system.
-            // - `update_archetype_component_access` has been called for system.
             let valid_params = match unsafe { system.validate_param_unsafe(world) } {
                 Ok(()) => true,
                 Err(e) => {
@@ -613,8 +659,6 @@ impl ExecutorState {
     /// - `is_exclusive` must have returned `false` for the specified system.
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
-    /// - `update_archetype_component_access` must have been called with `world`
-    ///   on the system associated with `system_index`.
     unsafe fn spawn_system_task(&mut self, context: &Context, system_index: usize) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *context.environment.systems[system_index].get() };
@@ -629,7 +673,6 @@ impl ExecutorState {
                 // - The caller ensures that we have permission to
                 // access the world data used by the system.
                 // - `is_exclusive` returned false
-                // - `update_archetype_component_access` has been called.
                 unsafe {
                     if let Err(err) = __rust_begin_short_backtrace::run_unsafe(
                         system,
@@ -647,9 +690,6 @@ impl ExecutorState {
             }));
             context.system_completed(system_index, res, system);
         };
-
-        self.active_access
-            .extend(&system_meta.archetype_component_access);
 
         if system_meta.is_send {
             context.scope.spawn(task);
@@ -741,15 +781,6 @@ impl ExecutorState {
             }
         }
     }
-
-    fn rebuild_active_access(&mut self) {
-        self.active_access.clear();
-        for index in self.running_systems.ones() {
-            let system_meta = &self.system_task_metadata[index];
-            self.active_access
-                .extend(&system_meta.archetype_component_access);
-        }
-    }
 }
 
 fn apply_deferred(
@@ -781,14 +812,11 @@ fn apply_deferred(
 /// # Safety
 /// - `world` must have permission to read any world data
 ///   required by `conditions`.
-/// - `update_archetype_component_access` must have been called
-///   with `world` for each condition in `conditions`.
 unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
+    error_handler: ErrorHandler,
 ) -> bool {
-    let error_handler = default_error_handler();
-
     #[expect(
         clippy::unnecessary_fold,
         reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
@@ -799,7 +827,6 @@ unsafe fn evaluate_and_fold_conditions(
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
-            // - `update_archetype_component_access` has been called for condition.
             match unsafe { condition.validate_param_unsafe(world) } {
                 Ok(()) => (),
                 Err(e) => {
@@ -818,7 +845,6 @@ unsafe fn evaluate_and_fold_conditions(
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
-            // - `update_archetype_component_access` has been called for condition.
             unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
         })
         .fold(true, |acc, res| acc && res)

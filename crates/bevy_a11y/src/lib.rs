@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -137,10 +137,14 @@ impl From<Node> for AccessibilityNode {
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize, Clone)
 )]
-pub enum AccessibilitySystem {
+pub enum AccessibilitySystems {
     /// Update the accessibility tree
     Update,
 }
+
+/// Deprecated alias for [`AccessibilitySystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AccessibilitySystems`.")]
+pub type AccessibilitySystem = AccessibilitySystems;
 
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
 #[derive(Default)]

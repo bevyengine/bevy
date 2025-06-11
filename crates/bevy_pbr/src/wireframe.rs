@@ -4,8 +4,8 @@ use crate::{
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
-    load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp,
-    AssetEvents, AssetId, Assets, Handle, UntypedAssetId,
+    embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
+    AssetEventSystems, AssetId, Assets, Handle, UntypedAssetId,
 };
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::core_3d::{
@@ -51,13 +51,10 @@ use bevy_render::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
+    Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 use core::{hash::Hash, ops::Range};
 use tracing::error;
-
-pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("2646a633-f8e3-4380-87ae-b44d881abbce");
 
 /// A [`Plugin`] that draws wireframes.
 ///
@@ -83,12 +80,7 @@ impl WireframePlugin {
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            WIREFRAME_SHADER_HANDLE,
-            "render/wireframe.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "render/wireframe.wgsl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::new(self.debug_flags),
@@ -115,7 +107,7 @@ impl Plugin for WireframePlugin {
         .add_systems(
             PostUpdate,
             check_wireframe_entities_needing_specialization
-                .after(AssetEvents)
+                .after(AssetEventSystems)
                 .run_if(resource_exists::<WireframeConfig>),
         );
 
@@ -151,11 +143,11 @@ impl Plugin for WireframePlugin {
                 Render,
                 (
                     specialize_wireframes
-                        .in_set(RenderSet::PrepareMeshes)
+                        .in_set(RenderSystems::PrepareMeshes)
                         .after(prepare_assets::<RenderWireframeMaterial>)
                         .after(prepare_assets::<RenderMesh>),
                     queue_wireframes
-                        .in_set(RenderSet::QueueMeshes)
+                        .in_set(RenderSystems::QueueMeshes)
                         .after(prepare_assets::<RenderWireframeMaterial>),
                 ),
             );
@@ -341,7 +333,7 @@ impl FromWorld for Wireframe3dPipeline {
     fn from_world(render_world: &mut World) -> Self {
         Wireframe3dPipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: WIREFRAME_SHADER_HANDLE,
+            shader: load_embedded_asset!(render_world, "render/wireframe.wgsl"),
         }
     }
 }

@@ -11,30 +11,40 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
-/// Implemented for functions and closures that convert into [`System<Out=bool>`](System)
-/// with [read-only](crate::system::ReadOnlySystemParam) parameters.
+/// `SystemCondition` is sealed and implemented for functions and closures with
+/// [read-only](crate::system::ReadOnlySystemParam) parameters that convert into
+/// [`System<Out = bool>`](System), [`System<Out = Result<(), BevyError>>`](System) or
+/// [`System<Out = Result<bool, BevyError>>`](System).
+///
+/// `SystemCondition` offers a private method
+/// (called by [`run_if`](crate::schedule::IntoScheduleConfigs::run_if) and the provided methods)
+/// that converts the implementing system into a condition (system) returning a bool.
+/// Depending on the output type of the implementing system:
+/// - `bool`: the implementing system is used as the condition;
+/// - `Result<(), BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(())`;
+/// - `Result<bool, BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(true)`.
 ///
 /// # Marker type parameter
 ///
-/// `Condition` trait has `Marker` type parameter, which has no special meaning,
+/// `SystemCondition` trait has `Marker` type parameter, which has no special meaning,
 /// but exists to work around the limitation of Rust's trait system.
 ///
 /// Type parameter in return type can be set to `<()>` by calling [`IntoSystem::into_system`],
 /// but usually have to be specified when passing a condition to a function.
 ///
 /// ```
-/// # use bevy_ecs::schedule::Condition;
+/// # use bevy_ecs::schedule::SystemCondition;
 /// # use bevy_ecs::system::IntoSystem;
-/// fn not_condition<Marker>(a: impl Condition<Marker>) -> impl Condition<()> {
+/// fn not_condition<Marker>(a: impl SystemCondition<Marker>) -> impl SystemCondition<()> {
 ///    IntoSystem::into_system(a.map(|x| !x))
 /// }
 /// ```
 ///
 /// # Examples
-/// A condition that returns true every other time it's called.
+/// A condition that returns `true` every other time it's called.
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// fn every_other_time() -> impl Condition<()> {
+/// fn every_other_time() -> impl SystemCondition<()> {
 ///     IntoSystem::into_system(|mut flag: Local<bool>| {
 ///         *flag = !*flag;
 ///         *flag
@@ -54,11 +64,11 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # assert!(!world.resource::<DidRun>().0);
 /// ```
 ///
-/// A condition that takes a bool as an input and returns it unchanged.
+/// A condition that takes a `bool` as an input and returns it unchanged.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// fn identity() -> impl Condition<(), In<bool>> {
+/// fn identity() -> impl SystemCondition<(), In<bool>> {
 ///     IntoSystem::into_system(|In(x)| x)
 /// }
 ///
@@ -71,7 +81,31 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In> {
+/// ```
+///
+/// A condition returning a `Result<(), BevyError>`
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)] struct Player;
+/// fn player_exists(q_player: Query<(), With<Player>>) -> Result {
+///     Ok(q_player.single()?)
+/// }
+///
+/// # let mut app = Schedule::default();
+/// # #[derive(Resource)] struct DidRun(bool);
+/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
+/// app.add_systems(my_system.run_if(player_exists));
+/// # let mut world = World::new();
+/// # world.insert_resource(DidRun(false));
+/// # app.run(&mut world);
+/// # assert!(!world.resource::<DidRun>().0);
+/// # world.spawn(Player);
+/// # app.run(&mut world);
+/// # assert!(world.resource::<DidRun>().0);
+pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
+    sealed::SystemCondition<Marker, In, Out>
+{
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
     ///
@@ -116,7 +150,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
-    fn and<M, C: Condition<M, In>>(self, and: C) -> And<Self::System, C::System> {
+    fn and<M, C: SystemCondition<M, In>>(self, and: C) -> And<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and);
         let name = format!("{} && {}", a.name(), b.name());
@@ -168,7 +202,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     ///     ),
     /// );
     /// ```
-    fn nand<M, C: Condition<M, In>>(self, nand: C) -> Nand<Self::System, C::System> {
+    fn nand<M, C: SystemCondition<M, In>>(self, nand: C) -> Nand<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nand);
         let name = format!("!({} && {})", a.name(), b.name());
@@ -220,7 +254,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     ///     ),
     /// );
     /// ```
-    fn nor<M, C: Condition<M, In>>(self, nor: C) -> Nor<Self::System, C::System> {
+    fn nor<M, C: SystemCondition<M, In>>(self, nor: C) -> Nor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nor);
         let name = format!("!({} || {})", a.name(), b.name());
@@ -267,7 +301,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
-    fn or<M, C: Condition<M, In>>(self, or: C) -> Or<Self::System, C::System> {
+    fn or<M, C: SystemCondition<M, In>>(self, or: C) -> Or<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or);
         let name = format!("{} || {}", a.name(), b.name());
@@ -319,7 +353,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     ///     ),
     /// );
     /// ```
-    fn xnor<M, C: Condition<M, In>>(self, xnor: C) -> Xnor<Self::System, C::System> {
+    fn xnor<M, C: SystemCondition<M, In>>(self, xnor: C) -> Xnor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xnor);
         let name = format!("!({} ^ {})", a.name(), b.name());
@@ -361,7 +395,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     /// );
     /// # app.run(&mut world);
     /// ```
-    fn xor<M, C: Condition<M, In>>(self, xor: C) -> Xor<Self::System, C::System> {
+    fn xor<M, C: SystemCondition<M, In>>(self, xor: C) -> Xor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xor);
         let name = format!("({} ^ {})", a.name(), b.name());
@@ -369,43 +403,79 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     }
 }
 
-impl<Marker, In: SystemInput, F> Condition<Marker, In> for F where F: sealed::Condition<Marker, In> {}
+impl<Marker, In: SystemInput, Out, F> SystemCondition<Marker, In, Out> for F where
+    F: sealed::SystemCondition<Marker, In, Out>
+{
+}
 
 mod sealed {
-    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
+    use crate::{
+        error::BevyError,
+        system::{IntoSystem, ReadOnlySystem, SystemInput},
+    };
 
-    pub trait Condition<Marker, In: SystemInput>:
-        IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
+    pub trait SystemCondition<Marker, In: SystemInput, Out>:
+        IntoSystem<In, Out, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
         // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
+        type ReadOnlySystem: ReadOnlySystem<In = In, Out = Out>;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool>;
     }
 
-    impl<Marker, In: SystemInput, F> Condition<Marker, In> for F
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, bool> for F
     where
         F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+            IntoSystem::into_system(self)
+        }
+    }
+
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<(), BevyError>> for F
+    where
+        F: IntoSystem<In, Result<(), BevyError>, Marker>,
+        F::System: ReadOnlySystem,
+    {
+        type ReadOnlySystem = F::System;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+            IntoSystem::into_system(self.map(|result| result.is_ok()))
+        }
+    }
+
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<bool, BevyError>> for F
+    where
+        F: IntoSystem<In, Result<bool, BevyError>, Marker>,
+        F::System: ReadOnlySystem,
+    {
+        type ReadOnlySystem = F::System;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+            IntoSystem::into_system(self.map(|result| matches!(result, Ok(true))))
+        }
     }
 }
 
-/// A collection of [run conditions](Condition) that may be useful in any bevy app.
+/// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use super::{Condition, NotSystem};
+    use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
+        lifecycle::RemovedComponents,
         prelude::{Component, Query, With},
         query::QueryFilter,
-        removal_detection::RemovedComponents,
         resource::Resource,
         system::{In, IntoSystem, Local, Res, System, SystemInput},
     };
     use alloc::format;
 
-    /// A [`Condition`]-satisfying system that returns `true`
+    /// A [`SystemCondition`]-satisfying system that returns `true`
     /// on the first time the condition is run and false every time after.
     ///
     /// # Example
@@ -443,7 +513,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
+    /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if the resource exists.
     ///
     /// # Example
@@ -478,7 +548,7 @@ pub mod common_conditions {
         res.is_some()
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`SystemCondition`]-satisfying closure that returns `true`
     /// if the resource is equal to `value`.
     ///
     /// # Panics
@@ -518,7 +588,7 @@ pub mod common_conditions {
         move |res: Res<T>| *res == value
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`SystemCondition`]-satisfying closure that returns `true`
     /// if the resource exists and is equal to `value`.
     ///
     /// The condition will return `false` if the resource does not exist.
@@ -563,7 +633,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
+    /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if the resource of the given type has been added since the condition was last checked.
     ///
     /// # Example
@@ -604,13 +674,12 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
-    /// if the resource of the given type has had its value changed since the condition
-    /// was last checked.
+    /// A [`SystemCondition`]-satisfying system that returns `true`
+    /// if the resource of the given type has been added or mutably dereferenced
+    /// since the condition was last checked.
     ///
-    /// The value is considered changed when it is added. The first time this condition
-    /// is checked after the resource was added, it will return `true`.
-    /// Change detection behaves like this everywhere in Bevy.
+    /// **Note** that simply *mutably dereferencing* a resource is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare resources to their previous values.
     ///
     /// # Panics
     ///
@@ -658,15 +727,12 @@ pub mod common_conditions {
         res.is_changed()
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
-    /// if the resource of the given type has had its value changed since the condition
+    /// A [`SystemCondition`]-satisfying system that returns `true`
+    /// if the resource of the given type has been added or mutably dereferenced since the condition
     /// was last checked.
     ///
-    /// The value is considered changed when it is added. The first time this condition
-    /// is checked after the resource was added, it will return `true`.
-    /// Change detection behaves like this everywhere in Bevy.
-    ///
-    /// This run condition does not detect when the resource is removed.
+    /// **Note** that simply *mutably dereferencing* a resource is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare resources to their previous values.
     ///
     /// The condition will return `false` if the resource does not exist.
     ///
@@ -718,16 +784,12 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
-    /// if the resource of the given type has had its value changed since the condition
+    /// A [`SystemCondition`]-satisfying system that returns `true`
+    /// if the resource of the given type has been added, removed or mutably dereferenced since the condition
     /// was last checked.
     ///
-    /// The value is considered changed when it is added. The first time this condition
-    /// is checked after the resource was added, it will return `true`.
-    /// Change detection behaves like this everywhere in Bevy.
-    ///
-    /// This run condition also detects removal. It will return `true` if the resource
-    /// has been removed since the run condition was last checked.
+    /// **Note** that simply *mutably dereferencing* a resource is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare resources to their previous values.
     ///
     /// The condition will return `false` if the resource does not exist.
     ///
@@ -795,7 +857,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
+    /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if the resource of the given type has been removed since the condition was last checked.
     ///
     /// # Example
@@ -847,7 +909,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
+    /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any new events of the given type since it was last called.
     ///
     /// # Example
@@ -891,7 +953,7 @@ pub mod common_conditions {
         reader.read().count() > 0
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
+    /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any entities with the given component type.
     ///
     /// # Example
@@ -928,7 +990,7 @@ pub mod common_conditions {
         !query.is_empty()
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
+    /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any entity with a component of the given type removed.
     pub fn any_component_removed<T: Component>(mut removals: RemovedComponents<T>) -> bool {
         // `RemovedComponents` based on events and therefore events need to be consumed,
@@ -939,13 +1001,13 @@ pub mod common_conditions {
         removals.read().count() > 0
     }
 
-    /// A [`Condition`]-satisfying system that returns `true`
+    /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any entities that match the given [`QueryFilter`].
     pub fn any_match_filter<F: QueryFilter>(query: Query<(), F>) -> bool {
         !query.is_empty()
     }
 
-    /// Generates a [`Condition`] that inverses the result of passed one.
+    /// Generates a [`SystemCondition`] that inverses the result of passed one.
     ///
     /// # Example
     ///
@@ -984,7 +1046,7 @@ pub mod common_conditions {
         NotSystem::new(super::NotMarker, condition, name.into())
     }
 
-    /// Generates a [`Condition`] that returns true when the passed one changes.
+    /// Generates a [`SystemCondition`] that returns true when the passed one changes.
     ///
     /// The first time this is called, the passed condition is assumed to have been previously false.
     ///
@@ -1022,10 +1084,10 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_changed<Marker, CIn, C>(condition: C) -> impl Condition<(), CIn>
+    pub fn condition_changed<Marker, CIn, C>(condition: C) -> impl SystemCondition<(), CIn>
     where
         CIn: SystemInput,
-        C: Condition<Marker, CIn>,
+        C: SystemCondition<Marker, CIn>,
     {
         IntoSystem::into_system(condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
             let changed = *prev != new;
@@ -1034,7 +1096,7 @@ pub mod common_conditions {
         }))
     }
 
-    /// Generates a [`Condition`] that returns true when the result of
+    /// Generates a [`SystemCondition`] that returns true when the result of
     /// the passed one went from false to true since the last time this was called.
     ///
     /// The first time this is called, the passed condition is assumed to have been previously false.
@@ -1078,10 +1140,13 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_changed_to<Marker, CIn, C>(to: bool, condition: C) -> impl Condition<(), CIn>
+    pub fn condition_changed_to<Marker, CIn, C>(
+        to: bool,
+        condition: C,
+    ) -> impl SystemCondition<(), CIn>
     where
         CIn: SystemInput,
-        C: Condition<Marker, CIn>,
+        C: SystemCondition<Marker, CIn>,
     {
         IntoSystem::into_system(condition.pipe(
             move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
@@ -1262,7 +1327,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{common_conditions::*, Condition};
+    use super::{common_conditions::*, SystemCondition};
     use crate::query::With;
     use crate::{
         change_detection::ResMut,

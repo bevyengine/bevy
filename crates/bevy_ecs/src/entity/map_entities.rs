@@ -3,7 +3,6 @@ use indexmap::IndexSet;
 
 use crate::{
     entity::{hash_map::EntityHashMap, Entity},
-    identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
 
@@ -65,25 +64,38 @@ impl MapEntities for Entity {
     }
 }
 
-impl MapEntities for Option<Entity> {
+impl<T: MapEntities> MapEntities for Option<T> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        if let Some(entity) = self {
-            *entity = entity_mapper.get_mapped(*entity);
+        if let Some(entities) = self {
+            entities.map_entities(entity_mapper);
         }
     }
 }
 
-impl<S: BuildHasher + Default> MapEntities for HashSet<Entity, S> {
+impl<T: MapEntities + Eq + core::hash::Hash, S: BuildHasher + Default> MapEntities
+    for HashSet<T, S>
+{
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        *self = self.drain().map(|e| entity_mapper.get_mapped(e)).collect();
+        *self = self
+            .drain()
+            .map(|mut entities| {
+                entities.map_entities(entity_mapper);
+                entities
+            })
+            .collect();
     }
 }
 
-impl<S: BuildHasher + Default> MapEntities for IndexSet<Entity, S> {
+impl<T: MapEntities + Eq + core::hash::Hash, S: BuildHasher + Default> MapEntities
+    for IndexSet<T, S>
+{
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
         *self = self
             .drain(..)
-            .map(|e| entity_mapper.get_mapped(e))
+            .map(|mut entities| {
+                entities.map_entities(entity_mapper);
+                entities
+            })
             .collect();
     }
 }
@@ -97,35 +109,38 @@ impl MapEntities for EntityIndexSet {
     }
 }
 
-impl MapEntities for BTreeSet<Entity> {
+impl<T: MapEntities + Ord> MapEntities for BTreeSet<T> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
         *self = mem::take(self)
             .into_iter()
-            .map(|e| entity_mapper.get_mapped(e))
+            .map(|mut entities| {
+                entities.map_entities(entity_mapper);
+                entities
+            })
             .collect();
     }
 }
 
-impl MapEntities for Vec<Entity> {
+impl<T: MapEntities> MapEntities for Vec<T> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        for entity in self.iter_mut() {
-            *entity = entity_mapper.get_mapped(*entity);
+        for entities in self.iter_mut() {
+            entities.map_entities(entity_mapper);
         }
     }
 }
 
-impl MapEntities for VecDeque<Entity> {
+impl<T: MapEntities> MapEntities for VecDeque<T> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        for entity in self.iter_mut() {
-            *entity = entity_mapper.get_mapped(*entity);
+        for entities in self.iter_mut() {
+            entities.map_entities(entity_mapper);
         }
     }
 }
 
-impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
+impl<T: MapEntities, A: smallvec::Array<Item = T>> MapEntities for SmallVec<A> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        for entity in self.iter_mut() {
-            *entity = entity_mapper.get_mapped(*entity);
+        for entities in self.iter_mut() {
+            entities.map_entities(entity_mapper);
         }
     }
 }
@@ -155,7 +170,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
 ///     fn get_mapped(&mut self, entity: Entity) -> Entity {
 ///         self.map.get(&entity).copied().unwrap_or(entity)
 ///     }
-///     
+///
 ///     fn set_mapped(&mut self, source: Entity, target: Entity) {
 ///         self.map.insert(source, target);
 ///     }
@@ -212,12 +227,10 @@ impl EntityMapper for SceneEntityMapper<'_> {
 
         // this new entity reference is specifically designed to never represent any living entity
         let new = Entity::from_raw_and_generation(
-            self.dead_start.index(),
-            IdentifierMask::inc_masked_high_by(self.dead_start.generation, self.generations),
+            self.dead_start.row(),
+            self.dead_start.generation.after_versions(self.generations),
         );
-
-        // Prevent generations counter from being a greater value than HIGH_MASK.
-        self.generations = (self.generations + 1) & HIGH_MASK;
+        self.generations = self.generations.wrapping_add(1);
 
         self.map.insert(source, new);
 
@@ -315,6 +328,7 @@ impl<'m> SceneEntityMapper<'m> {
 
 #[cfg(test)]
 mod tests {
+
     use crate::{
         entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
         world::World,
@@ -322,14 +336,11 @@ mod tests {
 
     #[test]
     fn entity_mapper() {
-        const FIRST_IDX: u32 = 1;
-        const SECOND_IDX: u32 = 2;
-
         let mut map = EntityHashMap::default();
         let mut world = World::new();
         let mut mapper = SceneEntityMapper::new(&mut map, &mut world);
 
-        let mapped_ent = Entity::from_raw(FIRST_IDX);
+        let mapped_ent = Entity::from_raw_u32(1).unwrap();
         let dead_ref = mapper.get_mapped(mapped_ent);
 
         assert_eq!(
@@ -338,7 +349,7 @@ mod tests {
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper.get_mapped(Entity::from_raw(SECOND_IDX)).index(),
+            mapper.get_mapped(Entity::from_raw_u32(2).unwrap()).index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -347,7 +358,10 @@ mod tests {
         // Next allocated entity should be a further generation on the same index
         let entity = world.spawn_empty().id();
         assert_eq!(entity.index(), dead_ref.index());
-        assert!(entity.generation() > dead_ref.generation());
+        assert!(entity
+            .generation()
+            .cmp_approx(&dead_ref.generation())
+            .is_gt());
     }
 
     #[test]
@@ -356,13 +370,16 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.get_mapped(Entity::from_raw(0))
+            mapper.get_mapped(Entity::from_raw_u32(0).unwrap())
         });
 
         // Next allocated entity should be a further generation on the same index
         let entity = world.spawn_empty().id();
         assert_eq!(entity.index(), dead_ref.index());
-        assert!(entity.generation() > dead_ref.generation());
+        assert!(entity
+            .generation()
+            .cmp_approx(&dead_ref.generation())
+            .is_gt());
     }
 
     #[test]

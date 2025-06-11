@@ -3,8 +3,8 @@ mod render_layers;
 
 use core::any::TypeId;
 
-use bevy_ecs::component::HookContext;
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
@@ -14,7 +14,7 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
 use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 
@@ -129,7 +129,7 @@ impl InheritedVisibility {
 
 /// A bucket into which we group entities for the purposes of visibility.
 ///
-/// Bevy's various rendering subsystems (3D, 2D, UI, etc.) want to be able to
+/// Bevy's various rendering subsystems (3D, 2D, etc.) want to be able to
 /// quickly winnow the set of entities to only those that the subsystem is
 /// tasked with rendering, to avoid spending time examining irrelevant entities.
 /// At the same time, Bevy wants the [`check_visibility`] system to determine
@@ -342,7 +342,7 @@ impl Plugin for VisibilityPlugin {
                 PostUpdate,
                 (CalculateBounds, UpdateFrusta, VisibilityPropagate)
                     .before(CheckVisibility)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystems::Propagate),
             )
             .configure_sets(
                 PostUpdate,

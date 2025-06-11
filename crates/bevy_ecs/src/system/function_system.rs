@@ -1,8 +1,7 @@
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeGeneration},
     component::{ComponentId, Tick},
     prelude::FromWorld,
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
@@ -18,7 +17,9 @@ use variadics_please::all_tuples;
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
-use super::{IntoSystem, ReadOnlySystem, SystemParamBuilder, SystemParamValidationError};
+use super::{
+    IntoSystem, ReadOnlySystem, SystemParamBuilder, SystemParamValidationError, SystemStateFlags,
+};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -28,20 +29,9 @@ pub struct SystemMeta {
     /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
     /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
-    /// This [`Access`] is used to determine which systems can run in parallel with each other
-    /// in the multithreaded executor.
-    ///
-    /// We use a [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
-    /// for example if you have one system with `Query<&mut T, With<A>>` and one system with `Query<&mut T, With<B>>`
-    /// they conflict if you just look at the [`ComponentId`] of `T`; but if there are no archetypes with
-    /// both `A`, `B` and `T` then in practice there's no risk of conflict. By using [`ArchetypeComponentId`]
-    /// we can be more precise because we can check if the existing archetypes of the [`World`]
-    /// cause a conflict
-    pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
-    is_send: bool,
-    has_deferred: bool,
+    flags: SystemStateFlags,
     pub(crate) last_run: Tick,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -54,10 +44,8 @@ impl SystemMeta {
         let name = core::any::type_name::<T>();
         Self {
             name: name.into(),
-            archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
-            is_send: true,
-            has_deferred: false,
+            flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -90,7 +78,7 @@ impl SystemMeta {
     /// Returns true if the system is [`Send`].
     #[inline]
     pub fn is_send(&self) -> bool {
-        self.is_send
+        !self.flags.intersects(SystemStateFlags::NON_SEND)
     }
 
     /// Sets the system to be not [`Send`].
@@ -98,51 +86,20 @@ impl SystemMeta {
     /// This is irreversible.
     #[inline]
     pub fn set_non_send(&mut self) {
-        self.is_send = false;
+        self.flags |= SystemStateFlags::NON_SEND;
     }
 
     /// Returns true if the system has deferred [`SystemParam`]'s
     #[inline]
     pub fn has_deferred(&self) -> bool {
-        self.has_deferred
+        self.flags.intersects(SystemStateFlags::DEFERRED)
     }
 
     /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
     /// This lets the scheduler insert [`ApplyDeferred`](`crate::prelude::ApplyDeferred`) systems automatically.
     #[inline]
     pub fn set_has_deferred(&mut self) {
-        self.has_deferred = true;
-    }
-
-    /// Archetype component access that is used to determine which systems can run in parallel with each other
-    /// in the multithreaded executor.
-    ///
-    /// We use an [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
-    /// for example if you have one system with `Query<&mut A, With<B>`, and one system with `Query<&mut A, Without<B>`,
-    /// they conflict if you just look at the [`ComponentId`];
-    /// but no archetype that matches the first query will match the second and vice versa,
-    /// which means there's no risk of conflict.
-    #[inline]
-    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
-    /// Returns a mutable reference to the [`Access`] for [`ArchetypeComponentId`].
-    /// This is used to determine which systems can run in parallel with each other
-    /// in the multithreaded executor.
-    ///
-    /// We use an [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
-    /// for example if you have one system with `Query<&mut A, With<B>`, and one system with `Query<&mut A, Without<B>`,
-    /// they conflict if you just look at the [`ComponentId`];
-    /// but no archetype that matches the first query will match the second and vice versa,
-    /// which means there's no risk of conflict.
-    ///
-    /// # Safety
-    ///
-    /// No access can be removed from the returned [`Access`].
-    #[inline]
-    pub unsafe fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
-        &mut self.archetype_component_access
+        self.flags |= SystemStateFlags::DEFERRED;
     }
 
     /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
@@ -183,7 +140,7 @@ impl SystemMeta {
 /// [`SystemState`] values created can be cached to improve performance,
 /// and *must* be cached and reused in order for system parameters that rely on local state to work correctly.
 /// These include:
-/// - [`Added`](crate::query::Added) and [`Changed`](crate::query::Changed) query filters
+/// - [`Added`](crate::query::Added), [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) query filters
 /// - [`Local`](crate::system::Local) variables that hold state
 /// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
 ///
@@ -260,7 +217,6 @@ pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
     param_state: Param::State,
     world_id: WorldId,
-    archetype_generation: ArchetypeGeneration,
 }
 
 // Allow closure arguments to be inferred.
@@ -318,12 +274,6 @@ all_tuples!(
 
 impl<Param: SystemParam> SystemState<Param> {
     /// Creates a new [`SystemState`] with default state.
-    ///
-    /// ## Note
-    /// For users of [`SystemState::get_manual`] or [`get_manual_mut`](SystemState::get_manual_mut):
-    ///
-    /// `new` does not cache any of the world's archetypes, so you must call [`SystemState::update_archetypes`]
-    /// manually before calling `get_manual{_mut}`.
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
@@ -332,7 +282,6 @@ impl<Param: SystemParam> SystemState<Param> {
             meta,
             param_state,
             world_id: world.id(),
-            archetype_generation: ArchetypeGeneration::initial(),
         }
     }
 
@@ -345,7 +294,6 @@ impl<Param: SystemParam> SystemState<Param> {
             meta,
             param_state,
             world_id: world.id(),
-            archetype_generation: ArchetypeGeneration::initial(),
         }
     }
 
@@ -358,12 +306,14 @@ impl<Param: SystemParam> SystemState<Param> {
     ) -> FunctionSystem<Marker, F> {
         FunctionSystem {
             func,
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
             state: Some(FunctionSystemState {
                 param: self.param_state,
                 world_id: self.world_id,
             }),
             system_meta: self.meta,
-            archetype_generation: self.archetype_generation,
             marker: PhantomData,
         }
     }
@@ -387,19 +337,17 @@ impl<Param: SystemParam> SystemState<Param> {
         Param: ReadOnlySystemParam,
     {
         self.validate_world(world.id());
-        self.update_archetypes(world);
         // SAFETY: Param is read-only and doesn't allow mutable access to World.
         // It also matches the World this SystemState was created with.
-        unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell_readonly()) }
+        unsafe { self.get_unchecked(world.as_unsafe_world_cell_readonly()) }
     }
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
     pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
         self.validate_world(world.id());
-        self.update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
-        unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell()) }
+        unsafe { self.get_unchecked(world.as_unsafe_world_cell()) }
     }
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
@@ -415,14 +363,14 @@ impl<Param: SystemParam> SystemState<Param> {
     /// # Safety
     ///
     /// - The passed [`UnsafeWorldCell`] must have read-only access to
-    ///   world data in `archetype_component_access`.
+    ///   world data in `component_access_set`.
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     pub unsafe fn validate_param(
-        state: &Self,
+        state: &mut Self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        unsafe { Param::validate_param(&state.param_state, &state.meta, world) }
+        unsafe { Param::validate_param(&mut state.param_state, &state.meta, world) }
     }
 
     /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
@@ -448,87 +396,66 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
-    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before fetching the parameters,
-    /// the results may not accurately reflect what is in the `world`.
-    ///
-    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
-    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
-    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
+    /// Has no effect
     #[inline]
-    pub fn update_archetypes(&mut self, world: &World) {
-        self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
-    }
+    #[deprecated(
+        since = "0.17.0",
+        note = "No longer has any effect.  Calls may be removed."
+    )]
+    pub fn update_archetypes(&mut self, _world: &World) {}
 
-    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
-    /// the results may not accurately reflect what is in the `world`.
-    ///
-    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
-    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
-    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
-    ///
-    /// # Note
-    ///
-    /// This method only accesses world metadata.
+    /// Has no effect
     #[inline]
-    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
-        assert_eq!(self.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+    #[deprecated(
+        since = "0.17.0",
+        note = "No longer has any effect.  Calls may be removed."
+    )]
+    pub fn update_archetypes_unsafe_world_cell(&mut self, _world: UnsafeWorldCell) {}
 
-        let archetypes = world.archetypes();
-        let old_generation =
-            core::mem::replace(&mut self.archetype_generation, archetypes.generation());
-
-        for archetype in &archetypes[old_generation..] {
-            // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
-            unsafe { Param::new_archetype(&mut self.param_state, archetype, &mut self.meta) };
-        }
-    }
-
-    /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
-    /// This will not update the state's view of the world's archetypes automatically nor increment the
-    /// world's change tick.
-    ///
-    /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
-    /// function.
-    ///
-    /// Users should strongly prefer to use [`SystemState::get`] over this function.
+    /// Identical to [`SystemState::get`].
     #[inline]
+    #[deprecated(since = "0.17.0", note = "Call `SystemState::get` instead.")]
     pub fn get_manual<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
     where
         Param: ReadOnlySystemParam,
     {
-        self.validate_world(world.id());
-        let change_tick = world.read_change_tick();
-        // SAFETY: Param is read-only and doesn't allow mutable access to World.
-        // It also matches the World this SystemState was created with.
-        unsafe { self.fetch(world.as_unsafe_world_cell_readonly(), change_tick) }
+        self.get(world)
     }
 
-    /// Retrieve the mutable [`SystemParam`] values.  This will not update the state's view of the world's archetypes
-    /// automatically nor increment the world's change tick.
-    ///
-    /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
-    /// function.
-    ///
-    /// Users should strongly prefer to use [`SystemState::get_mut`] over this function.
+    /// Identical to [`SystemState::get_mut`].
     #[inline]
+    #[deprecated(since = "0.17.0", note = "Call `SystemState::get_mut` instead.")]
     pub fn get_manual_mut<'w, 's>(
         &'s mut self,
         world: &'w mut World,
     ) -> SystemParamItem<'w, 's, Param> {
-        self.validate_world(world.id());
-        let change_tick = world.change_tick();
-        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
-        unsafe { self.fetch(world.as_unsafe_world_cell(), change_tick) }
+        self.get_mut(world)
     }
 
-    /// Retrieve the [`SystemParam`] values. This will not update archetypes automatically.
+    /// Identical to [`SystemState::get_unchecked`].
     ///
     /// # Safety
     /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.
     #[inline]
+    #[deprecated(since = "0.17.0", note = "Call `SystemState::get_unchecked` instead.")]
     pub unsafe fn get_unchecked_manual<'w, 's>(
+        &'s mut self,
+        world: UnsafeWorldCell<'w>,
+    ) -> SystemParamItem<'w, 's, Param> {
+        // SAFETY: Caller ensures safety requirements
+        unsafe { self.get_unchecked(world) }
+    }
+
+    /// Retrieve the [`SystemParam`] values.
+    ///
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.
+    #[inline]
+    pub unsafe fn get_unchecked<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
     ) -> SystemParamItem<'w, 's, Param> {
@@ -595,9 +522,10 @@ where
     F: SystemParamFunction<Marker>,
 {
     func: F,
+    #[cfg(feature = "hotpatching")]
+    current_ptr: subsecond::HotFnPtr,
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
-    archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> Marker>,
 }
@@ -609,7 +537,7 @@ struct FunctionSystemState<P: SystemParam> {
     /// The cached state of the system's [`SystemParam`]s.
     param: P::State,
     /// The id of the [`World`] this system was initialized with. If the world
-    /// passed to [`System::update_archetype_component_access`] does not match
+    /// passed to [`System::run_unsafe`] or [`System::validate_param_unsafe`] does not match
     /// this id, a panic will occur.
     world_id: WorldId,
 }
@@ -635,9 +563,11 @@ where
     fn clone(&self) -> Self {
         Self {
             func: self.func.clone(),
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
-            archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
         }
     }
@@ -656,9 +586,11 @@ where
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
-            archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
         }
     }
@@ -689,28 +621,13 @@ where
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.system_meta.component_access_set
     }
 
     #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.system_meta.archetype_component_access
-    }
-
-    #[inline]
-    fn is_send(&self) -> bool {
-        self.system_meta.is_send
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        false
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
-        self.system_meta.has_deferred
+    fn flags(&self) -> SystemStateFlags {
+        self.system_meta.flags
     }
 
     #[inline]
@@ -724,17 +641,41 @@ where
 
         let change_tick = world.increment_change_tick();
 
-        let param_state = &mut self.state.as_mut().expect(Self::ERROR_UNINITIALIZED).param;
+        let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
+        assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         // SAFETY:
-        // - The caller has invoked `update_archetype_component_access`, which will panic
-        //   if the world does not match.
+        // - The above assert ensures the world matches.
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
         let params =
-            unsafe { F::Param::get_param(param_state, &self.system_meta, world, change_tick) };
+            unsafe { F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick) };
+
+        #[cfg(feature = "hotpatching")]
+        let out = {
+            let mut hot_fn = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run);
+            // SAFETY:
+            // - pointer used to call is from the current jump table
+            unsafe {
+                hot_fn
+                    .try_call_with_ptr(self.current_ptr, (&mut self.func, input, params))
+                    .expect("Error calling hotpatched system. Run a full rebuild")
+            }
+        };
+        #[cfg(not(feature = "hotpatching"))]
         let out = self.func.run(input, params);
+
         self.system_meta.last_run = change_tick;
         out
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        let new = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run).ptr_address();
+        if new != self.current_ptr {
+            log::debug!("system {} hotpatched", self.name());
+        }
+        self.current_ptr = new;
     }
 
     #[inline]
@@ -754,13 +695,13 @@ where
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        let param_state = &self.state.as_ref().expect(Self::ERROR_UNINITIALIZED).param;
+        let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
+        assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         // SAFETY:
-        // - The caller has invoked `update_archetype_component_access`, which will panic
-        //   if the world does not match.
+        // - The above assert ensures the world matches.
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
-        unsafe { F::Param::validate_param(param_state, &self.system_meta, world) }
+        unsafe { F::Param::validate_param(&mut state.param, &self.system_meta, world) }
     }
 
     #[inline]
@@ -778,20 +719,6 @@ where
             });
         }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
-        assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
-
-        let archetypes = world.archetypes();
-        let old_generation =
-            core::mem::replace(&mut self.archetype_generation, archetypes.generation());
-
-        for archetype in &archetypes[old_generation..] {
-            // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
-            unsafe { F::Param::new_archetype(&mut state.param, archetype, &mut self.system_meta) };
-        }
     }
 
     #[inline]

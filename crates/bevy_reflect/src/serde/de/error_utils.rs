@@ -23,7 +23,7 @@ thread_local! {
 pub(super) fn make_custom_error<E: Error>(msg: impl Display) -> E {
     #[cfg(feature = "debug_stack")]
     return TYPE_INFO_STACK
-        .with_borrow(|stack| E::custom(format_args!("{} (stack: {:?})", msg, stack)));
+        .with_borrow(|stack| E::custom(format_args!("{msg} (stack: {stack:?})")));
     #[cfg(not(feature = "debug_stack"))]
     return E::custom(msg);
 }

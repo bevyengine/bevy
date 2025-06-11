@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
+    anti_aliasing::taa::TemporalAntiAliasing,
     core_pipeline::{
         prepass::{DepthPrepass, MotionVectorPrepass},
         Skybox,
@@ -120,7 +120,6 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(TemporalAntiAliasPlugin)
         .add_event::<WidgetClickEvent<AppSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, widgets::handle_ui_interactions::<AppSetting>)

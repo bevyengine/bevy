@@ -8,10 +8,12 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
-    error::{default_error_handler, BevyError, ErrorContext},
+    error::{ErrorContext, ErrorHandler},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
+#[cfg(feature = "hotpatching")]
+use crate::{event::Events, HotPatched};
 
 use super::__rust_begin_short_backtrace;
 
@@ -50,7 +52,7 @@ impl SystemExecutor for SingleThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: ErrorHandler,
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -59,6 +61,12 @@ impl SystemExecutor for SingleThreadedExecutor {
             // mark skipped systems as completed
             self.completed_systems |= skipped_systems;
         }
+
+        #[cfg(feature = "hotpatching")]
+        let should_update_hotpatch = !world
+            .get_resource::<Events<HotPatched>>()
+            .map(Events::is_empty)
+            .unwrap_or(true);
 
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
@@ -73,8 +81,11 @@ impl SystemExecutor for SingleThreadedExecutor {
                 }
 
                 // evaluate system set's conditions
-                let set_conditions_met =
-                    evaluate_and_fold_conditions(&mut schedule.set_conditions[set_idx], world);
+                let set_conditions_met = evaluate_and_fold_conditions(
+                    &mut schedule.set_conditions[set_idx],
+                    world,
+                    error_handler,
+                );
 
                 if !set_conditions_met {
                     self.completed_systems
@@ -86,8 +97,11 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             // evaluate system's conditions
-            let system_conditions_met =
-                evaluate_and_fold_conditions(&mut schedule.system_conditions[system_index], world);
+            let system_conditions_met = evaluate_and_fold_conditions(
+                &mut schedule.system_conditions[system_index],
+                world,
+                error_handler,
+            );
 
             should_run &= system_conditions_met;
 
@@ -115,6 +129,11 @@ impl SystemExecutor for SingleThreadedExecutor {
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
+            #[cfg(feature = "hotpatching")]
+            if should_update_hotpatch {
+                system.refresh_hotpatch();
+            }
+
             // system has either been skipped or will run
             self.completed_systems.insert(system_index);
 
@@ -128,33 +147,16 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             let f = AssertUnwindSafe(|| {
-                if system.is_exclusive() {
-                    if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
-                        error_handler(
-                            err,
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
-                    }
-                } else {
-                    // Use run_unsafe to avoid immediately applying deferred buffers
-                    let world = world.as_unsafe_world_cell();
-                    system.update_archetype_component_access(world);
-                    // SAFETY: We have exclusive, single-threaded access to the world and
-                    // update_archetype_component_access is being called immediately before this.
-                    unsafe {
-                        if let Err(err) = __rust_begin_short_backtrace::run_unsafe(system, world) {
-                            error_handler(
-                                err,
-                                ErrorContext::System {
-                                    name: system.name(),
-                                    last_run: system.get_last_run(),
-                                },
-                            );
-                        }
-                    };
+                if let Err(err) =
+                    __rust_begin_short_backtrace::run_without_applying_deferred(system, world)
+                {
+                    error_handler(
+                        err,
+                        ErrorContext::System {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
+                    );
                 }
             });
 
@@ -210,8 +212,16 @@ impl SingleThreadedExecutor {
     }
 }
 
-fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    let error_handler: fn(BevyError, ErrorContext) = default_error_handler();
+fn evaluate_and_fold_conditions(
+    conditions: &mut [BoxedCondition],
+    world: &mut World,
+    error_handler: ErrorHandler,
+) -> bool {
+    #[cfg(feature = "hotpatching")]
+    let should_update_hotpatch = !world
+        .get_resource::<Events<HotPatched>>()
+        .map(Events::is_empty)
+        .unwrap_or(true);
 
     #[expect(
         clippy::unnecessary_fold,
@@ -234,6 +244,10 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
                     }
                     return false;
                 }
+            }
+            #[cfg(feature = "hotpatching")]
+            if should_update_hotpatch {
+                condition.refresh_hotpatch();
             }
             __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
         })

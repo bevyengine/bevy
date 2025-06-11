@@ -2,7 +2,7 @@
 //! from running if their acquiry conditions aren't met.
 //!
 //! Fallible system parameters include:
-//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`GLOBAL_ERROR_HANDLER`] will be called if it doesn't.
+//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`World::get_default_error_handler`] will be called if it doesn't.
 //! - [`Single<D, F>`] - There must be exactly one matching entity, but the system will be silently skipped otherwise.
 //! - [`Option<Single<D, F>>`] - There must be zero or one matching entity. The system will be silently skipped if there are more.
 //! - [`Populated<D, F>`] - There must be at least one matching entity, but the system will be silently skipped otherwise.
@@ -18,19 +18,13 @@
 //!
 //! [`SystemParamValidationError`]: bevy::ecs::system::SystemParamValidationError
 //! [`SystemParam::validate_param`]: bevy::ecs::system::SystemParam::validate_param
+//! [`default_error_handler`]: bevy::ecs::error::default_error_handler
 
-use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};
+use bevy::ecs::error::warn;
 use bevy::prelude::*;
 use rand::Rng;
 
 fn main() {
-    // By default, if a parameter fail to be fetched,
-    // the `GLOBAL_ERROR_HANDLER` will be used to handle the error,
-    // which by default is set to panic.
-    GLOBAL_ERROR_HANDLER
-        .set(warn)
-        .expect("The error handler can only be set once, globally.");
-
     println!();
     println!("Press 'A' to add enemy ships and 'R' to remove them.");
     println!("Player ship will wait for enemy ships and track one if it exists,");
@@ -38,6 +32,10 @@ fn main() {
     println!();
 
     App::new()
+        // By default, if a parameter fail to be fetched,
+        // `World::get_default_error_handler` will be used to handle the error,
+        // which by default is set to panic.
+        .set_error_handler(warn)
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (user_input, move_targets, track_targets).chain())
@@ -131,13 +129,12 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
 }
 
 /// System that moves the player, causing them to track a single enemy.
-/// The player will search for enemies if there are none.
-/// If there is one, player will track it.
-/// If there are too many enemies, the player will cease all action (the system will not run).
+/// If there is exactly one, player will track it.
+/// Otherwise, the player will search for enemies.
 fn track_targets(
     // `Single` ensures the system runs ONLY when exactly one matching entity exists.
     mut player: Single<(&mut Transform, &Player)>,
-    // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
+    // `Option<Single>` never prevents the system from running, but will be `None` if there is not exactly one matching entity.
     enemy: Option<Single<&Transform, (With<Enemy>, Without<Player>)>>,
     time: Res<Time>,
 ) {

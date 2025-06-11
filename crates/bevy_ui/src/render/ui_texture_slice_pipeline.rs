@@ -1,5 +1,6 @@
 use core::{hash::Hash, ops::Range};
 
+use crate::prelude::UiGlobalTransform;
 use crate::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -11,7 +12,7 @@ use bevy_ecs::{
     },
 };
 use bevy_image::prelude::*;
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -22,27 +23,18 @@ use bevy_render::{
     sync_world::TemporaryRenderEntity,
     texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
-use bevy_transform::prelude::GlobalTransform;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 use widget::ImageNode;
-
-pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");
 
 pub struct UiTextureSlicerPlugin;
 
 impl Plugin for UiTextureSlicerPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            UI_SLICER_SHADER_HANDLE,
-            "ui_texture_slice.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "ui_texture_slice.wgsl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -53,13 +45,13 @@ impl Plugin for UiTextureSlicerPlugin {
                 .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_ui_texture_slices.in_set(RenderUiSystem::ExtractTextureSlice),
+                    extract_ui_texture_slices.in_set(RenderUiSystems::ExtractTextureSlice),
                 )
                 .add_systems(
                     Render,
                     (
-                        queue_ui_slices.in_set(RenderSet::Queue),
-                        prepare_ui_slices.in_set(RenderSet::PrepareBindGroups),
+                        queue_ui_slices.in_set(RenderSystems::Queue),
+                        prepare_ui_slices.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
         }
@@ -116,6 +108,7 @@ pub struct UiTextureSliceImageBindGroups {
 pub struct UiTextureSlicePipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
 }
 
 impl FromWorld for UiTextureSlicePipeline {
@@ -144,6 +137,7 @@ impl FromWorld for UiTextureSlicePipeline {
         UiTextureSlicePipeline {
             view_layout,
             image_layout,
+            shader: load_embedded_asset!(world, "ui_texture_slice.wgsl"),
         }
     }
 }
@@ -180,13 +174,13 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: UI_SLICER_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: UI_SLICER_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -224,7 +218,7 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
 
 pub struct ExtractedUiTextureSlice {
     pub stack_index: u32,
-    pub transform: Mat4,
+    pub transform: Affine2,
     pub rect: Rect,
     pub atlas_rect: Option<Rect>,
     pub image: AssetId<Image>,
@@ -252,7 +246,7 @@ pub fn extract_ui_texture_slices(
         Query<(
             Entity,
             &ComputedNode,
-            &GlobalTransform,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -312,7 +306,7 @@ pub fn extract_ui_texture_slices(
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: uinode.stack_index,
-            transform: transform.compute_matrix(),
+            transform: transform.into(),
             color: image.color.into(),
             rect: Rect {
                 min: Vec2::ZERO,
@@ -503,11 +497,12 @@ pub fn prepare_ui_slices(
 
                     let uinode_rect = texture_slices.rect;
 
-                    let rect_size = uinode_rect.size().extend(1.0);
+                    let rect_size = uinode_rect.size();
 
                     // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| (texture_slices.transform * (pos * rect_size).extend(1.)).xyz());
+                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                        (texture_slices.transform.transform_point2(pos * rect_size)).extend(0.)
+                    });
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -542,7 +537,7 @@ pub fn prepare_ui_slices(
                     ];
 
                     let transformed_rect_size =
-                        texture_slices.transform.transform_vector3(rect_size);
+                        texture_slices.transform.transform_vector2(rect_size);
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π

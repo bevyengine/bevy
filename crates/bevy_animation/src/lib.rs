@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Animation for the game engine Bevy
@@ -31,14 +31,14 @@ use crate::{
     prelude::EvaluatorId,
 };
 
-use bevy_app::{Animation, App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, AssetEvents, Assets};
+use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
+use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
 use bevy_ecs::{prelude::*, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
-use bevy_transform::TransformSystem;
+use bevy_transform::TransformSystems;
 use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
@@ -85,7 +85,7 @@ impl Plugin for AnimationPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    graph::thread_animation_graphs.before(AssetEvents),
+                    graph::thread_animation_graphs.before(AssetEventSystems),
                     handle_node_transition,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
@@ -101,11 +101,12 @@ impl Plugin for AnimationPlugin {
                     expire_completed_transitions,
                 )
                     .chain()
-                    .in_set(Animation)
-                    .before(TransformSystem::TransformPropagate),
+                    .in_set(AnimationSystems)
+                    .before(TransformSystems::Propagate),
             );
     }
 }
+
 
 /// The [UUID namespace] of animation targets (e.g. bones).
 ///
