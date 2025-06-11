@@ -57,6 +57,7 @@
 //!
 //! Observers are most commonly triggered by [`Commands`],
 //! via [`Commands::trigger`] (for untargeted events) or [`Commands::trigger_targets`] (for targeted events).
+//! Like usual, equivalent methods are available on [`World`], allowing you to reduce overhead when working with exclusive world access.
 //!
 //! To trigger events for a specific set of components, pass in a [`ComponentId`] or a collection of them
 //! into [`Commands::trigger_targets`] by using the [`TriggerTargets`] trait.
