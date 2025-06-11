@@ -733,12 +733,15 @@ impl AssetLoader for FbxLoader {
             default_scene: Some(scene_handle),
             animations,
             named_animations,
+            // FBX_TODO
             axis_system: FbxAxisSystem {
                 up: Vec3::Y,
                 front: Vec3::Z,
                 handedness: Handedness::Right,
             },
+            // FBX_TODO
             unit_scale: 1.0,
+            // FBX_TODO
             metadata: FbxMeta {
                 creator: None,
                 creation_time: None,
