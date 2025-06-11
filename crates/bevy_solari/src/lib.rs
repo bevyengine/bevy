@@ -2,6 +2,8 @@
 
 //! Provides raytraced lighting.
 //!
+//! See [`SolariPlugin`] for more info.
+//!
 //! ![`bevy_solari` logo](https://raw.githubusercontent.com/bevyengine/bevy/assets/branding/bevy_solari.svg)
 pub mod pathtracer;
 pub mod scene;
@@ -20,6 +22,14 @@ use bevy_render::settings::WgpuFeatures;
 use pathtracer::PathtracingPlugin;
 use scene::SolariScenePlugin;
 
+/// An experimental plugin for raytraced lighting.
+///
+/// This plugin provides:
+/// * (Coming soon) - Raytraced direct and indirect lighting.
+/// * [`SolariScenePlugin`] - BLAS building, resource and lighting binding.
+/// * [`PathtracingPlugin`] - A non-realtime pathtracer for validation purposes.
+///
+/// To get started, add [`crate::scene:::RaytracingMesh3d`] and `MeshMaterial3d::<StandardMaterial>` to your entities.
 pub struct SolariPlugin;
 
 impl Plugin for SolariPlugin {

@@ -19,6 +19,10 @@ use node::PathtracerNode;
 use prepare::prepare_pathtracer_accumulation_texture;
 use tracing::warn;
 
+/// Non-realtime pathtracing.
+///
+/// This plugin is meant to generate reference screenshots to compare against,
+/// and is not intended to be used by games.
 pub struct PathtracingPlugin;
 
 impl Plugin for PathtracingPlugin {
