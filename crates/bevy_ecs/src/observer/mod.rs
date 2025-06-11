@@ -1,4 +1,85 @@
-//! Types for creating and storing [`Observer`]s
+//! Observers are a push-based tool for responding to [`Event`]s.
+//!
+//! Observers are systems which implement [`Observer`] that listen for [`Event`]s that match their
+//! type and target(s).
+//! To write observer systems, use the [`Trigger`] system parameter as the first parameter of your system.
+//! This parameter provides access to the specific event that triggered the observer,
+//! as well as the entity that the event was targeted at, if any.
+//!
+//! Observers can request other data from the world,
+//! such as via a [`Query`] or [`Res`]. Commonly, you might want to verify that
+//! the entity that the observable event is targeting has a specific component,
+//! or meets some other condition.
+//! [`Query::get`] or [`Query::contains`] on the [`Trigger::target`] entity
+//! is a good way to do this.
+//!
+//! [`Commands`] can also be used inside of observers.
+//! This can be particularly useful for triggering other observers!
+//!
+//! ## Observer targeting
+//!
+//! Observers can be "global", listening for events that are not targeted at any specific entity,
+//! or they can be "entity-specific", listening for events that are targeted at specific entities.
+//!
+//! They can also be further refined by listening to events targeted at specific components
+//! (instead of using a generic event type), as is done with the [`OnAdd`] family of lifecycle events.
+//!
+//! Currently, [observers cannot be retargeted after spawning](https://github.com/bevyengine/bevy/issues/19587):
+//! despawn and respawn an observer as a workaround.
+//!
+//! ## Observer bubbling
+//!
+//! When events are targeted at an entity, they can optionally bubble to other targets,
+//! typically up to parents in an entity hierarchy.
+//!
+//! This behavior is controlled via [`Event::Traversal`] and [`Event::AUTO_PROPAGATE`],
+//! with the details of the propagation path specified by the [`Traversal`](crate::traversal::Traversal) trait.
+//!
+//! When auto-propagation is enabled, propagaion must be manually stopped to prevent the event from
+//! continuing to other targets.
+//! This can be done using the [`Trigger::propagate`] method on the [`Trigger`] system parameter inside of your observer.
+//!
+//!  ## Observer timing
+//!
+//! Observers are triggered via [`Commands`], which imply that they are evaluated at the next sync point in the ECS schedule.
+//! Accordingly, they have full access to the world, and are evaluated sequentially, in the order that the commands were sent.
+//!
+//! To control the relative ordering of observers sent from different systems,
+//! order the systems in the schedule relative to each other.
+//!
+//! Currently, Bevy does not provide [a way to specify the ordering of observers](https://github.com/bevyengine/bevy/issues/14890)
+//! listening to the same event relative to each other.
+//!
+//! Commands sent by observers are [currently not immediately applied](https://github.com/bevyengine/bevy/issues/19569).
+//! Instead, all queued observers will run, and then all of the commands from those observers will be applied.
+//! Careful use of [`Schedule::apply_deferred`] may help as a workaround.
+//!
+//! ## Lifecycle events and observers
+//!
+//! It is important to note that observers, just like [hooks](crate::lifecycle::ComponentHooks),
+//! can listen to and respond to [lifecycle](crate::lifecycle) events.
+//! Unlike hooks, observers are not treated as an "innate" part of component behavior:
+//! they can be added or removed at runtime, and multiple observers
+//! can be registered for the same lifecycle event for the same component.
+//!
+//! Observers always respond to lifecycle events *after* the corresponding hooks are resolved.
+//!
+//! ## Observers vs buffered events
+//!
+//! By contrast, [`EventReader`] and [`EventWriter`] ("buffered events"), are pull-based.
+//! They require periodically polling the world to check for new events, typically in a system that runs as part of a schedule.
+//!
+//! This imposes a small overhead, making observers a better choice for extremely rare events,
+//! but buffered events can be more efficient for events that are expected to occur multiple times per frame,
+//! as it allows for batch processing of events.
+//!
+//! The difference in timing is also an important consideration:
+//! buffered events are evaluated at fixed points during schedules,
+//! while observers are evaluated as soon as possible after the event is triggered.
+//!
+//! This provides more control over the timing of buffered event evaluation,
+//! but allows for a more ad hoc approach with observers,
+//! and enables indefinite chaining of observers triggering other observers (for both better and worse!).
 
 mod entity_observer;
 mod runner;
