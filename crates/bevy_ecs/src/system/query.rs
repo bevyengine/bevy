@@ -2012,17 +2012,67 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.as_nop().get(entity).is_ok()
     }
 
-    /// Returns a [`QueryLens`] that can be used to get a query with a more general fetch.
+    /// Returns a [`QueryLens`] that can be used to construct a new [`Query`] giving more
+    /// restrictive access to the entities matched by the current query.
     ///
-    /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
-    /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added),
-    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will not be
-    /// respected. To maintain or change filter terms see [`Self::transmute_lens_filtered`]
+    /// A transmute is valid only if `NewD` has a subset of the read, write, and required access
+    /// of the current query. A precise description of the access required by each parameter
+    /// type is given in the table below, but typical uses are to:
+    /// * Remove components, e.g. `Query<(&A, &B)>` to `Query<&A>`.
+    /// * Retrieve an existing component with reduced or equal access, e.g. `Query<&mut A>` to `Query<&A>`
+    ///   or `Query<&T>` to `Query<Ref<T>>`.
+    /// * Add parameters with no new access, for example adding an `Entity` parameter.
+    ///
+    /// Note that since filter terms are dropped, non-archetypal filters like
+    /// [`Added`], [`Changed`] and [`Spawned`] will not be respected. To maintain or change filter
+    /// terms see [`Self::transmute_lens_filtered`].
+    ///
+    /// |`QueryData` parameter type|Access required|
+    /// |----|----|
+    /// |[`Entity`], [`EntityLocation`], [`SpawnDetails`], [`&Archetype`], [`Has<T>`], [`PhantomData<T>`]|No access|
+    /// |[`EntityMut`]|Read and write access to all components, but no required access|
+    /// |[`EntityRef`]|Read access to all components, but no required access|
+    /// |`&T`, [`Ref<T>`]|Read and required access to `T`|
+    /// |`&mut T`, [`Mut<T>`]|Read, write and required access to `T`|
+    /// |[`Option<T>`], [`AnyOf<(D, ...)>`]|Read and write access to `T`, but no required access|
+    /// |Tuples of query data and<br/>`#[derive(QueryData)]` structs|The union of the access of their subqueries|
+    /// |[`FilteredEntityRef`], [`FilteredEntityMut`]|Determined by the [`QueryBuilder`] used to construct them. Any query can be transmuted to them, and they will receive the access of the source query. When combined with other `QueryData`, they will receive any access of the source query that does not conflict with the other data|
+    ///
+    /// `transmute_lens` drops filter terms, but [`Self::transmute_lens_filtered`] supports returning a [`QueryLens`] with a new
+    /// filter type - the access required by filter parameters are as follows.
+    ///
+    /// |`QueryFilter` parameter type|Access required|
+    /// |----|----|
+    /// |[`Added<T>`], [`Changed<T>`]|Read and required access to `T`|
+    /// |[`With<T>`], [`Without<T>`]|No access|
+    /// |[`Or<(T, ...)>`]|Read access of the subqueries, but no required access|
+    /// |Tuples of query filters and `#[derive(QueryFilter)]` structs|The union of the access of their subqueries|
+    ///
+    /// [`Added`]: crate::query::Added
+    /// [`Added<T>`]: crate::query::Added
+    /// [`AnyOf<(D, ...)>`]: crate::query::AnyOf
+    /// [`&Archetype`]: crate::archetype::Archetype
+    /// [`Changed`]: crate::query::Changed
+    /// [`Changed<T>`]: crate::query::Changed
+    /// [`EntityMut`]: crate::world::EntityMut
+    /// [`EntityLocation`]: crate::entity::EntityLocation
+    /// [`EntityRef`]: crate::world::EntityRef
+    /// [`FilteredEntityRef`]: crate::world::FilteredEntityRef
+    /// [`FilteredEntityMut`]: crate::world::FilteredEntityMut
+    /// [`Has<T>`]: crate::query::Has
+    /// [`Mut<T>`]: crate::world::Mut
+    /// [`Or<(T, ...)>`]: crate::query::Or
+    /// [`QueryBuilder`]: crate::query::QueryBuilder
+    /// [`Ref<T>`]: crate::world::Ref
+    /// [`SpawnDetails`]: crate::query::SpawnDetails
+    /// [`Spawned`]: crate::query::Spawned
+    /// [`With<T>`]: crate::query::With
+    /// [`Without<T>`]: crate::query::Without
     ///
     /// ## Panics
     ///
-    /// This will panic if `NewD` is not a subset of the original fetch `D`
+    /// This will panic if the access required by `NewD` is not a subset of that required by
+    /// the original fetch `D`.
     ///
     /// ## Example
     ///
@@ -2060,30 +2110,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
-    ///
-    /// ## Allowed Transmutes
-    ///
-    /// Besides removing parameters from the query,
-    /// you can also make limited changes to the types of parameters.
-    /// The new query must have a subset of the *read*, *write*, and *required* access of the original query.
-    ///
-    /// * `&mut T` and [`Mut<T>`](crate::change_detection::Mut) have read, write, and required access to `T`
-    /// * `&T` and [`Ref<T>`](crate::change_detection::Ref) have read and required access to `T`
-    /// * [`Option<D>`] and [`AnyOf<(D, ...)>`](crate::query::AnyOf) have the read and write access of the subqueries, but no required access
-    /// * Tuples of query data and `#[derive(QueryData)]` structs have the union of the access of their subqueries
-    /// * [`EntityMut`](crate::world::EntityMut) has read and write access to all components, but no required access
-    /// * [`EntityRef`](crate::world::EntityRef) has read access to all components, but no required access
-    /// * [`Entity`], [`EntityLocation`], [`SpawnDetails`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
-    ///   so can be added to any query
-    /// * [`FilteredEntityRef`](crate::world::FilteredEntityRef) and [`FilteredEntityMut`](crate::world::FilteredEntityMut)
-    ///   have access determined by the [`QueryBuilder`](crate::query::QueryBuilder) used to construct them.
-    ///   Any query can be transmuted to them, and they will receive the access of the source query.
-    ///   When combined with other `QueryData`, they will receive any access of the source query that does not conflict with the other data.
-    /// * [`Added<T>`](crate::query::Added) and [`Changed<T>`](crate::query::Changed) filters have read and required access to `T`
-    /// * [`With<T>`](crate::query::With) and [`Without<T>`](crate::query::Without) filters have no access at all,
-    ///   so can be added to any query
-    /// * Tuples of query filters and `#[derive(QueryFilter)]` structs have the union of the access of their subqueries
-    /// * [`Or<(F, ...)>`](crate::query::Or) filters have the read access of the subqueries, but no required access
     ///
     /// ### Examples of valid transmutes
     ///
@@ -2161,28 +2187,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// // Nested inside of an `Or` filter, they have the same access as `Option<&T>`.
     /// assert_valid_transmute_filtered::<Option<&T>, (), Entity, Or<(Changed<T>, With<U>)>>();
     /// ```
-    ///
-    /// [`EntityLocation`]: crate::entity::EntityLocation
-    /// [`SpawnDetails`]: crate::query::SpawnDetails
-    /// [`&Archetype`]: crate::archetype::Archetype
-    /// [`Has<T>`]: crate::query::Has
     #[track_caller]
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
     }
 
-    /// Returns a [`QueryLens`] that can be used to get a query with a more general fetch.
+    /// Returns a [`QueryLens`] that can be used to construct a new `Query` giving more restrictive
+    /// access to the entities matched by the current query.
+    ///
     /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
-    /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
-    /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added),
-    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will not be
-    /// respected. To maintain or change filter terms see [`Self::transmute_lens_filtered`]
+    /// See [`Self::transmute_lens`] for a description of allowed transmutes.
     ///
     /// ## Panics
     ///
-    /// This will panic if `NewD` is not a subset of the original fetch `Q`
+    /// This will panic if `NewD` is not a subset of the original fetch `D`
     ///
     /// ## Example
     ///
@@ -2221,22 +2240,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # schedule.run(&mut world);
     /// ```
     ///
-    /// ## Allowed Transmutes
-    ///
-    /// Besides removing parameters from the query, you can also
-    /// make limited changes to the types of parameters.
-    ///
-    /// * Can always add/remove [`Entity`]
-    /// * Can always add/remove [`EntityLocation`]
-    /// * Can always add/remove [`&Archetype`]
-    /// * `Ref<T>` <-> `&T`
-    /// * `&mut T` -> `&T`
-    /// * `&mut T` -> `Ref<T>`
-    /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///
-    /// [`EntityLocation`]: crate::entity::EntityLocation
-    /// [`&Archetype`]: crate::archetype::Archetype
-    ///
     /// # See also
     ///
     /// - [`transmute_lens`](Self::transmute_lens) to convert to a lens using a mutable borrow of the [`Query`].
@@ -2246,6 +2249,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Equivalent to [`Self::transmute_lens`] but also includes a [`QueryFilter`] type.
+    ///
+    /// See [`Self::transmute_lens`] for a description of allowed transmutes.
     ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
@@ -2262,10 +2267,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Equivalent to [`Self::transmute_lens_inner`] but also includes a [`QueryFilter`] type.
     /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
+    /// See [`Self::transmute_lens`] for a description of allowed transmutes.
+    ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
     /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added),
     /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
+    /// are in the type signature.
     ///
     /// # See also
     ///
@@ -2620,6 +2628,36 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Populated<'w, 's, D, F> {
     /// Returns the inner item with ownership.
     pub fn into_inner(self) -> Query<'w, 's, D, F> {
         self.0
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Populated<'w, 's, D, F> {
+    type Item = <Query<'w, 's, D, F> as IntoIterator>::Item;
+
+    type IntoIter = <Query<'w, 's, D, F> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a, 'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'a Populated<'w, 's, D, F> {
+    type Item = <&'a Query<'w, 's, D, F> as IntoIterator>::Item;
+
+    type IntoIter = <&'a Query<'w, 's, D, F> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref().into_iter()
+    }
+}
+
+impl<'a, 'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'a mut Populated<'w, 's, D, F> {
+    type Item = <&'a mut Query<'w, 's, D, F> as IntoIterator>::Item;
+
+    type IntoIter = <&'a mut Query<'w, 's, D, F> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref_mut().into_iter()
     }
 }
 

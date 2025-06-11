@@ -8,9 +8,9 @@ use bevy_ecs::{
     entity::Entity,
     event::EventCursor,
     hierarchy::ChildOf,
+    lifecycle::RemovedComponentEntity,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-    removal_detection::RemovedComponentEntity,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
@@ -570,7 +570,8 @@ pub fn process_remote_get_watching_request(
             );
             continue;
         };
-        let Some(component_id) = world.components().get_id(type_registration.type_id()) else {
+        let Some(component_id) = world.components().get_valid_id(type_registration.type_id())
+        else {
             let err = BrpError::component_error(format!("Unknown component: `{component_path}`"));
             if strict {
                 return Err(err);
@@ -1312,7 +1313,7 @@ fn get_component_ids(
                 let type_id = type_registration.type_id();
                 world
                     .components()
-                    .get_id(type_id)
+                    .get_valid_id(type_id)
                     .map(|component_id| (type_id, component_id))
             });
         if let Some((type_id, component_id)) = maybe_component_tuple {

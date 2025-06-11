@@ -23,16 +23,21 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
+    event::Event,
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use core::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
 };
 use nonmax::NonMaxU32;
+
+#[derive(Event)]
+#[expect(dead_code, reason = "Prepare for the upcoming Query as Entities")]
+pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 
 /// An opaque location within a [`Archetype`].
 ///
@@ -688,7 +693,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnAdd`] observer
     ///
-    /// [`OnAdd`]: crate::world::OnAdd
+    /// [`OnAdd`]: crate::lifecycle::OnAdd
     #[inline]
     pub fn has_add_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_ADD_OBSERVER)
@@ -696,7 +701,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnInsert`] observer
     ///
-    /// [`OnInsert`]: crate::world::OnInsert
+    /// [`OnInsert`]: crate::lifecycle::OnInsert
     #[inline]
     pub fn has_insert_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
@@ -704,7 +709,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnReplace`] observer
     ///
-    /// [`OnReplace`]: crate::world::OnReplace
+    /// [`OnReplace`]: crate::lifecycle::OnReplace
     #[inline]
     pub fn has_replace_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REPLACE_OBSERVER)
@@ -712,7 +717,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnRemove`] observer
     ///
-    /// [`OnRemove`]: crate::world::OnRemove
+    /// [`OnRemove`]: crate::lifecycle::OnRemove
     #[inline]
     pub fn has_remove_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_OBSERVER)
@@ -720,7 +725,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnDespawn`] observer
     ///
-    /// [`OnDespawn`]: crate::world::OnDespawn
+    /// [`OnDespawn`]: crate::lifecycle::OnDespawn
     #[inline]
     pub fn has_despawn_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_DESPAWN_OBSERVER)
@@ -869,6 +874,10 @@ impl Archetypes {
     }
 
     /// Gets the archetype id matching the given inputs or inserts a new one if it doesn't exist.
+    ///
+    /// Specifically, it returns a tuple where the first element
+    /// is the [`ArchetypeId`] that the given inputs belong to, and the second element is a boolean indicating whether a new archetype was created.
+    ///
     /// `table_components` and `sparse_set_components` must be sorted
     ///
     /// # Safety
@@ -881,7 +890,7 @@ impl Archetypes {
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
-    ) -> ArchetypeId {
+    ) -> (ArchetypeId, bool) {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),
             table_components: table_components.into_boxed_slice(),
@@ -889,14 +898,13 @@ impl Archetypes {
 
         let archetypes = &mut self.archetypes;
         let component_index = &mut self.by_component;
-        *self
-            .by_components
-            .entry(archetype_identity)
-            .or_insert_with_key(move |identity| {
+        match self.by_components.entry(archetype_identity) {
+            Entry::Occupied(occupied) => (*occupied.get(), false),
+            Entry::Vacant(vacant) => {
                 let ArchetypeComponents {
                     table_components,
                     sparse_set_components,
-                } = identity;
+                } = vacant.key();
                 let id = ArchetypeId::new(archetypes.len());
                 archetypes.push(Archetype::new(
                     components,
@@ -907,8 +915,10 @@ impl Archetypes {
                     table_components.iter().copied(),
                     sparse_set_components.iter().copied(),
                 ));
-                id
-            })
+                vacant.insert(id);
+                (id, true)
+            }
+        }
     }
 
     /// Clears all entities from all archetypes.

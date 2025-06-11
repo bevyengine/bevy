@@ -22,7 +22,10 @@ use wgpu_types::{
     TextureViewDescriptor,
 };
 
+/// Trait used to provide default values for Bevy-external types that
+/// do not implement [`Default`].
 pub trait BevyDefault {
+    /// Returns the default value for a type.
     fn bevy_default() -> Self;
 }
 

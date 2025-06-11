@@ -127,26 +127,15 @@ where
         self.name.clone()
     }
 
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
-        self.system.component_access()
-    }
-
     fn component_access_set(
         &self,
     ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
         self.system.component_access_set()
     }
 
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> super::SystemStateFlags {
+        self.system.flags()
     }
 
     #[inline]
@@ -159,6 +148,12 @@ where
         self.func.adapt(input, |input| unsafe {
             self.system.run_unsafe(input, world)
         })
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
     }
 
     #[inline]

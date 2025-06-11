@@ -1,4 +1,7 @@
-use crate::{FocusPolicy, UiRect, Val};
+use crate::{
+    ui_transform::{UiGlobalTransform, UiTransform},
+    FocusPolicy, UiRect, Val,
+};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -9,7 +12,6 @@ use bevy_render::{
     view::Visibility,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
@@ -229,6 +231,73 @@ impl ComputedNode {
     pub const fn inverse_scale_factor(&self) -> f32 {
         self.inverse_scale_factor
     }
+
+    // Returns true if `point` within the node.
+    //
+    // Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
+    pub fn contains_point(&self, transform: UiGlobalTransform, point: Vec2) -> bool {
+        let Some(local_point) = transform
+            .try_inverse()
+            .map(|transform| transform.transform_point2(point))
+        else {
+            return false;
+        };
+        let [top, bottom] = if local_point.x < 0. {
+            [self.border_radius.top_left, self.border_radius.bottom_left]
+        } else {
+            [
+                self.border_radius.top_right,
+                self.border_radius.bottom_right,
+            ]
+        };
+        let r = if local_point.y < 0. { top } else { bottom };
+        let corner_to_point = local_point.abs() - 0.5 * self.size;
+        let q = corner_to_point + r;
+        let l = q.max(Vec2::ZERO).length();
+        let m = q.max_element().min(0.);
+        l + m - r < 0.
+    }
+
+    /// Transform a point to normalized node space with the center of the node at the origin and the corners at [+/-0.5, +/-0.5]
+    pub fn normalize_point(&self, transform: UiGlobalTransform, point: Vec2) -> Option<Vec2> {
+        self.size
+            .cmpgt(Vec2::ZERO)
+            .all()
+            .then(|| transform.try_inverse())
+            .flatten()
+            .map(|transform| transform.transform_point2(point) / self.size)
+    }
+
+    /// Resolve the node's clipping rect in local space
+    pub fn resolve_clip_rect(
+        &self,
+        overflow: Overflow,
+        overflow_clip_margin: OverflowClipMargin,
+    ) -> Rect {
+        let mut clip_rect = Rect::from_center_size(Vec2::ZERO, self.size);
+
+        let clip_inset = match overflow_clip_margin.visual_box {
+            OverflowClipBox::BorderBox => BorderRect::ZERO,
+            OverflowClipBox::ContentBox => self.content_inset(),
+            OverflowClipBox::PaddingBox => self.border(),
+        };
+
+        clip_rect.min.x += clip_inset.left;
+        clip_rect.min.y += clip_inset.top;
+        clip_rect.max.x -= clip_inset.right;
+        clip_rect.max.y -= clip_inset.bottom;
+
+        if overflow.x == OverflowAxis::Visible {
+            clip_rect.min.x = -f32::INFINITY;
+            clip_rect.max.x = f32::INFINITY;
+        }
+        if overflow.y == OverflowAxis::Visible {
+            clip_rect.min.y = -f32::INFINITY;
+            clip_rect.max.y = f32::INFINITY;
+        }
+
+        clip_rect
+    }
 }
 
 impl ComputedNode {
@@ -323,12 +392,12 @@ impl From<Vec2> for ScrollPosition {
 #[require(
     ComputedNode,
     ComputedNodeTarget,
+    UiTransform,
     BackgroundColor,
     BorderColor,
     BorderRadius,
     FocusPolicy,
     ScrollPosition,
-    Transform,
     Visibility,
     ZIndex
 )]
@@ -2061,6 +2130,16 @@ impl BorderColor {
         }
     }
 
+    /// Helper to set all border colors to a given color.
+    pub fn set_all(&mut self, color: impl Into<Color>) -> &mut Self {
+        let color: Color = color.into();
+        self.top = color;
+        self.bottom = color;
+        self.left = color;
+        self.right = color;
+        self
+    }
+
     /// Check if all contained border colors are transparent
     pub fn is_fully_transparent(&self) -> bool {
         self.top.is_fully_transparent()
@@ -2796,8 +2875,8 @@ impl ComputedNodeTarget {
 }
 
 /// Adds a shadow behind text
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct TextShadow {
     /// Shadow displacement in logical pixels
     /// With a value of zero the shadow will be hidden directly behind the text

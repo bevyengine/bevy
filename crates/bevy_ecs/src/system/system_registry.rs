@@ -880,7 +880,7 @@ mod tests {
             result,
             Err(RegisteredSystemError::InvalidParams { .. })
         ));
-        let expected = format!("System {id:?} did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist");
+        let expected = format!("System {id:?} did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `When<T>` to skip the system when it happens.");
         assert_eq!(expected, result.unwrap_err().to_string());
     }
 
