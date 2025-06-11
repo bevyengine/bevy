@@ -186,7 +186,7 @@ fn setup_ui(
                     Text::new(button_name),
                     // And center the text if it flows onto multiple lines
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                 ))

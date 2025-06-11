@@ -37,9 +37,9 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    lifecycle::RemovedComponents,
     query::{Changed, Or},
     reflect::ReflectComponent,
-    removal_detection::RemovedComponents,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},

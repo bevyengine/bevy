@@ -3,9 +3,10 @@ use core::ops::Deref;
 use crate::{
     archetype::Archetype,
     change_detection::{MaybeLocation, MutUntyped},
-    component::{ComponentId, HookContext, Mutable},
+    component::{ComponentId, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
+    lifecycle::{HookContext, ON_INSERT, ON_REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
@@ -16,7 +17,7 @@ use crate::{
     world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
+use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
