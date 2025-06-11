@@ -12,6 +12,7 @@ use core::any::TypeId;
 
 pub mod json_schema;
 pub mod open_rpc;
+pub mod reflect_info;
 
 /// Holds mapping of reflect [type data](TypeData) to strings,
 /// later on used in Bevy Json Schema.
