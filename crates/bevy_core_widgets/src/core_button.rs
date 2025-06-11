@@ -12,8 +12,8 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
-use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Pressed, Released};
-use bevy_ui::{Depressed, InteractionDisabled};
+use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_ui::{InteractionDisabled, Pressed};
 
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
 /// indicate whether the button is currently being pressed by the user. It emits a `ButtonClicked`
@@ -49,7 +49,7 @@ fn button_on_key_event(
 
 fn button_on_pointer_click(
     mut trigger: Trigger<Pointer<Click>>,
-    mut q_state: Query<(&CoreButton, Has<Depressed>, Has<InteractionDisabled>)>,
+    mut q_state: Query<(&CoreButton, Has<Pressed>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
     if let Ok((bstate, pressed, disabled)) = q_state.get_mut(trigger.target().unwrap()) {
@@ -63,17 +63,17 @@ fn button_on_pointer_click(
 }
 
 fn button_on_pointer_down(
-    mut trigger: Trigger<Pointer<Pressed>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Depressed>), With<CoreButton>>,
+    mut trigger: Trigger<Pointer<Press>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, depressed)) = q_state.get_mut(trigger.target().unwrap()) {
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target().unwrap()) {
         trigger.propagate(false);
         if !disabled {
-            if !depressed {
-                commands.entity(button).insert(Depressed);
+            if !pressed {
+                commands.entity(button).insert(Pressed);
             }
             // Clicking on a button makes it the focused input,
             // and hides the focus ring if it was visible.
@@ -88,40 +88,40 @@ fn button_on_pointer_down(
 }
 
 fn button_on_pointer_up(
-    mut trigger: Trigger<Pointer<Released>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Depressed>), With<CoreButton>>,
+    mut trigger: Trigger<Pointer<Release>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, depressed)) = q_state.get_mut(trigger.target().unwrap()) {
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target().unwrap()) {
         trigger.propagate(false);
-        if !disabled && depressed {
-            commands.entity(button).remove::<Depressed>();
+        if !disabled && pressed {
+            commands.entity(button).remove::<Pressed>();
         }
     }
 }
 
 fn button_on_pointer_drag_end(
     mut trigger: Trigger<Pointer<DragEnd>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Depressed>), With<CoreButton>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, depressed)) = q_state.get_mut(trigger.target().unwrap()) {
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target().unwrap()) {
         trigger.propagate(false);
-        if !disabled && depressed {
-            commands.entity(button).remove::<Depressed>();
+        if !disabled && pressed {
+            commands.entity(button).remove::<Pressed>();
         }
     }
 }
 
 fn button_on_pointer_cancel(
     mut trigger: Trigger<Pointer<Cancel>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Depressed>), With<CoreButton>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, depressed)) = q_state.get_mut(trigger.target().unwrap()) {
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target().unwrap()) {
         trigger.propagate(false);
-        if !disabled && depressed {
-            commands.entity(button).remove::<Depressed>();
+        if !disabled && pressed {
+            commands.entity(button).remove::<Pressed>();
         }
     }
 }

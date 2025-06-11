@@ -393,7 +393,7 @@ impl Plugin for PickingPlugin {
             .register_type::<Self>()
             .register_type::<Pickable>()
             .register_type::<hover::PickingInteraction>()
-            .register_type::<hover::IsHovered>()
+            .register_type::<hover::Hovered>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
@@ -416,7 +416,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<PointerState>()
             .add_event::<Pointer<Cancel>>()
             .add_event::<Pointer<Click>>()
-            .add_event::<Pointer<Pressed>>()
+            .add_event::<Pointer<Press>>()
             .add_event::<Pointer<DragDrop>>()
             .add_event::<Pointer<DragEnd>>()
             .add_event::<Pointer<DragEnter>>()
@@ -427,7 +427,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Move>>()
             .add_event::<Pointer<Out>>()
             .add_event::<Pointer<Over>>()
-            .add_event::<Pointer<Released>>()
+            .add_event::<Pointer<Release>>()
             .add_event::<Pointer<Scroll>>()
             .add_systems(
                 PreUpdate,

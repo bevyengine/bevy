@@ -8,9 +8,9 @@ use bevy::{
         tab_navigation::{TabGroup, TabIndex},
         InputDispatchPlugin,
     },
-    picking::hover::IsHovered,
+    picking::hover::Hovered,
     prelude::*,
-    ui::{Depressed, InteractionDisabled},
+    ui::{InteractionDisabled, Pressed},
     winit::WinitSettings,
 };
 
@@ -38,8 +38,8 @@ struct DemoButton;
 fn update_button_style(
     mut buttons: Query<
         (
-            Has<Depressed>,
-            &IsHovered,
+            Has<Pressed>,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -47,8 +47,8 @@ fn update_button_style(
         ),
         (
             Or<(
-                Changed<Depressed>,
-                Changed<IsHovered>,
+                Changed<Pressed>,
+                Changed<Hovered>,
                 Added<InteractionDisabled>,
             )>,
             With<DemoButton>,
@@ -56,12 +56,12 @@ fn update_button_style(
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (depressed, hovered, disabled, mut color, mut border_color, children) in &mut buttons {
+    for (pressed, hovered, disabled, mut color, mut border_color, children) in &mut buttons {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
             disabled,
             hovered.get(),
-            depressed,
+            pressed,
             &mut color,
             &mut border_color,
             &mut text,
@@ -73,8 +73,8 @@ fn update_button_style(
 fn update_button_style2(
     mut buttons: Query<
         (
-            Has<Depressed>,
-            &IsHovered,
+            Has<Pressed>,
+            &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
@@ -82,19 +82,19 @@ fn update_button_style2(
         ),
         With<DemoButton>,
     >,
-    mut removed_depressed: RemovedComponents<Depressed>,
+    mut removed_depressed: RemovedComponents<Pressed>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut text_query: Query<&mut Text>,
 ) {
     removed_depressed.read().for_each(|entity| {
-        if let Ok((depressed, hovered, disabled, mut color, mut border_color, children)) =
+        if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
             buttons.get_mut(entity)
         {
             let mut text = text_query.get_mut(children[0]).unwrap();
             set_button_style(
                 disabled,
                 hovered.get(),
-                depressed,
+                pressed,
                 &mut color,
                 &mut border_color,
                 &mut text,
@@ -102,14 +102,14 @@ fn update_button_style2(
         }
     });
     removed_disabled.read().for_each(|entity| {
-        if let Ok((depressed, hovered, disabled, mut color, mut border_color, children)) =
+        if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
             buttons.get_mut(entity)
         {
             let mut text = text_query.get_mut(children[0]).unwrap();
             set_button_style(
                 disabled,
                 hovered.get(),
-                depressed,
+                pressed,
                 &mut color,
                 &mut border_color,
                 &mut text,
@@ -121,12 +121,12 @@ fn update_button_style2(
 fn set_button_style(
     disabled: bool,
     hovered: bool,
-    depressed: bool,
+    pressed: bool,
     color: &mut BackgroundColor,
     border_color: &mut BorderColor,
     text: &mut Text,
 ) {
-    match (disabled, hovered, depressed) {
+    match (disabled, hovered, pressed) {
         // Disabled button
         (true, _, _) => {
             **text = "Disabled".to_string();
@@ -192,7 +192,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
                 CoreButton {
                     on_click: Some(on_click),
                 },
-                IsHovered::default(),
+                Hovered::default(),
                 TabIndex(0),
                 BorderColor::all(Color::BLACK),
                 BorderRadius::MAX,
