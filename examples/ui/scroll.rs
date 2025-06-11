@@ -14,13 +14,98 @@ fn main() {
     app.add_plugins(DefaultPlugins)
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, update_scroll_position);
+        .add_systems(Update, send_scroll_events)
+        .add_observer(on_scroll_handler);
 
     app.run();
 }
 
-const FONT_SIZE: f32 = 20.;
 const LINE_HEIGHT: f32 = 21.;
+
+/// Injects scroll events into the UI hierarchy.
+fn send_scroll_events(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    hover_map: Res<HoverMap>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
+) {
+    for event in mouse_wheel_events.read() {
+        let mut delta = -Vec2::new(event.x, event.y);
+
+        if event.unit == MouseScrollUnit::Line {
+            delta *= LINE_HEIGHT;
+        }
+
+        if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+            std::mem::swap(&mut delta.x, &mut delta.y);
+        }
+
+        for pointer_map in hover_map.values() {
+            for entity in pointer_map.keys() {
+                commands.trigger_targets(OnScroll { delta }, *entity);
+            }
+        }
+    }
+}
+
+/// UI scrolling event.
+#[derive(Event, Debug)]
+#[event(auto_propagate, traversal = &'static ChildOf)]
+struct OnScroll {
+    /// Scroll delta in logical coordinates.
+    delta: Vec2,
+}
+
+fn on_scroll_handler(
+    mut trigger: Trigger<OnScroll>,
+    mut query: Query<(&mut ScrollPosition, &Node, &ComputedNode)>,
+) {
+    let target = trigger.target().unwrap();
+    let delta = &mut trigger.event_mut().delta;
+
+    let Ok((mut scoll_position, node, computed)) = query.get_mut(target) else {
+        return;
+    };
+
+    let max_offset = (computed.content_size() - computed.size()) * computed.inverse_scale_factor();
+
+    if node.overflow.x == OverflowAxis::Scroll && delta.x != 0. {
+        // Is this node already scrolled all the way in the direction of the scroll?
+        let max = if delta.x > 0. {
+            scoll_position.offset_x >= max_offset.x
+        } else {
+            scoll_position.offset_x <= 0.
+        };
+
+        if !max {
+            scoll_position.offset_x += delta.x;
+            // Consume the X portion of the scroll delta.
+            delta.x = 0.;
+        }
+    }
+
+    if node.overflow.y == OverflowAxis::Scroll && delta.y != 0. {
+        // Is this node already scrolled all the way in the direction of the scroll?
+        let max = if delta.y > 0. {
+            scoll_position.offset_y >= max_offset.y
+        } else {
+            scoll_position.offset_y <= 0.
+        };
+
+        if !max {
+            scoll_position.offset_y += delta.y;
+            // Consume the Y portion of the scroll delta.
+            delta.y = 0.;
+        }
+    }
+
+    // Stop propagating when the delta is fully consumed.
+    if *delta == Vec2::ZERO {
+        trigger.propagate(false);
+    }
+}
+
+const FONT_SIZE: f32 = 20.;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
@@ -35,7 +120,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             flex_direction: FlexDirection::Column,
             ..default()
         })
-        .insert(Pickable::IGNORE)
         .with_children(|parent| {
             // horizontal scroll example
             parent
@@ -78,16 +162,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         },
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
-                                ))
-                                .insert(Node {
+                                    Node {
                                     min_width: Val::Px(200.),
                                     align_content: AlignContent::Center,
                                     ..default()
-                                })
-                                .insert(Pickable {
-                                    should_block_lower: false,
-                                    ..default()
-                                })
+                                }
+                                ))
                                 .observe(|
                                     trigger: Trigger<Pointer<Press>>,
                                     mut commands: Commands
@@ -151,28 +231,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 max_height: Val::Px(LINE_HEIGHT),
                                                 ..default()
                                             })
-                                            .insert(Pickable {
-                                                should_block_lower: false,
-                                                ..default()
-                                            })
                                             .with_children(|parent| {
-                                                parent
-                                                    .spawn((
-                                                        Text(format!("Item {i}")),
-                                                        TextFont {
-                                                            font: asset_server
-                                                                .load("fonts/FiraSans-Bold.ttf"),
-                                                            ..default()
-                                                        },
-                                                        Label,
-                                                        AccessibilityNode(Accessible::new(
-                                                            Role::ListItem,
-                                                        )),
-                                                    ))
-                                                    .insert(Pickable {
-                                                        should_block_lower: false,
+                                                parent.spawn((
+                                                    Text(format!("Item {i}")),
+                                                    TextFont {
+                                                        font: asset_server
+                                                            .load("fonts/FiraSans-Bold.ttf"),
                                                         ..default()
-                                                    });
+                                                    },
+                                                    Label,
+                                                    AccessibilityNode(Accessible::new(
+                                                        Role::ListItem,
+                                                    )),
+                                                ));
                                             });
                                     }
                                 });
@@ -218,28 +289,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 flex_direction: FlexDirection::Row,
                                                 ..default()
                                             })
-                                            .insert(Pickable::IGNORE)
                                             .with_children(|parent| {
                                                 // Elements in each row
-                                                for i in 0..25 {
-                                                    parent
-                                                        .spawn((
-                                                            Text(format!("Item {}", (oi * 25) + i)),
-                                                            TextFont {
-                                                                font: asset_server.load(
-                                                                    "fonts/FiraSans-Bold.ttf",
-                                                                ),
-                                                                ..default()
-                                                            },
-                                                            Label,
-                                                            AccessibilityNode(Accessible::new(
-                                                                Role::ListItem,
-                                                            )),
-                                                        ))
-                                                        .insert(Pickable {
-                                                            should_block_lower: false,
+                                                for i in 0..20 {
+                                                    parent.spawn((
+                                                        Text(format!("Item {}", (oi * 20) + i)),
+                                                        TextFont {
+                                                            font: asset_server
+                                                                .load("fonts/FiraSans-Bold.ttf"),
                                                             ..default()
-                                                        });
+                                                        },
+                                                        Label,
+                                                        AccessibilityNode(Accessible::new(
+                                                            Role::ListItem,
+                                                        )),
+                                                    ));
                                                 }
                                             });
                                     }
@@ -274,48 +338,40 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         flex_direction: FlexDirection::Row,
                                         align_self: AlignSelf::Stretch,
                                         height: Val::Percent(50.),
-                                        overflow: Overflow::scroll_x(), // n.b.
+                                        overflow: Overflow::scroll(),
                                         ..default()
                                     },
                                     BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                                 ))
                                 .with_children(|parent| {
                                     // Inner, scrolling columns
-                                    for oi in 0..30 {
+                                    for oi in 0..5 {
                                         parent
                                             .spawn((
                                                 Node {
                                                     flex_direction: FlexDirection::Column,
-                                                    align_self: AlignSelf::Stretch,
+                                                    height: Val::Percent(
+                                                        200. / 5. * (oi as f32 + 1.),
+                                                    ),
                                                     overflow: Overflow::scroll_y(),
                                                     ..default()
                                                 },
                                                 BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
                                             ))
-                                            .insert(Pickable {
-                                                should_block_lower: false,
-                                                ..default()
-                                            })
                                             .with_children(|parent| {
-                                                for i in 0..25 {
-                                                    parent
-                                                        .spawn((
-                                                            Text(format!("Item {}", (oi * 25) + i)),
-                                                            TextFont {
-                                                                font: asset_server.load(
-                                                                    "fonts/FiraSans-Bold.ttf",
-                                                                ),
-                                                                ..default()
-                                                            },
-                                                            Label,
-                                                            AccessibilityNode(Accessible::new(
-                                                                Role::ListItem,
-                                                            )),
-                                                        ))
-                                                        .insert(Pickable {
-                                                            should_block_lower: false,
+                                                for i in 0..20 {
+                                                    parent.spawn((
+                                                        Text(format!("Item {}", (oi * 20) + i)),
+                                                        TextFont {
+                                                            font: asset_server
+                                                                .load("fonts/FiraSans-Bold.ttf"),
                                                             ..default()
-                                                        });
+                                                        },
+                                                        Label,
+                                                        AccessibilityNode(Accessible::new(
+                                                            Role::ListItem,
+                                                        )),
+                                                    ));
                                                 }
                                             });
                                     }
@@ -323,37 +379,4 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         });
                 });
         });
-}
-
-/// Updates the scroll position of scrollable nodes in response to mouse input
-pub fn update_scroll_position(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-    hover_map: Res<HoverMap>,
-    mut scrolled_node_query: Query<&mut ScrollPosition>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-) {
-    for mouse_wheel_event in mouse_wheel_events.read() {
-        let (mut dx, mut dy) = match mouse_wheel_event.unit {
-            MouseScrollUnit::Line => (
-                mouse_wheel_event.x * LINE_HEIGHT,
-                mouse_wheel_event.y * LINE_HEIGHT,
-            ),
-            MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
-        };
-
-        if keyboard_input.pressed(KeyCode::ControlLeft)
-            || keyboard_input.pressed(KeyCode::ControlRight)
-        {
-            std::mem::swap(&mut dx, &mut dy);
-        }
-
-        for (_pointer, pointer_map) in hover_map.iter() {
-            for (entity, _hit) in pointer_map.iter() {
-                if let Ok(mut scroll_position) = scrolled_node_query.get_mut(*entity) {
-                    scroll_position.offset_x -= dx;
-                    scroll_position.offset_y -= dy;
-                }
-            }
-        }
-    }
 }
