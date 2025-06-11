@@ -1,5 +1,5 @@
 use super::{prepare::PathtracerAccumulationTexture, Pathtracer};
-use crate::scene::RaytracingSceneBindings;
+use crate::scene::SolariSceneBindings;
 use bevy_asset::load_embedded_asset;
 use bevy_ecs::{
     query::QueryItem,
@@ -49,7 +49,7 @@ impl ViewNode for PathtracerNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let scene_bindings = world.resource::<RaytracingSceneBindings>();
+        let scene_bindings = world.resource::<SolariSceneBindings>();
         let view_uniforms = world.resource::<ViewUniforms>();
         let (Some(pipeline), Some(scene_bindings), Some(viewport), Some(view_uniforms)) = (
             pipeline_cache.get_compute_pipeline(self.pipeline),
@@ -96,7 +96,7 @@ impl FromWorld for PathtracerNode {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let scene_bindings = world.resource::<RaytracingSceneBindings>();
+        let scene_bindings = world.resource::<SolariSceneBindings>();
 
         let bind_group_layout = render_device.create_bind_group_layout(
             "pathtracer_bind_group_layout",

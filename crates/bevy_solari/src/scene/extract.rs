@@ -10,7 +10,7 @@ use bevy_platform::collections::HashMap;
 use bevy_render::{extract_resource::ExtractResource, sync_world::RenderEntity, Extract};
 use bevy_transform::components::GlobalTransform;
 
-pub fn extract_raytracing_scene(
+pub fn extract_solari_scene(
     instances: Extract<
         Query<(
             RenderEntity,

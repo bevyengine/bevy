@@ -18,13 +18,13 @@ pub mod prelude {
 use bevy_app::{App, Plugin};
 use bevy_render::settings::WgpuFeatures;
 use pathtracer::PathtracingPlugin;
-use scene::RaytracingScenePlugin;
+use scene::SolariScenePlugin;
 
 pub struct SolariPlugin;
 
 impl Plugin for SolariPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((RaytracingScenePlugin, PathtracingPlugin));
+        app.add_plugins((SolariScenePlugin, PathtracingPlugin));
     }
 }
 
