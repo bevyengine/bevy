@@ -8,10 +8,10 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 mod gradient;
 
-use crate::widget::{ImageNode, ViewportNode};
+use crate::widget::{ImageNode, TextShadow, ViewportNode};
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
-    ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
+    ComputedNodeTarget, Outline, ResolvedBorderRadius, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetId, Assets};

@@ -56,7 +56,7 @@ pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
     #[doc(hidden)]
-    pub use crate::widget::{Text, TextUiReader, TextUiWriter};
+    pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -179,7 +179,6 @@ impl Plugin for UiPlugin {
             .register_type::<Outline>()
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
-            .register_type::<TextShadow>()
             .register_type::<ColorStop>()
             .register_type::<AngularColorStop>()
             .register_type::<UiPosition>()
@@ -279,11 +278,12 @@ impl Plugin for UiPlugin {
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextNodeFlags;
     use bevy_text::TextLayoutInfo;
-    use widget::Text;
+    use widget::{Text, TextShadow};
 
     app.register_type::<TextLayoutInfo>()
         .register_type::<TextNodeFlags>()
-        .register_type::<Text>();
+        .register_type::<Text>()
+        .register_type::<TextShadow>();
 
     app.add_systems(
         PostUpdate,

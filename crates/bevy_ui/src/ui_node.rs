@@ -2795,26 +2795,6 @@ impl ComputedNodeTarget {
     }
 }
 
-/// Adds a shadow behind text
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-pub struct TextShadow {
-    /// Shadow displacement in logical pixels
-    /// With a value of zero the shadow will be hidden directly behind the text
-    pub offset: Vec2,
-    /// Color of the shadow
-    pub color: Color,
-}
-
-impl Default for TextShadow {
-    fn default() -> Self {
-        Self {
-            offset: Vec2::splat(4.),
-            color: Color::linear_rgba(0., 0., 0., 0.75),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::GridPlacement;
