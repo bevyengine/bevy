@@ -8,6 +8,9 @@
 //! They can also be further refined by listening to events targeted at specific components
 //! (instead of using a generic event type), as is done with the [`OnAdd`] family of lifecycle events.
 //!
+//! When entities are observed, they will receive an [`ObservedBy`] component,
+//! which will be updated to track the observers that are currently observing them.
+//!
 //! Currently, [observers cannot be retargeted after spawning](https://github.com/bevyengine/bevy/issues/19587):
 //! despawn and respawn an observer as a workaround.
 //!
