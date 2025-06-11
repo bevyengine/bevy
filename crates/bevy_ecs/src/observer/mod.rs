@@ -448,7 +448,9 @@ impl ObserverDescriptor {
     }
 }
 
-/// Event trigger metadata for a given [`Observer`],
+/// Metadata about a specific [`Event`] which triggered an observer.
+///
+/// This information is exposed via methods on the [`Trigger`] system parameter.
 #[derive(Debug)]
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
