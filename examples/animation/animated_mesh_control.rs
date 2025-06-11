@@ -107,11 +107,11 @@ fn setup_scene_once_loaded(
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     for (entity, mut player) in &mut players {
-        let mut transitions = AnimationTransitions::new(1);
+        let mut transitions = AnimationTransitions::new();
 
         // Use only transitions to control your animation player!
         transitions
-            .transition_flows(&mut player, animations.animations[0], 0, Duration::ZERO)
+            .transition(&mut player, animations.animations[0], Duration::ZERO)
             .repeat();
 
         commands

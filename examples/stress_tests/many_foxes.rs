@@ -241,7 +241,7 @@ fn setup_scene_once_loaded(
             commands
                 .entity(entity)
                 .insert(AnimationGraphHandle(animations.graph.clone()))
-                .insert(AnimationTransitions::new(1));
+                .insert(AnimationTransitions::new());
 
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
@@ -318,10 +318,9 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Enter) {
             transitions
-                .transition_flows(
+                .transition(
                     &mut player,
                     animations.node_indices[*current_animation],
-                    0,
                     Duration::from_millis(250),
                 )
                 .repeat();

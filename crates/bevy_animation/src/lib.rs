@@ -107,7 +107,6 @@ impl Plugin for AnimationPlugin {
     }
 }
 
-
 /// The [UUID namespace] of animation targets (e.g. bones).
 ///
 /// [UUID namespace]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based)

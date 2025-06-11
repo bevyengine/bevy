@@ -283,7 +283,7 @@ mod animation {
     ) {
         for child in children.iter_descendants(trigger.target().unwrap()) {
             if let Ok((entity, mut player)) = players.get_mut(child) {
-                let mut transitions = AnimationTransitions::new(1);
+                let mut transitions = AnimationTransitions::new();
                 transitions
                     .transition_flows(
                         &mut player,

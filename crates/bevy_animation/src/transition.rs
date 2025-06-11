@@ -57,12 +57,47 @@ pub struct AnimationTransition {
     weight: f32,
 }
 impl AnimationTransitions {
-    /// Define your flow amount and initializes your component!
-    pub fn new(flow_amount: usize) -> Self {
+    /// Initializes the [`AnimationTransitions`] component, with ONE SINGLE flow meaning. It is expected to play only one animation at once.
+    pub fn new() -> Self {
+        Self {
+            flows: vec![None; 1 as usize],
+            transitions: Vec::new(),
+        }
+    }
+
+    /// Define your flow amount and initializes your component, renember flow_amount is the amount of animation you want to be playing at onces
+    pub fn new_with_flow(flow_amount: usize) -> Self {
         Self {
             flows: vec![None; flow_amount],
             // Default transitions are instantaniously cleared
             transitions: Vec::new(),
+        }
+    }
+
+    /// Transitions the specified flow from its current node to a new node over a given duration.
+    ///
+    /// This method manages transitions within one single flow.
+    pub fn transition<'p>(
+        &mut self,
+        player: &'p mut AnimationPlayer,
+        new_node: AnimationNodeIndex,
+        duration: Duration,
+    ) -> &'p mut ActiveAnimation {
+        if let Some(old_node) = self.flows.get_mut(0) {
+            // If is first time playing, just say old node equals new node
+            let previous_node = old_node.unwrap_or(new_node);
+            self.transitions.push(AnimationTransition {
+                duration,
+                old_node: previous_node,
+                new_node,
+                weight: 1.0,
+            });
+            *old_node = Some(new_node);
+
+            // Starts new animation, note we wont clear AnimationPlayer active animation hashmap here!
+            player.start(new_node)
+        } else {
+            panic!("Flow position 0 is out of bounds!");
         }
     }
 

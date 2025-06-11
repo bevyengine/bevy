@@ -173,7 +173,7 @@ fn setup_scene_once_loaded(
         running_animation.add_event_to_target(feet.back_right, 0.125, OnStep);
 
         // Boot up your transition flows
-        let mut transitions = AnimationTransitions::new(1);
+        let mut transitions = AnimationTransitions::new();
 
         // Make sure to play your new animation!
         transitions.transition_flows(&mut player, animations.index, 0, Duration::ZERO);
