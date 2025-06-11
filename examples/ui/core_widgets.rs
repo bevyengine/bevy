@@ -346,7 +346,7 @@ fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) 
 
 /// Update the visuals of the slider based on the slider state.
 fn update_slider_style(
-    mut sliders: Query<
+    sliders: Query<
         (
             Entity,
             &SliderValue,
@@ -367,7 +367,7 @@ fn update_slider_style(
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, &mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    for (slider_ent, value, range, hovered, disabled) in sliders.iter_mut() {
+    for (slider_ent, value, range, hovered, disabled) in sliders.iter() {
         for child in children.iter_descendants(slider_ent) {
             if let Ok((mut thumb_node, mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
                 if is_thumb {
@@ -380,13 +380,13 @@ fn update_slider_style(
 }
 
 fn update_slider_style2(
-    mut sliders: Query<(Entity, &Hovered, Has<InteractionDisabled>), With<DemoSlider>>,
+    sliders: Query<(Entity, &Hovered, Has<InteractionDisabled>), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
 ) {
     removed_disabled.read().for_each(|entity| {
-        if let Ok((slider_ent, hovered, disabled)) = sliders.get_mut(entity) {
+        if let Ok((slider_ent, hovered, disabled)) = sliders.get(entity) {
             for child in children.iter_descendants(slider_ent) {
                 if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
                     if is_thumb {

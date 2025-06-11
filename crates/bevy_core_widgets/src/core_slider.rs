@@ -3,13 +3,13 @@ use core::ops::RangeInclusive;
 use accesskit::{Orientation, Role};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
-use bevy_ecs::lifecycle::OnInsert;
+use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
 use bevy_ecs::system::{In, ResMut};
 use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::{
     component::Component,
-    observer::Trigger,
+    observer::On,
     query::With,
     system::{Commands, Query, SystemId},
 };
@@ -103,7 +103,7 @@ pub struct CoreSliderDragState {
 }
 
 pub(crate) fn slider_on_pointer_down(
-    trigger: Trigger<Pointer<Press>>,
+    trigger: On<Pointer<Press>>,
     q_state: Query<(), With<CoreSlider>>,
     mut focus: ResMut<InputFocus>,
     mut focus_visible: ResMut<InputFocusVisible>,
@@ -116,7 +116,7 @@ pub(crate) fn slider_on_pointer_down(
 }
 
 pub(crate) fn slider_on_drag_start(
-    mut trigger: Trigger<Pointer<DragStart>>,
+    mut trigger: On<Pointer<DragStart>>,
     mut q_state: Query<
         (
             &SliderValue,
@@ -136,7 +136,7 @@ pub(crate) fn slider_on_drag_start(
 }
 
 pub(crate) fn slider_on_drag(
-    mut trigger: Trigger<Pointer<Drag>>,
+    mut trigger: On<Pointer<Drag>>,
     mut q_state: Query<(
         &ComputedNode,
         &CoreSlider,
@@ -166,7 +166,7 @@ pub(crate) fn slider_on_drag(
 }
 
 pub(crate) fn slider_on_drag_end(
-    mut trigger: Trigger<Pointer<DragEnd>>,
+    mut trigger: On<Pointer<DragEnd>>,
     mut q_state: Query<(&CoreSlider, &mut CoreSliderDragState)>,
 ) {
     if let Ok((_slider, mut drag)) = q_state.get_mut(trigger.target().unwrap()) {
@@ -178,7 +178,7 @@ pub(crate) fn slider_on_drag_end(
 }
 
 fn slider_on_key_input(
-    mut trigger: Trigger<FocusedInput<KeyboardInput>>,
+    mut trigger: On<FocusedInput<KeyboardInput>>,
     q_state: Query<(
         &CoreSlider,
         &SliderValue,
@@ -208,17 +208,14 @@ fn slider_on_key_input(
     }
 }
 
-pub(crate) fn slider_on_insert(trigger: Trigger<OnInsert, CoreSlider>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert(trigger: On<Insert, CoreSlider>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_orientation(Orientation::Horizontal);
     }
 }
 
-pub(crate) fn slider_on_insert_value(
-    trigger: Trigger<OnInsert, SliderValue>,
-    mut world: DeferredWorld,
-) {
+pub(crate) fn slider_on_insert_value(trigger: On<Insert, SliderValue>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
     let value = entity.get::<SliderValue>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -226,10 +223,7 @@ pub(crate) fn slider_on_insert_value(
     }
 }
 
-pub(crate) fn slider_on_insert_range(
-    trigger: Trigger<OnInsert, SliderRange>,
-    mut world: DeferredWorld,
-) {
+pub(crate) fn slider_on_insert_range(trigger: On<Insert, SliderRange>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
     let range = entity.get::<SliderRange>().unwrap().0.clone();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -238,10 +232,7 @@ pub(crate) fn slider_on_insert_range(
     }
 }
 
-pub(crate) fn slider_on_insert_step(
-    trigger: Trigger<OnInsert, SliderStep>,
-    mut world: DeferredWorld,
-) {
+pub(crate) fn slider_on_insert_step(trigger: On<Insert, SliderStep>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
     let step = entity.get::<SliderStep>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
