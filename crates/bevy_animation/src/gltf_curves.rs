@@ -55,7 +55,7 @@ pub struct CubicKeyframeCurve<T> {
 
 impl<V> Curve<V> for CubicKeyframeCurve<V>
 where
-    V: VectorSpace,
+    V: VectorSpace<Scalar = f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -179,7 +179,7 @@ pub struct WideLinearKeyframeCurve<T> {
 
 impl<T> IterableCurve<T> for WideLinearKeyframeCurve<T>
 where
-    T: VectorSpace,
+    T: VectorSpace<Scalar = f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -289,7 +289,7 @@ pub struct WideCubicKeyframeCurve<T> {
 
 impl<T> IterableCurve<T> for WideCubicKeyframeCurve<T>
 where
-    T: VectorSpace,
+    T: VectorSpace<Scalar = f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -406,7 +406,7 @@ fn cubic_spline_interpolation<T>(
     step_duration: f32,
 ) -> T
 where
-    T: VectorSpace,
+    T: VectorSpace<Scalar = f32>,
 {
     let coeffs = (vec4(2.0, 1.0, -2.0, 1.0) * lerp + vec4(-3.0, -2.0, 3.0, -1.0)) * lerp;
     value_start * (coeffs.x * lerp + 1.0)
@@ -415,7 +415,7 @@ where
         + tangent_in_end * step_duration * lerp * coeffs.w
 }
 
-fn cubic_spline_interpolate_slices<'a, T: VectorSpace>(
+fn cubic_spline_interpolate_slices<'a, T: VectorSpace<Scalar = f32>>(
     width: usize,
     first: &'a [T],
     second: &'a [T],

@@ -5,7 +5,7 @@ edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
@@ -72,6 +72,7 @@ allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
+mismatched_lifetime_syntaxes = "allow"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
@@ -133,6 +134,7 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_core_widgets",
   "bevy_anti_aliasing",
   "bevy_gilrs",
   "bevy_gizmos",
@@ -290,6 +292,9 @@ bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
+
+# Headless widget collection for Bevy UI.
+bevy_core_widgets = ["bevy_internal/bevy_core_widgets"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -533,6 +538,9 @@ libm = ["bevy_internal/libm"]
 
 # Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_internal/web"]
+
+# Enable hotpatching of Bevy systems
+hotpatching = ["bevy_internal/hotpatching"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
@@ -3540,6 +3548,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_transform"
+path = "examples/ui/ui_transform.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_transform]
+name = "UI Transform"
+description = "An example demonstrating how to translate, rotate and scale UI elements."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
@@ -4410,4 +4429,38 @@ doc-scrape-examples = true
 name = "Cooldown"
 description = "Example for cooldown on button clicks"
 category = "Usage"
+wasm = true
+
+[[example]]
+name = "hotpatching_systems"
+path = "examples/ecs/hotpatching_systems.rs"
+doc-scrape-examples = true
+required-features = ["hotpatching"]
+
+[package.metadata.example.hotpatching_systems]
+name = "Hotpatching Systems"
+description = "Demonstrates how to hotpatch systems"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "core_widgets"
+path = "examples/ui/core_widgets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.core_widgets]
+name = "Core Widgets"
+description = "Demonstrates use of core (headless) widgets in Bevy UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "core_widgets_observers"
+path = "examples/ui/core_widgets_observers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.core_widgets_observers]
+name = "Core Widgets (w/Observers)"
+description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
+category = "UI (User Interface)"
 wasm = true

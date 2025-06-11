@@ -21,6 +21,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_audio|Provides audio functionality|
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
+|bevy_core_widgets|Headless widget collection for Bevy UI.|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
@@ -85,6 +86,7 @@ The default feature set enables most of the expected features of a game engine, 
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
+|hotpatching|Enable hotpatching of Bevy systems|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|

@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use crate::{
     component::{ComponentId, Tick},
     prelude::World,
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn, SystemParamValidationError},
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -144,24 +144,13 @@ where
         self.name.clone()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.component_access_set.combined_access()
-    }
-
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
         &self.component_access_set
     }
 
-    fn is_send(&self) -> bool {
-        self.a.is_send() && self.b.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.a.is_exclusive() || self.b.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.a.has_deferred() || self.b.has_deferred()
+    #[inline]
+    fn flags(&self) -> super::SystemStateFlags {
+        self.a.flags() | self.b.flags()
     }
 
     unsafe fn run_unsafe(
@@ -180,6 +169,13 @@ where
             // SAFETY: See the comment above.
             |input| unsafe { self.b.run_unsafe(input, world) },
         )
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.a.refresh_hotpatch();
+        self.b.refresh_hotpatch();
     }
 
     #[inline]
@@ -363,24 +359,13 @@ where
         self.name.clone()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.component_access_set.combined_access()
-    }
-
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
         &self.component_access_set
     }
 
-    fn is_send(&self) -> bool {
-        self.a.is_send() && self.b.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.a.is_exclusive() || self.b.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.a.has_deferred() || self.b.has_deferred()
+    #[inline]
+    fn flags(&self) -> super::SystemStateFlags {
+        self.a.flags() | self.b.flags()
     }
 
     unsafe fn run_unsafe(
@@ -390,6 +375,13 @@ where
     ) -> Self::Out {
         let value = self.a.run_unsafe(input, world);
         self.b.run_unsafe(value, world)
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.a.refresh_hotpatch();
+        self.b.refresh_hotpatch();
     }
 
     fn apply_deferred(&mut self, world: &mut World) {

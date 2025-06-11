@@ -1,7 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
-mod component_constants;
 mod deferred_world;
 mod entity_fetch;
 mod entity_ref;
@@ -14,19 +13,23 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::error::{DefaultErrorHandler, ErrorHandler};
-use crate::fragmenting_value::FragmentingValuesBorrowed;
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
+use crate::{
+    error::{DefaultErrorHandler, ErrorHandler},
+    fragmenting_value::FragmentingValuesBorrowed,
+    lifecycle::{ComponentHooks, ON_ADD, ON_DESPAWN, ON_INSERT, ON_REMOVE, ON_REPLACE},
+    prelude::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace},
+};
 pub use bevy_ecs_macros::FromWorld;
-pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
-    DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
-    Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
+    ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
+    EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
+    TryFromFilteredError, VacantComponentEntry,
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;
@@ -40,17 +43,17 @@ use crate::{
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentIds, ComponentInfo,
+        CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
+    lifecycle::RemovedComponentEvents,
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    removal_detection::RemovedComponentEvents,
     resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -532,7 +535,7 @@ impl World {
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
     pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
-        let id = self.components().component_id::<C>()?;
+        let id = self.components().valid_component_id::<C>()?;
         let component_info = self.components().get_info(id)?;
         Some(component_info.required_components())
     }
@@ -1445,7 +1448,7 @@ impl World {
     /// assert!(!transform.is_changed());
     /// ```
     ///
-    /// [`RemovedComponents`]: crate::removal_detection::RemovedComponents
+    /// [`RemovedComponents`]: crate::lifecycle::RemovedComponents
     pub fn clear_trackers(&mut self) {
         self.removed_components.update();
         self.last_change_tick = self.increment_change_tick();
@@ -1624,7 +1627,7 @@ impl World {
     /// since the last call to [`World::clear_trackers`].
     pub fn removed<T: Component>(&self) -> impl Iterator<Item = Entity> + '_ {
         self.components
-            .get_id(TypeId::of::<T>())
+            .get_valid_id(TypeId::of::<T>())
             .map(|component_id| self.removed_with_id(component_id))
             .into_iter()
             .flatten()
@@ -1773,7 +1776,7 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
@@ -1792,7 +1795,7 @@ impl World {
     /// thread than where the value was inserted from.
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self
             .storages
             .non_send_resources
@@ -1806,7 +1809,7 @@ impl World {
     #[inline]
     pub fn contains_resource<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
             .is_some_and(ResourceData::is_present)
     }
@@ -1824,7 +1827,7 @@ impl World {
     #[inline]
     pub fn contains_non_send<R: 'static>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
             .is_some_and(ResourceData::is_present)
     }
@@ -1847,7 +1850,7 @@ impl World {
     ///   was called.
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .is_some_and(|component_id| self.is_resource_added_by_id(component_id))
     }
 
@@ -1878,7 +1881,7 @@ impl World {
     ///   was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .is_some_and(|component_id| self.is_resource_changed_by_id(component_id))
     }
 
@@ -1903,7 +1906,7 @@ impl World {
     /// Retrieves the change ticks for the given resource.
     pub fn get_resource_change_ticks<R: Resource>(&self) -> Option<ComponentTicks> {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.get_resource_change_ticks_by_id(component_id))
     }
 
@@ -2352,11 +2355,11 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevy.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevy.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
             }
         }
     }
@@ -2581,7 +2584,7 @@ impl World {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, mut ticks, mut caller) = self
             .storages
             .resources
@@ -2986,6 +2989,8 @@ impl World {
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(change_tick);
         }
+
+        self.trigger(CheckChangeTicks(change_tick));
 
         self.last_check_tick = change_tick;
     }
@@ -3773,7 +3778,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(TypeId::of::<TestResource>())
+            .get_valid_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -3789,7 +3794,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(TypeId::of::<TestResource>())
+            .get_valid_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         {

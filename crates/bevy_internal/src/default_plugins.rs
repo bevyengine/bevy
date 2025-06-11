@@ -66,6 +66,8 @@ plugin_group! {
         bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
+        #[cfg(feature = "hotpatching")]
+        bevy_app::hotpatch:::HotPatchPlugin,
         #[plugin_group]
         #[cfg(feature = "bevy_picking")]
         bevy_picking:::DefaultPickingPlugins,

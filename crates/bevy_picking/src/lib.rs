@@ -55,13 +55,13 @@
 //!         // Spawn your entity here, e.g. a Mesh.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
 //!         .observe(|trigger: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
-//!             let mut transform = transforms.get_mut(trigger.target()).unwrap();
+//!             let mut transform = transforms.get_mut(trigger.target().unwrap()).unwrap();
 //!             let drag = trigger.event();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {} goes BOOM!", trigger.target());
-//!             commands.entity(trigger.target()).despawn();
+//!             println!("Entity {} goes BOOM!", trigger.target().unwrap());
+//!             commands.entity(trigger.target().unwrap()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
 //!             events.write(Greeting);
@@ -170,6 +170,7 @@ pub mod window;
 use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
+use hover::{update_is_directly_hovered, update_is_hovered};
 
 /// The picking prelude.
 ///
@@ -392,6 +393,7 @@ impl Plugin for PickingPlugin {
             .register_type::<Self>()
             .register_type::<Pickable>()
             .register_type::<hover::PickingInteraction>()
+            .register_type::<hover::IsHovered>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
@@ -429,7 +431,12 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Scroll>>()
             .add_systems(
                 PreUpdate,
-                (generate_hovermap, update_interactions, pointer_events)
+                (
+                    generate_hovermap,
+                    update_interactions,
+                    (update_is_hovered, update_is_directly_hovered),
+                    pointer_events,
+                )
                     .chain()
                     .in_set(PickingSystems::Hover),
             );

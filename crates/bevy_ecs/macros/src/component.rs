@@ -442,7 +442,7 @@ impl HookAttributeKind {
             HookAttributeKind::Path(path) => path.to_token_stream(),
             HookAttributeKind::Call(call) => {
                 quote!({
-                    fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::component::HookContext) {
+                    fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::lifecycle::HookContext) {
                         (#call)(world, ctx)
                     }
                     _internal_hook
@@ -671,7 +671,7 @@ fn hook_register_function_call(
 ) -> Option<TokenStream2> {
     function.map(|meta| {
         quote! {
-            fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
+            fn #hook() -> ::core::option::Option<#bevy_ecs_path::lifecycle::ComponentHook> {
                 ::core::option::Option::Some(#meta)
             }
         }

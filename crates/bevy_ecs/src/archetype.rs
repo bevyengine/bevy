@@ -766,7 +766,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnAdd`] observer
     ///
-    /// [`OnAdd`]: crate::world::OnAdd
+    /// [`OnAdd`]: crate::lifecycle::OnAdd
     #[inline]
     pub fn has_add_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_ADD_OBSERVER)
@@ -774,7 +774,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnInsert`] observer
     ///
-    /// [`OnInsert`]: crate::world::OnInsert
+    /// [`OnInsert`]: crate::lifecycle::OnInsert
     #[inline]
     pub fn has_insert_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
@@ -782,7 +782,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnReplace`] observer
     ///
-    /// [`OnReplace`]: crate::world::OnReplace
+    /// [`OnReplace`]: crate::lifecycle::OnReplace
     #[inline]
     pub fn has_replace_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REPLACE_OBSERVER)
@@ -790,7 +790,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnRemove`] observer
     ///
-    /// [`OnRemove`]: crate::world::OnRemove
+    /// [`OnRemove`]: crate::lifecycle::OnRemove
     #[inline]
     pub fn has_remove_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_OBSERVER)
@@ -798,7 +798,7 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have at least one [`OnDespawn`] observer
     ///
-    /// [`OnDespawn`]: crate::world::OnDespawn
+    /// [`OnDespawn`]: crate::lifecycle::OnDespawn
     #[inline]
     pub fn has_despawn_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_DESPAWN_OBSERVER)

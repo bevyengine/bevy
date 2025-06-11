@@ -60,4 +60,4 @@ mod case4 {
     pub struct BarTargetOf(Entity);
 }
 
-fn foo_hook(_world: bevy_ecs::world::DeferredWorld, _ctx: bevy_ecs::component::HookContext) {}
+fn foo_hook(_world: bevy_ecs::world::DeferredWorld, _ctx: bevy_ecs::lifecycle::HookContext) {}

@@ -51,7 +51,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, Text2d, TextLayout, TextFont, TextColor, TextSpan};
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -73,7 +73,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// // With text justification.
 /// world.spawn((
 ///     Text2d::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(JustifyText::Center)
+///     TextLayout::new_with_justify(Justify::Center)
 /// ));
 ///
 /// // With spans
