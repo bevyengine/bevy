@@ -2,6 +2,7 @@ use crate::{
     component::{Component, ComponentCloneBehavior, Mutable, StorageType},
     entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
     lifecycle::{ComponentHook, HookContext},
+    prelude::ReflectComponent,
     world::World,
 };
 use alloc::vec::Vec;
@@ -9,7 +10,9 @@ use alloc::vec::Vec;
 use super::Observer;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
-#[derive(Default)]
+#[derive(Default, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, Debug))]
 pub struct ObservedBy(pub(crate) Vec<Entity>);
 
 impl ObservedBy {

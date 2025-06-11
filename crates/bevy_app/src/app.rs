@@ -106,10 +106,13 @@ impl Default for App {
 
         #[cfg(feature = "bevy_reflect")]
         {
+            use bevy_ecs::observer::ObservedBy;
+
             app.init_resource::<AppTypeRegistry>();
             app.register_type::<Name>();
             app.register_type::<ChildOf>();
             app.register_type::<Children>();
+            app.register_type::<ObservedBy>();
         }
 
         #[cfg(feature = "reflect_functions")]
