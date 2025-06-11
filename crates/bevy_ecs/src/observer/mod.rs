@@ -395,7 +395,9 @@ all_tuples!(
     T
 );
 
-/// A description of what an [`Observer`] observes.
+/// Store information about what an [`Observer`] observes.
+///
+/// This information is stored inside of the [`Observer`] component,
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
     /// The events the observer is watching.
