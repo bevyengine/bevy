@@ -29,7 +29,7 @@ use scene::SolariScenePlugin;
 /// * [`SolariScenePlugin`] - BLAS building, resource and lighting binding.
 /// * [`PathtracingPlugin`] - A non-realtime pathtracer for validation purposes.
 ///
-/// To get started, add [`crate::scene:::RaytracingMesh3d`] and `MeshMaterial3d::<StandardMaterial>` to your entities.
+/// To get started, add `RaytracingMesh3d` and `MeshMaterial3d::<StandardMaterial>` to your entities.
 pub struct SolariPlugin;
 
 impl Plugin for SolariPlugin {
