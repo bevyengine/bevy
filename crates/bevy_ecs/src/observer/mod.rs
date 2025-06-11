@@ -150,18 +150,6 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
 
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
     /// be [`None`] if the trigger is not for a particular entity.
-    ///
-    /// Observable events can target specific entities. When those events fire, they will trigger
-    /// any observers on the targeted entities. In this case, the `target()` and `observer()` are
-    /// the same, because the observer that was triggered is attached to the entity that was
-    /// targeted by the event.
-    ///
-    /// However, it is also possible for those events to bubble up the entity hierarchy and trigger
-    /// observers on *different* entities, or trigger a global observer. In these cases, the
-    /// observing entity is *different* from the entity being targeted by the event.
-    ///
-    /// This is an important distinction: the entity reacting to an event is not always the same as
-    /// the entity triggered by the event.
     pub fn target(&self) -> Option<Entity> {
         self.trigger.target
     }
