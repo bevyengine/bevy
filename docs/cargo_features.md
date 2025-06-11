@@ -69,7 +69,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_remote|Enable the Bevy Remote Protocol|
-|bevy_solari|Provides raytraced lighting (do not use, not yet ready for users)|
+|bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
