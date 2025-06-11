@@ -1,5 +1,18 @@
 //! Observers are a push-based tool for responding to [`Event`]s.
 //!
+//! //! ## Observer targeting
+//!
+//! Observers can be "global", listening for events that are not targeted at any specific entity,
+//! or they can be "entity-specific", listening for events that are targeted at specific entities.
+//!
+//! They can also be further refined by listening to events targeted at specific components
+//! (instead of using a generic event type), as is done with the [`OnAdd`] family of lifecycle events.
+//!
+//! Currently, [observers cannot be retargeted after spawning](https://github.com/bevyengine/bevy/issues/19587):
+//! despawn and respawn an observer as a workaround.
+//!
+//! ## Writing observers
+//!
 //! Observers are systems which implement [`Observer`] that listen for [`Event`]s that match their
 //! type and target(s).
 //! To write observer systems, use the [`Trigger`] system parameter as the first parameter of your system.
@@ -16,16 +29,13 @@
 //! [`Commands`] can also be used inside of observers.
 //! This can be particularly useful for triggering other observers!
 //!
-//! ## Observer targeting
+//! ## Triggering observers
 //!
-//! Observers can be "global", listening for events that are not targeted at any specific entity,
-//! or they can be "entity-specific", listening for events that are targeted at specific entities.
+//! Observers are most commonly triggered by [`Commands`],
+//! via [`Commands::trigger`] (for untargeted events) or [`Commands::trigger_targets`] (for targeted events).
 //!
-//! They can also be further refined by listening to events targeted at specific components
-//! (instead of using a generic event type), as is done with the [`OnAdd`] family of lifecycle events.
-//!
-//! Currently, [observers cannot be retargeted after spawning](https://github.com/bevyengine/bevy/issues/19587):
-//! despawn and respawn an observer as a workaround.
+//! To trigger events for a specific set of components, pass in a [`ComponentId`] or a collection of them
+//! into [`Commands::trigger_targets`] by using the [`TriggerTargets`] trait.
 //!
 //! ## Observer bubbling
 //!
