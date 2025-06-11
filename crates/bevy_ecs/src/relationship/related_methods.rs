@@ -139,16 +139,20 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         }
 
-        let Some(mut existing_relations) = self.get_mut::<R::RelationshipTarget>() else {
+        let Some(existing_relations) = self.get_mut::<R::RelationshipTarget>() else {
             return self.add_related::<R>(related);
         };
 
         // We take the collection here so we can modify it without taking the component itself (this would create archetype move).
         // SAFETY: We eventually return the correctly initialized collection into the target.
-        let mut existing_relations = mem::replace(
-            existing_relations.collection_mut_risky(),
-            Collection::<R>::with_capacity(0),
+        let mut existing_collection = mem::replace(
+            existing_relations.into_inner(),
+            <<R as Relationship>::RelationshipTarget as RelationshipTarget>::from_collection_risky(
+                Collection::<R>::with_capacity(0),
+            ),
         );
+
+        let existing_relations = existing_collection.collection_mut_risky();
 
         let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
 
@@ -171,9 +175,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
         existing_relations.clear();
         existing_relations.extend_from_iter(related.iter().copied());
-        self.insert(R::RelationshipTarget::from_collection_risky(
-            existing_relations,
-        ));
+        self.insert(existing_collection);
 
         self
     }
@@ -245,20 +247,6 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         };
 
-        let this = self.id();
-        self.world_scope(|world| {
-            for unrelate in entities_to_unrelate {
-                world.entity_mut(*unrelate).remove::<R>();
-            }
-
-            for new_relation in newly_related_entities {
-                // We're changing the target collection manually so don't run the insert hook
-                world
-                    .entity_mut(*new_relation)
-                    .insert_with_relationship_hook_mode(R::from(this), RelationshipHookMode::Skip);
-            }
-        });
-
         if !entities_to_relate.is_empty() {
             if let Some(mut target) = self.get_mut::<R::RelationshipTarget>() {
                 // SAFETY: The invariants expected by this function mean we'll only be inserting entities that are already related.
@@ -277,6 +265,20 @@ impl<'w> EntityWorldMut<'w> {
                 self.insert(R::RelationshipTarget::from_collection_risky(empty));
             }
         }
+
+        let this = self.id();
+        self.world_scope(|world| {
+            for unrelate in entities_to_unrelate {
+                world.entity_mut(*unrelate).remove::<R>();
+            }
+
+            for new_relation in newly_related_entities {
+                // We changed the target collection manually so don't run the insert hook
+                world
+                    .entity_mut(*new_relation)
+                    .insert_with_relationship_hook_mode(R::from(this), RelationshipHookMode::Skip);
+            }
+        });
 
         self
     }
@@ -667,5 +669,54 @@ mod tests {
         assert_eq!(world.entity(a).get::<Children>(), None);
         assert_eq!(world.entity(b).get::<ChildOf>(), None);
         assert_eq!(world.entity(c).get::<ChildOf>(), None);
+    }
+
+    #[test]
+    fn replace_related_works() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+
+        let mut parent = world.spawn_empty();
+        parent.add_children(&[child1, child2]);
+
+        parent.replace_children(&[child2, child3]);
+        let children = parent.get::<Children>().unwrap().collection();
+        assert_eq!(children, &[child2, child3]);
+
+        parent.replace_children_with_difference(&[child3], &[child1, child2], &[child1]);
+        let children = parent.get::<Children>().unwrap().collection();
+        assert_eq!(children, &[child1, child2]);
+    }
+
+    #[test]
+    fn replace_related_keeps_data() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Parent)]
+        pub struct Child(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Child)]
+        pub struct Parent {
+            #[relationship]
+            children: Vec<Entity>,
+            pub data: u8,
+        }
+
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let mut parent = world.spawn_empty();
+        parent.add_related::<Child>(&[child1]);
+        parent.get_mut::<Parent>().unwrap().data = 42;
+
+        parent.replace_related_with_difference::<Child>(&[child1], &[child2], &[child2]);
+        let data = parent.get::<Parent>().unwrap().data;
+        assert_eq!(data, 42);
+
+        parent.replace_related::<Child>(&[child1]);
+        let data = parent.get::<Parent>().unwrap().data;
+        assert_eq!(data, 42);
     }
 }
