@@ -22,9 +22,10 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::{Component, HookContext},
+    component::Component,
     entity::{ContainsEntity, Entity},
     event::EventReader,
+    lifecycle::HookContext,
     prelude::With,
     query::Has,
     reflect::ReflectComponent,
@@ -715,12 +716,13 @@ impl Camera {
     }
 }
 
-/// Control how this camera outputs once rendering is completed.
+/// Control how this [`Camera`] outputs once rendering is completed.
 #[derive(Debug, Clone, Copy)]
 pub enum CameraOutputMode {
     /// Writes the camera output to configured render target.
     Write {
         /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
+        /// If not set, the output will be written as-is, ignoring `clear_color` and the existing data in the final render target texture.
         blend_state: Option<BlendState>,
         /// The clear color operation to perform on the final render target texture.
         clear_color: ClearColorConfig,
