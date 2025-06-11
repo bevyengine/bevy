@@ -1,6 +1,6 @@
 //! Observers are a push-based tool for responding to [`Event`]s.
 //!
-//! //! ## Observer targeting
+//! ## Observer targeting
 //!
 //! Observers can be "global", listening for events that are not targeted at any specific entity,
 //! or they can be "entity-specific", listening for events that are targeted at specific entities.
@@ -13,7 +13,7 @@
 //!
 //! ## Writing observers
 //!
-//! Observers are systems which implement [`Observer`] that listen for [`Event`]s that match their
+//! Observers are systems which implement [`IntoObserverSystem`] that listen for [`Event`]s that match their
 //! type and target(s).
 //! To write observer systems, use the [`Trigger`] system parameter as the first parameter of your system.
 //! This parameter provides access to the specific event that triggered the observer,
@@ -28,6 +28,27 @@
 //!
 //! [`Commands`] can also be used inside of observers.
 //! This can be particularly useful for triggering other observers!
+//!
+//! ## Spawning observers
+//!
+//! Observers can be spawned via [`World::add_observer`], or the equivalent app method.
+//! This will cause an entity with the [`Observer`] component to be created,
+//! which will then run the observer system whenever the event it is watching is triggered.
+//!
+//! You can control the targets that an observer is watching by calling [`Observer::watch_entity`]
+//! once the entity is spawned, or by manually spawning an entity with the [`Observer`] component
+//! configured with the desired targets.
+//!
+//! Because observers are defined as "entities which have the [`Observer`] component",
+//! you can also add it to existing entities via [`EntityCommands::observe`],
+//! which will add the [`Observer`] component to the entity, watching that entity.
+//!
+//! This is a convenient way to spawn an observer, and also ensures that the observer will be cleaned up
+//! when the entity is despawned.
+//! However, only one observer can be added to an entity at a time, regardless of the event it responds to:
+//! like always, components are unique.
+//! This can also be frustrating as observers defined in this way
+//! [currently cannot be spawned as part of bundles](https://github.com/bevyengine/bevy/issues/14204).
 //!
 //! ## Triggering observers
 //!
