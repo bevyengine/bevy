@@ -476,6 +476,8 @@ impl ObserverTrigger {
 type ObserverMap = EntityHashMap<ObserverRunner>;
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
+///
+/// This is stored inside of [`CachedObservers`].
 #[derive(Default, Debug)]
 pub struct CachedComponentObservers {
     // Observers listening to triggers targeting this component
@@ -485,6 +487,8 @@ pub struct CachedComponentObservers {
 }
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger.
+///
+/// This is stored inside of [`Observers`], specialized for each kind of observer.
 #[derive(Default, Debug)]
 pub struct CachedObservers {
     // Observers listening for any time this trigger is fired
@@ -495,7 +499,13 @@ pub struct CachedObservers {
     entity_observers: EntityHashMap<ObserverMap>,
 }
 
-/// Metadata for observers. Stores a cache mapping trigger ids to the registered observers.
+/// An internal lookup table tracking all of the observers in the world.
+///
+/// Stores a cache mapping trigger ids to the registered observers.
+/// Some observer kinds (like [lifecycle](crate::lifecycle) observers) have a dedicated field,
+/// saving lookups for the most common triggers.
+///
+/// This is stored inside of [`World::observers`].
 #[derive(Default, Debug)]
 pub struct Observers {
     // Cached ECS observers to save a lookup most common triggers.
@@ -504,7 +514,7 @@ pub struct Observers {
     on_replace: CachedObservers,
     on_remove: CachedObservers,
     on_despawn: CachedObservers,
-    // Map from trigger type to set of observers
+    // Map from trigger type to set of observers listening to that trigger
     cache: HashMap<ComponentId, CachedObservers>,
 }
 
