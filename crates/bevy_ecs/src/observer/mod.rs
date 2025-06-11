@@ -2,7 +2,7 @@
 //!
 //! ## Observer targeting
 //!
-//! Observers can be "global", listening for events that are not targeted at any specific entity,
+//! Observers can be "global", listening for events that are both targeted at and not targeted at any specific entity,
 //! or they can be "entity-specific", listening for events that are targeted at specific entities.
 //!
 //! They can also be further refined by listening to events targeted at specific components
