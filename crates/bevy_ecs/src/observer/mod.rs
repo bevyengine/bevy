@@ -42,9 +42,10 @@
 //! once the entity is spawned, or by manually spawning an entity with the [`Observer`] component
 //! configured with the desired targets.
 //!
-//! Because observers are defined as "entities which have the [`Observer`] component",
-//! you can also add it to existing entities via [`EntityCommands::observe`],
-//! which will add the [`Observer`] component to the entity, watching that entity.
+//! Observers are defined as "entities which have the [`Observer`] component"
+//! allowing you to add it manually to existing entities.
+//! This pattern can be simplified by calling [`EntityCommands::observe`],
+//! which will add the [`Observer`] component to an entity, watching itself.
 //!
 //! This is a convenient way to spawn an observer, and also ensures that the observer will be cleaned up
 //! when the entity is despawned.
