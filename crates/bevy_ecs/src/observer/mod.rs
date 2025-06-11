@@ -96,7 +96,13 @@
 //! they can be added or removed at runtime, and multiple observers
 //! can be registered for the same lifecycle event for the same component.
 //!
-//! Observers always respond to lifecycle events *after* the corresponding hooks are resolved.
+//! The ordering of hooks versus observers differs based on the lifecycle event in question:
+//!
+//! - when adding components, hooks are evaluated first, then observers
+//! - when removing components, observers are evaluated first, then hooks
+//!
+//! This allows hooks to act as constructors and destructors for components,
+//! as they always have the first and final say in the component's lifecycle.
 //!
 //! ## Cleaning up observers
 //!
