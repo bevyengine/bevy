@@ -16,7 +16,7 @@
 //!
 //! ## Writing observers
 //!
-//! Observers are systems which implement [`IntoObserverSystem`] that listen for [`Event`]s that match their
+//! Observers are systems which implement [`IntoObserverSystem`] that listen for [`Event`]s matching their
 //! type and target(s).
 //! To write observer systems, use the [`Trigger`] system parameter as the first parameter of your system.
 //! This parameter provides access to the specific event that triggered the observer,
