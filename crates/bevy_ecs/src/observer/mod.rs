@@ -42,16 +42,15 @@
 //! once the entity is spawned, or by manually spawning an entity with the [`Observer`] component
 //! configured with the desired targets.
 //!
-//! Observers are defined as "entities which have the [`Observer`] component"
+//! Observers are fundamentally defined as "entities which have the [`Observer`] component"
 //! allowing you to add it manually to existing entities.
-//! This pattern can be simplified by calling [`EntityCommands::observe`],
-//! which will add the [`Observer`] component to an entity, watching itself.
+//! At first, this seems convenient, but only one observer can be added to an entity at a time,
+//! regardless of the event it responds to: like always, components are unique.
 //!
-//! This is a convenient way to spawn an observer, and also ensures that the observer will be cleaned up
-//! when the entity is despawned.
-//! However, only one observer can be added to an entity at a time, regardless of the event it responds to:
-//! like always, components are unique.
-//! This can also be frustrating as observers defined in this way
+//! Instead, a better way to achieve a similar aim is to
+//! use the [`EntityWorldMut::observe`] / [`EntityCommands::observe`] method,
+//! which spawns a new observer, and configures it to watch the entity it is called on.
+//! Unfortunately, observers defined in this way
 //! [currently cannot be spawned as part of bundles](https://github.com/bevyengine/bevy/issues/14204).
 //!
 //! ## Triggering observers
@@ -98,6 +97,14 @@
 //! can be registered for the same lifecycle event for the same component.
 //!
 //! Observers always respond to lifecycle events *after* the corresponding hooks are resolved.
+//!
+//! ## Cleaning up observers
+//!
+//! Currently, observer entities are never cleaned up, even if their target entity(s) are despawned.
+//! This won't cause any runtime overhead, but is a waste of memory and can result in memory leaks.
+//!
+//! If you run into this problem, you could manually scan the world for observer entities and despawn them,
+//! by checking if the entity in [`Observer::descriptor`] still exists.
 //!
 //! ## Observers vs buffered events
 //!
