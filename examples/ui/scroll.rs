@@ -63,7 +63,7 @@ fn on_scroll_handler(
     let target = trigger.target().unwrap();
     let delta = &mut trigger.event_mut().delta;
 
-    let Ok((mut scoll_position, node, computed)) = query.get_mut(target) else {
+    let Ok((mut scroll_position, node, computed)) = query.get_mut(target) else {
         return;
     };
 
@@ -72,13 +72,13 @@ fn on_scroll_handler(
     if node.overflow.x == OverflowAxis::Scroll && delta.x != 0. {
         // Is this node already scrolled all the way in the direction of the scroll?
         let max = if delta.x > 0. {
-            scoll_position.offset_x >= max_offset.x
+            scroll_position.offset_x >= max_offset.x
         } else {
-            scoll_position.offset_x <= 0.
+            scroll_position.offset_x <= 0.
         };
 
         if !max {
-            scoll_position.offset_x += delta.x;
+            scroll_position.offset_x += delta.x;
             // Consume the X portion of the scroll delta.
             delta.x = 0.;
         }
@@ -87,13 +87,13 @@ fn on_scroll_handler(
     if node.overflow.y == OverflowAxis::Scroll && delta.y != 0. {
         // Is this node already scrolled all the way in the direction of the scroll?
         let max = if delta.y > 0. {
-            scoll_position.offset_y >= max_offset.y
+            scroll_position.offset_y >= max_offset.y
         } else {
-            scoll_position.offset_y <= 0.
+            scroll_position.offset_y <= 0.
         };
 
         if !max {
-            scoll_position.offset_y += delta.y;
+            scroll_position.offset_y += delta.y;
             // Consume the Y portion of the scroll delta.
             delta.y = 0.;
         }
