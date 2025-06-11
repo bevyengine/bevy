@@ -16,7 +16,7 @@
 //!
 //! ## Writing observers
 //!
-//! Observers are systems which implement [`IntoObserverSystem`] that listen for [`Event`]s that match their
+//! Observers are systems that implement [`IntoObserverSystem`] and listen for [`Event`]s that match their
 //! type and target(s).
 //! To write observer systems, use the [`Trigger`] system parameter as the first parameter of your system.
 //! This parameter provides access to the specific event that triggered the observer,
@@ -24,7 +24,7 @@
 //!
 //! Observers can request other data from the world,
 //! such as via a [`Query`] or [`Res`]. Commonly, you might want to verify that
-//! the entity that the observable event is targeting has a specific component,
+//! the entity targeted by the event has a specific component,
 //! or meets some other condition.
 //! [`Query::get`] or [`Query::contains`] on the [`Trigger::target`] entity
 //! is a good way to do this.
@@ -70,14 +70,14 @@
 //! This behavior is controlled via [`Event::Traversal`] and [`Event::AUTO_PROPAGATE`],
 //! with the details of the propagation path specified by the [`Traversal`](crate::traversal::Traversal) trait.
 //!
-//! When auto-propagation is enabled, propagaion must be manually stopped to prevent the event from
+//! When auto-propagation is enabled, propagation must be manually stopped to prevent the event from
 //! continuing to other targets.
 //! This can be done using the [`Trigger::propagate`] method on the [`Trigger`] system parameter inside of your observer.
 //!
 //!  ## Observer timing
 //!
 //! Observers are triggered via [`Commands`], which imply that they are evaluated at the next sync point in the ECS schedule.
-//! Accordingly, they have full access to the world, and are evaluated sequentially, in the order that the commands were sent.
+//! Accordingly, they have full access to the world, and are evaluated sequentially (and recursively), in the order that the commands were sent.
 //!
 //! To control the relative ordering of observers sent from different systems,
 //! order the systems in the schedule relative to each other.
