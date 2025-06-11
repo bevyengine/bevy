@@ -94,6 +94,9 @@ fn setup(
     commands.spawn(SceneRoot(
         asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/cube/cube.fbx")),
     ));
+    // commands.spawn(SceneRoot(
+    //     asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cube/cube.gltf")),
+    // ));
 
     // light
     commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 5.0, 4.0)));
