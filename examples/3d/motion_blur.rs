@@ -383,7 +383,7 @@ fn uv_debug_texture() -> Image {
         address_mode_u: ImageAddressMode::Repeat,
         address_mode_v: ImageAddressMode::MirrorRepeat,
         mag_filter: ImageFilterMode::Nearest,
-        ..ImageSamplerDescriptor::linear()
+        ..ImageSamplerDescriptor::trilinear()
     });
     img
 }
