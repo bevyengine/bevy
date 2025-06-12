@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn add_raytracing_meshes_on_scene_load(
-    trigger: Trigger<SceneInstanceReady>,
+    trigger: On<SceneInstanceReady>,
     children: Query<&Children>,
     mesh: Query<&Mesh3d>,
     mut meshes: ResMut<Assets<Mesh>>,
