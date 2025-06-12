@@ -367,7 +367,7 @@ fn slider_on_set_value(
     }
 }
 
-/// Plugin that adds the observers and systems for the [`CoreSlider`] widget.
+/// Plugin that adds the observers for the [`CoreSlider`] widget.
 pub struct CoreSliderPlugin;
 
 impl Plugin for CoreSliderPlugin {
