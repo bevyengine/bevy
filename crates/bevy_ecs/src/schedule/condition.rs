@@ -1,9 +1,6 @@
 use alloc::{borrow::Cow, boxed::Box, format};
-use core::ops::Not;
 
-use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, ReadOnlySystem, System, SystemIn, SystemInput,
-};
+use crate::system::{CombinatorSystem, Combine, ReadOnlySystem, System, SystemIn, SystemInput};
 
 /// A type-erased run condition stored in a [`Box`].
 pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
@@ -504,7 +501,7 @@ mod sealed {
 
 /// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use super::{NotSystem, SystemCondition};
+    use super::SystemCondition;
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
@@ -512,9 +509,8 @@ pub mod common_conditions {
         query::QueryFilter,
         removal_detection::RemovedComponents,
         resource::Resource,
-        system::{In, IntoSystem, Local, Res, System, SystemInput},
+        system::{AdapterSystem, In, IntoSystem, Local, Res, SystemInput},
     };
-    use alloc::format;
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// on the first time the condition is run and false every time after.
@@ -1048,7 +1044,7 @@ pub mod common_conditions {
         !query.is_empty()
     }
 
-    /// Generates a [`SystemCondition`] that inverses the result of passed one.
+    /// Generates a [`SystemCondition`] that inverses the result of the passed one.
     ///
     /// # Example
     ///
@@ -1077,14 +1073,15 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn not<Marker, TOut, T>(condition: T) -> NotSystem<T::System>
+    pub fn not<Marker, In, Out, C>(
+        condition: C,
+    ) -> AdapterSystem<fn(bool) -> bool, C::ConditionSystem>
     where
-        TOut: core::ops::Not,
-        T: IntoSystem<(), TOut, Marker>,
+        In: SystemInput,
+        C: SystemCondition<Marker, In, Out>,
     {
-        let condition = IntoSystem::into_system(condition);
-        let name = format!("!{}", condition.name());
-        NotSystem::new(super::NotMarker, condition, name.into())
+        let f: fn(bool) -> bool = |x| !x;
+        IntoSystem::into_system(condition.into_condition_system().map(f))
     }
 
     /// Generates a [`SystemCondition`] that returns true when the passed one changes.
@@ -1198,29 +1195,6 @@ pub mod common_conditions {
                 now_true
             },
         ))
-    }
-}
-
-/// Invokes [`Not`] with the output of another system.
-///
-/// See [`common_conditions::not`] for examples.
-pub type NotSystem<S> = AdapterSystem<NotMarker, S>;
-
-/// Used with [`AdapterSystem`] to negate the output of a system via the [`Not`] operator.
-#[doc(hidden)]
-#[derive(Clone, Copy)]
-pub struct NotMarker;
-
-impl<S: System<Out: Not>> Adapt<S> for NotMarker {
-    type In = S::In;
-    type Out = <S::Out as Not>::Output;
-
-    fn adapt(
-        &mut self,
-        input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out {
-        !run_system(input)
     }
 }
 
@@ -1484,27 +1458,29 @@ mod tests {
             multiply_counter(7).run_if(wounded_player.nor(single_player)),
             multiply_counter(11).run_if(single_player.xor(wounded_player)),
             multiply_counter(13).run_if(single_player.xnor(|| false)),
-            multiply_counter(17).run_if(condition_changed(single_player)),
+            multiply_counter(17).run_if(condition_changed(wounded_player)),
             multiply_counter(19).run_if(condition_changed_to(true, single_player)),
+            multiply_counter(23).run_if(not(single_player)),
+            multiply_counter(29).run_if(not(wounded_player)),
         ));
 
         schedule.run(&mut world);
-        counter *= 3 * 7 * 13;
+        counter *= 3 * 7 * 13 * 23 * 29;
         assert_eq!(world.resource::<Counter>().0, counter);
 
         let player = world.spawn(Player).id();
         schedule.run(&mut world);
-        counter *= 2 * 3 * 11 * 17 * 19;
+        counter *= 2 * 3 * 11 * 19 * 29;
         assert_eq!(world.resource::<Counter>().0, counter);
 
         world.entity_mut(player).insert(Wounded);
         schedule.run(&mut world);
-        counter *= 2 * 5;
+        counter *= 2 * 5 * 17;
         assert_eq!(world.resource::<Counter>().0, counter);
 
         world.spawn(Player);
         schedule.run(&mut world);
-        counter *= 3 * 7 * 13 * 17;
+        counter *= 3 * 7 * 13 * 17 * 23 * 29;
         assert_eq!(world.resource::<Counter>().0, counter);
     }
 
