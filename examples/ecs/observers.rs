@@ -16,7 +16,7 @@ fn main() {
         // Observers are systems that run when an event is "triggered". This observer runs whenever
         // `ExplodeMines` is triggered.
         .add_observer(
-            |trigger: Trigger<ExplodeMines>,
+            |trigger: On<ExplodeMines>,
              mines: Query<&Mine>,
              index: Res<SpatialIndex>,
              mut commands: Commands| {
@@ -113,7 +113,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn on_add_mine(
-    trigger: Trigger<OnAdd, Mine>,
+    trigger: On<OnAdd, Mine>,
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
 ) {
@@ -131,7 +131,7 @@ fn on_add_mine(
 
 // Remove despawned mines from our index
 fn on_remove_mine(
-    trigger: Trigger<OnRemove, Mine>,
+    trigger: On<OnRemove, Mine>,
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
 ) {
@@ -145,7 +145,7 @@ fn on_remove_mine(
     });
 }
 
-fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
+fn explode_mine(trigger: On<Explode>, query: Query<&Mine>, mut commands: Commands) {
     // If a triggered event is targeting a specific entity you can access it with `.target()`
     let id = trigger.target().unwrap();
     let Ok(mut entity) = commands.get_entity(id) else {

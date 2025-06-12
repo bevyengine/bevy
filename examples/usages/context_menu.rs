@@ -39,8 +39,8 @@ fn main() {
 /// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
 fn text_color_on_hover<T: Debug + Clone + Reflect>(
     color: Color,
-) -> impl FnMut(Trigger<Pointer<T>>, Query<&mut TextColor>, Query<&Children>) {
-    move |mut trigger: Trigger<Pointer<T>>,
+) -> impl FnMut(On<Pointer<T>>, Query<&mut TextColor>, Query<&Children>) {
+    move |mut trigger: On<Pointer<T>>,
           mut text_color: Query<&mut TextColor>,
           children: Query<&Children>| {
         let Ok(children) = children.get(trigger.event().target) else {
@@ -62,14 +62,14 @@ fn setup(mut commands: Commands) {
 
     commands.spawn(background_and_button()).observe(
         // any click bubbling up here should lead to closing any open menu
-        |_: Trigger<Pointer<Press>>, mut commands: Commands| {
+        |_: On<Pointer<Press>>, mut commands: Commands| {
             commands.trigger(CloseContextMenus);
         },
     );
 }
 
 fn on_trigger_close_menus(
-    _trigger: Trigger<CloseContextMenus>,
+    _trigger: On<CloseContextMenus>,
     mut commands: Commands,
     menus: Query<Entity, With<ContextMenu>>,
 ) {
@@ -78,7 +78,7 @@ fn on_trigger_close_menus(
     }
 }
 
-fn on_trigger_menu(trigger: Trigger<OpenContextMenu>, mut commands: Commands) {
+fn on_trigger_menu(trigger: On<OpenContextMenu>, mut commands: Commands) {
     commands.trigger(CloseContextMenus);
 
     let pos = trigger.pos;
@@ -108,7 +108,7 @@ fn on_trigger_menu(trigger: Trigger<OpenContextMenu>, mut commands: Commands) {
             ],
         ))
         .observe(
-            |trigger: Trigger<Pointer<Press>>,
+            |trigger: On<Pointer<Press>>,
              menu_items: Query<&ContextMenuItem>,
              mut clear_col: ResMut<ClearColor>,
              mut commands: Commands| {
@@ -184,7 +184,7 @@ fn background_and_button() -> impl Bundle + use<> {
                     )],
                 ))
                 .observe(
-                    |mut trigger: Trigger<Pointer<Press>>, mut commands: Commands| {
+                    |mut trigger: On<Pointer<Press>>, mut commands: Commands| {
                         // by default this event would bubble up further leading to the `CloseContextMenus`
                         // event being triggered and undoing the opening of one here right away.
                         trigger.propagate(false);

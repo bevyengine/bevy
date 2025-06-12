@@ -78,7 +78,7 @@ pub mod prelude {
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, RemovedComponents},
         name::{Name, NameOrEntity},
-        observer::{Observer, Trigger},
+        observer::{Observer, On},
         query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,

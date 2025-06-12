@@ -2415,7 +2415,7 @@ impl Tick {
 /// struct CustomSchedule(Schedule);
 ///
 /// # let mut world = World::new();
-/// world.add_observer(|tick: Trigger<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
+/// world.add_observer(|tick: On<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
 ///     schedule.0.check_change_ticks(tick.get());
 /// });
 /// ```

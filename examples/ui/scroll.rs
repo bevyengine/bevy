@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 })
                                 .observe(|
-                                    trigger: Trigger<Pointer<Press>>,
+                                    trigger: On<Pointer<Press>>,
                                     mut commands: Commands
                                 | {
                                     if trigger.event().button == PointerButton::Primary {

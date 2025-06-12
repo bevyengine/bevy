@@ -2386,7 +2386,7 @@ mod tests {
         #[derive(Resource, Default)]
         struct Count(u32);
         world.init_resource::<Count>();
-        world.add_observer(|_t: Trigger<ArchetypeCreated>, mut count: ResMut<Count>| {
+        world.add_observer(|_t: On<ArchetypeCreated>, mut count: ResMut<Count>| {
             count.0 += 1;
         });
 
