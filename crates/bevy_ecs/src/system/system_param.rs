@@ -7,7 +7,7 @@ use crate::{
     entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
-        QueryState, ReadOnlyQueryData, WorldQuery,
+        QueryState, ReadOnlyQueryData,
     },
     resource::Resource,
     storage::ResourceData,
@@ -345,13 +345,13 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        <D as WorldQuery>::apply(&mut state.fetch_state, system_meta, world);
-        <F as WorldQuery>::apply(&mut state.filter_state, system_meta, world);
+        D::apply(&mut state.fetch_state, system_meta, world);
+        F::apply(&mut state.filter_state, system_meta, world);
     }
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
-        <D as WorldQuery>::queue(&mut state.fetch_state, system_meta, world.reborrow());
-        <F as WorldQuery>::queue(&mut state.filter_state, system_meta, world);
+        D::queue(&mut state.fetch_state, system_meta, world.reborrow());
+        F::queue(&mut state.filter_state, system_meta, world);
     }
 }
 
