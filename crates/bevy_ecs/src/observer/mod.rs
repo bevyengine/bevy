@@ -1,4 +1,136 @@
-//! Types for creating and storing [`Observer`]s
+//! Observers are a push-based tool for responding to [`Event`]s.
+//!
+//! ## Observer targeting
+//!
+//! Observers can be "global", listening for events that are both targeted at and not targeted at any specific entity,
+//! or they can be "entity-specific", listening for events that are targeted at specific entities.
+//!
+//! They can also be further refined by listening to events targeted at specific components
+//! (instead of using a generic event type), as is done with the [`OnAdd`] family of lifecycle events.
+//!
+//! When entities are observed, they will receive an [`ObservedBy`] component,
+//! which will be updated to track the observers that are currently observing them.
+//!
+//! Currently, [observers cannot be retargeted after spawning](https://github.com/bevyengine/bevy/issues/19587):
+//! despawn and respawn an observer as a workaround.
+//!
+//! ## Writing observers
+//!
+//! Observers are systems which implement [`IntoObserverSystem`] that listen for [`Event`]s matching their
+//! type and target(s).
+//! To write observer systems, use the [`Trigger`] system parameter as the first parameter of your system.
+//! This parameter provides access to the specific event that triggered the observer,
+//! as well as the entity that the event was targeted at, if any.
+//!
+//! Observers can request other data from the world,
+//! such as via a [`Query`] or [`Res`]. Commonly, you might want to verify that
+//! the entity that the observable event is targeting has a specific component,
+//! or meets some other condition.
+//! [`Query::get`] or [`Query::contains`] on the [`Trigger::target`] entity
+//! is a good way to do this.
+//!
+//! [`Commands`] can also be used inside of observers.
+//! This can be particularly useful for triggering other observers!
+//!
+//! ## Spawning observers
+//!
+//! Observers can be spawned via [`World::add_observer`], or the equivalent app method.
+//! This will cause an entity with the [`Observer`] component to be created,
+//! which will then run the observer system whenever the event it is watching is triggered.
+//!
+//! You can control the targets that an observer is watching by calling [`Observer::watch_entity`]
+//! once the entity is spawned, or by manually spawning an entity with the [`Observer`] component
+//! configured with the desired targets.
+//!
+//! Observers are fundamentally defined as "entities which have the [`Observer`] component"
+//! allowing you to add it manually to existing entities.
+//! At first, this seems convenient, but only one observer can be added to an entity at a time,
+//! regardless of the event it responds to: like always, components are unique.
+//!
+//! Instead, a better way to achieve a similar aim is to
+//! use the [`EntityWorldMut::observe`] / [`EntityCommands::observe`] method,
+//! which spawns a new observer, and configures it to watch the entity it is called on.
+//! Unfortunately, observers defined in this way
+//! [currently cannot be spawned as part of bundles](https://github.com/bevyengine/bevy/issues/14204).
+//!
+//! ## Triggering observers
+//!
+//! Observers are most commonly triggered by [`Commands`],
+//! via [`Commands::trigger`] (for untargeted events) or [`Commands::trigger_targets`] (for targeted events).
+//! Like usual, equivalent methods are available on [`World`], allowing you to reduce overhead when working with exclusive world access.
+//!
+//! If your observer is configured to watch for a specific component or set of components instead,
+//! you can pass in [`ComponentId`]s into [`Commands::trigger_targets`] by using the [`TriggerTargets`] trait.
+//! As discussed in the [`Trigger`] documentation, this use case is rare, and is currently only used
+//! for [lifecycle](crate::lifecycle) events, which are automatically emitted.
+//!
+//! ## Observer bubbling
+//!
+//! When events are targeted at an entity, they can optionally bubble to other targets,
+//! typically up to parents in an entity hierarchy.
+//!
+//! This behavior is controlled via [`Event::Traversal`] and [`Event::AUTO_PROPAGATE`],
+//! with the details of the propagation path specified by the [`Traversal`](crate::traversal::Traversal) trait.
+//!
+//! When auto-propagation is enabled, propagaion must be manually stopped to prevent the event from
+//! continuing to other targets.
+//! This can be done using the [`Trigger::propagate`] method on the [`Trigger`] system parameter inside of your observer.
+//!
+//!  ## Observer timing
+//!
+//! Observers are triggered via [`Commands`], which imply that they are evaluated at the next sync point in the ECS schedule.
+//! Accordingly, they have full access to the world, and are evaluated sequentially, in the order that the commands were sent.
+//!
+//! To control the relative ordering of observers sent from different systems,
+//! order the systems in the schedule relative to each other.
+//!
+//! Currently, Bevy does not provide [a way to specify the ordering of observers](https://github.com/bevyengine/bevy/issues/14890)
+//! listening to the same event relative to each other.
+//!
+//! Commands sent by observers are [currently not immediately applied](https://github.com/bevyengine/bevy/issues/19569).
+//! Instead, all queued observers will run, and then all of the commands from those observers will be applied.
+//! Careful use of [`Schedule::apply_deferred`] may help as a workaround.
+//!
+//! ## Lifecycle events and observers
+//!
+//! It is important to note that observers, just like [hooks](crate::lifecycle::ComponentHooks),
+//! can listen to and respond to [lifecycle](crate::lifecycle) events.
+//! Unlike hooks, observers are not treated as an "innate" part of component behavior:
+//! they can be added or removed at runtime, and multiple observers
+//! can be registered for the same lifecycle event for the same component.
+//!
+//! The ordering of hooks versus observers differs based on the lifecycle event in question:
+//!
+//! - when adding components, hooks are evaluated first, then observers
+//! - when removing components, observers are evaluated first, then hooks
+//!
+//! This allows hooks to act as constructors and destructors for components,
+//! as they always have the first and final say in the component's lifecycle.
+//!
+//! ## Cleaning up observers
+//!
+//! Currently, observer entities are never cleaned up, even if their target entity(s) are despawned.
+//! This won't cause any runtime overhead, but is a waste of memory and can result in memory leaks.
+//!
+//! If you run into this problem, you could manually scan the world for observer entities and despawn them,
+//! by checking if the entity in [`Observer::descriptor`] still exists.
+//!
+//! ## Observers vs buffered events
+//!
+//! By contrast, [`EventReader`] and [`EventWriter`] ("buffered events"), are pull-based.
+//! They require periodically polling the world to check for new events, typically in a system that runs as part of a schedule.
+//!
+//! This imposes a small overhead, making observers a better choice for extremely rare events,
+//! but buffered events can be more efficient for events that are expected to occur multiple times per frame,
+//! as it allows for batch processing of events.
+//!
+//! The difference in timing is also an important consideration:
+//! buffered events are evaluated at fixed points during schedules,
+//! while observers are evaluated as soon as possible after the event is triggered.
+//!
+//! This provides more control over the timing of buffered event evaluation,
+//! but allows for a more ad hoc approach with observers,
+//! and enables indefinite chaining of observers triggering other observers (for both better and worse!).
 
 mod entity_observer;
 mod runner;
@@ -29,6 +161,17 @@ use smallvec::SmallVec;
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`Trigger::propagate`] for more information.
+///
+/// The generic `B: Bundle` is used to modify the further specialize the events that this observer is interested in.
+/// The entity involved *does not* have to have these components, but the observer will only be
+/// triggered if the event matches the components in `B`.
+///
+/// This is used to to avoid providing a generic argument in your event, as is done for [`OnAdd`]
+/// and the other lifecycle events.
+///
+/// Providing multiple components in this bundle will cause this event to be triggered by any
+/// matching component in the bundle,
+/// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
 pub struct Trigger<'w, E, B: Bundle = ()> {
     event: &'w mut E,
     propagate: &'w mut bool,
@@ -69,18 +212,6 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
 
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
     /// be [`None`] if the trigger is not for a particular entity.
-    ///
-    /// Observable events can target specific entities. When those events fire, they will trigger
-    /// any observers on the targeted entities. In this case, the `target()` and `observer()` are
-    /// the same, because the observer that was triggered is attached to the entity that was
-    /// targeted by the event.
-    ///
-    /// However, it is also possible for those events to bubble up the entity hierarchy and trigger
-    /// observers on *different* entities, or trigger a global observer. In these cases, the
-    /// observing entity is *different* from the entity being targeted by the event.
-    ///
-    /// This is an important distinction: the entity reacting to an event is not always the same as
-    /// the entity triggered by the event.
     pub fn target(&self) -> Option<Entity> {
         self.trigger.target
     }
@@ -172,10 +303,14 @@ impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
     }
 }
 
-/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of type [`Entity`] or [`ComponentId`].
+/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`].
 ///
 /// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches for that specific event-target combination
 /// will run.
+///
+/// This trait is implemented for both [`Entity`] and [`ComponentId`], allowing you to target specific entities or components.
+/// It is also implemented for various collections of these types, such as [`Vec`], arrays, and tuples,
+/// allowing you to trigger events for multiple targets at once.
 pub trait TriggerTargets {
     /// The components the trigger should target.
     fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_;
@@ -280,7 +415,9 @@ all_tuples!(
     T
 );
 
-/// A description of what an [`Observer`] observes.
+/// Store information about what an [`Observer`] observes.
+///
+/// This information is stored inside of the [`Observer`] component,
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
     /// The events the observer is watching.
@@ -331,7 +468,9 @@ impl ObserverDescriptor {
     }
 }
 
-/// Event trigger metadata for a given [`Observer`],
+/// Metadata about a specific [`Event`] which triggered an observer.
+///
+/// This information is exposed via methods on the [`Trigger`] system parameter.
 #[derive(Debug)]
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
@@ -357,6 +496,8 @@ impl ObserverTrigger {
 type ObserverMap = EntityHashMap<ObserverRunner>;
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
+///
+/// This is stored inside of [`CachedObservers`].
 #[derive(Default, Debug)]
 pub struct CachedComponentObservers {
     // Observers listening to triggers targeting this component
@@ -366,6 +507,8 @@ pub struct CachedComponentObservers {
 }
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger.
+///
+/// This is stored inside of [`Observers`], specialized for each kind of observer.
 #[derive(Default, Debug)]
 pub struct CachedObservers {
     // Observers listening for any time this trigger is fired
@@ -376,7 +519,13 @@ pub struct CachedObservers {
     entity_observers: EntityHashMap<ObserverMap>,
 }
 
-/// Metadata for observers. Stores a cache mapping trigger ids to the registered observers.
+/// An internal lookup table tracking all of the observers in the world.
+///
+/// Stores a cache mapping trigger ids to the registered observers.
+/// Some observer kinds (like [lifecycle](crate::lifecycle) observers) have a dedicated field,
+/// saving lookups for the most common triggers.
+///
+/// This is stored as a field of the [`World`].
 #[derive(Default, Debug)]
 pub struct Observers {
     // Cached ECS observers to save a lookup most common triggers.
@@ -385,7 +534,7 @@ pub struct Observers {
     on_replace: CachedObservers,
     on_remove: CachedObservers,
     on_despawn: CachedObservers,
-    // Map from trigger type to set of observers
+    // Map from trigger type to set of observers listening to that trigger
     cache: HashMap<ComponentId, CachedObservers>,
 }
 
