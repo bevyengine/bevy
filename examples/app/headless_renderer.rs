@@ -86,6 +86,8 @@ fn main() {
                 // replaces the bevy_winit app runner and so a window is never created.
                 .set(WindowPlugin {
                     primary_window: None,
+                    // Don’t automatically exit due to having no windows.
+                    exit_condition: bevy::window::ExitCondition::DontExit,
                     ..default()
                 })
                 // WinitPlugin will panic in environments without a display server.
