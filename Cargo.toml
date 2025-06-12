@@ -3981,13 +3981,13 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
-name = "camera_sub_view"
-path = "examples/3d/camera_sub_view.rs"
+name = "camera_crop"
+path = "examples/3d/camera_crop.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.camera_sub_view]
+[package.metadata.example.camera_crop]
 name = "Camera sub view"
-description = "Demonstrates using different sub view effects on a camera"
+description = "Demonstrates using different camera crop effects"
 category = "3D Rendering"
 wasm = true
 
