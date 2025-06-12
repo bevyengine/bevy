@@ -10,6 +10,7 @@
 //! Spawn UI elements with [`widget::Button`], [`ImageNode`], [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
+pub mod interaction_states;
 pub mod measurement;
 pub mod ui_material;
 pub mod update;
@@ -38,6 +39,7 @@ mod ui_node;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
+pub use interaction_states::{Checked, InteractionDisabled, Pressed};
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -318,6 +320,11 @@ fn build_text_interop(app: &mut App) {
     );
 
     app.add_plugins(accessibility::AccessibilityPlugin);
+
+    app.add_observer(interaction_states::on_add_disabled)
+        .add_observer(interaction_states::on_remove_disabled)
+        .add_observer(interaction_states::on_insert_is_checked)
+        .add_observer(interaction_states::on_remove_is_checked);
 
     app.configure_sets(
         PostUpdate,
