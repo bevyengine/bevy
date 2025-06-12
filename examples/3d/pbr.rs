@@ -85,8 +85,8 @@ fn setup(
             right: Val::ZERO,
             ..default()
         },
-        Transform {
-            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
+        UiTransform {
+            rotation: Rot2::degrees(90.),
             ..default()
         },
     ));
