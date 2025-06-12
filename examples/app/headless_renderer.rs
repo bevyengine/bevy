@@ -92,6 +92,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: None,
                     // Don’t automatically exit due to having no windows.
+                    // Instead, the code in `update()` will explicitly produce an `AppExit` event.
                     exit_condition: bevy::window::ExitCondition::DontExit,
                     ..default()
                 })
