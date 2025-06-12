@@ -559,9 +559,15 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             shader_defs.push("DENSITY_TEXTURE".into());
         }
 
+        let mut layout = self
+            .mesh_view_layouts
+            .get_view_layout(key.mesh_pipeline_view_key)
+            .to_vec();
+        layout.push(volumetric_view_bind_group_layout.clone());
+
         RenderPipelineDescriptor {
             label: Some("volumetric lighting pipeline".into()),
-            layout: vec![mesh_view_layout.clone(), volumetric_view_bind_group_layout],
+            layout,
             push_constant_ranges: vec![],
             vertex: VertexState {
                 shader: self.shader.clone(),

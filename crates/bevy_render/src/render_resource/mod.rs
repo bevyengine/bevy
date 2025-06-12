@@ -49,7 +49,7 @@ pub use wgpu::{
     ComputePassDescriptor, ComputePipelineDescriptor as RawComputePipelineDescriptor,
     CreateBlasDescriptor, CreateTlasDescriptor, DepthBiasState, DepthStencilState, DownlevelFlags,
     Extent3d, Face, Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState,
-    FrontFace, ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, Maintain, MapMode,
+    FrontFace, ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode,
     MultisampleState, Operations, Origin3d, PipelineCompilationOptions, PipelineLayout,
     PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, PushConstantRange,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,

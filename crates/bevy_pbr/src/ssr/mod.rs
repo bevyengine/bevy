@@ -515,9 +515,11 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
     type Key = ScreenSpaceReflectionsPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mesh_view_layout = self
+        let mut layout = self
             .mesh_view_layouts
-            .get_view_layout(key.mesh_pipeline_view_key);
+            .get_view_layout(key.mesh_pipeline_view_key)
+            .to_vec();
+        layout.push(self.bind_group_layout.clone());
 
         let mut shader_defs = vec![
             "DEPTH_PREPASS".into(),
@@ -535,7 +537,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),
-            layout: vec![mesh_view_layout.clone(), self.bind_group_layout.clone()],
+            layout,
             vertex: fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),

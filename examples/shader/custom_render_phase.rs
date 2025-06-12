@@ -242,9 +242,9 @@ impl SpecializedMeshPipeline for StencilPipeline {
 type DrawMesh3dStencil = (
     SetItemPipeline,
     // This will set the view bindings in group 0
-    SetMeshViewBindGroup<0>,
+    SetMeshViewBindGroup<0, 1>,
     // This will set the mesh bindings in group 1
-    SetMeshBindGroup<1>,
+    SetMeshBindGroup<2>,
     // This will draw the mesh
     DrawMesh,
 );

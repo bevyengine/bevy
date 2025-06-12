@@ -287,6 +287,12 @@ impl<'b> DynamicBindGroupEntries<'b> {
         }
     }
 
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+
     pub fn extend_with_indices<const N: usize>(
         mut self,
         entries: impl IntoIndexedBindingArray<'b, N>,

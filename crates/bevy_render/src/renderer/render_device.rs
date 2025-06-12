@@ -7,7 +7,7 @@ use bevy_ecs::resource::Resource;
 use bevy_utils::WgpuWrapper;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
+    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, PollError, PollStatus,
 };
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
@@ -67,11 +67,14 @@ impl RenderDevice {
                 // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
                 // No attempt is made to ensure that data is valid SPIR-V.
                 unsafe {
-                    self.device
-                        .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
-                            label: desc.label,
-                            source: source.clone(),
-                        })
+                    self.device.create_shader_module_passthrough(
+                        wgpu::ShaderModuleDescriptorPassthrough::SpirV(
+                            wgpu::ShaderModuleDescriptorSpirV {
+                                label: desc.label,
+                                source: source.clone(),
+                            },
+                        ),
+                    )
                 }
             }
             // SAFETY:
@@ -118,7 +121,7 @@ impl RenderDevice {
     ///
     /// no-op on the web, device is automatically polled.
     #[inline]
-    pub fn poll(&self, maintain: wgpu::Maintain) -> MaintainResult {
+    pub fn poll(&self, maintain: wgpu::PollType) -> Result<PollStatus, PollError> {
         self.device.poll(maintain)
     }
 

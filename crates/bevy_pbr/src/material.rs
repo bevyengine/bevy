@@ -120,9 +120,9 @@ use tracing::error;
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(2) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(2) @binding(2) var color_sampler: sampler;
+/// @group(3) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(3) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(3) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -501,7 +501,7 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
-        descriptor.layout.insert(2, self.material_layout.clone());
+        descriptor.layout.insert(3, self.material_layout.clone());
 
         M::specialize(self, &mut descriptor, layout, key)?;
 
@@ -543,9 +543,9 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
 
 type DrawMaterial<M> = (
     SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    SetMaterialBindGroup<M, 2>,
+    SetMeshViewBindGroup<0, 1>,
+    SetMeshBindGroup<2>,
+    SetMaterialBindGroup<M, 3>,
     DrawMesh,
 );
 

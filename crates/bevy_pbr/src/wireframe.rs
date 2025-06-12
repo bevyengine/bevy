@@ -317,8 +317,8 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
 
 pub type DrawWireframe3d = (
     SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
+    SetMeshViewBindGroup<0, 1>,
+    SetMeshBindGroup<2>,
     SetWireframe3dPushConstants,
     DrawMesh,
 );
