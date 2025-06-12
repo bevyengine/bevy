@@ -178,7 +178,7 @@ pub struct On<'w, E, B: Bundle = ()> {
 }
 
 impl<'w, E, B: Bundle> On<'w, E, B> {
-    /// Creates a new event listener for the given event and observer information.
+    /// Creates a new instance of [`On`] for the given event and observer information.
     pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
         Self {
             event,
@@ -188,7 +188,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
         }
     }
 
-    /// Returns the event type of this event listener.
+    /// Returns the event type of this [`On`] instance.
     pub fn event_type(&self) -> ComponentId {
         self.trigger.event_type
     }
@@ -301,7 +301,7 @@ impl<'w, E, B: Bundle> DerefMut for On<'w, E, B> {
     }
 }
 
-/// Represents a collection of targets for a specific [event listener](On) of an [`Event`].
+/// Represents a collection of targets for a specific [`On`] instance of an [`Event`].
 ///
 /// When an event is triggered with [`TriggerTargets`], any [`Observer`] that watches for that specific
 /// event-target combination will run.
@@ -468,7 +468,7 @@ impl ObserverDescriptor {
 
 /// Metadata about a specific [`Event`] that triggered an observer.
 ///
-/// This information is exposed via methods on the [`On`] event listener.
+/// This information is exposed via methods on [`On`].
 #[derive(Debug)]
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
@@ -689,7 +689,7 @@ impl World {
     /// Spawns a "global" [`Observer`] which will watch for the given event.
     /// Returns its [`Entity`] as a [`EntityWorldMut`].
     ///
-    /// `system` can be any system whose first parameter is an [`On`] event listener.
+    /// `system` can be any system whose first parameter is [`On`].
     ///
     /// **Calling [`observe`](EntityWorldMut::observe) on the returned
     /// [`EntityWorldMut`] will observe the observer itself, which you very
