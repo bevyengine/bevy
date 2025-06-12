@@ -35,3 +35,19 @@ WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
 ```
 
 If a borrow is attempted while the data is borrowed elsewhere, the method will panic.
+
+Previously, the use of a `!Send` resource in a system would force the system to execute on the main thread. Since `!Send` resources are removed in Bevy, we needed to create a new way to prevent systems from running on non-main threads. To do this, you can now use `bevy_ecs::system::NonSendMarker` as a system parameter:
+
+```rust
+use bevy_ecs::system::NonSendMarker;
+
+fn my_system(
+    _non_send_marker: NonSendMarker,
+) {
+    ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
+        // do things with adapters
+    });
+}
+```
+
+To prevent a panic, if any of the `!Send` resource replacements mentioned in this document are used in a system, the system should _always_ be marked as `!Send` with `bevy_ecs::system::NonSendMarker`.
