@@ -2381,12 +2381,12 @@ impl Tick {
     ///
     /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
     #[inline]
-    pub fn check_tick(&mut self, tick: Tick) -> bool {
-        let age = tick.relative_to(*self);
+    pub fn check_tick(&mut self, check: CheckChangeTicks) -> bool {
+        let age = check.0.relative_to(*self);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
         if age.get() > Self::MAX.get() {
-            *self = tick.relative_to(Self::MAX);
+            *self = check.0.relative_to(Self::MAX);
             true
         } else {
             false
@@ -2415,8 +2415,8 @@ impl Tick {
 /// struct CustomSchedule(Schedule);
 ///
 /// # let mut world = World::new();
-/// world.add_observer(|tick: Trigger<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
-///     schedule.0.check_change_ticks(tick.get());
+/// world.add_observer(|check: Trigger<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
+///     schedule.0.check_change_ticks(*check);
 /// });
 /// ```
 #[derive(Debug, Clone, Copy, Event)]

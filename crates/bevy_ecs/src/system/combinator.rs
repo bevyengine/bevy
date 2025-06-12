@@ -2,7 +2,7 @@ use alloc::{borrow::Cow, format, vec::Vec};
 use core::marker::PhantomData;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -208,9 +208,9 @@ where
             .extend(self.b.component_access_set().clone());
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.a.check_change_tick(change_tick);
-        self.b.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.a.check_change_tick(check);
+        self.b.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
@@ -426,9 +426,9 @@ where
             .extend(self.b.component_access_set().clone());
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.a.check_change_tick(change_tick);
-        self.b.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.a.check_change_tick(check);
+        self.b.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {

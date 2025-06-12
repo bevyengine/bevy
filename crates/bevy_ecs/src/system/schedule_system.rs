@@ -1,7 +1,7 @@
 use alloc::{borrow::Cow, vec::Vec};
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     error::Result,
     query::FilteredAccessSet,
     system::{input::SystemIn, BoxedSystem, System, SystemInput},
@@ -83,8 +83,8 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.0.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.0.check_change_tick(check);
     }
 
     #[inline]
@@ -191,8 +191,8 @@ where
         self.system.initialize(world);
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn get_last_run(&self) -> Tick {
@@ -296,8 +296,8 @@ where
         }
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn get_last_run(&self) -> Tick {

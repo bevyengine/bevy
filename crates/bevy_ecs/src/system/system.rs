@@ -8,7 +8,7 @@ use log::warn;
 use thiserror::Error;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -175,7 +175,7 @@ pub trait System: Send + Sync + 'static {
     ///
     /// This method must be called periodically to ensure that change detection behaves correctly.
     /// When using bevy's default configuration, this will be called for you as needed.
-    fn check_change_tick(&mut self, change_tick: Tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks);
 
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
     ///
@@ -225,9 +225,13 @@ pub unsafe trait ReadOnlySystem: System {
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
-pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
-    if last_run.check_tick(this_run) {
-        let age = this_run.relative_to(*last_run).get();
+pub(crate) fn check_system_change_tick(
+    last_run: &mut Tick,
+    check: CheckChangeTicks,
+    system_name: &str,
+) {
+    if last_run.check_tick(check) {
+        let age = check.get().relative_to(*last_run).get();
         warn!(
             "System '{system_name}' has not run for {age} ticks. \
             Changes older than {} ticks will not be detected.",

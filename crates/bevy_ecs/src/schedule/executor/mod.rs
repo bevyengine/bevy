@@ -15,7 +15,7 @@ pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
     query::FilteredAccessSet,
@@ -207,7 +207,7 @@ impl System for ApplyDeferred {
 
     fn initialize(&mut self, _world: &mut World) {}
 
-    fn check_change_tick(&mut self, _change_tick: Tick) {}
+    fn check_change_tick(&mut self, _check: CheckChangeTicks) {}
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         vec![SystemTypeSet::<Self>::new().intern()]

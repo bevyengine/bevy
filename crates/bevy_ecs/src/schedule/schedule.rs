@@ -25,8 +25,9 @@ use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
+use crate::component::CheckChangeTicks;
 use crate::{
-    component::{ComponentId, Components, Tick},
+    component::{ComponentId, Components},
     prelude::Component,
     resource::Resource,
     schedule::*,
@@ -111,7 +112,7 @@ impl Schedules {
     /// Iterates the change ticks of all systems in all stored schedules and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
         #[cfg_attr(
@@ -126,7 +127,7 @@ impl Schedules {
             let name = format!("{label:?}");
             #[cfg(feature = "trace")]
             let _one_span = info_span!("check schedule ticks", name = &name).entered();
-            schedule.check_change_ticks(change_tick);
+            schedule.check_change_ticks(check);
         }
     }
 
@@ -558,22 +559,22 @@ impl Schedule {
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for system in &mut self.executable.systems {
             if !is_apply_deferred(system) {
-                system.check_change_tick(change_tick);
+                system.check_change_tick(check);
             }
         }
 
         for conditions in &mut self.executable.system_conditions {
             for system in conditions {
-                system.check_change_tick(change_tick);
+                system.check_change_tick(check);
             }
         }
 
         for conditions in &mut self.executable.set_conditions {
             for system in conditions {
-                system.check_change_tick(change_tick);
+                system.check_change_tick(check);
             }
         }
     }

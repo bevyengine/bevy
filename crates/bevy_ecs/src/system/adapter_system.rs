@@ -179,8 +179,8 @@ where
         self.system.initialize(world);
     }
 
-    fn check_change_tick(&mut self, change_tick: crate::component::Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: crate::component::CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {

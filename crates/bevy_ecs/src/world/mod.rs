@@ -2948,6 +2948,8 @@ impl World {
             return;
         }
 
+        let check = CheckChangeTicks(change_tick);
+
         let Storages {
             ref mut tables,
             ref mut sparse_sets,
@@ -2957,17 +2959,17 @@ impl World {
 
         #[cfg(feature = "trace")]
         let _span = tracing::info_span!("check component ticks").entered();
-        tables.check_change_ticks(change_tick);
-        sparse_sets.check_change_ticks(change_tick);
-        resources.check_change_ticks(change_tick);
-        non_send_resources.check_change_ticks(change_tick);
-        self.entities.check_change_ticks(change_tick);
+        tables.check_change_ticks(check);
+        sparse_sets.check_change_ticks(check);
+        resources.check_change_ticks(check);
+        non_send_resources.check_change_ticks(check);
+        self.entities.check_change_ticks(check);
 
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
-            schedules.check_change_ticks(change_tick);
+            schedules.check_change_ticks(check);
         }
 
-        self.trigger(CheckChangeTicks(change_tick));
+        self.trigger(check);
 
         self.last_check_tick = change_tick;
     }

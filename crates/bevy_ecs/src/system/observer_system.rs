@@ -2,7 +2,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::marker::PhantomData;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     error::Result,
     never::Never,
     prelude::{Bundle, Trigger},
@@ -166,8 +166,8 @@ where
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.observer.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.observer.check_change_tick(check);
     }
 
     #[inline]
