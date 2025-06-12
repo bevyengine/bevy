@@ -83,9 +83,6 @@ impl CommandQueue {
     /// This clears the queue.
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
-        // flush the previously queued entities
-        world.flush_entities();
-
         // flush the world's internal queue
         world.flush_commands();
 
@@ -423,12 +420,12 @@ mod test {
         let mut world = World::new();
         queue.apply(&mut world);
 
-        assert_eq!(world.entities().len(), 2);
+        assert_eq!(world.entities().count_constructed(), 2);
 
         // The previous call to `apply` cleared the queue.
         // This call should do nothing.
         queue.apply(&mut world);
-        assert_eq!(world.entities().len(), 2);
+        assert_eq!(world.entities().count_constructed(), 2);
     }
 
     #[expect(
@@ -462,7 +459,7 @@ mod test {
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
         queue.apply(&mut world);
-        assert_eq!(world.entities().len(), 3);
+        assert_eq!(world.entities().count_constructed(), 3);
     }
 
     #[test]

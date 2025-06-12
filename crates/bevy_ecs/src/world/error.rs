@@ -31,8 +31,8 @@ pub struct TryInsertBatchError {
 
 /// An error that occurs when a specified [`Entity`] could not be despawned.
 #[derive(thiserror::Error, Debug, Clone, Copy)]
-#[error("Could not despawn entity: {0}")]
-pub struct EntityDespawnError(#[from] pub EntityMutableFetchError);
+#[error("Could not destruct entity: {0}")]
+pub struct EntityDestructError(#[from] pub EntityMutableFetchError);
 
 /// An error that occurs when dynamically retrieving components from an entity.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]

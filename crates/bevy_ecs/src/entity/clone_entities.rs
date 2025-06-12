@@ -1,18 +1,19 @@
+use crate::{
+    archetype::Archetype,
+    bundle::Bundle,
+    component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
+    entity::{hash_map::EntityHashMap, Entity, EntityMapper},
+    query::DebugCheckedUnwrap,
+    relationship::RelationshipHookMode,
+    world::World,
+};
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec::Vec};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::any::TypeId;
 
-use crate::{
-    archetype::Archetype,
-    bundle::Bundle,
-    component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
-    entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
-    query::DebugCheckedUnwrap,
-    relationship::RelationshipHookMode,
-    world::World,
-};
+use super::EntitiesAllocator;
 
 /// Provides read access to the source component (the component being cloned) in a [`ComponentCloneFn`].
 pub struct SourceComponent<'a> {
@@ -76,7 +77,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     target_component_written: bool,
     bundle_scratch: &'a mut BundleScratch<'b>,
     bundle_scratch_allocator: &'b Bump,
-    entities: &'a Entities,
+    allocator: &'a EntitiesAllocator,
     source: Entity,
     target: Entity,
     component_info: &'a ComponentInfo,
@@ -102,7 +103,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         target: Entity,
         bundle_scratch_allocator: &'b Bump,
         bundle_scratch: &'a mut BundleScratch<'b>,
-        entities: &'a Entities,
+        allocator: &'a EntitiesAllocator,
         component_info: &'a ComponentInfo,
         entity_cloner: &'a mut EntityCloner,
         mapper: &'a mut dyn EntityMapper,
@@ -116,7 +117,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             bundle_scratch,
             target_component_written: false,
             bundle_scratch_allocator,
-            entities,
+            allocator,
             mapper,
             component_info,
             entity_cloner,
@@ -268,7 +269,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 
     /// Queues the `entity` to be cloned by the current [`EntityCloner`]
     pub fn queue_entity_clone(&mut self, entity: Entity) {
-        let target = self.entities.reserve_entity();
+        let target = self.allocator.alloc();
         self.mapper.set_mapped(entity, target);
         self.entity_cloner.clone_queue.push_back(entity);
     }
@@ -346,6 +347,8 @@ pub struct EntityCloner {
     move_components: bool,
     linked_cloning: bool,
     default_clone_fn: ComponentCloneFn,
+    /// Represents a queue of entities to clone.
+    /// These will have targets in the entity map, which will need to be constructed.
     clone_queue: VecDeque<Entity>,
     deferred_commands: VecDeque<Box<dyn FnOnce(&mut World, &mut dyn EntityMapper)>>,
 }
@@ -456,18 +459,24 @@ impl EntityCloner {
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> Entity {
         let target = mapper.get_mapped(source);
+        // The target may need to be constructed if it hasn't been already.
+        // If this fails, it either didn't need to be constructed (ok) or doesn't exist (caught better later).
+        let _ = world.construct_empty(target);
+
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
         let bundle_scratch_allocator = Bump::new();
         let mut bundle_scratch: BundleScratch;
         {
             let world = world.as_unsafe_world_cell();
             let source_entity = world.get_entity(source).expect("Source entity must exist");
-            let target_archetype = (!self.filter_required.is_empty()).then(|| {
-                world
-                    .get_entity(target)
-                    .expect("Target entity must exist")
-                    .archetype()
-            });
+            let target_archetype = (!self.filter_required.is_empty())
+                .then(|| {
+                    world
+                        .get_entity(target)
+                        .expect("Target entity must exist")
+                        .archetype()
+                })
+                .flatten();
 
             #[cfg(feature = "bevy_reflect")]
             // SAFETY: we have unique access to `world`, nothing else accesses the registry at this moment, and we clone
@@ -480,7 +489,10 @@ impl EntityCloner {
             #[cfg(not(feature = "bevy_reflect"))]
             let app_registry = Option::<()>::None;
 
-            let archetype = source_entity.archetype();
+            let Some(archetype) = source_entity.archetype() else {
+                // If the source has no archetype, there is nothing to clone.
+                return target;
+            };
             bundle_scratch = BundleScratch::with_capacity(archetype.component_count());
 
             for component in archetype.components() {
@@ -521,7 +533,7 @@ impl EntityCloner {
                         target,
                         &bundle_scratch_allocator,
                         &mut bundle_scratch,
-                        world.entities(),
+                        world.entities_allocator(),
                         info,
                         self,
                         mapper,
@@ -533,14 +545,8 @@ impl EntityCloner {
             }
         }
 
-        world.flush();
-
         for deferred in self.deferred_commands.drain(..) {
             (deferred)(world, mapper);
-        }
-
-        if !world.entities.contains(target) {
-            panic!("Target entity does not exist");
         }
 
         if self.move_components {

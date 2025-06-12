@@ -9,7 +9,7 @@ use crate::{
     lifecycle::{HookContext, ON_INSERT, ON_REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
-    query::{QueryData, QueryFilter},
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter},
     relationship::RelationshipHookMode,
     resource::Resource,
     system::{Commands, Query},
@@ -70,7 +70,13 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
         let command_queue = unsafe { self.world.get_raw_command_queue() };
         // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe { Commands::new_raw_from_entities(command_queue, self.world.entities()) }
+        unsafe {
+            Commands::new_raw_from_entities(
+                command_queue,
+                self.world.entities_allocator(),
+                self.world.entities(),
+            )
+        }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -139,7 +145,8 @@ impl<'w> DeferredWorld<'w> {
             return Ok(None);
         }
 
-        let archetype = &raw const *entity_cell.archetype();
+        // SAFETY: If the archetype was none, it would not have the component on it.
+        let archetype = unsafe { &raw const *entity_cell.archetype().debug_checked_unwrap() };
 
         // SAFETY:
         // - DeferredWorld ensures archetype pointer will remain valid as no
@@ -416,7 +423,9 @@ impl<'w> DeferredWorld<'w> {
         // - Command queue access does not conflict with entity access.
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+        let commands = unsafe {
+            Commands::new_raw_from_entities(raw_queue, cell.entities_allocator(), cell.entities())
+        };
 
         (fetcher, commands)
     }
