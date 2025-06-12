@@ -50,6 +50,9 @@ pub struct OnTransition<S: States> {
 /// }
 /// ```
 ///
+/// If you rely on this schedule to make changes to the world in case of a state transition,
+/// remember use the [``TransitionSchedules``] set, or those systems might run one frame delayed.
+///
 /// [`PreStartup`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreStartup.html
 /// [`PreUpdate`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreUpdate.html
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
