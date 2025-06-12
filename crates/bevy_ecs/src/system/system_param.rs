@@ -7,7 +7,7 @@ use crate::{
     entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
-        QueryState, ReadOnlyQueryData,
+        QueryState, ReadOnlyQueryData, WorldQuery,
     },
     resource::Resource,
     storage::ResourceData,
@@ -342,6 +342,16 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // world data that the query needs.
         // The caller ensures the world matches the one used in init_state.
         unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) }
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        <D as WorldQuery>::apply(&mut state.fetch_state, system_meta, world);
+        <F as WorldQuery>::apply(&mut state.filter_state, system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        <D as WorldQuery>::queue(&mut state.fetch_state, system_meta, world.reborrow());
+        <F as WorldQuery>::queue(&mut state.filter_state, system_meta, world);
     }
 }
 

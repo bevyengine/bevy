@@ -227,6 +227,20 @@ macro_rules! impl_tuple_world_query {
                 Some(($($name::get_state(components)?,)*))
             }
 
+            #[inline]
+            fn apply(($($name,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+                $($name::apply($name, system_meta, world);)*
+            }
+
+            #[inline]
+            #[allow(
+                unused_mut,
+                reason = "The `world` parameter is unused for zero-length tuples; however, it must be mutable for other lengths of tuples."
+            )]
+            fn queue(($($name,)*): &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+                $($name::queue($name, system_meta, world.reborrow());)*
+            }
+
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = state;
                 true $(&& $name::matches_component_set($name, set_contains_id))*
