@@ -32,7 +32,13 @@ pub enum TrackClick {
     Snap,
 }
 
-/// A headless slider widget, which can be used to build custom sliders.
+/// A headless slider widget, which can be used to build custom sliders. Sliders have a value
+/// (represented by the [`SliderValue`] component) and a range (represented by [`SliderRange`]).
+/// An optional step size can be specified via [`SliderStep`].
+///
+/// Typically a slider will contain entities representing the "track" and "thumb" elements.
+/// The core slider makes no assumptions about the hierarchical structure of these elements,
+/// but expects that the thumb will be marked with a [`CoreSliderThumb`] component.
 #[derive(Component, Debug, Default)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::Slider)),
@@ -42,10 +48,9 @@ pub enum TrackClick {
     SliderStep
 )]
 pub struct CoreSlider {
-    /// The size of the thumb element in pixels. This is used to calculate the thumb position.
-    /// Note that the size doesn't have to exactly match the thumb entity's size. What this actually
-    /// does is reduce the amount of travel of the thumb to account for the fact that the thumb
-    /// takes up some space.
+    /// This value represents the size, in pixels, that the slider's track length should be reduced
+    /// (during picking calculations) to account for the fact that the slider thumb takes up space.
+    /// This can be different than the actual visible size of the thumb.
     pub thumb_size: f32,
 
     /// Callback which is called when the slider is dragged or the value is changed via other user
@@ -56,7 +61,7 @@ pub struct CoreSlider {
     // TODO: Think about whether we want a "vertical" option.
 }
 
-/// Marker component that identifies which child element is the slider thumb.
+/// Marker component that identifies which descendant element is the slider thumb.
 #[derive(Component, Debug, Default)]
 pub struct CoreSliderThumb;
 
@@ -172,9 +177,13 @@ pub(crate) fn slider_on_pointer_down(
         let local_pos = transform.try_inverse().unwrap().transform_point2(
             trigger.event().pointer_location.position * node_target.scale_factor(),
         );
-        let click_val = local_pos.x * range.span()
-            / (node.size().x - slider.thumb_size * node_target.scale_factor())
-            + range.center();
+        let track_width = node.size().x - slider.thumb_size * node_target.scale_factor();
+        // Avoid division by zero
+        let click_val = if track_width > 0. {
+            local_pos.x * range.span() / track_width + range.center()
+        } else {
+            0.
+        };
 
         // Compute new value from click position
         let new_value = range.clamp(match slider.track_click {
