@@ -2,10 +2,12 @@ use crate::{
     component::{Component, ComponentCloneBehavior, Mutable, StorageType},
     entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
     lifecycle::{ComponentHook, HookContext},
-    prelude::ReflectComponent,
     world::World,
 };
 use alloc::vec::Vec;
+
+#[cfg(feature = "bevy_reflect")]
+use crate::prelude::ReflectComponent;
 
 use super::Observer;
 
