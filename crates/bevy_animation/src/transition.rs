@@ -60,12 +60,12 @@ impl AnimationTransitions {
     /// Initializes the [`AnimationTransitions`] component, with ONE SINGLE flow meaning. It is expected to play only one animation at once
     pub fn new() -> Self {
         Self {
-            flows: vec![None; 1 as usize],
+            flows: vec![None; 1_usize],
             transitions: Vec::new(),
         }
     }
 
-    /// Define your flow amount and initializes your component, renember flow_amount is the amount of animation you want to be playing at once
+    /// Define your flow amount and initializes your component, renember `flow_amount` is the amount of animation you want to be playing at once
     pub fn new_with_flow(flow_amount: usize) -> Self {
         Self {
             flows: vec![None; flow_amount],
