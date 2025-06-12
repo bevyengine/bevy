@@ -47,7 +47,7 @@
 //!
 //! Each of these lifecycle events also corresponds to a fixed [`ComponentId`],
 //! which are assigned during [`World`] initialization.
-//! For example, [`Add`] corresponds to [`ON_ADD`].
+//! For example, [`Add`] corresponds to [`ADD`].
 //! This is used to skip [`TypeId`](core::any::TypeId) lookups in hot paths.
 use crate::{
     change_detection::MaybeLocation,
@@ -311,15 +311,15 @@ impl ComponentHooks {
 }
 
 /// [`ComponentId`] for [`Add`]
-pub const ON_ADD: ComponentId = ComponentId::new(0);
+pub const ADD: ComponentId = ComponentId::new(0);
 /// [`ComponentId`] for [`Insert`]
-pub const ON_INSERT: ComponentId = ComponentId::new(1);
+pub const INSERT: ComponentId = ComponentId::new(1);
 /// [`ComponentId`] for [`Replace`]
-pub const ON_REPLACE: ComponentId = ComponentId::new(2);
+pub const REPLACE: ComponentId = ComponentId::new(2);
 /// [`ComponentId`] for [`Remove`]
-pub const ON_REMOVE: ComponentId = ComponentId::new(3);
+pub const REMOVE: ComponentId = ComponentId::new(3);
 /// [`ComponentId`] for [`Despawn`]
-pub const ON_DESPAWN: ComponentId = ComponentId::new(4);
+pub const DESPAWN: ComponentId = ComponentId::new(4);
 
 /// Trigger emitted when a component is inserted onto an entity that does not already have that
 /// component. Runs before `Insert`.

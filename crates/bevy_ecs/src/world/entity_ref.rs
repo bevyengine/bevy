@@ -14,7 +14,7 @@ use crate::{
         EntityIdLocation, EntityLocation,
     },
     event::Event,
-    lifecycle::{ON_DESPAWN, ON_REMOVE, ON_REPLACE},
+    lifecycle::{DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
@@ -2368,7 +2368,7 @@ impl<'w> EntityWorldMut<'w> {
         unsafe {
             if archetype.has_despawn_observer() {
                 deferred_world.trigger_observers(
-                    ON_DESPAWN,
+                    DESPAWN,
                     Some(self.entity),
                     archetype.components(),
                     caller,
@@ -2382,7 +2382,7 @@ impl<'w> EntityWorldMut<'w> {
             );
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(
-                    ON_REPLACE,
+                    REPLACE,
                     Some(self.entity),
                     archetype.components(),
                     caller,
@@ -2397,7 +2397,7 @@ impl<'w> EntityWorldMut<'w> {
             );
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
-                    ON_REMOVE,
+                    REMOVE,
                     Some(self.entity),
                     archetype.components(),
                     caller,

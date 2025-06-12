@@ -19,7 +19,7 @@ pub use crate::{
 };
 use crate::{
     error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::{ComponentHooks, ON_ADD, ON_DESPAWN, ON_INSERT, ON_REMOVE, ON_REPLACE},
+    lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     prelude::{Add, Despawn, Insert, Remove, Replace},
 };
 pub use bevy_ecs_macros::FromWorld;
@@ -151,19 +151,19 @@ impl World {
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
         let on_add = Add::register_component_id(self);
-        assert_eq!(ON_ADD, on_add);
+        assert_eq!(ADD, on_add);
 
         let on_insert = Insert::register_component_id(self);
-        assert_eq!(ON_INSERT, on_insert);
+        assert_eq!(INSERT, on_insert);
 
         let on_replace = Replace::register_component_id(self);
-        assert_eq!(ON_REPLACE, on_replace);
+        assert_eq!(REPLACE, on_replace);
 
         let on_remove = Remove::register_component_id(self);
-        assert_eq!(ON_REMOVE, on_remove);
+        assert_eq!(REMOVE, on_remove);
 
         let on_despawn = Despawn::register_component_id(self);
-        assert_eq!(ON_DESPAWN, on_despawn);
+        assert_eq!(DESPAWN, on_despawn);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();

@@ -7,7 +7,7 @@ To improve documentation, discoverability and internal organization, we've gathe
 
 The lifecycle / observer types (`Add`, `Insert`, `Remove`, `Replace`, `Despawn`) have been moved from the `bevy_ecs::world` to `bevy_ecs::lifecycle`.
 
-The same move has been done for the more internal (but public) `ComponentId` constants: `ON_ADD`, `ON_INSERT`, `ON_REMOVE`, `ON_REPLACE`, `ON_DESPAWN`.
+The same move has been done for the more internal (but public) `ComponentId` constants: `ADD`, `INSERT`, `REMOVE`, `REPLACE`, `DESPAWN`.
 
 The code for hooks (`HookContext`, `ComponentHook`, `ComponentHooks`) has been extracted from the very long `bevy_ecs::components` module, and now lives in the `bevy_ecs::lifecycle` module.
 

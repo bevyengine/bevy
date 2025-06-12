@@ -6,7 +6,7 @@ use crate::{
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
-    lifecycle::{HookContext, ON_INSERT, ON_REPLACE},
+    lifecycle::{HookContext, INSERT, REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
@@ -145,7 +145,7 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - ON_REPLACE is able to accept ZST events
+        // - REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
             self.trigger_on_replace(
@@ -157,7 +157,7 @@ impl<'w> DeferredWorld<'w> {
             );
             if archetype.has_replace_observer() {
                 self.trigger_observers(
-                    ON_REPLACE,
+                    REPLACE,
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
@@ -185,7 +185,7 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - ON_REPLACE is able to accept ZST events
+        // - REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
             self.trigger_on_insert(
@@ -197,7 +197,7 @@ impl<'w> DeferredWorld<'w> {
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(
-                    ON_INSERT,
+                    INSERT,
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),

@@ -527,11 +527,11 @@ pub struct CachedObservers {
 #[derive(Default, Debug)]
 pub struct Observers {
     // Cached ECS observers to save a lookup most common triggers.
-    on_add: CachedObservers,
-    on_insert: CachedObservers,
-    on_replace: CachedObservers,
-    on_remove: CachedObservers,
-    on_despawn: CachedObservers,
+    add: CachedObservers,
+    insert: CachedObservers,
+    replace: CachedObservers,
+    remove: CachedObservers,
+    despawn: CachedObservers,
     // Map from trigger type to set of observers listening to that trigger
     cache: HashMap<ComponentId, CachedObservers>,
 }
@@ -541,11 +541,11 @@ impl Observers {
         use crate::lifecycle::*;
 
         match event_type {
-            ON_ADD => &mut self.on_add,
-            ON_INSERT => &mut self.on_insert,
-            ON_REPLACE => &mut self.on_replace,
-            ON_REMOVE => &mut self.on_remove,
-            ON_DESPAWN => &mut self.on_despawn,
+            ADD => &mut self.add,
+            INSERT => &mut self.insert,
+            REPLACE => &mut self.replace,
+            REMOVE => &mut self.remove,
+            DESPAWN => &mut self.despawn,
             _ => self.cache.entry(event_type).or_default(),
         }
     }
@@ -554,11 +554,11 @@ impl Observers {
         use crate::lifecycle::*;
 
         match event_type {
-            ON_ADD => Some(&self.on_add),
-            ON_INSERT => Some(&self.on_insert),
-            ON_REPLACE => Some(&self.on_replace),
-            ON_REMOVE => Some(&self.on_remove),
-            ON_DESPAWN => Some(&self.on_despawn),
+            ADD => Some(&self.add),
+            INSERT => Some(&self.insert),
+            REPLACE => Some(&self.replace),
+            REMOVE => Some(&self.remove),
+            DESPAWN => Some(&self.despawn),
             _ => self.cache.get(&event_type),
         }
     }
@@ -633,11 +633,11 @@ impl Observers {
         use crate::lifecycle::*;
 
         match event_type {
-            ON_ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
-            ON_INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
-            ON_REPLACE => Some(ArchetypeFlags::ON_REPLACE_OBSERVER),
-            ON_REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
-            ON_DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
+            ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
+            INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
+            REPLACE => Some(ArchetypeFlags::ON_REPLACE_OBSERVER),
+            REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
+            DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
             _ => None,
         }
     }
@@ -647,39 +647,23 @@ impl Observers {
         component_id: ComponentId,
         flags: &mut ArchetypeFlags,
     ) {
-        if self.on_add.component_observers.contains_key(&component_id) {
+        if self.add.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_ADD_OBSERVER);
         }
 
-        if self
-            .on_insert
-            .component_observers
-            .contains_key(&component_id)
-        {
+        if self.insert.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_INSERT_OBSERVER);
         }
 
-        if self
-            .on_replace
-            .component_observers
-            .contains_key(&component_id)
-        {
+        if self.replace.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_REPLACE_OBSERVER);
         }
 
-        if self
-            .on_remove
-            .component_observers
-            .contains_key(&component_id)
-        {
+        if self.remove.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_REMOVE_OBSERVER);
         }
 
-        if self
-            .on_despawn
-            .component_observers
-            .contains_key(&component_id)
-        {
+        if self.despawn.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_DESPAWN_OBSERVER);
         }
     }
