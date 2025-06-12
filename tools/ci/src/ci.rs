@@ -73,6 +73,7 @@ impl CI {
                 cmds.append(&mut commands::FormatCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::ClippyCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::TestCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::TestRenderAssetsCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::TestCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::IntegrationTestCommand::default().prepare(sh, flags));
                 cmds.append(
@@ -105,6 +106,7 @@ enum Commands {
     Format(commands::FormatCommand),
     Clippy(commands::ClippyCommand),
     Test(commands::TestCommand),
+    TestRenderAssets(commands::TestRenderAssetsCommand),
     TestCheck(commands::TestCheckCommand),
     IntegrationTest(commands::IntegrationTestCommand),
     IntegrationTestCheck(commands::IntegrationTestCheckCommand),
@@ -127,6 +129,7 @@ impl Prepare for Commands {
             Commands::Format(subcommand) => subcommand.prepare(sh, flags),
             Commands::Clippy(subcommand) => subcommand.prepare(sh, flags),
             Commands::Test(subcommand) => subcommand.prepare(sh, flags),
+            Commands::TestRenderAssets(subcommand) => subcommand.prepare(sh, flags),
             Commands::TestCheck(subcommand) => subcommand.prepare(sh, flags),
             Commands::IntegrationTest(subcommand) => subcommand.prepare(sh, flags),
             Commands::IntegrationTestCheck(subcommand) => subcommand.prepare(sh, flags),
