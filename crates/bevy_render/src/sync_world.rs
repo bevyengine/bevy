@@ -1,7 +1,7 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHash;
-use bevy_ecs::lifecycle::{OnAdd, OnRemove};
+use bevy_ecs::lifecycle::{Add, Remove};
 use bevy_ecs::{
     component::Component,
     entity::{ContainsEntity, Entity, EntityEquivalent},
@@ -94,12 +94,12 @@ impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
-            |trigger: On<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.target().unwrap()));
             },
         );
         app.add_observer(
-            |trigger: On<OnRemove, SyncToRenderWorld>,
+            |trigger: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.target().unwrap()) {
@@ -491,7 +491,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        lifecycle::{OnAdd, OnRemove},
+        lifecycle::{Add, Remove},
         observer::On,
         query::With,
         system::{Query, ResMut},
@@ -513,12 +513,12 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity>();
 
         main_world.add_observer(
-            |trigger: On<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.target().unwrap()));
             },
         );
         main_world.add_observer(
-            |trigger: On<OnRemove, SyncToRenderWorld>,
+            |trigger: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.target().unwrap()) {

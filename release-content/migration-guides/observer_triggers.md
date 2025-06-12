@@ -7,7 +7,7 @@ The `Trigger` type used inside observers has been renamed to `On` for a cleaner 
 
 ```rust
 // Old
-commands.add_observer(|trigger: Trigger<OnAdd, Player>| {
+commands.add_observer(|trigger: Trigger<Add, Player>| {
     info!("Spawned player {}", trigger.target());
 });
 

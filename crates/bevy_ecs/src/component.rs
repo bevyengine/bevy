@@ -598,7 +598,7 @@ mod private {
 /// `&mut ...`, created while inserted onto an entity.
 /// In all other ways, they are identical to mutable components.
 /// This restriction allows hooks to observe all changes made to an immutable
-/// component, effectively turning the `OnInsert` and `OnReplace` hooks into a
+/// component, effectively turning the `Insert` and `Replace` hooks into a
 /// `OnMutate` hook.
 /// This is not practical for mutable components, as the runtime cost of invoking
 /// a hook for every exclusive reference created would be far too high.

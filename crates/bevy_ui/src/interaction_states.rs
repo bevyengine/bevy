@@ -2,7 +2,7 @@
 use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
     component::Component,
-    lifecycle::{OnAdd, OnInsert, OnRemove},
+    lifecycle::{Add, Insert, Remove},
     observer::On,
     world::DeferredWorld,
 };
@@ -18,10 +18,7 @@ use bevy_ecs::{
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct InteractionDisabled;
 
-pub(crate) fn on_add_disabled(
-    trigger: On<OnAdd, InteractionDisabled>,
-    mut world: DeferredWorld,
-) {
+pub(crate) fn on_add_disabled(trigger: On<Add, InteractionDisabled>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_disabled();
@@ -29,7 +26,7 @@ pub(crate) fn on_add_disabled(
 }
 
 pub(crate) fn on_remove_disabled(
-    trigger: On<OnRemove, InteractionDisabled>,
+    trigger: On<Remove, InteractionDisabled>,
     mut world: DeferredWorld,
 ) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
@@ -55,7 +52,7 @@ impl Checked {
     }
 }
 
-pub(crate) fn on_insert_is_checked(trigger: On<OnInsert, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_insert_is_checked(trigger: On<Insert, Checked>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
     let checked = entity.get::<Checked>().unwrap().get();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -66,7 +63,7 @@ pub(crate) fn on_insert_is_checked(trigger: On<OnInsert, Checked>, mut world: De
     }
 }
 
-pub(crate) fn on_remove_is_checked(trigger: On<OnRemove, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_is_checked(trigger: On<Remove, Checked>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::False);

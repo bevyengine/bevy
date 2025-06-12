@@ -113,7 +113,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn on_add_mine(
-    trigger: On<OnAdd, Mine>,
+    trigger: On<Add, Mine>,
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
 ) {
@@ -131,7 +131,7 @@ fn on_add_mine(
 
 // Remove despawned mines from our index
 fn on_remove_mine(
-    trigger: On<OnRemove, Mine>,
+    trigger: On<Remove, Mine>,
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
 ) {

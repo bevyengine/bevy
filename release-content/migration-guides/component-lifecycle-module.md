@@ -5,7 +5,7 @@ pull_requests: [19543]
 
 To improve documentation, discoverability and internal organization, we've gathered all of the component lifecycle-related code we could and moved it into a dedicated `lifecycle` module.
 
-The lifecycle / observer types (`OnAdd`, `OnInsert`, `OnRemove`, `OnReplace`, `OnDespawn`) have been moved from the `bevy_ecs::world` to `bevy_ecs::lifecycle`.
+The lifecycle / observer types (`Add`, `Insert`, `Remove`, `Replace`, `Despawn`) have been moved from the `bevy_ecs::world` to `bevy_ecs::lifecycle`.
 
 The same move has been done for the more internal (but public) `ComponentId` constants: `ON_ADD`, `ON_INSERT`, `ON_REMOVE`, `ON_REPLACE`, `ON_DESPAWN`.
 

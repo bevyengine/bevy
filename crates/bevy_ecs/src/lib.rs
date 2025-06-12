@@ -76,7 +76,7 @@ pub mod prelude {
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
-        lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, RemovedComponents},
+        lifecycle::{Add, Despawn, Insert, Remove, RemovedComponents, Replace},
         name::{Name, NameOrEntity},
         observer::{Observer, On},
         query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},

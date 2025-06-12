@@ -410,7 +410,7 @@ mod tests {
         error::Result,
         lifecycle::RemovedComponents,
         name::Name,
-        prelude::{AnyOf, EntityRef, OnAdd, On},
+        prelude::{Add, AnyOf, EntityRef, On},
         query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
         resource::Resource,
         schedule::{
@@ -1902,15 +1902,15 @@ mod tests {
         #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
 
-        fn obs(_trigger: On<OnAdd, Name>) {
+        fn obs(_trigger: On<Add, Name>) {
             todo!()
         }
 
         world.add_observer(obs);
-        world.add_observer(|_trigger: On<OnAdd, Name>| {});
-        world.add_observer(|_trigger: On<OnAdd, Name>| todo!());
+        world.add_observer(|_trigger: On<Add, Name>| {});
+        world.add_observer(|_trigger: On<Add, Name>| todo!());
         #[expect(clippy::unused_unit, reason = "this forces the () return type")]
-        world.add_observer(|_trigger: On<OnAdd, Name>| -> () { todo!() });
+        world.add_observer(|_trigger: On<Add, Name>| -> () { todo!() });
 
         fn my_command(_world: &mut World) {
             todo!()
