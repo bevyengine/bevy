@@ -20,13 +20,13 @@ pub mod prelude {
 use bevy_app::{App, Plugin};
 use bevy_render::settings::WgpuFeatures;
 use pathtracer::PathtracingPlugin;
-use scene::SolariScenePlugin;
+use scene::RaytracingScenePlugin;
 
 /// An experimental plugin for raytraced lighting.
 ///
 /// This plugin provides:
 /// * (Coming soon) - Raytraced direct and indirect lighting.
-/// * [`SolariScenePlugin`] - BLAS building, resource and lighting binding.
+/// * [`RaytracingScenePlugin`] - BLAS building, resource and lighting binding.
 /// * [`PathtracingPlugin`] - A non-realtime pathtracer for validation purposes.
 ///
 /// To get started, add `RaytracingMesh3d` and `MeshMaterial3d::<StandardMaterial>` to your entities.
@@ -34,7 +34,7 @@ pub struct SolariPlugin;
 
 impl Plugin for SolariPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((SolariScenePlugin, PathtracingPlugin));
+        app.add_plugins((RaytracingScenePlugin, PathtracingPlugin));
     }
 }
 

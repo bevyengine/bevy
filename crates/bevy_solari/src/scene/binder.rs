@@ -27,12 +27,12 @@ const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
 const SUN_ANGULAR_DIAMETER_RADIANS: f32 = 0.00930842;
 
 #[derive(Resource)]
-pub struct SolariSceneBindings {
+pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
     pub bind_group_layout: BindGroupLayout,
 }
 
-pub fn prepare_solari_scene_bindings(
+pub fn prepare_raytracing_scene_bindings(
     instances_query: Query<(
         &RaytracingMesh3d,
         &MeshMaterial3d<StandardMaterial>,
@@ -46,9 +46,9 @@ pub fn prepare_solari_scene_bindings(
     fallback_texture: Res<FallbackImage>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut solari_scene_bindings: ResMut<SolariSceneBindings>,
+    mut raytracing_scene_bindings: ResMut<RaytracingSceneBindings>,
 ) {
-    solari_scene_bindings.bind_group = None;
+    raytracing_scene_bindings.bind_group = None;
 
     if instances_query.iter().len() == 0 {
         return;
@@ -211,9 +211,9 @@ pub fn prepare_solari_scene_bindings(
     command_encoder.build_acceleration_structures(&[], [&tlas]);
     render_queue.submit([command_encoder.finish()]);
 
-    solari_scene_bindings.bind_group = Some(render_device.create_bind_group(
-        "solari_scene_bind_group",
-        &solari_scene_bindings.bind_group_layout,
+    raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
+        "raytracing_scene_bind_group",
+        &raytracing_scene_bindings.bind_group_layout,
         &BindGroupEntries::sequential((
             vertex_buffers.as_slice(),
             index_buffers.as_slice(),
@@ -230,14 +230,14 @@ pub fn prepare_solari_scene_bindings(
     ));
 }
 
-impl FromWorld for SolariSceneBindings {
+impl FromWorld for RaytracingSceneBindings {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
         Self {
             bind_group: None,
             bind_group_layout: render_device.create_bind_group_layout(
-                "solari_scene_bind_group_layout",
+                "raytracing_scene_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
                     (
