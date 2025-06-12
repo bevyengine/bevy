@@ -179,7 +179,7 @@ pub struct MeshRayCast<'w, 's> {
     #[doc(hidden)]
     pub culling_query: Query<
         'w,
-        's,
+        'w,
         (
             Read<InheritedVisibility>,
             Read<ViewVisibility>,
@@ -192,7 +192,7 @@ pub struct MeshRayCast<'w, 's> {
     #[doc(hidden)]
     pub mesh_query: Query<
         'w,
-        's,
+        'w,
         (
             Option<Read<Mesh2d>>,
             Option<Read<Mesh3d>>,

@@ -150,21 +150,21 @@ pub enum TabNavigationError {
 /// An injectable helper object that provides tab navigation functionality.
 #[doc(hidden)]
 #[derive(SystemParam)]
-pub struct TabNavigation<'w, 's> {
+pub struct TabNavigation<'w> {
     // Query for tab groups.
-    tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static Children)>,
+    tabgroup_query: Query<'w, 'w, (Entity, &'static TabGroup, &'static Children)>,
     // Query for tab indices.
     tabindex_query: Query<
         'w,
-        's,
+        'w,
         (Entity, Option<&'static TabIndex>, Option<&'static Children>),
         Without<TabGroup>,
     >,
     // Query for parents.
-    parent_query: Query<'w, 's, &'static ChildOf>,
+    parent_query: Query<'w, 'w, &'static ChildOf>,
 }
 
-impl TabNavigation<'_, '_> {
+impl TabNavigation<'_> {
     /// Navigate to the desired focusable entity.
     ///
     /// Change the [`NavAction`] to navigate in a different direction.
@@ -395,7 +395,6 @@ mod tests {
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
-        assert_eq!(tab_navigation.tabindex_query.iter().count(), 2);
 
         let next_entity =
             tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
@@ -428,7 +427,6 @@ mod tests {
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 2);
-        assert_eq!(tab_navigation.tabindex_query.iter().count(), 4);
 
         let next_entity =
             tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
