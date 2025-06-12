@@ -112,11 +112,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(observer);
 }
 
-fn on_add_mine(
-    trigger: On<Add, Mine>,
-    query: Query<&Mine>,
-    mut index: ResMut<SpatialIndex>,
-) {
+fn on_add_mine(trigger: On<Add, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
     let mine = query.get(trigger.target().unwrap()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
@@ -130,11 +126,7 @@ fn on_add_mine(
 }
 
 // Remove despawned mines from our index
-fn on_remove_mine(
-    trigger: On<Remove, Mine>,
-    query: Query<&Mine>,
-    mut index: ResMut<SpatialIndex>,
-) {
+fn on_remove_mine(trigger: On<Remove, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
     let mine = query.get(trigger.target().unwrap()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,

@@ -183,19 +183,17 @@ fn background_and_button() -> impl Bundle + use<> {
                         TextShadow::default(),
                     )],
                 ))
-                .observe(
-                    |mut trigger: On<Pointer<Press>>, mut commands: Commands| {
-                        // by default this event would bubble up further leading to the `CloseContextMenus`
-                        // event being triggered and undoing the opening of one here right away.
-                        trigger.propagate(false);
+                .observe(|mut trigger: On<Pointer<Press>>, mut commands: Commands| {
+                    // by default this event would bubble up further leading to the `CloseContextMenus`
+                    // event being triggered and undoing the opening of one here right away.
+                    trigger.propagate(false);
 
-                        debug!("click: {}", trigger.pointer_location.position);
+                    debug!("click: {}", trigger.pointer_location.position);
 
-                        commands.trigger(OpenContextMenu {
-                            pos: trigger.pointer_location.position,
-                        });
-                    },
-                );
+                    commands.trigger(OpenContextMenu {
+                        pos: trigger.pointer_location.position,
+                    });
+                });
         })),
     )
 }

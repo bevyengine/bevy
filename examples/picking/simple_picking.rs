@@ -25,12 +25,10 @@ fn setup_scene(
             },
         ))
         .observe(on_click_spawn_cube)
-        .observe(
-            |out: On<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
-                let mut text_color = texts.get_mut(out.target().unwrap()).unwrap();
-                text_color.0 = Color::WHITE;
-            },
-        )
+        .observe(|out: On<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
+            let mut text_color = texts.get_mut(out.target().unwrap()).unwrap();
+            text_color.0 = Color::WHITE;
+        })
         .observe(
             |over: On<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
                 let mut color = texts.get_mut(over.target().unwrap()).unwrap();
