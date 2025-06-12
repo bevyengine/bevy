@@ -118,7 +118,7 @@ pub unsafe trait WorldQuery {
     /// access to [`Components`].
     fn get_state(components: &Components) -> Option<Self::State>;
 
-    /// Applies any deferred mutations stored in this [`QueryData`]'s state.
+    /// Applies any deferred mutations stored in this [`WorldQuery`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     ///
     /// [`Commands`]: crate::prelude::Commands
