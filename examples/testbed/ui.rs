@@ -618,6 +618,7 @@ mod radial_gradient {
                                             stops: color_stops.clone(),
                                             position,
                                             shape,
+                                            ..default()
                                         }),
                                     ));
                                 });
