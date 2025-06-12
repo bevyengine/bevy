@@ -143,22 +143,22 @@ impl<'w> EntityWorldMut<'w> {
             return self.add_related::<R>(related);
         };
 
-        // We take the collection here so we can modify it without taking the component itself (this would create archetype move).
+        // We replace the component here with a dummy value so we can modify it without taking it (this would create archetype move).
         // SAFETY: We eventually return the correctly initialized collection into the target.
-        let mut existing_collection = mem::replace(
+        let mut relations = mem::replace(
             existing_relations.into_inner(),
             <R as Relationship>::RelationshipTarget::from_collection_risky(
                 Collection::<R>::with_capacity(0),
             ),
         );
 
-        let existing_relations = existing_collection.collection_mut_risky();
+        let collection = relations.collection_mut_risky();
 
         let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
 
         let id = self.id();
         self.world_scope(|world| {
-            for related in existing_relations.iter() {
+            for related in collection.iter() {
                 if !potential_relations.remove(related) {
                     world.entity_mut(related).remove::<R>();
                 }
@@ -173,9 +173,9 @@ impl<'w> EntityWorldMut<'w> {
         });
 
         // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
-        existing_relations.clear();
-        existing_relations.extend_from_iter(related.iter().copied());
-        self.insert(existing_collection);
+        collection.clear();
+        collection.extend_from_iter(related.iter().copied());
+        self.insert(relations);
 
         self
     }
