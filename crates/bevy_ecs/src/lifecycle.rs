@@ -327,6 +327,7 @@ pub const ON_DESPAWN: ComponentId = ComponentId::new(4);
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+#[doc(alias = "OnAdd")]
 pub struct Add;
 
 /// Trigger emitted when a component is inserted, regardless of whether or not the entity already
@@ -335,6 +336,7 @@ pub struct Add;
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+#[doc(alias = "OnInsert")]
 pub struct Insert;
 
 /// Trigger emitted when a component is removed from an entity, regardless
@@ -345,6 +347,7 @@ pub struct Insert;
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+#[doc(alias = "OnReplace")]
 pub struct Replace;
 
 /// Trigger emitted when a component is removed from an entity, and runs before the component is
@@ -353,6 +356,7 @@ pub struct Replace;
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+#[doc(alias = "OnRemove")]
 pub struct Remove;
 
 /// Trigger emitted for each component on an entity when it is despawned.
@@ -360,6 +364,7 @@ pub struct Remove;
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+#[doc(alias = "OnDespawn")]
 pub struct Despawn;
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
