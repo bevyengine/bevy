@@ -25,7 +25,8 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// `SystemCondition` trait has `Marker` type parameter, which has no special meaning,
 /// but exists to work around the limitation of Rust's trait system.
 ///
-/// Type parameter in return type can be set to `<()>` by calling [`IntoSystem::into_system`],
+/// Type parameter in return type can be set to `<()>` by calling
+/// [`crate::system::IntoSystem::into_system`],
 /// but usually have to be specified when passing a condition to a function.
 ///
 /// ```
