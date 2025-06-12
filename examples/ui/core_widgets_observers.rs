@@ -38,7 +38,7 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 struct DemoButton;
 
 fn on_add_pressed(
-    trigger: Trigger<OnAdd, Pressed>,
+    trigger: On<Add, Pressed>,
     mut buttons: Query<
         (
             &Hovered,
@@ -67,7 +67,7 @@ fn on_add_pressed(
 }
 
 fn on_remove_pressed(
-    trigger: Trigger<OnRemove, Pressed>,
+    trigger: On<Remove, Pressed>,
     mut buttons: Query<
         (
             &Hovered,
@@ -96,7 +96,7 @@ fn on_remove_pressed(
 }
 
 fn on_add_disabled(
-    trigger: Trigger<OnAdd, InteractionDisabled>,
+    trigger: On<Add, InteractionDisabled>,
     mut buttons: Query<
         (
             Has<Pressed>,
@@ -125,7 +125,7 @@ fn on_add_disabled(
 }
 
 fn on_remove_disabled(
-    trigger: Trigger<OnRemove, InteractionDisabled>,
+    trigger: On<Remove, InteractionDisabled>,
     mut buttons: Query<
         (
             Has<Pressed>,
@@ -154,7 +154,7 @@ fn on_remove_disabled(
 }
 
 fn on_change_hover(
-    trigger: Trigger<OnInsert, Hovered>,
+    trigger: On<Insert, Hovered>,
     mut buttons: Query<
         (
             Has<Pressed>,
