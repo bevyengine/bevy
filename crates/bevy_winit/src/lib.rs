@@ -55,7 +55,9 @@ mod winit_monitors;
 mod winit_windows;
 
 thread_local! {
-    static WINIT_WINDOWS: RefCell<WinitWindows> = const { RefCell::new(WinitWindows::new()) };
+    /// Temporary storage of WinitWindows data to replace usage of `!Send` resources. This will be replaced with proper
+    /// storage of `!Send` data after issue #17667 is complete.
+    pub static WINIT_WINDOWS: RefCell<WinitWindows> = const { RefCell::new(WinitWindows::new()) };
 }
 
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
