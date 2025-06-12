@@ -8,7 +8,7 @@ use crate::{
     lifecycle::{ComponentHook, ComponentHooks},
     query::DebugCheckedUnwrap,
     resource::Resource,
-    storage::{SparseSetIndex, SparseSets, Table, TableRow},
+    storage::{HybridMap, SparseSetIndex, SparseSets, Table, TableRow},
     system::{Local, SystemParam},
     world::{FromWorld, World},
 };
@@ -1560,9 +1560,7 @@ impl<'w> ComponentsRegistrator<'w> {
             &mut self
                 .components
                 .components
-                .get_mut(id.0)
-                .debug_checked_unwrap()
-                .as_mut()
+                .get_mut(&id)
                 .debug_checked_unwrap()
         };
 
@@ -1732,7 +1730,7 @@ impl<'w> ComponentsRegistrator<'w> {
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
 pub struct Components {
-    components: Vec<Option<ComponentInfo>>,
+    components: HybridMap<ComponentId, ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occor.
@@ -1751,16 +1749,10 @@ impl Components {
         id: ComponentId,
         descriptor: ComponentDescriptor,
     ) {
+        // Caller ensure id is unique
+        debug_assert!(!self.components.contains_key(&id));
         let info = ComponentInfo::new(id, descriptor);
-        let least_len = id.0 + 1;
-        if self.components.len() < least_len {
-            self.components.resize_with(least_len, || None);
-        }
-        // SAFETY: We just extended the vec to make this index valid.
-        let slot = unsafe { self.components.get_mut(id.0).debug_checked_unwrap() };
-        // Caller ensures id is unique
-        debug_assert!(slot.is_none());
-        *slot = Some(info);
+        unsafe { self.components.insert_unique_unchecked(id, info) };
     }
 
     /// Returns the number of components registered or queued with this instance.
@@ -1822,7 +1814,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0).and_then(|info| info.as_ref())
+        self.components.get(&id)
     }
 
     /// Gets the [`ComponentDescriptor`] of the component with this [`ComponentId`] if it is present.
@@ -1834,8 +1826,8 @@ impl Components {
     #[inline]
     pub fn get_descriptor<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, ComponentDescriptor>> {
         self.components
-            .get(id.0)
-            .and_then(|info| info.as_ref().map(|info| Cow::Borrowed(&info.descriptor)))
+            .get(&id)
+            .map(|info| Cow::Borrowed(&info.descriptor))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -1856,11 +1848,8 @@ impl Components {
     #[inline]
     pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, str>> {
         self.components
-            .get(id.0)
-            .and_then(|info| {
-                info.as_ref()
-                    .map(|info| Cow::Borrowed(info.descriptor.name()))
-            })
+            .get(&id)
+            .map(|info| Cow::Borrowed(info.descriptor.name()))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -1881,20 +1870,12 @@ impl Components {
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         // SAFETY: The caller ensures `id` is valid.
-        unsafe {
-            self.components
-                .get(id.0)
-                .debug_checked_unwrap()
-                .as_ref()
-                .debug_checked_unwrap()
-        }
+        unsafe { self.components.get(&id).debug_checked_unwrap() }
     }
 
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
-        self.components
-            .get_mut(id.0)
-            .and_then(|info| info.as_mut().map(|info| &mut info.hooks))
+        self.components.get_mut(&id).map(|info| &mut info.hooks)
     }
 
     #[inline]
@@ -1903,8 +1884,8 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut RequiredComponents> {
         self.components
-            .get_mut(id.0)
-            .and_then(|info| info.as_mut().map(|info| &mut info.required_components))
+            .get_mut(&id)
+            .map(|info| &mut info.required_components)
     }
 
     /// Registers the given component `R` and [required components] inherited from it as required by `T`.
@@ -2113,9 +2094,7 @@ impl Components {
 
     #[inline]
     pub(crate) fn get_required_by(&self, id: ComponentId) -> Option<&HashSet<ComponentId>> {
-        self.components
-            .get(id.0)
-            .and_then(|info| info.as_ref().map(|info| &info.required_by))
+        self.components.get(&id).map(|info| &info.required_by)
     }
 
     #[inline]
@@ -2124,8 +2103,8 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut HashSet<ComponentId>> {
         self.components
-            .get_mut(id.0)
-            .and_then(|info| info.as_mut().map(|info| &mut info.required_by))
+            .get_mut(&id)
+            .map(|info| &mut info.required_by)
     }
 
     /// Returns true if the [`ComponentId`] is fully registered and valid.
@@ -2133,7 +2112,7 @@ impl Components {
     /// Those ids are still correct, but they are not usable in every context yet.
     #[inline]
     pub fn is_id_valid(&self, id: ComponentId) -> bool {
-        self.components.get(id.0).is_some_and(Option::is_some)
+        self.components.contains_key(&id)
     }
 
     /// Type-erased equivalent of [`Components::valid_component_id()`].
@@ -2310,7 +2289,7 @@ impl Components {
 
     /// Gets an iterator over all components fully registered with this instance.
     pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter().filter_map(Option::as_ref)
+        self.components.values()
     }
 }
 

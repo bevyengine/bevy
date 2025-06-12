@@ -22,11 +22,13 @@
 
 mod blob_array;
 mod blob_vec;
+mod hybrid;
 mod resource;
 mod sparse_set;
 mod table;
 mod thin_array_ptr;
 
+pub use hybrid::*;
 pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
