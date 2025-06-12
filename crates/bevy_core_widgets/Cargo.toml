@@ -2,7 +2,7 @@
 name = "bevy_core_widgets"
 version = "0.16.0-dev"
 edition = "2024"
-description = "Unstyled common widgets for B Bevy Engine"
+description = "Unstyled common widgets for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
