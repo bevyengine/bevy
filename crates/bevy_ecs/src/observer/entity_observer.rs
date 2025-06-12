@@ -109,7 +109,7 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::EntityCloner, event::Event, observer::Trigger, resource::Resource, system::ResMut,
+        entity::EntityCloner, event::Event, observer::On, resource::Resource, system::ResMut,
         world::World,
     };
 
@@ -126,7 +126,7 @@ mod tests {
 
         let e = world
             .spawn_empty()
-            .observe(|_: Trigger<E>, mut res: ResMut<Num>| res.0 += 1)
+            .observe(|_: On<E>, mut res: ResMut<Num>| res.0 += 1)
             .id();
         world.flush();
 

@@ -17,7 +17,7 @@
 //! # struct MyComponent;
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
-//!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
+//!     .observe(|mut trigger: On<Pointer<Click>>| {
 //!         println!("I was just clicked!");
 //!         // Get the underlying pointer event data
 //!         let click_event: &Pointer<Click> = trigger.event();
@@ -39,7 +39,7 @@
 //!
 //! When events are generated, they bubble up the entity hierarchy starting from their target, until
 //! they reach the root or bubbling is halted with a call to
-//! [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate). See [`Observer`] for details.
+//! [`On::propagate`](bevy_ecs::observer::On::propagate). See [`Observer`] for details.
 //!
 //! This allows you to run callbacks when any children of an entity are interacted with, and leads
 //! to succinct, expressive code:
@@ -52,18 +52,18 @@
 //! # struct Greeting;
 //! fn setup(mut commands: Commands) {
 //!     commands.spawn(Transform::default())
-//!         // Spawn your entity here, e.g. a Mesh.
+//!         // Spawn your entity here, e.g. a `Mesh3d`.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
-//!         .observe(|trigger: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
+//!         .observe(|trigger: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
 //!             let mut transform = transforms.get_mut(trigger.target().unwrap()).unwrap();
 //!             let drag = trigger.event();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
-//!         .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+//!         .observe(|trigger: On<Pointer<Click>>, mut commands: Commands| {
 //!             println!("Entity {} goes BOOM!", trigger.target().unwrap());
 //!             commands.entity(trigger.target().unwrap()).despawn();
 //!         })
-//!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
+//!         .observe(|trigger: On<Pointer<Over>>, mut events: EventWriter<Greeting>| {
 //!             events.write(Greeting);
 //!         });
 //! }
@@ -286,7 +286,7 @@ pub type PickSet = PickingSystems;
 ///
 /// Note: for any of these plugins to work, they require a picking backend to be active,
 /// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
-/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::Trigger`]s.
+/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::On`]s.
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
 
