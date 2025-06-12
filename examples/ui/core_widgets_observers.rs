@@ -65,7 +65,7 @@ struct DemoWidgetStates {
 }
 
 fn button_on_add_pressed(
-    trigger: On<OnAdd, Pressed>,
+    trigger: On<Add, Pressed>,
     mut buttons: Query<
         (
             &Hovered,
@@ -94,7 +94,7 @@ fn button_on_add_pressed(
 }
 
 fn button_on_remove_pressed(
-    trigger: On<OnRemove, Pressed>,
+    trigger: On<Remove, Pressed>,
     mut buttons: Query<
         (
             &Hovered,
@@ -123,7 +123,7 @@ fn button_on_remove_pressed(
 }
 
 fn button_on_add_disabled(
-    trigger: On<OnAdd, InteractionDisabled>,
+    trigger: On<Add, InteractionDisabled>,
     mut buttons: Query<
         (
             Has<Pressed>,
@@ -152,7 +152,7 @@ fn button_on_add_disabled(
 }
 
 fn button_on_remove_disabled(
-    trigger: On<OnRemove, InteractionDisabled>,
+    trigger: On<Remove, InteractionDisabled>,
     mut buttons: Query<
         (
             Has<Pressed>,
@@ -181,7 +181,7 @@ fn button_on_remove_disabled(
 }
 
 fn button_on_change_hover(
-    trigger: On<OnInsert, Hovered>,
+    trigger: On<Insert, Hovered>,
     mut buttons: Query<
         (
             Has<Pressed>,
@@ -255,7 +255,7 @@ fn set_button_style(
 }
 
 fn slider_on_add_disabled(
-    trigger: On<OnAdd, InteractionDisabled>,
+    trigger: On<Add, InteractionDisabled>,
     sliders: Query<(Entity, &Hovered), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
@@ -272,7 +272,7 @@ fn slider_on_add_disabled(
 }
 
 fn slider_on_remove_disabled(
-    trigger: On<OnRemove, InteractionDisabled>,
+    trigger: On<Remove, InteractionDisabled>,
     sliders: Query<(Entity, &Hovered), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
@@ -289,7 +289,7 @@ fn slider_on_remove_disabled(
 }
 
 fn slider_on_change_hover(
-    trigger: On<OnInsert, Hovered>,
+    trigger: On<Insert, Hovered>,
     sliders: Query<(Entity, &Hovered, Has<InteractionDisabled>), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
@@ -306,7 +306,7 @@ fn slider_on_change_hover(
 }
 
 fn slider_on_change_value(
-    trigger: On<OnInsert, SliderValue>,
+    trigger: On<Insert, SliderValue>,
     sliders: Query<(Entity, &SliderValue, &SliderRange), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, Has<DemoSliderThumb>), Without<DemoSlider>>,
@@ -323,7 +323,7 @@ fn slider_on_change_value(
 }
 
 fn slider_on_change_range(
-    trigger: On<OnInsert, SliderRange>,
+    trigger: On<Insert, SliderRange>,
     sliders: Query<(Entity, &SliderValue, &SliderRange), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, Has<DemoSliderThumb>), Without<DemoSlider>>,

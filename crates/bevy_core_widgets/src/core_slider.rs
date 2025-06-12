@@ -3,6 +3,7 @@ use core::ops::RangeInclusive;
 use accesskit::{Orientation, Role};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
+use bevy_ecs::event::Event;
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
 use bevy_ecs::system::{In, ResMut};
@@ -240,6 +241,34 @@ pub(crate) fn slider_on_insert_step(trigger: On<Insert, SliderStep>, mut world: 
     }
 }
 
+/// Event which can be triggered on a slider to modify the value (using the `on_change` callback).
+/// This can be used to control the slider via gamepad buttons or other inputs. The value will be
+/// clamped when the event is processed.
+#[derive(Event)]
+pub enum SetSliderValue {
+    /// Set the slider value to a specific value.
+    Absolute(f32),
+    /// Add a delta to the slider value.
+    Relative(f32),
+}
+
+fn slider_on_set_value(
+    mut trigger: On<SetSliderValue>,
+    q_state: Query<(&CoreSlider, &SliderValue, &SliderRange)>,
+    mut commands: Commands,
+) {
+    if let Ok((slider, value, range)) = q_state.get(trigger.target().unwrap()) {
+        trigger.propagate(false);
+        let new_value = match trigger.event() {
+            SetSliderValue::Absolute(new_value) => range.clamp(*new_value),
+            SetSliderValue::Relative(delta) => range.clamp(value.0 + *delta),
+        };
+        if let Some(on_change) = slider.on_change {
+            commands.run_system_with(on_change, new_value);
+        }
+    }
+}
+
 /// Plugin that adds the observers and systems for the [`CoreSlider`] widget.
 pub struct CoreSliderPlugin;
 
@@ -253,6 +282,7 @@ impl Plugin for CoreSliderPlugin {
             .add_observer(slider_on_insert)
             .add_observer(slider_on_insert_value)
             .add_observer(slider_on_insert_range)
-            .add_observer(slider_on_insert_step);
+            .add_observer(slider_on_insert_step)
+            .add_observer(slider_on_set_value);
     }
 }
