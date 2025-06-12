@@ -3,7 +3,10 @@ title: Replace `Gilrs`, `AccessKitAdapters`, and `WinitWindows` resources
 pull_requests: [18386, 17730, 19575]
 ---
 
+## NonSend Resources Replaced
+
 As an effort to remove `!Send` resources in Bevy, we replaced the following resources:
+
 * `Gilrs` - _For wasm32 only, other platforms are unchanged -_ Replaced with `bevy_gilrs::GILRS`
 * `WinitWindows` - Replaced with `bevy_winit::WINIT_WINDOWS`
 * `AccessKitAdapters` - Replaced with `bevy_winit::ACCESS_KIT_ADAPTERS`
@@ -12,7 +15,8 @@ Each of these are now using `thread_local`s to store the data and are temporary 
 
 Here is an example of how the data can now be accessed. This example will use `WINIT_WINDOWS` as an example, but the same technique can be applied to the others:
 
-__Immutable Access__
+### Immutable Access
+
 ```rust
 use bevy_winit::WINIT_WINDOWS;
 
@@ -23,7 +27,8 @@ WINIT_WINDOWS.with_borrow(|winit_windows| {
 });
 ```
 
-__Mutable Access__
+### Mutable Access
+
 ```rust
 use bevy_winit::WINIT_WINDOWS;
 
@@ -35,6 +40,8 @@ WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
 ```
 
 If a borrow is attempted while the data is borrowed elsewhere, the method will panic.
+
+## NonSend Systems
 
 Previously, the use of a `!Send` resource in a system would force the system to execute on the main thread. Since `!Send` resources are removed in Bevy, we needed to create a new way to prevent systems from running on non-main threads. To do this, you can now use `bevy_ecs::system::NonSendMarker` as a system parameter:
 
