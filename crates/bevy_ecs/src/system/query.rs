@@ -2573,6 +2573,20 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// See [`Query`] for more details.
 ///
 /// [System parameter]: crate::system::SystemParam
+///
+/// # Example
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// struct Boss {
+///    health: f32
+/// };
+///
+/// fn hurt_boss(mut boss: Single<&mut Boss>) {
+///    boss.health -= 4.0;
+/// }
+/// ```
+/// Note that because [`Single`] implements `Deref`/`DerefMut` methods and properties like `health` can be accessed directly.
 pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
