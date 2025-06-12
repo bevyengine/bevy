@@ -1,5 +1,5 @@
 use crate::{
-    component::{Component, ComponentCloneBehavior, Mutable, StorageType},
+    component::{Component, ComponentCloneBehavior, Mutable, NoKey, StorageType},
     entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
     lifecycle::{ComponentHook, HookContext},
     world::World,
@@ -15,6 +15,7 @@ pub struct ObservedBy(pub(crate) Vec<Entity>);
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
+    type Key = NoKey<Self>;
 
     fn on_remove() -> Option<ComponentHook> {
         Some(|mut world, HookContext { entity, .. }| {
