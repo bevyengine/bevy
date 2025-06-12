@@ -367,6 +367,26 @@ pub struct Remove;
 #[doc(alias = "OnDespawn")]
 pub struct Despawn;
 
+/// Deprecated in favor of [`Add`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Add`.")]
+pub type OnAdd = Add;
+
+/// Deprecated in favor of [`Insert`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Insert`.")]
+pub type OnInsert = Insert;
+
+/// Deprecated in favor of [`Replace`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Replace`.")]
+pub type OnReplace = Replace;
+
+/// Deprecated in favor of [`Remove`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Remove`.")]
+pub type OnRemove = Remove;
+
+/// Deprecated in favor of [`Despawn`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Despawn`.")]
+pub type OnDespawn = Despawn;
+
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
 #[derive(Event, Debug, Clone, Into)]
