@@ -2423,7 +2423,7 @@ impl Tick {
 pub struct CheckChangeTicks(pub(crate) Tick);
 
 impl CheckChangeTicks {
-    /// Get the present `Tick` that that other ticks get compared to.
+    /// Get the present `Tick` that other ticks get compared to.
     pub fn present_tick(self) -> Tick {
         self.0
     }
