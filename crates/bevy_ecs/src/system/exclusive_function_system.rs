@@ -1,6 +1,6 @@
 use crate::{
     component::{ComponentId, Tick},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
@@ -13,7 +13,7 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
-use super::SystemParamValidationError;
+use super::{SystemParamValidationError, SystemStateFlags};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -88,32 +88,17 @@ where
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
-    }
-
-    #[inline]
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
         &self.system_meta.component_access_set
     }
 
     #[inline]
-    fn is_send(&self) -> bool {
-        // exclusive systems should have access to non-send resources
+    fn flags(&self) -> SystemStateFlags {
+        // non-send , exclusive , no deferred
         // the executor runs exclusive systems on the main thread, so this
         // field reflects that constraint
-        false
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        true
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
         // exclusive systems have no deferred system params
-        false
+        SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
     }
 
     #[inline]

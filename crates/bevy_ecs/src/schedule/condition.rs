@@ -505,9 +505,9 @@ pub mod common_conditions {
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
+        lifecycle::RemovedComponents,
         prelude::{Component, Query, With},
         query::QueryFilter,
-        removal_detection::RemovedComponents,
         resource::Resource,
         system::{AdapterSystem, In, IntoSystem, Local, Res, SystemInput},
     };

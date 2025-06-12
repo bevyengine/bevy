@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // filtering. This tends to work much better for pixel art assets.
     // A good reference when filling this out is to check out [ImageLoaderSettings::default()]
     // and follow to the default implementation of each fields type.
-    // https://docs.rs/bevy/latest/bevy/render/texture/struct.ImageLoaderSettings.html#
+    // https://docs.rs/bevy/latest/bevy/image/struct.ImageLoaderSettings.html
     commands.spawn((
         Sprite {
             image: asset_server.load("bevy_pixel_dark_with_meta.png"),

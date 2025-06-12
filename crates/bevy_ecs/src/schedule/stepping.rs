@@ -475,9 +475,8 @@ impl Stepping {
                     Some(state) => state.clear_behaviors(),
                     None => {
                         warn!(
-                            "stepping is not enabled for schedule {:?}; \
-                            use `.add_stepping({:?})` to enable stepping",
-                            label, label
+                            "stepping is not enabled for schedule {label:?}; \
+                            use `.add_stepping({label:?})` to enable stepping"
                         );
                     }
                 },
@@ -486,9 +485,8 @@ impl Stepping {
                         Some(state) => state.set_behavior(system, behavior),
                         None => {
                             warn!(
-                                "stepping is not enabled for schedule {:?}; \
-                                use `.add_stepping({:?})` to enable stepping",
-                                label, label
+                                "stepping is not enabled for schedule {label:?}; \
+                                use `.add_stepping({label:?})` to enable stepping"
                             );
                         }
                     }
@@ -498,9 +496,8 @@ impl Stepping {
                         Some(state) => state.clear_behavior(system),
                         None => {
                             warn!(
-                                "stepping is not enabled for schedule {:?}; \
-                                use `.add_stepping({:?})` to enable stepping",
-                                label, label
+                                "stepping is not enabled for schedule {label:?}; \
+                                use `.add_stepping({label:?})` to enable stepping"
                             );
                         }
                     }
