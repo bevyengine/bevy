@@ -17,9 +17,8 @@ pub use crate::{
     bundle::StaticBundle,
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::{ComponentHooks, ON_ADD, ON_DESPAWN, ON_INSERT, ON_REMOVE, ON_REPLACE},
-    prelude::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace},
-    world::command_queue::CommandQueue,
+    lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
+    prelude::{Add, Despawn, Insert, Remove, Replace},
 };
 pub use bevy_ecs_macros::FromWorld;
 pub use deferred_world::DeferredWorld;
@@ -149,20 +148,20 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
-        let on_add = OnAdd::register_component_id(self);
-        assert_eq!(ON_ADD, on_add);
+        let on_add = Add::register_component_id(self);
+        assert_eq!(ADD, on_add);
 
-        let on_insert = OnInsert::register_component_id(self);
-        assert_eq!(ON_INSERT, on_insert);
+        let on_insert = Insert::register_component_id(self);
+        assert_eq!(INSERT, on_insert);
 
-        let on_replace = OnReplace::register_component_id(self);
-        assert_eq!(ON_REPLACE, on_replace);
+        let on_replace = Replace::register_component_id(self);
+        assert_eq!(REPLACE, on_replace);
 
-        let on_remove = OnRemove::register_component_id(self);
-        assert_eq!(ON_REMOVE, on_remove);
+        let on_remove = Remove::register_component_id(self);
+        assert_eq!(REMOVE, on_remove);
 
-        let on_despawn = OnDespawn::register_component_id(self);
-        assert_eq!(ON_DESPAWN, on_despawn);
+        let on_despawn = Despawn::register_component_id(self);
+        assert_eq!(DESPAWN, on_despawn);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
@@ -1272,7 +1271,7 @@ impl World {
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
     /// runs the provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -1318,7 +1317,7 @@ impl World {
     /// Temporarily removes a [`Component`] identified by the provided
     /// [`ComponentId`] from the provided [`Entity`] and runs the provided
     /// closure on it, returning the result if the component was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion

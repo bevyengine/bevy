@@ -67,6 +67,10 @@ use event::Event;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
+    #[expect(
+        deprecated,
+        reason = "`Trigger` was deprecated in favor of `On`, and `OnX` lifecycle events were deprecated in favor of `X` events."
+    )]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
@@ -76,9 +80,12 @@ pub mod prelude {
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
-        lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, RemovedComponents},
+        lifecycle::{
+            Add, Despawn, Insert, OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, Remove,
+            RemovedComponents, Replace,
+        },
         name::{Name, NameOrEntity},
-        observer::{Observer, Trigger},
+        observer::{Observer, On, Trigger},
         query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,

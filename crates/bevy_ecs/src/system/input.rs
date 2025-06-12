@@ -2,7 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 use variadics_please::all_tuples;
 
-use crate::{bundle::StaticBundle, prelude::Trigger, system::System};
+use crate::{bundle::StaticBundle, prelude::On, system::System};
 
 /// Trait for types that can be used as input to [`System`]s.
 ///
@@ -11,7 +11,7 @@ use crate::{bundle::StaticBundle, prelude::Trigger, system::System};
 /// - [`In<T>`]: For values
 /// - [`InRef<T>`]: For read-only references to values
 /// - [`InMut<T>`]: For mutable references to values
-/// - [`Trigger<E, B>`]: For [`ObserverSystem`]s
+/// - [`On<E, B>`]: For [`ObserverSystem`]s
 /// - [`StaticSystemInput<I>`]: For arbitrary [`SystemInput`]s in generic contexts
 /// - Tuples of [`SystemInput`]s up to 8 elements
 ///
@@ -222,9 +222,9 @@ impl<'i, T: ?Sized> DerefMut for InMut<'i, T> {
 /// Used for [`ObserverSystem`]s.
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
-impl<E: 'static, B: StaticBundle> SystemInput for Trigger<'_, E, B> {
-    type Param<'i> = Trigger<'i, E, B>;
-    type Inner<'i> = Trigger<'i, E, B>;
+impl<E: 'static, B: StaticBundle> SystemInput for On<'_, E, B> {
+    type Param<'i> = On<'i, E, B>;
+    type Inner<'i> = On<'i, E, B>;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         this

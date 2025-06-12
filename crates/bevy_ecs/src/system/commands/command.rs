@@ -208,7 +208,9 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
     }
 }
 
-/// A [`Command`] that sends a global [`Trigger`](crate::observer::Trigger) without any targets.
+/// A [`Command`] that sends a global [observer] [`Event`] without any targets.
+///
+/// [observer]: crate::observer::Observer
 #[track_caller]
 pub fn trigger(event: impl Event) -> impl Command {
     let caller = MaybeLocation::caller();
@@ -217,7 +219,9 @@ pub fn trigger(event: impl Event) -> impl Command {
     }
 }
 
-/// A [`Command`] that sends a [`Trigger`](crate::observer::Trigger) for the given targets.
+/// A [`Command`] that sends an [observer] [`Event`] for the given targets.
+///
+/// [observer]: crate::observer::Observer
 pub fn trigger_targets(
     event: impl Event,
     targets: impl TriggerTargets + Send + Sync + 'static,
