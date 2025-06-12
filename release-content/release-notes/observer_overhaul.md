@@ -1,8 +1,10 @@
 ---
-title: Rename `Trigger` to `On`
+title: Observer Overhaul
 authors: ["@Jondolf"]
 pull_requests: [19596]
 ---
+
+## Rename `Trigger` to `On`
 
 In past releases, the observer API looked like this:
 
