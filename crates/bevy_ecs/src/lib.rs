@@ -69,7 +69,7 @@ pub mod prelude {
     #[doc(hidden)]
     #[expect(
         deprecated,
-        reason = "`OnX` lifecycle events were deprecated in favor of `X` events."
+        reason = "`Trigger` was deprecated in favor of `On`, and `OnX` lifecycle events were deprecated in favor of `X` events."
     )]
     pub use crate::{
         bundle::Bundle,
@@ -85,7 +85,7 @@ pub mod prelude {
             RemovedComponents, Replace,
         },
         name::{Name, NameOrEntity},
-        observer::{Observer, On},
+        observer::{Observer, On, Trigger},
         query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,

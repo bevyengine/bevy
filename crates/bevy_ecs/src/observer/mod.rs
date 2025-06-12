@@ -177,6 +177,10 @@ pub struct On<'w, E, B: Bundle = ()> {
     _marker: PhantomData<B>,
 }
 
+/// Deprecated in favor of [`On`].
+#[deprecated(since = "0.17.0", note = "Renamed to `On`.")]
+pub type Trigger<'w, E, B = ()> = On<'w, E, B>;
+
 impl<'w, E, B: Bundle> On<'w, E, B> {
     /// Creates a new instance of [`On`] for the given event and observer information.
     pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
