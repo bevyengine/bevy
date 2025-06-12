@@ -152,8 +152,8 @@ pub(crate) fn slider_on_pointer_down(
         &UiGlobalTransform,
     )>,
     q_thumb: Query<(), With<CoreSliderThumb>>,
-    mut focus: ResMut<InputFocus>,
-    mut focus_visible: ResMut<InputFocusVisible>,
+    focus: Option<ResMut<InputFocus>>,
+    focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
     if q_thumb.contains(trigger.target().unwrap()) {
@@ -161,8 +161,12 @@ pub(crate) fn slider_on_pointer_down(
         trigger.propagate(false);
 
         // Set focus to slider and hide focus ring
-        focus.0 = trigger.target();
-        focus_visible.0 = false;
+        if let Some(mut focus) = focus {
+            focus.0 = trigger.target();
+        }
+        if let Some(mut focus_visible) = focus_visible {
+            focus_visible.0 = false;
+        }
     } else if let Ok((slider, value, range, step, node, node_target, transform)) =
         q_slider.get(trigger.target().unwrap())
     {
@@ -170,8 +174,12 @@ pub(crate) fn slider_on_pointer_down(
         trigger.propagate(false);
 
         // Set focus to slider and hide focus ring
-        focus.0 = trigger.target();
-        focus_visible.0 = false;
+        if let Some(mut focus) = focus {
+            focus.0 = trigger.target();
+        }
+        if let Some(mut focus_visible) = focus_visible {
+            focus_visible.0 = false;
+        }
 
         // Detect track click.
         let local_pos = transform.try_inverse().unwrap().transform_point2(
