@@ -81,6 +81,18 @@ pub trait Relationship: Component + Sized {
     /// Creates this [`Relationship`] from the given `entity`.
     fn from(entity: Entity) -> Self;
 
+    /// Changes the current [`Entity`] ID of the related entity to another one.
+    ///
+    /// This is useful for updating the relationship without overwriting other fields stored in `Self`.
+    ///
+    /// # Warning
+    /// This should generally not be called by user code, as modifying the related entity could invalidate the relationship.
+    /// If this method is used, then the same hooks have to run to keep the relationship valid. For example by calling this
+    /// in [`EntityWorldMut::modify_component`].
+    ///
+    /// Prefer to use regular means of insertions when possible.
+    fn set_risky(&mut self, entity: Entity);
+
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     fn on_insert(
         mut world: DeferredWorld,
