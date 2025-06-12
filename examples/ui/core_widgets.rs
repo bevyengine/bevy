@@ -2,7 +2,10 @@
 
 use bevy::{
     color::palettes::basic::*,
-    core_widgets::{CoreButton, CoreSlider, CoreWidgetsPlugin, SliderRange, SliderValue},
+    core_widgets::{
+        CoreButton, CoreSlider, CoreSliderThumb, CoreWidgetsPlugin, SliderRange, SliderValue,
+        TrackClick,
+    },
     ecs::system::SystemId,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex},
@@ -297,6 +300,7 @@ fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) 
         CoreSlider {
             on_change,
             thumb_size: 12.0,
+            track_click: TrackClick::Snap,
         },
         SliderValue(value),
         SliderRange(min..=max),
@@ -328,6 +332,7 @@ fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) 
                 children![(
                     // Thumb
                     DemoSliderThumb,
+                    CoreSliderThumb,
                     Node {
                         display: Display::Flex,
                         width: Val::Px(12.0),

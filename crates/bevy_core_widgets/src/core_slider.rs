@@ -18,7 +18,19 @@ use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
-use bevy_ui::{ComputedNode, InteractionDisabled};
+use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform};
+
+/// Defines how the slider should behave when you click on the track (not the thumb).
+#[derive(Debug, Default)]
+pub enum TrackClick {
+    /// Clicking on the track lets you drag to edit the value, just like clicking on the thumb.
+    #[default]
+    Drag,
+    /// Clicking on the track increments or decrements the slider by [`StepSize`].
+    Step,
+    /// Clicking on the track snaps the value to the clicked position.
+    Snap,
+}
 
 /// A headless slider widget, which can be used to build custom sliders.
 #[derive(Component, Debug, Default)]
@@ -39,14 +51,14 @@ pub struct CoreSlider {
     /// Callback which is called when the slider is dragged or the value is changed via other user
     /// interaction.
     pub on_change: Option<SystemId<In<f32>>>,
+    /// Set the track-clicking behavior for this slider.
+    pub track_click: TrackClick,
     // TODO: Think about whether we want a "vertical" option.
-
-    // TODO: Think about whether we want an option to increment / decrement the value when
-    // we click on the track. Currently we only support changing the value by dragging either the
-    // thumb or the track. This will require distinguishing between track clicks and thumb clicks,
-    // which will likely require a `CoreSliderThumb` marker. We'll also want a "snap to value"
-    // option, which is particularly useful for color sliders.
 }
+
+/// Marker component that identifies which child element is the slider thumb.
+#[derive(Component, Debug, Default)]
+pub struct CoreSliderThumb;
 
 /// A component which stores the current value of the slider.
 #[derive(Component, Debug, Default, PartialEq, Clone)]
@@ -59,6 +71,26 @@ pub struct SliderValue(pub f32);
 pub struct SliderRange(pub RangeInclusive<f32>);
 
 impl SliderRange {
+    /// Returns the minimum allowed value for this slider.
+    pub fn start(&self) -> f32 {
+        *self.0.start()
+    }
+
+    /// Returns the maximum allowed value for this slider.
+    pub fn end(&self) -> f32 {
+        *self.0.end()
+    }
+
+    /// Returns the full span of the range (max - min).
+    pub fn span(&self) -> f32 {
+        self.end() - self.start()
+    }
+
+    /// Returns the center value of the range.
+    pub fn center(&self) -> f32 {
+        (self.start() + self.end()) / 2.0
+    }
+
     /// Constrain a value between the minimum and maximum allowed values for this slider.
     pub fn clamp(&self, value: f32) -> f32 {
         value.clamp(*self.0.start(), *self.0.end())
@@ -104,21 +136,70 @@ pub struct CoreSliderDragState {
 }
 
 pub(crate) fn slider_on_pointer_down(
-    trigger: On<Pointer<Press>>,
-    q_state: Query<(), With<CoreSlider>>,
+    mut trigger: On<Pointer<Press>>,
+    q_slider: Query<(
+        &CoreSlider,
+        &SliderValue,
+        &SliderRange,
+        &SliderStep,
+        &ComputedNode,
+        &ComputedNodeTarget,
+        &UiGlobalTransform,
+    )>,
+    q_thumb: Query<(), With<CoreSliderThumb>>,
     mut focus: ResMut<InputFocus>,
     mut focus_visible: ResMut<InputFocusVisible>,
+    mut commands: Commands,
 ) {
-    if q_state.contains(trigger.target().unwrap()) {
+    if q_thumb.contains(trigger.target().unwrap()) {
+        // Thumb click, stop propagation to prevent track click.
+        trigger.propagate(false);
+
         // Set focus to slider and hide focus ring
         focus.0 = trigger.target();
         focus_visible.0 = false;
+    } else if let Ok((slider, value, range, step, node, node_target, transform)) =
+        q_slider.get(trigger.target().unwrap())
+    {
+        // Track click
+        trigger.propagate(false);
+
+        // Set focus to slider and hide focus ring
+        focus.0 = trigger.target();
+        focus_visible.0 = false;
+
+        // Detect track click.
+        let local_pos = transform.try_inverse().unwrap().transform_point2(
+            trigger.event().pointer_location.position * node_target.scale_factor(),
+        );
+        let click_val = local_pos.x * range.span()
+            / (node.size().x - slider.thumb_size * node_target.scale_factor())
+            + range.center();
+
+        // Compute new value from click position
+        let new_value = range.clamp(match slider.track_click {
+            TrackClick::Drag => {
+                return;
+            }
+            TrackClick::Step => {
+                if click_val < value.0 {
+                    value.0 - step.0
+                } else {
+                    value.0 + step.0
+                }
+            }
+            TrackClick::Snap => click_val,
+        });
+
+        if let Some(on_change) = slider.on_change {
+            commands.run_system_with(on_change, new_value);
+        }
     }
 }
 
 pub(crate) fn slider_on_drag_start(
     mut trigger: On<Pointer<DragStart>>,
-    mut q_state: Query<
+    mut q_slider: Query<
         (
             &SliderValue,
             &mut CoreSliderDragState,
@@ -127,7 +208,7 @@ pub(crate) fn slider_on_drag_start(
         With<CoreSlider>,
     >,
 ) {
-    if let Ok((value, mut drag, disabled)) = q_state.get_mut(trigger.target().unwrap()) {
+    if let Ok((value, mut drag, disabled)) = q_slider.get_mut(trigger.target().unwrap()) {
         trigger.propagate(false);
         if !disabled {
             drag.dragging = true;
@@ -138,7 +219,7 @@ pub(crate) fn slider_on_drag_start(
 
 pub(crate) fn slider_on_drag(
     mut trigger: On<Pointer<Drag>>,
-    mut q_state: Query<(
+    mut q_slider: Query<(
         &ComputedNode,
         &CoreSlider,
         &SliderRange,
@@ -146,17 +227,17 @@ pub(crate) fn slider_on_drag(
     )>,
     mut commands: Commands,
 ) {
-    if let Ok((node, slider, range, drag)) = q_state.get_mut(trigger.target().unwrap()) {
+    if let Ok((node, slider, range, drag)) = q_slider.get_mut(trigger.target().unwrap()) {
         trigger.propagate(false);
         if drag.dragging {
             let distance = trigger.event().distance;
             let slider_width =
                 (node.size().x * node.inverse_scale_factor - slider.thumb_size).max(1.0);
-            let span = range.0.end() - range.0.start();
+            let span = range.span();
             let new_value = if span > 0. {
                 range.clamp(drag.offset + (distance.x * span) / slider_width)
             } else {
-                range.0.start() + span * 0.5
+                range.start() + span * 0.5
             };
 
             if let Some(on_change) = slider.on_change {
@@ -168,9 +249,9 @@ pub(crate) fn slider_on_drag(
 
 pub(crate) fn slider_on_drag_end(
     mut trigger: On<Pointer<DragEnd>>,
-    mut q_state: Query<(&CoreSlider, &mut CoreSliderDragState)>,
+    mut q_slider: Query<(&CoreSlider, &mut CoreSliderDragState)>,
 ) {
-    if let Ok((_slider, mut drag)) = q_state.get_mut(trigger.target().unwrap()) {
+    if let Ok((_slider, mut drag)) = q_slider.get_mut(trigger.target().unwrap()) {
         trigger.propagate(false);
         if drag.dragging {
             drag.dragging = false;
@@ -180,7 +261,7 @@ pub(crate) fn slider_on_drag_end(
 
 fn slider_on_key_input(
     mut trigger: On<FocusedInput<KeyboardInput>>,
-    q_state: Query<(
+    q_slider: Query<(
         &CoreSlider,
         &SliderValue,
         &SliderRange,
@@ -189,14 +270,14 @@ fn slider_on_key_input(
     )>,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range, step, disabled)) = q_state.get(trigger.target().unwrap()) {
+    if let Ok((slider, value, range, step, disabled)) = q_slider.get(trigger.target().unwrap()) {
         let event = &trigger.event().input;
         if !disabled && event.state == ButtonState::Pressed {
             let new_value = match event.key_code {
                 KeyCode::ArrowLeft => range.clamp(value.0 - step.0),
                 KeyCode::ArrowRight => range.clamp(value.0 + step.0),
-                KeyCode::Home => *range.0.start(),
-                KeyCode::End => *range.0.end(),
+                KeyCode::Home => range.start(),
+                KeyCode::End => range.end(),
                 _ => {
                     return;
                 }
@@ -254,10 +335,10 @@ pub enum SetSliderValue {
 
 fn slider_on_set_value(
     mut trigger: On<SetSliderValue>,
-    q_state: Query<(&CoreSlider, &SliderValue, &SliderRange)>,
+    q_slider: Query<(&CoreSlider, &SliderValue, &SliderRange)>,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range)) = q_state.get(trigger.target().unwrap()) {
+    if let Ok((slider, value, range)) = q_slider.get(trigger.target().unwrap()) {
         trigger.propagate(false);
         let new_value = match trigger.event() {
             SetSliderValue::Absolute(new_value) => range.clamp(*new_value),
