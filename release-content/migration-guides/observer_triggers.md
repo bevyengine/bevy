@@ -1,13 +1,13 @@
 ---
 title: Observer Triggers
-pull_requests: [19440]
+pull_requests: [19440, 19596]
 ---
 
 The `Trigger` type used inside observers has been renamed to `On` for a cleaner API.
 
 ```rust
 // Old
-commands.add_observer(|trigger: Trigger<Add, Player>| {
+commands.add_observer(|trigger: Trigger<OnAdd, Player>| {
     info!("Spawned player {}", trigger.target());
 });
 
@@ -16,6 +16,11 @@ commands.add_observer(|trigger: On<Add, Player>| {
     info!("Spawned player {}", trigger.target());
 });
 ```
+
+To reduce repetition and improve readability, the `OnAdd`, `OnInsert`, `OnReplace`, `OnRemove`, and `OnDespawn`
+observer events have also been renamed to `Add`, `Insert`, `Replace`, `Remove`, and `Despawn` respectively.
+In rare cases where the `Add` event conflicts with the `std::ops::Add` trait, you may need to disambiguate,
+for example by using `ops::Add` for the trait.
 
 Observers may be triggered on particular entities or globally.
 Previously, a global trigger would claim to trigger on a particular `Entity`, `Entity::PLACEHOLDER`.
