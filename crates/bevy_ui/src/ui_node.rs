@@ -329,9 +329,9 @@ impl Default for ComputedNode {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct ScrollPosition {
-    /// How far across the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to right)
+    /// How far across the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to the left)
     pub offset_x: f32,
-    /// How far down the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to top)
+    /// How far down the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to the top)
     pub offset_y: f32,
 }
 
