@@ -14,11 +14,8 @@ pub mod unsafe_world_cell;
 pub mod reflect;
 
 pub use crate::{
-    bundle::StaticBundle,
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
-    error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
-    prelude::{Add, Despawn, Insert, Remove, Replace},
+    world::command_queue::CommandQueue,
 };
 pub use bevy_ecs_macros::FromWorld;
 pub use deferred_world::DeferredWorld;
@@ -36,7 +33,7 @@ use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
         Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
-        NoBundleEffect,
+        NoBundleEffect, StaticBundle,
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -46,8 +43,12 @@ use crate::{
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
+    error::{DefaultErrorHandler, ErrorHandler},
     event::{Event, EventId, Events, SendBatchIds},
-    lifecycle::RemovedComponentEvents,
+    lifecycle::{
+        Add, ComponentHooks, Despawn, Insert, Remove, RemovedComponentEvents, Replace, ADD,
+        DESPAWN, INSERT, REMOVE, REPLACE,
+    },
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
