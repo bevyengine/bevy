@@ -231,7 +231,7 @@ pub(crate) fn check_system_change_tick(
     system_name: &str,
 ) {
     if last_run.check_tick(check) {
-        let age = check.get().relative_to(*last_run).get();
+        let age = check.present_tick().relative_to(*last_run).get();
         warn!(
             "System '{system_name}' has not run for {age} ticks. \
             Changes older than {} ticks will not be detected.",
