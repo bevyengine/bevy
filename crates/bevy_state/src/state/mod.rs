@@ -642,6 +642,105 @@ mod tests {
         }
     }
 
+    // Test SubState that depends on multiple source states.
+    #[derive(PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum MultiSourceSubState {
+        #[default]
+        Active,
+    }
+
+    impl SubStates for MultiSourceSubState {
+        type SourceStates = (SimpleState, SimpleState2);
+
+        fn should_exist(
+            (simple_state, simple_state2): (SimpleState, SimpleState2),
+        ) -> Option<Self> {
+            // SubState should exist when:
+            // - SimpleState is B(true), OR
+            // - SimpleState2 is B2
+            match (simple_state, simple_state2) {
+                (SimpleState::B(true), _) | (_, SimpleState2::B2) => Some(Self::Active),
+                _ => None,
+            }
+        }
+    }
+
+    impl States for MultiSourceSubState {
+        const DEPENDENCY_DEPTH: usize = <Self as SubStates>::SourceStates::SET_DEPENDENCY_DEPTH + 1;
+    }
+
+    impl FreelyMutableState for MultiSourceSubState {}
+
+    /// This test ensures that [`SubStates`] with multiple source states react
+    /// when any source changes.
+    #[test]
+    fn sub_state_with_multiple_sources_should_react_to_any_source_change() {
+        let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState2>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<MultiSourceSubState>>(&mut world);
+
+        world.init_resource::<State<SimpleState>>();
+        world.init_resource::<State<SimpleState2>>();
+
+        let mut schedules = Schedules::new();
+        let mut apply_changes = Schedule::new(StateTransition);
+        SimpleState::register_state(&mut apply_changes);
+        SimpleState2::register_state(&mut apply_changes);
+        MultiSourceSubState::register_sub_state_systems(&mut apply_changes);
+        schedules.insert(apply_changes);
+
+        world.insert_resource(schedules);
+        setup_state_transitions_in_world(&mut world);
+
+        // Initial state: SimpleState::A, SimpleState2::A1 and
+        // MultiSourceSubState should not exist yet.
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::A1);
+        assert!(!world.contains_resource::<State<MultiSourceSubState>>());
+
+        // Change only SimpleState to B(true) - this should trigger
+        // MultiSourceSubState.
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(true)
+        );
+        assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::A1);
+        // The sub state should exist because SimpleState changed to B(true).
+        assert!(world.contains_resource::<State<MultiSourceSubState>>());
+
+        // Reset to initial state.
+        world.insert_resource(NextState::Pending(SimpleState::A));
+        world.run_schedule(StateTransition);
+        assert!(!world.contains_resource::<State<MultiSourceSubState>>());
+
+        // Now change only SimpleState2 to B2 - this should also trigger
+        // MultiSourceSubState creation.
+        world.insert_resource(NextState::Pending(SimpleState2::B2));
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::B2);
+        // The sub state should exist because SimpleState2 changed to B2.
+        assert!(world.contains_resource::<State<MultiSourceSubState>>());
+
+        // Finally, test that it works when both change simultaneously.
+        world.insert_resource(NextState::Pending(SimpleState::B(false)));
+        world.insert_resource(NextState::Pending(SimpleState2::A1));
+        world.run_schedule(StateTransition);
+        // After this transition, the state should not exist since SimpleState
+        // is B(false).
+        assert!(!world.contains_resource::<State<MultiSourceSubState>>());
+
+        // Change both at the same time.
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.insert_resource(NextState::Pending(SimpleState2::B2));
+        world.run_schedule(StateTransition);
+        assert!(world.contains_resource::<State<MultiSourceSubState>>());
+    }
+
     #[test]
     fn check_transition_orders() {
         let mut world = World::new();
