@@ -1,5 +1,6 @@
 use bevy_ecs::event::{
-    Event, EventIterator, EventIteratorWithId, EventMutIterator, EventMutIteratorWithId, Events,
+    BufferedEvent, EventIterator, EventIteratorWithId, EventMutIterator, EventMutIteratorWithId,
+    Events,
 };
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::event::{EventMutParIter, EventParIter};
@@ -19,9 +20,9 @@ use core::marker::PhantomData;
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::event::{Event, Events, EventCursor};
+/// use bevy_ecs::event::{BufferedEvent, Events, EventCursor};
 ///
-/// #[derive(Event, Clone, Debug)]
+/// #[derive(BufferedEvent, Clone, Debug)]
 /// struct MyEvent;
 ///
 /// /// A system that both sends and receives events using a [`Local`] [`EventCursor`].
@@ -50,12 +51,12 @@ use core::marker::PhantomData;
 /// [`EventReader`]: super::EventReader
 /// [`EventMutator`]: super::EventMutator
 #[derive(Debug)]
-pub struct EventCursor<E: Event> {
+pub struct EventCursor<E: BufferedEvent> {
     pub(super) last_event_count: usize,
     pub(super) _marker: PhantomData<E>,
 }
 
-impl<E: Event> Default for EventCursor<E> {
+impl<E: BufferedEvent> Default for EventCursor<E> {
     fn default() -> Self {
         EventCursor {
             last_event_count: 0,
@@ -64,7 +65,7 @@ impl<E: Event> Default for EventCursor<E> {
     }
 }
 
-impl<E: Event> Clone for EventCursor<E> {
+impl<E: BufferedEvent> Clone for EventCursor<E> {
     fn clone(&self) -> Self {
         EventCursor {
             last_event_count: self.last_event_count,
@@ -73,7 +74,7 @@ impl<E: Event> Clone for EventCursor<E> {
     }
 }
 
-impl<E: Event> EventCursor<E> {
+impl<E: BufferedEvent> EventCursor<E> {
     /// See [`EventReader::read`](super::EventReader::read)
     pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
         self.read_with_id(events).without_id()

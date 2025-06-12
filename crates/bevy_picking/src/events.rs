@@ -115,6 +115,8 @@ where
     const AUTO_PROPAGATE: bool = true;
 }
 
+impl<E> BufferedEvent for Pointer<E> where E: Debug + Clone + Reflect {}
+
 impl<E: Debug + Clone + Reflect> core::fmt::Display for Pointer<E> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!(

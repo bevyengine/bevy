@@ -53,7 +53,9 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events},
+    event::{
+        BufferedEvent, Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events,
+    },
     relationship::RelationshipHookMode,
     storage::SparseSet,
     system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -389,7 +391,7 @@ pub type OnDespawn = Despawn;
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
-#[derive(Event, Debug, Clone, Into)]
+#[derive(BufferedEvent, Debug, Clone, Into)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Clone))]
 pub struct RemovedComponentEntity(Entity);

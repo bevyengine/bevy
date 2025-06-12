@@ -574,6 +574,12 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
 
+/// Implement the `BufferedEvent` trait.
+#[proc_macro_derive(BufferedEvent)]
+pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
+    component::derive_buffered_event(input)
+}
+
 /// Implement the `Resource` trait.
 #[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {

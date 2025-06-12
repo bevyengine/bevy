@@ -139,14 +139,14 @@ pub struct InputFocusVisible(pub bool);
 /// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
-pub struct FocusedInput<E: Event + Clone> {
+pub struct FocusedInput<E: BufferedEvent + Clone> {
     /// The underlying input event.
     pub input: E,
     /// The primary window entity.
     window: Entity,
 }
 
-impl<E: Event + Clone> Event for FocusedInput<E> {
+impl<E: BufferedEvent + Clone> Event for FocusedInput<E> {
     type Traversal = WindowTraversal;
 
     const AUTO_PROPAGATE: bool = true;
@@ -159,7 +159,7 @@ pub struct WindowTraversal {
     window: Option<&'static Window>,
 }
 
-impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
+impl<E: BufferedEvent + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
     fn traverse(item: Self::Item<'_>, event: &FocusedInput<E>) -> Option<Entity> {
         let WindowTraversalItem { child_of, window } = item;
 
@@ -228,7 +228,7 @@ pub fn set_initial_focus(
 
 /// System which dispatches bubbled input events to the focused entity, or to the primary window
 /// if no entity has focus.
-pub fn dispatch_focused_input<E: Event + Clone>(
+pub fn dispatch_focused_input<E: BufferedEvent + Clone>(
     mut key_events: EventReader<E>,
     focus: Res<InputFocus>,
     windows: Query<Entity, With<PrimaryWindow>>,

@@ -2816,9 +2816,9 @@ mod tests {
     #[test]
     #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `EventReader<MissingEvent>::events` failed validation: Event not initialized"]
     fn missing_event_error() {
-        use crate::prelude::{Event, EventReader};
+        use crate::prelude::{BufferedEvent, EventReader};
 
-        #[derive(Event)]
+        #[derive(BufferedEvent)]
         pub struct MissingEvent;
 
         let mut schedule = crate::schedule::Schedule::default();

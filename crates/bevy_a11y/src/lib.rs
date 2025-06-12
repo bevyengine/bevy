@@ -26,9 +26,7 @@ use accesskit::Node;
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Event},
-    resource::Resource,
-    schedule::SystemSet,
+    component::Component, event::BufferedEvent, resource::Resource, schedule::SystemSet,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -44,7 +42,7 @@ use serde::{Deserialize, Serialize};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
-#[derive(Event, Deref, DerefMut)]
+#[derive(BufferedEvent, Deref, DerefMut)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct ActionRequest(pub accesskit::ActionRequest);
 

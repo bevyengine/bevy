@@ -11,31 +11,49 @@ use core::{
     marker::PhantomData,
 };
 
-/// Something that "happens" and might be read / observed by app logic.
+/// Something that "happens" and can be observed by app logic for push-based event handling.
 ///
-/// Events can be stored in an [`Events<E>`] resource
-/// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
+/// Events can be "triggered" on a [`World`], which will then cause any global [`Observer`]
+/// watching that event to run. Events can also be triggered for specific [`TriggerTargets`],
+/// typically entities, which will only fire off observers watching those targets.
 ///
-/// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
+/// Events are normally processed immediately after they are triggered, at the next command flush.
+/// This makes them suitable for callback-like patterns where various event handlers respond to
+/// events immediately, even recursively triggering other events.
+///
+/// Targeted events support optional propagation from one entity target to another
+/// based on the [`Event::Traversal`] type associated with the event.
 ///
 /// Events must be thread-safe.
 ///
 /// ## Derive
-/// This trait can be derived.
-/// Adding `auto_propagate` sets [`Self::AUTO_PROPAGATE`] to true.
-/// Adding `traversal = "X"` sets [`Self::Traversal`] to be of type "X".
+///
+/// The [`Event`] trait can be derived.
+/// Adding `auto_propagate` sets [`Event::AUTO_PROPAGATE`] to true,
+/// while adding `traversal = "X"` sets [`Event::Traversal`] to be of type "X".
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
 /// #[derive(Event)]
-/// #[event(auto_propagate)]
+/// #[event(auto_propagate, traversal = &'static ChildOf)]
 /// struct MyEvent;
 /// ```
 ///
+/// # Buffered Events
+///
+/// Sometimes, you may want events to be buffered and deferred instead of processing them immediately.
+///
+/// The [`BufferedEvent`] trait provides a simpler, pull-based event handling system that allows you
+/// to write events using an [`EventWriter`] and read them later using an [`EventReader`].
+/// This requires periodically polling the world for new events, but can be more efficient for
+/// batch processing a large number of events at once, and allows events to be evaluated at
+/// fixed points in the schedule rather than immediately when they are sent.
+///
+/// See the [`BufferedEvent`] trait for more details.
 ///
 /// [`World`]: crate::world::World
-/// [`ComponentId`]: crate::component::ComponentId
+/// [`TriggerTargets`]: crate::observer::TriggerTargets
 /// [`Observer`]: crate::observer::Observer
 /// [`Events<E>`]: super::Events
 /// [`EventReader`]: super::EventReader
@@ -90,6 +108,77 @@ pub trait Event: Send + Sync + 'static {
     }
 }
 
+/// A buffered event for pull-based event handling.
+///
+/// Buffered events can be written with [`EventWriter`] and read using the [`EventReader`] system parameter.
+/// These events are stored in the [`Events<E>`] resource, and require periodically polling the world for new events,
+/// typically in a system that runs as part of a schedule.
+///
+/// While the polling imposes a small overhead, buffered events are useful for efficiently batch processing
+/// a large number of events at once. This can make them more efficient than [`Event`]s used by [`Observer`]s
+/// for events that happen at a high frequency or in large quantities.
+///
+/// Unlike [`Event`]s used by observers, buffered events are evaluated at fixed points in the schedule
+/// rather than immediately when they are sent. This allows for more predictable scheduling and deferring
+/// event processing to a later point in time.
+///
+/// Buffered events do *not* trigger observers automatically when they are written.
+/// However, it is possible to derive both [`Event`] and [`BufferedEvent`] for the same type
+/// in case you want both buffered and immediate event handling for the same event.
+///
+/// Buffered events must be thread-safe.
+///
+/// # Usage
+///
+/// The [`BufferedEvent`] trait can be easily derived:
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(BufferedEvent, Debug)]
+/// struct MyEvent;
+/// ```
+///
+/// The event can then be written to the event buffer using an [`EventWriter`]:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(BufferedEvent)]
+/// # struct MyEvent;
+/// #
+/// fn my_system(mut writer: EventWriter<MyEvent>) {
+///     writer.write(MyEvent);
+/// }
+/// ```
+///
+/// And read using an [`EventReader`]:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(BufferedEvent)]
+/// # struct MyEvent;
+/// #
+/// fn my_system(mut reader: EventReader<MyEvent>) {
+///     // Process the events
+///     for event in reader.read() {
+///         println!("Received event: {:?}", event);
+///     }
+/// }
+/// ```
+///
+/// [`World`]: crate::world::World
+/// [`Observer`]: crate::observer::Observer
+/// [`Events<E>`]: super::Events
+/// [`EventReader`]: super::EventReader
+/// [`EventWriter`]: super::EventWriter
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `BufferedEvent`",
+    label = "invalid `BufferedEvent`",
+    note = "consider annotating `{Self}` with `#[derive(BufferedEvent)]`"
+)]
+pub trait BufferedEvent: Send + Sync + 'static {}
+
 /// An internal type that implements [`Component`] for a given [`Event`] type.
 ///
 /// This exists so we can easily get access to a unique [`ComponentId`] for each [`Event`] type,
@@ -116,7 +205,7 @@ struct EventWrapperComponent<E: Event + ?Sized>(PhantomData<E>);
     derive(Reflect),
     reflect(Clone, Debug, PartialEq, Hash)
 )]
-pub struct EventId<E: Event> {
+pub struct EventId<E: BufferedEvent> {
     /// Uniquely identifies the event associated with this ID.
     // This value corresponds to the order in which each event was added to the world.
     pub id: usize,
@@ -126,21 +215,21 @@ pub struct EventId<E: Event> {
     pub(super) _marker: PhantomData<E>,
 }
 
-impl<E: Event> Copy for EventId<E> {}
+impl<E: BufferedEvent> Copy for EventId<E> {}
 
-impl<E: Event> Clone for EventId<E> {
+impl<E: BufferedEvent> Clone for EventId<E> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<E: Event> fmt::Display for EventId<E> {
+impl<E: BufferedEvent> fmt::Display for EventId<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         <Self as fmt::Debug>::fmt(self, f)
     }
 }
 
-impl<E: Event> fmt::Debug for EventId<E> {
+impl<E: BufferedEvent> fmt::Debug for EventId<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -151,27 +240,27 @@ impl<E: Event> fmt::Debug for EventId<E> {
     }
 }
 
-impl<E: Event> PartialEq for EventId<E> {
+impl<E: BufferedEvent> PartialEq for EventId<E> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<E: Event> Eq for EventId<E> {}
+impl<E: BufferedEvent> Eq for EventId<E> {}
 
-impl<E: Event> PartialOrd for EventId<E> {
+impl<E: BufferedEvent> PartialOrd for EventId<E> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<E: Event> Ord for EventId<E> {
+impl<E: BufferedEvent> Ord for EventId<E> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.id.cmp(&other.id)
     }
 }
 
-impl<E: Event> Hash for EventId<E> {
+impl<E: BufferedEvent> Hash for EventId<E> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Hash::hash(&self.id, state);
     }
@@ -179,7 +268,7 @@ impl<E: Event> Hash for EventId<E> {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub(crate) struct EventInstance<E: Event> {
+pub(crate) struct EventInstance<E: BufferedEvent> {
     pub event_id: EventId<E>,
     pub event: E,
 }

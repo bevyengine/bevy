@@ -341,7 +341,7 @@ impl App {
         self
     }
 
-    /// Initializes `T` event handling by inserting an event queue resource ([`Events::<T>`])
+    /// Initializes [`BufferedEvent`] handling for `T` by inserting an event queue resource ([`Events::<T>`])
     /// and scheduling an [`event_update_system`] in [`First`].
     ///
     /// See [`Events`] for information on how to define events.
@@ -352,7 +352,7 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(Event)]
+    /// # #[derive(BufferedEvent)]
     /// # struct MyEvent;
     /// # let mut app = App::new();
     /// #
@@ -360,7 +360,7 @@ impl App {
     /// ```
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Event,
+        T: BufferedEvent,
     {
         self.main_mut().add_event::<T>();
         self
@@ -1404,7 +1404,7 @@ fn run_once(mut app: App) -> AppExit {
     app.should_exit().unwrap_or(AppExit::Success)
 }
 
-/// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
+/// A [`BufferedEvent`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
 /// This event can be used to detect when an exit is requested. Make sure that systems listening
@@ -1414,7 +1414,7 @@ fn run_once(mut app: App) -> AppExit {
 /// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
-#[derive(Event, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(BufferedEvent, Debug, Clone, Default, PartialEq, Eq)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
@@ -1482,7 +1482,7 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::{Event, EventWriter, Events},
+        event::{BufferedEvent, Event, EventWriter, Events},
         lifecycle::RemovedComponents,
         query::With,
         resource::Resource,
@@ -1848,7 +1848,7 @@ mod tests {
     }
     #[test]
     fn events_should_be_updated_once_per_update() {
-        #[derive(Event, Clone)]
+        #[derive(BufferedEvent, Clone)]
         struct TestEvent;
 
         let mut app = App::new();

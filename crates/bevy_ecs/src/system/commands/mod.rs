@@ -20,7 +20,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::Event,
+    event::{BufferedEvent, Event},
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -1109,7 +1109,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.spawn(Observer::new(observer))
     }
 
-    /// Sends an arbitrary [`Event`].
+    /// Sends an arbitrary [`BufferedEvent`].
     ///
     /// This is a convenience method for sending events
     /// without requiring an [`EventWriter`](crate::event::EventWriter).
@@ -1122,7 +1122,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// If these events are performance-critical or very frequently sent,
     /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
     #[track_caller]
-    pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
         self.queue(command::send_event(event));
         self
     }

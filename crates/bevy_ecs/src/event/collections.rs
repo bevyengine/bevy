@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use bevy_ecs::{
     change_detection::MaybeLocation,
-    event::{Event, EventCursor, EventId, EventInstance},
+    event::{BufferedEvent, EventCursor, EventId, EventInstance},
     resource::Resource,
 };
 use core::{
@@ -39,9 +39,9 @@ use {
 ///
 /// # Example
 /// ```
-/// use bevy_ecs::event::{Event, Events};
+/// use bevy_ecs::event::{BufferedEvent, Events};
 ///
-/// #[derive(Event)]
+/// #[derive(BufferedEvent)]
 /// struct MyEvent {
 ///     value: usize
 /// }
@@ -91,7 +91,7 @@ use {
 /// [`event_update_system`]: super::event_update_system
 #[derive(Debug, Resource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
-pub struct Events<E: Event> {
+pub struct Events<E: BufferedEvent> {
     /// Holds the oldest still active events.
     /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
     pub(crate) events_a: EventSequence<E>,
@@ -101,7 +101,7 @@ pub struct Events<E: Event> {
 }
 
 // Derived Default impl would incorrectly require E: Default
-impl<E: Event> Default for Events<E> {
+impl<E: BufferedEvent> Default for Events<E> {
     fn default() -> Self {
         Self {
             events_a: Default::default(),
@@ -111,7 +111,7 @@ impl<E: Event> Default for Events<E> {
     }
 }
 
-impl<E: Event> Events<E> {
+impl<E: BufferedEvent> Events<E> {
     /// Returns the index of the oldest event stored in the event buffer.
     pub fn oldest_event_count(&self) -> usize {
         self.events_a.start_event_count
@@ -286,7 +286,7 @@ impl<E: Event> Events<E> {
     }
 }
 
-impl<E: Event> Extend<E> for Events<E> {
+impl<E: BufferedEvent> Extend<E> for Events<E> {
     #[track_caller]
     fn extend<I>(&mut self, iter: I)
     where
@@ -321,13 +321,13 @@ impl<E: Event> Extend<E> for Events<E> {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
-pub(crate) struct EventSequence<E: Event> {
+pub(crate) struct EventSequence<E: BufferedEvent> {
     pub(crate) events: Vec<EventInstance<E>>,
     pub(crate) start_event_count: usize,
 }
 
 // Derived Default impl would incorrectly require E: Default
-impl<E: Event> Default for EventSequence<E> {
+impl<E: BufferedEvent> Default for EventSequence<E> {
     fn default() -> Self {
         Self {
             events: Default::default(),
@@ -336,7 +336,7 @@ impl<E: Event> Default for EventSequence<E> {
     }
 }
 
-impl<E: Event> Deref for EventSequence<E> {
+impl<E: BufferedEvent> Deref for EventSequence<E> {
     type Target = Vec<EventInstance<E>>;
 
     fn deref(&self) -> &Self::Target {
@@ -344,7 +344,7 @@ impl<E: Event> Deref for EventSequence<E> {
     }
 }
 
-impl<E: Event> DerefMut for EventSequence<E> {
+impl<E: BufferedEvent> DerefMut for EventSequence<E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.events
     }
@@ -357,7 +357,7 @@ pub struct SendBatchIds<E> {
     _marker: PhantomData<E>,
 }
 
-impl<E: Event> Iterator for SendBatchIds<E> {
+impl<E: BufferedEvent> Iterator for SendBatchIds<E> {
     type Item = EventId<E>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -377,7 +377,7 @@ impl<E: Event> Iterator for SendBatchIds<E> {
     }
 }
 
-impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
+impl<E: BufferedEvent> ExactSizeIterator for SendBatchIds<E> {
     fn len(&self) -> usize {
         self.event_count.saturating_sub(self.last_count)
     }
@@ -386,11 +386,11 @@ impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
 #[cfg(test)]
 mod tests {
     use crate::event::Events;
-    use bevy_ecs_macros::Event;
+    use bevy_ecs_macros::BufferedEvent;
 
     #[test]
     fn iter_current_update_events_iterates_over_current_events() {
-        #[derive(Event, Clone)]
+        #[derive(BufferedEvent, Clone)]
         struct TestEvent;
 
         let mut test_events = Events::<TestEvent>::default();
