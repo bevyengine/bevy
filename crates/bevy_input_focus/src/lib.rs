@@ -394,7 +394,7 @@ mod tests {
         trigger: On<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(trigger.target().unwrap()) {
+        if let Ok(mut gather) = query.get_mut(trigger.entity().unwrap()) {
             if let Key::Character(c) = &trigger.input.logical_key {
                 gather.0.push_str(c.as_str());
             }

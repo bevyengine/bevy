@@ -31,4 +31,7 @@ is now of type `Option<Entity>`. If you were checking for `Entity::PLACEHOLDER`,
 If you were not checking for `Entity::PLACEHOLDER`, migrate to unwrapping, as `Entity::PLACEHOLDER`
 would have caused a panic before, at a later point.
 
-The method `Trigger::observer` has been renamed to `On::observer_entity`, to make it less prominent. This is rarely useful information for Bevy users.
+Methods used to reference entities associated with observers have been renamed:
+
+- `Trigger::observer` has been renamed to `On::observer_entity`, to make it less prominent. This is rarely useful information for Bevy users.
+- `Trigger::target` has been renamed to `On::entity`, to make it more prominent. This is almost always the key piece of information that observers need to act on.

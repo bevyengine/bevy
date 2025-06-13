@@ -25,7 +25,7 @@
 //! Observers can request other data from the world, such as via a [`Query`] or [`Res`].
 //! Commonly, you might want to verify that the entity that the observable event is targeting
 //! has a specific component, or meets some other condition. [`Query::get`] or [`Query::contains`]
-//! on the [`On::target`] entity is a good way to do this.
+//! on the entity returned by [`On::entity`] is a good way to do this.
 //!
 //! [`Commands`] can also be used inside of observers.
 //! This can be particularly useful for triggering other observers!
@@ -214,7 +214,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
 
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
     /// be [`None`] if the trigger is not for a particular entity.
-    pub fn target(&self) -> Option<Entity> {
+    pub fn entity(&self) -> Option<Entity> {
         self.trigger.target
     }
 
@@ -1134,20 +1134,20 @@ mod tests {
         world.add_observer(
             |obs: On<Add, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.target().unwrap()).insert(B);
+                commands.entity(obs.entity().unwrap()).insert(B);
             },
         );
         world.add_observer(
             |obs: On<Remove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.target().unwrap()).remove::<B>();
+                commands.entity(obs.entity().unwrap()).remove::<B>();
             },
         );
 
         world.add_observer(
             |obs: On<Add, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.target().unwrap()).remove::<A>();
+                commands.entity(obs.entity().unwrap()).remove::<A>();
             },
         );
         world.add_observer(|_: On<Remove, B>, mut res: ResMut<Order>| {
@@ -1316,7 +1316,7 @@ mod tests {
         };
         world.spawn_empty().observe(system);
         world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), None);
+            assert_eq!(obs.entity(), None);
             res.observed("event_a");
         });
 
@@ -1343,7 +1343,7 @@ mod tests {
             .observe(|_: On<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target().unwrap(), entity);
+            assert_eq!(obs.entity().unwrap(), entity);
             res.observed("a_2");
         });
 
@@ -1763,7 +1763,7 @@ mod tests {
 
         world.add_observer(
             |trigger: On<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(trigger.target().unwrap()).is_ok() {
+                if query.get(trigger.entity().unwrap()).is_ok() {
                     res.observed("event");
                 }
             },
@@ -1786,7 +1786,7 @@ mod tests {
     fn observer_modifies_relationship() {
         fn on_add(trigger: On<Add, A>, mut commands: Commands) {
             commands
-                .entity(trigger.target().unwrap())
+                .entity(trigger.entity().unwrap())
                 .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
                     rsc.spawn_empty();
                 });
