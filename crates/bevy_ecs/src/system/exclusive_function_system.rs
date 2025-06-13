@@ -88,11 +88,6 @@ where
     }
 
     #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.system_meta.component_access_set
-    }
-
-    #[inline]
     fn flags(&self) -> SystemStateFlags {
         // non-send , exclusive , no deferred
         // the executor runs exclusive systems on the main thread, so this
@@ -175,9 +170,10 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
+        FilteredAccessSet::new()
     }
 
     #[inline]

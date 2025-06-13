@@ -117,11 +117,6 @@ where
     }
 
     #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.observer.component_access_set()
-    }
-
-    #[inline]
     fn flags(&self) -> super::SystemStateFlags {
         self.observer.flags()
     }
@@ -161,8 +156,8 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
-        self.observer.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.observer.initialize(world)
     }
 
     #[inline]
