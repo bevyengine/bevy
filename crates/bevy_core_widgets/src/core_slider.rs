@@ -432,7 +432,7 @@ pub(crate) fn slider_on_insert_step(trigger: On<Insert, SliderStep>, mut world: 
 ///     let slider = commands.spawn((
 ///         CoreSlider::default(),
 ///         SliderValue(0.5),
-///         SliderRange(0.0..=1.0),
+///         SliderRange::new(0.0, 1.0),
 ///     )).id();
 ///
 ///     // Set to an absolute value
