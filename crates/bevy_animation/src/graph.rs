@@ -1,10 +1,11 @@
 //! The animation graph, which allows animations to be blended together.
 
 use core::{
+    fmt::Write,
     iter,
     ops::{Index, IndexMut, Range},
 };
-use std::{fmt::Write, io};
+use std::io;
 
 use bevy_asset::{
     io::Reader, Asset, AssetEvent, AssetId, AssetLoader, AssetPath, Assets, Handle, LoadContext,
