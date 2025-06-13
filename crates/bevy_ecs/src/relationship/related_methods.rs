@@ -680,7 +680,8 @@ mod tests {
 
         let mut parent = world.spawn_empty();
         parent.add_children(&[child1, child2]);
-        let some_child = Some(&ChildOf(parent.id()));
+        let child_value = ChildOf(parent.id());
+        let some_child = Some(&child_value);
 
         parent.replace_children(&[child2, child3]);
         let children = parent.get::<Children>().unwrap().collection();
