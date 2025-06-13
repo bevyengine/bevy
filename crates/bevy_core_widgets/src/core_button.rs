@@ -6,7 +6,7 @@ use bevy_ecs::system::ResMut;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    observer::Trigger,
+    observer::On,
     query::With,
     system::{Commands, Query, SystemId},
 };
@@ -28,7 +28,7 @@ pub struct CoreButton {
 }
 
 fn button_on_key_event(
-    mut trigger: Trigger<FocusedInput<KeyboardInput>>,
+    mut trigger: On<FocusedInput<KeyboardInput>>,
     q_state: Query<(&CoreButton, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
@@ -48,7 +48,7 @@ fn button_on_key_event(
 }
 
 fn button_on_pointer_click(
-    mut trigger: Trigger<Pointer<Click>>,
+    mut trigger: On<Pointer<Click>>,
     mut q_state: Query<(&CoreButton, Has<Pressed>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
@@ -63,7 +63,7 @@ fn button_on_pointer_click(
 }
 
 fn button_on_pointer_down(
-    mut trigger: Trigger<Pointer<Press>>,
+    mut trigger: On<Pointer<Press>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
@@ -88,7 +88,7 @@ fn button_on_pointer_down(
 }
 
 fn button_on_pointer_up(
-    mut trigger: Trigger<Pointer<Release>>,
+    mut trigger: On<Pointer<Release>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
@@ -101,7 +101,7 @@ fn button_on_pointer_up(
 }
 
 fn button_on_pointer_drag_end(
-    mut trigger: Trigger<Pointer<DragEnd>>,
+    mut trigger: On<Pointer<DragEnd>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
@@ -114,7 +114,7 @@ fn button_on_pointer_drag_end(
 }
 
 fn button_on_pointer_cancel(
-    mut trigger: Trigger<Pointer<Cancel>>,
+    mut trigger: On<Pointer<Cancel>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {

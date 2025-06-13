@@ -172,7 +172,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
             ),
         ))
         .observe(
-            |_: Trigger<SceneInstanceReady>,
+            |_: On<SceneInstanceReady>,
              mut lighting_mode_change_event_writer: EventWriter<LightingModeChanged>| {
                 // When the scene loads, send a `LightingModeChanged` event so
                 // that we set up the lightmaps.

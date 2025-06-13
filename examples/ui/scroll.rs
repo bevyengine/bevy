@@ -74,14 +74,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ))
                         .with_children(|parent| {
                             for i in 0..100 {
-                                parent.spawn((Text(format!("Item {i}")),
-                                              TextFont {
-                                                  font: font_handle.clone(),
-                                                  ..default()
-                                              },
-                                              Label,
-                                              AccessibilityNode(Accessible::new(Role::ListItem)),
-                                ))
+                                parent
+                                    .spawn((
+                                        Text(format!("Item {i}")),
+                                        TextFont {
+                                            font: font_handle.clone(),
+                                            ..default()
+                                        },
+                                        Label,
+                                        AccessibilityNode(Accessible::new(Role::ListItem)),
+                                    ))
                                     .insert(Node {
                                         min_width: Val::Px(200.),
                                         align_content: AlignContent::Center,
@@ -91,14 +93,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         should_block_lower: false,
                                         ..default()
                                     })
-                                    .observe(|
-                                        trigger: Trigger<Pointer<Press>>,
-                                        mut commands: Commands
-                                    | {
-                                        if trigger.event().button == PointerButton::Primary {
-                                            commands.entity(trigger.target().unwrap()).despawn();
-                                        }
-                                    });
+                                    .observe(
+                                        |trigger: On<Pointer<Press>>, mut commands: Commands| {
+                                            if trigger.event().button == PointerButton::Primary {
+                                                commands
+                                                    .entity(trigger.target().unwrap())
+                                                    .despawn();
+                                            }
+                                        },
+                                    );
                             }
                         });
                 });

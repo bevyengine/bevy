@@ -14,7 +14,7 @@ use crate::{
         EntityIdLocation, EntityLocation,
     },
     event::Event,
-    lifecycle::{ON_DESPAWN, ON_REMOVE, ON_REPLACE},
+    lifecycle::{DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
@@ -1377,7 +1377,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
     /// provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -1430,7 +1430,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
     /// provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -2368,7 +2368,7 @@ impl<'w> EntityWorldMut<'w> {
         unsafe {
             if archetype.has_despawn_observer() {
                 deferred_world.trigger_observers(
-                    ON_DESPAWN,
+                    DESPAWN,
                     Some(self.entity),
                     archetype.components(),
                     caller,
@@ -2382,7 +2382,7 @@ impl<'w> EntityWorldMut<'w> {
             );
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(
-                    ON_REPLACE,
+                    REPLACE,
                     Some(self.entity),
                     archetype.components(),
                     caller,
@@ -2397,7 +2397,7 @@ impl<'w> EntityWorldMut<'w> {
             );
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
-                    ON_REMOVE,
+                    REMOVE,
                     Some(self.entity),
                     archetype.components(),
                     caller,
@@ -5747,7 +5747,7 @@ mod tests {
         let mut world = World::new();
         let entity = world
             .spawn_empty()
-            .observe(|trigger: Trigger<TestEvent>, mut commands: Commands| {
+            .observe(|trigger: On<TestEvent>, mut commands: Commands| {
                 commands
                     .entity(trigger.target().unwrap())
                     .insert(TestComponent(0));
@@ -5759,7 +5759,7 @@ mod tests {
 
         let mut a = world.entity_mut(entity);
         a.trigger(TestEvent); // this adds command to change entity archetype
-        a.observe(|_: Trigger<TestEvent>| {}); // this flushes commands implicitly by spawning
+        a.observe(|_: On<TestEvent>| {}); // this flushes commands implicitly by spawning
         let location = a.location();
         assert_eq!(world.entities().get(entity), Some(location));
     }
@@ -5768,11 +5768,9 @@ mod tests {
     #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
-        world.add_observer(
-            |trigger: Trigger<OnAdd, TestComponent>, mut commands: Commands| {
-                commands.entity(trigger.target().unwrap()).despawn();
-            },
-        );
+        world.add_observer(|trigger: On<Add, TestComponent>, mut commands: Commands| {
+            commands.entity(trigger.target().unwrap()).despawn();
+        });
         let entity = world.spawn_empty().id();
         let mut a = world.entity_mut(entity);
         a.insert(TestComponent(0));
@@ -5790,14 +5788,12 @@ mod tests {
     fn archetype_modifications_trigger_flush() {
         let mut world = World::new();
         world.insert_resource(TestFlush(0));
-        world.add_observer(|_: Trigger<OnAdd, TestComponent>, mut commands: Commands| {
+        world.add_observer(|_: On<Add, TestComponent>, mut commands: Commands| {
             commands.queue(count_flush);
         });
-        world.add_observer(
-            |_: Trigger<OnRemove, TestComponent>, mut commands: Commands| {
-                commands.queue(count_flush);
-            },
-        );
+        world.add_observer(|_: On<Remove, TestComponent>, mut commands: Commands| {
+            commands.queue(count_flush);
+        });
         world.commands().queue(count_flush);
         let entity = world.spawn_empty().id();
         assert_eq!(world.resource::<TestFlush>().0, 1);
@@ -5862,19 +5858,19 @@ mod tests {
             .push("OrdA hook on_remove");
     }
 
-    fn ord_a_observer_on_add(_trigger: Trigger<OnAdd, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_add(_trigger: On<Add, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_add");
     }
 
-    fn ord_a_observer_on_insert(_trigger: Trigger<OnInsert, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_insert(_trigger: On<Insert, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_insert");
     }
 
-    fn ord_a_observer_on_replace(_trigger: Trigger<OnReplace, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_replace(_trigger: On<Replace, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_replace");
     }
 
-    fn ord_a_observer_on_remove(_trigger: Trigger<OnRemove, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_remove(_trigger: On<Remove, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_remove");
     }
 
@@ -5913,19 +5909,19 @@ mod tests {
             .push("OrdB hook on_remove");
     }
 
-    fn ord_b_observer_on_add(_trigger: Trigger<OnAdd, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_add(_trigger: On<Add, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_add");
     }
 
-    fn ord_b_observer_on_insert(_trigger: Trigger<OnInsert, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_insert(_trigger: On<Insert, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_insert");
     }
 
-    fn ord_b_observer_on_replace(_trigger: Trigger<OnReplace, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_replace(_trigger: On<Replace, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_replace");
     }
 
-    fn ord_b_observer_on_remove(_trigger: Trigger<OnRemove, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_remove(_trigger: On<Remove, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_remove");
     }
 
@@ -6201,10 +6197,10 @@ mod tests {
         world.insert_resource(Tracker { a: false, b: false });
         let entity = world.spawn(A).id();
 
-        world.add_observer(|_: Trigger<OnRemove, A>, mut tracker: ResMut<Tracker>| {
+        world.add_observer(|_: On<Remove, A>, mut tracker: ResMut<Tracker>| {
             tracker.a = true;
         });
-        world.add_observer(|_: Trigger<OnRemove, B>, mut tracker: ResMut<Tracker>| {
+        world.add_observer(|_: On<Remove, B>, mut tracker: ResMut<Tracker>| {
             tracker.b = true;
         });
 
