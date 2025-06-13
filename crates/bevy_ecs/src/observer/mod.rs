@@ -508,6 +508,19 @@ pub struct CachedComponentObservers {
     entity_component_observers: EntityHashMap<ObserverMap>,
 }
 
+impl CachedComponentObservers {
+    /// Returns the observers listening for this trigger, regardless of target.
+    /// These observers will also respond to events targeting specific entities.
+    pub fn global_observers(&self) -> &ObserverMap {
+        &self.global_observers
+    }
+
+    /// Returns the observers listening for this trigger targeting this component on a specific entity.
+    pub fn entity_component_observers(&self) -> &EntityHashMap<ObserverMap> {
+        &self.entity_component_observers
+    }
+}
+
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event.
 ///
 /// This is stored inside of [`Observers`], specialized for each kind of observer.
