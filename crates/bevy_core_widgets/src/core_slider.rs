@@ -7,7 +7,7 @@ use bevy_ecs::event::Event;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
-use bevy_ecs::system::{In, ResMut};
+use bevy_ecs::system::{In, Res, ResMut};
 use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::{
     component::Component,
@@ -20,7 +20,7 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
 use bevy_log::warn_once;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
-use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform};
+use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
 
 /// Defines how the slider should behave when you click on the track (not the thumb).
 #[derive(Debug, Default)]
