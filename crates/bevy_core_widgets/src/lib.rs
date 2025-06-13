@@ -22,7 +22,7 @@ use bevy_app::{App, Plugin};
 pub use core_button::{CoreButton, CoreButtonPlugin};
 pub use core_slider::{
     CoreSlider, CoreSliderDragState, CoreSliderPlugin, CoreSliderThumb, SetSliderValue,
-    SliderRange, SliderValue, TrackClick,
+    SliderRange, SliderStep, SliderValue, TrackClick,
 };
 
 /// A plugin that registers the observers for all of the core widgets. If you don't want to
