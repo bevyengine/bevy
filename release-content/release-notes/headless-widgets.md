@@ -63,13 +63,13 @@ is using Bevy observers. This approach is useful in cases where you want the wid
 to bubble up the hierarchy.
 
 However, in UI work it's often desirable to connect widget interactions in ways that cut across the
-hierarchy. For these kinds of situations, the core widgets offer an an alternate approach: one-shot
+hierarchy. For these kinds of situations, the core widgets offer a different approach: one-shot
 systems. You can register a function as a one-shot system and get the resulting `SystemId`. This can
 then be passed as a parameter to the widget when it is constructed, so when the button subsequently
 gets clicked or the slider is dragged, the system gets run. Because it's an ECS system, it can
 inject any additional parameters it needs to update the Bevy world in response to the interaction.
 
-Most of the core widgets use "external state management" - something that is referred to in the
+Most of the core widgets support "external state management" - something that is referred to in the
 React.js world as "controlled" widgets. This means that for widgets that edit a parameter value
 (such as checkboxes and sliders), the widget doesn't automatically update its own internal value,
 but only sends a notification to the app telling it that the value needs to change. It's the
@@ -82,6 +82,10 @@ consequence, the displayed value of a widget may change even when the user is no
 interacting with that widget. Externalizing the state avoids the need for two-way data binding, and
 instead allows simpler one-way data binding that aligns well with the traditional "Model / View /
 Controller" (MVC) design pattern.
+
+That being said, the choice of internal or external state management is up to you: if the widget
+has an `on_change` callback that is not `None`, then the callback is used. If the callback
+is `None`, however, the widget will update its own state. (This is similar to how React.js does it.)
 
 There are two exceptions to this rule about external state management. First, widgets which don't
 edit a value, but which merely trigger an event (such as buttons), don't fall under this rule.

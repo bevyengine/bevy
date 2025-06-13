@@ -50,7 +50,7 @@ pub enum TrackClick {
 )]
 pub struct CoreSlider {
     /// Callback which is called when the slider is dragged or the value is changed via other user
-    /// interaction.
+    /// interaction. If this value is `None`, then the slider will self-update.
     pub on_change: Option<SystemId<In<f32>>>,
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,
@@ -213,6 +213,10 @@ pub(crate) fn slider_on_pointer_down(
 
         if let Some(on_change) = slider.on_change {
             commands.run_system_with(on_change, new_value);
+        } else {
+            commands
+                .entity(trigger.target().unwrap())
+                .insert(SliderValue(new_value));
         }
     }
 }
@@ -268,6 +272,10 @@ pub(crate) fn slider_on_drag(
 
             if let Some(on_change) = slider.on_change {
                 commands.run_system_with(on_change, new_value);
+            } else {
+                commands
+                    .entity(trigger.target().unwrap())
+                    .insert(SliderValue(new_value));
             }
         }
     }
@@ -351,6 +359,28 @@ pub(crate) fn slider_on_insert_step(trigger: On<Insert, SliderStep>, mut world: 
 /// Event which can be triggered on a slider to modify the value (using the `on_change` callback).
 /// This can be used to control the slider via gamepad buttons or other inputs. The value will be
 /// clamped when the event is processed.
+///
+/// # Example:
+///
+/// ```
+/// use bevy_ecs::system::Commands;
+/// use bevy_core_widgets::{CoreSlider, SliderRange, SliderValue, SetSliderValue};
+///
+/// fn setup(mut commands: Commands) {
+///     // Create a slider
+///     let slider = commands.spawn((
+///         CoreSlider::default(),
+///         SliderValue(0.5),
+///         SliderRange(0.0..=1.0),
+///     )).id();
+///
+///     // Set to an absolute value
+///     commands.trigger_targets(SetSliderValue::Absolute(0.75), slider);
+///
+///     // Adjust relatively
+///     commands.trigger_targets(SetSliderValue::Relative(-0.25), slider);
+/// }
+/// ```
 #[derive(Event)]
 pub enum SetSliderValue {
     /// Set the slider value to a specific value.
@@ -372,6 +402,10 @@ fn slider_on_set_value(
         };
         if let Some(on_change) = slider.on_change {
             commands.run_system_with(on_change, new_value);
+        } else {
+            commands
+                .entity(trigger.target().unwrap())
+                .insert(SliderValue(new_value));
         }
     }
 }
