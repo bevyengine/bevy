@@ -2,6 +2,7 @@ use alloc::{boxed::Box, vec};
 use core::any::Any;
 
 use crate::{
+    bundle::BundleEffectFn,
     component::{ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
     lifecycle::{ComponentHook, HookContext},
@@ -295,6 +296,19 @@ impl Observer {
     /// Returns the [`ObserverDescriptor`] for this [`Observer`].
     pub fn descriptor(&self) -> &ObserverDescriptor {
         &self.descriptor
+    }
+
+    /// Creates a [`Bundle`] that will spawn the given [`Observer`].
+    pub fn bundle<E, B, M, O>(observer: O) -> impl Bundle
+    where
+        E: Event,
+        B: Bundle,
+        M: Send + Sync + 'static,
+        O: IntoObserverSystem<E, B, M> + Send + Sync + 'static,
+    {
+        BundleEffectFn(move |entity| {
+            entity.observe(observer);
+        })
     }
 }
 

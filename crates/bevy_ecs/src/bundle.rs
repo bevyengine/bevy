@@ -2118,6 +2118,50 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
     });
 }
 
+/// BundleEffectFn allows direct access to the BundleEffect trait without having
+/// to implement your own unsafe implementation of the Bundle trait.
+/// Bundle Effects get access to [`EntityWorldMut`] on insert allowing for
+/// powerful modifications to the world. Bundle Effects also power other Bevy
+/// helper bundles like [`crate::spawn::SpawnIter`] and [`crate::spawn::SpawnWith`]
+pub struct BundleEffectFn<F>(pub F)
+where
+    F: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static;
+
+impl<F> DynamicBundle for BundleEffectFn<F>
+where
+    F: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static,
+{
+    type Effect = BundleEffectFn<F>;
+
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+        self
+    }
+}
+
+impl<F> BundleEffect for BundleEffectFn<F>
+where
+    F: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static,
+{
+    fn apply(self, entity: &mut EntityWorldMut) {
+        (self.0)(entity);
+    }
+}
+
+unsafe impl<F> Bundle for BundleEffectFn<F>
+where
+    F: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static,
+{
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {}
+
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {}
+
+    fn register_required_components(
+        _components: &mut ComponentsRegistrator,
+        _required_components: &mut RequiredComponents,
+    ) {
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
