@@ -33,7 +33,7 @@ One concern that may come to mind is that `Add` can sometimes conflict with the 
 However, in practice these scenarios should be rare, and when you do get conflicts, it should be straightforward
 to disambiguate by using `ops::Add`, for example.
 
-## Observers with derived names
+## Names for Observers
 
 While debugging an app with many observers using tools like [`bevy_inspector_egui`](https://crates.io/crates/bevy-inspector-egui)
 you would get inundated with entities just named `Observer`. Now observers will have a `Name` component derived from

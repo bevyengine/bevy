@@ -1,5 +1,5 @@
 ---
-title: Observers now have name
+title: Observers now have names
 pull_requests: [19611]
 ---
 
