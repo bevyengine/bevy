@@ -789,7 +789,7 @@ impl<'w> DeferredWorld<'w> {
                 .get_entity(target)
                 .ok()
                 .and_then(|entity| entity.get_components::<T>())
-                .and_then(|item: <T as QueryData>::Item<'_>| T::traverse(item, data))
+                .and_then(|item| T::traverse(item, data))
             {
                 target = traverse_to;
             } else {
