@@ -191,6 +191,16 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
+    /// If true, the loader will convert glTF coordinates to Bevy's coordinate system.
+    /// - glTF:
+    ///   - forward: Z
+    ///   - up: Y
+    ///   - right: -X
+    /// - Bevy:
+    ///   - forward: -Z
+    ///   - up: Y
+    ///   - right: X
+    pub convert_coordinates: bool,
 }
 
 impl Default for GltfLoaderSettings {
@@ -203,6 +213,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
+            convert_coordinates: cfg!(feature = "convert_coordinates"),
         }
     }
 }
@@ -235,6 +246,9 @@ async fn load_gltf<'a, 'b, 'c>(
     load_context: &'b mut LoadContext<'c>,
     settings: &'b GltfLoaderSettings,
 ) -> Result<Gltf, GltfError> {
+    #[cfg(not(feature = "convert_coordinates"))]
+    bevy_log::warn_once!("TODO");
+
     let gltf = gltf::Gltf::from_slice(bytes)?;
 
     let file_name = load_context
@@ -303,7 +317,15 @@ async fn load_gltf<'a, 'b, 'c>(
                     match outputs {
                         ReadOutputs::Translations(tr) => {
                             let translation_property = animated_field!(Transform::translation);
-                            let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
+                            let translations: Vec<Vec3> = tr
+                                .map(|[x, y, z]| {
+                                    if settings.convert_coordinates {
+                                        Vec3::new(-x, y, -z)
+                                    } else {
+                                        Vec3::new(x, y, z)
+                                    }
+                                })
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     translation_property,
