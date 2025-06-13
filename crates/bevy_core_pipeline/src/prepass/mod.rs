@@ -79,6 +79,8 @@ pub struct PreviousViewData {
     pub view_from_world: Mat4,
     pub clip_from_world: Mat4,
     pub clip_from_view: Mat4,
+    pub world_from_clip: Mat4,
+    pub view_from_clip: Mat4,
 }
 
 #[derive(Resource, Default)]
