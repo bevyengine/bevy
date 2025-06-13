@@ -108,8 +108,10 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
                         else {
                             continue;
                         };
-                        if let Some(map) = observers.entity_map.get(&source).cloned() {
-                            observers.entity_map.insert(target, map);
+                        if let Some(map) =
+                            observers.entity_component_observers.get(&source).cloned()
+                        {
+                            observers.entity_component_observers.insert(target, map);
                         }
                     }
                 }
