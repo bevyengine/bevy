@@ -39,7 +39,7 @@ thread_local! {
     /// `NonSendMut` parameter, which told Bevy that the system was `!Send`, but now with the removal of `!Send`
     /// resource/system parameter usage, there is no internal guarantee that the system will run in only one thread, so
     /// we need to rely on the platform to make such a guarantee.
-    static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) };
+    pub static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) };
 }
 
 #[derive(Resource)]
