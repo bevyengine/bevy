@@ -494,8 +494,8 @@ impl ObserverTrigger {
     }
 }
 
-// Map between an observer entity and its runner
-type ObserverMap = EntityHashMap<ObserverRunner>;
+/// Map between an observer entity and its [`ObserverRunner`]
+pub type ObserverMap = EntityHashMap<ObserverRunner>;
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event targeted at a specific component.
 ///
