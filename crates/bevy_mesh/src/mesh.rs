@@ -12,6 +12,8 @@ use bevy_asset::{Asset, Handle, RenderAssetUsages};
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
+#[cfg(feature = "serialize")]
+use bevy_reflect::ReflectSerialize;
 use bytemuck::cast_slice;
 use thiserror::Error;
 use tracing::warn;
@@ -104,16 +106,22 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
 ///   which means that Bevy would *only* render the "front" of each triangle, which
 ///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+///
+/// ## Serialization
+///
+/// Note that, when serialization is enabled, a `Mesh` cannot be deserialized without special
+/// handling of `Handle`s. See
+/// [`ReflectDeserializerProcessor`](bevy_reflect::serde::ReflectDeserializerProcessor). The
+/// serialized format should not be considered stable, and may not be compatible between versions.
 #[derive(Asset, Debug, Clone, Reflect)]
 #[reflect(Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), reflect(Serialize))]
 pub struct Mesh {
-    #[reflect(ignore, clone)]
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
     /// Uses a [`BTreeMap`] because, unlike `HashMap`, it has a defined iteration order,
     /// which allows easy stable `VertexBuffers` (i.e. same buffer order)
-    #[reflect(ignore, clone)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
@@ -1565,6 +1573,31 @@ mod tests {
                 },
             ],
             mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "serialize")]
+    fn mesh_serialization() {
+        use bevy_app::{App, TaskPoolPlugin};
+        use bevy_asset::{ron, AssetApp, AssetPlugin, AssetServer};
+        use bevy_image::Image;
+
+        let mut app = App::new();
+
+        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<Image>();
+
+        let image = app
+            .world()
+            .resource::<AssetServer>()
+            .load("pixel/bevy_pixel_dark.png");
+
+        let mesh = Mesh::from(Triangle3d::default()).with_morph_targets(image);
+
+        assert_eq!(
+            ron::to_string(&mesh).unwrap(),
+            r#"(primitive_topology:r#triangle-list,attributes:{0:(attribute:(id:0,format:float32x3),values:Float32x3([(0.0,0.5,0.0),(-0.5,-0.5,0.0),(0.5,-0.5,0.0)])),1:(attribute:(id:1,format:float32x3),values:Float32x3([(0.0,0.0,1.0),(0.0,0.0,1.0),(0.0,0.0,1.0)])),2:(attribute:(id:2,format:float32x2),values:Float32x2([(0.0,0.0),(1.0,0.0),(0.59999996,1.0)]))},indices:Some(U32([0,1,2])),morph_targets:Some("pixel/bevy_pixel_dark.png"),morph_target_names:None,asset_usage:("MAIN_WORLD | RENDER_WORLD"))"#
         );
     }
 }
