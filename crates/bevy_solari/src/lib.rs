@@ -6,6 +6,7 @@
 //!
 //! ![`bevy_solari` logo](https://raw.githubusercontent.com/bevyengine/bevy/assets/branding/bevy_solari.svg)
 pub mod pathtracer;
+pub mod realtime;
 pub mod scene;
 
 /// The solari prelude.
@@ -13,14 +14,14 @@ pub mod scene;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use super::SolariPlugin;
-    pub use crate::pathtracer::Pathtracer;
+    pub use crate::realtime::SolariLighting;
     pub use crate::scene::RaytracingMesh3d;
 }
 
+use crate::realtime::SolariLightingPlugin;
+use crate::scene::RaytracingScenePlugin;
 use bevy_app::{App, Plugin};
 use bevy_render::settings::WgpuFeatures;
-use pathtracer::PathtracingPlugin;
-use scene::RaytracingScenePlugin;
 
 /// An experimental plugin for raytraced lighting.
 ///
@@ -34,7 +35,7 @@ pub struct SolariPlugin;
 
 impl Plugin for SolariPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((RaytracingScenePlugin, PathtracingPlugin));
+        app.add_plugins((RaytracingScenePlugin, SolariLightingPlugin));
     }
 }
 
