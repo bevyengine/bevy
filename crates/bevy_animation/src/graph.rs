@@ -242,14 +242,24 @@ pub enum AnimationNodeType {
 #[derive(Default)]
 pub struct AnimationGraphAssetLoader;
 
-/// Various errors that can occur when serializing or deserializing animation
-/// graphs to and from RON, respectively.
+/// Errors that can occur when serializing animation graphs to RON.
+#[derive(Error, Debug)]
+pub enum AnimationGraphSaveError {
+    /// An I/O error occurred.
+    #[error(transparent)]
+    Io(#[from] io::Error),
+    /// An error occurred in RON serialization.
+    #[error(transparent)]
+    Ron(#[from] ron::Error),
+}
+
+/// Errors that can occur when deserializing animation graphs from RON.
 #[derive(Error, Debug)]
 pub enum AnimationGraphLoadError {
     /// An I/O error occurred.
     #[error("I/O")]
     Io(#[from] io::Error),
-    /// An error occurred in RON serialization or deserialization.
+    /// An error occurred in RON deserialization.
     #[error("RON serialization")]
     Ron(#[from] ron::Error),
     /// An error occurred in RON deserialization, and the location of the error
@@ -648,7 +658,7 @@ impl AnimationGraph {
     ///
     /// If writing to a file, it can later be loaded with the
     /// [`AnimationGraphAssetLoader`] to reconstruct the graph.
-    pub fn save<W>(&self, writer: &mut W) -> Result<(), AnimationGraphLoadError>
+    pub fn save<W>(&self, writer: &mut W) -> Result<(), AnimationGraphSaveError>
     where
         W: Write,
     {
