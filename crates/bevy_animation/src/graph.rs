@@ -813,10 +813,12 @@ impl AssetLoader for AnimationGraphAssetLoader {
                             SerializedAnimationClip::AssetPath(path),
                         ) => {
                             if !already_warned {
+                                let path = load_context.asset_path();
                                 warn!(
-                                    "Loaded an AnimationGraph asset which contains a legacy-style \
-                                    SerializedAnimationClip. Please re-save the asset using \
-                                    AnimationGraph::save to automatically migrate to the new format"
+                                    "Loaded an AnimationGraph asset at \"{path}\" which contains a \
+                                    legacy-style SerializedAnimationClip. Please re-save the asset \
+                                    using AnimationGraph::save to automatically migrate to the new \
+                                    format"
                                 );
                                 already_warned = true;
                             }
