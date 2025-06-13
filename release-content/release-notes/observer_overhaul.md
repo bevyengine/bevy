@@ -22,7 +22,7 @@ such as `OnAdd` and `OnRemove`:
 
 ```rust
 app.add_observer(|trigger: On<Add, Player>| {
-    info!("Added player {}", trigger.target());
+    info!("Added player {}", trigger.entity());
 });
 ```
 

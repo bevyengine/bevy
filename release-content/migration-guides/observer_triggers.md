@@ -13,7 +13,7 @@ commands.add_observer(|trigger: Trigger<OnAdd, Player>| {
 
 // New
 commands.add_observer(|trigger: On<Add, Player>| {
-    info!("Spawned player {}", trigger.target());
+    info!("Spawned player {}", trigger.entity());
 });
 ```
 

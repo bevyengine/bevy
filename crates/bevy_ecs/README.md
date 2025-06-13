@@ -340,8 +340,8 @@ let mut world = World::new();
 let entity = world.spawn_empty().id();
 
 world.add_observer(|trigger: On<Explode>, mut commands: Commands| {
-    println!("Entity {} goes BOOM!", trigger.target().unwrap());
-    commands.entity(trigger.target().unwrap()).despawn();
+    println!("Entity {} goes BOOM!", trigger.entity().unwrap());
+    commands.entity(trigger.entity().unwrap()).despawn();
 });
 
 world.flush();
