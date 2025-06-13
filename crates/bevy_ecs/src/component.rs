@@ -2386,7 +2386,7 @@ impl Tick {
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
         if age.get() > Self::MAX.get() {
-            *self = check.0.relative_to(Self::MAX);
+            *self = check.present_tick().relative_to(Self::MAX);
             true
         } else {
             false
