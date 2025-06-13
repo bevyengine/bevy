@@ -84,6 +84,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
+use crate::convert_coordinates::ConvertCoordinates as _;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -248,13 +249,6 @@ async fn load_gltf<'a, 'b, 'c>(
 ) -> Result<Gltf, GltfError> {
     #[cfg(not(feature = "convert_coordinates"))]
     bevy_log::warn_once!("TODO");
-    let read_vec3 = |[x, y, z]: [f32; 3]| {
-        if settings.convert_coordinates {
-            Vec3::new(-x, y, -z)
-        } else {
-            Vec3::new(x, y, z)
-        }
-    };
 
     let gltf = gltf::Gltf::from_slice(bytes)?;
 
@@ -324,7 +318,9 @@ async fn load_gltf<'a, 'b, 'c>(
                     match outputs {
                         ReadOutputs::Translations(tr) => {
                             let translation_property = animated_field!(Transform::translation);
-                            let translations: Vec<Vec3> = tr.map(read_vec3).collect();
+                            let translations: Vec<Vec3> = tr
+                                .map(|coords| coords.convert_coordinates().into())
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     translation_property,

@@ -6,6 +6,8 @@ use gltf::{
 };
 use thiserror::Error;
 
+use crate::convert_coordinates::ConvertCoordinates;
+
 /// Represents whether integer data requires normalization
 #[derive(Copy, Clone)]
 struct Normalization(bool);
@@ -139,7 +141,7 @@ impl<'a> VertexAttributeIter<'a> {
             VertexAttributeIter::F32x2(it) => Ok(Values::Float32x2(it.collect())),
             VertexAttributeIter::U32x2(it) => Ok(Values::Uint32x2(it.collect())),
             VertexAttributeIter::F32x3(it) => Ok(if convert_coordinates {
-                Values::Float32x3(it.map(|[x, y, z]| [-x, y, -z]).collect())
+                Values::Float32x3(it.map(|coords| coords.convert_coordinates()).collect())
             } else {
                 Values::Float32x3(it.collect())
             }),
