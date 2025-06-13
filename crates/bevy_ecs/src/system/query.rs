@@ -2586,7 +2586,8 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 ///    boss.health -= 4.0;
 /// }
 /// ```
-/// Note that because [`Single`] implements `Deref`/`DerefMut` methods and properties like `health` can be accessed directly.
+/// Note that because [`Single`] implements [`Deref`] and [`DerefMut`], methods and fields like `health` can be accessed directly.
+/// You can also access the underlying data manually, by calling `.deref`/`.deref_mut`, or by using the `*` operator.
 pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
