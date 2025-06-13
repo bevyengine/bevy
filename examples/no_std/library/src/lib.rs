@@ -136,5 +136,5 @@ fn unwrap<B: Bundle>(trigger: On<Unwrap>, world: &mut World) {
         }
     }
 
-    world.despawn(trigger.observer());
+    world.despawn(trigger.observer_entity());
 }

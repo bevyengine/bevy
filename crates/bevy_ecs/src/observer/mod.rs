@@ -226,7 +226,9 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     }
 
     /// Returns the [`Entity`] that observed the triggered event.
-    /// This allows you to despawn the observer, ceasing observation.
+    ///
+    /// This is largely an implementation detail,
+    /// but this information allows you to despawn the observer, ceasing observation.
     ///
     /// # Examples
     ///
@@ -247,7 +249,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     ///     // ...
     /// }
     /// ```
-    pub fn observer(&self) -> Entity {
+    pub fn observer_entity(&self) -> Entity {
         self.trigger.observer
     }
 

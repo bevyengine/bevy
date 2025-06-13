@@ -30,3 +30,5 @@ For correctness and transparency, triggers have been changed to `Option<Entity>`
 is now of type `Option<Entity>`. If you were checking for `Entity::PLACEHOLDER`, migrate to handling the `None` case.
 If you were not checking for `Entity::PLACEHOLDER`, migrate to unwrapping, as `Entity::PLACEHOLDER`
 would have caused a panic before, at a later point.
+
+The method `Trigger::observer` has been renamed to `On::observer_entity`, to make it less prominent. This is rarely useful information for Bevy users.
