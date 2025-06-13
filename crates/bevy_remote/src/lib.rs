@@ -364,6 +364,8 @@
 //! [fully-qualified type names]: bevy_reflect::TypePath::type_path
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
+extern crate alloc;
+
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
@@ -539,6 +541,7 @@ impl Plugin for RemotePlugin {
             .insert_after(Last, RemoteLast);
 
         app.insert_resource(remote_methods)
+            .init_resource::<schemas::SchemaTypesMetadata>()
             .init_resource::<RemoteWatchingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
