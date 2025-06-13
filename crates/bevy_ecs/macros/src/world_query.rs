@@ -170,13 +170,13 @@ pub(crate) fn world_query_impl(
 
             #[inline]
             fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
-                #(<#field_types>::apply(&mut state.#named_field_idents, system_meta, world);)*
+                #(<#field_types as #path::query::WorldQuery>::apply(&mut state.#named_field_idents, system_meta, world);)*
             }
 
 
             #[inline]
             fn queue(state: &mut Self::State, system_meta: &#path::system::SystemMeta, mut world: #path::world::DeferredWorld) {
-                #(<#field_types>::queue(&mut state.#named_field_idents, system_meta, world.reborrow());)*
+                #(<#field_types as #path::query::WorldQuery>::queue(&mut state.#named_field_idents, system_meta, world.reborrow());)*
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
