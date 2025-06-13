@@ -2120,6 +2120,7 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 
 /// BundleEffectFn allows direct access to the BundleEffect trait without having
 /// to implement your own unsafe implementation of the Bundle trait.
+///
 /// Bundle Effects get access to [`EntityWorldMut`] on insert allowing for
 /// powerful modifications to the world. Bundle Effects also power other Bevy
 /// helper bundles like [`crate::spawn::SpawnIter`] and [`crate::spawn::SpawnWith`]
