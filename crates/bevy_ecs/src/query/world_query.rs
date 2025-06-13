@@ -3,7 +3,8 @@ use crate::{
     component::{ComponentId, Components, Tick},
     query::FilteredAccess,
     storage::Table,
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    system::SystemMeta,
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 use variadics_please::all_tuples;
 
@@ -117,6 +118,25 @@ pub unsafe trait WorldQuery {
     /// access to [`Components`].
     fn get_state(components: &Components) -> Option<Self::State>;
 
+    /// Applies any deferred mutations stored in this [`WorldQuery`]'s state.
+    /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
+    ///
+    /// [`Commands`]: crate::prelude::Commands
+    #[inline]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
+
+    /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
+    #[inline]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
+
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
     /// Used to check which [`Archetype`]s can be skipped by the query
@@ -205,6 +225,20 @@ macro_rules! impl_tuple_world_query {
             }
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
+            }
+
+            #[inline]
+            fn apply(($($name,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+                $($name::apply($name, system_meta, world);)*
+            }
+
+            #[inline]
+            #[allow(
+                unused_mut,
+                reason = "The `world` parameter is unused for zero-length tuples; however, it must be mutable for other lengths of tuples."
+            )]
+            fn queue(($($name,)*): &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+                $($name::queue($name, system_meta, world.reborrow());)*
             }
 
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
