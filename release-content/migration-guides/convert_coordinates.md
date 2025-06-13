@@ -68,7 +68,7 @@ If both of these don't apply to you, your model itself is oriented the wrong way
 <!-- TODO: Add png from PR description -->
 ![Blender Coordinate System](blender-coords.png)
 
-If you want to continue using the old behavior instead, you can supress the warning by enabling the `convert_coordinates`, but explicitly disabling the coordinate conversion in the `GltfLoaderSettings`:
+If you want to continue using the old behavior instead, you can suppress the warning by enabling the `convert_coordinates`, but explicitly disabling the coordinate conversion in the `GltfLoaderSettings`:
 
 ```rust
 let gltf = asset_server.load_with_settings("foo.glb", |settings: &mut GltfLoaderSettings| { settings.convert_coordinates = false; });
