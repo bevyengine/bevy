@@ -800,6 +800,8 @@ impl AssetLoader for AnimationGraphAssetLoader {
             serialized_animation_graph.graph.node_count(),
             serialized_animation_graph.graph.edge_count(),
         );
+
+        let mut already_warned = false;
         for serialized_node in serialized_animation_graph.graph.node_weights() {
             animation_graph.add_node(AnimationGraphNode {
                 node_type: match serialized_node.node_type {
@@ -810,12 +812,14 @@ impl AssetLoader for AnimationGraphAssetLoader {
                         MigrationSerializedAnimationClip::Legacy(
                             SerializedAnimationClip::AssetPath(path),
                         ) => {
-                            warn!(
-                                "Loaded an AnimationGraph asset which contains a \
-                                legacy-style SerializedAnimationClip. Please re-save the asset \
-                                using AnimationGraph::save to automatically migrate to the new \
-                                format"
-                            );
+                            if !already_warned {
+                                warn!(
+                                    "Loaded an AnimationGraph asset which contains a legacy-style \
+                                    SerializedAnimationClip. Please re-save the asset using \
+                                    AnimationGraph::save to automatically migrate to the new format"
+                                );
+                                already_warned = true;
+                            }
                             AnimationNodeType::Clip(load_context.load(path.clone()))
                         }
                         MigrationSerializedAnimationClip::Legacy(
