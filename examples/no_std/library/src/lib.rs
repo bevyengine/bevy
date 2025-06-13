@@ -128,7 +128,7 @@ fn tick_timers(
 
 fn unwrap<B: Bundle>(trigger: On<Unwrap>, world: &mut World) {
     if let Some(mut target) = trigger
-        .target()
+        .entity()
         .and_then(|target| world.get_entity_mut(target).ok())
     {
         if let Some(DelayedComponent(bundle)) = target.take::<DelayedComponent<B>>() {
@@ -136,5 +136,5 @@ fn unwrap<B: Bundle>(trigger: On<Unwrap>, world: &mut World) {
         }
     }
 
-    world.despawn(trigger.observer());
+    world.despawn(trigger.observer_entity());
 }

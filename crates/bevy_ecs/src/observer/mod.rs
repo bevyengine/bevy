@@ -25,7 +25,7 @@
 //! Observers can request other data from the world, such as via a [`Query`] or [`Res`].
 //! Commonly, you might want to verify that the entity that the observable event is targeting
 //! has a specific component, or meets some other condition. [`Query::get`] or [`Query::contains`]
-//! on the [`On::target`] entity is a good way to do this.
+//! on the entity returned by [`On::entity`] is a good way to do this.
 //!
 //! [`Commands`] can also be used inside of observers.
 //! This can be particularly useful for triggering other observers!
@@ -214,8 +214,11 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
 
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
     /// be [`None`] if the trigger is not for a particular entity.
-    pub fn target(&self) -> Option<Entity> {
-        self.trigger.target
+    ///
+    /// Note that if event bubbling is enabled for your event type, this may not be the entity that the event was originally targeted at.
+    /// Instead, this is the entity that the event is *currently* targeted at, which may have changed due to propagation.
+    pub fn entity(&self) -> Option<Entity> {
+        self.trigger.current_target
     }
 
     /// Returns the components that triggered the observer, out of the
@@ -226,7 +229,9 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     }
 
     /// Returns the [`Entity`] that observed the triggered event.
-    /// This allows you to despawn the observer, ceasing observation.
+    ///
+    /// This is largely an implementation detail,
+    /// but this information allows you to despawn the observer, ceasing observation.
     ///
     /// # Examples
     ///
@@ -247,7 +252,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     ///     // ...
     /// }
     /// ```
-    pub fn observer(&self) -> Entity {
+    pub fn observer_entity(&self) -> Entity {
         self.trigger.observer
     }
 
@@ -477,12 +482,15 @@ impl ObserverDescriptor {
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
     pub observer: Entity,
-    /// The [`Event`] the trigger targeted.
+    /// The underlying [`Event`] type.
     pub event_type: ComponentId,
-    /// The [`ComponentId`]s the trigger targeted.
+    /// The [`ComponentId`]s that the event targeted, if any.
     components: SmallVec<[ComponentId; 2]>,
-    /// The entity the trigger targeted.
-    pub target: Option<Entity>,
+    /// The current entity that the event targeted, if any.
+    ///
+    /// Note that this may not be the entity that the event was originally targeted at,
+    /// as it may have been changed by event bubbling.
+    pub current_target: Option<Entity>,
     /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
 }
@@ -571,7 +579,7 @@ impl Observers {
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
-        target: Option<Entity>,
+        current_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -599,7 +607,7 @@ impl Observers {
                     observer,
                     event_type,
                     components: components.clone().collect(),
-                    target,
+                    current_target,
                     caller,
                 },
                 data.into(),
@@ -610,7 +618,7 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
-        if let Some(target_entity) = target {
+        if let Some(target_entity) = current_target {
             if let Some(map) = observers.entity_observers.get(&target_entity) {
                 map.iter().for_each(&mut trigger_observer);
             }
@@ -624,7 +632,7 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if let Some(target_entity) = target {
+                if let Some(target_entity) = current_target {
                     if let Some(map) = component_observers.entity_map.get(&target_entity) {
                         map.iter().for_each(&mut trigger_observer);
                     }
@@ -1132,20 +1140,20 @@ mod tests {
         world.add_observer(
             |obs: On<Add, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.target().unwrap()).insert(B);
+                commands.entity(obs.entity().unwrap()).insert(B);
             },
         );
         world.add_observer(
             |obs: On<Remove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.target().unwrap()).remove::<B>();
+                commands.entity(obs.entity().unwrap()).remove::<B>();
             },
         );
 
         world.add_observer(
             |obs: On<Add, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.target().unwrap()).remove::<A>();
+                commands.entity(obs.entity().unwrap()).remove::<A>();
             },
         );
         world.add_observer(|_: On<Remove, B>, mut res: ResMut<Order>| {
@@ -1314,7 +1322,7 @@ mod tests {
         };
         world.spawn_empty().observe(system);
         world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), None);
+            assert_eq!(obs.entity(), None);
             res.observed("event_a");
         });
 
@@ -1341,7 +1349,7 @@ mod tests {
             .observe(|_: On<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target().unwrap(), entity);
+            assert_eq!(obs.entity().unwrap(), entity);
             res.observed("a_2");
         });
 
@@ -1761,7 +1769,7 @@ mod tests {
 
         world.add_observer(
             |trigger: On<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(trigger.target().unwrap()).is_ok() {
+                if query.get(trigger.entity().unwrap()).is_ok() {
                     res.observed("event");
                 }
             },
@@ -1784,7 +1792,7 @@ mod tests {
     fn observer_modifies_relationship() {
         fn on_add(trigger: On<Add, A>, mut commands: Commands) {
             commands
-                .entity(trigger.target().unwrap())
+                .entity(trigger.entity().unwrap())
                 .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
                     rsc.spawn_empty();
                 });

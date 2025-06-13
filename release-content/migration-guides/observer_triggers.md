@@ -13,7 +13,7 @@ commands.add_observer(|trigger: Trigger<OnAdd, Player>| {
 
 // New
 commands.add_observer(|trigger: On<Add, Player>| {
-    info!("Spawned player {}", trigger.target());
+    info!("Spawned player {}", trigger.entity());
 });
 ```
 
@@ -30,3 +30,12 @@ For correctness and transparency, triggers have been changed to `Option<Entity>`
 is now of type `Option<Entity>`. If you were checking for `Entity::PLACEHOLDER`, migrate to handling the `None` case.
 If you were not checking for `Entity::PLACEHOLDER`, migrate to unwrapping, as `Entity::PLACEHOLDER`
 would have caused a panic before, at a later point.
+
+Methods used to reference entities associated with observers have been renamed:
+
+- `Trigger::observer` has been renamed to `On::observer_entity`, to make it less prominent. This is rarely useful information for Bevy users.
+- `Trigger::target` has been renamed to `On::entity`, to make it more prominent. This is almost always the key piece of information that observers need to act on.
+- The `ObserverTrigger::target` field has been renamed to `ObserverTrigger::current_target` to increase clarity.
+
+To further improve clarity, the `Pointer<E>` field from `bevy_picking` has been renamed from `Pointer.target` to `Pointer.original_target`.
+Other bubbled events that wish to expose information about the target of an event before propagation should follow this convention.

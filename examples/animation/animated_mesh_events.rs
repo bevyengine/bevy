@@ -48,7 +48,7 @@ fn observe_on_step(
     mut seeded_rng: ResMut<SeededRng>,
 ) {
     let translation = transforms
-        .get(trigger.target().unwrap())
+        .get(trigger.entity().unwrap())
         .unwrap()
         .translation();
     // Spawn a bunch of particles.

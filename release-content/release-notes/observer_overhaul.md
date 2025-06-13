@@ -1,7 +1,7 @@
 ---
 title: Observer Overhaul
 authors: ["@Jondolf"]
-pull_requests: [19596]
+pull_requests: [19596, 19609]
 ---
 
 ## Rename `Trigger` to `On`
@@ -22,7 +22,7 @@ such as `OnAdd` and `OnRemove`:
 
 ```rust
 app.add_observer(|trigger: On<Add, Player>| {
-    info!("Added player {}", trigger.target());
+    info!("Added player {}", trigger.entity());
 });
 ```
 

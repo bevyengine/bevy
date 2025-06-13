@@ -55,13 +55,13 @@
 //!         // Spawn your entity here, e.g. a `Mesh3d`.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
 //!         .observe(|trigger: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
-//!             let mut transform = transforms.get_mut(trigger.target().unwrap()).unwrap();
+//!             let mut transform = transforms.get_mut(trigger.entity().unwrap()).unwrap();
 //!             let drag = trigger.event();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
 //!         .observe(|trigger: On<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {} goes BOOM!", trigger.target().unwrap());
-//!             commands.entity(trigger.target().unwrap()).despawn();
+//!             println!("Entity {} goes BOOM!", trigger.entity().unwrap());
+//!             commands.entity(trigger.entity().unwrap()).despawn();
 //!         })
 //!         .observe(|trigger: On<Pointer<Over>>, mut events: EventWriter<Greeting>| {
 //!             events.write(Greeting);

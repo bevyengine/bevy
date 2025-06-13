@@ -52,7 +52,7 @@ fn on_add_pressed(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((hovered, disabled, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target().unwrap())
+        buttons.get_mut(trigger.entity().unwrap())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
@@ -81,7 +81,7 @@ fn on_remove_pressed(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((hovered, disabled, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target().unwrap())
+        buttons.get_mut(trigger.entity().unwrap())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
@@ -110,7 +110,7 @@ fn on_add_disabled(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((pressed, hovered, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target().unwrap())
+        buttons.get_mut(trigger.entity().unwrap())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
@@ -139,7 +139,7 @@ fn on_remove_disabled(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((pressed, hovered, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target().unwrap())
+        buttons.get_mut(trigger.entity().unwrap())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
@@ -169,7 +169,7 @@ fn on_change_hover(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target().unwrap())
+        buttons.get_mut(trigger.entity().unwrap())
     {
         if children.is_empty() {
             return;

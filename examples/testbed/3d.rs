@@ -281,7 +281,7 @@ mod animation {
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        for child in children.iter_descendants(trigger.target().unwrap()) {
+        for child in children.iter_descendants(trigger.entity().unwrap()) {
             if let Ok((entity, mut player)) = players.get_mut(child) {
                 let mut transitions = AnimationTransitions::new();
                 transitions
