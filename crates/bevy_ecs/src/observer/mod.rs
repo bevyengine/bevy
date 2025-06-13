@@ -521,6 +521,18 @@ pub struct CachedObservers {
     entity_observers: EntityHashMap<ObserverMap>,
 }
 
+impl CachedObservers {
+    /// Returns the observers listening for this trigger targeting components.
+    pub fn get_component_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
+        &self.component_observers
+    }
+
+    /// Returns the observers listening for this trigger targeting entities.
+    pub fn entity_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
+        &self.component_observers
+    }
+}
+
 /// An internal lookup table tracking all of the observers in the world.
 ///
 /// Stores a cache mapping trigger ids to the registered observers.
