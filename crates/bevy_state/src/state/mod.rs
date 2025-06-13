@@ -642,6 +642,104 @@ mod tests {
         }
     }
 
+    #[derive(PartialEq, Eq, Debug, Hash, Clone)]
+    enum MultiSourceComputedState {
+        FromSimpleBTrue,
+        FromSimple2B2,
+        FromBoth,
+    }
+
+    impl ComputedStates for MultiSourceComputedState {
+        type SourceStates = (SimpleState, SimpleState2);
+
+        fn compute((simple_state, simple_state2): (SimpleState, SimpleState2)) -> Option<Self> {
+            match (simple_state, simple_state2) {
+                // If both are in their special states, prioritize the "both" variant.
+                (SimpleState::B(true), SimpleState2::B2) => Some(Self::FromBoth),
+                // If only SimpleState is B(true).
+                (SimpleState::B(true), _) => Some(Self::FromSimpleBTrue),
+                // If only SimpleState2 is B2.
+                (_, SimpleState2::B2) => Some(Self::FromSimple2B2),
+                // Otherwise, no computed state.
+                _ => None,
+            }
+        }
+    }
+
+    /// This test ensures that [`ComputedStates`] with multiple source states
+    /// react when any source changes.
+    #[test]
+    fn computed_state_with_multiple_sources_should_react_to_any_source_change() {
+        let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState2>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<MultiSourceComputedState>>(&mut world);
+
+        world.init_resource::<State<SimpleState>>();
+        world.init_resource::<State<SimpleState2>>();
+
+        let mut schedules = Schedules::new();
+        let mut apply_changes = Schedule::new(StateTransition);
+        SimpleState::register_state(&mut apply_changes);
+        SimpleState2::register_state(&mut apply_changes);
+        MultiSourceComputedState::register_computed_state_systems(&mut apply_changes);
+        schedules.insert(apply_changes);
+
+        world.insert_resource(schedules);
+        setup_state_transitions_in_world(&mut world);
+
+        // Initial state: SimpleState::A, SimpleState2::A1 and
+        // MultiSourceComputedState should not exist yet.
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::A1);
+        assert!(!world.contains_resource::<State<MultiSourceComputedState>>());
+
+        // Change only SimpleState to B(true) - this should trigger
+        // MultiSourceComputedState.
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(true)
+        );
+        assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::A1);
+        // The computed state should exist because SimpleState changed to
+        // B(true).
+        assert!(world.contains_resource::<State<MultiSourceComputedState>>());
+        assert_eq!(
+            world.resource::<State<MultiSourceComputedState>>().0,
+            MultiSourceComputedState::FromSimpleBTrue
+        );
+
+        // Reset SimpleState to A - computed state should be removed.
+        world.insert_resource(NextState::Pending(SimpleState::A));
+        world.run_schedule(StateTransition);
+        assert!(!world.contains_resource::<State<MultiSourceComputedState>>());
+
+        // Now change only SimpleState2 to B2 - this should also trigger
+        // MultiSourceComputedState.
+        world.insert_resource(NextState::Pending(SimpleState2::B2));
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::B2);
+        // The computed state should exist because SimpleState2 changed to B2.
+        assert!(world.contains_resource::<State<MultiSourceComputedState>>());
+        assert_eq!(
+            world.resource::<State<MultiSourceComputedState>>().0,
+            MultiSourceComputedState::FromSimple2B2
+        );
+
+        // Test that changes to both states work.
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.insert_resource(NextState::Pending(SimpleState2::A1));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<MultiSourceComputedState>>().0,
+            MultiSourceComputedState::FromSimpleBTrue
+        );
+    }
+
     // Test SubState that depends on multiple source states.
     #[derive(PartialEq, Eq, Debug, Default, Hash, Clone)]
     enum MultiSourceSubState {
