@@ -36,5 +36,5 @@ extend-ignore-re = [
   "\\bmetalness\\b",              # Rendering term (metallicity)
   "\\bNDKs\\b",                   # NDK - Native  Development Kit
   "\\bPNGs\\b",                   # PNG - Portable Network Graphics file format
-   "\\bmis\\b",                   # mis - multiple importance sampling
+  "\\bmis\\b",                    # mis - multiple importance sampling
 ]
