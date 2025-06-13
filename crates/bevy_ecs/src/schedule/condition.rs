@@ -440,9 +440,10 @@ mod sealed {
     pub trait SystemCondition<Marker, In: SystemInput, Out>:
         IntoSystem<In, Out, Marker, System = Self::ReadOnlySystem>
     {
-        // This associated type is necessary to let the compiler
-        // know that `Self::System` is `ReadOnlySystem`.
+        /// This type informs the compiler that [`Self::System`](IntoSystem::System) is [`ReadOnlySystem`].
         type ReadOnlySystem: ReadOnlySystem<In = In, Out = Out>;
+
+        /// The type that `Self` converts into
         type ConditionSystem: ReadOnlySystem<In = In, Out = bool>;
 
         fn into_condition_system(self) -> Self::ConditionSystem;
@@ -454,8 +455,6 @@ mod sealed {
         F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
     {
-        // This associated type is necessary to let the compiler
-        // know that `Self::System` is `ReadOnlySystem`.
         type ReadOnlySystem = F::System;
         type ConditionSystem = F::System;
 
@@ -470,8 +469,6 @@ mod sealed {
         F: IntoSystem<In, Result<(), BevyError>, Marker>,
         F::System: ReadOnlySystem,
     {
-        // This associated type is necessary to let the compiler
-        // know that `Self::System` is `ReadOnlySystem`.
         type ReadOnlySystem = F::System;
         type ConditionSystem = AdapterSystem<fn(Result<(), BevyError>) -> bool, F::System>;
 
@@ -487,8 +484,6 @@ mod sealed {
         F: IntoSystem<In, Result<bool, BevyError>, Marker>,
         F::System: ReadOnlySystem,
     {
-        // This associated type is necessary to let the compiler
-        // know that `Self::System` is `ReadOnlySystem`.
         type ReadOnlySystem = F::System;
         type ConditionSystem = AdapterSystem<fn(Result<bool, BevyError>) -> bool, F::System>;
 
