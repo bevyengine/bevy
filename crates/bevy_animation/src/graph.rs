@@ -29,6 +29,7 @@ use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
+use tracing::warn;
 
 use crate::{AnimationClip, AnimationTargetId};
 
@@ -268,6 +269,13 @@ pub enum AnimationGraphLoadError {
     /// is supplied.
     #[error("RON serialization")]
     SpannedRon(#[from] SpannedError),
+    /// The deserialized graph contained legacy data that we no longer support.
+    #[error(
+        "The deserialized AnimationGraph contained an AnimationClip referenced by an AssetId, \
+    which is no longer supported. Consider manually deserializing the SerializedAnimationGraph \
+    type and determine how to migrate any SerializedAnimationClip::AssetId animation clips"
+    )]
+    GraphContainsLegacyAssetId,
 }
 
 /// Acceleration structures for animation graphs that allows Bevy to evaluate
@@ -400,18 +408,32 @@ pub struct SerializedAnimationGraphNode {
 #[derive(Serialize, Deserialize)]
 pub enum SerializedAnimationNodeType {
     /// Corresponds to [`AnimationNodeType::Clip`].
-    Clip(AssetPath<'static>),
+    Clip(MigrationSerializedAnimationClip),
     /// Corresponds to [`AnimationNodeType::Blend`].
     Blend,
     /// Corresponds to [`AnimationNodeType::Add`].
     Add,
 }
 
-/// A version of `Handle<AnimationClip>` suitable for serializing as an asset.
+/// A type to facilitate migration from the legacy format of [`SerializedAnimationGraph`] to the
+/// new format.
 ///
-/// This replaces any handle that has a path with an [`AssetPath`]. Failing
-/// that, the asset ID is serialized directly.
+/// By using untagged serde deserialization, we can try to deserialize the modern form, then
+/// fallback to the legacy form. Users must migrate to the modern form by Bevy 0.18.
+// TODO: Delete this after Bevy 0.17.
 #[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MigrationSerializedAnimationClip {
+    /// This is the new type of this field.
+    Modern(AssetPath<'static>),
+    /// This is the legacy type of this field. Users must migrate away from this.
+    #[serde(skip_serializing)]
+    Legacy(SerializedAnimationClip),
+}
+
+/// The legacy form of serialized animation clips. This allows raw asset IDs to be deserialized.
+// TODO: Delete this after Bevy 0.17.
+#[derive(Deserialize)]
 pub enum SerializedAnimationClip {
     /// Records an asset path.
     AssetPath(AssetPath<'static>),
@@ -771,23 +793,49 @@ impl AssetLoader for AnimationGraphAssetLoader {
         let serialized_animation_graph = SerializedAnimationGraph::deserialize(&mut deserializer)
             .map_err(|err| deserializer.span_error(err))?;
 
-        // Load all `AssetPath`s to convert from a
-        // `SerializedAnimationGraph` to a real `AnimationGraph`.
-        Ok(AnimationGraph {
-            graph: serialized_animation_graph.graph.map(
-                |_, serialized_node| AnimationGraphNode {
-                    node_type: match serialized_node.node_type {
-                        SerializedAnimationNodeType::Clip(ref clip) => {
-                            AnimationNodeType::Clip(load_context.load(clip.clone()))
+        // Load all `AssetPath`s to convert from a `SerializedAnimationGraph` to a real
+        // `AnimationGraph`. This is effectively a `DiGraph::map`, but this allows us to return
+        // errors.
+        let mut animation_graph = DiGraph::with_capacity(
+            serialized_animation_graph.graph.node_count(),
+            serialized_animation_graph.graph.edge_count(),
+        );
+        for serialized_node in serialized_animation_graph.graph.node_weights() {
+            animation_graph.add_node(AnimationGraphNode {
+                node_type: match serialized_node.node_type {
+                    SerializedAnimationNodeType::Clip(ref clip) => match clip {
+                        MigrationSerializedAnimationClip::Modern(path) => {
+                            AnimationNodeType::Clip(load_context.load(path.clone()))
                         }
-                        SerializedAnimationNodeType::Blend => AnimationNodeType::Blend,
-                        SerializedAnimationNodeType::Add => AnimationNodeType::Add,
+                        MigrationSerializedAnimationClip::Legacy(
+                            SerializedAnimationClip::AssetPath(path),
+                        ) => {
+                            warn!(
+                                "Loaded an AnimationGraph asset which contains a \
+                                legacy-style SerializedAnimationClip. Please re-save the asset \
+                                using AnimationGraph::save to automatically migrate to the new \
+                                format"
+                            );
+                            AnimationNodeType::Clip(load_context.load(path.clone()))
+                        }
+                        MigrationSerializedAnimationClip::Legacy(
+                            SerializedAnimationClip::AssetId(_),
+                        ) => {
+                            return Err(AnimationGraphLoadError::GraphContainsLegacyAssetId);
+                        }
                     },
-                    mask: serialized_node.mask,
-                    weight: serialized_node.weight,
+                    SerializedAnimationNodeType::Blend => AnimationNodeType::Blend,
+                    SerializedAnimationNodeType::Add => AnimationNodeType::Add,
                 },
-                |_, _| (),
-            ),
+                mask: serialized_node.mask,
+                weight: serialized_node.weight,
+            });
+        }
+        for edge in serialized_animation_graph.graph.raw_edges() {
+            animation_graph.add_edge(edge.source(), edge.target(), edge.weight);
+        }
+        Ok(AnimationGraph {
+            graph: animation_graph,
             root: serialized_animation_graph.root,
             mask_groups: serialized_animation_graph.mask_groups,
         })
@@ -816,7 +864,9 @@ impl TryFrom<AnimationGraph> for SerializedAnimationGraph {
                 mask: node.mask,
                 node_type: match node.node_type {
                     AnimationNodeType::Clip(ref clip) => match clip.path() {
-                        Some(path) => SerializedAnimationNodeType::Clip(path.clone()),
+                        Some(path) => SerializedAnimationNodeType::Clip(
+                            MigrationSerializedAnimationClip::Modern(path.clone()),
+                        ),
                         None => return Err(NonPathHandleError),
                     },
                     AnimationNodeType::Blend => SerializedAnimationNodeType::Blend,
