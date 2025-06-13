@@ -739,14 +739,14 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers(
         &mut self,
         event: ComponentId,
-        target: Option<Entity>,
+        current_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
-            target,
+            current_target,
             components,
             &mut (),
             &mut false,

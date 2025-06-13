@@ -218,7 +218,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     /// Note that if event bubbling is enabled for your event type, this may not be the entity that the event was originally targeted at.
     /// Instead, this is the entity that the event is *currently* targeted at, which may have changed due to propagation.
     pub fn entity(&self) -> Option<Entity> {
-        self.trigger.target
+        self.trigger.current_target
     }
 
     /// Returns the components that triggered the observer, out of the
@@ -490,7 +490,7 @@ pub struct ObserverTrigger {
     ///
     /// Note that this may not be the entity that the event was originally targeted at,
     /// as it may have been changed by event bubbling.
-    pub target: Option<Entity>,
+    pub current_target: Option<Entity>,
     /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
 }
@@ -579,7 +579,7 @@ impl Observers {
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
-        target: Option<Entity>,
+        current_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -607,7 +607,7 @@ impl Observers {
                     observer,
                     event_type,
                     components: components.clone().collect(),
-                    target,
+                    current_target,
                     caller,
                 },
                 data.into(),
@@ -618,7 +618,7 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
-        if let Some(target_entity) = target {
+        if let Some(target_entity) = current_target {
             if let Some(map) = observers.entity_observers.get(&target_entity) {
                 map.iter().for_each(&mut trigger_observer);
             }
@@ -632,7 +632,7 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if let Some(target_entity) = target {
+                if let Some(target_entity) = current_target {
                     if let Some(map) = component_observers.entity_map.get(&target_entity) {
                         map.iter().for_each(&mut trigger_observer);
                     }
