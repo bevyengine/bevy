@@ -308,11 +308,12 @@ pub(crate) fn slider_on_drag(
     q_thumb: Query<&ComputedNode, With<CoreSliderThumb>>,
     q_children: Query<&Children>,
     mut commands: Commands,
+    ui_scale: Res<UiScale>,
 ) {
     if let Ok((node, slider, range, drag)) = q_slider.get_mut(trigger.target().unwrap()) {
         trigger.propagate(false);
         if drag.dragging {
-            let distance = trigger.event().distance;
+            let distance = trigger.event().distance / ui_scale.0;
             // Find thumb size by searching descendants for the first entity with CoreSliderThumb
             let thumb_size = q_children
                 .iter_descendants(trigger.target().unwrap())
