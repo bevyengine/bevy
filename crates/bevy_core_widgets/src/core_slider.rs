@@ -18,6 +18,7 @@ use bevy_ecs::{
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
+use bevy_log::warn_once;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform};
 
@@ -62,46 +63,73 @@ pub struct CoreSlider {
 pub struct CoreSliderThumb;
 
 /// A component which stores the current value of the slider.
-#[derive(Component, Debug, Default, PartialEq, Clone)]
+#[derive(Component, Debug, Default, PartialEq, Clone, Copy)]
 #[component(immutable)]
 pub struct SliderValue(pub f32);
 
 /// A component which represents the allowed range of the slider value. Defaults to 0.0..=1.0.
-#[derive(Component, Debug, PartialEq, Clone)]
+#[derive(Component, Debug, PartialEq, Clone, Copy)]
 #[component(immutable)]
-pub struct SliderRange(pub RangeInclusive<f32>);
+pub struct SliderRange {
+    start: f32,
+    end: f32,
+}
 
 impl SliderRange {
+    /// Creates a new slider range with the given start and end values.
+    pub fn new(start: f32, end: f32) -> Self {
+        if end < start {
+            warn_once!("Expected SliderRange::start <= SliderRange::end");
+        }
+        Self { start, end }
+    }
+
+    /// Creates a new slider range from a Rust range.
+    pub fn from_range(range: RangeInclusive<f32>) -> Self {
+        let (start, end) = range.into_inner();
+        Self { start, end }
+    }
+
     /// Returns the minimum allowed value for this slider.
     pub fn start(&self) -> f32 {
-        *self.0.start()
+        self.start
+    }
+
+    /// Return a new instance of a `SliderRange` with a new start position.
+    pub fn with_start(&self, start: f32) -> Self {
+        Self::new(start, self.end)
     }
 
     /// Returns the maximum allowed value for this slider.
     pub fn end(&self) -> f32 {
-        *self.0.end()
+        self.end
+    }
+
+    /// Return a new instance of a `SliderRange` with a new end position.
+    pub fn with_end(&self, end: f32) -> Self {
+        Self::new(self.start, end)
     }
 
     /// Returns the full span of the range (max - min).
     pub fn span(&self) -> f32 {
-        self.end() - self.start()
+        self.end - self.start
     }
 
     /// Returns the center value of the range.
     pub fn center(&self) -> f32 {
-        (self.start() + self.end()) / 2.0
+        (self.start + self.end) / 2.0
     }
 
     /// Constrain a value between the minimum and maximum allowed values for this slider.
     pub fn clamp(&self, value: f32) -> f32 {
-        value.clamp(*self.0.start(), *self.0.end())
+        value.clamp(self.start, self.end)
     }
 
     /// Compute the position of the thumb on the slider, as a value between 0 and 1, taking
     /// into account the proportion of the value between the minimum and maximum limits.
     pub fn thumb_position(&self, value: f32) -> f32 {
-        if self.0.end() > self.0.start() {
-            (value - self.0.start()) / (self.0.end() - self.0.start())
+        if self.end > self.start {
+            (value - self.start) / (self.end - self.start)
         } else {
             0.5
         }
@@ -110,7 +138,10 @@ impl SliderRange {
 
 impl Default for SliderRange {
     fn default() -> Self {
-        Self(0.0..=1.0)
+        Self {
+            start: 0.0,
+            end: 1.0,
+        }
     }
 }
 
@@ -341,10 +372,10 @@ pub(crate) fn slider_on_insert_value(trigger: On<Insert, SliderValue>, mut world
 
 pub(crate) fn slider_on_insert_range(trigger: On<Insert, SliderRange>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target().unwrap());
-    let range = entity.get::<SliderRange>().unwrap().0.clone();
+    let range = *entity.get::<SliderRange>().unwrap();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
-        accessibility.set_min_numeric_value((*range.start()).into());
-        accessibility.set_max_numeric_value((*range.end()).into());
+        accessibility.set_min_numeric_value(range.start().into());
+        accessibility.set_max_numeric_value(range.end().into());
     }
 }
 

@@ -464,7 +464,7 @@ fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) 
             ..default()
         },
         SliderValue(value),
-        SliderRange(min..=max),
+        SliderRange::new(min, max),
         TabIndex(0),
         Children::spawn((
             // Slider background rail
