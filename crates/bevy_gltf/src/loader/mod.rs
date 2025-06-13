@@ -248,6 +248,13 @@ async fn load_gltf<'a, 'b, 'c>(
 ) -> Result<Gltf, GltfError> {
     #[cfg(not(feature = "convert_coordinates"))]
     bevy_log::warn_once!("TODO");
+    let read_vec3 = |[x, y, z]: [f32; 3]| {
+        if settings.convert_coordinates {
+            Vec3::new(-x, y, -z)
+        } else {
+            Vec3::new(x, y, z)
+        }
+    };
 
     let gltf = gltf::Gltf::from_slice(bytes)?;
 
@@ -317,15 +324,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     match outputs {
                         ReadOutputs::Translations(tr) => {
                             let translation_property = animated_field!(Transform::translation);
-                            let translations: Vec<Vec3> = tr
-                                .map(|[x, y, z]| {
-                                    if settings.convert_coordinates {
-                                        Vec3::new(-x, y, -z)
-                                    } else {
-                                        Vec3::new(x, y, z)
-                                    }
-                                })
-                                .collect();
+                            let translations: Vec<Vec3> = tr.map(read_vec3).collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     translation_property,
@@ -655,6 +654,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     accessor,
                     &buffer_data,
                     &loader.custom_vertex_attributes,
+                    settings.convert_coordinates,
                 ) {
                     Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                     Err(err) => warn!("{}", err),
