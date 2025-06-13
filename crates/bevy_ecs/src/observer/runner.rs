@@ -232,7 +232,7 @@ impl Observer {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub(crate) fn new_with_derived_name<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
+    pub fn new_with_derived_name<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
         system: I,
     ) -> (Name, Observer) {
         (
