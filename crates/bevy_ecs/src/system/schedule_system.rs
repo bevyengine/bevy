@@ -34,11 +34,6 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.0.component_access_set()
-    }
-
-    #[inline]
     fn flags(&self) -> SystemStateFlags {
         self.0.flags()
     }
@@ -78,8 +73,8 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
-        self.0.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.0.initialize(world)
     }
 
     #[inline]
@@ -149,10 +144,6 @@ where
         self.system.name()
     }
 
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
-    }
-
     #[inline]
     fn flags(&self) -> SystemStateFlags {
         self.system.flags()
@@ -187,8 +178,8 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.system.initialize(world)
     }
 
     fn check_change_tick(&mut self, check: CheckChangeTicks) {
@@ -247,10 +238,6 @@ where
         self.system.name()
     }
 
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
-    }
-
     #[inline]
     fn flags(&self) -> SystemStateFlags {
         self.system.flags()
@@ -289,11 +276,11 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
+        self.system.initialize(world)
     }
 
     fn check_change_tick(&mut self, check: CheckChangeTicks) {
