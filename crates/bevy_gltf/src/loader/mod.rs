@@ -318,8 +318,16 @@ async fn load_gltf<'a, 'b, 'c>(
                     match outputs {
                         ReadOutputs::Translations(tr) => {
                             let translation_property = animated_field!(Transform::translation);
-                            let translations: Vec<Vec3> =
-                                tr.map(Vec3::from).map(Vec3::convert_coordinates).collect();
+                            let translations: Vec<Vec3> = tr
+                                .map(Vec3::from)
+                                .map(|verts| {
+                                    if settings.convert_coordinates {
+                                        Vec3::convert_coordinates(verts)
+                                    } else {
+                                        verts
+                                    }
+                                })
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     translation_property,
@@ -369,7 +377,13 @@ async fn load_gltf<'a, 'b, 'c>(
                             let rotations: Vec<Quat> = rots
                                 .into_f32()
                                 .map(Quat::from_array)
-                                .map(Quat::convert_coordinates)
+                                .map(|quat| {
+                                    if settings.convert_coordinates {
+                                        Quat::convert_coordinates(quat)
+                                    } else {
+                                        quat
+                                    }
+                                })
                                 .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
@@ -772,7 +786,17 @@ async fn load_gltf<'a, 'b, 'c>(
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
-                .map(|mats| mats.map(|mat| Mat4::from_cols_array_2d(&mat)).collect())
+                .map(|mats| {
+                    mats.map(|mat| Mat4::from_cols_array_2d(&mat))
+                        .map(|mat| {
+                            if settings.convert_coordinates {
+                                Mat4::convert_coordinates(mat)
+                            } else {
+                                mat
+                            }
+                        })
+                        .collect()
+                })
                 .unwrap_or_else(|| {
                     core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
                 });

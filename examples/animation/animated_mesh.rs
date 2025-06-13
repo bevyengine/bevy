@@ -106,6 +106,12 @@ fn setup_camera_and_environment(
         Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
     ));
 
+    // Plane
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
+
     // Light
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
