@@ -1,18 +1,28 @@
-use crate::asset_changed::AssetChanges;
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
-use alloc::{sync::Arc, vec::Vec};
+use alloc::vec::Vec;
+use core::{any::TypeId, iter::Enumerate, marker::PhantomData};
+
 use bevy_ecs::{
     prelude::EventWriter,
     resource::Resource,
     system::{Res, ResMut, SystemChangeTick},
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::{
+    collections::HashMap,
+    sync::{atomic::AtomicU32, Arc},
+};
 use bevy_reflect::{Reflect, TypePath};
-use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
-use crossbeam_channel::{Receiver, Sender};
+use concurrent_queue::ConcurrentQueue;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
+
+use crate::{
+    asset_changed::AssetChanges, Asset, AssetEvent, AssetHandleProvider, AssetId, Handle,
+    UntypedHandle,
+};
+
+#[cfg(feature = "std")]
+use crate::AssetServer;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
 /// usage and is not suitable for identifying assets across app runs.
@@ -45,34 +55,33 @@ impl AssetIndex {
 pub(crate) struct AssetIndexAllocator {
     /// A monotonically increasing index.
     next_index: AtomicU32,
-    recycled_queue_sender: Sender<AssetIndex>,
     /// This receives every recycled [`AssetIndex`]. It serves as a buffer/queue to store indices ready for reuse.
-    recycled_queue_receiver: Receiver<AssetIndex>,
-    recycled_sender: Sender<AssetIndex>,
-    recycled_receiver: Receiver<AssetIndex>,
+    recycled_queue: ConcurrentQueue<AssetIndex>,
+    recycled: ConcurrentQueue<AssetIndex>,
 }
 
 impl Default for AssetIndexAllocator {
     fn default() -> Self {
-        let (recycled_queue_sender, recycled_queue_receiver) = crossbeam_channel::unbounded();
-        let (recycled_sender, recycled_receiver) = crossbeam_channel::unbounded();
-        Self {
-            recycled_queue_sender,
-            recycled_queue_receiver,
-            recycled_sender,
-            recycled_receiver,
-            next_index: Default::default(),
-        }
+        Self::new()
     }
 }
 
 impl AssetIndexAllocator {
+    /// Constructs a new [`AssetIndexAllocator`].
+    pub const fn new() -> Self {
+        Self {
+            next_index: AtomicU32::new(0),
+            recycled_queue: ConcurrentQueue::unbounded(),
+            recycled: ConcurrentQueue::unbounded(),
+        }
+    }
+
     /// Reserves a new [`AssetIndex`], either by reusing a recycled index (with an incremented generation), or by creating a new index
     /// by incrementing the index counter for a given asset type `A`.
     pub fn reserve(&self) -> AssetIndex {
-        if let Ok(mut recycled) = self.recycled_queue_receiver.try_recv() {
+        if let Ok(mut recycled) = self.recycled_queue.pop() {
             recycled.generation += 1;
-            self.recycled_sender.send(recycled).unwrap();
+            self.recycled.push(recycled).unwrap();
             recycled
         } else {
             AssetIndex {
@@ -86,7 +95,7 @@ impl AssetIndexAllocator {
 
     /// Queues the given `index` for reuse. This should only be done if the `index` is no longer being used.
     pub fn recycle(&self, index: AssetIndex) {
-        self.recycled_queue_sender.send(index).unwrap();
+        self.recycled_queue.push(index).unwrap();
     }
 }
 
@@ -239,7 +248,7 @@ impl<A: Asset> DenseAssetStorage<A> {
             value: None,
             generation: 0,
         });
-        while let Ok(recycled) = self.allocator.recycled_receiver.try_recv() {
+        while let Ok(recycled) = self.allocator.recycled.pop() {
             let entry = &mut self.storage[recycled.index as usize];
             *entry = Entry::Some {
                 value: None,
@@ -474,6 +483,10 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Removes the [`Asset`] with the given `id`.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "only used with `std` currently")
+    )]
     pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
         match self.duplicate_handles.get_mut(&id) {
             None => {}
@@ -553,6 +566,7 @@ impl<A: Asset> Assets<A> {
 
     /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
     /// [`Handle`] drop events.
+    #[cfg(feature = "std")]
     pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
         let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
@@ -560,7 +574,7 @@ impl<A: Asset> Assets<A> {
         // re-loads are kicked off appropriately. This function must be "transactional" relative
         // to other asset info operations
         let mut infos = asset_server.data.infos.write();
-        while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
+        while let Ok(drop_event) = assets.handle_provider.drop.pop() {
             let id = drop_event.id.typed();
 
             if drop_event.asset_server_managed {

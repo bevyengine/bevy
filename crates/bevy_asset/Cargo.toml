@@ -11,12 +11,58 @@ keywords = ["bevy"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["std"]
+
+# Functionality
+
+## Watch for changes in asset files.
 file_watcher = ["notify-debouncer-full", "watch", "multi_threaded"]
+
+## Watch for changes in embedded assets.
 embedded_watcher = ["file_watcher"]
-multi_threaded = ["bevy_tasks/multi_threaded"]
-asset_processor = []
-watch = []
-trace = []
+
+## Enables multithreading support.
+multi_threaded = ["bevy_tasks/multi_threaded", "std"]
+
+## Enables asset processing.
+asset_processor = ["std"]
+
+## Sets the `watch_for_changes` default to `true`.
+watch = ["std"]
+
+# Debugging
+
+## Integrates with `tracing` to provide span information.
+trace = ["dep:tracing"]
+
+# Platform Compatibility
+
+## Integrates with the Rust standard library.
+std = [
+  "bevy_platform/std",
+  "bevy_tasks/async_executor",
+  "atomicow/std",
+  "dep:async-broadcast",
+  "dep:async-fs",
+  "dep:async-lock",
+  "dep:crossbeam-channel",
+  "crossbeam-channel?/std",
+  "dep:futures-io",
+  "dep:parking_lot",
+  "dep:ron",
+]
+
+## Integrates with the browser when run within a web context.
+web = [
+  "bevy_app/web",
+  "bevy_tasks/web",
+  "bevy_reflect/web",
+  "uuid/js",
+  "dep:js-sys",
+  "dep:wasm-bindgen-futures",
+  "dep:web-sys",
+  "dep:wasm-bindgen",
+]
 
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
@@ -27,34 +73,29 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = fa
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
   "uuid",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, features = [
-  "async_executor",
-] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
-  "std",
-] }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
 
 stackfuture = { version = "0.3", default-features = false }
-atomicow = { version = "1.1", default-features = false, features = ["std"] }
-async-broadcast = { version = "0.7.2", default-features = false }
-async-fs = { version = "2.0", default-features = false }
-async-lock = { version = "3.0", default-features = false }
-bitflags = { version = "2.3", default-features = false }
-crossbeam-channel = { version = "0.5", default-features = false, features = [
-  "std",
-] }
+atomicow = { version = "1.1", default-features = false }
+async-broadcast = { version = "0.7.2", default-features = false, optional = true }
+async-fs = { version = "2.0", default-features = false, optional = true }
+async-lock = { version = "3.0", default-features = false, optional = true }
+bitflags = { version = "2.3", default-features = false, features = ["serde"] }
+concurrent-queue = { version = "2.5.0", default-features = false }
+crossbeam-channel = { version = "0.5", default-features = false, optional = true }
 downcast-rs = { version = "2", default-features = false }
 disqualified = { version = "1.0", default-features = false }
 either = { version = "1.13", default-features = false }
-futures-io = { version = "0.3", default-features = false }
+futures-io = { version = "0.3", default-features = false, optional = true }
 futures-lite = { version = "2.0.1", default-features = false }
 blake3 = { version = "1.5", default-features = false }
-parking_lot = { version = "0.12", default-features = false, features = [
+parking_lot = { version = "0.12", default-features = false, optional = true, features = [
   "arc_lock",
   "send_guard",
 ] }
-ron = { version = "0.8", default-features = false }
+ron = { version = "0.8", default-features = false, optional = true }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
@@ -62,34 +103,29 @@ uuid = { version = "1.13.1", default-features = false, features = [
   "v4",
   "serde",
 ] }
-tracing = { version = "0.1", default-features = false }
+tracing = { version = "0.1", default-features = false, optional = true }
+log = { version = "0.4", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-wasm-bindgen = { version = "0.2" }
+wasm-bindgen = { version = "0.2", optional = true }
 web-sys = { version = "0.3", features = [
   "Window",
   "Response",
   "WorkerGlobalScope",
-] }
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-uuid = { version = "1.13.1", default-features = false, features = ["js"] }
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
-  "web",
-] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, features = [
-  "web",
-] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
-  "web",
-] }
+], optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+js-sys = { version = "0.3", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify-debouncer-full = { version = "0.5.0", default-features = false, optional = true }
+
+[target.'cfg(not(target_has_atomic = "ptr"))'.dependencies]
+event-listener = { version = "5.4", default-features = false, features = [
+  "portable-atomic",
+] }
 
 [lints]
 workspace = true

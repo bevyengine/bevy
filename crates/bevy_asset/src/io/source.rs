@@ -5,128 +5,18 @@ use crate::{
 use alloc::{
     boxed::Box,
     string::{String, ToString},
-    sync::Arc,
 };
 use atomicow::CowArc;
 use bevy_ecs::resource::Resource;
-use bevy_platform::collections::HashMap;
-use core::{fmt::Display, hash::Hash, time::Duration};
+use bevy_platform::{collections::HashMap, sync::Arc};
+use core::time::Duration;
+use log::warn;
 use thiserror::Error;
-use tracing::{error, warn};
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 
-/// A reference to an "asset source", which maps to an [`AssetReader`](crate::io::AssetReader) and/or [`AssetWriter`](crate::io::AssetWriter).
-///
-/// * [`AssetSourceId::Default`] corresponds to "default asset paths" that don't specify a source: `/path/to/asset.png`
-/// * [`AssetSourceId::Name`] corresponds to asset paths that _do_ specify a source: `remote://path/to/asset.png`, where `remote` is the name.
-#[derive(Default, Clone, Debug, Eq)]
-pub enum AssetSourceId<'a> {
-    /// The default asset source.
-    #[default]
-    Default,
-    /// A non-default named asset source.
-    Name(CowArc<'a, str>),
-}
-
-impl<'a> Display for AssetSourceId<'a> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self.as_str() {
-            None => write!(f, "AssetSourceId::Default"),
-            Some(v) => write!(f, "AssetSourceId::Name({v})"),
-        }
-    }
-}
-
-impl<'a> AssetSourceId<'a> {
-    /// Creates a new [`AssetSourceId`]
-    pub fn new(source: Option<impl Into<CowArc<'a, str>>>) -> AssetSourceId<'a> {
-        match source {
-            Some(source) => AssetSourceId::Name(source.into()),
-            None => AssetSourceId::Default,
-        }
-    }
-
-    /// Returns [`None`] if this is [`AssetSourceId::Default`] and [`Some`] containing the
-    /// name if this is [`AssetSourceId::Name`].
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            AssetSourceId::Default => None,
-            AssetSourceId::Name(v) => Some(v),
-        }
-    }
-
-    /// If this is not already an owned / static id, create one. Otherwise, it will return itself (with a static lifetime).
-    pub fn into_owned(self) -> AssetSourceId<'static> {
-        match self {
-            AssetSourceId::Default => AssetSourceId::Default,
-            AssetSourceId::Name(v) => AssetSourceId::Name(v.into_owned()),
-        }
-    }
-
-    /// Clones into an owned [`AssetSourceId<'static>`].
-    /// This is equivalent to `.clone().into_owned()`.
-    #[inline]
-    pub fn clone_owned(&self) -> AssetSourceId<'static> {
-        self.clone().into_owned()
-    }
-}
-
-impl AssetSourceId<'static> {
-    /// Indicates this [`AssetSourceId`] should have a static lifetime.
-    #[inline]
-    pub fn as_static(self) -> Self {
-        match self {
-            Self::Default => Self::Default,
-            Self::Name(value) => Self::Name(value.as_static()),
-        }
-    }
-
-    /// Constructs an [`AssetSourceId`] with a static lifetime.
-    #[inline]
-    pub fn from_static(value: impl Into<Self>) -> Self {
-        value.into().as_static()
-    }
-}
-
-impl<'a> From<&'a str> for AssetSourceId<'a> {
-    fn from(value: &'a str) -> Self {
-        AssetSourceId::Name(CowArc::Borrowed(value))
-    }
-}
-
-impl<'a, 'b> From<&'a AssetSourceId<'b>> for AssetSourceId<'b> {
-    fn from(value: &'a AssetSourceId<'b>) -> Self {
-        value.clone()
-    }
-}
-
-impl<'a> From<Option<&'a str>> for AssetSourceId<'a> {
-    fn from(value: Option<&'a str>) -> Self {
-        match value {
-            Some(value) => AssetSourceId::Name(CowArc::Borrowed(value)),
-            None => AssetSourceId::Default,
-        }
-    }
-}
-
-impl From<String> for AssetSourceId<'static> {
-    fn from(value: String) -> Self {
-        AssetSourceId::Name(value.into())
-    }
-}
-
-impl<'a> Hash for AssetSourceId<'a> {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state);
-    }
-}
-
-impl<'a> PartialEq for AssetSourceId<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_str().eq(&other.as_str())
-    }
-}
+#[deprecated(since = "0.17.0", note = "use `bevy_asset::AssetSourceId` instead")]
+pub use crate::AssetSourceId;
 
 /// Metadata about an "asset source", such as how to construct the [`AssetReader`](crate::io::AssetReader) and [`AssetWriter`](crate::io::AssetWriter) for the source,
 /// and whether or not the source is processed.

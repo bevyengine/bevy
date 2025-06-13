@@ -285,6 +285,7 @@ ghost_nodes = ["bevy_ui/ghost_nodes"]
 std = [
   "bevy_a11y?/std",
   "bevy_app/std",
+  "bevy_asset?/std",
   "bevy_color?/std",
   "bevy_diagnostic/std",
   "bevy_ecs/std",
@@ -342,6 +343,7 @@ web = [
   "bevy_platform/web",
   "bevy_reflect/web",
   "bevy_tasks/web",
+  "bevy_asset?/web",
 ]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
@@ -388,7 +390,7 @@ bevy_a11y = { path = "../bevy_a11y", optional = true, version = "0.16.0-dev", fe
   "bevy_reflect",
 ] }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.16.0-dev" }
-bevy_asset = { path = "../bevy_asset", optional = true, version = "0.16.0-dev" }
+bevy_asset = { path = "../bevy_asset", optional = true, version = "0.16.0-dev", default-features = false }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.16.0-dev" }
 bevy_color = { path = "../bevy_color", optional = true, version = "0.16.0-dev", default-features = false, features = [
   "alloc",

@@ -1,18 +1,28 @@
-use crate::io::AssetSourceId;
-use alloc::{
-    borrow::ToOwned,
-    string::{String, ToString},
-};
-use atomicow::CowArc;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use alloc::string::{String, ToString};
 use core::{
     fmt::{Debug, Display},
     hash::Hash,
-    ops::Deref,
 };
+
+use atomicow::CowArc;
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{de::Visitor, Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use thiserror::Error;
+
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use {alloc::borrow::ToOwned, core::ops::Deref};
+
+#[cfg(feature = "std")]
+use std::path::{Path, PathBuf};
+
+#[cfg(feature = "std")]
+type PathInner = Path;
+
+#[cfg(not(feature = "std"))]
+type PathInner = str;
 
 /// Represents a path to an asset in a "virtual filesystem".
 ///
@@ -56,7 +66,7 @@ use thiserror::Error;
 #[reflect(Debug, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
-    path: CowArc<'a, Path>,
+    path: CowArc<'a, PathInner>,
     label: Option<CowArc<'a, str>>,
 }
 
@@ -69,11 +79,20 @@ impl<'a> Debug for AssetPath<'a> {
 impl<'a> Display for AssetPath<'a> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let AssetSourceId::Name(name) = self.source() {
-            write!(f, "{name}://")?;
+            <_ as Display>::fmt(name, f)?;
+            f.write_str("://")?;
         }
-        write!(f, "{}", self.path.display())?;
+
+        let path = &self.path;
+
+        #[cfg(feature = "std")]
+        let path = path.display();
+
+        <_ as Display>::fmt(&path, f)?;
+
         if let Some(label) = &self.label {
-            write!(f, "#{label}")?;
+            f.write_str("#")?;
+            <_ as Display>::fmt(label, f)?;
         }
         Ok(())
     }
@@ -124,6 +143,10 @@ impl<'a> AssetPath<'a> {
     /// This will return a [`ParseAssetPathError`] if `asset_path` is in an invalid format.
     pub fn try_parse(asset_path: &'a str) -> Result<AssetPath<'a>, ParseAssetPathError> {
         let (source, path, label) = Self::parse_internal(asset_path)?;
+
+        #[cfg(feature = "std")]
+        let path = Path::new(path);
+
         Ok(Self {
             source: match source {
                 Some(source) => AssetSourceId::Name(CowArc::Borrowed(source)),
@@ -137,7 +160,7 @@ impl<'a> AssetPath<'a> {
     // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and `AssetPath::label` components.
     fn parse_internal(
         asset_path: &str,
-    ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
+    ) -> Result<(Option<&str>, &str, Option<&str>), ParseAssetPathError> {
         let chars = asset_path.char_indices();
         let mut source_range = None;
         let mut path_range = 0..asset_path.len();
@@ -219,7 +242,8 @@ impl<'a> AssetPath<'a> {
             None => None,
         };
 
-        let path = Path::new(&asset_path[path_range]);
+        let path = &asset_path[path_range];
+
         Ok((source, path, label))
     }
 
@@ -234,6 +258,7 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Creates a new [`AssetPath`] from a [`Path`].
+    #[cfg(feature = "std")]
     #[inline]
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
         AssetPath {
@@ -263,6 +288,7 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Gets the path to the asset in the "virtual filesystem".
+    #[cfg(feature = "std")]
     #[inline]
     pub fn path(&self) -> &Path {
         self.path.deref()
@@ -313,6 +339,7 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Returns an [`AssetPath`] for the parent folder of this path, if there is a parent folder in the path.
+    #[cfg(feature = "std")]
     pub fn parent(&self) -> Option<AssetPath<'a>> {
         let path = match &self.path {
             CowArc::Borrowed(path) => CowArc::Borrowed(path.parent()?),
@@ -386,6 +413,7 @@ impl<'a> AssetPath<'a> {
     ///
     /// If there are insufficient segments in the base path to match the ".." segments,
     /// then any left-over ".." segments are left as-is.
+    #[cfg(feature = "std")]
     pub fn resolve(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
         self.resolve_internal(path, false)
     }
@@ -412,10 +440,12 @@ impl<'a> AssetPath<'a> {
     /// assert_eq!(AssetPath::parse("a/b.png").resolve_embed("#c"), Ok(AssetPath::parse("a/b.png#c")));
     /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_embed("#d"), Ok(AssetPath::parse("a/b.png#d")));
     /// ```
+    #[cfg(feature = "std")]
     pub fn resolve_embed(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
         self.resolve_internal(path, true)
     }
 
+    #[cfg(feature = "std")]
     fn resolve_internal(
         &self,
         path: &str,
@@ -435,7 +465,7 @@ impl<'a> AssetPath<'a> {
             // Strip off leading slash
             let mut is_absolute = false;
             let rpath = match rpath.strip_prefix("/") {
-                Ok(p) => {
+                Some(p) => {
                     is_absolute = true;
                     p
                 }
@@ -465,6 +495,7 @@ impl<'a> AssetPath<'a> {
     /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
     ///
     /// Also strips out anything following a `?` to handle query parameters in URIs
+    #[cfg(feature = "std")]
     pub fn get_full_extension(&self) -> Option<String> {
         let file_name = self.path().file_name()?.to_str()?;
         let index = file_name.find('.')?;
@@ -479,6 +510,10 @@ impl<'a> AssetPath<'a> {
         Some(extension)
     }
 
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "only used with `std` currently")
+    )]
     pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
         full_extension.chars().enumerate().filter_map(|(i, c)| {
             if c == '.' {
@@ -515,6 +550,7 @@ impl<'a> AssetPath<'a> {
     /// let path = AssetPath::parse("/home/thingy.png");
     /// assert!(path.is_unapproved());
     /// ```
+    #[cfg(feature = "std")]
     pub fn is_unapproved(&self) -> bool {
         use std::path::Component;
         let mut simplified = PathBuf::new();
@@ -568,6 +604,9 @@ impl<'a> From<&'a str> for AssetPath<'a> {
     fn from(asset_path: &'a str) -> Self {
         let (source, path, label) = Self::parse_internal(asset_path).unwrap();
 
+        #[cfg(feature = "std")]
+        let path = Path::new(path);
+
         AssetPath {
             source: source.into(),
             path: CowArc::Borrowed(path),
@@ -590,6 +629,7 @@ impl From<String> for AssetPath<'static> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> From<&'a Path> for AssetPath<'a> {
     #[inline]
     fn from(path: &'a Path) -> Self {
@@ -601,6 +641,7 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<PathBuf> for AssetPath<'static> {
     #[inline]
     fn from(path: PathBuf) -> Self {
@@ -618,6 +659,7 @@ impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPath<'b> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> From<AssetPath<'a>> for PathBuf {
     fn from(value: AssetPath<'a>) -> Self {
         value.path().to_path_buf()
@@ -668,6 +710,7 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
 
 /// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
 /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+#[cfg(feature = "std")]
 pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     let mut result_path = PathBuf::new();
     for elt in path.iter() {
@@ -685,39 +728,143 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     result_path
 }
 
+/// * [`AssetSourceId::Default`] corresponds to "default asset paths" that don't specify a source: `/path/to/asset.png`
+/// * [`AssetSourceId::Name`] corresponds to asset paths that _do_ specify a source: `remote://path/to/asset.png`, where `remote` is the name.
+#[derive(Default, Clone, Debug, Eq)]
+pub enum AssetSourceId<'a> {
+    /// The default asset source.
+    #[default]
+    Default,
+    /// A non-default named asset source.
+    Name(CowArc<'a, str>),
+}
+
+impl<'a> Display for AssetSourceId<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self.as_str() {
+            None => f.write_str("AssetSourceId::Default"),
+            Some(v) => write!(f, "AssetSourceId::Name({v})"),
+        }
+    }
+}
+
+impl<'a> AssetSourceId<'a> {
+    /// Creates a new [`AssetSourceId`]
+    pub fn new(source: Option<impl Into<CowArc<'a, str>>>) -> AssetSourceId<'a> {
+        match source {
+            Some(source) => AssetSourceId::Name(source.into()),
+            None => AssetSourceId::Default,
+        }
+    }
+
+    /// Returns [`None`] if this is [`AssetSourceId::Default`] and [`Some`] containing the
+    /// name if this is [`AssetSourceId::Name`].
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            AssetSourceId::Default => None,
+            AssetSourceId::Name(v) => Some(v),
+        }
+    }
+
+    /// If this is not already an owned / static id, create one. Otherwise, it will return itself (with a static lifetime).
+    pub fn into_owned(self) -> AssetSourceId<'static> {
+        match self {
+            AssetSourceId::Default => AssetSourceId::Default,
+            AssetSourceId::Name(v) => AssetSourceId::Name(v.into_owned()),
+        }
+    }
+
+    /// Clones into an owned [`AssetSourceId<'static>`].
+    /// This is equivalent to `.clone().into_owned()`.
+    #[inline]
+    pub fn clone_owned(&self) -> AssetSourceId<'static> {
+        self.clone().into_owned()
+    }
+}
+
+impl AssetSourceId<'static> {
+    /// Indicates this [`AssetSourceId`] should have a static lifetime.
+    #[inline]
+    pub fn as_static(self) -> Self {
+        match self {
+            Self::Default => Self::Default,
+            Self::Name(value) => Self::Name(value.as_static()),
+        }
+    }
+
+    /// Constructs an [`AssetSourceId`] with a static lifetime.
+    #[inline]
+    pub fn from_static(value: impl Into<Self>) -> Self {
+        value.into().as_static()
+    }
+}
+
+impl<'a> From<&'a str> for AssetSourceId<'a> {
+    fn from(value: &'a str) -> Self {
+        AssetSourceId::Name(CowArc::Borrowed(value))
+    }
+}
+
+impl<'a, 'b> From<&'a AssetSourceId<'b>> for AssetSourceId<'b> {
+    fn from(value: &'a AssetSourceId<'b>) -> Self {
+        value.clone()
+    }
+}
+
+impl<'a> From<Option<&'a str>> for AssetSourceId<'a> {
+    fn from(value: Option<&'a str>) -> Self {
+        match value {
+            Some(value) => AssetSourceId::Name(CowArc::Borrowed(value)),
+            None => AssetSourceId::Default,
+        }
+    }
+}
+
+impl From<String> for AssetSourceId<'static> {
+    fn from(value: String) -> Self {
+        AssetSourceId::Name(value.into())
+    }
+}
+
+impl<'a> Hash for AssetSourceId<'a> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state);
+    }
+}
+
+impl<'a> PartialEq for AssetSourceId<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str().eq(&other.as_str())
+    }
+}
+
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use crate::AssetPath;
     use alloc::string::ToString;
-    use std::path::Path;
 
     #[test]
     fn parse_asset_path() {
         let result = AssetPath::parse_internal("a/b.test");
-        assert_eq!(result, Ok((None, Path::new("a/b.test"), None)));
+        assert_eq!(result, Ok((None, "a/b.test", None)));
 
         let result = AssetPath::parse_internal("http://a/b.test");
-        assert_eq!(result, Ok((Some("http"), Path::new("a/b.test"), None)));
+        assert_eq!(result, Ok((Some("http"), "a/b.test", None)));
 
         let result = AssetPath::parse_internal("http://a/b.test#Foo");
-        assert_eq!(
-            result,
-            Ok((Some("http"), Path::new("a/b.test"), Some("Foo")))
-        );
+        assert_eq!(result, Ok((Some("http"), "a/b.test", Some("Foo"))));
 
         let result = AssetPath::parse_internal("localhost:80/b.test");
-        assert_eq!(result, Ok((None, Path::new("localhost:80/b.test"), None)));
+        assert_eq!(result, Ok((None, "localhost:80/b.test", None)));
 
         let result = AssetPath::parse_internal("http://localhost:80/b.test");
-        assert_eq!(
-            result,
-            Ok((Some("http"), Path::new("localhost:80/b.test"), None))
-        );
+        assert_eq!(result, Ok((Some("http"), "localhost:80/b.test", None)));
 
         let result = AssetPath::parse_internal("http://localhost:80/b.test#Foo");
         assert_eq!(
             result,
-            Ok((Some("http"), Path::new("localhost:80/b.test"), Some("Foo")))
+            Ok((Some("http"), "localhost:80/b.test", Some("Foo")))
         );
 
         let result = AssetPath::parse_internal("#insource://a/b.test");
@@ -733,7 +880,7 @@ mod tests {
         );
 
         let result = AssetPath::parse_internal("http://");
-        assert_eq!(result, Ok((Some("http"), Path::new(""), None)));
+        assert_eq!(result, Ok((Some("http"), "", None)));
 
         let result = AssetPath::parse_internal("://x");
         assert_eq!(result, Err(crate::ParseAssetPathError::MissingSource));

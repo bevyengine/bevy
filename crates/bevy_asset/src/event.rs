@@ -1,11 +1,23 @@
-use crate::{Asset, AssetId, AssetLoadError, AssetPath, UntypedAssetId};
+use core::fmt::Debug;
+
 use bevy_ecs::event::Event;
 use bevy_reflect::Reflect;
-use core::fmt::Debug;
+
+use crate::{Asset, AssetId};
+
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use crate::{AssetPath, UntypedAssetId};
+
+#[cfg(feature = "std")]
+use crate::AssetLoadError;
 
 /// An event emitted when a specific [`Asset`] fails to load.
 ///
 /// For an untyped equivalent, see [`UntypedAssetLoadFailedEvent`].
+#[cfg(feature = "std")]
 #[derive(Event, Clone, Debug)]
 pub struct AssetLoadFailedEvent<A: Asset> {
     /// The stable identifier of the asset that failed to load.
@@ -16,6 +28,7 @@ pub struct AssetLoadFailedEvent<A: Asset> {
     pub error: AssetLoadError,
 }
 
+#[cfg(feature = "std")]
 impl<A: Asset> AssetLoadFailedEvent<A> {
     /// Converts this to an "untyped" / "generic-less" asset error event that stores the type information.
     pub fn untyped(&self) -> UntypedAssetLoadFailedEvent {
@@ -24,6 +37,7 @@ impl<A: Asset> AssetLoadFailedEvent<A> {
 }
 
 /// An untyped version of [`AssetLoadFailedEvent`].
+#[cfg(feature = "std")]
 #[derive(Event, Clone, Debug)]
 pub struct UntypedAssetLoadFailedEvent {
     /// The stable identifier of the asset that failed to load.
@@ -34,6 +48,7 @@ pub struct UntypedAssetLoadFailedEvent {
     pub error: AssetLoadError,
 }
 
+#[cfg(feature = "std")]
 impl<A: Asset> From<&AssetLoadFailedEvent<A>> for UntypedAssetLoadFailedEvent {
     fn from(value: &AssetLoadFailedEvent<A>) -> Self {
         UntypedAssetLoadFailedEvent {

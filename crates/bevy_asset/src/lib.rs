@@ -146,15 +146,20 @@
 )]
 #![no_std]
 
-extern crate alloc;
+#[cfg(feature = "std")]
 extern crate std;
+
+extern crate alloc;
 
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_asset;
 
+#[cfg(feature = "std")]
 pub mod io;
 pub mod meta;
+#[cfg(feature = "std")]
 pub mod processor;
+#[cfg(feature = "std")]
 pub mod saver;
 pub mod transformer;
 
@@ -163,13 +168,14 @@ pub mod transformer;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::asset_changed::AssetChanged;
-
-    #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
-        DirectAssetAccessExt, Handle, UntypedHandle,
+        asset_changed::AssetChanged, Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin,
+        Assets, DirectAssetAccessExt, Handle, UntypedHandle,
     };
+
+    #[cfg(feature = "std")]
+    #[doc(hidden)]
+    pub use crate::AssetServer;
 }
 
 mod asset_changed;
@@ -180,10 +186,12 @@ mod folder;
 mod handle;
 mod id;
 mod loader;
+#[cfg(feature = "std")]
 mod loader_builders;
 mod path;
 mod reflect;
 mod render_asset;
+#[cfg(feature = "std")]
 mod server;
 
 pub use assets::*;
@@ -191,42 +199,53 @@ pub use bevy_asset_macros::Asset;
 pub use direct_access_ext::DirectAssetAccessExt;
 pub use event::*;
 pub use folder::*;
-pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
+#[cfg(feature = "std")]
 pub use loader_builders::{
     Deferred, DynamicTyped, Immediate, NestedLoader, StaticTyped, UnknownTyped,
 };
 pub use path::*;
 pub use reflect::*;
 pub use render_asset::*;
+#[cfg(feature = "std")]
 pub use server::*;
 
+#[cfg(feature = "std")]
+pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
+#[cfg(feature = "std")]
 pub use ron;
 pub use uuid;
 
-use crate::{
-    io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
-    processor::{AssetProcessor, Process},
-};
 use alloc::{
     string::{String, ToString},
-    sync::Arc,
     vec::Vec,
 };
-use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy_ecs::prelude::Component;
+
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
-    reflect::AppTypeRegistry,
-    schedule::{IntoScheduleConfigs, SystemSet},
-    world::FromWorld,
+    component::Component, reflect::AppTypeRegistry, schedule::IntoScheduleConfigs,
+    schedule::SystemSet,
 };
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use core::any::TypeId;
-use tracing::error;
+
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use {
+    bevy_app::PreUpdate, bevy_ecs::world::FromWorld, bevy_platform::sync::Arc, core::any::TypeId,
+    log::error,
+};
+
+#[cfg(feature = "std")]
+use crate::{
+    io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders},
+    processor::{AssetProcessor, Process},
+};
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
 /// which can be something like a filesystem, a network, etc.
@@ -343,8 +362,9 @@ impl AssetPlugin {
     const DEFAULT_PROCESSED_FILE_PATH: &'static str = "imported_assets/Default";
 }
 
-impl Plugin for AssetPlugin {
-    fn build(&self, app: &mut App) {
+#[cfg(feature = "std")]
+impl AssetPlugin {
+    fn build_asset_plugin_std(&self, app: &mut App) {
         let embedded = EmbeddedAssetRegistry::default();
         {
             let mut sources = app
@@ -410,9 +430,6 @@ impl Plugin for AssetPlugin {
             }
         }
         app.insert_resource(embedded)
-            .init_asset::<LoadedFolder>()
-            .init_asset::<LoadedUntypedAsset>()
-            .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
             .configure_sets(
                 PreUpdate,
@@ -422,8 +439,19 @@ impl Plugin for AssetPlugin {
             // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
             // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
             // needs to be robust to stochastic delays anyways.
-            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
-            .register_type::<AssetPath>();
+            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all());
+    }
+}
+
+impl Plugin for AssetPlugin {
+    fn build(&self, app: &mut App) {
+        #[cfg(feature = "std")]
+        self.build_asset_plugin_std(app);
+
+        app.register_type::<AssetPath>()
+            .init_asset::<LoadedFolder>()
+            .init_asset::<LoadedUntypedAsset>()
+            .init_asset::<()>();
     }
 }
 
@@ -505,21 +533,26 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
 /// Adds asset-related builder methods to [`App`].
 pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
+    #[cfg(feature = "std")]
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
+    #[cfg(feature = "std")]
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
     /// Registers the given [`AssetSourceBuilder`] with the given `id`.
     ///
     /// Note that asset sources must be registered before adding [`AssetPlugin`] to your application,
     /// since registered asset sources are built at that point and not after.
+    #[cfg(feature = "std")]
     fn register_asset_source(
         &mut self,
         id: impl Into<AssetSourceId<'static>>,
         source: AssetSourceBuilder,
     ) -> &mut Self;
     /// Sets the default asset processor for the given `extension`.
+    #[cfg(feature = "std")]
     fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self;
     /// Initializes the given loader in the [`App`]'s [`AssetServer`].
+    #[cfg(feature = "std")]
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self;
     /// Initializes the given [`Asset`] in the [`App`] by:
     /// * Registering the [`Asset`] in the [`AssetServer`]
@@ -538,10 +571,12 @@ pub trait AssetApp {
         A: Asset + Reflect + FromReflect + GetTypeRegistration;
     /// Preregisters a loader for the given extensions, that will block asset loads until a real loader
     /// is registered.
+    #[cfg(feature = "std")]
     fn preregister_asset_loader<L: AssetLoader>(&mut self, extensions: &[&str]) -> &mut Self;
 }
 
 impl AssetApp for App {
+    #[cfg(feature = "std")]
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self {
         self.world()
             .resource::<AssetServer>()
@@ -549,6 +584,7 @@ impl AssetApp for App {
         self
     }
 
+    #[cfg(feature = "std")]
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
         if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
             asset_processor.register_processor(processor);
@@ -556,6 +592,7 @@ impl AssetApp for App {
         self
     }
 
+    #[cfg(feature = "std")]
     fn register_asset_source(
         &mut self,
         id: impl Into<AssetSourceId<'static>>,
@@ -576,6 +613,7 @@ impl AssetApp for App {
         self
     }
 
+    #[cfg(feature = "std")]
     fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
         if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
             asset_processor.set_default_processor::<P>(extension);
@@ -583,6 +621,7 @@ impl AssetApp for App {
         self
     }
 
+    #[cfg(feature = "std")]
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self {
         let loader = L::from_world(self.world_mut());
         self.register_asset_loader(loader)
@@ -590,25 +629,33 @@ impl AssetApp for App {
 
     fn init_asset<A: Asset>(&mut self) -> &mut Self {
         let assets = Assets::<A>::default();
-        self.world()
-            .resource::<AssetServer>()
-            .register_asset(&assets);
-        if self.world().contains_resource::<AssetProcessor>() {
-            let processor = self.world().resource::<AssetProcessor>();
-            // The processor should have its own handle provider separate from the Asset storage
-            // to ensure the id spaces are entirely separate. Not _strictly_ necessary, but
-            // desirable.
-            processor
-                .server()
-                .register_handle_provider(AssetHandleProvider::new(
-                    TypeId::of::<A>(),
-                    Arc::new(AssetIndexAllocator::default()),
-                ));
+
+        #[cfg(feature = "std")]
+        {
+            self.world()
+                .resource::<AssetServer>()
+                .register_asset(&assets);
+
+            if self.world().contains_resource::<AssetProcessor>() {
+                let processor = self.world().resource::<AssetProcessor>();
+                // The processor should have its own handle provider separate from the Asset storage
+                // to ensure the id spaces are entirely separate. Not _strictly_ necessary, but
+                // desirable.
+                processor
+                    .server()
+                    .register_handle_provider(AssetHandleProvider::new(
+                        TypeId::of::<A>(),
+                        Arc::new(AssetIndexAllocator::default()),
+                    ));
+            }
+
+            self.add_event::<AssetLoadFailedEvent<A>>()
+                .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets));
         }
+
         self.insert_resource(assets)
             .allow_ambiguous_resource::<Assets<A>>()
             .add_event::<AssetEvent<A>>()
-            .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .add_systems(
                 PostUpdate,
@@ -639,6 +686,7 @@ impl AssetApp for App {
         self
     }
 
+    #[cfg(feature = "std")]
     fn preregister_asset_loader<L: AssetLoader>(&mut self, extensions: &[&str]) -> &mut Self {
         self.world_mut()
             .resource_mut::<AssetServer>()
@@ -665,6 +713,7 @@ pub struct AssetEventSystems;
 #[deprecated(since = "0.17.0", note = "Renamed to `AssetEventSystems`.")]
 pub type AssetEvents = AssetEventSystems;
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use crate::{

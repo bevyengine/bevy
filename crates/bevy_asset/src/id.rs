@@ -327,6 +327,10 @@ pub(crate) enum InternalAssetId {
 }
 
 impl InternalAssetId {
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "only used with `std` currently")
+    )]
     #[inline]
     pub(crate) fn typed<A: Asset>(self) -> AssetId<A> {
         match self {

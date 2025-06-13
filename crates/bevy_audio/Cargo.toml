@@ -42,6 +42,9 @@ bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = fa
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
+bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev", default-features = false, features = [
+  "web",
+] }
 
 [features]
 mp3 = ["rodio/mp3"]
