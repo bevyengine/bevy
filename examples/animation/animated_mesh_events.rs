@@ -47,10 +47,7 @@ fn observe_on_step(
     transforms: Query<&GlobalTransform>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
-    let translation = transforms
-        .get(trigger.target().unwrap())
-        .unwrap()
-        .translation();
+    let translation = transforms.get(trigger.target()).unwrap().translation();
     // Spawn a bunch of particles.
     for _ in 0..14 {
         let horizontal = seeded_rng.0.r#gen::<Dir2>() * seeded_rng.0.gen_range(8.0..12.0);

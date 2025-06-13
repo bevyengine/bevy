@@ -211,12 +211,6 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
         Ptr::from(&self.event)
     }
 
-    /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
-    /// be [`None`] if the trigger is not for a particular entity.
-    pub fn target(&self) -> Option<Entity> {
-        self.trigger.target
-    }
-
     /// Returns the components that triggered the observer, out of the
     /// components defined in `B`. Does not necessarily include all of them as
     /// `B` acts like an `OR` filter rather than an `AND` filter.
@@ -250,14 +244,28 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
         self.trigger.observer
     }
 
+    /// Returns the source code location that triggered this observer.
+    pub fn caller(&self) -> MaybeLocation {
+        self.trigger.caller
+    }
+}
+
+impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
+    /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer.
+    ///
+    /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
+    pub fn target(&self) -> Entity {
+        self.trigger.target.unwrap_or(Entity::PLACEHOLDER)
+    }
+
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
     ///
     /// The path an event will propagate along is specified by its associated [`Traversal`] component. By default, events
     /// use `()` which ends the path immediately and prevents propagation.
     ///
     /// To enable propagation, you must:
-    /// + Set [`Event::Traversal`] to the component you want to propagate along.
-    /// + Either call `propagate(true)` in the first observer or set [`Event::AUTO_PROPAGATE`] to `true`.
+    /// + Set [`EntityEvent::Traversal`] to the component you want to propagate along.
+    /// + Either call `propagate(true)` in the first observer or set [`EntityEvent::AUTO_PROPAGATE`] to `true`.
     ///
     /// You can prevent an event from propagating further using `propagate(false)`.
     ///
@@ -271,11 +279,6 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     /// [`propagate`]: On::propagate
     pub fn get_propagate(&self) -> bool {
         *self.propagate
-    }
-
-    /// Returns the source code location that triggered this observer.
-    pub fn caller(&self) -> MaybeLocation {
-        self.trigger.caller
     }
 }
 
@@ -1155,20 +1158,20 @@ mod tests {
         world.add_observer(
             |obs: On<Add, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.target().unwrap()).insert(B);
+                commands.entity(obs.target()).insert(B);
             },
         );
         world.add_observer(
             |obs: On<Remove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.target().unwrap()).remove::<B>();
+                commands.entity(obs.target()).remove::<B>();
             },
         );
 
         world.add_observer(
             |obs: On<Add, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.target().unwrap()).remove::<A>();
+                commands.entity(obs.target()).remove::<A>();
             },
         );
         world.add_observer(|_: On<Remove, B>, mut res: ResMut<Order>| {
@@ -1337,7 +1340,7 @@ mod tests {
         };
         world.spawn_empty().observe(system);
         world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), None);
+            assert_eq!(obs.target(), Entity::PLACEHOLDER);
             res.observed("event_a");
         });
 
@@ -1364,7 +1367,7 @@ mod tests {
             .observe(|_: On<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target().unwrap(), entity);
+            assert_eq!(obs.target(), entity);
             res.observed("a_2");
         });
 
@@ -1784,7 +1787,7 @@ mod tests {
 
         world.add_observer(
             |trigger: On<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(trigger.target().unwrap()).is_ok() {
+                if query.get(trigger.target()).is_ok() {
                     res.observed("event");
                 }
             },
@@ -1807,7 +1810,7 @@ mod tests {
     fn observer_modifies_relationship() {
         fn on_add(trigger: On<Add, A>, mut commands: Commands) {
             commands
-                .entity(trigger.target().unwrap())
+                .entity(trigger.target())
                 .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
                     rsc.spawn_empty();
                 });

@@ -5748,9 +5748,7 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|trigger: On<TestEvent>, mut commands: Commands| {
-                commands
-                    .entity(trigger.target().unwrap())
-                    .insert(TestComponent(0));
+                commands.entity(trigger.target()).insert(TestComponent(0));
             })
             .id();
 
@@ -5769,7 +5767,7 @@ mod tests {
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
         world.add_observer(|trigger: On<Add, TestComponent>, mut commands: Commands| {
-            commands.entity(trigger.target().unwrap()).despawn();
+            commands.entity(trigger.target()).despawn();
         });
         let entity = world.spawn_empty().id();
         let mut a = world.entity_mut(entity);

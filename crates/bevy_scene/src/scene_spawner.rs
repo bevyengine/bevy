@@ -734,7 +734,7 @@ mod tests {
                 );
                 assert_eq!(
                     trigger.target(),
-                    scene_entity,
+                    scene_entity.unwrap_or(Entity::PLACEHOLDER),
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );
                 assert!(
