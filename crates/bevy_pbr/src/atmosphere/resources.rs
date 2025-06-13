@@ -1,7 +1,5 @@
 use bevy_asset::{load_embedded_asset, Handle};
-use bevy_core_pipeline::{
-    core_3d::Camera3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-};
+use bevy_core_pipeline::{core_3d::Camera3d, FullscreenShader};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -36,7 +34,8 @@ pub(crate) struct AtmosphereBindGroupLayouts {
 pub(crate) struct RenderSkyBindGroupLayouts {
     pub render_sky: BindGroupLayout,
     pub render_sky_msaa: BindGroupLayout,
-    pub shader: Handle<Shader>,
+    pub fullscreen_shader: FullscreenShader,
+    pub fragment_shader: Handle<Shader>,
 }
 
 impl FromWorld for AtmosphereBindGroupLayouts {
@@ -205,7 +204,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
         Self {
             render_sky,
             render_sky_msaa,
-            shader: load_embedded_asset!(world, "render_sky.wgsl"),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(world, "render_sky.wgsl"),
         }
     }
 }
@@ -358,7 +358,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                 self.render_sky_msaa.clone()
             }],
             push_constant_ranges: vec![],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState {
@@ -368,7 +368,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             },
             zero_initialize_workgroup_memory: false,
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
                 entry_point: "main".into(),
                 targets: vec![Some(ColorTargetState {

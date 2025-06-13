@@ -3,7 +3,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    FullscreenShader,
 };
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
@@ -130,7 +130,8 @@ impl Plugin for FxaaPlugin {
 pub struct FxaaPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
-    shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 impl FromWorld for FxaaPipeline {
@@ -157,7 +158,8 @@ impl FromWorld for FxaaPipeline {
         FxaaPipeline {
             texture_bind_group,
             sampler,
-            shader: load_embedded_asset!(render_world, "fxaa.wgsl"),
+            fullscreen_shader: render_world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(render_world, "fxaa.wgsl"),
         }
     }
 }
@@ -181,9 +183,9 @@ impl SpecializedRenderPipeline for FxaaPipeline {
         RenderPipelineDescriptor {
             label: Some("fxaa".into()),
             layout: vec![self.texture_bind_group.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs: vec![
                     format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
                     format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),
