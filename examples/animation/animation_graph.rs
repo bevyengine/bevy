@@ -182,6 +182,10 @@ fn setup_assets_programmatically(
             .spawn(async move {
                 use std::io::Write;
 
+                let animation_graph: SerializedAnimationGraph = animation_graph
+                    .try_into()
+                    .expect("The animation graph failed to convert to its serialized form");
+
                 let serialized_graph =
                     ron::ser::to_string_pretty(&animation_graph, PrettyConfig::default())
                         .expect("Failed to serialize the animation graph");
