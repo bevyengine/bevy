@@ -1,4 +1,4 @@
-use bevy_math::Vec3;
+use bevy_math::{Quat, Vec3};
 
 pub(crate) trait ConvertCoordinates {
     /// Converts the glTF coordinates to Bevy's coordinate system.
@@ -22,5 +22,17 @@ impl ConvertCoordinates for Vec3 {
 impl ConvertCoordinates for [f32; 3] {
     fn convert_coordinates(self) -> Self {
         [-self[0], self[1], -self[2]]
+    }
+}
+
+impl ConvertCoordinates for [f32; 4] {
+    fn convert_coordinates(self) -> Self {
+        [-self[0], self[1], -self[2], self[3]]
+    }
+}
+
+impl ConvertCoordinates for Quat {
+    fn convert_coordinates(self) -> Self {
+        Quat::from_array([-self.x, self.y, -self.z, self.w])
     }
 }

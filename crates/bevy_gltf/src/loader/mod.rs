@@ -318,9 +318,8 @@ async fn load_gltf<'a, 'b, 'c>(
                     match outputs {
                         ReadOutputs::Translations(tr) => {
                             let translation_property = animated_field!(Transform::translation);
-                            let translations: Vec<Vec3> = tr
-                                .map(|coords| coords.convert_coordinates().into())
-                                .collect();
+                            let translations: Vec<Vec3> =
+                                tr.map(Vec3::from).map(Vec3::convert_coordinates).collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     translation_property,
@@ -367,8 +366,11 @@ async fn load_gltf<'a, 'b, 'c>(
                         }
                         ReadOutputs::Rotations(rots) => {
                             let rotation_property = animated_field!(Transform::rotation);
-                            let rotations: Vec<Quat> =
-                                rots.into_f32().map(Quat::from_array).collect();
+                            let rotations: Vec<Quat> = rots
+                                .into_f32()
+                                .map(Quat::from_array)
+                                .map(Quat::convert_coordinates)
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     rotation_property,

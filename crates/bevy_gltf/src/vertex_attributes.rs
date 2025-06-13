@@ -146,7 +146,11 @@ impl<'a> VertexAttributeIter<'a> {
                 Values::Float32x3(it.collect())
             }),
             VertexAttributeIter::U32x3(it) => Ok(Values::Uint32x3(it.collect())),
-            VertexAttributeIter::F32x4(it) => Ok(Values::Float32x4(it.collect())),
+            VertexAttributeIter::F32x4(it) => Ok(if convert_coordinates {
+                Values::Float32x4(it.map(|coords| coords.convert_coordinates()).collect())
+            } else {
+                Values::Float32x4(it.collect())
+            }),
             VertexAttributeIter::U32x4(it) => Ok(Values::Uint32x4(it.collect())),
             VertexAttributeIter::S16x2(it, n) => {
                 Ok(n.apply_either(it.collect(), Values::Snorm16x2, Values::Sint16x2))
