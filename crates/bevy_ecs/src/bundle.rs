@@ -271,6 +271,16 @@ pub trait BundleEffect {
     fn apply(self, entity: &mut EntityWorldMut);
 }
 
+/// BundleEffect can be implemented directly or using the implementation for `FnOnce(&mut EntityWorldMut)`.
+impl<E> BundleEffect for E
+where
+    E: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static,
+{
+    fn apply(self, entity: &mut EntityWorldMut) {
+        (self)(entity);
+    }
+}
+
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
@@ -2118,43 +2128,61 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
     });
 }
 
-/// BundleEffectFn allows direct access to the BundleEffect trait without having
+/// [`Effect`] wraps a [`BundleEffect`] into a [`Bundle`] allowing
+/// you to leverage the power of a [`BundleEffect`] without having
 /// to implement your own unsafe implementation of the Bundle trait.
+/// [`BundleEffect`]s get access to [`EntityWorldMut`] on insert allowing for
+/// powerful modifications to the world. [`BundleEffect`]s also power other Bevy
+/// helper bundles like [`crate::spawn::SpawnIter`], [`crate::spawn::SpawnWith`], and [`crate::observer::Observer::bundle`].
+/// You can implement BundleEffect directly or use the implementation of BundleEffect
+/// for `FnOnce(&mut EntityWorldMut)`.
 ///
-/// Bundle Effects get access to [`EntityWorldMut`] on insert allowing for
-/// powerful modifications to the world. Bundle Effects also power other Bevy
-/// helper bundles like [`crate::spawn::SpawnIter`] and [`crate::spawn::SpawnWith`]
-pub struct BundleEffectFn<F>(pub F)
+/// Note: [`crate::component::Component`] Hooks are almost as powerful as
+/// [`BundleEffect`]s and should be used instead where possible. [`BundleEffect`]s
+/// should only be used where structural ECS changes are required. For more details
+/// see [`crate::world::DeferredWorld`]
+///
+/// Example, using a [`BundleEffect`] to add a system to the [`crate::schedule::PostUpdate`]
+///
+/// ```rust
+///  commands.spawn((
+///     Node::default(),
+///     Effect(|entity: &mut EntityWorldMut| {
+///         // SAFETY: We don't modify the entity's position so this is safe
+///         let world = unsafe { entity.world_mut() };
+///
+///         // This is not idempotent
+///         world
+///             .get_resource_mut::<Schedules>()
+///             .unwrap()
+///             .get_mut(PostUpdate)
+///             .unwrap()
+///             .add_systems(animate_component.in_set(UiSystem::PostLayout));
+///     }),
+/// ))
+/// ```
+pub struct Effect<E>(pub E)
 where
-    F: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static;
+    E: BundleEffect;
 
-impl<F> DynamicBundle for BundleEffectFn<F>
+impl<E> DynamicBundle for Effect<E>
 where
-    F: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static,
+    E: BundleEffect,
 {
-    type Effect = BundleEffectFn<F>;
+    type Effect = E;
 
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-        self
+    fn get_components(self, _func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+        self.0
     }
 }
 
-impl<F> BundleEffect for BundleEffectFn<F>
+unsafe impl<F> Bundle for Effect<F>
 where
     F: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static,
 {
-    fn apply(self, entity: &mut EntityWorldMut) {
-        (self.0)(entity);
-    }
-}
+    fn component_ids(_components: &mut ComponentsRegistrator, _ids: &mut impl FnMut(ComponentId)) {}
 
-unsafe impl<F> Bundle for BundleEffectFn<F>
-where
-    F: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static,
-{
-    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {}
-
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {}
+    fn get_component_ids(_components: &Components, _ids: &mut impl FnMut(Option<ComponentId>)) {}
 
     fn register_required_components(
         _components: &mut ComponentsRegistrator,

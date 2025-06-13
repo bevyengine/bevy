@@ -2,7 +2,7 @@ use alloc::{boxed::Box, vec};
 use core::any::Any;
 
 use crate::{
-    bundle::BundleEffectFn,
+    bundle::Effect,
     component::{ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
     lifecycle::{ComponentHook, HookContext},
@@ -298,7 +298,21 @@ impl Observer {
         &self.descriptor
     }
 
-    /// Creates a [`Bundle`] that will spawn the given [`Observer`].
+    /// Creates a [`Bundle`] that will spawn a new [`Observer`] (its own Entity)
+    /// observing this entity it's spawned on.
+    ///
+    /// Example
+    /// ```rust
+    ///     commands.spawn(
+    ///         Node::default(),
+    ///         Text::from("Not clicked"),
+    ///         Observer::bundle(
+    ///             |trigger: Trigger<Pointer<Click>>,
+    ///              mut text: Query<&mut Text>| {
+    ///                **text.get_mut(trigger.target).unwrap() = "Clicked!".to_string();
+    ///          })
+    ///     )
+    /// ```
     pub fn bundle<E, B, M, O>(observer: O) -> impl Bundle
     where
         E: Event,
@@ -306,7 +320,7 @@ impl Observer {
         M: Send + Sync + 'static,
         O: IntoObserverSystem<E, B, M> + Send + Sync + 'static,
     {
-        BundleEffectFn(move |entity| {
+        Effect(move |entity: &mut EntityWorldMut| {
             entity.observe(observer);
         })
     }
