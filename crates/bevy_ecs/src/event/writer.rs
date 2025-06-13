@@ -3,7 +3,7 @@ use bevy_ecs::{
     system::{ResMut, SystemParam},
 };
 
-/// Sends events of type `T`.
+/// Sends [`BufferedEvent`]s of type `T`.
 ///
 /// # Usage
 ///
@@ -21,7 +21,7 @@ use bevy_ecs::{
 /// ```
 /// # Observers
 ///
-/// "Buffered" Events, such as those sent directly in [`Events`] or written using [`EventWriter`], do _not_ automatically
+/// "Buffered" events, such as those sent directly in [`Events`] or written using [`EventWriter`], do _not_ automatically
 /// trigger any [`Observer`]s watching for that event, as each [`BufferedEvent`] has different requirements regarding _if_ it will
 /// be triggered, and if so, _when_ it will be triggered in the schedule.
 ///

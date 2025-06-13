@@ -11,51 +11,40 @@ use core::{
     marker::PhantomData,
 };
 
-/// Something that "happens" and can be observed by app logic for push-based event handling.
+/// Something that "happens" and can be processed by app logic.
 ///
-/// Events can be "triggered" on a [`World`], which will then cause any global [`Observer`]
-/// watching that event to run. Events can also be triggered for specific [`TriggerTargets`],
-/// typically entities, which will only fire off observers watching those targets.
+/// Events can be triggered on a [`World`] using a method like [`trigger`](World::trigger),
+/// causing any global [`Observer`] watching that event to run. This allows for push-based
+/// event handling where observers are immediately notified of events as they happen.
 ///
-/// Events are normally processed immediately after they are triggered, at the next command flush.
-/// This makes them suitable for callback-like patterns where various event handlers respond to
-/// events immediately, even recursively triggering other events.
+/// Additional event handling behavior can be enabled by implementing the [`EntityEvent`]
+/// and [`BufferedEvent`] traits:
 ///
-/// Targeted events support optional propagation from one entity target to another
-/// based on the [`Event::Traversal`] type associated with the event.
+/// - [`EntityEvent`]s support targeting specific entities, triggering any observers watching those targets.
+///   They are useful for entity-specific event handlers and can even be propagated from one entity to another.
+/// - [`BufferedEvent`]s support a pull-based event handling system where events are written using an [`EventWriter`]
+///   and read later using an [`EventReader`]. This is an alternative to observers that allows efficient batch processing
+///   of events at fixed points in a schedule.
 ///
 /// Events must be thread-safe.
 ///
-/// ## Derive
+/// # Derive
 ///
 /// The [`Event`] trait can be derived.
-/// Adding `auto_propagate` sets [`Event::AUTO_PROPAGATE`] to true,
-/// while adding `traversal = "X"` sets [`Event::Traversal`] to be of type "X".
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
 /// #[derive(Event)]
-/// #[event(auto_propagate, traversal = &'static ChildOf)]
 /// struct MyEvent;
 /// ```
 ///
-/// # Buffered Events
-///
-/// Sometimes, you may want events to be buffered and deferred instead of processing them immediately.
-///
-/// The [`BufferedEvent`] trait provides a simpler, pull-based event handling system that allows you
-/// to write events using an [`EventWriter`] and read them later using an [`EventReader`].
-/// This requires periodically polling the world for new events, but can be more efficient for
-/// batch processing a large number of events at once, and allows events to be evaluated at
-/// fixed points in the schedule rather than immediately when they are sent.
-///
-/// See the [`BufferedEvent`] trait for more details.
+/// For events that additionally need entity targeting or buffering, consider instead deriving
+/// [`EntityEvent`] or [`BufferedEvent`], respectively.
 ///
 /// [`World`]: crate::world::World
 /// [`TriggerTargets`]: crate::observer::TriggerTargets
 /// [`Observer`]: crate::observer::Observer
-/// [`Events<E>`]: super::Events
 /// [`EventReader`]: super::EventReader
 /// [`EventWriter`]: super::EventWriter
 #[diagnostic::on_unimplemented(
@@ -64,19 +53,6 @@ use core::{
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Send + Sync + 'static {
-    /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
-    ///
-    /// [`Entity`]: crate::entity::Entity
-    /// [propagation]: crate::observer::On::propagate
-    type Traversal: Traversal<Self>;
-
-    /// When true, this event will always attempt to propagate when [triggered], without requiring a call
-    /// to [`On::propagate`].
-    ///
-    /// [triggered]: crate::system::Commands::trigger_targets
-    /// [`On::propagate`]: crate::observer::On::propagate
-    const AUTO_PROPAGATE: bool = false;
-
     /// Generates the [`ComponentId`] for this event type.
     ///
     /// If this type has already been registered,
@@ -108,6 +84,57 @@ pub trait Event: Send + Sync + 'static {
     }
 }
 
+/// An [`Event`] that can be targeted at specific entities.
+///
+/// Entity events can be triggered on a [`World`] with specific entity targets using a method
+/// like [`trigger_targets`](World::trigger_targets), causing any [`Observer`] watching the event
+/// for those entities to run.
+///
+/// Unlike basic [`Event`]s, entity events can also support optional propagation from one entity target
+/// to another based on the [`EntityEvent::Traversal`] type associated with the event. This enables use cases
+/// such as bubbling events from child entities to parents for UI purposes.
+///
+/// Entity events must be thread-safe.
+///
+/// # Derive
+///
+/// The [`EntityEvent`] trait can be derived. Adding `auto_propagate` sets [`EntityEvent::AUTO_PROPAGATE`] to `true`,
+/// while adding `traversal = "X"` sets [`EntityEvent::Traversal`] to be of type "X".
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(EntityEvent)]
+/// #[event(auto_propagate, traversal = &'static ChildOf)]
+/// struct MyEvent;
+/// ```
+///
+/// [`World`]: crate::world::World
+/// [`TriggerTargets`]: crate::observer::TriggerTargets
+/// [`Observer`]: crate::observer::Observer
+/// [`Events<E>`]: super::Events
+/// [`EventReader`]: super::EventReader
+/// [`EventWriter`]: super::EventWriter
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `EntityEvent`",
+    label = "invalid `EntityEvent`",
+    note = "consider annotating `{Self}` with `#[derive(EntityEvent)]`"
+)]
+pub trait EntityEvent: Event {
+    /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
+    ///
+    /// [`Entity`]: crate::entity::Entity
+    /// [propagation]: crate::observer::On::propagate
+    type Traversal: Traversal<Self>;
+
+    /// When true, this event will always attempt to propagate when [triggered], without requiring a call
+    /// to [`On::propagate`].
+    ///
+    /// [triggered]: crate::system::Commands::trigger_targets
+    /// [`On::propagate`]: crate::observer::On::propagate
+    const AUTO_PROPAGATE: bool = false;
+}
+
 /// A buffered event for pull-based event handling.
 ///
 /// Buffered events can be written with [`EventWriter`] and read using the [`EventReader`] system parameter.
@@ -122,9 +149,9 @@ pub trait Event: Send + Sync + 'static {
 /// rather than immediately when they are sent. This allows for more predictable scheduling and deferring
 /// event processing to a later point in time.
 ///
-/// Buffered events do *not* trigger observers automatically when they are written.
-/// However, it is possible to derive both [`Event`] and [`BufferedEvent`] for the same type
-/// in case you want both buffered and immediate event handling for the same event.
+/// Buffered events do *not* trigger observers automatically when they are written via an [`EventWriter`].
+/// However, they can still also be triggered on a [`World`] in case you want both buffered and immediate
+/// event handling for the same event.
 ///
 /// Buffered events must be thread-safe.
 ///
@@ -177,7 +204,7 @@ pub trait Event: Send + Sync + 'static {
     label = "invalid `BufferedEvent`",
     note = "consider annotating `{Self}` with `#[derive(BufferedEvent)]`"
 )]
-pub trait BufferedEvent: Send + Sync + 'static {}
+pub trait BufferedEvent: Event {}
 
 /// An internal type that implements [`Component`] for a given [`Event`] type.
 ///

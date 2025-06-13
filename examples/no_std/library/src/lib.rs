@@ -106,7 +106,7 @@ struct DelayedComponentTimer(Timer);
 #[component(immutable)]
 struct DelayedComponent<B: Bundle>(B);
 
-#[derive(Event)]
+#[derive(EntityEvent)]
 struct Unwrap;
 
 fn tick_timers(

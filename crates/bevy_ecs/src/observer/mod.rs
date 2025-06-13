@@ -54,7 +54,7 @@
 //! ## Triggering observers
 //!
 //! Observers are most commonly triggered by [`Commands`],
-//! via [`Commands::trigger`] (for untargeted events) or [`Commands::trigger_targets`] (for targeted events).
+//! via [`Commands::trigger`] (for untargeted [`Event`]s) or [`Commands::trigger_targets`] (for targeted [`EntityEvent`]s).
 //! Like usual, equivalent methods are available on [`World`], allowing you to reduce overhead when working with exclusive world access.
 //!
 //! If your observer is configured to watch for a specific component or set of components instead,
@@ -64,15 +64,14 @@
 //!
 //! ## Observer bubbling
 //!
-//! When events are targeted at an entity, they can optionally bubble to other targets,
+//! When using an [`EntityEvent`] targeted at an entity, the event can optionally be propagated to other targets,
 //! typically up to parents in an entity hierarchy.
 //!
-//! This behavior is controlled via [`Event::Traversal`] and [`Event::AUTO_PROPAGATE`],
+//! This behavior is controlled via [`EntityEvent::Traversal`] and [`EntityEvent::AUTO_PROPAGATE`],
 //! with the details of the propagation path specified by the [`Traversal`](crate::traversal::Traversal) trait.
 //!
-//! When auto-propagation is enabled, propagaion must be manually stopped to prevent the event from
-//! continuing to other targets.
-//! This can be done using the [`On::propagate`] method inside of your observer.
+//! When auto-propagation is enabled, propagation must be manually stopped to prevent the event from
+//! continuing to other targets. This can be done using the [`On::propagate`] method inside of your observer.
 //!
 //! ## Observer timing
 //!
@@ -723,7 +722,7 @@ impl World {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe {
-            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, (), caller);
+            self.trigger_dynamic_ref_with_caller(event_id, &mut event, caller);
         }
     }
 
@@ -735,20 +734,40 @@ impl World {
     pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, event, ()) };
+        unsafe { self.trigger_dynamic_ref_with_caller(event_id, event, MaybeLocation::caller()) };
     }
 
-    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
+    unsafe fn trigger_dynamic_ref_with_caller<E: Event>(
+        &mut self,
+        event_id: ComponentId,
+        event_data: &mut E,
+        caller: MaybeLocation,
+    ) {
+        let mut world = DeferredWorld::from(self);
+        // SAFETY: `event_data` is accessible as the type represented by `event_id`
+        unsafe {
+            world.trigger_observers_with_data::<_, ()>(
+                event_id,
+                None,
+                core::iter::empty::<ComponentId>(),
+                event_data,
+                false,
+                caller,
+            );
+        };
+    }
+
+    /// Triggers the given [`EntityEvent`] for the given `targets`, which will run any [`Observer`]s watching for it.
     ///
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
     #[track_caller]
-    pub fn trigger_targets<E: Event>(&mut self, event: E, targets: impl TriggerTargets) {
+    pub fn trigger_targets<E: EntityEvent>(&mut self, event: E, targets: impl TriggerTargets) {
         self.trigger_targets_with_caller(event, targets, MaybeLocation::caller());
     }
 
-    pub(crate) fn trigger_targets_with_caller<E: Event>(
+    pub(crate) fn trigger_targets_with_caller<E: EntityEvent>(
         &mut self,
         mut event: E,
         targets: impl TriggerTargets,
@@ -761,19 +780,23 @@ impl World {
         }
     }
 
-    /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
+    /// Triggers the given [`EntityEvent`] as a mutable reference for the given `targets`,
     /// which will run any [`Observer`]s watching for it.
     ///
     /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     #[track_caller]
-    pub fn trigger_targets_ref<E: Event>(&mut self, event: &mut E, targets: impl TriggerTargets) {
+    pub fn trigger_targets_ref<E: EntityEvent>(
+        &mut self,
+        event: &mut E,
+        targets: impl TriggerTargets,
+    ) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe { self.trigger_targets_dynamic_ref(event_id, event, targets) };
     }
 
-    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
+    /// Triggers the given [`EntityEvent`] for the given `targets`, which will run any [`Observer`]s watching for it.
     ///
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
@@ -783,7 +806,7 @@ impl World {
     ///
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
     #[track_caller]
-    pub unsafe fn trigger_targets_dynamic<E: Event, Targets: TriggerTargets>(
+    pub unsafe fn trigger_targets_dynamic<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
         mut event_data: E,
@@ -795,7 +818,7 @@ impl World {
         };
     }
 
-    /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
+    /// Triggers the given [`EntityEvent`] as a mutable reference for the given `targets`,
     /// which will run any [`Observer`]s watching for it.
     ///
     /// Compared to [`World::trigger_targets_dynamic`], this method is most useful when it's necessary to check
@@ -805,7 +828,7 @@ impl World {
     ///
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
     #[track_caller]
-    pub unsafe fn trigger_targets_dynamic_ref<E: Event, Targets: TriggerTargets>(
+    pub unsafe fn trigger_targets_dynamic_ref<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
         event_data: &mut E,
@@ -822,7 +845,7 @@ impl World {
     /// # Safety
     ///
     /// See `trigger_targets_dynamic_ref`
-    unsafe fn trigger_targets_dynamic_ref_with_caller<E: Event, Targets: TriggerTargets>(
+    unsafe fn trigger_targets_dynamic_ref_with_caller<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
         event_data: &mut E,
@@ -1006,10 +1029,10 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct S;
 
-    #[derive(Event)]
+    #[derive(EntityEvent)]
     struct EventA;
 
-    #[derive(Event)]
+    #[derive(EntityEvent)]
     struct EventWithData {
         counter: usize,
     }
@@ -1033,7 +1056,7 @@ mod tests {
         }
     }
 
-    #[derive(Component, Event)]
+    #[derive(Component, EntityEvent)]
     #[event(traversal = &'static ChildOf, auto_propagate)]
     struct EventPropagating;
 

@@ -106,7 +106,9 @@ where
     }
 }
 
-impl<E> Event for Pointer<E>
+impl<E> Event for Pointer<E> where E: Debug + Clone + Reflect {}
+
+impl<E> EntityEvent for Pointer<E>
 where
     E: Debug + Clone + Reflect,
 {

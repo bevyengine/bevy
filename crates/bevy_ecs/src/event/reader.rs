@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{Local, Res, SystemParam},
 };
 
-/// Reads events of type `T` in order and tracks which events have already been read.
+/// Reads [`BufferedEvent`]s of type `T` in order and tracks which events have already been read.
 ///
 /// # Concurrency
 ///

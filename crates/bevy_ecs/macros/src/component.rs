@@ -19,6 +19,23 @@ pub const TRAVERSAL: &str = "traversal";
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
+    let bevy_ecs_path: Path = crate::bevy_ecs_path();
+
+    ast.generics
+        .make_where_clause()
+        .predicates
+        .push(parse_quote! { Self: Send + Sync + 'static });
+
+    let struct_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
+    })
+}
+
+pub fn derive_entity_event(input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as DeriveInput);
     let mut auto_propagate = false;
     let mut traversal: Type = parse_quote!(());
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
@@ -49,7 +66,9 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
+
+        impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
             type Traversal = #traversal;
             const AUTO_PROPAGATE: bool = #auto_propagate;
         }
@@ -69,6 +88,8 @@ pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
+
         impl #impl_generics #bevy_ecs_path::event::BufferedEvent for #struct_name #type_generics #where_clause {}
     })
 }

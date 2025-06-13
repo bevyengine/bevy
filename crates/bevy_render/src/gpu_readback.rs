@@ -19,7 +19,7 @@ use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
-    event::Event,
+    event::EntityEvent,
     prelude::{Component, Resource, World},
     system::{Query, Res},
 };
@@ -96,7 +96,7 @@ impl Readback {
 ///
 /// The event contains the data as a `Vec<u8>`, which can be interpreted as the raw bytes of the
 /// requested buffer or texture.
-#[derive(Event, Deref, DerefMut, Reflect, Debug)]
+#[derive(EntityEvent, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ReadbackComplete(pub Vec<u8>);
 

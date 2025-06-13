@@ -5,7 +5,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{BufferedEvent, Event, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EntityEvent, Event, EventId, Events, SendBatchIds},
     lifecycle::{HookContext, INSERT, REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
@@ -807,15 +807,23 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Sends a "global" [observer](crate::observer::Observer) [`Event`] without any targets.
+    /// Sends a global [`Event`] without any targets.
+    ///
+    /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
+    ///
+    /// [`Observer`]: crate::observer::Observer
     pub fn trigger(&mut self, trigger: impl Event) {
         self.commands().trigger(trigger);
     }
 
-    /// Sends an [observer](crate::observer::Observer) [`Event`] with the given `targets`.
+    /// Sends an [`EntityEvent`] with the given `targets`
+    ///
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
+    ///
+    /// [`Observer`]: crate::observer::Observer
     pub fn trigger_targets(
         &mut self,
-        trigger: impl Event,
+        trigger: impl EntityEvent,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
         self.commands().trigger_targets(trigger, targets);

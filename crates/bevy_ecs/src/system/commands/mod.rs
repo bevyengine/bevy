@@ -20,7 +20,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::{BufferedEvent, Event},
+    event::{BufferedEvent, EntityEvent, Event},
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -1068,7 +1068,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
-    /// Sends a global [observer](Observer) [`Event`] without any targets.
+    /// Sends a global [`Event`] without any targets.
     ///
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     #[track_caller]
@@ -1076,13 +1076,13 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger(event));
     }
 
-    /// Sends an [observer](Observer) [`Event`] for the given targets.
+    /// Sends an [`EntityEvent`] for the given targets.
     ///
-    /// This will run any [`Observer`] of the given [`Event`] watching those targets.
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
     #[track_caller]
     pub fn trigger_targets(
         &mut self,
-        event: impl Event,
+        event: impl EntityEvent,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
         self.queue(command::trigger_targets(event, targets));
@@ -1947,16 +1947,16 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Sends an [observer](Observer) [`Event`] targeting the entity.
+    /// Sends an [`EntityEvent`] targeting the entity.
     ///
-    /// This will run any [`Observer`] of the given [`Event`] watching this entity.
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching this entity.
     #[track_caller]
-    pub fn trigger(&mut self, event: impl Event) -> &mut Self {
+    pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
         self.queue(entity_command::trigger(event))
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {

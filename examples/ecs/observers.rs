@@ -60,13 +60,13 @@ impl Mine {
     }
 }
 
-#[derive(Event)]
+#[derive(EntityEvent)]
 struct ExplodeMines {
     pos: Vec2,
     radius: f32,
 }
 
-#[derive(Event)]
+#[derive(EntityEvent)]
 struct Explode;
 
 fn setup(mut commands: Commands) {
