@@ -214,6 +214,9 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
 
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
     /// be [`None`] if the trigger is not for a particular entity.
+    ///
+    /// Note that if event bubbling is enabled for your event type, this may not be the entity that the event was originally targeted at.
+    /// Instead, this is the entity that the event is *currently* targeted at, which may have changed due to propagation.
     pub fn entity(&self) -> Option<Entity> {
         self.trigger.target
     }
