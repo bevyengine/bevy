@@ -689,7 +689,7 @@ impl<'w> EntityClonerBuilder<'w> {
     }
 
     /// Adds all components of the bundle to the list of components to clone.
-    /// 
+    ///
     /// Every component the target already contains will be skipped.
     ///
     /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
@@ -719,7 +719,7 @@ impl<'w> EntityClonerBuilder<'w> {
     }
 
     /// Adds all components of the bundle ID to the list of components to clone.
-    /// 
+    ///
     /// Every component the target already contains will be skipped.
     ///
     /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
@@ -747,7 +747,7 @@ impl<'w> EntityClonerBuilder<'w> {
     }
 
     /// Extends the list of components to clone.
-    /// 
+    ///
     /// Every component the target already contains will be skipped.
     ///
     /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
@@ -773,7 +773,7 @@ impl<'w> EntityClonerBuilder<'w> {
     }
 
     /// Extends the list of components to clone using [`TypeId`]s.
-    /// 
+    ///
     /// Every component the target already contains will be skipped.
     ///
     /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
