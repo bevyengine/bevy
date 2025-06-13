@@ -94,9 +94,10 @@ impl<'w> DeferredWorld<'w> {
     /// If you do not need to ensure the above hooks are triggered, and your component
     /// is mutable, prefer using [`get_mut`](DeferredWorld::get_mut).
     #[inline]
-    pub(crate) fn modify_component<T: Component, R>(
+    pub(crate) fn modify_component_with_relationship_hook_mode<T: Component, R>(
         &mut self,
         entity: Entity,
+        relationship_hook_mode: RelationshipHookMode,
         f: impl FnOnce(&mut T) -> R,
     ) -> Result<Option<R>, EntityMutableFetchError> {
         // If the component is not registered, then it doesn't exist on this entity, so no action required.
@@ -104,12 +105,17 @@ impl<'w> DeferredWorld<'w> {
             return Ok(None);
         };
 
-        self.modify_component_by_id(entity, component_id, move |component| {
-            // SAFETY: component matches the component_id collected in the above line
-            let mut component = unsafe { component.with_type::<T>() };
+        self.modify_component_by_id_with_relationship_hook_mode(
+            entity,
+            component_id,
+            relationship_hook_mode,
+            move |component| {
+                // SAFETY: component matches the component_id collected in the above line
+                let mut component = unsafe { component.with_type::<T>() };
 
-            f(&mut component)
-        })
+                f(&mut component)
+            },
+        )
     }
 
     /// Temporarily removes a [`Component`] identified by the provided
@@ -124,13 +130,14 @@ impl<'w> DeferredWorld<'w> {
     /// If you do not need to ensure the above hooks are triggered, and your component
     /// is mutable, prefer using [`get_mut_by_id`](DeferredWorld::get_mut_by_id).
     ///
-    /// You should prefer the typed [`modify_component`](DeferredWorld::modify_component)
+    /// You should prefer the typed [`modify_component_with_relationship_hook_mode`](DeferredWorld::modify_component_with_relationship_hook_mode)
     /// whenever possible.
     #[inline]
-    pub(crate) fn modify_component_by_id<R>(
+    pub(crate) fn modify_component_by_id_with_relationship_hook_mode<R>(
         &mut self,
         entity: Entity,
         component_id: ComponentId,
+        relationship_hook_mode: RelationshipHookMode,
         f: impl for<'a> FnOnce(MutUntyped<'a>) -> R,
     ) -> Result<Option<R>, EntityMutableFetchError> {
         let entity_cell = self.get_entity_mut(entity)?;
@@ -153,7 +160,7 @@ impl<'w> DeferredWorld<'w> {
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
-                RelationshipHookMode::Run,
+                relationship_hook_mode,
             );
             if archetype.has_replace_observer() {
                 self.trigger_observers(
@@ -193,7 +200,7 @@ impl<'w> DeferredWorld<'w> {
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
-                RelationshipHookMode::Run,
+                relationship_hook_mode,
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(

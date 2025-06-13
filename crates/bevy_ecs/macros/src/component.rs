@@ -758,6 +758,11 @@ fn derive_relationship(
                     #relationship_member: entity
                 }
             }
+
+            #[inline]
+            fn set_risky(&mut self, entity: Entity) {
+                self.#relationship_member = entity;
+            }
         }
     }))
 }
