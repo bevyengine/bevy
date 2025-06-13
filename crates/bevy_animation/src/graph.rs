@@ -4,7 +4,7 @@ use core::{
     iter,
     ops::{Index, IndexMut, Range},
 };
-use std::io::{self, Write};
+use std::{fmt::Write, io};
 
 use bevy_asset::{
     io::Reader, Asset, AssetEvent, AssetId, AssetLoader, AssetPath, Assets, Handle, LoadContext,

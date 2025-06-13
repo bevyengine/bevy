@@ -180,17 +180,19 @@ fn setup_assets_programmatically(
 
         IoTaskPool::get()
             .spawn(async move {
+                use std::io::Write;
+
+                let serialized_graph =
+                    ron::ser::to_string_pretty(&animation_graph, PrettyConfig::default())
+                        .expect("Failed to serialize the animation graph");
                 let mut animation_graph_writer = File::create(Path::join(
                     &FileAssetReader::get_base_path(),
                     Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),
                 ))
                 .expect("Failed to open the animation graph asset");
-                ron::ser::to_writer_pretty(
-                    &mut animation_graph_writer,
-                    &animation_graph,
-                    PrettyConfig::default(),
-                )
-                .expect("Failed to serialize the animation graph");
+                animation_graph_writer
+                    .write_all(serialized_graph.as_bytes())
+                    .expect("Failed to write the animation graph");
             })
             .detach();
     }
