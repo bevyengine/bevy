@@ -26,9 +26,9 @@ use bevy_render::settings::WgpuFeatures;
 /// An experimental plugin for raytraced lighting.
 ///
 /// This plugin provides:
-/// * (Coming soon) - Raytraced direct and indirect lighting.
+/// * [`SolariLightingPlugin`] - Raytraced direct and indirect lighting.
 /// * [`RaytracingScenePlugin`] - BLAS building, resource and lighting binding.
-/// * [`PathtracingPlugin`] - A non-realtime pathtracer for validation purposes.
+/// * [`pathtracer::PathtracingPlugin`] - A non-realtime pathtracer for validation purposes.
 ///
 /// To get started, add `RaytracingMesh3d` and `MeshMaterial3d::<StandardMaterial>` to your entities.
 pub struct SolariPlugin;

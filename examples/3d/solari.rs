@@ -16,7 +16,7 @@ use bevy::{
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
-/// bevy_solari demo.
+/// `bevy_solari` demo.
 #[derive(FromArgs, Resource, Clone, Copy)]
 struct Args {
     /// use the reference pathtracer instead of the realtime lighting system.
