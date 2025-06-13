@@ -21,7 +21,6 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
-use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
@@ -92,13 +91,11 @@ impl Default for PbrDeferredLightingDepthId {
 
 impl Plugin for DeferredPbrLightingPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<SkipDeferredLighting>()
-            .add_plugins((
-                ExtractComponentPlugin::<PbrDeferredLightingDepthId>::default(),
-                UniformComponentPlugin::<PbrDeferredLightingDepthId>::default(),
-                ExtractComponentPlugin::<SkipDeferredLighting>::default(),
-            ))
-            .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
+        app.add_plugins((
+            ExtractComponentPlugin::<PbrDeferredLightingDepthId>::default(),
+            UniformComponentPlugin::<PbrDeferredLightingDepthId>::default(),
+        ))
+        .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
 
         embedded_asset!(app, "deferred_lighting.wgsl");
 
@@ -564,5 +561,7 @@ pub fn prepare_deferred_lighting_pipelines(
 ///
 /// Useful for cases where you want to generate a gbuffer, but skip the built-in deferred lighting pass
 /// to run your own custom lighting pass instead.
-#[derive(Component, ExtractComponent, Reflect, Clone, Copy, Default)]
+///
+/// Insert this component in the render world only.
+#[derive(Component, Clone, Copy, Default)]
 pub struct SkipDeferredLighting;
