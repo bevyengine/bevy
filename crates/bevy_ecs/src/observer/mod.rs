@@ -573,7 +573,11 @@ impl Observers {
         }
     }
 
-    pub(crate) fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
+    /// Attempts to get the observers for the given `event_type`.
+    ///
+    /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Replace`], [`Remove`], and [`Despawn`],
+    /// use the [`ComponentId`] constants from the [`lifecycle`] module.
+    pub fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 
         match event_type {
