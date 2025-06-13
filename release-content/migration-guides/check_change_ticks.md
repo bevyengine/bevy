@@ -9,7 +9,7 @@ This parameter is now a `CheckChangeTicks` type that can be passed to the now-pu
 
 If you need a `CheckChangeTicks` value, for example because you call one of the above methods manually, you can observe it. Here is an example where it is used on a schedule stored in a resource, which will pass it on to the `System::check_change_tick` of its systems.
 
-```
+```rs
 use bevy_ecs::prelude::*;
 use bevy_ecs::component::CheckChangeTicks;
 
