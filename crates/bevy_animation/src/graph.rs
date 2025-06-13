@@ -260,14 +260,14 @@ pub enum AnimationGraphSaveError {
 #[derive(Error, Debug)]
 pub enum AnimationGraphLoadError {
     /// An I/O error occurred.
-    #[error("I/O")]
+    #[error(transparent)]
     Io(#[from] io::Error),
     /// An error occurred in RON deserialization.
-    #[error("RON serialization")]
+    #[error(transparent)]
     Ron(#[from] ron::Error),
     /// An error occurred in RON deserialization, and the location of the error
     /// is supplied.
-    #[error("RON serialization")]
+    #[error(transparent)]
     SpannedRon(#[from] SpannedError),
     /// The deserialized graph contained legacy data that we no longer support.
     #[error(
