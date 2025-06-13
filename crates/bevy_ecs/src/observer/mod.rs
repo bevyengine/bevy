@@ -1069,7 +1069,7 @@ mod tests {
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
-        let mut entity = world.spawn_empty();
+        let mut entity: EntityWorldMut<'_> = world.spawn_empty();
         entity.insert(A);
         entity.remove::<A>();
         entity.flush();

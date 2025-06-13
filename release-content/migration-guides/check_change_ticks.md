@@ -21,3 +21,5 @@ world.add_observer(|check: On<CheckChangeTicks>, mut schedule: ResMut<CustomSche
     schedule.0.check_change_ticks(*check);
 });
 ```
+
+The observers are triggered by `World::check_change_ticks` if needed. This method also returns an `Option` containing it if the observers were triggered.
