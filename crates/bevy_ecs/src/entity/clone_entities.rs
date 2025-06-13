@@ -6,7 +6,7 @@ use core::any::TypeId;
 
 use crate::{
     archetype::Archetype,
-    bundle::Bundle,
+    bundle::{Bundle, BundleId},
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
     query::DebugCheckedUnwrap,
@@ -341,7 +341,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 pub struct EntityCloner {
     filter_allows_components: bool,
     filter: HashSet<ComponentId>,
-    filter_required: HashSet<ComponentId>,
+    filter_if_new: HashSet<ComponentId>,
     clone_behavior_overrides: HashMap<ComponentId, ComponentCloneBehavior>,
     move_components: bool,
     linked_cloning: bool,
@@ -358,7 +358,7 @@ impl Default for EntityCloner {
             linked_cloning: false,
             default_clone_fn: ComponentCloneBehavior::global_default_fn(),
             filter: Default::default(),
-            filter_required: Default::default(),
+            filter_if_new: Default::default(),
             clone_behavior_overrides: Default::default(),
             clone_queue: Default::default(),
             deferred_commands: Default::default(),
@@ -462,7 +462,7 @@ impl EntityCloner {
         {
             let world = world.as_unsafe_world_cell();
             let source_entity = world.get_entity(source).expect("Source entity must exist");
-            let target_archetype = (!self.filter_required.is_empty()).then(|| {
+            let target_archetype = (!self.filter_if_new.is_empty()).then(|| {
                 world
                     .get_entity(target)
                     .expect("Target entity must exist")
@@ -616,10 +616,10 @@ impl EntityCloner {
         if self.filter_allows_components {
             self.filter.contains(component)
                 || target_archetype.is_some_and(|archetype| {
-                    !archetype.contains(*component) && self.filter_required.contains(component)
+                    !archetype.contains(*component) && self.filter_if_new.contains(component)
                 })
         } else {
-            !self.filter.contains(component) && !self.filter_required.contains(component)
+            !self.filter.contains(component) && !self.filter_if_new.contains(component)
         }
     }
 }
@@ -688,6 +688,53 @@ impl<'w> EntityClonerBuilder<'w> {
         self
     }
 
+    /// Adds all components of the bundle to the list of components to clone.
+    /// 
+    /// Every component the target already contains will be skipped.
+    ///
+    /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
+    /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
+    pub fn allow_if_new<T: Bundle>(&mut self) -> &mut Self {
+        let bundle = self.world.register_bundle::<T>();
+        let ids = bundle.explicit_components().to_owned();
+        for id in ids {
+            self.filter_allow_if_new(id);
+        }
+        self
+    }
+
+    /// Adds all components of the bundle id to the list of components to clone.
+    ///
+    /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
+    /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
+    pub fn allow_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
+        let Some(bundle) = self.world.bundles().get(bundle_id) else {
+            return self;
+        };
+        let ids = bundle.explicit_components().to_owned();
+        for id in ids {
+            self.filter_allow(id);
+        }
+        self
+    }
+
+    /// Adds all components of the bundle ID to the list of components to clone.
+    /// 
+    /// Every component the target already contains will be skipped.
+    ///
+    /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
+    /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
+    pub fn allow_by_bundle_id_if_new(&mut self, bundle_id: BundleId) -> &mut Self {
+        let Some(bundle) = self.world.bundles().get(bundle_id) else {
+            return self;
+        };
+        let ids = bundle.explicit_components().to_owned();
+        for id in ids {
+            self.filter_allow_if_new(id);
+        }
+        self
+    }
+
     /// Extends the list of components to clone.
     ///
     /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
@@ -695,6 +742,19 @@ impl<'w> EntityClonerBuilder<'w> {
     pub fn allow_by_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
         for id in ids {
             self.filter_allow(id);
+        }
+        self
+    }
+
+    /// Extends the list of components to clone.
+    /// 
+    /// Every component the target already contains will be skipped.
+    ///
+    /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
+    /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
+    pub fn allow_by_ids_if_new(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
+        for id in ids {
+            self.filter_allow_if_new(id);
         }
         self
     }
@@ -712,6 +772,21 @@ impl<'w> EntityClonerBuilder<'w> {
         self
     }
 
+    /// Extends the list of components to clone using [`TypeId`]s.
+    /// 
+    /// Every component the target already contains will be skipped.
+    ///
+    /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
+    /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
+    pub fn allow_by_type_ids_if_new(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
+        for type_id in ids {
+            if let Some(id) = self.world.components().get_valid_id(type_id) {
+                self.filter_allow_if_new(id);
+            }
+        }
+        self
+    }
+
     /// Resets the filter to allow all components to be cloned.
     pub fn allow_all(&mut self) -> &mut Self {
         self.entity_cloner.filter_allows_components = false;
@@ -722,6 +797,18 @@ impl<'w> EntityClonerBuilder<'w> {
     /// Disallows all components of the bundle from being cloned.
     pub fn deny<T: Bundle>(&mut self) -> &mut Self {
         let bundle = self.world.register_bundle::<T>();
+        let ids = bundle.explicit_components().to_owned();
+        for id in ids {
+            self.filter_deny(id);
+        }
+        self
+    }
+
+    /// Disallows all components of the bundle from being cloned.
+    pub fn deny_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
+        let Some(bundle) = self.world.bundles().get(bundle_id) else {
+            return self;
+        };
         let ids = bundle.explicit_components().to_owned();
         for id in ids {
             self.filter_deny(id);
@@ -822,9 +909,29 @@ impl<'w> EntityClonerBuilder<'w> {
             if let Some(info) = self.world.components().get_info(id) {
                 for required_id in info.required_components().iter_ids() {
                     if self.entity_cloner.filter_allows_components {
-                        self.entity_cloner.filter_required.insert(required_id);
+                        self.entity_cloner.filter_if_new.insert(required_id);
                     } else {
-                        self.entity_cloner.filter_required.remove(&required_id);
+                        self.entity_cloner.filter_if_new.remove(&required_id);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Helper function that allows a component through the filter if the target does not contain it.
+    fn filter_allow_if_new(&mut self, id: ComponentId) {
+        if self.entity_cloner.filter_allows_components {
+            self.entity_cloner.filter_if_new.insert(id);
+        } else {
+            self.entity_cloner.filter_if_new.remove(&id);
+        }
+        if self.attach_required_components {
+            if let Some(info) = self.world.components().get_info(id) {
+                for required_id in info.required_components().iter_ids() {
+                    if self.entity_cloner.filter_allows_components {
+                        self.entity_cloner.filter_if_new.insert(required_id);
+                    } else {
+                        self.entity_cloner.filter_if_new.remove(&required_id);
                     }
                 }
             }
@@ -842,9 +949,9 @@ impl<'w> EntityClonerBuilder<'w> {
             if let Some(info) = self.world.components().get_info(id) {
                 for required_id in info.required_components().iter_ids() {
                     if self.entity_cloner.filter_allows_components {
-                        self.entity_cloner.filter_required.remove(&required_id);
+                        self.entity_cloner.filter_if_new.remove(&required_id);
                     } else {
-                        self.entity_cloner.filter_required.insert(required_id);
+                        self.entity_cloner.filter_if_new.insert(required_id);
                     }
                 }
             }
@@ -1450,5 +1557,32 @@ mod tests {
             .clone_entity(e, e_clone2);
 
         assert_eq!(world.entity(e_clone2).get::<B>(), Some(&B(2)));
+    }
+
+    #[test]
+    fn cloning_if_new_preserves_existing() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct A(u32);
+
+        let mut world = World::default();
+
+        let e = world.spawn(A(1)).id();
+        let e_clone = world.spawn_empty().id();
+
+        EntityCloner::build(&mut world)
+            .deny_all()
+            .allow_if_new::<A>()
+            .clone_entity(e, e_clone);
+
+        assert_eq!(world.get::<A>(e_clone), Some(&A(1)));
+
+        let e_clone = world.spawn(A(2)).id();
+
+        EntityCloner::build(&mut world)
+            .deny_all()
+            .allow_if_new::<A>()
+            .clone_entity(e, e_clone);
+
+        assert_eq!(world.get::<A>(e_clone), Some(&A(2)));
     }
 }
