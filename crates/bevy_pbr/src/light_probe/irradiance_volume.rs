@@ -17,11 +17,12 @@
 //! documentation in the `bevy-baked-gi` project for more details on this
 //! workflow.
 //!
-//! Like all light probes in Bevy, irradiance volumes are 1×1×1 cubes that can
-//! be arbitrarily scaled, rotated, and positioned in a scene with the
-//! [`bevy_transform::components::Transform`] component. The 3D voxel grid will
-//! be stretched to fill the interior of the cube, and the illumination from the
-//! irradiance volume will apply to all fragments within that bounding region.
+//! Like all light probes in Bevy, irradiance volumes are 1×1×1 cubes, centered
+//! on the origin, that can be arbitrarily scaled, rotated, and positioned in a
+//! scene with the [`bevy_transform::components::Transform`] component. The 3D
+//! voxel grid will be stretched to fill the interior of the cube, with linear
+//! interpolation, and the illumination from the irradiance volume will apply to
+//! all fragments within that bounding region.
 //!
 //! Bevy's irradiance volumes are based on Valve's [*ambient cubes*] as used in
 //! *Half-Life 2* ([Mitchell 2006, slide 27]). These encode a single color of
