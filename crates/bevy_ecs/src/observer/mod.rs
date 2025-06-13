@@ -487,6 +487,9 @@ pub struct ObserverTrigger {
     /// The [`ComponentId`]s that the event targeted, if any.
     components: SmallVec<[ComponentId; 2]>,
     /// The current entity that the event targeted, if any.
+    ///
+    /// Note that this may not be the entity that the event was originally targeted at,
+    /// as it may have been changed by event bubbling.
     pub target: Option<Entity>,
     /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
