@@ -304,7 +304,7 @@ mod tests {
     use crate::{
         prelude::{Component, In, IntoSystem, Resource, Schedule},
         schedule::ExecutorKind,
-        system::{Populated, Res, ResMut, Single},
+        system::{Populated, Res, ResMut, Single, When},
         world::World,
     };
 
@@ -327,12 +327,12 @@ mod tests {
     #[derive(Resource, Default)]
     struct Counter(u8);
 
-    fn set_single_state(mut _single: Single<&TestComponent>, mut state: ResMut<TestState>) {
+    fn set_single_state(mut _single: When<Single<&TestComponent>>, mut state: ResMut<TestState>) {
         state.single_ran = true;
     }
 
     fn set_populated_state(
-        mut _populated: Populated<&TestComponent>,
+        mut _populated: When<Populated<&TestComponent>>,
         mut state: ResMut<TestState>,
     ) {
         state.populated_ran = true;
@@ -404,7 +404,7 @@ mod tests {
     #[test]
     fn piped_systems_first_system_skipped() {
         // This system should be skipped when run due to no matching entity
-        fn pipe_out(_single: Single<&TestComponent>) -> u8 {
+        fn pipe_out(_single: When<Single<&TestComponent>>) -> u8 {
             42
         }
 
@@ -431,7 +431,7 @@ mod tests {
         }
 
         // This system should be skipped when run due to no matching entity
-        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>) {}
+        fn pipe_in(_input: In<u8>, _single: When<Single<&TestComponent>>) {}
 
         let mut world = World::new();
         world.init_resource::<Counter>();
@@ -482,7 +482,7 @@ mod tests {
     #[test]
     fn piped_system_skip_and_panic() {
         // This system should be skipped when run due to no matching entity
-        fn pipe_out(_single: Single<&TestComponent>) -> u8 {
+        fn pipe_out(_single: When<Single<&TestComponent>>) -> u8 {
             42
         }
 
@@ -506,7 +506,7 @@ mod tests {
         }
 
         // This system should be skipped when run due to no matching entity
-        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>) {}
+        fn pipe_in(_input: In<u8>, _single: When<Single<&TestComponent>>) {}
 
         let mut world = World::new();
         let mut schedule = Schedule::default();
@@ -538,13 +538,17 @@ mod tests {
     fn piped_system_skip_and_skip() {
         // This system should be skipped when run due to no matching entity
 
-        fn pipe_out(_single: Single<&TestComponent>, mut counter: ResMut<Counter>) -> u8 {
+        fn pipe_out(_single: When<Single<&TestComponent>>, mut counter: ResMut<Counter>) -> u8 {
             counter.0 += 1;
             42
         }
 
         // This system should be skipped when run due to no matching entity
-        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>, mut counter: ResMut<Counter>) {
+        fn pipe_in(
+            _input: In<u8>,
+            _single: When<Single<&TestComponent>>,
+            mut counter: ResMut<Counter>,
+        ) {
             counter.0 += 1;
         }
 
