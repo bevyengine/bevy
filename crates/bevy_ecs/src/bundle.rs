@@ -2128,13 +2128,13 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
     });
 }
 
-/// [`Effect`] wraps a [`BundleEffect`] into a [`Bundle`] allowing
+/// [`Patch`] wraps a [`BundleEffect`] into a [`Bundle`] allowing
 /// you to leverage the power of a [`BundleEffect`] without having
 /// to implement your own unsafe implementation of the Bundle trait.
 /// [`BundleEffect`]s get access to [`EntityWorldMut`] on insert allowing for
 /// powerful modifications to the world. [`BundleEffect`]s also power other Bevy
 /// helper bundles like [`crate::spawn::SpawnIter`], [`crate::spawn::SpawnWith`], and [`crate::observer::Observer::bundle`].
-/// You can implement BundleEffect directly or use the implementation of BundleEffect
+/// You can implement [`BundleEffect`] directly or use the implementation of [`BundleEffect`]
 /// for `FnOnce(&mut EntityWorldMut)`.
 ///
 /// Note: [`crate::component::Component`] Hooks are almost as powerful as
@@ -2142,30 +2142,26 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 /// should only be used where structural ECS changes are required. For more details
 /// see [`crate::world::DeferredWorld`]
 ///
-/// Example, using a [`BundleEffect`] to add a system to the [`crate::schedule::PostUpdate`]
+/// Example, using [`Patch`] to add a [`crate::resource::Resource`] to the world
+/// this is not possible with `[crate::component::Component]` Hooks because it is
+/// a structural modification
 ///
 /// ```rust
 ///  commands.spawn((
 ///     Node::default(),
-///     Effect(|entity: &mut EntityWorldMut| {
+///     Patch(|entity: &mut EntityWorldMut| {
 ///         // SAFETY: We don't modify the entity's position so this is safe
 ///         let world = unsafe { entity.world_mut() };
 ///
-///         // This is not idempotent
-///         world
-///             .get_resource_mut::<Schedules>()
-///             .unwrap()
-///             .get_mut(PostUpdate)
-///             .unwrap()
-///             .add_systems(animate_component.in_set(UiSystem::PostLayout));
+///         world.insert_resource(SomeResource);
 ///     }),
 /// ))
 /// ```
-pub struct Effect<E>(pub E)
+pub struct Patch<E>(pub E)
 where
     E: BundleEffect;
 
-impl<E> DynamicBundle for Effect<E>
+impl<E> DynamicBundle for Patch<E>
 where
     E: BundleEffect,
 {
@@ -2176,7 +2172,7 @@ where
     }
 }
 
-unsafe impl<F> Bundle for Effect<F>
+unsafe impl<F> Bundle for Patch<F>
 where
     F: FnOnce(&mut EntityWorldMut) + Send + Sync + 'static,
 {

@@ -2,7 +2,7 @@ use alloc::{boxed::Box, vec};
 use core::any::Any;
 
 use crate::{
-    bundle::Effect,
+    bundle::Patch,
     component::{ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
     lifecycle::{ComponentHook, HookContext},
@@ -320,7 +320,7 @@ impl Observer {
         M: Send + Sync + 'static,
         O: IntoObserverSystem<E, B, M> + Send + Sync + 'static,
     {
-        Effect(move |entity: &mut EntityWorldMut| {
+        Patch(move |entity: &mut EntityWorldMut| {
             entity.observe(observer);
         })
     }
