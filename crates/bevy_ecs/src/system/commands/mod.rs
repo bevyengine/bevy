@@ -1116,7 +1116,7 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
-        self.spawn(Observer::new(observer))
+        self.spawn(Observer::new_with_derived_name(observer))
     }
 
     /// Sends an arbitrary [`Event`].

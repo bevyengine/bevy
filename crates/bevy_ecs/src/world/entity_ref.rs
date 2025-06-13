@@ -2656,8 +2656,9 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
+        let (name, observer) = Observer::new_with_derived_name(observer);
         self.world
-            .spawn_with_caller(Observer::new(observer).with_entity(self.entity), caller);
+            .spawn_with_caller((name, observer.with_entity(self.entity)), caller);
         self.world.flush();
         self.update_location();
         self

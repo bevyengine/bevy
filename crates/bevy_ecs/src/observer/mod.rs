@@ -706,7 +706,7 @@ impl World {
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
-        self.spawn(Observer::new(system))
+        self.spawn(Observer::new_with_derived_name(system))
     }
 
     /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.

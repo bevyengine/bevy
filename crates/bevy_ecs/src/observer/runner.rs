@@ -1,5 +1,5 @@
-use alloc::{boxed::Box, vec};
-use core::any::Any;
+use alloc::{boxed::Box, format, vec};
+use core::any::{type_name_of_val, Any};
 
 use crate::{
     component::{ComponentId, Mutable, StorageType},
@@ -226,6 +226,21 @@ impl Observer {
         }
     }
 
+    /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
+    /// for _any_ entity (or no entity). The [`Observer`] will have a [`Name`] derived from the system.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given system is an exclusive system.
+    pub fn new_with_derived_name<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
+        system: I,
+    ) -> (Name, Observer) {
+        (
+            Name::new(format!("Observer {}", type_name_of_val(&system))),
+            Self::new(system),
+        )
+    }
+
     /// Creates a new [`Observer`] with custom runner, this is mostly used for dynamic event observer
     pub fn with_dynamic_runner(runner: ObserverRunner) -> Self {
         Self {
@@ -441,6 +456,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         }
     });
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
