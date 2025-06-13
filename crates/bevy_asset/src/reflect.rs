@@ -80,8 +80,8 @@ impl ReflectAsset {
     /// # let handle_1: UntypedHandle = unimplemented!();
     /// # let handle_2: UntypedHandle = unimplemented!();
     /// let unsafe_world_cell = world.as_unsafe_world_cell();
-    /// let a = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, handle_1).unwrap() };
-    /// let b = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, handle_2).unwrap() };
+    /// let a = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, &handle_1).unwrap() };
+    /// let b = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, &handle_2).unwrap() };
     /// // ^ not allowed, two mutable references through the same asset resource, even though the
     /// // handles are distinct
     ///
@@ -213,7 +213,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 ///     let reflect_asset = type_registry.get_type_data::<ReflectAsset>(reflect_handle.asset_type_id()).unwrap();
 ///
 ///     let handle = reflect_handle.downcast_handle_untyped(handle.as_any()).unwrap();
-///     let value = reflect_asset.get(world, handle).unwrap();
+///     let value = reflect_asset.get(world, &handle).unwrap();
 ///     println!("{value:?}");
 /// }
 /// ```
