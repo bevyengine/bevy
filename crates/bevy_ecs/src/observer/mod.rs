@@ -546,7 +546,7 @@ impl CachedObservers {
 /// Some observer kinds (like [lifecycle](crate::lifecycle) observers) have a dedicated field,
 /// saving lookups for the most common triggers.
 ///
-/// This is stored as a field of the [`World`].
+/// This can be accessed via [`World::observers`].
 #[derive(Default, Debug)]
 pub struct Observers {
     // Cached ECS observers to save a lookup most common triggers.
