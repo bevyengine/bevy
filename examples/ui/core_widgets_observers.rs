@@ -484,7 +484,7 @@ fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) 
                     display: Display::Flex,
                     position_type: PositionType::Absolute,
                     left: Val::Px(0.0),
-                    // Track is short by 12px to accommodate the thumb. This should match thumb_size
+                    // Track is short by 12px to accommodate the thumb.
                     right: Val::Px(12.0),
                     top: Val::Px(0.0),
                     bottom: Val::Px(0.0),
@@ -502,7 +502,7 @@ fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) 
                         left: Val::Percent(0.0), // This will be updated by the slider's value
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(6.0)),
+                    BorderRadius::MAX,
                     BackgroundColor(SLIDER_THUMB),
                 )],
             )),

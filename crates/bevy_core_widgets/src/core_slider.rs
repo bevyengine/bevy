@@ -35,12 +35,33 @@ pub enum TrackClick {
 }
 
 /// A headless slider widget, which can be used to build custom sliders. Sliders have a value
-/// (represented by the [`SliderValue`] component) and a range (represented by [`SliderRange`]).
-/// An optional step size can be specified via [`SliderStep`].
+/// (represented by the [`SliderValue`] component) and a range (represented by [`SliderRange`]). An
+/// optional step size can be specified via [`SliderStep`].
 ///
-/// Typically a slider will contain entities representing the "track" and "thumb" elements.
-/// The core slider makes no assumptions about the hierarchical structure of these elements,
-/// but expects that the thumb will be marked with a [`CoreSliderThumb`] component.
+/// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
+/// can be useful in a console environment for controlling the value gamepad inputs.
+///
+/// The presence of the `on_change` property controls whether the slider uses internal or external
+/// state management. If the `on_change` property is `None`, then the slider updates its own state
+/// automatically. Otherwise, the `on_change` property contains the id of a one-shot system which is
+/// passed the new slider value. In this case, the slider value is not modified, it is the
+/// responsibility of the callback to trigger whatever data-binding mechanism is used to update the
+/// slider's value.
+///
+/// Typically a slider will contain entities representing the "track" and "thumb" elements. The core
+/// slider makes no assumptions about the hierarchical structure of these elements, but expects that
+/// the thumb will be marked with a [`CoreSliderThumb`] component.
+///
+/// The core slider does not modify the visible position of the thumb: that is the responsibility of
+/// the stylist. This can be done either in percent or pixel units as desired. To prevent overhang
+/// at the ends of the slider, the positioning should take into account the thumb width, by reducing
+/// the amount of travel. So for example, in a slider 100px wide, with a thumb that is 10px, the
+/// amount of travel is 90px. The core slider's calculations for clicking and dragging assume this
+/// is the case, and will reduce the travel by the measured size of the thumb entity, which allows
+/// the movement of the thumb to be perfectly synchronized with the movement of the mouse.
+///
+/// In cases where overhang is desired for artistic reasons, the thumb may have additional
+/// decorative child elements, absolutely positioned, which don't affect the size measurement.
 #[derive(Component, Debug, Default)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::Slider)),
@@ -79,7 +100,11 @@ impl SliderRange {
     /// Creates a new slider range with the given start and end values.
     pub fn new(start: f32, end: f32) -> Self {
         if end < start {
-            warn_once!("Expected SliderRange::start <= SliderRange::end");
+            warn_once!(
+                "Expected SliderRange::start ({}) <= SliderRange::end ({})",
+                start,
+                end
+            );
         }
         Self { start, end }
     }
