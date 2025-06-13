@@ -28,7 +28,7 @@ pub enum TrackClick {
     /// Clicking on the track lets you drag to edit the value, just like clicking on the thumb.
     #[default]
     Drag,
-    /// Clicking on the track increments or decrements the slider by [`StepSize`].
+    /// Clicking on the track increments or decrements the slider by [`SliderStep`].
     Step,
     /// Clicking on the track snaps the value to the clicked position.
     Snap,
