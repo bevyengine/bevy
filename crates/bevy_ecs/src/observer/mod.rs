@@ -482,11 +482,11 @@ impl ObserverDescriptor {
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
     pub observer: Entity,
-    /// The [`Event`] the trigger targeted.
+    /// The underlying [`Event`] type.
     pub event_type: ComponentId,
-    /// The [`ComponentId`]s the trigger targeted.
+    /// The [`ComponentId`]s that the event targeted, if any.
     components: SmallVec<[ComponentId; 2]>,
-    /// The entity the trigger targeted.
+    /// The current entity that the event targeted, if any.
     pub target: Option<Entity>,
     /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
