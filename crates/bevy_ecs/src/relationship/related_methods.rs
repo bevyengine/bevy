@@ -680,14 +680,21 @@ mod tests {
 
         let mut parent = world.spawn_empty();
         parent.add_children(&[child1, child2]);
+        let some_child = Some(&ChildOf(parent.id()));
 
         parent.replace_children(&[child2, child3]);
         let children = parent.get::<Children>().unwrap().collection();
         assert_eq!(children, &[child2, child3]);
+        assert_eq!(parent.world().get::<ChildOf>(child1), None);
+        assert_eq!(parent.world().get::<ChildOf>(child2), some_child);
+        assert_eq!(parent.world().get::<ChildOf>(child3), some_child);
 
         parent.replace_children_with_difference(&[child3], &[child1, child2], &[child1]);
         let children = parent.get::<Children>().unwrap().collection();
         assert_eq!(children, &[child1, child2]);
+        assert_eq!(parent.world().get::<ChildOf>(child1), some_child);
+        assert_eq!(parent.world().get::<ChildOf>(child2), some_child);
+        assert_eq!(parent.world().get::<ChildOf>(child3), None);
     }
 
     #[test]
