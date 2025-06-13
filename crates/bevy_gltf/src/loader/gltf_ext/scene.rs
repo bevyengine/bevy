@@ -7,6 +7,8 @@ use gltf::scene::Node;
 use fixedbitset::FixedBitSet;
 use itertools::Itertools;
 
+use crate::convert_coordinates::ConvertCoordinates as _;
+
 #[cfg(feature = "bevy_animation")]
 use bevy_platform::collections::{HashMap, HashSet};
 
@@ -26,20 +28,32 @@ pub(crate) fn node_name(node: &Node) -> Name {
 /// on [`Node::transform()`](gltf::Node::transform) directly because it uses optimized glam types and
 /// if `libm` feature of `bevy_math` crate is enabled also handles cross
 /// platform determinism properly.
-pub(crate) fn node_transform(node: &Node) -> Transform {
+pub(crate) fn node_transform(node: &Node, convert_coordinates: bool) -> Transform {
     match node.transform() {
         gltf::scene::Transform::Matrix { matrix } => {
-            Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
+            let mut transform = Transform::from_matrix(Mat4::from_cols_array_2d(&matrix));
+            if convert_coordinates {
+                transform.translation = transform.translation.convert_coordinates();
+                transform.rotation = transform.rotation.convert_coordinates();
+            }
+            transform
         }
         gltf::scene::Transform::Decomposed {
             translation,
             rotation,
             scale,
-        } => Transform {
-            translation: Vec3::from(translation),
-            rotation: bevy_math::Quat::from_array(rotation),
-            scale: Vec3::from(scale),
-        },
+        } => {
+            let mut transform = Transform {
+                translation: Vec3::from(translation),
+                rotation: bevy_math::Quat::from_array(rotation),
+                scale: Vec3::from(scale),
+            };
+            if convert_coordinates {
+                transform.translation = transform.translation.convert_coordinates();
+                transform.rotation = transform.rotation.convert_coordinates();
+            }
+            transform
+        }
     }
 }
 

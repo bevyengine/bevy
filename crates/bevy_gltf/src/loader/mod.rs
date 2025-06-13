@@ -878,7 +878,7 @@ async fn load_gltf<'a, 'b, 'c>(
             &node,
             children,
             mesh,
-            node_transform(&node),
+            node_transform(&node, settings.convert_coordinates),
             skin,
             node.extras().as_deref().map(GltfExtras::from),
         );
@@ -1350,7 +1350,7 @@ fn load_node(
     document: &Document,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node);
+    let transform = node_transform(gltf_node, settings.convert_coordinates);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1395,7 +1395,7 @@ fn load_node(
             let projection = match camera.projection() {
                 gltf::camera::Projection::Orthographic(orthographic) => {
                     let xmag = orthographic.xmag();
-                    let orthographic_projection = OrthographicProjection {
+                    let mut orthographic_projection = OrthographicProjection {
                         near: orthographic.znear(),
                         far: orthographic.zfar(),
                         scaling_mode: ScalingMode::FixedHorizontal {
@@ -1403,7 +1403,11 @@ fn load_node(
                         },
                         ..OrthographicProjection::default_3d()
                     };
-
+                    if settings.convert_coordinates {
+                        // In glTF, near/far are in the -Z direction, while in Bevy they're in the +Z direction
+                        orthographic_projection.near = -orthographic_projection.near;
+                        orthographic_projection.far = -orthographic_projection.far;
+                    }
                     Projection::Orthographic(orthographic_projection)
                 }
                 gltf::camera::Projection::Perspective(perspective) => {
@@ -1417,6 +1421,11 @@ fn load_node(
                     }
                     if let Some(aspect_ratio) = perspective.aspect_ratio() {
                         perspective_projection.aspect_ratio = aspect_ratio;
+                    }
+                    if settings.convert_coordinates {
+                        // In glTF, near/far are in the -Z direction, while in Bevy they're in the +Z direction
+                        perspective_projection.near = -perspective_projection.near;
+                        perspective_projection.far = -perspective_projection.far;
                     }
                     Projection::Perspective(perspective_projection)
                 }
