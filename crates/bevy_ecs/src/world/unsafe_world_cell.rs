@@ -8,10 +8,10 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     error::{DefaultErrorHandler, ErrorHandler},
+    lifecycle::RemovedComponentEvents,
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
-    removal_detection::RemovedComponentEvents,
     resource::Resource,
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
@@ -36,7 +36,7 @@ use thiserror::Error;
 ///
 /// This alone is not enough to implement bevy systems where multiple systems can access *disjoint* parts of the world concurrently. For this, bevy stores all values of
 /// resources and components (and [`ComponentTicks`]) in [`UnsafeCell`]s, and carefully validates disjoint access patterns using
-/// APIs like [`System::component_access`](crate::system::System::component_access).
+/// APIs like [`System::initialize`](crate::system::System::initialize).
 ///
 /// A system then can be executed using [`System::run_unsafe`](crate::system::System::run_unsafe) with a `&World` and use methods with interior mutability to access resource values.
 ///
@@ -401,7 +401,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource<R: Resource>(self) -> Option<&'w R> {
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY: caller ensures `self` has permission to access the resource
         //  caller also ensure that no mutable reference to the resource exists
         unsafe {
@@ -419,7 +419,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Ref<'w, R>> {
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
 
         // SAFETY: caller ensures `self` has permission to access the resource
         // caller also ensures that no mutable reference to the resource exists
@@ -471,7 +471,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_non_send_resource<R: 'static>(self) -> Option<&'w R> {
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY: caller ensures that `self` has permission to access `R`
         //  caller ensures that no mutable reference exists to `R`
         unsafe {
@@ -514,7 +514,7 @@ impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     pub unsafe fn get_resource_mut<R: Resource>(self) -> Option<Mut<'w, R>> {
         self.assert_allows_mutable_access();
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY:
         // - caller ensures `self` has permission to access the resource mutably
         // - caller ensures no other references to the resource exist
@@ -578,7 +578,7 @@ impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     pub unsafe fn get_non_send_resource_mut<R: 'static>(self) -> Option<Mut<'w, R>> {
         self.assert_allows_mutable_access();
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY:
         // - caller ensures that `self` has permission to access the resource
         // - caller ensures that the resource is unaliased
@@ -826,7 +826,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get<T: Component>(self) -> Option<&'w T> {
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
         // - `location` is valid
@@ -852,7 +852,7 @@ impl<'w> UnsafeEntityCell<'w> {
     pub unsafe fn get_ref<T: Component>(self) -> Option<Ref<'w, T>> {
         let last_change_tick = self.last_run;
         let change_tick = self.this_run;
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
@@ -884,7 +884,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks<T: Component>(self) -> Option<ComponentTicks> {
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - entity location is valid
@@ -968,7 +968,7 @@ impl<'w> UnsafeEntityCell<'w> {
     ) -> Option<Mut<'w, T>> {
         self.world.assert_allows_mutable_access();
 
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - `storage_type` is correct

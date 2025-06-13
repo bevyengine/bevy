@@ -3,7 +3,7 @@ name = "bevy_log"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Provides logging for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -45,7 +45,7 @@ bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = fa
 ] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
-tracing-oslog = "0.2"
+tracing-oslog = "0.3"
 
 [lints]
 workspace = true

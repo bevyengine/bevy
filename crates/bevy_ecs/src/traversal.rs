@@ -14,11 +14,11 @@ use crate::{entity::Entity, query::ReadOnlyQueryData, relationship::Relationship
 /// avoiding infinite loops in their code.
 ///
 /// Traversals may be parameterized with additional data. For example, in observer event propagation, the
-/// parameter `D` is the event type given in `Trigger<E>`. This allows traversal to differ depending on event
+/// parameter `D` is the event type given in `On<E>`. This allows traversal to differ depending on event
 /// data.
 ///
 /// [specify the direction]: crate::event::Event::Traversal
-/// [event propagation]: crate::observer::Trigger::propagate
+/// [event propagation]: crate::observer::On::propagate
 /// [observers]: crate::observer::Observer
 pub trait Traversal<D: ?Sized>: ReadOnlyQueryData {
     /// Returns the next entity to visit.
@@ -37,7 +37,7 @@ impl<D> Traversal<D> for () {
 ///
 /// Traversing in a loop could result in infinite loops for relationship graphs with loops.
 ///
-/// [event propagation]: crate::observer::Trigger::propagate
+/// [event propagation]: crate::observer::On::propagate
 impl<R: Relationship, D> Traversal<D> for &R {
     fn traverse(item: Self::Item<'_>, _data: &D) -> Option<Entity> {
         Some(item.get())

@@ -2,13 +2,14 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17353."
 )]
+use bitflags::bitflags;
 use core::fmt::Debug;
 use log::warn;
 use thiserror::Error;
 
 use crate::{
     component::{ComponentId, Tick},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -19,6 +20,18 @@ use core::any::TypeId;
 
 use super::{IntoSystem, SystemParamValidationError};
 
+bitflags! {
+    /// Bitflags representing system states and requirements.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct SystemStateFlags: u8 {
+        /// Set if system cannot be sent across threads
+        const NON_SEND       = 1 << 0;
+        /// Set if system requires exclusive World access
+        const EXCLUSIVE      = 1 << 1;
+        /// Set if system has deferred buffers.
+        const DEFERRED       = 1 << 2;
+    }
+}
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
 /// Systems are functions with all arguments implementing
@@ -44,20 +57,26 @@ pub trait System: Send + Sync + 'static {
         TypeId::of::<Self>()
     }
 
-    /// Returns the system's component [`Access`].
-    fn component_access(&self) -> &Access<ComponentId>;
-
-    /// Returns the system's component [`FilteredAccessSet`].
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId>;
+    /// Returns the [`SystemStateFlags`] of the system.
+    fn flags(&self) -> SystemStateFlags;
 
     /// Returns true if the system is [`Send`].
-    fn is_send(&self) -> bool;
+    #[inline]
+    fn is_send(&self) -> bool {
+        !self.flags().intersects(SystemStateFlags::NON_SEND)
+    }
 
     /// Returns true if the system must be run exclusively.
-    fn is_exclusive(&self) -> bool;
+    #[inline]
+    fn is_exclusive(&self) -> bool {
+        self.flags().intersects(SystemStateFlags::EXCLUSIVE)
+    }
 
     /// Returns true if system has deferred buffers.
-    fn has_deferred(&self) -> bool;
+    #[inline]
+    fn has_deferred(&self) -> bool {
+        self.flags().intersects(SystemStateFlags::DEFERRED)
+    }
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// can be called in parallel with other systems and may break Rust's aliasing rules
@@ -69,12 +88,16 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `component_access_set`. There must be no conflicting
+    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
     ///   [`UnsafeWorldCell::world_mut`] on `world`.
     unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
         -> Self::Out;
+
+    /// Refresh the inner pointer based on the latest hot patch jump table
+    #[cfg(feature = "hotpatching")]
+    fn refresh_hotpatch(&mut self);
 
     /// Runs the system with the given input in the world.
     ///
@@ -126,7 +149,7 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `component_access_set`. There must be no conflicting
+    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     unsafe fn validate_param_unsafe(
         &mut self,
@@ -143,7 +166,9 @@ pub trait System: Send + Sync + 'static {
     }
 
     /// Initialize the system.
-    fn initialize(&mut self, _world: &mut World);
+    ///
+    /// Returns a [`FilteredAccessSet`] with the access required to run the system.
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId>;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -452,7 +477,7 @@ mod tests {
         let result = world.run_system_once(system);
 
         assert!(matches!(result, Err(RunSystemError::InvalidParams { .. })));
-        let expected = "System bevy_ecs::system::system::tests::run_system_once_invalid_params::system did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist";
+        let expected = "System bevy_ecs::system::system::tests::run_system_once_invalid_params::system did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `When<T>` to skip the system when it happens.";
         assert_eq!(expected, result.unwrap_err().to_string());
     }
 }

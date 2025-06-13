@@ -163,7 +163,7 @@ pub async fn initialize_renderer(
     if adapter_info.device_type == DeviceType::Cpu {
         warn!(
             "The selected adapter is using a driver that only supports software rendering. \
-             This is likely to be very slow. See https://bevyengine.org/learn/errors/b0006/"
+             This is likely to be very slow. See https://bevy.org/learn/errors/b0006/"
         );
     }
 
@@ -179,12 +179,6 @@ pub async fn initialize_renderer(
             // integrated GPUs.
             features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
         }
-
-        // RAY_QUERY and RAY_TRACING_ACCELERATION STRUCTURE will sometimes cause DeviceLost failures on platforms
-        // that report them as supported:
-        // <https://github.com/gfx-rs/wgpu/issues/5488>
-        features -= wgpu::Features::EXPERIMENTAL_RAY_QUERY;
-        features -= wgpu::Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE;
 
         limits = adapter.limits();
     }

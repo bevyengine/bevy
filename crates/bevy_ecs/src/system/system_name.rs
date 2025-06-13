@@ -1,6 +1,7 @@
 use crate::{
-    component::Tick,
+    component::{ComponentId, Tick},
     prelude::World,
+    query::FilteredAccessSet,
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -19,11 +20,11 @@ use derive_more::derive::{AsRef, Display, Into};
 /// # use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// struct Logger<'s> {
-///     system_name: SystemName<'s>,
+/// struct Logger {
+///     system_name: SystemName,
 /// }
 ///
-/// impl<'s> Logger<'s> {
+/// impl Logger {
 ///     fn log(&mut self, message: &str) {
 ///         eprintln!("{}: {}", self.system_name, message);
 ///     }
@@ -36,16 +37,16 @@ use derive_more::derive::{AsRef, Display, Into};
 /// ```
 #[derive(Debug, Into, Display, AsRef)]
 #[as_ref(str)]
-pub struct SystemName<'s>(&'s str);
+pub struct SystemName(Cow<'static, str>);
 
-impl<'s> SystemName<'s> {
+impl SystemName {
     /// Gets the name of the system.
     pub fn name(&self) -> &str {
-        self.0
+        &self.0
     }
 }
 
-impl<'s> Deref for SystemName<'s> {
+impl Deref for SystemName {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         self.name()
@@ -53,38 +54,42 @@ impl<'s> Deref for SystemName<'s> {
 }
 
 // SAFETY: no component value access
-unsafe impl SystemParam for SystemName<'_> {
-    type State = Cow<'static, str>;
-    type Item<'w, 's> = SystemName<'s>;
+unsafe impl SystemParam for SystemName {
+    type State = ();
+    type Item<'w, 's> = SystemName;
 
-    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet<ComponentId>,
+        _world: &mut World,
+    ) {
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        name: &'s mut Self::State,
-        _system_meta: &SystemMeta,
+        _state: &'s mut Self::State,
+        system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        SystemName(name)
+        SystemName(system_meta.name.clone())
     }
 }
 
 // SAFETY: Only reads internal system state
-unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
+unsafe impl ReadOnlySystemParam for SystemName {}
 
-impl ExclusiveSystemParam for SystemName<'_> {
-    type State = Cow<'static, str>;
-    type Item<'s> = SystemName<'s>;
+impl ExclusiveSystemParam for SystemName {
+    type State = ();
+    type Item<'s> = SystemName;
 
-    fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
-    }
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
-    fn get_param<'s>(state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
-        SystemName(state)
+    fn get_param<'s>(_state: &'s mut Self::State, system_meta: &SystemMeta) -> Self::Item<'s> {
+        SystemName(system_meta.name.clone())
     }
 }
 

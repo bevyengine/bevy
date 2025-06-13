@@ -11,10 +11,10 @@ pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
 use crate::{
-    component::{Component, HookContext, Mutable},
+    component::{Component, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     error::{ignore, CommandWithEntity, HandleError},
-    system::entity_command::{self},
+    lifecycle::HookContext,
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
@@ -223,50 +223,24 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_replace(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
-                commands.queue(
-                    entity_command::remove::<Self::Relationship>()
-                        .with_entity(source_entity)
-                        .handle_error_with(ignore),
-                );
-            } else {
-                warn!(
-                    "{}Tried to despawn non-existent entity {}",
-                    caller
-                        .map(|location| format!("{location}: "))
-                        .unwrap_or_default(),
-                    source_entity
-                );
-            }
+            commands
+                .entity(source_entity)
+                .remove::<Self::Relationship>();
         }
     }
 
     /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipTarget`] when
     /// that entity is despawned.
     // note: think of this as "on_drop"
-    fn on_despawn(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_despawn(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
-                commands.queue(
-                    entity_command::despawn()
-                        .with_entity(source_entity)
-                        .handle_error_with(ignore),
-                );
-            } else {
-                warn!(
-                    "{}Tried to despawn non-existent entity {}",
-                    caller
-                        .map(|location| format!("{location}: "))
-                        .unwrap_or_default(),
-                    source_entity
-                );
-            }
+            commands.entity(source_entity).despawn();
         }
     }
 

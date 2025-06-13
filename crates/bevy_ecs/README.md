@@ -315,7 +315,7 @@ struct MyEvent {
 
 let mut world = World::new();
 
-world.add_observer(|trigger: Trigger<MyEvent>| {
+world.add_observer(|trigger: On<MyEvent>| {
     println!("{}", trigger.event().message);
 });
 
@@ -339,9 +339,9 @@ struct Explode;
 let mut world = World::new();
 let entity = world.spawn_empty().id();
 
-world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
-    println!("Entity {} goes BOOM!", trigger.target());
-    commands.entity(trigger.target()).despawn();
+world.add_observer(|trigger: On<Explode>, mut commands: Commands| {
+    println!("Entity {} goes BOOM!", trigger.target().unwrap());
+    commands.entity(trigger.target().unwrap()).despawn();
 });
 
 world.flush();
@@ -349,4 +349,4 @@ world.flush();
 world.trigger_targets(Explode, entity);
 ```
 
-[bevy]: https://bevyengine.org/
+[bevy]: https://bevy.org/

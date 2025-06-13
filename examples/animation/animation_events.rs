@@ -26,7 +26,7 @@ struct MessageEvent {
 }
 
 fn edit_message(
-    trigger: Trigger<MessageEvent>,
+    trigger: On<MessageEvent>,
     text: Single<(&mut Text2d, &mut TextColor), With<MessageText>>,
 ) {
     let (mut text, mut color) = text.into_inner();
