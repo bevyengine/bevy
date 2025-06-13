@@ -832,7 +832,7 @@ impl AssetLoader for AnimationGraphAssetLoader {
             });
         }
         for edge in serialized_animation_graph.graph.raw_edges() {
-            animation_graph.add_edge(edge.source(), edge.target(), edge.weight);
+            animation_graph.add_edge(edge.source(), edge.target(), ());
         }
         Ok(AnimationGraph {
             graph: animation_graph,
@@ -875,7 +875,7 @@ impl TryFrom<AnimationGraph> for SerializedAnimationGraph {
             });
         }
         for edge in animation_graph.graph.raw_edges() {
-            serialized_graph.add_edge(edge.source(), edge.target(), edge.weight);
+            serialized_graph.add_edge(edge.source(), edge.target(), ());
         }
         Ok(Self {
             graph: serialized_graph,
