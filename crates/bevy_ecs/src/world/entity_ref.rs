@@ -15,8 +15,7 @@ use crate::{
     },
     event::Event,
     lifecycle::{DESPAWN, REMOVE, REPLACE},
-    name::Name,
-    observer::Observer,
+    observer::{NamedObserver, Observer},
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
     resource::Resource,
@@ -27,7 +26,7 @@ use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
-    any::{type_name_of_val, TypeId},
+    any::TypeId,
     cmp::Ordering,
     hash::{Hash, Hasher},
     marker::PhantomData,
@@ -2657,13 +2656,9 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        self.world.spawn_with_caller(
-            (
-                Name::new(type_name_of_val(&observer)),
-                Observer::new(observer).with_entity(self.entity),
-            ),
-            caller,
-        );
+        let NamedObserver { name, observer } = Observer::new_with_derived_name(observer);
+        self.world
+            .spawn_with_caller((name, observer.with_entity(self.entity)), caller);
         self.world.flush();
         self.update_location();
         self

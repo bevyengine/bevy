@@ -11,7 +11,7 @@ pub use entity_command::EntityCommand;
 pub use parallel_scope::*;
 
 use alloc::boxed::Box;
-use core::{any::type_name_of_val, marker::PhantomData};
+use core::marker::PhantomData;
 
 use crate::{
     self as bevy_ecs,
@@ -21,7 +21,6 @@ use crate::{
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::Event,
-    name::Name,
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -1107,10 +1106,7 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
-        self.spawn((
-            Name::new(type_name_of_val(&observer)),
-            Observer::new(observer),
-        ))
+        self.spawn(Observer::new_with_derived_name(observer))
     }
 
     /// Sends an arbitrary [`Event`].
