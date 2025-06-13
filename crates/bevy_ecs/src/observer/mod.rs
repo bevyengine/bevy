@@ -150,6 +150,7 @@ use alloc::vec::Vec;
 use bevy_platform::collections::HashMap;
 use bevy_ptr::Ptr;
 use core::{
+    any::type_name_of_val,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -706,7 +707,7 @@ impl World {
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
-        self.spawn(Observer::new(system))
+        self.spawn((Name::new(type_name_of_val(&system)), Observer::new(system)))
     }
 
     /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
