@@ -2,7 +2,9 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, BundleEffect, DynamicBundle, NoBundleEffect},
+    bundle::{
+        BoundedBundleKey, Bundle, BundleEffect, ComponentsFromBundle, NoBundleEffect, StaticBundle,
+    },
     entity::Entity,
     relationship::{RelatedSpawner, Relationship, RelationshipTarget},
     world::{EntityWorldMut, World},
@@ -46,7 +48,9 @@ pub trait SpawnableList<R> {
     fn size_hint(&self) -> usize;
 }
 
-impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Vec<B> {
+impl<R: Relationship, B: Bundle<Effect: NoBundleEffect> + StaticBundle> SpawnableList<R>
+    for Vec<B>
+{
     fn spawn(self, world: &mut World, entity: Entity) {
         let mapped_bundles = self.into_iter().map(|b| (R::from(entity), b));
         world.spawn_batch(mapped_bundles);
@@ -182,35 +186,69 @@ impl<R: Relationship, L: SpawnableList<R>> BundleEffect for SpawnRelatedBundle<R
     }
 }
 
-// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
-unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
+// SAFETY: This internally relies on the RelationshipTarget's StaticBundle implementation, which is sound.
+unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> StaticBundle
     for SpawnRelatedBundle<R, L>
 {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+        <R::RelationshipTarget as StaticBundle>::component_ids(components, ids);
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
         ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+        <R::RelationshipTarget as StaticBundle>::get_component_ids(components, ids);
     }
 
     fn register_required_components(
         components: &mut crate::component::ComponentsRegistrator,
         required_components: &mut crate::component::RequiredComponents,
     ) {
-        <R::RelationshipTarget as Bundle>::register_required_components(
+        <R::RelationshipTarget as StaticBundle>::register_required_components(
             components,
             required_components,
         );
     }
 }
-impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
+
+// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
+unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
+    for SpawnRelatedBundle<R, L>
+{
+    // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
+    // always a `StaticBundle`.
+    fn is_static() -> bool {
+        <R::RelationshipTarget as Bundle>::is_static()
+    }
+    fn is_bounded() -> bool {
+        <R::RelationshipTarget as Bundle>::is_bounded()
+    }
+
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut crate::component::ComponentsRegistrator,
+        ids: &mut impl FnMut(crate::component::ComponentId),
+    ) {
+        <Self as StaticBundle>::component_ids(components, ids);
+    }
+
+    fn register_required_components(
+        &self,
+        components: &mut crate::component::ComponentsRegistrator,
+        required_components: &mut crate::component::RequiredComponents,
+    ) {
+        <Self as StaticBundle>::register_required_components(components, required_components);
+    }
+}
+impl<R: Relationship, L: SpawnableList<R>> ComponentsFromBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
 
     fn get_components(
@@ -239,7 +277,7 @@ impl<R: Relationship, B: Bundle> BundleEffect for SpawnOneRelated<R, B> {
     }
 }
 
-impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
+impl<R: Relationship, B: Bundle> ComponentsFromBundle for SpawnOneRelated<R, B> {
     type Effect = Self;
 
     fn get_components(
@@ -251,34 +289,66 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     }
 }
 
-// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
-unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
+// SAFETY: This internally relies on the RelationshipTarget's StaticBundle implementation, which is sound.
+unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+        <R::RelationshipTarget as StaticBundle>::component_ids(components, ids);
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
         ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+        <R::RelationshipTarget as StaticBundle>::get_component_ids(components, ids);
     }
 
     fn register_required_components(
         components: &mut crate::component::ComponentsRegistrator,
         required_components: &mut crate::component::RequiredComponents,
     ) {
-        <R::RelationshipTarget as Bundle>::register_required_components(
+        <R::RelationshipTarget as StaticBundle>::register_required_components(
             components,
             required_components,
         );
     }
 }
 
-/// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`DynamicBundle::Effect`] that:
+// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
+unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
+    // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
+    // always a `StaticBundle`.
+    fn is_static() -> bool {
+        <R::RelationshipTarget as Bundle>::is_static()
+    }
+    fn is_bounded() -> bool {
+        <R::RelationshipTarget as Bundle>::is_bounded()
+    }
+
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut crate::component::ComponentsRegistrator,
+        ids: &mut impl FnMut(crate::component::ComponentId),
+    ) {
+        <Self as StaticBundle>::component_ids(components, ids);
+    }
+
+    fn register_required_components(
+        &self,
+        components: &mut crate::component::ComponentsRegistrator,
+        required_components: &mut crate::component::RequiredComponents,
+    ) {
+        <Self as StaticBundle>::register_required_components(components, required_components);
+    }
+}
+
+/// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`ComponentsFromBundle::Effect`] that:
 ///
 /// 1. Contains the [`RelationshipTarget`] component, pre-allocated with the necessary space for spawned entities.
 /// 2. Spawns an entity (or a list of entities) that relate to the entity the [`Bundle`] is added to via the [`RelationshipTarget::Relationship`].

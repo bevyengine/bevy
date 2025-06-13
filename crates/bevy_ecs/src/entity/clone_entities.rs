@@ -6,7 +6,7 @@ use core::any::TypeId;
 
 use crate::{
     archetype::Archetype,
-    bundle::Bundle,
+    bundle::StaticBundle,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
     query::DebugCheckedUnwrap,
@@ -679,8 +679,8 @@ impl<'w> EntityClonerBuilder<'w> {
     ///
     /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
     /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
-    pub fn allow<T: Bundle>(&mut self) -> &mut Self {
-        let bundle = self.world.register_bundle::<T>();
+    pub fn allow<T: StaticBundle>(&mut self) -> &mut Self {
+        let bundle = self.world.register_static_bundle::<T>();
         let ids = bundle.explicit_components().to_owned();
         for id in ids {
             self.filter_allow(id);
@@ -720,8 +720,8 @@ impl<'w> EntityClonerBuilder<'w> {
     }
 
     /// Disallows all components of the bundle from being cloned.
-    pub fn deny<T: Bundle>(&mut self) -> &mut Self {
-        let bundle = self.world.register_bundle::<T>();
+    pub fn deny<T: StaticBundle>(&mut self) -> &mut Self {
+        let bundle = self.world.register_static_bundle::<T>();
         let ids = bundle.explicit_components().to_owned();
         for id in ids {
             self.filter_deny(id);

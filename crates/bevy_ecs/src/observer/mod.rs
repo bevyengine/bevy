@@ -139,6 +139,7 @@ use variadics_please::all_tuples;
 
 use crate::{
     archetype::ArchetypeFlags,
+    bundle::StaticBundle,
     change_detection::MaybeLocation,
     component::ComponentId,
     entity::EntityHashMap,
@@ -170,7 +171,7 @@ use smallvec::SmallVec;
 /// Providing multiple components in this bundle will cause this event to be triggered by any
 /// matching component in the bundle,
 /// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
-pub struct On<'w, E, B: Bundle = ()> {
+pub struct On<'w, E, B: StaticBundle = ()> {
     event: &'w mut E,
     propagate: &'w mut bool,
     trigger: ObserverTrigger,
@@ -181,7 +182,7 @@ pub struct On<'w, E, B: Bundle = ()> {
 #[deprecated(since = "0.17.0", note = "Renamed to `On`.")]
 pub type Trigger<'w, E, B = ()> = On<'w, E, B>;
 
-impl<'w, E, B: Bundle> On<'w, E, B> {
+impl<'w, E, B: StaticBundle> On<'w, E, B> {
     /// Creates a new instance of [`On`] for the given event and observer information.
     pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
         Self {
@@ -280,7 +281,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     }
 }
 
-impl<'w, E: Debug, B: Bundle> Debug for On<'w, E, B> {
+impl<'w, E: Debug, B: StaticBundle> Debug for On<'w, E, B> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("On")
             .field("event", &self.event)
@@ -291,7 +292,7 @@ impl<'w, E: Debug, B: Bundle> Debug for On<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> Deref for On<'w, E, B> {
+impl<'w, E, B: StaticBundle> Deref for On<'w, E, B> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -299,7 +300,7 @@ impl<'w, E, B: Bundle> Deref for On<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> DerefMut for On<'w, E, B> {
+impl<'w, E, B: StaticBundle> DerefMut for On<'w, E, B> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
     }
@@ -702,7 +703,7 @@ impl World {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: StaticBundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
