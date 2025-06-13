@@ -46,16 +46,17 @@ use core::{
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Send + Sync + 'static {
-    /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
+    /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
     ///
-    /// [propagation]: crate::observer::Trigger::propagate
+    /// [`Entity`]: crate::entity::Entity
+    /// [propagation]: crate::observer::On::propagate
     type Traversal: Traversal<Self>;
 
     /// When true, this event will always attempt to propagate when [triggered], without requiring a call
-    /// to [`Trigger::propagate`].
+    /// to [`On::propagate`].
     ///
     /// [triggered]: crate::system::Commands::trigger_targets
-    /// [`Trigger::propagate`]: crate::observer::Trigger::propagate
+    /// [`On::propagate`]: crate::observer::On::propagate
     const AUTO_PROPAGATE: bool = false;
 
     /// Generates the [`ComponentId`] for this event type.

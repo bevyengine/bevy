@@ -117,6 +117,6 @@ fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
     }
 }
 
-fn empty_listener<const N: usize>(trigger: Trigger<TestEvent<N>>) {
+fn empty_listener<const N: usize>(trigger: On<TestEvent<N>>) {
     black_box(trigger);
 }

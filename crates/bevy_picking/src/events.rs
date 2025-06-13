@@ -11,7 +11,7 @@
 //! # use bevy_picking::prelude::*;
 //! # let mut world = World::default();
 //! world.spawn_empty()
-//!     .observe(|trigger: Trigger<Pointer<Over>>| {
+//!     .observe(|trigger: On<Pointer<Over>>| {
 //!         println!("I am being hovered over");
 //!     });
 //! ```
