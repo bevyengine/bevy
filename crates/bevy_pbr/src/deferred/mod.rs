@@ -21,6 +21,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
+use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
@@ -91,11 +92,13 @@ impl Default for PbrDeferredLightingDepthId {
 
 impl Plugin for DeferredPbrLightingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            ExtractComponentPlugin::<PbrDeferredLightingDepthId>::default(),
-            UniformComponentPlugin::<PbrDeferredLightingDepthId>::default(),
-        ))
-        .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
+        app.register_type::<SkipDeferredLighting>()
+            .add_plugins((
+                ExtractComponentPlugin::<PbrDeferredLightingDepthId>::default(),
+                UniformComponentPlugin::<PbrDeferredLightingDepthId>::default(),
+                ExtractComponentPlugin::<SkipDeferredLighting>::default(),
+            ))
+            .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
 
         embedded_asset!(app, "deferred_lighting.wgsl");
 
@@ -449,6 +452,7 @@ pub fn prepare_deferred_lighting_pipelines(
         ),
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
+        Has<SkipDeferredLighting>,
     )>,
 ) {
     for (
@@ -461,12 +465,13 @@ pub fn prepare_deferred_lighting_pipelines(
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         has_environment_maps,
         has_irradiance_volumes,
+        skip_deferred_lighting,
     ) in &views
     {
-        // If there is no deferred prepass, remove the old pipeline if there was
-        // one. This handles the case in which a view using deferred stops using
-        // it.
-        if !deferred_prepass {
+        // If there is no deferred prepass or we want to skip the deferred lighting pass,
+        // remove the old pipeline if there was one. This handles the case in which a
+        // view using deferred stops using it.
+        if !deferred_prepass || skip_deferred_lighting {
             commands.entity(entity).remove::<DeferredLightingPipeline>();
             continue;
         }
@@ -552,3 +557,10 @@ pub fn prepare_deferred_lighting_pipelines(
             .insert(DeferredLightingPipeline { pipeline_id });
     }
 }
+
+/// Component to skip running the deferred lighting pass in [`DeferredOpaquePass3dPbrLightingNode`].
+///
+/// Useful for cases where you want to generate a gbuffer, but skip the built-in deferred lighting pass
+/// to run your own custom lighting pass instead.
+#[derive(Component, ExtractComponent, Reflect, Clone, Copy, Default)]
+pub struct SkipDeferredLighting;
