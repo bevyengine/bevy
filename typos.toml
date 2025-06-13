@@ -13,6 +13,7 @@ LOD = "LOD"                             # Level of detail
 reparametrization = "reparametrization" # Mathematical term in curve context (reparameterize)
 reparametrize = "reparametrize"
 reparametrized = "reparametrized"
+mis = "mis"                             # mis - multiple importance sampling
 
 # Match a Whole Word - Case Sensitive
 [default.extend-identifiers]
@@ -36,5 +37,4 @@ extend-ignore-re = [
   "\\bmetalness\\b",              # Rendering term (metallicity)
   "\\bNDKs\\b",                   # NDK - Native  Development Kit
   "\\bPNGs\\b",                   # PNG - Portable Network Graphics file format
-  "\\bmis\\b",                    # mis - multiple importance sampling
 ]
