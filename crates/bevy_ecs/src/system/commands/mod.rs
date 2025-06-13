@@ -1068,7 +1068,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
-    /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
+    /// Sends a global [observer](Observer) [`Event`] without any targets.
     ///
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     #[track_caller]
@@ -1076,7 +1076,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger(event));
     }
 
-    /// Sends a [`Trigger`](crate::observer::Trigger) for the given targets.
+    /// Sends an [observer](Observer) [`Event`] for the given targets.
     ///
     /// This will run any [`Observer`] of the given [`Event`] watching those targets.
     #[track_caller]
@@ -1091,7 +1091,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
     /// with the entity that stores the observer.
     ///
-    /// `observer` can be any system whose first parameter is a [`Trigger`].
+    /// `observer` can be any system whose first parameter is [`On`].
     ///
     /// **Calling [`observe`](EntityCommands::observe) on the returned
     /// [`EntityCommands`] will observe the observer itself, which you very
@@ -1101,7 +1101,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Panics if the given system is an exclusive system.
     ///
-    /// [`Trigger`]: crate::observer::Trigger
+    /// [`On`]: crate::observer::On
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -1947,7 +1947,7 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Sends a [`Trigger`](crate::observer::Trigger) targeting the entity.
+    /// Sends an [observer](Observer) [`Event`] targeting the entity.
     ///
     /// This will run any [`Observer`] of the given [`Event`] watching this entity.
     #[track_caller]
