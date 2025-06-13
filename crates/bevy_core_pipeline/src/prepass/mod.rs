@@ -74,6 +74,9 @@ pub struct MotionVectorPrepass;
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
 
+/// View matrices from the previous frame.
+///
+/// Useful for temporal rendering techniques that need access to last frame's camera data.
 #[derive(Component, ShaderType, Clone)]
 pub struct PreviousViewData {
     pub view_from_world: Mat4,
