@@ -1,8 +1,11 @@
 //! Light probes for baked global illumination.
 
-use bevy_app::{App, Plugin};
-use bevy_asset::AssetId;
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::{embedded_asset, load_internal_binary_asset, AssetId};
+use bevy_core_pipeline::core_3d::{
+    graph::{Core3d, Node3d},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -18,10 +21,12 @@ use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    extract_component::ExtractComponentPlugin,
     extract_instances::ExtractInstancesPlugin,
     load_shader_library,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
+    render_graph::RenderGraphApp,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -31,15 +36,27 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
+use generate::{
+    extract_generator_entities, generate_environment_map_light, prepare_generator_bind_groups,
+    prepare_intermediate_textures, GeneratedEnvironmentMapLight, GeneratorPipelines, SpdNode,
+    STBN_SPHERE, STBN_VEC2,
+};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
-use crate::light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight};
+use crate::{
+    generate::{
+        GeneratorBindGroupLayouts, GeneratorNode, GeneratorSamplers, IrradianceMapNode,
+        RadianceMapNode,
+    },
+    light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight},
+};
 
 use self::irradiance_volume::IrradianceVolume;
 
 pub mod environment_map;
+pub mod generate;
 pub mod irradiance_volume;
 
 /// The maximum number of each type of light probe that each view will consider.
@@ -341,9 +358,43 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "environment_map.wgsl");
         load_shader_library!(app, "irradiance_volume.wgsl");
 
+        embedded_asset!(app, "environment_filter.wgsl");
+        embedded_asset!(app, "spd.wgsl");
+
+        load_internal_binary_asset!(
+            app,
+            STBN_SPHERE,
+            "noise/sphere_coshemi_gauss1_0.png",
+            |bytes, _: String| Image::from_buffer(
+                bytes,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Png),
+                bevy_image::CompressedImageFormats::NONE,
+                false,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
+            )
+            .expect("Failed to load sphere cosine weighted blue noise texture")
+        );
+        load_internal_binary_asset!(
+            app,
+            STBN_VEC2,
+            "noise/vector2_uniform_gauss1_0.png",
+            |bytes, _: String| Image::from_buffer(
+                bytes,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Png),
+                bevy_image::CompressedImageFormats::NONE,
+                false,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
+            )
+            .expect("Failed to load vector2 uniform blue noise texture")
+        );
+
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>();
+            .register_type::<IrradianceVolume>()
+            .add_plugins(ExtractComponentPlugin::<GeneratedEnvironmentMapLight>::default())
+            .add_systems(Update, generate_environment_map_light);
     }
 
     fn finish(&self, app: &mut App) {
@@ -355,12 +406,40 @@ impl Plugin for LightProbePlugin {
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
+            .init_resource::<GeneratorBindGroupLayouts>()
+            .init_resource::<GeneratorSamplers>()
+            .init_resource::<GeneratorPipelines>()
+            .add_render_graph_node::<SpdNode>(Core3d, GeneratorNode::Mipmap)
+            .add_render_graph_node::<RadianceMapNode>(Core3d, GeneratorNode::Radiance)
+            .add_render_graph_node::<IrradianceMapNode>(Core3d, GeneratorNode::Irradiance)
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    Node3d::EndPrepasses,
+                    GeneratorNode::Mipmap,
+                    GeneratorNode::Radiance,
+                    GeneratorNode::Irradiance,
+                    Node3d::StartMainPass,
+                ),
+            )
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
+                ExtractSchedule,
+                extract_generator_entities.after(generate_environment_map_light),
+            )
+            .add_systems(
                 Render,
-                (upload_light_probes, prepare_environment_uniform_buffer)
+                prepare_generator_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+            )
+            .add_systems(
+                Render,
+                (
+                    upload_light_probes,
+                    prepare_environment_uniform_buffer,
+                    prepare_intermediate_textures,
+                )
                     .in_set(RenderSystems::PrepareResources),
             );
     }
