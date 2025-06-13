@@ -560,7 +560,7 @@ pub struct Observers {
 }
 
 impl Observers {
-    pub(crate) fn get_observers(&mut self, event_type: ComponentId) -> &mut CachedObservers {
+    pub(crate) fn get_observers_mut(&mut self, event_type: ComponentId) -> &mut CachedObservers {
         use crate::lifecycle::*;
 
         match event_type {
@@ -901,7 +901,7 @@ impl World {
         let descriptor = &observer_state.descriptor;
 
         for &event_type in &descriptor.events {
-            let cache = observers.get_observers(event_type);
+            let cache = observers.get_observers_mut(event_type);
 
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache
@@ -952,7 +952,7 @@ impl World {
         let observers = &mut self.observers;
 
         for &event_type in &descriptor.events {
-            let cache = observers.get_observers(event_type);
+            let cache = observers.get_observers_mut(event_type);
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache.global_observers.remove(&entity);
             } else if descriptor.components.is_empty() {
