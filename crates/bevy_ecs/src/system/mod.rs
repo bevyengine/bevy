@@ -1902,15 +1902,15 @@ mod tests {
         #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
 
-        fn obs(_trigger: On<Add, Name>) {
+        fn obs(_trigger: On<Add, A>) {
             todo!()
         }
 
         world.add_observer(obs);
-        world.add_observer(|_trigger: On<Add, Name>| {});
-        world.add_observer(|_trigger: On<Add, Name>| todo!());
+        world.add_observer(|_trigger: On<Add, A>| {});
+        world.add_observer(|_trigger: On<Add, A>| todo!());
         #[expect(clippy::unused_unit, reason = "this forces the () return type")]
-        world.add_observer(|_trigger: On<Add, Name>| -> () { todo!() });
+        world.add_observer(|_trigger: On<Add, A>| -> () { todo!() });
 
         fn my_command(_world: &mut World) {
             todo!()
