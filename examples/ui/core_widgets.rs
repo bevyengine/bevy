@@ -299,7 +299,6 @@ fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) 
         DemoSlider,
         CoreSlider {
             on_change,
-            thumb_size: 12.0,
             track_click: TrackClick::Snap,
         },
         SliderValue(value),

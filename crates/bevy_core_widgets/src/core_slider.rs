@@ -4,6 +4,7 @@ use accesskit::{Orientation, Role};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::event::Event;
+use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
 use bevy_ecs::system::{In, ResMut};
@@ -48,11 +49,6 @@ pub enum TrackClick {
     SliderStep
 )]
 pub struct CoreSlider {
-    /// This value represents the size, in pixels, that the slider's track length should be reduced
-    /// (during picking calculations) to account for the fact that the slider thumb takes up space.
-    /// This can be different than the actual visible size of the thumb.
-    pub thumb_size: f32,
-
     /// Callback which is called when the slider is dragged or the value is changed via other user
     /// interaction.
     pub on_change: Option<SystemId<In<f32>>>,
@@ -151,7 +147,8 @@ pub(crate) fn slider_on_pointer_down(
         &ComputedNodeTarget,
         &UiGlobalTransform,
     )>,
-    q_thumb: Query<(), With<CoreSliderThumb>>,
+    q_thumb: Query<&ComputedNode, With<CoreSliderThumb>>,
+    q_children: Query<&Children>,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
@@ -181,11 +178,17 @@ pub(crate) fn slider_on_pointer_down(
             focus_visible.0 = false;
         }
 
+        // Find thumb size by searching descendants for the first entity with CoreSliderThumb
+        let thumb_size = q_children
+            .iter_descendants(trigger.target().unwrap())
+            .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
+            .unwrap_or(0.0);
+
         // Detect track click.
         let local_pos = transform.try_inverse().unwrap().transform_point2(
             trigger.event().pointer_location.position * node_target.scale_factor(),
         );
-        let track_width = node.size().x - slider.thumb_size * node_target.scale_factor();
+        let track_width = node.size().x - thumb_size;
         // Avoid division by zero
         let click_val = if track_width > 0. {
             local_pos.x * range.span() / track_width + range.center()
@@ -242,14 +245,20 @@ pub(crate) fn slider_on_drag(
         &SliderRange,
         &mut CoreSliderDragState,
     )>,
+    q_thumb: Query<&ComputedNode, With<CoreSliderThumb>>,
+    q_children: Query<&Children>,
     mut commands: Commands,
 ) {
     if let Ok((node, slider, range, drag)) = q_slider.get_mut(trigger.target().unwrap()) {
         trigger.propagate(false);
         if drag.dragging {
             let distance = trigger.event().distance;
-            let slider_width =
-                (node.size().x * node.inverse_scale_factor - slider.thumb_size).max(1.0);
+            // Find thumb size by searching descendants for the first entity with CoreSliderThumb
+            let thumb_size = q_children
+                .iter_descendants(trigger.target().unwrap())
+                .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
+                .unwrap_or(0.0);
+            let slider_width = ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0);
             let span = range.span();
             let new_value = if span > 0. {
                 range.clamp(drag.offset + (distance.x * span) / slider_width)
