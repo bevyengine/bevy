@@ -36,9 +36,9 @@ pub enum ClearColorConfig {
 #[reflect(Resource, Default, Debug, Clone)]
 pub struct ClearColor(pub Color);
 
-/// Match the dark gray bevy website code block color by default.
+/// Use black by default to optimize rendering.
 impl Default for ClearColor {
     fn default() -> Self {
-        Self(Color::srgb_u8(43, 44, 47))
+        Self(Color::BLACK)
     }
 }
