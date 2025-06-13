@@ -128,7 +128,7 @@ fn fallible_observer(
     mut step: Local<f32>,
 ) -> Result {
     let mut transform = world
-        .get_mut::<Transform>(trigger.target)
+        .get_mut::<Transform>(trigger.original_target)
         .ok_or("No transform found.")?;
 
     *step = if transform.translation.x > 3. {
