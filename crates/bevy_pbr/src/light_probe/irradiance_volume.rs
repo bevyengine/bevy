@@ -154,7 +154,7 @@ use crate::{
     MAX_VIEW_LIGHT_PROBES,
 };
 
-use super::LightProbeComponent;
+use super::{LightProbe, LightProbeComponent};
 
 /// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
 /// overflow the number of texture bindings when deferred rendering is in use
@@ -164,8 +164,12 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 /// The component that defines an irradiance volume.
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
+///
+/// This component requires the [`LightProbe`] component, and is typically used with
+/// [`bevy_transform::components::Transform`] to place the volume appropriately.
 #[derive(Clone, Reflect, Component, Debug)]
 #[reflect(Component, Default, Debug, Clone)]
+#[require(LightProbe)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
     /// described in [`crate::irradiance_volume`].
