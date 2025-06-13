@@ -2133,7 +2133,7 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 /// to implement your own unsafe implementation of the Bundle trait.
 /// [`BundleEffect`]s get access to [`EntityWorldMut`] on insert allowing for
 /// powerful modifications to the world. [`BundleEffect`]s also power other Bevy
-/// helper bundles like [`crate::spawn::SpawnIter`], [`crate::spawn::SpawnWith`], and [`crate::observer::Observer::bundle`].
+/// helper bundles like [`crate::spawn::SpawnIter`], [`crate::spawn::SpawnWith`], and [`crate::observer::Observer::as_bundle`].
 /// You can implement [`BundleEffect`] directly or use the implementation of [`BundleEffect`]
 /// for `FnOnce(&mut EntityWorldMut)`.
 ///

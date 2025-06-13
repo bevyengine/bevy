@@ -306,14 +306,14 @@ impl Observer {
     ///     commands.spawn(
     ///         Node::default(),
     ///         Text::from("Not clicked"),
-    ///         Observer::bundle(
+    ///         Observer::as_bundle(
     ///             |trigger: Trigger<Pointer<Click>>,
     ///              mut text: Query<&mut Text>| {
     ///                **text.get_mut(trigger.target).unwrap() = "Clicked!".to_string();
     ///          })
     ///     )
     /// ```
-    pub fn bundle<E, B, M, O>(observer: O) -> impl Bundle
+    pub fn as_bundle<E, B, M, O>(observer: O) -> impl Bundle
     where
         E: Event,
         B: Bundle,
