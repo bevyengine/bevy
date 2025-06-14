@@ -25,20 +25,14 @@ encase = { version = "0.10", default-features = false, optional = true }
 
 [features]
 default = ["std", "bevy_reflect", "encase"]
-std = [
-  "alloc",
-  "bevy_math/std",
-  "serde?/std",
-  "wgpu-types?/std",
-  "bevy_reflect?/std",
-]
+std = ["alloc", "bevy_math/std", "serde?/std", "wgpu-types?/std"]
 alloc = ["bevy_math/alloc", "serde?/alloc"]
 serialize = ["serde", "bevy_math/serialize"]
 bevy_reflect = ["dep:bevy_reflect"]
 wgpu-types = ["dep:wgpu-types"]
 encase = ["dep:encase", "std"]
 libm = ["bevy_math/libm"]
-critical-section = ["bevy_reflect?/critical-section"]
+critical-section = []
 
 [lints]
 workspace = true

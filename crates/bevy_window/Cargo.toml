@@ -39,7 +39,6 @@ std = [
   "bevy_ecs/std",
   "bevy_input/std",
   "bevy_math/std",
-  "bevy_reflect?/std",
   "serde?/std",
   "raw-window-handle/std",
   "bevy_platform/std",

@@ -18,8 +18,9 @@ macro_rules! impl_reflect_for_atomic {
         impl_type_path!($ty);
 
         const _: () = {
-            #[cfg(feature = "functions")]
-            crate::func::macros::impl_function_traits!($ty);
+            crate::cfg::functions! {
+                crate::func::macros::impl_function_traits!($ty);
+            }
 
             impl GetTypeRegistration for $ty
             where
@@ -32,8 +33,7 @@ macro_rules! impl_reflect_for_atomic {
                     registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
 
                     // Serde only supports atomic types when the "std" feature is enabled
-                    #[cfg(feature = "std")]
-                    {
+                    crate::cfg::std! {
                         registration.insert::<crate::type_registry::ReflectSerialize>(FromType::<Self>::from_type());
                         registration.insert::<crate::type_registry::ReflectDeserialize>(FromType::<Self>::from_type());
                     }

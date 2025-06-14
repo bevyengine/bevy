@@ -60,7 +60,6 @@ async_executor = ["std", "bevy_tasks/async_executor"]
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-  "bevy_reflect?/std",
   "bevy_tasks/std",
   "bevy_utils/parallel",
   "bitflags/std",
@@ -80,7 +79,6 @@ std = [
 critical-section = [
   "bevy_tasks/critical-section",
   "bevy_platform/critical-section",
-  "bevy_reflect?/critical-section",
 ]
 
 hotpatching = ["dep:subsecond"]

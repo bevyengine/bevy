@@ -39,9 +39,6 @@ rodio = { version = "0.20", default-features = false, features = [
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
-  "web",
-] }
 
 [features]
 mp3 = ["rodio/mp3"]
