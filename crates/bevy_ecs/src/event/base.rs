@@ -129,9 +129,9 @@ pub trait Event: Send + Sync + 'static {
 /// like [`trigger_targets`](World::trigger_targets), causing any [`Observer`] watching the event
 /// for those entities to run.
 ///
-/// Unlike basic [`Event`]s, entity events can also support optional propagation from one entity target
-/// to another based on the [`EntityEvent::Traversal`] type associated with the event. This enables use cases
-/// such as bubbling events from child entities to parents for UI purposes.
+/// Unlike basic [`Event`]s, entity events can optionally be propagated from one entity target to another
+/// based on the [`EntityEvent::Traversal`] type associated with the event. This enables use cases
+/// such as bubbling events to parent entities for UI purposes.
 ///
 /// Entity events must be thread-safe.
 ///
