@@ -220,7 +220,7 @@ pub trait Event: Send + Sync + 'static {
 /// #     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
 /// #     .observe(|trigger: On<Damage>, mut query: Query<&mut Health>| {
 /// #         // Note: `On::target` only exists because this is an `EntityEvent`.
-/// #         let mut health = query.get(trigger.target()).unwrap();
+/// #         let mut health = query.get_mut(trigger.target()).unwrap();
 /// #         health.0 -= trigger.amount;
 /// #     })
 /// #     .id();
