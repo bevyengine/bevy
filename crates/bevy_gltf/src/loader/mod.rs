@@ -84,7 +84,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
-use crate::convert_coordinates::{ConvertCameraCoordinates as _, ConvertCoordinates as _};
+use crate::convert_coordinates::ConvertCoordinates as _;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -877,22 +877,11 @@ async fn load_gltf<'a, 'b, 'c>(
             .map(|mesh| mesh.index())
             .and_then(|i| meshes.get(i).cloned());
 
-        let node_transform = node_transform(&node);
-        let node_transform = if settings.convert_coordinates {
-            if node.camera().is_some() {
-                node_transform.convert_camera_coordinates()
-            } else {
-                node_transform.convert_coordinates()
-            }
-        } else {
-            node_transform
-        };
-
         let gltf_node = GltfNode::new(
             &node,
             children,
             mesh,
-            node_transform,
+            node_transform(&node, settings.convert_coordinates),
             skin,
             node.extras().as_deref().map(GltfExtras::from),
         );
@@ -1364,16 +1353,7 @@ fn load_node(
     document: &Document,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node);
-    let transform = if settings.convert_coordinates {
-        if gltf_node.camera().is_some() {
-            transform.convert_camera_coordinates()
-        } else {
-            transform.convert_coordinates()
-        }
-    } else {
-        transform
-    };
+    let transform = node_transform(gltf_node, settings.convert_coordinates);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
