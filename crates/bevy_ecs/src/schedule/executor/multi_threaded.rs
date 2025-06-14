@@ -15,7 +15,10 @@ use tracing::{info_span, Span};
 use crate::{
     error::{ErrorContext, ErrorHandler, Result},
     prelude::Resource,
-    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule::{
+        is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
+        SystemWithAccess,
+    },
     system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -27,14 +30,14 @@ use super::__rust_begin_short_backtrace;
 /// Borrowed data used by the [`MultiThreadedExecutor`].
 struct Environment<'env, 'sys> {
     executor: &'env MultiThreadedExecutor,
-    systems: &'sys [SyncUnsafeCell<ScheduleSystem>],
+    systems: &'sys [SyncUnsafeCell<SystemWithAccess>],
     conditions: SyncUnsafeCell<Conditions<'sys>>,
     world_cell: UnsafeWorldCell<'env>,
 }
 
 struct Conditions<'a> {
-    system_conditions: &'a mut [Vec<BoxedCondition>],
-    set_conditions: &'a mut [Vec<BoxedCondition>],
+    system_conditions: &'a mut [Vec<ConditionWithAccess>],
+    set_conditions: &'a mut [Vec<ConditionWithAccess>],
     sets_with_conditions_of_systems: &'a [FixedBitSet],
     systems_in_sets_with_conditions: &'a [FixedBitSet],
 }
@@ -172,8 +175,8 @@ impl SystemExecutor for MultiThreadedExecutor {
                 conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 condition_conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 dependents: schedule.system_dependents[index].clone(),
-                is_send: schedule.systems[index].is_send(),
-                is_exclusive: schedule.systems[index].is_exclusive(),
+                is_send: schedule.systems[index].system.is_send(),
+                is_exclusive: schedule.systems[index].system.is_exclusive(),
             });
             if schedule.system_dependencies[index] == 0 {
                 self.starting_systems.insert(index);
@@ -187,10 +190,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 let system1 = &schedule.systems[index1];
                 for index2 in 0..index1 {
                     let system2 = &schedule.systems[index2];
-                    if !system2
-                        .component_access_set()
-                        .is_compatible(system1.component_access_set())
-                    {
+                    if !system2.access.is_compatible(&system1.access) {
                         state.system_task_metadata[index1]
                             .conflicting_systems
                             .insert(index2);
@@ -202,11 +202,10 @@ impl SystemExecutor for MultiThreadedExecutor {
 
                 for index2 in 0..sys_count {
                     let system2 = &schedule.systems[index2];
-                    if schedule.system_conditions[index1].iter().any(|condition| {
-                        !system2
-                            .component_access_set()
-                            .is_compatible(condition.component_access_set())
-                    }) {
+                    if schedule.system_conditions[index1]
+                        .iter()
+                        .any(|condition| !system2.access.is_compatible(&condition.access))
+                    {
                         state.system_task_metadata[index1]
                             .condition_conflicting_systems
                             .insert(index2);
@@ -220,11 +219,10 @@ impl SystemExecutor for MultiThreadedExecutor {
                 let mut conflicting_systems = FixedBitSet::with_capacity(sys_count);
                 for sys_index in 0..sys_count {
                     let system = &schedule.systems[sys_index];
-                    if schedule.set_conditions[set_idx].iter().any(|condition| {
-                        !system
-                            .component_access_set()
-                            .is_compatible(condition.component_access_set())
-                    }) {
+                    if schedule.set_conditions[set_idx]
+                        .iter()
+                        .any(|condition| !system.access.is_compatible(&condition.access))
+                    {
                         conflicting_systems.insert(sys_index);
                     }
                 }
@@ -469,7 +467,8 @@ impl ExecutorState {
                 debug_assert!(!self.running_systems.contains(system_index));
                 // SAFETY: Caller assured that these systems are not running.
                 // Therefore, no other reference to this system exists and there is no aliasing.
-                let system = unsafe { &mut *context.environment.systems[system_index].get() };
+                let system =
+                    &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
 
                 #[cfg(feature = "hotpatching")]
                 if should_update_hotpatch {
@@ -662,7 +661,7 @@ impl ExecutorState {
     ///   used by the specified system.
     unsafe fn spawn_system_task(&mut self, context: &Context, system_index: usize) {
         // SAFETY: this system is not running, no other reference exists
-        let system = unsafe { &mut *context.environment.systems[system_index].get() };
+        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
         // Move the full context object into the new future.
         let context = *context;
 
@@ -704,7 +703,7 @@ impl ExecutorState {
     /// Caller must ensure no systems are currently borrowed.
     unsafe fn spawn_exclusive_system_task(&mut self, context: &Context, system_index: usize) {
         // SAFETY: this system is not running, no other reference exists
-        let system = unsafe { &mut *context.environment.systems[system_index].get() };
+        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
         // Move the full context object into the new future.
         let context = *context;
 
@@ -786,12 +785,12 @@ impl ExecutorState {
 
 fn apply_deferred(
     unapplied_systems: &FixedBitSet,
-    systems: &[SyncUnsafeCell<ScheduleSystem>],
+    systems: &[SyncUnsafeCell<SystemWithAccess>],
     world: &mut World,
 ) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
-        let system = unsafe { &mut *systems[system_index].get() };
+        let system = &mut unsafe { &mut *systems[system_index].get() }.system;
         let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
             system.apply_deferred(world);
         }));
@@ -814,7 +813,7 @@ fn apply_deferred(
 /// - `world` must have permission to read any world data
 ///   required by `conditions`.
 unsafe fn evaluate_and_fold_conditions(
-    conditions: &mut [BoxedCondition],
+    conditions: &mut [ConditionWithAccess],
     world: UnsafeWorldCell,
     error_handler: ErrorHandler,
 ) -> bool {
@@ -824,7 +823,7 @@ unsafe fn evaluate_and_fold_conditions(
     )]
     conditions
         .iter_mut()
-        .map(|condition| {
+        .map(|ConditionWithAccess { condition, .. }| {
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.

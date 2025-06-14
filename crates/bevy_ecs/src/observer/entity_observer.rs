@@ -6,11 +6,23 @@ use crate::{
 };
 use alloc::vec::Vec;
 
+#[cfg(feature = "bevy_reflect")]
+use crate::prelude::ReflectComponent;
+
 use super::Observer;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
-#[derive(Default)]
+#[derive(Default, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, Debug))]
 pub struct ObservedBy(pub(crate) Vec<Entity>);
+
+impl ObservedBy {
+    /// Provides a read-only reference to the list of entities observing this entity.
+    pub fn get(&self) -> &[Entity] {
+        &self.0
+    }
+}
 
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;

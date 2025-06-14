@@ -57,6 +57,7 @@ use crate::{
         BufferedEvent, EntityEvent, EventCursor, EventId, EventIterator, EventIteratorWithId,
         Events,
     },
+    query::FilteredAccessSet,
     relationship::RelationshipHookMode,
     storage::SparseSet,
     system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -620,7 +621,15 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     type State = ();
     type Item<'w, 's> = &'w RemovedComponentEvents;
 
-    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet<ComponentId>,
+        _world: &mut World,
+    ) {
+    }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
