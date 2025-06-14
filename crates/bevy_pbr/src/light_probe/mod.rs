@@ -378,7 +378,7 @@ fn gather_environment_map_uniform(
         let environment_map_uniform = if let Some(environment_map_light) = environment_map_light {
             EnvironmentMapUniform {
                 transform: Transform::from_rotation(environment_map_light.rotation)
-                    .compute_matrix()
+                    .to_matrix()
                     .inverse(),
             }
         } else {
