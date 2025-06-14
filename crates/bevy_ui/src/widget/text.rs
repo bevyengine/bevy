@@ -25,6 +25,9 @@ use bevy_text::{
 use taffy::style::AvailableSpace;
 use tracing::error;
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// UI text system flags.
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
@@ -132,11 +135,12 @@ impl From<String> for Text {
 ///
 /// Inserted as a component to the entity to support animations.
 ///
-/// Does *not* interfere with existing [`TextShadow`] or [`TextShadowGroup`] components on the entity. The
+/// Does *not* interfere with existing [`TextShadow`] components on the entity. The
 /// outline will be 'above' any shadows.
 #[derive(Component, Reflect, Debug, Copy, Clone, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[cfg_attr(
-    feature = "serde",
+    feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
