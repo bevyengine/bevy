@@ -297,13 +297,9 @@ pub(crate) fn convert_attribute(
             ConversionMode::JointWeight,
             false,
         )),
-        gltf::Semantic::Extras(name) => custom_vertex_attributes.get(name.as_str()).map(|attr| {
-            (
-                *attr,
-                ConversionMode::Any,
-                matches!(attr.name, "KHR_texture_transform"),
-            )
-        }),
+        gltf::Semantic::Extras(name) => custom_vertex_attributes
+            .get(name.as_str())
+            .map(|attr| (*attr, ConversionMode::Any, false)),
         _ => None,
     } {
         let raw_iter = VertexAttributeIter::from_accessor(accessor.clone(), buffer_data);
