@@ -218,6 +218,9 @@ pub trait Event: Send + Sync + 'static {
 /// #         health.0 -= trigger.amount();
 /// #     })
 /// #     .id();
+/// #
+/// # world.flush();
+/// #
 /// world.trigger_targets(Damage { amount: 10.0 }, armor_piece);
 /// ```
 ///
