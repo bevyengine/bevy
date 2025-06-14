@@ -28,22 +28,61 @@ use core::{
 ///
 /// Events must be thread-safe.
 ///
-/// # Derive
+/// # Usage
 ///
-/// The [`Event`] trait can be derived.
+/// The [`Event`] trait can be derived:
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
-///
+/// # use bevy_ecs::prelude::*;
+/// #
 /// #[derive(Event)]
-/// struct MyEvent;
+/// struct Speak {
+///     message: String,
+/// }
+/// ```
+///
+/// An [`Observer`] can then be added to listen for this event type:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Event)]
+/// # struct Speak {
+/// #     message: String,
+/// # }
+/// # let mut world = World::new();
+/// #
+/// world.add_observer(|trigger: On<Speak>| {
+///     println!("{}", trigger.message);
+/// });
+/// ```
+///
+/// The event can be triggered on the [`World`] using the [`trigger`](World::trigger) method:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Event)]
+/// # struct Speak {
+/// #     message: String,
+/// # }
+/// # let mut world = World::new();
+/// #
+/// # world.add_observer(|trigger: On<Speak>| {
+/// #     println!("{}", trigger.message);
+/// # });
+/// #
+/// # world.flush();
+/// #
+/// world.trigger(Speak {
+///     message: "Hello!".to_string(),
+/// });
 /// ```
 ///
 /// For events that additionally need entity targeting or buffering, consider instead deriving
 /// [`EntityEvent`] or [`BufferedEvent`], respectively.
 ///
 /// [`World`]: crate::world::World
-/// [`TriggerTargets`]: crate::observer::TriggerTargets
 /// [`Observer`]: crate::observer::Observer
 /// [`EventReader`]: super::EventReader
 /// [`EventWriter`]: super::EventWriter
@@ -96,17 +135,88 @@ pub trait Event: Send + Sync + 'static {
 ///
 /// Entity events must be thread-safe.
 ///
-/// # Derive
+/// # Usage
 ///
-/// The [`EntityEvent`] trait can be derived. Adding `auto_propagate` sets [`EntityEvent::AUTO_PROPAGATE`] to `true`,
-/// while adding `traversal = "X"` sets [`EntityEvent::Traversal`] to be of type "X".
+/// The [`EntityEvent`] trait can be derived. The `event` attribute can be used to further configure
+/// the propagation behavior: adding `auto_propagate` sets [`EntityEvent::AUTO_PROPAGATE`] to `true`,
+/// while adding `traversal = X` sets [`EntityEvent::Traversal`] to be of type `X`.
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
-///
+/// # use bevy_ecs::prelude::*;
+/// #
+/// // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
 /// #[derive(EntityEvent)]
-/// #[event(auto_propagate, traversal = &'static ChildOf)]
-/// struct MyEvent;
+/// #[event(traversal = &'static ChildOf, auto_propagate)]
+/// struct Damage {
+///     amount: f32,
+/// }
+/// ```
+///
+/// An [`Observer`] can then be added to listen for this event type for the desired entity:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(EntityEvent)]
+/// # #[event(traversal = &'static ChildOf, auto_propagate)]
+/// # struct Damage {
+/// #     amount: f32,
+/// # }
+/// #
+/// # #[derive(Component)]
+/// # struct Health(f32);
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct ArmorPiece;
+/// #
+/// // Spawn an enemy entity.
+/// let enemy = world.spawn((Enemy, Health(100.0))).id();
+///
+/// // Spawn some armor as a child of the enemy entity.
+/// // When the armor takes damage, it will bubble the event up to the enemy,
+/// // which can then handle the event with its own observer.
+/// let armor_piece = world
+///     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
+///     .observe(|trigger: On<Damage>, mut query: Query<&mut Health>| {
+///         // Note: `On::target` only exists because this is an `EntityEvent`.
+///         let mut health = query.get(trigger.target()).unwrap();
+///         health.0 -= trigger.amount();
+///     });
+/// ```
+///
+/// The event can be triggered on the [`World`] using the [`trigger_targets`](World::trigger_targets) method,
+/// providing the desired entity target(s):
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(EntityEvent)]
+/// # #[event(traversal = &'static ChildOf, auto_propagate)]
+/// # struct Damage {
+/// #     amount: f32,
+/// # }
+/// #
+/// # #[derive(Component)]
+/// # struct Health(f32);
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct ArmorPiece;
+/// #
+/// # let enemy = world.spawn((Enemy, Health(100.0))).id();
+/// # let armor_piece = world
+/// #     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
+/// #     .observe(|trigger: On<Damage>, mut query: Query<&mut Health>| {
+/// #         // Note: `On::target` only exists because this is an `EntityEvent`.
+/// #         let mut health = query.get(trigger.target()).unwrap();
+/// #         health.0 -= trigger.amount();
+/// #     });
+/// world.trigger_targets(Damage { amount: 10.0 }, armor_piece);
 /// ```
 ///
 /// [`World`]: crate::world::World
@@ -135,7 +245,7 @@ pub trait EntityEvent: Event {
     const AUTO_PROPAGATE: bool = false;
 }
 
-/// A buffered event for pull-based event handling.
+/// A buffered [`Event`] for pull-based event handling.
 ///
 /// Buffered events can be written with [`EventWriter`] and read using the [`EventReader`] system parameter.
 /// These events are stored in the [`Events<E>`] resource, and require periodically polling the world for new events,
@@ -145,7 +255,7 @@ pub trait EntityEvent: Event {
 /// a large number of events at once. This can make them more efficient than [`Event`]s used by [`Observer`]s
 /// for events that happen at a high frequency or in large quantities.
 ///
-/// Unlike [`Event`]s used by observers, buffered events are evaluated at fixed points in the schedule
+/// Unlike [`Event`]s triggered for observers, buffered events are evaluated at fixed points in the schedule
 /// rather than immediately when they are sent. This allows for more predictable scheduling and deferring
 /// event processing to a later point in time.
 ///
@@ -157,13 +267,13 @@ pub trait EntityEvent: Event {
 ///
 /// # Usage
 ///
-/// The [`BufferedEvent`] trait can be easily derived:
+/// The [`BufferedEvent`] trait can be derived:
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
-///
-/// #[derive(BufferedEvent, Debug)]
-/// struct MyEvent;
+/// # use bevy_ecs::prelude::*;
+/// #
+/// #[derive(BufferedEvent)]
+/// struct Message(String);
 /// ```
 ///
 /// The event can then be written to the event buffer using an [`EventWriter`]:
@@ -172,24 +282,25 @@ pub trait EntityEvent: Event {
 /// # use bevy_ecs::prelude::*;
 /// #
 /// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
+/// # struct Message(String);
 /// #
-/// fn my_system(mut writer: EventWriter<MyEvent>) {
-///     writer.write(MyEvent);
+/// fn write_hello(mut writer: EventWriter<Message>) {
+///     writer.write(Message("Hello!".to_string()));
 /// }
 /// ```
 ///
-/// And read using an [`EventReader`]:
+/// Buffered events can be efficiently read using an [`EventReader`]:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
 /// #
-/// fn my_system(mut reader: EventReader<MyEvent>) {
-///     // Process the events
-///     for event in reader.read() {
-///         println!("Received event: {:?}", event);
+/// # #[derive(BufferedEvent)]
+/// # struct Message(String);
+/// #
+/// fn read_messages(mut reader: EventReader<Message>) {
+///     // Process all buffered events of type `Message`.
+///     for Message(message) in reader.read() {
+///         println!("{message}");
 ///     }
 /// }
 /// ```
