@@ -25,6 +25,9 @@ use bevy_text::{
 use taffy::style::AvailableSpace;
 use tracing::error;
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// UI text system flags.
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
@@ -128,6 +131,50 @@ impl From<String> for Text {
     }
 }
 
+/// Instruction for adding an outline around text.
+///
+/// Inserted as a component to the entity to support animations.
+///
+/// Does *not* interfere with existing [`TextShadow`] components on the entity. The
+/// outline will be 'above' any shadows.
+#[derive(Component, Reflect, Debug, Copy, Clone, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct TextOutline {
+    /// Width of the outline in pixels.
+    ///
+    /// Large widths may have a noticeable performance impact, especially if large amounts of text are outlined.
+    pub width: f32,
+    /// Defaults to [`Color::BLACK`].
+    #[reflect(default = "TextOutline::default_color")]
+    pub color: Color,
+    /// Multiplied to the alpha of the outermost layer of shadows that make up the outline. The effect is to
+    /// soften corners and arcs while leaving straight edges dark.
+    ///
+    /// Defaults to no anti-aliasing.
+    #[reflect(default)]
+    pub anti_aliasing: Option<f32>,
+}
+
+impl TextOutline {
+    fn default_color() -> Color {
+        Color::BLACK
+    }
+}
+
+impl Default for TextOutline {
+    fn default() -> Self {
+        Self {
+            width: 0.0,
+            color: Self::default_color(),
+            anti_aliasing: None,
+        }
+    }
+}
 /// UI alias for [`TextReader`].
 pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 
