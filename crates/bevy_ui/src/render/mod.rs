@@ -9,7 +9,7 @@ mod debug_overlay;
 mod gradient;
 
 use crate::prelude::UiGlobalTransform;
-use crate::widget::{ImageNode, ViewportNode};
+use crate::widget::{ImageNode, TextOutline, ViewportNode};
 
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
@@ -24,7 +24,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
-use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
+use bevy_math::{Affine2, FloatOrd, Mat3, Mat4, Rect, UVec4, Vec2};
 use bevy_render::load_shader_library;
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
@@ -114,6 +114,7 @@ pub enum RenderUiSystems {
     ExtractViewportNodes,
     ExtractTextBackgrounds,
     ExtractTextShadows,
+    ExtractTextOutlines,
     ExtractText,
     ExtractDebug,
     ExtractGradient,
@@ -150,6 +151,7 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystems::ExtractBorders,
                 RenderUiSystems::ExtractTextBackgrounds,
                 RenderUiSystems::ExtractTextShadows,
+                RenderUiSystems::ExtractTextOutlines,
                 RenderUiSystems::ExtractText,
                 RenderUiSystems::ExtractDebug,
             )
@@ -165,6 +167,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_viewport_nodes.in_set(RenderUiSystems::ExtractViewportNodes),
                 extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
                 extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
+                extract_text_outlines.in_set(RenderUiSystems::ExtractTextOutlines),
                 extract_text_sections.in_set(RenderUiSystems::ExtractText),
                 #[cfg(feature = "bevy_ui_debug")]
                 debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
@@ -980,6 +983,121 @@ pub fn extract_text_shadows(
             }
 
             end += 1;
+        }
+    }
+}
+
+fn extract_text_outlines(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedNodeTarget,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &TextLayoutInfo,
+            &TextOutline,
+        )>,
+    >,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut start = extracted_uinodes.glyphs.len();
+    let mut end = start + 1;
+
+    let mut camera_mapper = camera_map.get_mapper();
+    for (
+        entity,
+        uinode,
+        target,
+        global_transform,
+        inherited_visibility,
+        clip,
+        text_layout_info,
+        outline,
+    ) in &uinode_query
+    {
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
+            continue;
+        };
+
+        let width = outline.width as i32;
+        let aa_factor = outline.anti_aliasing.unwrap_or(1.0);
+        let color: LinearRgba = outline.color.into();
+
+        for offset_x in -width..=width {
+            for offset_y in -width..=width {
+                if offset_x == 0 && offset_y == 0 {
+                    continue;
+                }
+
+                // Anti-aliasing.
+                let mut color = color;
+                if (offset_x.abs() == width) || (offset_y.abs() == width) {
+                    color.alpha *= aa_factor;
+                }
+
+                let offset = Vec2 {
+                    x: offset_x as f32,
+                    y: offset_y as f32,
+                };
+
+                let transform = Affine2::from(*global_transform)
+                    * Affine2::from_translation(
+                        -0.5 * uinode.size() + offset / uinode.inverse_scale_factor(),
+                    );
+
+                for (
+                    i,
+                    PositionedGlyph {
+                        position,
+                        atlas_info,
+                        span_index,
+                        ..
+                    },
+                ) in text_layout_info.glyphs.iter().enumerate()
+                {
+                    let rect = texture_atlases
+                        .get(&atlas_info.texture_atlas)
+                        .unwrap()
+                        .textures[atlas_info.location.glyph_index]
+                        .as_rect();
+                    extracted_uinodes.glyphs.push(ExtractedGlyph {
+                        transform: Affine2::from_mat3(
+                            transform * Mat3::from_translation(*position),
+                        ),
+                        rect,
+                    });
+
+                    if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+                        info.span_index != *span_index
+                            || info.atlas_info.texture != atlas_info.texture
+                    }) {
+                        extracted_uinodes.uinodes.push(ExtractedUiNode {
+                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            stack_index: uinode.stack_index,
+                            color,
+                            image: atlas_info.texture.id(),
+                            clip: clip.map(|clip| clip.clip),
+                            extracted_camera_entity,
+                            rect,
+                            item: ExtractedUiItem::Glyphs { range: start..end },
+                            main_entity: entity.into(),
+                        });
+                        start = end;
+                    }
+
+                    end += 1;
+                }
+            }
         }
     }
 }

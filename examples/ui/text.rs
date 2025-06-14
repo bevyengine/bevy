@@ -4,9 +4,10 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
-    color::palettes::css::GOLD,
+    color::palettes::css::{BLACK, GOLD, GREEN},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    ui::widget::TextOutline,
 };
 
 fn main() {
@@ -32,6 +33,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
+        TextOutline {
+            width: 1.,
+            color: GREEN.into(),
+            anti_aliasing: None,
+        },
         TextFont {
             // This font is loaded and will be used instead of the default font.
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -45,6 +51,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+        AnimatedText,
+    ));
+
+    // Text with Outline section
+    commands.spawn((
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("Text with Outline"),
+        TextOutline {
+            width: 2.,
+            color: BLACK.into(),
+            anti_aliasing: Some(2.),
+        },
+        TextFont {
+            // This font is loaded and will be used instead of the default font.
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 33.0,
+            ..default()
+        },
+        // Set the justification of the Text
+        TextLayout::new_with_justify(Justify::Center),
+        // Set the style of the Node itself.
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(5.0),
             right: Val::Px(5.0),
             ..default()
         },
@@ -93,6 +126,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Here we are able to call the `From` method instead of creating a new `TextSection`.
         // This will use the default font (a minimal subset of FiraMono) and apply the default styling.
         Text::new("From an &str into a Text with the default font!"),
+        TextOutline {
+            width: 2.,
+            color: Color::BLACK,
+            anti_aliasing: None,
+        },
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
