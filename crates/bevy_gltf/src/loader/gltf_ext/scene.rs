@@ -29,6 +29,8 @@ pub(crate) fn node_name(node: &Node) -> Name {
 /// if `libm` feature of `bevy_math` crate is enabled also handles cross
 /// platform determinism properly.
 pub(crate) fn node_transform(node: &Node, convert_coordinates: bool) -> Transform {
+    // glTF cameras are already defined in the same coordinate system as Bevy's, so we don't need to convert them
+    let convert_coordinates = convert_coordinates && node.camera().is_none();
     match node.transform() {
         gltf::scene::Transform::Matrix { matrix } => {
             let mut transform = Transform::from_matrix(Mat4::from_cols_array_2d(&matrix));
