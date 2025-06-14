@@ -146,7 +146,7 @@ pub trait Event: Send + Sync + 'static {
 /// #
 /// // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
 /// #[derive(EntityEvent)]
-/// #[event(traversal = &'static ChildOf, auto_propagate)]
+/// #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// struct Damage {
 ///     amount: f32,
 /// }
@@ -158,7 +158,7 @@ pub trait Event: Send + Sync + 'static {
 /// # use bevy_ecs::prelude::*;
 /// #
 /// # #[derive(EntityEvent)]
-/// # #[event(traversal = &'static ChildOf, auto_propagate)]
+/// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// # struct Damage {
 /// #     amount: f32,
 /// # }
@@ -195,7 +195,7 @@ pub trait Event: Send + Sync + 'static {
 /// # use bevy_ecs::prelude::*;
 /// #
 /// # #[derive(EntityEvent)]
-/// # #[event(traversal = &'static ChildOf, auto_propagate)]
+/// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// # struct Damage {
 /// #     amount: f32,
 /// # }

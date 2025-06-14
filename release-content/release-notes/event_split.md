@@ -63,7 +63,7 @@ It supports optionally specifying some options for propagation using the `event`
 ```rust
 // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
 #[derive(EntityEvent)]
-#[event(traversal = &'static ChildOf, auto_propagate)]
+#[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct Damage {
     amount: f32,
 }

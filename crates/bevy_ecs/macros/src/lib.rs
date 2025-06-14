@@ -579,7 +579,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 }
 
 /// Implement the `EntityEvent` trait.
-#[proc_macro_derive(EntityEvent, attributes(event))]
+#[proc_macro_derive(EntityEvent, attributes(entity_event))]
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     component::derive_entity_event(input)
 }

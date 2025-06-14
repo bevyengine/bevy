@@ -13,7 +13,7 @@ use syn::{
     LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
-pub const EVENT: &str = "event";
+pub const EVENT: &str = "entity_event";
 pub const AUTO_PROPAGATE: &str = "auto_propagate";
 pub const TRAVERSAL: &str = "traversal";
 

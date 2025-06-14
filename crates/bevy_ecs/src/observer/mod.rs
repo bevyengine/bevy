@@ -1060,7 +1060,7 @@ mod tests {
     }
 
     #[derive(Component, EntityEvent)]
-    #[event(traversal = &'static ChildOf, auto_propagate)]
+    #[entity_event(traversal = &'static ChildOf, auto_propagate)]
     struct EventPropagating;
 
     #[test]

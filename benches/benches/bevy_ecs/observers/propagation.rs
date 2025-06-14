@@ -62,7 +62,7 @@ pub fn event_propagation(criterion: &mut Criterion) {
 }
 
 #[derive(EntityEvent, Clone, Component)]
-#[event(traversal = &'static ChildOf, auto_propagate)]
+#[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct TestEvent<const N: usize> {}
 
 fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &[Entity]) {
