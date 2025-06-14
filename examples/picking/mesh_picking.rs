@@ -159,7 +159,7 @@ fn setup_scene(
 /// Returns an observer that updates the entity's material to the one specified.
 fn update_material_on<E>(
     new_material: Handle<StandardMaterial>,
-) -> impl Fn(Trigger<E>, Query<&mut MeshMaterial3d<StandardMaterial>>) {
+) -> impl Fn(On<E>, Query<&mut MeshMaterial3d<StandardMaterial>>) {
     // An observer closure that captures `new_material`. We do this to avoid needing to write four
     // versions of this observer, each triggered by a different event and with a different hardcoded
     // material. Instead, the event type is a generic, and the material is passed in.
@@ -190,7 +190,7 @@ fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
 }
 
 /// An observer to rotate an entity when it is dragged
-fn rotate_on_drag(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
+fn rotate_on_drag(drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
     let mut transform = transforms.get_mut(drag.target().unwrap()).unwrap();
     transform.rotate_y(drag.delta.x * 0.02);
     transform.rotate_x(drag.delta.y * 0.02);

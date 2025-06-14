@@ -247,6 +247,15 @@ bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
+# Provides raytraced lighting (experimental)
+bevy_solari = [
+  "bevy_internal/bevy_solari",
+  "bevy_asset",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_render",
+]
+
 # Provides sprite functionality
 bevy_sprite = [
   "bevy_internal/bevy_sprite",
@@ -1258,6 +1267,18 @@ doc-scrape-examples = true
 [package.metadata.example.skybox]
 name = "Skybox"
 description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats."
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "solari"
+path = "examples/3d/solari.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari"]
+
+[package.metadata.example.solari]
+name = "Solari"
+description = "Demonstrates realtime dynamic global illumination rendering using Bevy Solari."
 category = "3D Rendering"
 wasm = false
 
