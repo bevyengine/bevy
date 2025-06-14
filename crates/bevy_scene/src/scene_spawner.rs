@@ -22,9 +22,9 @@ use bevy_ecs::{
 };
 /// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
 ///
-/// See also [`Trigger`], [`SceneSpawner::instance_is_ready`].
+/// See also [`On`], [`SceneSpawner::instance_is_ready`].
 ///
-/// [`Trigger`]: bevy_ecs::observer::Trigger
+/// [`On`]: bevy_ecs::observer::On
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Event, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
@@ -549,7 +549,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         hierarchy::Children,
-        observer::Trigger,
+        observer::On,
         prelude::ReflectComponent,
         query::With,
         system::{Commands, Query, Res, ResMut, RunSystemOnce},
@@ -731,7 +731,7 @@ mod tests {
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Option<Entity>) {
         // Add observer
         app.world_mut().add_observer(
-            move |trigger: Trigger<SceneInstanceReady>,
+            move |trigger: On<SceneInstanceReady>,
                   scene_spawner: Res<SceneSpawner>,
                   mut trigger_count: ResMut<TriggerCount>| {
                 assert_eq!(

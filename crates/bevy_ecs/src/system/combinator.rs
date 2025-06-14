@@ -4,7 +4,7 @@ use alloc::{borrow::Cow, format};
 use core::marker::PhantomData;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -116,7 +116,6 @@ pub struct CombinatorSystem<Func, A, B> {
     b: B,
     #[cfg(feature = "debug")]
     name: Cow<'static, str>,
-    component_access_set: FilteredAccessSet<ComponentId>,
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
@@ -130,7 +129,6 @@ impl<Func, A, B> CombinatorSystem<Func, A, B> {
             b,
             #[cfg(feature = "debug")]
             name,
-            component_access_set: FilteredAccessSet::default(),
         }
     }
 }
@@ -147,10 +145,6 @@ where
     #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.component_access_set
     }
 
     #[inline]
@@ -204,18 +198,16 @@ where
         unsafe { self.a.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.a.initialize(world);
-        self.b.initialize(world);
-        self.component_access_set
-            .extend(self.a.component_access_set().clone());
-        self.component_access_set
-            .extend(self.b.component_access_set().clone());
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        let mut a_access = self.a.initialize(world);
+        let b_access = self.b.initialize(world);
+        a_access.extend(b_access);
+        a_access
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.a.check_change_tick(change_tick);
-        self.b.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.a.check_change_tick(check);
+        self.b.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
@@ -343,7 +335,6 @@ pub struct PipeSystem<A, B> {
     b: B,
     #[cfg(feature = "debug")]
     name: Cow<'static, str>,
-    component_access_set: FilteredAccessSet<ComponentId>,
 }
 
 impl<A, B> PipeSystem<A, B>
@@ -359,7 +350,6 @@ where
             b,
             #[cfg(feature = "debug")]
             name,
-            component_access_set: FilteredAccessSet::default(),
         }
     }
 }
@@ -376,10 +366,6 @@ where
     #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.component_access_set
     }
 
     #[inline]
@@ -436,18 +422,16 @@ where
         Ok(())
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.a.initialize(world);
-        self.b.initialize(world);
-        self.component_access_set
-            .extend(self.a.component_access_set().clone());
-        self.component_access_set
-            .extend(self.b.component_access_set().clone());
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        let mut a_access = self.a.initialize(world);
+        let b_access = self.b.initialize(world);
+        a_access.extend(b_access);
+        a_access
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.a.check_change_tick(change_tick);
-        self.b.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.a.check_change_tick(check);
+        self.b.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {

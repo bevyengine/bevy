@@ -41,7 +41,7 @@ struct Animations {
 struct OnStep;
 
 fn observe_on_step(
-    trigger: Trigger<OnStep>,
+    trigger: On<OnStep>,
     particle: Res<ParticleAssets>,
     mut commands: Commands,
     transforms: Query<&GlobalTransform>,

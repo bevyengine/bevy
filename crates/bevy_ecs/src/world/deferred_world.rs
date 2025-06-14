@@ -6,7 +6,7 @@ use crate::{
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
-    lifecycle::{HookContext, ON_INSERT, ON_REPLACE},
+    lifecycle::{HookContext, INSERT, REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
@@ -85,7 +85,7 @@ impl<'w> DeferredWorld<'w> {
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
     /// runs the provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -115,7 +115,7 @@ impl<'w> DeferredWorld<'w> {
     /// Temporarily removes a [`Component`] identified by the provided
     /// [`ComponentId`] from the provided [`Entity`] and runs the provided
     /// closure on it, returning the result if the component was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -145,7 +145,7 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - ON_REPLACE is able to accept ZST events
+        // - REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
             self.trigger_on_replace(
@@ -157,7 +157,7 @@ impl<'w> DeferredWorld<'w> {
             );
             if archetype.has_replace_observer() {
                 self.trigger_observers(
-                    ON_REPLACE,
+                    REPLACE,
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
@@ -185,7 +185,7 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - ON_REPLACE is able to accept ZST events
+        // - REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
             self.trigger_on_insert(
@@ -197,7 +197,7 @@ impl<'w> DeferredWorld<'w> {
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(
-                    ON_INSERT,
+                    INSERT,
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
@@ -807,12 +807,12 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
+    /// Sends a "global" [observer](crate::observer::Observer) [`Event`] without any targets.
     pub fn trigger(&mut self, trigger: impl Event) {
         self.commands().trigger(trigger);
     }
 
-    /// Sends a [`Trigger`](crate::observer::Trigger) with the given `targets`.
+    /// Sends an [observer](crate::observer::Observer) [`Event`] with the given `targets`.
     pub fn trigger_targets(
         &mut self,
         trigger: impl Event,

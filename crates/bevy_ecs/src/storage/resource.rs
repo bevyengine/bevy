@@ -1,6 +1,6 @@
 use crate::{
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
+    component::{CheckChangeTicks, ComponentId, ComponentTicks, Components, Tick, TickCells},
     storage::{blob_vec::BlobVec, SparseSet},
 };
 #[cfg(feature = "debug")]
@@ -307,9 +307,9 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        self.added_ticks.get_mut().check_tick(change_tick);
-        self.changed_ticks.get_mut().check_tick(change_tick);
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+        self.added_ticks.get_mut().check_tick(check);
+        self.changed_ticks.get_mut().check_tick(check);
     }
 }
 
@@ -409,9 +409,9 @@ impl<const SEND: bool> Resources<SEND> {
         })
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for info in self.resources.values_mut() {
-            info.check_change_ticks(change_tick);
+            info.check_change_ticks(check);
         }
     }
 }

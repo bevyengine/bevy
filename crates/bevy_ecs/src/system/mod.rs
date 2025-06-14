@@ -412,7 +412,7 @@ mod tests {
         error::Result,
         lifecycle::RemovedComponents,
         name::Name,
-        prelude::{AnyOf, EntityRef, OnAdd, Trigger},
+        prelude::{Add, AnyOf, EntityRef, On},
         query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
         resource::Resource,
         schedule::{
@@ -1165,12 +1165,10 @@ mod tests {
         let mut world = World::default();
         let mut x = IntoSystem::into_system(sys_x);
         let mut y = IntoSystem::into_system(sys_y);
-        x.initialize(&mut world);
-        y.initialize(&mut world);
+        let x_access = x.initialize(&mut world);
+        let y_access = y.initialize(&mut world);
 
-        let conflicts = x
-            .component_access_set()
-            .get_conflicts(y.component_access_set());
+        let conflicts = x_access.get_conflicts(&y_access);
         let b_id = world
             .components()
             .get_resource_id(TypeId::of::<B>())
@@ -1904,15 +1902,15 @@ mod tests {
         #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
 
-        fn obs(_trigger: Trigger<OnAdd, Name>) {
+        fn obs(_trigger: On<Add, Name>) {
             todo!()
         }
 
         world.add_observer(obs);
-        world.add_observer(|_trigger: Trigger<OnAdd, Name>| {});
-        world.add_observer(|_trigger: Trigger<OnAdd, Name>| todo!());
+        world.add_observer(|_trigger: On<Add, Name>| {});
+        world.add_observer(|_trigger: On<Add, Name>| todo!());
         #[expect(clippy::unused_unit, reason = "this forces the () return type")]
-        world.add_observer(|_trigger: Trigger<OnAdd, Name>| -> () { todo!() });
+        world.add_observer(|_trigger: On<Add, Name>| -> () { todo!() });
 
         fn my_command(_world: &mut World) {
             todo!()

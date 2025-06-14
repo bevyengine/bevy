@@ -21,6 +21,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_audio|Provides audio functionality|
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
+|bevy_core_widgets|Headless widget collection for Bevy UI.|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
@@ -69,6 +70,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_remote|Enable the Bevy Remote Protocol|
+|bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|

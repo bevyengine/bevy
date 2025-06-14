@@ -146,12 +146,6 @@ where
         self.name.clone()
     }
 
-    fn component_access_set(
-        &self,
-    ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
-        self.system.component_access_set()
-    }
-
     #[inline]
     fn flags(&self) -> super::SystemStateFlags {
         self.system.flags()
@@ -194,12 +188,15 @@ where
         unsafe { self.system.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut crate::prelude::World) {
-        self.system.initialize(world);
+    fn initialize(
+        &mut self,
+        world: &mut crate::prelude::World,
+    ) -> crate::query::FilteredAccessSet<crate::component::ComponentId> {
+        self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, change_tick: crate::component::Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: crate::component::CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {

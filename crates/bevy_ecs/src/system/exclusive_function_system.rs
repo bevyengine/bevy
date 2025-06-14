@@ -1,7 +1,7 @@
 #[cfg(feature = "debug")]
 use crate::system::check_system_change_tick;
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
@@ -94,11 +94,6 @@ where
     }
 
     #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.system_meta.component_access_set
-    }
-
-    #[inline]
     fn flags(&self) -> SystemStateFlags {
         // non-send , exclusive , no deferred
         // the executor runs exclusive systems on the main thread, so this
@@ -181,18 +176,23 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
+        FilteredAccessSet::new()
     }
 
     #[inline]
+<<<<<<< remove-debug-strings
     #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn check_change_tick(&mut self, change_tick: Tick) {
         #[cfg(feature = "debug")]
+=======
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+>>>>>>> main
         check_system_change_tick(
             &mut self.system_meta.last_run,
-            change_tick,
+            check,
             self.system_meta.name.as_ref(),
         );
     }

@@ -230,7 +230,7 @@ pub fn observe<E: Event, B: Bundle, M>(
     }
 }
 
-/// An [`EntityCommand`] that sends a [`Trigger`](crate::observer::Trigger) targeting an entity.
+/// An [`EntityCommand`] that sends an [observer](crate::observer::Observer) [`Event`] targeting an entity.
 ///
 /// This will run any [`Observer`](crate::observer::Observer) of the given [`Event`] watching the entity.
 #[track_caller]

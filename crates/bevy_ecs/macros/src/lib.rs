@@ -440,10 +440,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
                 #where_clause
             {
-                fn build(self, world: &mut #path::world::World, meta: &mut #path::system::SystemMeta) -> <#generic_struct as #path::system::SystemParam>::State {
+                fn build(self, world: &mut #path::world::World) -> <#generic_struct as #path::system::SystemParam>::State {
                     let #builder_name { #(#fields: #field_locals,)* } = self;
                     #state_struct_name {
-                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world, meta)
+                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world)
                     }
                 }
             }
@@ -472,10 +472,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 type State = #state_struct_name<#punctuated_generic_idents>;
                 type Item<'w, 's> = #struct_name #ty_generics;
 
-                fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
+                fn init_state(world: &mut #path::world::World) -> Self::State {
                     #state_struct_name {
-                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
+                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world),
                     }
+                }
+
+                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet<#path::component::ComponentId>, world: &mut #path::world::World) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, component_access_set, world);
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
