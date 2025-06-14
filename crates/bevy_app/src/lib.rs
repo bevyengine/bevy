@@ -24,6 +24,7 @@ extern crate alloc;
 extern crate self as bevy_app;
 
 mod app;
+mod frame_count;
 mod main_schedule;
 mod panic_handler;
 mod plugin;
@@ -39,6 +40,7 @@ mod terminal_ctrl_c_handler;
 pub mod hotpatch;
 
 pub use app::*;
+pub use frame_count::{update_frame_count, FrameCount, FrameCountPlugin};
 pub use main_schedule::*;
 pub use panic_handler::*;
 pub use plugin::*;

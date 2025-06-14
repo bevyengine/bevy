@@ -1,4 +1,4 @@
-use bevy_app::prelude::*;
+use crate::prelude::*;
 use bevy_ecs::prelude::*;
 
 #[cfg(feature = "serialize")]
