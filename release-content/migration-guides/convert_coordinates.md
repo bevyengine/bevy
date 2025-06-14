@@ -38,38 +38,50 @@ bevy = { version = "0.17", features = ["convert_coordinates"] }
 ```
 
 As said before, this will result in all models looking rotated when imported. The correct way to deal with this depends on your situation.
-If you have a static camera, you can negate its z coordinate:
+
+The most general and portable fix is to make sure the model is oriented the right way by reexporing it.
+For example, Blender assumes -Y to be forward:
+
+<!-- TODO: Add png from PR description -->
+![Blender Coordinate System](blender-coords.png)
+
+If you cannot or do not want to rotate the glTF itself, you can also rotate it on spawn:
+
+```rust
+// old
+commands.spawn(SceneRoot(asset_server.load("foo.glb#Scene0")));
+
+// new 
+commands.spawn(
+  (
+    SceneRoot(asset_server.load("foo.glb#Scene0"),
+    Transform::from_rotation(Quat::from_rotation_y(PI)))
+  )
+);
+```
+
+If you have a static camera looking at a fixed position, you can negate its X and Z coordinates to move it to the other side of the model:
+
+```rust
+// old
+commands.spawn((Camera3d::default(), Transform::from_xyz(1.0, 10.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y)));
+
+// new
+commands.spawn((Camera3d::default(), Transform::from_xyz(-1.0, 10.0, -4.0).looking_at(Vec3::ZERO, Vec3::Y)));
+```
+
+If you have a static camera looking in the default direction, you must additionally flip its rotation to look to +Z:
 
 ```rust
 // old
 commands.spawn((Camera3d::default(), Transform::from_xyz(1.0, 10.0, 4.0)));
 
 // new
-commands.spawn((Camera3d::default(), Transform::from_xyz(1.0, 10.0, -4.0)));
+commands.spawn((Camera3d::default(), Transform::from_xyz(1.0, 10.0, -4.0).looking_to(Vec3::Z, Vec3::Y)));
 ```
 
-If you manually fixed this issue by rotating your model, you can remove that workaround:
+If you want to continue using the old glTF loading behavior instead, you can suppress the warning by enabling the `convert_coordinates`, but explicitly disabling the coordinate conversion in the `GltfLoaderSettings`:
 
 ```rust
-// old
-commands.spawn(
-  (
-    SceneRoot(asset_server.load("foo.glb"),
-    Transform::from_rotation(Quat::from_rotation_y(PI)))
-  )
-);
-
-// new
-commands.spawn(SceneRoot(asset_server.load("foo.glb")));
-```
-
-If both of these don't apply to you, your model itself is oriented the wrong way. Either rotate its `Transform` or, better yet, reexport it facing the right way. For example, Blender assumes -Y to be forward:
-
-<!-- TODO: Add png from PR description -->
-![Blender Coordinate System](blender-coords.png)
-
-If you want to continue using the old behavior instead, you can suppress the warning by enabling the `convert_coordinates`, but explicitly disabling the coordinate conversion in the `GltfLoaderSettings`:
-
-```rust
-let gltf = asset_server.load_with_settings("foo.glb", |settings: &mut GltfLoaderSettings| { settings.convert_coordinates = false; });
+let gltf = asset_server.load_with_settings("foo.glb#Scene0", |settings: &mut GltfLoaderSettings| { settings.convert_coordinates = false; });
 ```
