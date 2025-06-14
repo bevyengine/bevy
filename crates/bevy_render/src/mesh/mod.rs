@@ -84,31 +84,12 @@ impl Plugin for MeshPlugin {
     }
 }
 
-/// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
-/// bevy mesh child entities (ie: glTF primitive).
+/// Adds morph target types.
 pub struct MorphPlugin;
 impl Plugin for MorphPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<MorphWeights>()
-            .register_type::<MeshMorphWeights>()
-            .add_systems(PostUpdate, inherit_weights);
-    }
-}
-
-/// Bevy meshes are gltf primitives, [`MorphWeights`] on the bevy node entity
-/// should be inherited by children meshes.
-///
-/// Only direct children are updated, to fulfill the expectations of glTF spec.
-pub fn inherit_weights(
-    morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
-    mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
-) {
-    for (children, parent_weights) in &morph_nodes {
-        let mut iter = morph_primitives.iter_many_mut(children);
-        while let Some(mut child_weight) = iter.fetch_next() {
-            child_weight.clear_weights();
-            child_weight.extend_weights(parent_weights.weights());
-        }
+            .register_type::<MeshMorphWeights>();
     }
 }
 
