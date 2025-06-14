@@ -115,7 +115,7 @@ impl GlobalTransform {
 
     /// Returns the 3d affine transformation matrix as a [`Mat4`].
     #[inline]
-    pub fn compute_matrix(&self) -> Mat4 {
+    pub fn to_matrix(&self) -> Mat4 {
         Mat4::from(self.0)
     }
 

@@ -216,7 +216,7 @@ pub fn update_previous_view_data(
     query: Query<(Entity, &Camera, &GlobalTransform), Or<(With<Camera3d>, With<ShadowView>)>>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        let view_from_world = camera_transform.compute_matrix().inverse();
+        let view_from_world = camera_transform.to_matrix().inverse();
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
@@ -698,7 +698,7 @@ pub fn prepare_previous_view_uniforms(
         let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let view_from_world = camera.world_from_view.compute_matrix().inverse();
+                let view_from_world = camera.world_from_view.to_matrix().inverse();
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
