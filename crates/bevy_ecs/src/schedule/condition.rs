@@ -466,7 +466,7 @@ pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
-        event::{BufferedEvent, Event, EventReader},
+        event::{BufferedEvent, EventReader},
         lifecycle::RemovedComponents,
         prelude::{Component, Query, With},
         query::QueryFilter,
@@ -1337,7 +1337,7 @@ mod tests {
         system::Local,
         world::World,
     };
-    use bevy_ecs_macros::{Event, Resource};
+    use bevy_ecs_macros::Resource;
 
     #[derive(Resource, Default)]
     struct Counter(usize);
