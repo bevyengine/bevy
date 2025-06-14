@@ -42,22 +42,24 @@ impl ConvertCoordinates for [f32; 3] {
 
 impl ConvertCoordinates for [f32; 4] {
     fn convert_coordinates(self) -> Self {
+        // Solution of q' = r q r*
         [-self[0], self[1], -self[2], self[3]]
     }
 }
 
 impl ConvertCoordinates for Quat {
     fn convert_coordinates(self) -> Self {
+        // Solution of q' = r q r*
         Quat::from_array([-self.x, self.y, -self.z, self.w])
     }
 }
 
 impl ConvertCoordinates for Mat4 {
     fn convert_coordinates(self) -> Self {
-        let coordinate_conversion = Mat4::from_scale(Vec3::new(-1.0, 1.0, -1.0));
-        // the inverse is the same as the original
-        let coordinate_conversion_inv = coordinate_conversion;
-        coordinate_conversion * self * coordinate_conversion_inv
+        let m: Mat4 = Mat4::from_scale(Vec3::new(-1.0, 1.0, -1.0));
+        // Same as the original matrix
+        let m_inv = m;
+        m_inv * self * m
     }
 }
 
