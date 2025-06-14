@@ -84,6 +84,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
+use crate::convert_coordinates::{ConvertCameraCoordinates as _, ConvertCoordinates as _};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -191,6 +192,16 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
+    /// If true, the loader will convert glTF coordinates to Bevy's coordinate system.
+    /// - glTF:
+    ///   - forward: Z
+    ///   - up: Y
+    ///   - right: -X
+    /// - Bevy:
+    ///   - forward: -Z
+    ///   - up: Y
+    ///   - right: X
+    pub convert_coordinates: bool,
 }
 
 impl Default for GltfLoaderSettings {
@@ -203,6 +214,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
+            convert_coordinates: cfg!(feature = "convert_coordinates"),
         }
     }
 }
@@ -235,6 +247,12 @@ async fn load_gltf<'a, 'b, 'c>(
     load_context: &'b mut LoadContext<'c>,
     settings: &'b GltfLoaderSettings,
 ) -> Result<Gltf, GltfError> {
+    #[cfg(not(feature = "convert_coordinates"))]
+    bevy_log::warn_once!(
+        "Starting from Bevy 0.18, all imported glTF models will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system. \
+        You are currently importing glTF files with the old behavior. To already opt into the new import behavior, enable the convert_coordinates feature. \
+        If you want to continue using the old behavior, additionally set the corresponding option in the GltfLoaderSettings");
+
     let gltf = gltf::Gltf::from_slice(bytes)?;
 
     let file_name = load_context
@@ -303,7 +321,16 @@ async fn load_gltf<'a, 'b, 'c>(
                     match outputs {
                         ReadOutputs::Translations(tr) => {
                             let translation_property = animated_field!(Transform::translation);
-                            let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
+                            let translations: Vec<Vec3> = tr
+                                .map(Vec3::from)
+                                .map(|verts| {
+                                    if settings.convert_coordinates {
+                                        Vec3::convert_coordinates(verts)
+                                    } else {
+                                        verts
+                                    }
+                                })
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     translation_property,
@@ -350,8 +377,17 @@ async fn load_gltf<'a, 'b, 'c>(
                         }
                         ReadOutputs::Rotations(rots) => {
                             let rotation_property = animated_field!(Transform::rotation);
-                            let rotations: Vec<Quat> =
-                                rots.into_f32().map(Quat::from_array).collect();
+                            let rotations: Vec<Quat> = rots
+                                .into_f32()
+                                .map(Quat::from_array)
+                                .map(|quat| {
+                                    if settings.convert_coordinates {
+                                        Quat::convert_coordinates(quat)
+                                    } else {
+                                        quat
+                                    }
+                                })
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     rotation_property,
@@ -633,6 +669,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     accessor,
                     &buffer_data,
                     &loader.custom_vertex_attributes,
+                    settings.convert_coordinates,
                 ) {
                     Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                     Err(err) => warn!("{}", err),
@@ -752,7 +789,17 @@ async fn load_gltf<'a, 'b, 'c>(
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
-                .map(|mats| mats.map(|mat| Mat4::from_cols_array_2d(&mat)).collect())
+                .map(|mats| {
+                    mats.map(|mat| Mat4::from_cols_array_2d(&mat))
+                        .map(|mat| {
+                            if settings.convert_coordinates {
+                                mat.convert_coordinates()
+                            } else {
+                                mat
+                            }
+                        })
+                        .collect()
+                })
                 .unwrap_or_else(|| {
                     core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
                 });
@@ -830,11 +877,22 @@ async fn load_gltf<'a, 'b, 'c>(
             .map(|mesh| mesh.index())
             .and_then(|i| meshes.get(i).cloned());
 
+        let node_transform = node_transform(&node);
+        let node_transform = if settings.convert_coordinates {
+            if node.camera().is_some() {
+                node_transform.convert_camera_coordinates()
+            } else {
+                node_transform.convert_coordinates()
+            }
+        } else {
+            node_transform
+        };
+
         let gltf_node = GltfNode::new(
             &node,
             children,
             mesh,
-            node_transform(&node),
+            node_transform,
             skin,
             node.extras().as_deref().map(GltfExtras::from),
         );
@@ -1307,6 +1365,15 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
+    let transform = if settings.convert_coordinates {
+        if gltf_node.camera().is_some() {
+            transform.convert_camera_coordinates()
+        } else {
+            transform.convert_coordinates()
+        }
+    } else {
+        transform
+    };
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1359,7 +1426,6 @@ fn load_node(
                         },
                         ..OrthographicProjection::default_3d()
                     };
-
                     Projection::Orthographic(orthographic_projection)
                 }
                 gltf::camera::Projection::Perspective(perspective) => {
@@ -1377,6 +1443,7 @@ fn load_node(
                     Projection::Perspective(perspective_projection)
                 }
             };
+
             node.insert((
                 Camera3d::default(),
                 projection,
