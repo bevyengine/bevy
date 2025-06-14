@@ -598,7 +598,7 @@ mod private {
 /// `&mut ...`, created while inserted onto an entity.
 /// In all other ways, they are identical to mutable components.
 /// This restriction allows hooks to observe all changes made to an immutable
-/// component, effectively turning the `OnInsert` and `OnReplace` hooks into a
+/// component, effectively turning the `Insert` and `Replace` hooks into a
 /// `OnMutate` hook.
 /// This is not practical for mutable components, as the runtime cost of invoking
 /// a hook for every exclusive reference created would be far too high.
@@ -2381,12 +2381,12 @@ impl Tick {
     ///
     /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
     #[inline]
-    pub fn check_tick(&mut self, tick: Tick) -> bool {
-        let age = tick.relative_to(*self);
+    pub fn check_tick(&mut self, check: CheckChangeTicks) -> bool {
+        let age = check.present_tick().relative_to(*self);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
         if age.get() > Self::MAX.get() {
-            *self = tick.relative_to(Self::MAX);
+            *self = check.present_tick().relative_to(Self::MAX);
             true
         } else {
             false
@@ -2415,16 +2415,16 @@ impl Tick {
 /// struct CustomSchedule(Schedule);
 ///
 /// # let mut world = World::new();
-/// world.add_observer(|tick: Trigger<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
-///     schedule.0.check_change_ticks(tick.get());
+/// world.add_observer(|check: On<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
+///     schedule.0.check_change_ticks(*check);
 /// });
 /// ```
 #[derive(Debug, Clone, Copy, Event)]
 pub struct CheckChangeTicks(pub(crate) Tick);
 
 impl CheckChangeTicks {
-    /// Get the `Tick` that can be used as the parameter of [`Tick::check_tick`].
-    pub fn get(self) -> Tick {
+    /// Get the present `Tick` that other ticks get compared to.
+    pub fn present_tick(self) -> Tick {
         self.0
     }
 }

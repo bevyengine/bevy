@@ -67,7 +67,7 @@ const FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::BLUE_50;
 // In a real project, each button would also have its own unique behavior,
 // to capture the actual intent of the user
 fn universal_button_click_behavior(
-    mut trigger: Trigger<Pointer<Click>>,
+    mut trigger: On<Pointer<Click>>,
     mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
 ) {
     let button_entity = trigger.target().unwrap();
