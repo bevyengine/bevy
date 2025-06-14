@@ -828,7 +828,7 @@ impl<'w> EntityClonerBuilder<'w> {
     fn filter_allow(&mut self, id: ComponentId) {
         if !self.entity_cloner.filter_allows_components {
             self.entity_cloner.filter.remove(&id);
-            
+
             // Required components do not matter here as `filter_deny` never added them to
             // `entity_cloner.filter_required_by_n` in this filtering mode in the first place.
             return;
@@ -1361,6 +1361,29 @@ mod tests {
 
         assert_eq!(world.get::<A>(e_clone2), None);
         assert_eq!(world.get::<C>(e_clone2), None);
+    }
+
+    #[test]
+    fn allow_all_does_not_consider_required_components() {
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        struct B;
+
+        let mut world = World::default();
+
+        let e = world.spawn(A).id();
+        let e_clone = world.spawn_empty().id();
+
+        EntityCloner::build(&mut world)
+            .allow_all()
+            .deny::<A>()
+            .clone_entity(e, e_clone);
+
+        assert_eq!(world.get::<A>(e_clone), None);
+        assert_eq!(world.get::<B>(e_clone), Some(&B));
     }
 
     #[test]
