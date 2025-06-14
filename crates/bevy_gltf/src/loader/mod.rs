@@ -880,7 +880,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let node_transform = node_transform(&node);
         // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
         let node_transform = if settings.convert_coordinates && node.camera().is_none() {
-            node_transform.convert_coordinates()
+            node_transform
         } else {
             node_transform
         };
@@ -1364,7 +1364,7 @@ fn load_node(
     let transform = node_transform(gltf_node);
     // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
     let transform = if settings.convert_coordinates {
-        transform.convert_coordinates()
+        transform
     } else {
         transform
     };
