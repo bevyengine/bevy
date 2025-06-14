@@ -434,7 +434,10 @@ where
 mod sealed {
     use crate::{
         error::BevyError,
-        system::{AdapterSystem, IntoSystem, ReadOnlySystem, SystemInput},
+        system::{
+            Adapt, AdapterSystem, IntoAdapterSystem, IntoSystem, ReadOnlySystem, System, SystemIn,
+            SystemInput,
+        },
     };
 
     pub trait SystemCondition<Marker, In: SystemInput, Out>:
@@ -463,6 +466,24 @@ mod sealed {
         }
     }
 
+    /// Used with [`AdapterSystem`] to transform the `Result<(), BevyError>` returned by the system into a `bool`.
+    #[doc(hidden)]
+    #[derive(Clone, Copy)]
+    pub struct ResultUnitAdapter;
+
+    impl<S: System<Out = Result<(), BevyError>>> Adapt<S> for ResultUnitAdapter {
+        type In = S::In;
+        type Out = bool;
+
+        fn adapt(
+            &mut self,
+            input: <Self::In as SystemInput>::Inner<'_>,
+            run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+        ) -> Self::Out {
+            run_system(input).is_ok()
+        }
+    }
+
     impl<Marker, In, F> SystemCondition<Marker, In, Result<(), BevyError>> for F
     where
         In: SystemInput,
@@ -470,11 +491,28 @@ mod sealed {
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
-        type ConditionSystem = AdapterSystem<fn(Result<(), BevyError>) -> bool, F::System>;
+        type ConditionSystem = AdapterSystem<ResultUnitAdapter, F::System>;
 
         fn into_condition_system(self) -> Self::ConditionSystem {
-            let f: fn(Result<(), BevyError>) -> bool = |result| result.is_ok();
-            IntoSystem::into_system(self.map(f))
+            IntoSystem::into_system(IntoAdapterSystem::new(ResultUnitAdapter, self))
+        }
+    }
+
+    /// Used with [`AdapterSystem`] to transform the `Result<bool, BevyError>` returned by the system into a `bool`.
+    #[doc(hidden)]
+    #[derive(Clone, Copy)]
+    pub struct ResultBoolAdapter;
+
+    impl<S: System<Out = Result<bool, BevyError>>> Adapt<S> for ResultBoolAdapter {
+        type In = S::In;
+        type Out = bool;
+
+        fn adapt(
+            &mut self,
+            input: <Self::In as SystemInput>::Inner<'_>,
+            run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+        ) -> Self::Out {
+            matches!(run_system(input), Ok(true))
         }
     }
 
@@ -485,12 +523,10 @@ mod sealed {
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
-        type ConditionSystem = AdapterSystem<fn(Result<bool, BevyError>) -> bool, F::System>;
+        type ConditionSystem = AdapterSystem<ResultBoolAdapter, F::System>;
 
         fn into_condition_system(self) -> Self::ConditionSystem {
-            let f: fn(result: Result<bool, BevyError>) -> bool =
-                |result| matches!(result, Ok(true));
-            IntoSystem::into_system(self.map(f))
+            IntoSystem::into_system(IntoAdapterSystem::new(ResultBoolAdapter, self))
         }
     }
 }
@@ -505,7 +541,10 @@ pub mod common_conditions {
         prelude::{Component, Query, With},
         query::QueryFilter,
         resource::Resource,
-        system::{AdapterSystem, In, IntoSystem, Local, Res, SystemInput},
+        system::{
+            Adapt, AdapterSystem, In, IntoAdapterSystem, IntoSystem, Local, Res, System, SystemIn,
+            SystemInput,
+        },
     };
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
@@ -1040,6 +1079,24 @@ pub mod common_conditions {
         !query.is_empty()
     }
 
+    /// Used with [`AdapterSystem`] to inverse the `bool` returned by the system.
+    #[doc(hidden)]
+    #[derive(Clone, Copy)]
+    pub struct InverseBoolAdapter;
+
+    impl<S: System<Out = bool>> Adapt<S> for InverseBoolAdapter {
+        type In = S::In;
+        type Out = bool;
+
+        fn adapt(
+            &mut self,
+            input: <Self::In as SystemInput>::Inner<'_>,
+            run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+        ) -> Self::Out {
+            !run_system(input)
+        }
+    }
+
     /// Generates a [`SystemCondition`] that inverses the result of the passed one.
     ///
     /// # Example
@@ -1071,13 +1128,15 @@ pub mod common_conditions {
     /// ```
     pub fn not<Marker, In, Out, C>(
         condition: C,
-    ) -> AdapterSystem<fn(bool) -> bool, C::ConditionSystem>
+    ) -> AdapterSystem<InverseBoolAdapter, C::ConditionSystem>
     where
         In: SystemInput,
         C: SystemCondition<Marker, In, Out>,
     {
-        let f: fn(bool) -> bool = |x| !x;
-        IntoSystem::into_system(condition.into_condition_system().map(f))
+        IntoSystem::into_system(IntoAdapterSystem::new(
+            InverseBoolAdapter,
+            condition.into_condition_system(),
+        ))
     }
 
     /// Generates a [`SystemCondition`] that returns true when the passed one changes.
