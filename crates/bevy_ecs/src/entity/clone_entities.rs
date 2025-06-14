@@ -1356,11 +1356,35 @@ mod tests {
         EntityCloner::build(&mut world)
             .deny_all()
             .allow::<A>()
-            .deny::<A>()
+            .allow::<B>()
+            .deny::<B>()
             .clone_entity(e, e_clone2);
 
-        assert_eq!(world.get::<A>(e_clone2), None);
-        assert_eq!(world.get::<C>(e_clone2), None);
+        assert_eq!(world.get::<A>(e_clone2), Some(&A));
+        assert_eq!(world.get::<C>(e_clone2), Some(&C));
+
+        let e_clone3 = world.spawn_empty().id();
+
+        EntityCloner::build(&mut world)
+            .deny_all()
+            .allow::<A>()
+            .allow::<B>()
+            .deny::<A>()
+            .clone_entity(e, e_clone3);
+
+        assert_eq!(world.get::<A>(e_clone3), None);
+        assert_eq!(world.get::<C>(e_clone3), None);
+
+        let e_clone4 = world.spawn_empty().id();
+
+        EntityCloner::build(&mut world)
+            .deny_all()
+            .allow::<A>()
+            .deny::<A>()
+            .clone_entity(e, e_clone4);
+
+        assert_eq!(world.get::<A>(e_clone4), None);
+        assert_eq!(world.get::<C>(e_clone4), None);
     }
 
     #[test]
