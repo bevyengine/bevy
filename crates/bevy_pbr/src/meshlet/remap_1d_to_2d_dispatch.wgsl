@@ -13,11 +13,12 @@ var<push_constant> max_compute_workgroups_per_dimension: u32;
 @compute
 @workgroup_size(1, 1, 1)
 fn remap_dispatch() {
-    meshlet_software_raster_cluster_count = meshlet_software_raster_indirect_args.x;
+    let cluster_count = meshlet_software_raster_indirect_args.x;
 
-    if meshlet_software_raster_cluster_count > max_compute_workgroups_per_dimension {
-        let n = u32(ceil(sqrt(f32(meshlet_software_raster_cluster_count))));
+    if cluster_count > max_compute_workgroups_per_dimension {
+        let n = u32(ceil(sqrt(f32(cluster_count))));
         meshlet_software_raster_indirect_args.x = n;
         meshlet_software_raster_indirect_args.y = n;
+        meshlet_software_raster_cluster_count = cluster_count;
     }
 }
