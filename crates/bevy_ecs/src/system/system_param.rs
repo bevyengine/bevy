@@ -336,6 +336,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         QueryState::new(world)
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
@@ -343,8 +344,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         world: &mut World,
     ) {
         assert_component_access_compatibility(
+            #[cfg(feature = "debug")]
             &system_meta.name,
+            #[cfg(feature = "debug")]
             core::any::type_name::<D>(),
+            #[cfg(feature = "debug")]
             core::any::type_name::<F>(),
             component_access_set,
             &state.component_access,
@@ -368,6 +372,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 }
 
+#[cfg_attr(not(feature = "debug"), expect(unused_variables))]
 fn assert_component_access_compatibility(
     #[cfg(feature = "debug")] system_name: &str,
     #[cfg(feature = "debug")] query_type: &'static str,
@@ -761,6 +766,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world.components_registrator().register_resource::<T>()
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
@@ -847,6 +853,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         world.components_registrator().register_resource::<T>()
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
@@ -975,6 +982,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 
     fn init_state(_world: &mut World) -> Self::State {}
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
@@ -2723,6 +2731,7 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         Access::new()
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         access: &Self::State,
         system_meta: &mut SystemMeta,
@@ -2732,9 +2741,14 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &system_meta.name;
-            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            #[cfg(feature = "debug")]
+            {
+                let accesses = conflicts.format_conflict_list(world);
+                let system_name = &system_meta.name;
+                panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            }
+            #[cfg(not(feature = "debug"))]
+            panic!("error[B0002]: FilteredResources in a system accesses resources(s) in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
@@ -2772,6 +2786,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         Access::new()
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         access: &Self::State,
         system_meta: &mut SystemMeta,
@@ -2781,9 +2796,14 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &system_meta.name;
-            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            #[cfg(feature = "debug")]
+            {
+                let accesses = conflicts.format_conflict_list(world);
+                let system_name = &system_meta.name;
+                panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            }
+            #[cfg(not(feature = "debug"))]
+            panic!("error[B0002]: FilteredResourcesMut in a system accesses resources(s) in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
