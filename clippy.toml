@@ -10,7 +10,6 @@ doc-valid-idents = [
   "WebGPU",
   "..",
 ]
-msrv = "1.87"
 check-private-items = true
 
 disallowed-methods = [

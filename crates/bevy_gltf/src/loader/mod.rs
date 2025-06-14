@@ -1406,11 +1406,6 @@ fn load_node(
                         },
                         ..OrthographicProjection::default_3d()
                     };
-                    if settings.convert_coordinates {
-                        // In glTF, near/far are in the -Z direction, while in Bevy they're in the +Z direction
-                        orthographic_projection.near = -orthographic_projection.near;
-                        orthographic_projection.far = -orthographic_projection.far;
-                    }
                     Projection::Orthographic(orthographic_projection)
                 }
                 gltf::camera::Projection::Perspective(perspective) => {
@@ -1424,11 +1419,6 @@ fn load_node(
                     }
                     if let Some(aspect_ratio) = perspective.aspect_ratio() {
                         perspective_projection.aspect_ratio = aspect_ratio;
-                    }
-                    if settings.convert_coordinates {
-                        // In glTF, near/far are in the -Z direction, while in Bevy they're in the +Z direction
-                        perspective_projection.near = -perspective_projection.near;
-                        perspective_projection.far = -perspective_projection.far;
                     }
                     Projection::Perspective(perspective_projection)
                 }
