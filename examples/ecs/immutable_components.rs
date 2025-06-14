@@ -10,7 +10,8 @@ use bevy::{
     prelude::*,
     ptr::OwningPtr,
 };
-use core::alloc::Layout;
+use bevy_ecs::{query::Tracked, system::RunSystemOnce};
+use core::{alloc::Layout, iter};
 
 /// This component is mutable, the default case. This is indicated by components
 /// implementing [`Component`] where [`Component::Mutability`] is [`Mutable`](bevy::ecs::component::Mutable).
@@ -171,7 +172,7 @@ fn demo_3(world: &mut World) {
 
     for (_name, size, component_id) in &my_registered_components {
         // We're just storing some zeroes for the sake of demonstration.
-        let data = core::iter::repeat_n(0, *size).collect::<Vec<u8>>();
+        let data = iter::repeat_n(0, *size).collect::<Vec<u8>>();
 
         OwningPtr::make(data, |ptr| {
             // SAFETY:
@@ -194,10 +195,25 @@ fn demo_3(world: &mut World) {
     }
 }
 
+#[derive(Component, Clone, Copy)]
+#[component(immutable)]
+pub struct MyImmutableCounter(u32);
+
+fn demo_4(world: &mut World) {
+    world.spawn_batch(iter::repeat_n(MyImmutableCounter(0), 10));
+
+    let _ = world.run_system_once(|counters: Query<Tracked<MyImmutableCounter>>| {
+        for mut counter in counters {
+            counter.0 += 1;
+        }
+    });
+}
+
 fn main() {
     App::new()
         .add_systems(Startup, demo_1)
         .add_systems(Startup, demo_2)
         .add_systems(Startup, demo_3)
+        .add_systems(Startup, demo_4)
         .run();
 }
