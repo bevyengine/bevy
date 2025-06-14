@@ -38,7 +38,7 @@ bevy = { version = "0.17", features = ["convert_coordinates"] }
 ```
 
 As said before, this will result in all models looking rotated when imported. The correct way to deal with this depends on your situation.
-If you have a static camera, you can simply negate its z coordinate:
+If you have a static camera, you can negate its z coordinate:
 
 ```rust
 // old
@@ -48,7 +48,7 @@ commands.spawn((Camera3d::default(), Transform::from_xyz(1.0, 10.0, 4.0)));
 commands.spawn((Camera3d::default(), Transform::from_xyz(1.0, 10.0, -4.0)));
 ```
 
-If you manually fixed this issue by rotating your model, you can simply remove that workaround:
+If you manually fixed this issue by rotating your model, you can remove that workaround:
 
 ```rust
 // old
