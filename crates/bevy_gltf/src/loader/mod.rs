@@ -1363,7 +1363,7 @@ fn load_node(
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
     // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
-    let transform = if settings.convert_coordinates && gltf_node.camera().is_none() {
+    let transform = if settings.convert_coordinates {
         transform.convert_coordinates()
     } else {
         transform
@@ -1438,18 +1438,10 @@ fn load_node(
                 }
             };
 
-            // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
-            // so we need to undo any conversions that happened before.
-            let mut camera_transform = transform;
-            if settings.convert_coordinates {
-                camera_transform.rotate_y(std::f32::consts::PI);
-                camera_transform.translation.x = -camera_transform.translation.x;
-                camera_transform.translation.z = -camera_transform.translation.z;
-            }
             node.insert((
                 Camera3d::default(),
                 projection,
-                camera_transform,
+                transform,
                 Camera {
                     is_active: !*active_camera_found,
                     ..Default::default()

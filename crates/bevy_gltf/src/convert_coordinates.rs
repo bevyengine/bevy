@@ -48,11 +48,9 @@ impl ConvertCoordinates for Mat4 {
 }
 
 impl ConvertCoordinates for Transform {
-    fn convert_coordinates(self) -> Self {
-        Transform {
-            translation: self.translation.convert_coordinates(),
-            rotation: self.rotation.convert_coordinates(),
-            scale: self.scale,
-        }
+    fn convert_coordinates(mut self) -> Self {
+        self.translation = self.translation.convert_coordinates();
+        self.rotate_y(std::f32::consts::PI);
+        self
     }
 }
