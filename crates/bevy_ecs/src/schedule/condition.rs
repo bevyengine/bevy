@@ -928,7 +928,7 @@ pub mod common_conditions {
     ///     my_system.run_if(on_event::<MyEvent>),
     /// );
     ///
-    /// #[derive(Event)]
+    /// #[derive(BufferedEvent)]
     /// struct MyEvent;
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {

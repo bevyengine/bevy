@@ -57,7 +57,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Resource)]
 /// # struct SomeResource;
-/// # #[derive(Event)]
+/// # #[derive(BufferedEvent)]
 /// # struct SomeEvent;
 /// # #[derive(Resource)]
 /// # struct SomeOtherResource;
@@ -598,7 +598,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event)]
+/// # #[derive(BufferedEvent)]
 /// # struct MyEvent;
 /// # impl MyEvent {
 /// #   pub fn new() -> Self { Self }
