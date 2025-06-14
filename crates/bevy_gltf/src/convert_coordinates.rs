@@ -14,34 +14,26 @@ pub(crate) trait ConvertCoordinates {
 }
 
 impl ConvertCoordinates for Vec3 {
-    fn convert_coordinates(mut self) -> Self {
-        self.x = -self.x;
-        self.z = -self.z;
-        self
+    fn convert_coordinates(self) -> Self {
+        Vec3::new(-self.x, self.y, -self.z)
     }
 }
 
 impl ConvertCoordinates for [f32; 3] {
-    fn convert_coordinates(mut self) -> Self {
-        self[0] = -self[0];
-        self[2] = -self[2];
-        self
+    fn convert_coordinates(self) -> Self {
+        [-self[0], self[1], -self[2]]
     }
 }
 
 impl ConvertCoordinates for [f32; 4] {
-    fn convert_coordinates(mut self) -> Self {
-        self[0] = -self[0];
-        self[2] = -self[2];
-        self
+    fn convert_coordinates(self) -> Self {
+        [-self[0], self[1], -self[2], self[3]]
     }
 }
 
 impl ConvertCoordinates for Quat {
-    fn convert_coordinates(mut self) -> Self {
-        self.x = -self.x;
-        self.z = -self.z;
-        self
+    fn convert_coordinates(self) -> Self {
+        Quat::from_array([-self.x, self.y, -self.z, self.w])
     }
 }
 
