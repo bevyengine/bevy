@@ -118,8 +118,7 @@ pub trait Relationship: Component + Sized {
                     relationship_target.collection_mut_risky().add(entity);
                 })
                 .or_insert_with(|| {
-                    let mut target =
-                        <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
+                    let mut target = Self::RelationshipTarget::with_capacity(1);
                     target.collection_mut_risky().add(entity);
                     target
                 });
@@ -462,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    fn spawn_children_batch() {
+    fn spawn_batch_with_relationship() {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
         let children = world
@@ -477,5 +476,17 @@ mod tests {
         assert!(world
             .get::<Children>(parent)
             .is_some_and(|children| children.len() == 10));
+    }
+
+    #[test]
+    fn insert_batch_with_relationship() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn_empty().id();
+        world.insert_batch([(child, ChildOf(parent))]);
+        world.flush();
+
+        assert!(world.get::<ChildOf>(child).is_some());
+        assert!(world.get::<Children>(parent).is_some());
     }
 }
