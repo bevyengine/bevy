@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy_math::{Mat4, Quat, Vec3};
 use bevy_transform::components::Transform;
@@ -13,6 +13,7 @@ pub(crate) trait ConvertCoordinates {
     ///   - forward: -Z
     ///   - up: Y
     ///   - right: X
+    ///
     /// See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units>
     fn convert_coordinates(self) -> Self;
 }
@@ -22,6 +23,7 @@ pub(crate) trait ConvertCameraCoordinates {
     /// - forward: -Z
     /// - up: Y
     /// - right: X
+    ///
     /// See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix>
     fn convert_camera_coordinates(self) -> Self;
 }
