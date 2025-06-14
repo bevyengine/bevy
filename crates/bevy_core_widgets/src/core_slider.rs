@@ -4,7 +4,7 @@ use accesskit::{Orientation, Role};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::event::Event;
-use bevy_ecs::hierarchy::Children;
+use bevy_ecs::hierarchy::{ChildOf, Children};
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
 use bevy_ecs::system::{In, Res, ResMut};
@@ -202,9 +202,11 @@ pub(crate) fn slider_on_pointer_down(
         &ComputedNode,
         &ComputedNodeTarget,
         &UiGlobalTransform,
+        Has<InteractionDisabled>,
     )>,
     q_thumb: Query<&ComputedNode, With<CoreSliderThumb>>,
     q_children: Query<&Children>,
+    q_parents: Query<&ChildOf>,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
@@ -213,14 +215,20 @@ pub(crate) fn slider_on_pointer_down(
         // Thumb click, stop propagation to prevent track click.
         trigger.propagate(false);
 
-        // Set focus to slider and hide focus ring
-        if let Some(mut focus) = focus {
-            focus.0 = trigger.target();
+        // Find the slider entity that's an ancestor of the thumb
+        if let Some(slider_entity) = q_parents
+            .iter_ancestors(trigger.target().unwrap())
+            .find(|entity| q_slider.contains(*entity))
+        {
+            // Set focus to slider and hide focus ring
+            if let Some(mut focus) = focus {
+                focus.0 = Some(slider_entity);
+            }
+            if let Some(mut focus_visible) = focus_visible {
+                focus_visible.0 = false;
+            }
         }
-        if let Some(mut focus_visible) = focus_visible {
-            focus_visible.0 = false;
-        }
-    } else if let Ok((slider, value, range, step, node, node_target, transform)) =
+    } else if let Ok((slider, value, range, step, node, node_target, transform, disabled)) =
         q_slider.get(trigger.target().unwrap())
     {
         // Track click
@@ -232,6 +240,10 @@ pub(crate) fn slider_on_pointer_down(
         }
         if let Some(mut focus_visible) = focus_visible {
             focus_visible.0 = false;
+        }
+
+        if disabled {
+            return;
         }
 
         // Find thumb size by searching descendants for the first entity with CoreSliderThumb
@@ -305,16 +317,18 @@ pub(crate) fn slider_on_drag(
         &SliderRange,
         &UiGlobalTransform,
         &mut CoreSliderDragState,
+        Has<InteractionDisabled>,
     )>,
     q_thumb: Query<&ComputedNode, With<CoreSliderThumb>>,
     q_children: Query<&Children>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((node, slider, range, transform, drag)) = q_slider.get_mut(trigger.target().unwrap())
+    if let Ok((node, slider, range, transform, drag, disabled)) =
+        q_slider.get_mut(trigger.target().unwrap())
     {
         trigger.propagate(false);
-        if drag.dragging {
+        if drag.dragging && !disabled {
             let mut distance = trigger.event().distance / ui_scale.0;
             distance.y *= -1.;
             let distance = transform.transform_vector2(distance);
