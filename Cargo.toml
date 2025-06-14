@@ -357,6 +357,9 @@ ico = ["bevy_internal/ico"]
 # JPEG image format support
 jpeg = ["bevy_internal/jpeg"]
 
+# PCX image format support
+pcx = ["bevy_internal/pcx"]
+
 # PNG image format support
 png = ["bevy_internal/png"]
 
