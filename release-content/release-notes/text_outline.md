@@ -16,4 +16,3 @@ Support for text outline through adding a `TextOutline` component to an entity w
             anti_aliasing: None,
         }));
 ```
-
