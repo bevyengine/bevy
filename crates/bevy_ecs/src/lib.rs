@@ -60,7 +60,7 @@ pub mod world;
 pub use bevy_ptr as ptr;
 
 #[cfg(feature = "hotpatching")]
-use event::Event;
+use event::BufferedEvent;
 
 /// The ECS prelude.
 ///
@@ -139,7 +139,7 @@ pub mod __macro_exports {
 ///
 /// Systems should refresh their inner pointers.
 #[cfg(feature = "hotpatching")]
-#[derive(Event, Default)]
+#[derive(BufferedEvent, Default)]
 pub struct HotPatched;
 
 #[cfg(test)]
