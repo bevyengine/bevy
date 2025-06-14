@@ -10,6 +10,7 @@ doc-valid-idents = [
   "WebGPU",
   "..",
 ]
+
 check-private-items = true
 
 disallowed-methods = [
