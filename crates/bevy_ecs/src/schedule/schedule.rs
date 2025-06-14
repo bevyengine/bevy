@@ -31,16 +31,10 @@ use thiserror::Error;
 #[cfg(all(feature = "trace", feature = "debug"))]
 use tracing::info_span;
 
-<<<<<<< remove-debug-strings
 #[cfg(feature = "debug")]
 use crate::component::Components;
 use crate::{
-    component::{ComponentId, Tick},
-=======
-use crate::component::CheckChangeTicks;
-use crate::{
-    component::{ComponentId, Components},
->>>>>>> main
+    component::{CheckChangeTicks, ComponentId},
     prelude::Component,
     query::FilteredAccessSet,
     resource::Resource,

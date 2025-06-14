@@ -716,13 +716,9 @@ where
     }
 
     #[inline]
-<<<<<<< remove-debug-strings
     #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        #[cfg(feature = "debug")]
-=======
     fn check_change_tick(&mut self, check: CheckChangeTicks) {
->>>>>>> main
+        #[cfg(feature = "debug")]
         check_system_change_tick(
             &mut self.system_meta.last_run,
             check,

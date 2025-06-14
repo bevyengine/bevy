@@ -761,10 +761,6 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world.components_registrator().register_resource::<T>()
     }
 
-<<<<<<< remove-debug-strings
-        let combined_access = system_meta.component_access_set.combined_access();
-        #[cfg(feature = "debug")]
-=======
     fn init_access(
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
@@ -772,27 +768,20 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _world: &mut World,
     ) {
         let combined_access = component_access_set.combined_access();
->>>>>>> main
+        #[cfg(feature = "debug")]
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             core::any::type_name::<T>(),
             system_meta.name,
         );
-<<<<<<< remove-debug-strings
         #[cfg(not(feature = "debug"))]
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: Res in a system conflicts with a previous ResMut access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
         );
-        system_meta
-            .component_access_set
-            .add_unfiltered_resource_read(component_id);
 
-        component_id
-=======
         component_access_set.add_unfiltered_resource_read(component_id);
->>>>>>> main
     }
 
     #[inline]
@@ -984,10 +973,6 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type State = ();
     type Item<'world, 'state> = DeferredWorld<'world>;
 
-<<<<<<< remove-debug-strings
-    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        #[cfg(feature = "debug")]
-=======
     fn init_state(_world: &mut World) -> Self::State {}
 
     fn init_access(
@@ -996,25 +981,18 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         component_access_set: &mut FilteredAccessSet<ComponentId>,
         _world: &mut World,
     ) {
->>>>>>> main
+        #[cfg(feature = "debug")]
         assert!(
             !component_access_set.combined_access().has_any_read(),
             "DeferredWorld in system {} conflicts with a previous access.",
             system_meta.name,
         );
-<<<<<<< remove-debug-strings
         #[cfg(not(feature = "debug"))]
         assert!(
-            !system_meta
-                .component_access_set
-                .combined_access()
-                .has_any_read(),
+            !component_access_set.combined_access().has_any_read(),
             "DeferredWorld in a system conflicts with a previous access.",
         );
-        system_meta.component_access_set.write_all();
-=======
         component_access_set.write_all();
->>>>>>> main
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -1486,33 +1464,20 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     ) {
         system_meta.set_non_send();
 
-<<<<<<< remove-debug-strings
-        let combined_access = system_meta.component_access_set.combined_access();
-        #[cfg(feature = "debug")]
-=======
         let combined_access = component_access_set.combined_access();
->>>>>>> main
+        #[cfg(feature = "debug")]
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             core::any::type_name::<T>(),
             system_meta.name,
         );
-<<<<<<< remove-debug-strings
-
         #[cfg(not(feature = "debug"))]
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: NonSend in a system conflicts with a previous mutable resource access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
         );
-        system_meta
-            .component_access_set
-            .add_unfiltered_resource_read(component_id);
-
-        component_id
-=======
         component_access_set.add_unfiltered_resource_read(component_id);
->>>>>>> main
     }
 
     #[inline]

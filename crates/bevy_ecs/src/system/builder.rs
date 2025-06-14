@@ -538,36 +538,7 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
     fn build(self, world: &mut World) -> <FilteredResources<'w, 's> as SystemParam>::State {
         let mut builder = FilteredResourcesBuilder::new(world);
         (self.0)(&mut builder);
-<<<<<<< remove-debug-strings
-        let access = builder.build();
-
-        let combined_access = meta.component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(&access);
-        if !conflicts.is_empty() {
-            #[cfg(feature = "debug")]
-            {
-                let accesses = conflicts.format_conflict_list(world);
-                let system_name = &meta.name;
-                panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
-            }
-            #[cfg(not(feature = "debug"))]
-            panic!("error[B0002]: FilteredResources in a system accesses resources(s) in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
-        }
-
-        if access.has_read_all_resources() {
-            meta.component_access_set
-                .add_unfiltered_read_all_resources();
-        } else {
-            for component_id in access.resource_reads_and_writes() {
-                meta.component_access_set
-                    .add_unfiltered_resource_read(component_id);
-            }
-        }
-
-        access
-=======
         builder.build()
->>>>>>> main
     }
 }
 
@@ -601,46 +572,7 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
     fn build(self, world: &mut World) -> <FilteredResourcesMut<'w, 's> as SystemParam>::State {
         let mut builder = FilteredResourcesMutBuilder::new(world);
         (self.0)(&mut builder);
-<<<<<<< remove-debug-strings
-        let access = builder.build();
-
-        let combined_access = meta.component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(&access);
-        if !conflicts.is_empty() {
-            #[cfg(feature = "debug")]
-            {
-                let accesses = conflicts.format_conflict_list(world);
-                let system_name = &meta.name;
-                panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
-            }
-            #[cfg(not(feature = "debug"))]
-            panic!("error[B0002]: FilteredResourcesMut in a system accesses resources(s) in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
-        }
-
-        if access.has_read_all_resources() {
-            meta.component_access_set
-                .add_unfiltered_read_all_resources();
-        } else {
-            for component_id in access.resource_reads() {
-                meta.component_access_set
-                    .add_unfiltered_resource_read(component_id);
-            }
-        }
-
-        if access.has_write_all_resources() {
-            meta.component_access_set
-                .add_unfiltered_write_all_resources();
-        } else {
-            for component_id in access.resource_writes() {
-                meta.component_access_set
-                    .add_unfiltered_resource_write(component_id);
-            }
-        }
-
-        access
-=======
         builder.build()
->>>>>>> main
     }
 }
 

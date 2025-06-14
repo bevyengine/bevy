@@ -227,12 +227,7 @@ pub unsafe trait ReadOnlySystem: System {
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
-<<<<<<< remove-debug-strings
 #[cfg(feature = "debug")]
-pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
-    if last_run.check_tick(this_run) {
-        let age = this_run.relative_to(*last_run).get();
-=======
 pub(crate) fn check_system_change_tick(
     last_run: &mut Tick,
     check: CheckChangeTicks,
@@ -240,7 +235,6 @@ pub(crate) fn check_system_change_tick(
 ) {
     if last_run.check_tick(check) {
         let age = check.present_tick().relative_to(*last_run).get();
->>>>>>> main
         warn!(
             "System '{system_name}' has not run for {age} ticks. \
             Changes older than {} ticks will not be detected.",
