@@ -877,11 +877,18 @@ async fn load_gltf<'a, 'b, 'c>(
             .map(|mesh| mesh.index())
             .and_then(|i| meshes.get(i).cloned());
 
+        let node_transform = node_transform(&node);
+        let node_transform = if settings.convert_coordinates {
+            node_transform.convert_coordinates()
+        } else {
+            node_transform
+        };
+
         let gltf_node = GltfNode::new(
             &node,
             children,
             mesh,
-            node_transform(&node, settings.convert_coordinates),
+            node_transform,
             skin,
             node.extras().as_deref().map(GltfExtras::from),
         );
@@ -1353,7 +1360,12 @@ fn load_node(
     document: &Document,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node, settings.convert_coordinates);
+    let transform = node_transform(gltf_node);
+    let transform = if settings.convert_coordinates {
+        transform.convert_coordinates()
+    } else {
+        transform
+    };
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1423,10 +1435,21 @@ fn load_node(
                     Projection::Perspective(perspective_projection)
                 }
             };
+
+            // glTF cameras are already defined in the same coordinate system as Bevy's,
+            // so we need to undo any conversions that happened before.
+            // Since the coordinate conversion is a 180 degree rotation around the Y axis,
+            // we can just apply it again to get the original transform.
+            let mut camera_transform = transform;
+            if settings.convert_coordinates {
+                //camera_transform.rotate_y(PI);
+                //camera_transform.translation.x = -camera_transform.translation.x;
+                //camera_transform.translation.z = -camera_transform.translation.z;
+            }
             node.insert((
                 Camera3d::default(),
                 projection,
-                transform,
+                camera_transform,
                 Camera {
                     is_active: !*active_camera_found,
                     ..Default::default()
