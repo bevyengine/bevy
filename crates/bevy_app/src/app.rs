@@ -1325,7 +1325,7 @@ impl App {
     /// #   friends_allowed: bool,
     /// # };
     /// #
-    /// # #[derive(Event)]
+    /// # #[derive(EntityEvent)]
     /// # struct Invite;
     /// #
     /// # #[derive(Component)]
