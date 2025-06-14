@@ -131,6 +131,7 @@ mod observer_system;
 mod query;
 mod schedule_system;
 mod system;
+#[cfg(feature = "debug")]
 mod system_name;
 mod system_param;
 mod system_registry;
@@ -149,6 +150,7 @@ pub use observer_system::*;
 pub use query::*;
 pub use schedule_system::*;
 pub use system::*;
+#[cfg(feature = "debug")]
 pub use system_name::*;
 pub use system_param::*;
 pub use system_registry::*;

@@ -32,6 +32,7 @@ use core::{
     ops::{Deref, DerefMut},
     panic::Location,
 };
+#[cfg(feature = "debug")]
 use disqualified::ShortName;
 use thiserror::Error;
 
@@ -335,6 +336,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         QueryState::new(world)
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
@@ -342,8 +344,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         world: &mut World,
     ) {
         assert_component_access_compatibility(
+            #[cfg(feature = "debug")]
             &system_meta.name,
+            #[cfg(feature = "debug")]
             core::any::type_name::<D>(),
+            #[cfg(feature = "debug")]
             core::any::type_name::<F>(),
             component_access_set,
             &state.component_access,
@@ -367,10 +372,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 }
 
+#[cfg_attr(not(feature = "debug"), expect(unused_variables))]
 fn assert_component_access_compatibility(
-    system_name: &str,
-    query_type: &'static str,
-    filter_type: &'static str,
+    #[cfg(feature = "debug")] system_name: &str,
+    #[cfg(feature = "debug")] query_type: &'static str,
+    #[cfg(feature = "debug")] filter_type: &'static str,
     system_access: &FilteredAccessSet<ComponentId>,
     current: &FilteredAccess<ComponentId>,
     world: &World,
@@ -379,12 +385,17 @@ fn assert_component_access_compatibility(
     if conflicts.is_empty() {
         return;
     }
-    let mut accesses = conflicts.format_conflict_list(world);
-    // Access list may be empty (if access to all components requested)
-    if !accesses.is_empty() {
-        accesses.push(' ');
+    #[cfg(feature = "debug")]
+    {
+        let mut accesses = conflicts.format_conflict_list(world);
+        // Access list may be empty (if access to all components requested)
+        if !accesses.is_empty() {
+            accesses.push(' ');
+        }
+        panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
     }
-    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
+    #[cfg(not(feature = "debug"))]
+    panic!("error[B0001]: A query in a system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001");
 }
 
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
@@ -755,6 +766,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world.components_registrator().register_resource::<T>()
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
@@ -762,12 +774,19 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _world: &mut World,
     ) {
         let combined_access = component_access_set.combined_access();
+        #[cfg(feature = "debug")]
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             core::any::type_name::<T>(),
             system_meta.name,
         );
+        #[cfg(not(feature = "debug"))]
+        assert!(
+            !combined_access.has_resource_write(component_id),
+            "error[B0002]: Res in a system conflicts with a previous ResMut access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+        );
+
         component_access_set.add_unfiltered_resource_read(component_id);
     }
 
@@ -802,11 +821,14 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             world
                 .get_resource_with_ticks(component_id)
                 .unwrap_or_else(|| {
+                    #[cfg(feature = "debug")]
                     panic!(
                         "Resource requested by {} does not exist: {}",
                         system_meta.name,
                         core::any::type_name::<T>()
-                    )
+                    );
+                    #[cfg(not(feature = "debug"))]
+                    panic!("Resource requested by a system does not exist",);
                 });
         Res {
             value: ptr.deref(),
@@ -831,6 +853,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         world.components_registrator().register_resource::<T>()
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
@@ -839,13 +862,23 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     ) {
         let combined_access = component_access_set.combined_access();
         if combined_access.has_resource_write(component_id) {
+            #[cfg(feature = "debug")]
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 core::any::type_name::<T>(), system_meta.name);
+            #[cfg(not(feature = "debug"))]
+            panic!(
+                "error[B0002]: ResMut in a system conflicts with a previous ResMut access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            );
         } else if combined_access.has_resource_read(component_id) {
+            #[cfg(feature = "debug")]
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 core::any::type_name::<T>(), system_meta.name);
+            #[cfg(not(feature = "debug"))]
+            panic!(
+                "error[B0002]: ResMut in a system conflicts with a previous Res access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            );
         }
         component_access_set.add_unfiltered_resource_write(component_id);
     }
@@ -880,11 +913,14 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         let value = world
             .get_resource_mut_by_id(component_id)
             .unwrap_or_else(|| {
+                #[cfg(feature = "debug")]
                 panic!(
                     "Resource requested by {} does not exist: {}",
                     system_meta.name,
                     core::any::type_name::<T>()
-                )
+                );
+                #[cfg(not(feature = "debug"))]
+                panic!("Resource requested by a system does not exist");
             });
         ResMut {
             value: value.value.deref_mut::<T>(),
@@ -946,16 +982,23 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 
     fn init_state(_world: &mut World) -> Self::State {}
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet<ComponentId>,
         _world: &mut World,
     ) {
+        #[cfg(feature = "debug")]
         assert!(
             !component_access_set.combined_access().has_any_read(),
             "DeferredWorld in system {} conflicts with a previous access.",
             system_meta.name,
+        );
+        #[cfg(not(feature = "debug"))]
+        assert!(
+            !component_access_set.combined_access().has_any_read(),
+            "DeferredWorld in a system conflicts with a previous access.",
         );
         component_access_set.write_all();
     }
@@ -1430,11 +1473,17 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         system_meta.set_non_send();
 
         let combined_access = component_access_set.combined_access();
+        #[cfg(feature = "debug")]
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             core::any::type_name::<T>(),
             system_meta.name,
+        );
+        #[cfg(not(feature = "debug"))]
+        assert!(
+            !combined_access.has_resource_write(component_id),
+            "error[B0002]: NonSend in a system conflicts with a previous mutable resource access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
         );
         component_access_set.add_unfiltered_resource_read(component_id);
     }
@@ -1470,11 +1519,14 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             world
                 .get_non_send_with_ticks(component_id)
                 .unwrap_or_else(|| {
+                    #[cfg(feature = "debug")]
                     panic!(
                         "Non-send resource requested by {} does not exist: {}",
                         system_meta.name,
                         core::any::type_name::<T>()
-                    )
+                    );
+                    #[cfg(not(feature = "debug"))]
+                    panic!("Non-send resource requested by a system does not exist");
                 });
 
         NonSend {
@@ -1507,13 +1559,23 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
 
         let combined_access = component_access_set.combined_access();
         if combined_access.has_component_write(component_id) {
+            #[cfg(feature = "debug")]
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 core::any::type_name::<T>(), system_meta.name);
+            #[cfg(not(feature = "debug"))]
+            panic!(
+                "error[B0002]: NonSendMut in a system conflicts with a previous mutable resource access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            );
         } else if combined_access.has_component_read(component_id) {
+            #[cfg(feature = "debug")]
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 core::any::type_name::<T>(), system_meta.name);
+            #[cfg(not(feature = "debug"))]
+            panic!(
+                "error[B0002]: NonSendMut in a system conflicts with a previous immutable resource access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            );
         }
         component_access_set.add_unfiltered_resource_write(component_id);
     }
@@ -1549,11 +1611,14 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             world
                 .get_non_send_with_ticks(component_id)
                 .unwrap_or_else(|| {
+                    #[cfg(feature = "debug")]
                     panic!(
                         "Non-send resource requested by {} does not exist: {}",
                         system_meta.name,
                         core::any::type_name::<T>()
-                    )
+                    );
+                    #[cfg(not(feature = "debug"))]
+                    panic!("Non-send resource requested by a system does not exist",);
                 });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
@@ -2666,6 +2731,7 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         Access::new()
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         access: &Self::State,
         system_meta: &mut SystemMeta,
@@ -2675,9 +2741,14 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &system_meta.name;
-            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            #[cfg(feature = "debug")]
+            {
+                let accesses = conflicts.format_conflict_list(world);
+                let system_name = &system_meta.name;
+                panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            }
+            #[cfg(not(feature = "debug"))]
+            panic!("error[B0002]: FilteredResources in a system accesses resources(s) in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
@@ -2715,6 +2786,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         Access::new()
     }
 
+    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn init_access(
         access: &Self::State,
         system_meta: &mut SystemMeta,
@@ -2724,9 +2796,14 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &system_meta.name;
-            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            #[cfg(feature = "debug")]
+            {
+                let accesses = conflicts.format_conflict_list(world);
+                let system_name = &system_meta.name;
+                panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
+            }
+            #[cfg(not(feature = "debug"))]
+            panic!("error[B0002]: FilteredResourcesMut in a system accesses resources(s) in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
@@ -2784,6 +2861,7 @@ pub struct SystemParamValidationError {
 
     /// A string identifying the invalid parameter.
     /// This is usually the type name of the parameter.
+    #[cfg(feature = "debug")]
     pub param: Cow<'static, str>,
 
     /// A string identifying the field within a parameter using `#[derive(SystemParam)]`.
@@ -2816,6 +2894,7 @@ impl SystemParamValidationError {
         Self {
             skipped,
             message: message.into(),
+            #[cfg(feature = "debug")]
             param: Cow::Borrowed(core::any::type_name::<T>()),
             field: field.into(),
         }
@@ -2824,6 +2903,7 @@ impl SystemParamValidationError {
 
 impl Display for SystemParamValidationError {
     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        #[cfg(feature = "debug")]
         write!(
             fmt,
             "Parameter `{}{}` failed validation: {}",

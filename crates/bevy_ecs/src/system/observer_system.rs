@@ -1,4 +1,6 @@
-use alloc::{borrow::Cow, vec::Vec};
+#[cfg(feature = "debug")]
+use alloc::borrow::Cow;
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use crate::{
@@ -112,6 +114,7 @@ where
     type Out = Result;
 
     #[inline]
+    #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.observer.name()
     }

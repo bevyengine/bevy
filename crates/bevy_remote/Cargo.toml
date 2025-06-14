@@ -17,6 +17,7 @@ http = ["dep:async-io", "dep:smol-hyper"]
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", features = [
+  "debug",
   "serialize",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }

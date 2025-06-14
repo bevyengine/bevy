@@ -1,4 +1,6 @@
-use alloc::{borrow::Cow, format, vec::Vec};
+use alloc::vec::Vec;
+#[cfg(feature = "debug")]
+use alloc::{borrow::Cow, format};
 use core::marker::PhantomData;
 
 use crate::{
@@ -112,6 +114,7 @@ pub struct CombinatorSystem<Func, A, B> {
     _marker: PhantomData<fn() -> Func>,
     a: A,
     b: B,
+    #[cfg(feature = "debug")]
     name: Cow<'static, str>,
 }
 
@@ -119,11 +122,12 @@ impl<Func, A, B> CombinatorSystem<Func, A, B> {
     /// Creates a new system that combines two inner systems.
     ///
     /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
-    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+    pub fn new(a: A, b: B, #[cfg(feature = "debug")] name: Cow<'static, str>) -> Self {
         Self {
             _marker: PhantomData,
             a,
             b,
+            #[cfg(feature = "debug")]
             name,
         }
     }
@@ -138,6 +142,7 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
+    #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }
@@ -237,7 +242,12 @@ where
 {
     /// Clone the combined system. The cloned instance must be `.initialize()`d before it can run.
     fn clone(&self) -> Self {
-        CombinatorSystem::new(self.a.clone(), self.b.clone(), self.name.clone())
+        CombinatorSystem::new(
+            self.a.clone(),
+            self.b.clone(),
+            #[cfg(feature = "debug")]
+            self.name.clone(),
+        )
     }
 }
 
@@ -270,8 +280,14 @@ where
     fn into_system(this: Self) -> Self::System {
         let system_a = IntoSystem::into_system(this.a);
         let system_b = IntoSystem::into_system(this.b);
+        #[cfg(feature = "debug")]
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
-        PipeSystem::new(system_a, system_b, Cow::Owned(name))
+        PipeSystem::new(
+            system_a,
+            system_b,
+            #[cfg(feature = "debug")]
+            Cow::Owned(name),
+        )
     }
 }
 
@@ -317,6 +333,7 @@ where
 pub struct PipeSystem<A, B> {
     a: A,
     b: B,
+    #[cfg(feature = "debug")]
     name: Cow<'static, str>,
 }
 
@@ -327,8 +344,13 @@ where
     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
     /// Creates a new system that pipes two inner systems.
-    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
-        Self { a, b, name }
+    pub fn new(a: A, b: B, #[cfg(feature = "debug")] name: Cow<'static, str>) -> Self {
+        Self {
+            a,
+            b,
+            #[cfg(feature = "debug")]
+            name,
+        }
     }
 }
 
@@ -341,6 +363,7 @@ where
     type In = A::In;
     type Out = B::Out;
 
+    #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }

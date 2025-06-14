@@ -1,4 +1,6 @@
-use alloc::{borrow::Cow, vec::Vec};
+#[cfg(feature = "debug")]
+use alloc::borrow::Cow;
+use alloc::vec::Vec;
 
 use crate::{
     component::{CheckChangeTicks, ComponentId, Tick},
@@ -25,6 +27,7 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     type Out = Result;
 
     #[inline]
+    #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.0.name()
     }
@@ -140,6 +143,7 @@ where
 
     type Out = S::Out;
 
+    #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.system.name()
     }
@@ -234,6 +238,7 @@ where
 
     type Out = S::Out;
 
+    #[cfg(feature = "debug")]
     fn name(&self) -> Cow<'static, str> {
         self.system.name()
     }

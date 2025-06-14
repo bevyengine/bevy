@@ -33,6 +33,11 @@ pub enum ErrorContext {
         /// The last tick that the observer was run.
         last_run: Tick,
     },
+    /// The error occurred in anonymous.
+    ///
+    /// This can happen when the debug feature is not enabled
+    #[cfg(not(feature = "debug"))]
+    Anonymous,
 }
 
 impl Display for ErrorContext {
@@ -48,12 +53,17 @@ impl Display for ErrorContext {
             Self::RunCondition { name, .. } => {
                 write!(f, "Run condition `{name}` failed")
             }
+            #[cfg(not(feature = "debug"))]
+            Self::Anonymous { .. } => {
+                write!(f, "Anonymous failed")
+            }
         }
     }
 }
 
 impl ErrorContext {
     /// The name of the ECS construct that failed.
+    #[cfg(feature = "debug")]
     pub fn name(&self) -> &str {
         match self {
             Self::System { name, .. }
@@ -72,10 +82,13 @@ impl ErrorContext {
             Self::Command { .. } => "command",
             Self::Observer { .. } => "observer",
             Self::RunCondition { .. } => "run condition",
+            #[cfg(not(feature = "debug"))]
+            Self::Anonymous { .. } => "anonymous",
         }
     }
 }
 
+#[cfg(feature = "debug")]
 macro_rules! inner {
     ($call:path, $e:ident, $c:ident) => {
         $call!(
@@ -84,6 +97,13 @@ macro_rules! inner {
             $c.name(),
             $e
         );
+    };
+}
+
+#[cfg(not(feature = "debug"))]
+macro_rules! inner {
+    ($call:path, $e:ident, $c:ident) => {
+        $call!("Encountered an error in {} `{}`: {}", $c.kind(), "", $e);
     };
 }
 

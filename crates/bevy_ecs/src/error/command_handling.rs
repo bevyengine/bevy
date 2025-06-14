@@ -1,4 +1,6 @@
-use core::{any::type_name, fmt};
+#[cfg(feature = "debug")]
+use core::any::type_name;
+use core::fmt;
 
 use crate::{
     entity::Entity,
@@ -30,9 +32,12 @@ where
             Ok(_) => {}
             Err(err) => (error_handler)(
                 err.into(),
+                #[cfg(feature = "debug")]
                 ErrorContext::Command {
                     name: type_name::<C>().into(),
                 },
+                #[cfg(not(feature = "debug"))]
+                ErrorContext::Anonymous,
             ),
         }
     }
@@ -42,9 +47,12 @@ where
             Ok(_) => {}
             Err(err) => world.default_error_handler()(
                 err.into(),
+                #[cfg(feature = "debug")]
                 ErrorContext::Command {
                     name: type_name::<C>().into(),
                 },
+                #[cfg(not(feature = "debug"))]
+                ErrorContext::Anonymous,
             ),
         }
     }

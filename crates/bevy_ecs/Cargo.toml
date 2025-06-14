@@ -85,6 +85,8 @@ critical-section = [
 
 hotpatching = ["dep:subsecond"]
 
+debug = []
+
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
