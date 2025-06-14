@@ -84,7 +84,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
-use crate::convert_coordinates::ConvertCoordinates as _;
+use crate::convert_coordinates::{ConvertCameraCoordinates as _, ConvertCoordinates as _};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -878,9 +878,12 @@ async fn load_gltf<'a, 'b, 'c>(
             .and_then(|i| meshes.get(i).cloned());
 
         let node_transform = node_transform(&node);
-        // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
-        let node_transform = if settings.convert_coordinates && node.camera().is_none() {
-            node_transform.convert_coordinates()
+        let node_transform = if settings.convert_coordinates {
+            if node.camera().is_some() {
+                node_transform.convert_camera_coordinates()
+            } else {
+                node_transform.convert_coordinates()
+            }
         } else {
             node_transform
         };
@@ -1362,9 +1365,12 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
-    // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
-    let transform = if settings.convert_coordinates && gltf_node.camera().is_none() {
-        transform.convert_coordinates()
+    let transform = if settings.convert_coordinates {
+        if gltf_node.camera().is_some() {
+            transform.convert_camera_coordinates()
+        } else {
+            transform.convert_coordinates()
+        }
     } else {
         transform
     };
