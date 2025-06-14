@@ -346,9 +346,6 @@ web = [
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-# Enable conversion of glTF coordinates to Bevy's coordinate system
-convert_coordinates = ["bevy_gltf?/convert_coordinates"]
-
 [dependencies]
 # bevy (no_std)
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [

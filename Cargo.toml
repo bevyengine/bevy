@@ -551,9 +551,6 @@ web = ["bevy_internal/web"]
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
 
-# Enable conversion of glTF coordinates to Bevy's coordinate system
-convert_coordinates = ["bevy_internal/convert_coordinates"]
-
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }

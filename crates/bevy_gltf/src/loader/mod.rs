@@ -214,7 +214,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
-            convert_coordinates: cfg!(feature = "convert_coordinates"),
+            convert_coordinates: false,
         }
     }
 }
@@ -247,12 +247,6 @@ async fn load_gltf<'a, 'b, 'c>(
     load_context: &'b mut LoadContext<'c>,
     settings: &'b GltfLoaderSettings,
 ) -> Result<Gltf, GltfError> {
-    #[cfg(not(feature = "convert_coordinates"))]
-    bevy_log::warn_once!(
-        "Starting from Bevy 0.18, all imported glTF models will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system. \
-        You are currently importing glTF files with the old behavior. To already opt into the new import behavior, enable the convert_coordinates feature. \
-        If you want to continue using the old behavior, additionally set the corresponding option in the GltfLoaderSettings");
-
     let gltf = gltf::Gltf::from_slice(bytes)?;
 
     let file_name = load_context
