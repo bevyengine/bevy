@@ -343,9 +343,25 @@ impl CachedRenderPipelinePhaseItem for AlphaMask2d {
     }
 }
 
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Copy, Clone)]
+pub struct Transparent2dSortKey {
+    z_index: i32,
+    bias: FloatOrd,
+}
+
+impl Transparent2dSortKey {
+    pub fn new(z_index: i32, bias: Option<f32>) -> Transparent2dSortKey {
+        Transparent2dSortKey {
+            z_index,
+            // nans sort after any valid specified y sort
+            bias: FloatOrd(bias.unwrap_or(f32::NAN)),
+        }
+    }
+}
+
 /// Transparent 2D [`SortedPhaseItem`]s.
 pub struct Transparent2d {
-    pub sort_key: FloatOrd,
+    pub sort_key: Transparent2dSortKey,
     pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -395,7 +411,7 @@ impl PhaseItem for Transparent2d {
 }
 
 impl SortedPhaseItem for Transparent2d {
-    type SortKey = FloatOrd;
+    type SortKey = Transparent2dSortKey;
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
@@ -405,7 +421,7 @@ impl SortedPhaseItem for Transparent2d {
     #[inline]
     fn sort(items: &mut [Self]) {
         // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
-        radsort::sort_by_key(items, |item| item.sort_key().0);
+        radsort::sort_by_key(items, |item| (item.sort_key.z_index, item.sort_key.bias.0));
     }
 
     fn indexed(&self) -> bool {
