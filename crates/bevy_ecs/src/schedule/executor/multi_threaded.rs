@@ -353,7 +353,6 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         self.tick_executor();
     }
 
-    #[expect(clippy::mut_from_ref)]
     fn try_lock<'a>(&'a self) -> Option<(&'a mut Conditions<'sys>, MutexGuard<'a, ExecutorState>)> {
         let guard = self.environment.executor.state.try_lock().ok()?;
         // SAFETY: This is an exclusive access as no other location fetches conditions mutably, and
