@@ -39,7 +39,7 @@ let handle = asset_server.load_with_settings(
 );
 ```
 
-Afterwards, your scene will oriented such that your modelling software's forward direction correctly corresponds to Bevy's forward direction. 
+Afterwards, your scene will oriented such that your modeling software's forward direction correctly corresponds to Bevy's forward direction. 
 
 For example, Blender assumes -Y to be forward, so exporting the following model to glTF and loading it in Bevy with the new settings will ensure everything is
 oriented the right way across all programs in your pipeline:
