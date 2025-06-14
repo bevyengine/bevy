@@ -184,7 +184,8 @@ pub trait Event: Send + Sync + 'static {
 ///         // Note: `On::target` only exists because this is an `EntityEvent`.
 ///         let mut health = query.get(trigger.target()).unwrap();
 ///         health.0 -= trigger.amount();
-///     });
+///     })
+///     .id();
 /// ```
 ///
 /// The event can be triggered on the [`World`] using the [`trigger_targets`](World::trigger_targets) method,
@@ -215,7 +216,8 @@ pub trait Event: Send + Sync + 'static {
 /// #         // Note: `On::target` only exists because this is an `EntityEvent`.
 /// #         let mut health = query.get(trigger.target()).unwrap();
 /// #         health.0 -= trigger.amount();
-/// #     });
+/// #     })
+/// #     .id();
 /// world.trigger_targets(Damage { amount: 10.0 }, armor_piece);
 /// ```
 ///
