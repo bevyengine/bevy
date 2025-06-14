@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     prelude::FromWorld,
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
@@ -708,10 +708,10 @@ where
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
         check_system_change_tick(
             &mut self.system_meta.last_run,
-            change_tick,
+            check,
             self.system_meta.name.as_ref(),
         );
     }
