@@ -793,7 +793,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     mats.map(|mat| Mat4::from_cols_array_2d(&mat))
                         .map(|mat| {
                             if settings.convert_coordinates {
-                                Mat4::convert_coordinates(mat)
+                                mat.convert_coordinates()
                             } else {
                                 mat
                             }
@@ -880,7 +880,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let node_transform = node_transform(&node);
         // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
         let node_transform = if settings.convert_coordinates && node.camera().is_none() {
-            node_transform
+            node_transform.convert_coordinates()
         } else {
             node_transform
         };
@@ -1363,8 +1363,8 @@ fn load_node(
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
     // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
-    let transform = if settings.convert_coordinates {
-        transform
+    let transform = if settings.convert_coordinates && gltf_node.camera().is_none() {
+        transform.convert_coordinates()
     } else {
         transform
     };
