@@ -209,6 +209,7 @@ impl RenderAsset for RenderMesh {
         mesh: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         (images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {
