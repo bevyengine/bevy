@@ -10,7 +10,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    event::{BufferedEvent, Event, EventReader, EventWriter},
+    event::{BufferedEvent, EventReader, EventWriter},
     name::Name,
     system::{Commands, Query},
 };

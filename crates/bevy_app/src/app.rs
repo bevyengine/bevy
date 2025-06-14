@@ -1485,7 +1485,7 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::{BufferedEvent, Event, EventWriter, Events},
+        event::{BufferedEvent, EventWriter, Events},
         lifecycle::RemovedComponents,
         query::With,
         resource::Resource,
