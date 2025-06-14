@@ -878,7 +878,8 @@ async fn load_gltf<'a, 'b, 'c>(
             .and_then(|i| meshes.get(i).cloned());
 
         let node_transform = node_transform(&node);
-        let node_transform = if settings.convert_coordinates {
+        // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
+        let node_transform = if settings.convert_coordinates && node.camera().is_none() {
             node_transform.convert_coordinates()
         } else {
             node_transform
@@ -1361,7 +1362,8 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
-    let transform = if settings.convert_coordinates {
+    // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
+    let transform = if settings.convert_coordinates && gltf_node.camera().is_none() {
         transform.convert_coordinates()
     } else {
         transform
@@ -1436,15 +1438,13 @@ fn load_node(
                 }
             };
 
-            // glTF cameras are already defined in the same coordinate system as Bevy's,
+            // Cameras are already in Bevy's coordinate system: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix
             // so we need to undo any conversions that happened before.
-            // Since the coordinate conversion is a 180 degree rotation around the Y axis,
-            // we can just apply it again to get the original transform.
             let mut camera_transform = transform;
             if settings.convert_coordinates {
-                //camera_transform.rotate_y(PI);
-                //camera_transform.translation.x = -camera_transform.translation.x;
-                //camera_transform.translation.z = -camera_transform.translation.z;
+                camera_transform.rotate_y(std::f32::consts::PI);
+                camera_transform.translation.x = -camera_transform.translation.x;
+                camera_transform.translation.z = -camera_transform.translation.z;
             }
             node.insert((
                 Camera3d::default(),
