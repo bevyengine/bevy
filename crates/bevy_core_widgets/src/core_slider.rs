@@ -462,18 +462,23 @@ pub enum SetSliderValue {
     Absolute(f32),
     /// Add a delta to the slider value.
     Relative(f32),
+    /// Add a delta to the slider value, multiplied by the step size.
+    RelativeStep(f32),
 }
 
 fn slider_on_set_value(
     mut trigger: On<SetSliderValue>,
-    q_slider: Query<(&CoreSlider, &SliderValue, &SliderRange)>,
+    q_slider: Query<(&CoreSlider, &SliderValue, &SliderRange, Option<&SliderStep>)>,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range)) = q_slider.get(trigger.target().unwrap()) {
+    if let Ok((slider, value, range, step)) = q_slider.get(trigger.target().unwrap()) {
         trigger.propagate(false);
         let new_value = match trigger.event() {
             SetSliderValue::Absolute(new_value) => range.clamp(*new_value),
             SetSliderValue::Relative(delta) => range.clamp(value.0 + *delta),
+            SetSliderValue::RelativeStep(delta) => {
+                range.clamp(value.0 + *delta * step.map(|s| s.0).unwrap_or_default())
+            }
         };
         if let Some(on_change) = slider.on_change {
             commands.run_system_with(on_change, new_value);
