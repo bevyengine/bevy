@@ -110,15 +110,14 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(entity).remove::<Self>();
             return;
         }
-        if world.get_entity(target_entity).is_ok() {
-            world
-                .commands()
-                .entity(target_entity)
+        if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
+            // Deferring is necessary for batch mode
+            entity_commands
                 .entry::<Self::RelationshipTarget>()
                 .and_modify(move |mut relationship_target| {
                     relationship_target.collection_mut_risky().add(entity);
                 })
-                .or_insert({
+                .or_insert_with(|| {
                     let mut target =
                         <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
                     target.collection_mut_risky().add(entity);
@@ -311,6 +310,7 @@ pub enum RelationshipHookMode {
 
 #[cfg(test)]
 mod tests {
+    use crate::prelude::{ChildOf, Children};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
@@ -406,8 +406,6 @@ mod tests {
 
     #[test]
     fn parent_child_relationship_with_custom_relationship() {
-        use crate::prelude::ChildOf;
-
         #[derive(Component)]
         #[relationship(relationship_target = RelTarget)]
         struct Rel(Entity);
@@ -463,30 +461,21 @@ mod tests {
         assert!(!world.entity(parent).contains::<RelTarget>());
     }
 
-    // Spawn a batch of entities in relationship with a target entity
     #[test]
-    fn spawn_batch_with_relationship() {
-        use crate::relationship::{Relationship, RelationshipTarget};
-
-        #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
-        struct Rel(Entity);
-
-        #[derive(Component)]
-        #[relationship_target(relationship = Rel)]
-        struct RelTarget(Vec<Entity>);
-
+    fn spawn_children_batch() {
         let mut world = World::new();
-        let target = world.spawn_empty().id();
-        let rel_entities = world
-            .spawn_batch((0..10).map(|_| Rel(target)))
+        let parent = world.spawn_empty().id();
+        let children = world
+            .spawn_batch((0..10).map(|_| ChildOf(parent)))
             .collect::<Vec<_>>();
 
-        for &entity in &rel_entities {
-            assert!(world.get::<Rel>(entity).is_some_and(|r| r.get() == target));
+        for &child in &children {
+            assert!(world
+                .get::<ChildOf>(child)
+                .is_some_and(|child_of| child_of.parent() == parent));
         }
         assert!(world
-            .get::<RelTarget>(target)
-            .is_some_and(|rt| rt.len() == 10));
+            .get::<Children>(parent)
+            .is_some_and(|children| children.len() == 10));
     }
 }
