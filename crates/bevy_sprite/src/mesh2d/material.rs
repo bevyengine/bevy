@@ -968,6 +968,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let bind_group_data = material.bind_group_data();
         match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
             Ok(prepared) => {
                 let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
@@ -986,7 +987,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
                 Ok(PreparedMaterial2d {
                     bindings: prepared.bindings,
                     bind_group: prepared.bind_group,
-                    key: prepared.data,
+                    key: bind_group_data,
                     properties: Material2dProperties {
                         depth_bias: material.depth_bias(),
                         alpha_mode: material.alpha_mode(),

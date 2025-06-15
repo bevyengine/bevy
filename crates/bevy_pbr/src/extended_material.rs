@@ -19,10 +19,6 @@ use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshP
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
-    pub material_layout: BindGroupLayout,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
-    pub bindless: bool,
 }
 
 pub struct MaterialExtensionKey<E: MaterialExtension> {
@@ -179,20 +175,24 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         }
     }
 
+    fn bind_group_data(&self) -> Self::Data {
+        (
+            self.base.bind_group_data(),
+            self.extension.bind_group_data(),
+        )
+    }
+
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
         mut force_non_bindless: bool,
-    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
+    ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
         force_non_bindless = force_non_bindless || Self::bindless_slot_count().is_none();
 
         // add together the bindings of the base material and the user material
-        let UnpreparedBindGroup {
-            mut bindings,
-            data: base_data,
-        } = B::unprepared_bind_group(
+        let UnpreparedBindGroup { mut bindings } = B::unprepared_bind_group(
             &self.base,
             layout,
             render_device,
@@ -209,10 +209,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
 
         bindings.extend(extended_bindgroup.bindings.0);
 
-        Ok(UnpreparedBindGroup {
-            bindings,
-            data: (base_data, extended_bindgroup.data),
-        })
+        Ok(UnpreparedBindGroup { bindings })
     }
 
     fn bind_group_layout_entries(
@@ -373,28 +370,14 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     }
 
     fn specialize(
-        pipeline: &MaterialPipeline<Self>,
+        pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Call the base material's specialize function
-        let MaterialPipeline::<Self> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            bindless,
-            ..
-        } = pipeline.clone();
-        let base_pipeline = MaterialPipeline::<B> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            bindless,
-            marker: Default::default(),
-        };
+        let MaterialPipeline { mesh_pipeline } = pipeline.clone();
+        let base_pipeline = MaterialPipeline { mesh_pipeline };
         let base_key = MaterialPipelineKey::<B> {
             mesh_key: key.mesh_key,
             bind_group_data: key.bind_group_data.0,
@@ -402,23 +385,10 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         B::specialize(&base_pipeline, descriptor, layout, base_key)?;
 
         // Call the extended material's specialize function afterwards
-        let MaterialPipeline::<Self> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            bindless,
-            ..
-        } = pipeline.clone();
+        let MaterialPipeline { mesh_pipeline, .. } = pipeline.clone();
 
         E::specialize(
-            &MaterialExtensionPipeline {
-                mesh_pipeline,
-                material_layout,
-                vertex_shader,
-                fragment_shader,
-                bindless,
-            },
+            &MaterialExtensionPipeline { mesh_pipeline },
             descriptor,
             layout,
             MaterialExtensionKey {

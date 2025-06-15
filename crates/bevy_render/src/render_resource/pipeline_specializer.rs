@@ -15,6 +15,7 @@ use bevy_platform::{
 };
 use bevy_utils::default;
 use core::{fmt::Debug, hash::Hash};
+use std::hash::BuildHasher;
 use thiserror::Error;
 use tracing::error;
 
@@ -187,6 +188,10 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                 Entry::Vacant(entry) => *entry.insert(cache.queue_render_pipeline(descriptor)),
             }))
         }
+    }
+
+    pub fn hasher(&self) -> &impl BuildHasher {
+        self.mesh_layout_cache.hasher()
     }
 }
 

@@ -1,10 +1,10 @@
 use crate::{
-    render_resource::AsBindGroupError, Extract, ExtractSchedule, MainWorld, Render, RenderApp,
+    render_resource::AsBindGroupError, ExtractSchedule, MainWorld, Render, RenderApp,
     RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
 pub use bevy_asset::RenderAssetUsages;
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
+use bevy_asset::{Asset, AssetEvent, AssetId, Assets, UntypedAssetId};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoScheduleConfigs, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
@@ -12,10 +12,10 @@ use bevy_ecs::{
     world::{FromWorld, Mut},
 };
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_render::render_asset::RenderAssetBytesPerFrameLimiter;
 use core::marker::PhantomData;
-use core::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -35,16 +35,17 @@ pub type ExtractAssetsSet = AssetExtractionSystems;
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
-/// In the [`ExtractSchedule`] step the [`RenderAsset::SourceAsset`] is transferred
+/// In the [`ExtractSchedule`] step the [`ErasedRenderAsset::SourceAsset`] is transferred
 /// from the "main world" into the "render world".
 ///
 /// After that in the [`RenderSystems::PrepareAssets`] step the extracted asset
-/// is transformed into its GPU-representation of type [`RenderAsset`].
-pub trait RenderAsset: Send + Sync + 'static + Sized {
-    /// The representation of the asset in the "main world".
+/// is transformed into its GPU-representation of type [`ErasedRenderAsset`].
+pub trait ErasedRenderAsset: Send + Sync + 'static {
     type SourceAsset: Asset + Clone;
+    /// The representation of the asset in the "main world".
+    type ErasedAsset: Send + Sync + 'static + Sized;
 
-    /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
+    /// Specifies all ECS data required by [`ErasedRenderAsset::prepare_asset`].
     ///
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
     type Param: SystemParam;
@@ -56,26 +57,26 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     }
 
     /// Size of the data the asset will upload to the gpu. Specifying a return value
-    /// will allow the asset to be throttled via [`RenderAssetBytesPerFrame`].
+    /// will allow the asset to be throttled via [`ErasedRenderAssetBytesPerFrame`].
     #[inline]
     #[expect(
         unused_variables,
         reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
     )]
-    fn byte_len(source_asset: &Self::SourceAsset) -> Option<usize> {
+    fn byte_len(erased_asset: &Self::SourceAsset) -> Option<usize> {
         None
     }
 
-    /// Prepares the [`RenderAsset::SourceAsset`] for the GPU by transforming it into a [`RenderAsset`].
+    /// Prepares the [`ErasedRenderAsset::SourceAsset`] for the GPU by transforming it into a [`ErasedRenderAsset`].
     ///
     /// ECS data may be accessed via `param`.
     fn prepare_asset(
         source_asset: Self::SourceAsset,
         asset_id: AssetId<Self::SourceAsset>,
         param: &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
+    ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>>;
 
-    /// Called whenever the [`RenderAsset::SourceAsset`] has been removed.
+    /// Called whenever the [`ErasedRenderAsset::SourceAsset`] has been removed.
     ///
     /// You can implement this method if you need to access ECS data (via
     /// `_param`) in order to perform cleanup tasks when the asset is removed.
@@ -89,21 +90,24 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
-/// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
+/// and prepares them for the GPU. They can then be accessed from the [`ErasedRenderAssets`] resource.
 ///
 /// Therefore it sets up the [`ExtractSchedule`] and
-/// [`RenderSystems::PrepareAssets`] steps for the specified [`RenderAsset`].
+/// [`RenderSystems::PrepareAssets`] steps for the specified [`ErasedRenderAsset`].
 ///
 /// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run until
 /// `prepare_assets::<AFTER>` has completed. This allows the `prepare_asset` function to depend on another
-/// prepared [`RenderAsset`], for example `Mesh::prepare_asset` relies on `RenderAssets::<GpuImage>` for morph
-/// targets, so the plugin is created as `RenderAssetPlugin::<RenderMesh, GpuImage>::default()`.
-pub struct RenderAssetPlugin<A: RenderAsset, AFTER: RenderAssetDependency + 'static = ()> {
+/// prepared [`ErasedRenderAsset`], for example `Mesh::prepare_asset` relies on `ErasedRenderAssets::<GpuImage>` for morph
+/// targets, so the plugin is created as `ErasedRenderAssetPlugin::<RenderMesh, GpuImage>::default()`.
+pub struct ErasedRenderAssetPlugin<
+    A: ErasedRenderAsset,
+    AFTER: ErasedRenderAssetDependency + 'static = (),
+> {
     phantom: PhantomData<fn() -> (A, AFTER)>,
 }
 
-impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Default
-    for RenderAssetPlugin<A, AFTER>
+impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Default
+    for ErasedRenderAssetPlugin<A, AFTER>
 {
     fn default() -> Self {
         Self {
@@ -112,48 +116,51 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Default
     }
 }
 
-impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
-    for RenderAssetPlugin<A, AFTER>
+impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
+    for ErasedRenderAssetPlugin<A, AFTER>
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
+        app.init_resource::<CachedExtractErasedRenderAssetSystemState<A>>();
+    }
+
+    fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedAssets<A>>()
-                .init_resource::<RenderAssets<A>>()
+                .init_resource::<ErasedRenderAssets<A::ErasedAsset>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_render_asset::<A>.in_set(AssetExtractionSystems),
+                    extract_erased_render_asset::<A>.in_set(AssetExtractionSystems),
                 );
             AFTER::register_system(
                 render_app,
-                prepare_assets::<A>.in_set(RenderSystems::PrepareAssets),
+                prepare_erased_assets::<A>.in_set(RenderSystems::PrepareAssets),
             );
         }
     }
 }
 
 // helper to allow specifying dependencies between render assets
-pub trait RenderAssetDependency {
+pub trait ErasedRenderAssetDependency {
     fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>);
 }
 
-impl RenderAssetDependency for () {
+impl ErasedRenderAssetDependency for () {
     fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>) {
         render_app.add_systems(Render, system);
     }
 }
 
-impl<A: RenderAsset> RenderAssetDependency for A {
+impl<A: ErasedRenderAsset> ErasedRenderAssetDependency for A {
     fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>) {
-        render_app.add_systems(Render, system.after(prepare_assets::<A>));
+        render_app.add_systems(Render, system.after(prepare_erased_assets::<A>));
     }
 }
 
 /// Temporarily stores the extracted and removed assets of the current frame.
 #[derive(Resource)]
-pub struct ExtractedAssets<A: RenderAsset> {
+pub struct ExtractedAssets<A: ErasedRenderAsset> {
     /// The assets extracted this frame.
     ///
     /// These are assets that were either added or modified this frame.
@@ -171,7 +178,7 @@ pub struct ExtractedAssets<A: RenderAsset> {
     pub added: HashSet<AssetId<A::SourceAsset>>,
 }
 
-impl<A: RenderAsset> Default for ExtractedAssets<A> {
+impl<A: ErasedRenderAsset> Default for ExtractedAssets<A> {
     fn default() -> Self {
         Self {
             extracted: Default::default(),
@@ -182,52 +189,52 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
     }
 }
 
-/// Stores all GPU representations ([`RenderAsset`])
-/// of [`RenderAsset::SourceAsset`] as long as they exist.
+/// Stores all GPU representations ([`ErasedRenderAsset`])
+/// of [`ErasedRenderAsset::SourceAsset`] as long as they exist.
 #[derive(Resource)]
-pub struct RenderAssets<A: RenderAsset>(HashMap<AssetId<A::SourceAsset>, A>);
+pub struct ErasedRenderAssets<ERA>(HashMap<UntypedAssetId, ERA>);
 
-impl<A: RenderAsset> Default for RenderAssets<A> {
+impl<ERA> Default for ErasedRenderAssets<ERA> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<A: RenderAsset> RenderAssets<A> {
-    pub fn get(&self, id: impl Into<AssetId<A::SourceAsset>>) -> Option<&A> {
+impl<ERA> ErasedRenderAssets<ERA> {
+    pub fn get(&self, id: impl Into<UntypedAssetId>) -> Option<&ERA> {
         self.0.get(&id.into())
     }
 
-    pub fn get_mut(&mut self, id: impl Into<AssetId<A::SourceAsset>>) -> Option<&mut A> {
+    pub fn get_mut(&mut self, id: impl Into<UntypedAssetId>) -> Option<&mut ERA> {
         self.0.get_mut(&id.into())
     }
 
-    pub fn insert(&mut self, id: impl Into<AssetId<A::SourceAsset>>, value: A) -> Option<A> {
+    pub fn insert(&mut self, id: impl Into<UntypedAssetId>, value: ERA) -> Option<ERA> {
         self.0.insert(id.into(), value)
     }
 
-    pub fn remove(&mut self, id: impl Into<AssetId<A::SourceAsset>>) -> Option<A> {
+    pub fn remove(&mut self, id: impl Into<UntypedAssetId>) -> Option<ERA> {
         self.0.remove(&id.into())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (AssetId<A::SourceAsset>, &A)> {
+    pub fn iter(&self) -> impl Iterator<Item = (UntypedAssetId, &ERA)> {
         self.0.iter().map(|(k, v)| (*k, v))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (AssetId<A::SourceAsset>, &mut A)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (UntypedAssetId, &mut ERA)> {
         self.0.iter_mut().map(|(k, v)| (*k, v))
     }
 }
 
 #[derive(Resource)]
-struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
+struct CachedExtractErasedRenderAssetSystemState<A: ErasedRenderAsset> {
     state: SystemState<(
         EventReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
     )>,
 }
 
-impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
+impl<A: ErasedRenderAsset> FromWorld for CachedExtractErasedRenderAssetSystemState<A> {
     fn from_world(world: &mut bevy_ecs::world::World) -> Self {
         Self {
             state: SystemState::new(world),
@@ -235,14 +242,14 @@ impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
     }
 }
 
-/// This system extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
+/// This system extracts all created or modified assets of the corresponding [`ErasedRenderAsset::SourceAsset`] type
 /// into the "render world".
-pub(crate) fn extract_render_asset<A: RenderAsset>(
+pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
     mut commands: Commands,
     mut main_world: ResMut<MainWorld>,
 ) {
     main_world.resource_scope(
-        |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
+        |world, mut cached_state: Mut<CachedExtractErasedRenderAssetSystemState<A>>| {
             let (mut events, mut assets) = cached_state.state.get_mut(world);
 
             let mut needs_extracting = <HashSet<_>>::default();
@@ -264,7 +271,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     }
                     AssetEvent::Removed { .. } => {
                         // We don't care that the asset was removed from Assets<T> in the main world.
-                        // An asset is only removed from RenderAssets<T> when its last handle is dropped (AssetEvent::Unused).
+                        // An asset is only removed from ErasedRenderAssets<T> when its last handle is dropped (AssetEvent::Unused).
                     }
                     AssetEvent::Unused { id } => {
                         needs_extracting.remove(id);
@@ -310,11 +317,11 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
 // TODO: consider storing inside system?
 /// All assets that should be prepared next frame.
 #[derive(Resource)]
-pub struct PrepareNextFrameAssets<A: RenderAsset> {
+pub struct PrepareNextFrameAssets<A: ErasedRenderAsset> {
     assets: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
 }
 
-impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
+impl<A: ErasedRenderAsset> Default for PrepareNextFrameAssets<A> {
     fn default() -> Self {
         Self {
             assets: Default::default(),
@@ -322,13 +329,13 @@ impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
     }
 }
 
-/// This system prepares all assets of the corresponding [`RenderAsset::SourceAsset`] type
+/// This system prepares all assets of the corresponding [`ErasedRenderAsset::SourceAsset`] type
 /// which where extracted this frame for the GPU.
-pub fn prepare_assets<A: RenderAsset>(
+pub fn prepare_erased_assets<A: ErasedRenderAsset>(
     mut extracted_assets: ResMut<ExtractedAssets<A>>,
-    mut render_assets: ResMut<RenderAssets<A>>,
+    mut render_assets: ResMut<ErasedRenderAssets<A::ErasedAsset>>,
     mut prepare_next_frame: ResMut<PrepareNextFrameAssets<A>>,
-    param: StaticSystemParam<<A as RenderAsset>::Param>,
+    param: StaticSystemParam<<A as ErasedRenderAsset>::Param>,
     bpf: Res<RenderAssetBytesPerFrameLimiter>,
 ) {
     let mut wrote_asset_count = 0;
@@ -419,97 +426,5 @@ pub fn prepare_assets<A: RenderAsset>(
             prepare_next_frame.assets.len(),
             wrote_asset_count
         );
-    }
-}
-
-pub fn reset_render_asset_bytes_per_frame(
-    mut bpf_limiter: ResMut<RenderAssetBytesPerFrameLimiter>,
-) {
-    bpf_limiter.reset();
-}
-
-pub fn extract_render_asset_bytes_per_frame(
-    bpf: Extract<Res<RenderAssetBytesPerFrame>>,
-    mut bpf_limiter: ResMut<RenderAssetBytesPerFrameLimiter>,
-) {
-    bpf_limiter.max_bytes = bpf.max_bytes;
-}
-
-/// A resource that defines the amount of data allowed to be transferred from CPU to GPU
-/// each frame, preventing choppy frames at the cost of waiting longer for GPU assets
-/// to become available.
-#[derive(Resource, Default)]
-pub struct RenderAssetBytesPerFrame {
-    pub max_bytes: Option<usize>,
-}
-
-impl RenderAssetBytesPerFrame {
-    /// `max_bytes`: the number of bytes to write per frame.
-    ///
-    /// This is a soft limit: only full assets are written currently, uploading stops
-    /// after the first asset that exceeds the limit.
-    ///
-    /// To participate, assets should implement [`RenderAsset::byte_len`]. If the default
-    /// is not overridden, the assets are assumed to be small enough to upload without restriction.
-    pub fn new(max_bytes: usize) -> Self {
-        Self {
-            max_bytes: Some(max_bytes),
-        }
-    }
-}
-
-/// A render-world resource that facilitates limiting the data transferred from CPU to GPU
-/// each frame, preventing choppy frames at the cost of waiting longer for GPU assets
-/// to become available.
-#[derive(Resource, Default)]
-pub struct RenderAssetBytesPerFrameLimiter {
-    /// Populated by [`RenderAssetBytesPerFrame`] during extraction.
-    pub max_bytes: Option<usize>,
-    /// Bytes written this frame.
-    pub bytes_written: AtomicUsize,
-}
-
-impl RenderAssetBytesPerFrameLimiter {
-    /// Reset the available bytes. Called once per frame during extraction by [`crate::RenderPlugin`].
-    pub fn reset(&mut self) {
-        if self.max_bytes.is_none() {
-            return;
-        }
-        self.bytes_written.store(0, Ordering::Relaxed);
-    }
-
-    /// Check how many bytes are available for writing.
-    pub fn available_bytes(&self, required_bytes: usize) -> usize {
-        if let Some(max_bytes) = self.max_bytes {
-            let total_bytes = self
-                .bytes_written
-                .fetch_add(required_bytes, Ordering::Relaxed);
-
-            // The bytes available is the inverse of the amount we overshot max_bytes
-            if total_bytes >= max_bytes {
-                required_bytes.saturating_sub(total_bytes - max_bytes)
-            } else {
-                required_bytes
-            }
-        } else {
-            required_bytes
-        }
-    }
-
-    /// Decreases the available bytes for the current frame.
-    pub(crate) fn write_bytes(&self, bytes: usize) {
-        if self.max_bytes.is_some() && bytes > 0 {
-            self.bytes_written.fetch_add(bytes, Ordering::Relaxed);
-        }
-    }
-
-    /// Returns `true` if there are no remaining bytes available for writing this frame.
-    pub(crate) fn exhausted(&self) -> bool {
-        if let Some(max_bytes) = self.max_bytes {
-            let bytes_written = self.bytes_written.load(Ordering::Relaxed);
-            bytes_written >= max_bytes
-        } else {
-            false
-        }
     }
 }

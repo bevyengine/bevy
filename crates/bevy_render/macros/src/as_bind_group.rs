@@ -1061,15 +1061,18 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 render_device: &#render_path::renderer::RenderDevice,
                 (images, fallback_image, storage_buffers): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
                 force_no_bindless: bool,
-            ) -> Result<#render_path::render_resource::UnpreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
+            ) -> Result<#render_path::render_resource::UnpreparedBindGroup, #render_path::render_resource::AsBindGroupError> {
                 #uniform_binding_type_declarations
 
                 let bindings = #render_path::render_resource::BindingResources(vec![#(#binding_impls,)*]);
 
                 Ok(#render_path::render_resource::UnpreparedBindGroup {
                     bindings,
-                    data: #get_prepared_data,
                 })
+            }
+
+            fn bind_group_data(&self) -> Self::Data {
+                #get_prepared_data
             }
 
             fn bind_group_layout_entries(

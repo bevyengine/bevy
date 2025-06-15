@@ -11,6 +11,7 @@ pub use bevy_render_macros::AsBindGroup;
 use bevy_utils::WgpuWrapper;
 use core::ops::Deref;
 use encase::ShaderType;
+use std::any::Any;
 use thiserror::Error;
 use wgpu::{
     BindGroupEntry, BindGroupLayoutEntry, BindingResource, SamplerBindingType, TextureViewDimension,
@@ -531,8 +532,8 @@ pub trait AsBindGroup {
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
-    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
-        let UnpreparedBindGroup { bindings, data } =
+    ) -> Result<PreparedBindGroup, AsBindGroupError> {
+        let UnpreparedBindGroup { bindings } =
             Self::unprepared_bind_group(self, layout, render_device, param, false)?;
 
         let entries = bindings
@@ -548,9 +549,10 @@ pub trait AsBindGroup {
         Ok(PreparedBindGroup {
             bindings,
             bind_group,
-            data,
         })
     }
+
+    fn bind_group_data(&self) -> Self::Data;
 
     /// Returns a vec of (binding index, `OwnedBindingResource`).
     ///
@@ -569,7 +571,7 @@ pub trait AsBindGroup {
         render_device: &RenderDevice,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
         force_no_bindless: bool,
-    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
+    ) -> Result<UnpreparedBindGroup, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by
     /// [`AsBindGroup::as_bind_group`]
@@ -613,16 +615,14 @@ pub enum AsBindGroupError {
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
-pub struct PreparedBindGroup<T> {
+pub struct PreparedBindGroup {
     pub bindings: BindingResources,
     pub bind_group: BindGroup,
-    pub data: T,
 }
 
 /// a map containing `OwnedBindingResource`s, keyed by the target binding index
-pub struct UnpreparedBindGroup<T> {
+pub struct UnpreparedBindGroup {
     pub bindings: BindingResources,
-    pub data: T,
 }
 
 /// A pair of binding index and binding resource, used as part of
