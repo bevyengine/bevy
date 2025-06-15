@@ -734,7 +734,7 @@ impl Default for DenyAll {
             requires_of_explicits: Default::default(),
             requires: Default::default(),
             needs_target_archetype: false,
-            attach_required_components: true
+            attach_required_components: true,
         }
     }
 }
@@ -858,17 +858,15 @@ impl DenyAll {
                 // SAFETY: caller assured this is `Some`
                 let target_archetype = unsafe { target_archetype.debug_checked_unwrap() };
 
-                // do not check if source contains component because when `required_by_reduced`
-                // did not hit zero at this point, a component that this one here is required
-                // by was cloned, so the source must also contain its required components
-                let pass = required.required_by_reduced > 0 // required by a cloned component
+                let to_clone = required.required_by_reduced > 0 // required by a cloned component
+                    && source_archetype.contains(component) // must exist to clone, may miss if removed
                     && !target_archetype.contains(component) // do not overwrite existing values
                     && !self.explicits.contains_key(&component); // was not already cloned as explicit
 
                 // revert reductions for the next entity to clone with this EntityCloner
                 required.required_by_reduced = required.required_by;
 
-                pass.then_some(component)
+                to_clone.then_some(component)
             })
         {
             clone_component(required_component);
