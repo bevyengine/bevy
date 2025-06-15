@@ -1567,19 +1567,25 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        let parent = world
-            .spawn_empty()
-            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("parent");
-            })
-            .id();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
 
-        let child = world
-            .spawn(ChildOf(parent))
-            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
+        world.entity_mut(parent).observe(
+            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("parent");
+
+                assert_eq!(trigger.target(), parent);
+                assert_eq!(trigger.original_target(), child);
+            },
+        );
+
+        world.entity_mut(child).observe(
+            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
-            })
-            .id();
+                assert_eq!(trigger.target(), child);
+                assert_eq!(trigger.original_target(), child);
+            },
+        );
 
         // TODO: ideally this flush is not necessary, but right now observe() returns EntityWorldMut
         // and therefore does not automatically flush.
