@@ -60,7 +60,7 @@ pub mod world;
 pub use bevy_ptr as ptr;
 
 #[cfg(feature = "hotpatching")]
-use event::BufferedEvent;
+use event::{BufferedEvent, Event};
 
 /// The ECS prelude.
 ///

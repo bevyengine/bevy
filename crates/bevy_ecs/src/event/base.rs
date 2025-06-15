@@ -81,7 +81,7 @@ use core::{
 /// });
 /// ```
 ///
-/// For events that additionally need entity targeting or buffering, consider instead deriving
+/// For events that additionally need entity targeting or buffering, consider also deriving
 /// [`EntityEvent`] or [`BufferedEvent`], respectively.
 ///
 /// [`World`]: crate::world::World
