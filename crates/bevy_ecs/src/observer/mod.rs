@@ -253,7 +253,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
 impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer.
     ///
-    /// Note that if event bubbling is enabled, this may not be the same as the original target of the event,
+    /// Note that if event propagation is enabled, this may not be the same as the original target of the event,
     /// which can be accessed via [`On::original_target`].
     ///
     /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
@@ -263,7 +263,7 @@ impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
 
     /// Returns the original [`Entity`] that the `event` was targeted at when it was first triggered.
     ///
-    /// If event bubbling is not enabled, this will always return the same value as [`On::target`].
+    /// If event propagation is not enabled, this will always return the same value as [`On::target`].
     ///
     /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
     pub fn original_target(&self) -> Entity {
@@ -497,11 +497,11 @@ pub struct ObserverTrigger {
     components: SmallVec<[ComponentId; 2]>,
     /// The entity that the entity-event targeted, if any.
     ///
-    /// Note that if event bubbling is enabled, this may not be the same as [`ObserverTrigger::original_target`].
+    /// Note that if event propagation is enabled, this may not be the same as [`ObserverTrigger::original_target`].
     pub current_target: Option<Entity>,
     /// The entity that the entity-event was originally targeted at, if any.
     ///
-    /// If event bubbling is enabled, this will be the first entity that the event was targeted at,
+    /// If event propagation is enabled, this will be the first entity that the event was targeted at,
     /// even if the event was propagated to other entities.
     pub original_target: Option<Entity>,
     /// The location of the source code that triggered the observer.
