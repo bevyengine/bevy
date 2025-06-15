@@ -654,29 +654,6 @@ pub struct DenyAll {
     attach_required_components: bool,
 }
 
-fn update_requires(
-    requires_of_explicits: &mut Vec<ComponentId>,
-    requires: &mut HashMap<ComponentId, Required>,
-    info: &ComponentInfo,
-) -> Range<usize> {
-    let iter = info.required_components().iter_ids().inspect(|id| {
-        requires
-            .entry(*id)
-            .and_modify(|required| {
-                required.required_by += 1;
-                required.required_by_reduced += 1;
-            })
-            .or_insert(Required {
-                required_by: 0,
-                required_by_reduced: 0,
-            });
-    });
-    let start = requires_of_explicits.len();
-    requires_of_explicits.extend(iter);
-    let end = requires_of_explicits.len();
-    start..end
-}
-
 impl DenyAll {
     fn iter_components(
         &mut self,
@@ -696,9 +673,9 @@ impl DenyAll {
                 }
                 InsertMode::Keep => {
                     // SAFETY: todo
-                    let target_contains =
-                        unsafe { target_archetype.debug_checked_unwrap().contains(component) };
-                    if source_archetype.contains(component) && !target_contains {
+                    let target_archetype = unsafe { target_archetype.debug_checked_unwrap() };
+                    if source_archetype.contains(component) && !target_archetype.contains(component)
+                    {
                         c(component);
                         true
                     } else {
@@ -721,11 +698,15 @@ impl DenyAll {
         for component in self
             .requires
             .iter_mut()
-            .filter_map(|(component, required)| {
-                let pass =
-                    required.required_by_reduced > 0 && !self.explicits.contains_key(component);
+            .filter_map(|(&component, required)| {
+                // SAFETY: todo
+                let target_archetype = unsafe { target_archetype.debug_checked_unwrap() };
+                let pass = required.required_by_reduced > 0
+                    && !self.explicits.contains_key(&component)
+                    && source_archetype.contains(component)
+                    && !target_archetype.contains(component);
                 required.required_by_reduced = required.required_by;
-                pass.then_some(*component)
+                pass.then_some(component)
             })
         {
             c(component);
@@ -857,7 +838,7 @@ impl<'w> EntityClonerBuilder<'w, AllowAll> {
         self.entity_cloner.clone_entity(self.world, source, target);
         match self.entity_cloner.filter.take() {
             Some(AllowOrDenyAll::AllowAll(filter)) => self.filter = filter,
-            _ => unreachable!("todo")
+            _ => unreachable!("todo"),
         }
         self
     }
@@ -904,7 +885,7 @@ impl<'w> EntityClonerBuilder<'w, DenyAll> {
         self.entity_cloner.clone_entity(self.world, source, target);
         match self.entity_cloner.filter.take() {
             Some(AllowOrDenyAll::DenyAll(filter)) => self.filter = *filter,
-            _ => unreachable!("todo")
+            _ => unreachable!("todo"),
         }
         self
     }
@@ -1005,6 +986,26 @@ impl<'w> EntityClonerBuilder<'w, DenyAll> {
 
     /// Helper function that allows a component through the filter.
     fn filter_allow(&mut self, id: ComponentId, insert_mode: InsertMode) {
+        let mut update_requires_get_range = |info: &ComponentInfo| -> Range<usize> {
+            let iter = info.required_components().iter_ids().inspect(|id| {
+                self.filter
+                    .requires
+                    .entry(*id)
+                    .and_modify(|required| {
+                        required.required_by += 1;
+                        required.required_by_reduced += 1;
+                    })
+                    .or_insert(Required {
+                        required_by: 1,
+                        required_by_reduced: 1,
+                    });
+            });
+            let start = self.filter.requires_of_explicits.len();
+            self.filter.requires_of_explicits.extend(iter);
+            let end = self.filter.requires_of_explicits.len();
+            start..end
+        };
+
         match self.filter.explicits.entry(id) {
             Entry::Vacant(vacant) => {
                 if !self.filter.attach_required_components {
@@ -1015,14 +1016,9 @@ impl<'w> EntityClonerBuilder<'w, DenyAll> {
                     self.filter.needs_target_archetype |= insert_mode == InsertMode::Keep;
                 } else if let Some(info) = self.world.components().get_info(id) {
                     self.filter.needs_target_archetype = true;
-                    let requires = update_requires(
-                        &mut self.filter.requires_of_explicits,
-                        &mut self.filter.requires,
-                        info,
-                    );
                     vacant.insert(Explicit {
                         insert_mode,
-                        requires: Some(requires),
+                        requires: Some(update_requires_get_range(info)),
                     });
                 }
             }
@@ -1035,12 +1031,7 @@ impl<'w> EntityClonerBuilder<'w, DenyAll> {
                 if self.filter.attach_required_components && explicit.requires.is_none() {
                     self.filter.needs_target_archetype = true;
                     if let Some(info) = self.world.components().get_info(id) {
-                        let requires = update_requires(
-                            &mut self.filter.requires_of_explicits,
-                            &mut self.filter.requires,
-                            info,
-                        );
-                        explicit.requires = Some(requires);
+                        explicit.requires = Some(update_requires_get_range(info));
                     }
                 }
             }
