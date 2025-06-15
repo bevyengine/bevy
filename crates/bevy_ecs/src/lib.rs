@@ -60,7 +60,7 @@ pub mod world;
 pub use bevy_ptr as ptr;
 
 #[cfg(feature = "hotpatching")]
-use event::Event;
+use event::{BufferedEvent, Event};
 
 /// The ECS prelude.
 ///
@@ -78,7 +78,9 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
-        event::{Event, EventMutator, EventReader, EventWriter, Events},
+        event::{
+            BufferedEvent, EntityEvent, Event, EventMutator, EventReader, EventWriter, Events,
+        },
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{
             Add, Despawn, Insert, OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, Remove,
@@ -137,7 +139,7 @@ pub mod __macro_exports {
 ///
 /// Systems should refresh their inner pointers.
 #[cfg(feature = "hotpatching")]
-#[derive(Event, Default)]
+#[derive(Event, BufferedEvent, Default)]
 pub struct HotPatched;
 
 #[cfg(test)]

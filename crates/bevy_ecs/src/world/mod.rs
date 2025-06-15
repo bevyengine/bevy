@@ -44,7 +44,7 @@ use crate::{
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
-    event::{Event, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, Event, EventId, Events, SendBatchIds},
     lifecycle::{
         Add, ComponentHooks, Despawn, Insert, Remove, RemovedComponentEvents, Replace, ADD,
         DESPAWN, INSERT, REMOVE, REPLACE,
@@ -2597,27 +2597,27 @@ impl World {
         Some(result)
     }
 
-    /// Sends an [`Event`].
+    /// Sends a [`BufferedEvent`].
     /// This method returns the [ID](`EventId`) of the sent `event`,
     /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event<E: Event>(&mut self, event: E) -> Option<EventId<E>> {
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
         self.send_event_batch(core::iter::once(event))?.next()
     }
 
-    /// Sends the default value of the [`Event`] of type `E`.
+    /// Sends the default value of the [`BufferedEvent`] of type `E`.
     /// This method returns the [ID](`EventId`) of the sent `event`,
     /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event_default<E: Event + Default>(&mut self) -> Option<EventId<E>> {
+    pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
         self.send_event(E::default())
     }
 
-    /// Sends a batch of [`Event`]s from an iterator.
+    /// Sends a batch of [`BufferedEvent`]s from an iterator.
     /// This method returns the [IDs](`EventId`) of the sent `events`,
     /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event_batch<E: Event>(
+    pub fn send_event_batch<E: BufferedEvent>(
         &mut self,
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
