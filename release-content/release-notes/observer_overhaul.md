@@ -1,7 +1,7 @@
 ---
 title: Observer Overhaul
 authors: ["@Jondolf", "@alice-i-cecile"]
-pull_requests: [19596, TODO]
+pull_requests: [19596, 19663]
 ---
 
 ## Rename `Trigger` to `On`
