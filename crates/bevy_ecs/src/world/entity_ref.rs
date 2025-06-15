@@ -13,7 +13,7 @@ use crate::{
         AllowAll, ContainsEntity, DenyAll, Entity, EntityCloner, EntityClonerBuilder,
         EntityEquivalent, EntityIdLocation, EntityLocation,
     },
-    event::Event,
+    event::EntityEvent,
     lifecycle::{DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -2626,7 +2626,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
-    pub fn trigger(&mut self, event: impl Event) -> &mut Self {
+    pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
         self.assert_not_despawned();
         self.world.trigger_targets(event, self.entity);
         self.world.flush();
@@ -2643,14 +2643,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the given system is an exclusive system.
     #[track_caller]
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
-    pub(crate) fn observe_with_caller<E: Event, B: Bundle, M>(
+    pub(crate) fn observe_with_caller<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
         caller: MaybeLocation,
@@ -5771,7 +5771,7 @@ mod tests {
         assert_eq!((&mut X(8), &mut Y(9)), (x_component, y_component));
     }
 
-    #[derive(Event)]
+    #[derive(Event, EntityEvent)]
     struct TestEvent;
 
     #[test]
@@ -5780,9 +5780,7 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|trigger: On<TestEvent>, mut commands: Commands| {
-                commands
-                    .entity(trigger.target().unwrap())
-                    .insert(TestComponent(0));
+                commands.entity(trigger.target()).insert(TestComponent(0));
             })
             .id();
 
@@ -5801,7 +5799,7 @@ mod tests {
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
         world.add_observer(|trigger: On<Add, TestComponent>, mut commands: Commands| {
-            commands.entity(trigger.target().unwrap()).despawn();
+            commands.entity(trigger.target()).despawn();
         });
         let entity = world.spawn_empty().id();
         let mut a = world.entity_mut(entity);
