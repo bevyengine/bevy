@@ -159,6 +159,7 @@ impl<'w> DeferredWorld<'w> {
                 self.trigger_observers(
                     REPLACE,
                     Some(entity),
+                    Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
                 );
@@ -198,6 +199,7 @@ impl<'w> DeferredWorld<'w> {
             if archetype.has_insert_observer() {
                 self.trigger_observers(
                     INSERT,
+                    Some(entity),
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
@@ -740,6 +742,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         current_target: Option<Entity>,
+        original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
     ) {
@@ -747,6 +750,7 @@ impl<'w> DeferredWorld<'w> {
             self.reborrow(),
             event,
             current_target,
+            original_target,
             components,
             &mut (),
             &mut false,
@@ -763,6 +767,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         current_target: Option<Entity>,
+        original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
@@ -774,6 +779,7 @@ impl<'w> DeferredWorld<'w> {
             self.reborrow(),
             event,
             current_target,
+            original_target,
             components.clone(),
             data,
             &mut propagate,
@@ -801,6 +807,7 @@ impl<'w> DeferredWorld<'w> {
                 self.reborrow(),
                 event,
                 Some(current_target),
+                original_target,
                 components.clone(),
                 data,
                 &mut propagate,

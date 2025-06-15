@@ -483,8 +483,15 @@ pub struct ObserverTrigger {
     pub event_type: ComponentId,
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
-    /// The entity the trigger targeted.
+    /// The entity that the entity-event targeted, if any.
+    ///
+    /// Note that if event bubbling is enabled, this may not be the same as [`ObserverTrigger::original_target`].
     pub current_target: Option<Entity>,
+    /// The entity that the entity-event was originally targeted at, if any.
+    ///
+    /// If event bubbling is enabled, this will be the first entity that the event was targeted at,
+    /// even if the event was propagated to other entities.
+    pub original_target: Option<Entity>,
     /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
 }
@@ -574,6 +581,7 @@ impl Observers {
         mut world: DeferredWorld,
         event_type: ComponentId,
         current_target: Option<Entity>,
+        original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -602,6 +610,7 @@ impl Observers {
                     event_type,
                     components: components.clone().collect(),
                     current_target,
+                    original_target,
                     caller,
                 },
                 data.into(),
@@ -752,6 +761,7 @@ impl World {
             world.trigger_observers_with_data::<_, ()>(
                 event_id,
                 None,
+                None,
                 core::iter::empty::<ComponentId>(),
                 event_data,
                 false,
@@ -863,6 +873,7 @@ impl World {
                 world.trigger_observers_with_data::<_, E::Traversal>(
                     event_id,
                     None,
+                    None,
                     targets.components(),
                     event_data,
                     false,
@@ -875,6 +886,7 @@ impl World {
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
                         event_id,
+                        Some(target_entity),
                         Some(target_entity),
                         targets.components(),
                         event_data,
