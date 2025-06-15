@@ -728,9 +728,9 @@ impl DenyAll {
                 // do not check if source contains component because when `required_by_reduced`
                 // did not hit zero at this point, a component that this one here is required
                 // by was cloned, so the source must also contain its required components
-                let pass = required.required_by_reduced > 0 // required by one of the cloned components
-                    && !self.explicits.contains_key(&component) // was not already cloned as explicit
-                    && !target_archetype.contains(component); // do not overwrite existing values
+                let pass = required.required_by_reduced > 0 // required by a cloned component
+                    && !target_archetype.contains(component) // do not overwrite existing values
+                    && !self.explicits.contains_key(&component); // was not already cloned as explicit
 
                 // revert reductions for the next entity to clone with this EntityCloner
                 required.required_by_reduced = required.required_by;
@@ -770,7 +770,9 @@ impl DenyAll {
                         insert_mode,
                         requires: None,
                     });
-                    self.needs_target_archetype |= insert_mode == InsertMode::Keep;
+                    if insert_mode == InsertMode::Keep {
+                        self.needs_target_archetype = true;
+                    }
                 } else if let Some(info) = world.components().get_info(id) {
                     self.needs_target_archetype = true;
                     vacant.insert(Explicit {
@@ -784,12 +786,14 @@ impl DenyAll {
                 match insert_mode {
                     InsertMode::Replace => explicit.insert_mode = InsertMode::Replace,
                     InsertMode::Keep => {
-                        self.needs_target_archetype |= explicit.insert_mode == InsertMode::Keep
+                        if explicit.insert_mode == InsertMode::Keep {
+                            self.needs_target_archetype = true;
+                        }
                     }
                 }
                 if self.attach_required_components && explicit.requires.is_none() {
-                    self.needs_target_archetype = true;
                     if let Some(info) = world.components().get_info(id) {
+                        self.needs_target_archetype = true;
                         explicit.requires = Some(update_requires_get_range(info));
                     }
                 }
