@@ -672,14 +672,14 @@ pub struct DenyAll {
     attach_required_components: bool,
 }
 
-struct Required {
-    required_by: usize,
-    required_by_reduced: usize,
-}
-
 struct Explicit {
     insert_mode: InsertMode,
     requires: Option<Range<usize>>,
+}
+
+struct Required {
+    required_by: usize,
+    required_by_reduced: usize,
 }
 
 impl DenyAll {
@@ -783,7 +783,9 @@ impl DenyAll {
                 let explicit = occupied.get_mut();
                 match insert_mode {
                     InsertMode::Replace => explicit.insert_mode = InsertMode::Replace,
-                    InsertMode::Keep => self.needs_target_archetype = true,
+                    InsertMode::Keep => {
+                        self.needs_target_archetype |= explicit.insert_mode == InsertMode::Keep
+                    }
                 }
                 if self.attach_required_components && explicit.requires.is_none() {
                     self.needs_target_archetype = true;
