@@ -262,7 +262,7 @@ fn slider_on_add_disabled(
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, hovered)) = sliders.get(trigger.target().unwrap()) {
+    if let Ok((slider_ent, hovered)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
             if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
                 if is_thumb {
@@ -279,7 +279,7 @@ fn slider_on_remove_disabled(
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, hovered)) = sliders.get(trigger.target().unwrap()) {
+    if let Ok((slider_ent, hovered)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
             if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
                 if is_thumb {
@@ -296,7 +296,7 @@ fn slider_on_change_hover(
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, hovered, disabled)) = sliders.get(trigger.target().unwrap()) {
+    if let Ok((slider_ent, hovered, disabled)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
             if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
                 if is_thumb {
@@ -313,7 +313,7 @@ fn slider_on_change_value(
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, value, range)) = sliders.get(trigger.target().unwrap()) {
+    if let Ok((slider_ent, value, range)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
             if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child) {
                 if is_thumb {
@@ -330,7 +330,7 @@ fn slider_on_change_range(
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, value, range)) = sliders.get(trigger.target().unwrap()) {
+    if let Ok((slider_ent, value, range)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
             if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child) {
                 if is_thumb {
