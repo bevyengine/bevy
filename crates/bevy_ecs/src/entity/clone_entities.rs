@@ -2,7 +2,7 @@ use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
-use core::{any::TypeId, ops::Range};
+use core::{any::TypeId, cell::LazyCell, ops::Range};
 
 use crate::{
     archetype::Archetype,
@@ -555,18 +555,15 @@ impl EntityCloner {
                     }
                 }
                 AllowOrDenyAll::DenyAll(filter) => {
-                    let target_archetype = filter.needs_target_archetype.then(|| {
+                    let target_archetype = LazyCell::new(|| {
                         world
                             .get_entity(target)
                             .expect("Target entity must exist")
                             .archetype()
                     });
-                    // SAFETY: `target_archetype` is Some based on `filter.needs_target_archetype`
-                    unsafe {
-                        filter.iter_components(source_archetype, target_archetype, |component| {
-                            clone_component(component, self)
-                        })
-                    };
+                    filter.iter_components(source_archetype, target_archetype, |component| {
+                        clone_component(component, self)
+                    })
                 }
             }
 
@@ -679,13 +676,7 @@ pub struct DenyAll {
     /// Contains the components required by those in [`Self::explicits`].
     /// Also contains the number of components in [`Self::explicits`] each is required by to track
     /// when to skip cloning a required component after skipping explicit components that require it.
-    ///
-    /// If this is not empty, [`Self::needs_target_archetype`] is true.
     requires: HashMap<ComponentId, Required>,
-
-    /// Is `true` when the target [`Archetype`] is needed as required components and those configured
-    /// as allowed "if new" should only be cloned when absent at the target.
-    needs_target_archetype: bool,
 
     /// Is `true` unless during [`EntityClonerBuilder::without_required_components`] which will suppress
     /// evaluating required components to clone, causing them to be created independent from the value at
@@ -698,8 +689,6 @@ struct Explicit {
     /// If component was added via [`allow`](EntityClonerBuilder::allow) etc, this is `Overwrite`.
     ///
     /// If component was added via [`allow_if_new`](EntityClonerBuilder::allow_if_new) etc, this is `Keep`.
-    ///
-    /// If any `Explicit` exists with `Keep`, then [`DenyAll::needs_target_archetype`] is `true`.
     insert_mode: InsertMode,
 
     /// Contains the range in [`DenyAll::requires_of_explicits`] for this component containing its
@@ -733,7 +722,6 @@ impl Default for DenyAll {
             explicits: Default::default(),
             requires_of_explicits: Default::default(),
             requires: Default::default(),
-            needs_target_archetype: false,
             attach_required_components: true,
         }
     }
@@ -772,15 +760,7 @@ impl DenyAll {
                         insert_mode,
                         requires: None,
                     });
-
-                    if insert_mode == InsertMode::Keep {
-                        // need to know target archetype to insert explicit only if new
-                        self.needs_target_archetype = true;
-                    }
                 } else if let Some(info) = world.components().get_info(id) {
-                    // need to know target archetype to insert required only if new
-                    self.needs_target_archetype = true;
-
                     vacant.insert(Explicit {
                         insert_mode,
                         requires: Some(update_requires_get_range(info)),
@@ -790,25 +770,14 @@ impl DenyAll {
             Entry::Occupied(mut occupied) => {
                 let explicit = occupied.get_mut();
 
-                match insert_mode {
-                    InsertMode::Replace => {
-                        // overwrite value if it was inserted as `Keep` earlier
-                        explicit.insert_mode = InsertMode::Replace;
-                    }
-                    InsertMode::Keep => {
-                        if explicit.insert_mode == InsertMode::Keep {
-                            // need to know target archetype to insert explicit only if new
-                            self.needs_target_archetype = true;
-                        }
-                    }
+                if insert_mode == InsertMode::Replace {
+                    // overwrite value if it was inserted as `Keep` earlier
+                    explicit.insert_mode = InsertMode::Replace;
                 }
 
                 // set required component range if it was inserted with `None` earlier
                 if self.attach_required_components && explicit.requires.is_none() {
                     if let Some(info) = world.components().get_info(id) {
-                        // need to know target archetype to insert required only if new
-                        self.needs_target_archetype = true;
-
                         explicit.requires = Some(update_requires_get_range(info));
                     }
                 }
@@ -817,14 +786,10 @@ impl DenyAll {
     }
 
     /// Call `clone_component` for all components to be cloned.
-    ///
-    /// # Safety
-    ///
-    /// `target_archetype` must be `Some` when [`Self::needs_target_archetype`] is true.
-    unsafe fn iter_components(
+    fn iter_components<'a>(
         &mut self,
         source_archetype: &Archetype,
-        target_archetype: Option<&Archetype>,
+        target_archetype: LazyCell<&'a Archetype, impl FnOnce() -> &'a Archetype>,
         mut clone_component: impl FnMut(ComponentId),
     ) {
         // clone explicit components
@@ -832,8 +797,6 @@ impl DenyAll {
             let do_clone = match explicit.insert_mode {
                 InsertMode::Replace => source_archetype.contains(component),
                 InsertMode::Keep => {
-                    // SAFETY: caller assured this is `Some`
-                    let target_archetype = unsafe { target_archetype.debug_checked_unwrap() };
                     source_archetype.contains(component) && !target_archetype.contains(component)
                 }
             };
@@ -855,9 +818,6 @@ impl DenyAll {
             .requires
             .iter_mut()
             .filter_map(|(&component, required)| {
-                // SAFETY: caller assured this is `Some`
-                let target_archetype = unsafe { target_archetype.debug_checked_unwrap() };
-
                 let to_clone = required.required_by_reduced > 0 // required by a cloned component
                     && source_archetype.contains(component) // must exist to clone, may miss if removed
                     && !target_archetype.contains(component) // do not overwrite existing values
