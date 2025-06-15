@@ -8,8 +8,6 @@
     clippy::all,
     clippy::undocumented_unsafe_blocks,
     clippy::ptr_cast_constness,
-    // FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-    missing_docs
 )]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
