@@ -738,17 +738,132 @@ mod tests {
     }
 
     #[test]
-    fn replace_related_keeps_data() {
-        #[derive(Component)]
+    fn add_related_keeps_relationship_data() {
+        #[derive(Component, PartialEq, Debug)]
         #[relationship(relationship_target = Parent)]
-        pub struct Child(Entity);
+        struct Child {
+            #[relationship]
+            parent: Entity,
+            data: u8,
+        }
 
         #[derive(Component)]
         #[relationship_target(relationship = Child)]
-        pub struct Parent {
+        struct Parent(Vec<Entity>);
+
+        let mut world = World::new();
+        let parent1 = world.spawn_empty().id();
+        let parent2 = world.spawn_empty().id();
+        let child = world
+            .spawn(Child {
+                parent: parent1,
+                data: 42,
+            })
+            .id();
+
+        world.entity_mut(parent2).add_related::<Child>(&[child]);
+        assert_eq!(
+            world.get::<Child>(child),
+            Some(&Child {
+                parent: parent2,
+                data: 42
+            })
+        );
+    }
+
+    #[test]
+    fn insert_related_keeps_relationship_data() {
+        #[derive(Component, PartialEq, Debug)]
+        #[relationship(relationship_target = Parent)]
+        struct Child {
+            #[relationship]
+            parent: Entity,
+            data: u8,
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Child)]
+        struct Parent(Vec<Entity>);
+
+        let mut world = World::new();
+        let parent1 = world.spawn_empty().id();
+        let parent2 = world.spawn_empty().id();
+        let child = world
+            .spawn(Child {
+                parent: parent1,
+                data: 42,
+            })
+            .id();
+
+        world
+            .entity_mut(parent2)
+            .insert_related::<Child>(0, &[child]);
+        assert_eq!(
+            world.get::<Child>(child),
+            Some(&Child {
+                parent: parent2,
+                data: 42
+            })
+        );
+    }
+
+    #[test]
+    fn replace_related_keeps_relationship_data() {
+        #[derive(Component, PartialEq, Debug)]
+        #[relationship(relationship_target = Parent)]
+        struct Child {
+            #[relationship]
+            parent: Entity,
+            data: u8,
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Child)]
+        struct Parent(Vec<Entity>);
+
+        let mut world = World::new();
+        let parent1 = world.spawn_empty().id();
+        let parent2 = world.spawn_empty().id();
+        let child = world
+            .spawn(Child {
+                parent: parent1,
+                data: 42,
+            })
+            .id();
+
+        world
+            .entity_mut(parent2)
+            .replace_related_with_difference::<Child>(&[], &[child], &[child]);
+        assert_eq!(
+            world.get::<Child>(child),
+            Some(&Child {
+                parent: parent2,
+                data: 42
+            })
+        );
+
+        world.entity_mut(parent1).replace_related::<Child>(&[child]);
+        assert_eq!(
+            world.get::<Child>(child),
+            Some(&Child {
+                parent: parent1,
+                data: 42
+            })
+        );
+    }
+
+    #[test]
+    fn replace_related_keeps_relationship_target_data() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Parent)]
+        struct Child(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Child)]
+        struct Parent {
             #[relationship]
             children: Vec<Entity>,
-            pub data: u8,
+            data: u8,
         }
 
         let mut world = World::new();
