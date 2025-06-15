@@ -575,7 +575,7 @@ fn checkbox_on_add_disabled(
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, checked, children)) = checkboxes.get(trigger.target().unwrap()) {
+    if let Ok((hovered, checked, children)) = checkboxes.get(trigger.target()) {
         set_checkbox_style(children, &mut borders, &mut marks, true, hovered.0, checked);
     }
 }
@@ -586,7 +586,7 @@ fn checkbox_on_remove_disabled(
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, checked, children)) = checkboxes.get(trigger.target().unwrap()) {
+    if let Ok((hovered, checked, children)) = checkboxes.get(trigger.target()) {
         set_checkbox_style(
             children,
             &mut borders,
@@ -607,7 +607,7 @@ fn checkbox_on_change_hover(
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, disabled, checked, children)) = checkboxes.get(trigger.target().unwrap()) {
+    if let Ok((hovered, disabled, checked, children)) = checkboxes.get(trigger.target()) {
         set_checkbox_style(
             children,
             &mut borders,
@@ -628,7 +628,7 @@ fn checkbox_on_add_checked(
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, disabled, checked, children)) = checkboxes.get(trigger.target().unwrap()) {
+    if let Ok((hovered, disabled, checked, children)) = checkboxes.get(trigger.target()) {
         set_checkbox_style(
             children,
             &mut borders,
@@ -646,7 +646,7 @@ fn checkbox_on_remove_checked(
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, disabled, children)) = checkboxes.get(trigger.target().unwrap()) {
+    if let Ok((hovered, disabled, children)) = checkboxes.get(trigger.target()) {
         set_checkbox_style(
             children,
             &mut borders,

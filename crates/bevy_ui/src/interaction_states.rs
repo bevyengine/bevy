@@ -49,7 +49,7 @@ pub struct Checkable;
 pub struct Checked;
 
 pub(crate) fn on_add_checkable(trigger: On<Add, Checked>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target().unwrap());
+    let mut entity = world.entity_mut(trigger.target());
     let checked = entity.get::<Checked>().is_some();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(match checked {
@@ -61,21 +61,21 @@ pub(crate) fn on_add_checkable(trigger: On<Add, Checked>, mut world: DeferredWor
 
 pub(crate) fn on_remove_checkable(trigger: On<Add, Checked>, mut world: DeferredWorld) {
     // Remove the 'toggled' attribute entirely.
-    let mut entity = world.entity_mut(trigger.target().unwrap());
+    let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.clear_toggled();
     }
 }
 
 pub(crate) fn on_add_checked(trigger: On<Add, Checked>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target().unwrap());
+    let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::True);
     }
 }
 
 pub(crate) fn on_remove_checked(trigger: On<Remove, Checked>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target().unwrap());
+    let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::False);
     }

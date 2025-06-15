@@ -1,7 +1,7 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
-use bevy_ecs::event::Event;
+use bevy_ecs::event::{EntityEvent, Event};
 use bevy_ecs::query::Has;
 use bevy_ecs::system::{In, ResMut};
 use bevy_ecs::{
@@ -37,7 +37,7 @@ fn checkbox_on_key_input(
     q_checkbox: Query<(&CoreCheckbox, Has<Checked>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target().unwrap()) {
+    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target()) {
         let event = &ev.event().input;
         if !disabled
             && event.state == ButtonState::Pressed
@@ -45,7 +45,7 @@ fn checkbox_on_key_input(
             && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
         {
             ev.propagate(false);
-            set_checkbox_state(&mut commands, ev.target().unwrap(), checkbox, !is_checked);
+            set_checkbox_state(&mut commands, ev.target(), checkbox, !is_checked);
         }
     }
 }
@@ -57,11 +57,11 @@ fn checkbox_on_pointer_click(
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target().unwrap()) {
+    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target()) {
         // Clicking on a button makes it the focused input,
         // and hides the focus ring if it was visible.
         if let Some(mut focus) = focus {
-            focus.0 = ev.target();
+            focus.0 = Some(ev.target());
         }
         if let Some(mut focus_visible) = focus_visible {
             focus_visible.0 = false;
@@ -69,7 +69,7 @@ fn checkbox_on_pointer_click(
 
         ev.propagate(false);
         if !disabled {
-            set_checkbox_state(&mut commands, ev.target().unwrap(), checkbox, !is_checked);
+            set_checkbox_state(&mut commands, ev.target(), checkbox, !is_checked);
         }
     }
 }
@@ -93,7 +93,7 @@ fn checkbox_on_pointer_click(
 ///     commands.trigger_targets(SetChecked(true), checkbox);
 /// }
 /// ```
-#[derive(Event)]
+#[derive(Event, EntityEvent)]
 pub struct SetChecked(pub bool);
 
 /// Event which can be triggered on a checkbox to toggle the checked state. This can be used to
@@ -115,7 +115,7 @@ pub struct SetChecked(pub bool);
 ///     commands.trigger_targets(ToggleChecked, checkbox);
 /// }
 /// ```
-#[derive(Event)]
+#[derive(Event, EntityEvent)]
 pub struct ToggleChecked;
 
 fn checkbox_on_set_checked(
@@ -123,7 +123,7 @@ fn checkbox_on_set_checked(
     q_checkbox: Query<(&CoreCheckbox, Has<Checked>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target().unwrap()) {
+    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target()) {
         ev.propagate(false);
         if disabled {
             return;
@@ -131,12 +131,7 @@ fn checkbox_on_set_checked(
 
         let will_be_checked = ev.event().0;
         if will_be_checked != is_checked {
-            set_checkbox_state(
-                &mut commands,
-                ev.target().unwrap(),
-                checkbox,
-                will_be_checked,
-            );
+            set_checkbox_state(&mut commands, ev.target(), checkbox, will_be_checked);
         }
     }
 }
@@ -146,13 +141,13 @@ fn checkbox_on_toggle_checked(
     q_checkbox: Query<(&CoreCheckbox, Has<Checked>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target().unwrap()) {
+    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target()) {
         ev.propagate(false);
         if disabled {
             return;
         }
 
-        set_checkbox_state(&mut commands, ev.target().unwrap(), checkbox, !is_checked);
+        set_checkbox_state(&mut commands, ev.target(), checkbox, !is_checked);
     }
 }
 
