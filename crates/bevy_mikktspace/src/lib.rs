@@ -7,7 +7,7 @@
     unsafe_op_in_unsafe_fn,
     clippy::all,
     clippy::undocumented_unsafe_blocks,
-    clippy::ptr_cast_constness,
+    clippy::ptr_cast_constness
 )]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
