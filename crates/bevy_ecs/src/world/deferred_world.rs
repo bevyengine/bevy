@@ -159,7 +159,6 @@ impl<'w> DeferredWorld<'w> {
                 self.trigger_observers(
                     REPLACE,
                     Some(entity),
-                    Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
                 );
@@ -199,7 +198,6 @@ impl<'w> DeferredWorld<'w> {
             if archetype.has_insert_observer() {
                 self.trigger_observers(
                     INSERT,
-                    Some(entity),
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
@@ -741,16 +739,15 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers(
         &mut self,
         event: ComponentId,
-        current_target: Option<Entity>,
-        original_target: Option<Entity>,
+        target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
-            current_target,
-            original_target,
+            target,
+            target,
             components,
             &mut (),
             &mut false,

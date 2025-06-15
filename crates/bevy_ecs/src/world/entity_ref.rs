@@ -2370,7 +2370,6 @@ impl<'w> EntityWorldMut<'w> {
                 deferred_world.trigger_observers(
                     DESPAWN,
                     Some(self.entity),
-                    Some(self.entity),
                     archetype.components(),
                     caller,
                 );
@@ -2384,7 +2383,6 @@ impl<'w> EntityWorldMut<'w> {
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(
                     REPLACE,
-                    Some(self.entity),
                     Some(self.entity),
                     archetype.components(),
                     caller,
@@ -2400,7 +2398,6 @@ impl<'w> EntityWorldMut<'w> {
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     REMOVE,
-                    Some(self.entity),
                     Some(self.entity),
                     archetype.components(),
                     caller,
