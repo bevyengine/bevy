@@ -4,7 +4,7 @@ use crate::{
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     view::ViewVisibility,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
@@ -70,7 +70,7 @@ pub trait ExtractComponent: Component {
 /// For referencing the newly created uniforms a [`DynamicUniformIndex`] is inserted
 /// for every processed entity.
 ///
-/// Therefore it sets up the [`RenderSet::Prepare`] step
+/// Therefore it sets up the [`RenderSystems::Prepare`] step
 /// for the specified [`ExtractComponent`].
 pub struct UniformComponentPlugin<C>(PhantomData<fn() -> C>);
 
@@ -87,7 +87,7 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
                 .insert_resource(ComponentUniforms::<C>::default())
                 .add_systems(
                     Render,
-                    prepare_uniform_components::<C>.in_set(RenderSet::PrepareResources),
+                    prepare_uniform_components::<C>.in_set(RenderSystems::PrepareResources),
                 );
         }
     }

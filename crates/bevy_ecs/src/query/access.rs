@@ -257,9 +257,10 @@ impl<T: SparseSetIndex> Access<T> {
     /// This is for components whose values are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     ///
-    /// Currently, this is only used for [`Has<T>`].
+    /// Currently, this is only used for [`Has<T>`] and [`Allows<T>`].
     ///
     /// [`Has<T>`]: crate::query::Has
+    /// [`Allows<T>`]: crate::query::filter::Allows
     pub fn add_archetypal(&mut self, index: T) {
         self.archetypal.grow_and_insert(index.sparse_set_index());
     }
@@ -430,75 +431,56 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access<T>) {
-        let component_read_and_writes_inverted =
-            self.component_read_and_writes_inverted || other.component_read_and_writes_inverted;
-        let component_writes_inverted =
-            self.component_writes_inverted || other.component_writes_inverted;
-
-        match (
-            self.component_read_and_writes_inverted,
+        invertible_union_with(
+            &mut self.component_read_and_writes,
+            &mut self.component_read_and_writes_inverted,
+            &other.component_read_and_writes,
             other.component_read_and_writes_inverted,
-        ) {
-            (true, true) => {
-                self.component_read_and_writes
-                    .intersect_with(&other.component_read_and_writes);
-            }
-            (true, false) => {
-                self.component_read_and_writes
-                    .difference_with(&other.component_read_and_writes);
-            }
-            (false, true) => {
-                // We have to grow here because the new bits are going to get flipped to 1.
-                self.component_read_and_writes.grow(
-                    self.component_read_and_writes
-                        .len()
-                        .max(other.component_read_and_writes.len()),
-                );
-                self.component_read_and_writes.toggle_range(..);
-                self.component_read_and_writes
-                    .intersect_with(&other.component_read_and_writes);
-            }
-            (false, false) => {
-                self.component_read_and_writes
-                    .union_with(&other.component_read_and_writes);
-            }
-        }
-
-        match (
-            self.component_writes_inverted,
+        );
+        invertible_union_with(
+            &mut self.component_writes,
+            &mut self.component_writes_inverted,
+            &other.component_writes,
             other.component_writes_inverted,
-        ) {
-            (true, true) => {
-                self.component_writes
-                    .intersect_with(&other.component_writes);
-            }
-            (true, false) => {
-                self.component_writes
-                    .difference_with(&other.component_writes);
-            }
-            (false, true) => {
-                // We have to grow here because the new bits are going to get flipped to 1.
-                self.component_writes.grow(
-                    self.component_writes
-                        .len()
-                        .max(other.component_writes.len()),
-                );
-                self.component_writes.toggle_range(..);
-                self.component_writes
-                    .intersect_with(&other.component_writes);
-            }
-            (false, false) => {
-                self.component_writes.union_with(&other.component_writes);
-            }
-        }
+        );
 
         self.reads_all_resources = self.reads_all_resources || other.reads_all_resources;
         self.writes_all_resources = self.writes_all_resources || other.writes_all_resources;
-        self.component_read_and_writes_inverted = component_read_and_writes_inverted;
-        self.component_writes_inverted = component_writes_inverted;
         self.resource_read_and_writes
             .union_with(&other.resource_read_and_writes);
         self.resource_writes.union_with(&other.resource_writes);
+        self.archetypal.union_with(&other.archetypal);
+    }
+
+    /// Removes any access from `self` that would conflict with `other`.
+    /// This removes any reads and writes for any component written by `other`,
+    /// and removes any writes for any component read by `other`.
+    pub fn remove_conflicting_access(&mut self, other: &Access<T>) {
+        invertible_difference_with(
+            &mut self.component_read_and_writes,
+            &mut self.component_read_and_writes_inverted,
+            &other.component_writes,
+            other.component_writes_inverted,
+        );
+        invertible_difference_with(
+            &mut self.component_writes,
+            &mut self.component_writes_inverted,
+            &other.component_read_and_writes,
+            other.component_read_and_writes_inverted,
+        );
+
+        if other.reads_all_resources {
+            self.writes_all_resources = false;
+            self.resource_writes.clear();
+        }
+        if other.writes_all_resources {
+            self.reads_all_resources = false;
+            self.resource_read_and_writes.clear();
+        }
+        self.resource_read_and_writes
+            .difference_with(&other.resource_writes);
+        self.resource_writes
+            .difference_with(&other.resource_read_and_writes);
     }
 
     /// Returns `true` if the access and `other` can be active at the same time,
@@ -838,6 +820,55 @@ impl<T: SparseSetIndex> Access<T> {
     }
 }
 
+/// Performs an in-place union of `other` into `self`, where either set may be inverted.
+///
+/// Each set corresponds to a `FixedBitSet` if `inverted` is `false`,
+/// or to the infinite (co-finite) complement of the `FixedBitSet` if `inverted` is `true`.
+///
+/// This updates the `self` set to include any elements in the `other` set.
+/// Note that this may change `self_inverted` to `true` if we add an infinite
+/// set to a finite one, resulting in a new infinite set.
+fn invertible_union_with(
+    self_set: &mut FixedBitSet,
+    self_inverted: &mut bool,
+    other_set: &FixedBitSet,
+    other_inverted: bool,
+) {
+    match (*self_inverted, other_inverted) {
+        (true, true) => self_set.intersect_with(other_set),
+        (true, false) => self_set.difference_with(other_set),
+        (false, true) => {
+            *self_inverted = true;
+            // We have to grow here because the new bits are going to get flipped to 1.
+            self_set.grow(other_set.len());
+            self_set.toggle_range(..);
+            self_set.intersect_with(other_set);
+        }
+        (false, false) => self_set.union_with(other_set),
+    }
+}
+
+/// Performs an in-place set difference of `other` from `self`, where either set may be inverted.
+///
+/// Each set corresponds to a `FixedBitSet` if `inverted` is `false`,
+/// or to the infinite (co-finite) complement of the `FixedBitSet` if `inverted` is `true`.
+///
+/// This updates the `self` set to remove any elements in the `other` set.
+/// Note that this may change `self_inverted` to `false` if we remove an
+/// infinite set from another infinite one, resulting in a finite difference.
+fn invertible_difference_with(
+    self_set: &mut FixedBitSet,
+    self_inverted: &mut bool,
+    other_set: &FixedBitSet,
+    other_inverted: bool,
+) {
+    // We can share the implementation of `invertible_union_with` with some algebra:
+    // A - B = A & !B = !(!A | B)
+    *self_inverted = !*self_inverted;
+    invertible_union_with(self_set, self_inverted, other_set, other_inverted);
+    *self_inverted = !*self_inverted;
+}
+
 /// Error returned when attempting to iterate over items included in an [`Access`]
 /// if the access excludes items rather than including them.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Error)]
@@ -952,7 +983,8 @@ impl AccessConflicts {
         }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    /// Returns true if there are no conflicts present
+    pub fn is_empty(&self) -> bool {
         match self {
             Self::All => false,
             Self::Individual(set) => set.is_empty(),
@@ -968,11 +1000,10 @@ impl AccessConflicts {
                     format!(
                         "{}",
                         ShortName(
-                            world
+                            &world
                                 .components
-                                .get_info(ComponentId::get_sparse_set_index(index))
+                                .get_name(ComponentId::get_sparse_set_index(index))
                                 .unwrap()
-                                .name()
                         )
                     )
                 })
@@ -1289,6 +1320,14 @@ impl<T: SparseSetIndex> Clone for FilteredAccessSet<T> {
 }
 
 impl<T: SparseSetIndex> FilteredAccessSet<T> {
+    /// Creates an empty [`FilteredAccessSet`].
+    pub const fn new() -> Self {
+        Self {
+            combined_access: Access::new(),
+            filtered_accesses: Vec::new(),
+        }
+    }
+
     /// Returns a reference to the unfiltered access of the entire set.
     #[inline]
     pub fn combined_access(&self) -> &Access<T> {
@@ -1412,15 +1451,13 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
 
 impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
     fn default() -> Self {
-        Self {
-            combined_access: Default::default(),
-            filtered_accesses: Vec::new(),
-        }
+        Self::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::{invertible_difference_with, invertible_union_with};
     use crate::query::{
         access::AccessFilters, Access, AccessConflicts, ComponentAccessKind, FilteredAccess,
         FilteredAccessSet, UnboundedAccessError,
@@ -1762,5 +1799,100 @@ mod tests {
                 read_and_writes_inverted: true
             }),
         );
+    }
+
+    /// Create a `FixedBitSet` with a given number of total bits and a given list of bits to set.
+    /// Setting the number of bits is important in tests since the `PartialEq` impl checks that the length matches.
+    fn bit_set(bits: usize, iter: impl IntoIterator<Item = usize>) -> FixedBitSet {
+        let mut result = FixedBitSet::with_capacity(bits);
+        result.extend(iter);
+        result
+    }
+
+    #[test]
+    fn invertible_union_with_tests() {
+        let invertible_union = |mut self_inverted: bool, other_inverted: bool| {
+            // Check all four possible bit states: In both sets, the first, the second, or neither
+            let mut self_set = bit_set(4, [0, 1]);
+            let other_set = bit_set(4, [0, 2]);
+            invertible_union_with(
+                &mut self_set,
+                &mut self_inverted,
+                &other_set,
+                other_inverted,
+            );
+            (self_set, self_inverted)
+        };
+
+        // Check each combination of `inverted` flags
+        let (s, i) = invertible_union(false, false);
+        // [0, 1] | [0, 2] = [0, 1, 2]
+        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), false));
+
+        let (s, i) = invertible_union(false, true);
+        // [0, 1] | [1, 3, ...] = [0, 1, 3, ...]
+        assert_eq!((s, i), (bit_set(4, [2]), true));
+
+        let (s, i) = invertible_union(true, false);
+        // [2, 3, ...] | [0, 2] = [0, 2, 3, ...]
+        assert_eq!((s, i), (bit_set(4, [1]), true));
+
+        let (s, i) = invertible_union(true, true);
+        // [2, 3, ...] | [1, 3, ...] = [1, 2, 3, ...]
+        assert_eq!((s, i), (bit_set(4, [0]), true));
+    }
+
+    #[test]
+    fn invertible_union_with_different_lengths() {
+        // When adding a large inverted set to a small normal set,
+        // make sure we invert the bits beyond the original length.
+        // Failing to call `grow` before `toggle_range` would cause bit 1 to be zero,
+        // which would incorrectly treat it as included in the output set.
+        let mut self_set = bit_set(1, [0]);
+        let mut self_inverted = false;
+        let other_set = bit_set(3, [0, 1]);
+        let other_inverted = true;
+        invertible_union_with(
+            &mut self_set,
+            &mut self_inverted,
+            &other_set,
+            other_inverted,
+        );
+
+        // [0] | [2, ...] = [0, 2, ...]
+        assert_eq!((self_set, self_inverted), (bit_set(3, [1]), true));
+    }
+
+    #[test]
+    fn invertible_difference_with_tests() {
+        let invertible_difference = |mut self_inverted: bool, other_inverted: bool| {
+            // Check all four possible bit states: In both sets, the first, the second, or neither
+            let mut self_set = bit_set(4, [0, 1]);
+            let other_set = bit_set(4, [0, 2]);
+            invertible_difference_with(
+                &mut self_set,
+                &mut self_inverted,
+                &other_set,
+                other_inverted,
+            );
+            (self_set, self_inverted)
+        };
+
+        // Check each combination of `inverted` flags
+        let (s, i) = invertible_difference(false, false);
+        // [0, 1] - [0, 2] = [1]
+        assert_eq!((s, i), (bit_set(4, [1]), false));
+
+        let (s, i) = invertible_difference(false, true);
+        // [0, 1] - [1, 3, ...] = [0]
+        assert_eq!((s, i), (bit_set(4, [0]), false));
+
+        let (s, i) = invertible_difference(true, false);
+        // [2, 3, ...] - [0, 2] = [3, ...]
+        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), true));
+
+        let (s, i) = invertible_difference(true, true);
+        // [2, 3, ...] - [1, 3, ...] = [2]
+        assert_eq!((s, i), (bit_set(4, [2]), false));
     }
 }

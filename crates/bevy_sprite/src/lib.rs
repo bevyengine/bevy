@@ -2,8 +2,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Provides 2D sprite rendering functionality.
@@ -21,6 +21,11 @@ mod texture_slice;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_sprite_picking_backend")]
+    #[doc(hidden)]
+    pub use crate::picking_backend::{
+        SpritePickingCamera, SpritePickingMode, SpritePickingPlugin, SpritePickingSettings,
+    };
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
@@ -37,70 +42,41 @@ pub use sprite::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetEvents, Assets, Handle};
+use bevy_asset::{embedded_asset, AssetEventSystems, Assets};
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_render::{
     batching::sort_binned_render_phase,
+    load_shader_library,
     mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
-    render_resource::{Shader, SpecializedRenderPipelines},
+    render_resource::SpecializedRenderPipelines,
     view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
 /// Adds support for 2D sprite rendering.
-pub struct SpritePlugin {
-    /// Whether to add the sprite picking backend to the app.
-    #[cfg(feature = "bevy_sprite_picking_backend")]
-    pub add_picking: bool,
-}
-
-#[expect(
-    clippy::allow_attributes,
-    reason = "clippy::derivable_impls is not always linted"
-)]
-#[allow(
-    clippy::derivable_impls,
-    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
-)]
-impl Default for SpritePlugin {
-    fn default() -> Self {
-        Self {
-            #[cfg(feature = "bevy_sprite_picking_backend")]
-            add_picking: true,
-        }
-    }
-}
-
-pub const SPRITE_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("ed996613-54c0-49bd-81be-1c2d1a0d03c2");
-pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("43947210-8df6-459a-8f2a-12f350d174cc");
+#[derive(Default)]
+pub struct SpritePlugin;
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum SpriteSystem {
+pub enum SpriteSystems {
     ExtractSprites,
     ComputeSlices,
 }
 
+/// Deprecated alias for [`SpriteSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
+pub type SpriteSystem = SpriteSystems;
+
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            SPRITE_SHADER_HANDLE,
-            "render/sprite.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SPRITE_VIEW_BINDINGS_SHADER_HANDLE,
-            "render/sprite_view_bindings.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "render/sprite_view_bindings.wgsl");
+
+        embedded_asset!(app, "render/sprite.wgsl");
 
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
             app.add_plugins(TextureAtlasPlugin);
@@ -117,17 +93,15 @@ impl Plugin for SpritePlugin {
                 (
                     calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
                     (
-                        compute_slices_on_asset_event.before(AssetEvents),
+                        compute_slices_on_asset_event.before(AssetEventSystems),
                         compute_slices_on_sprite_change,
                     )
-                        .in_set(SpriteSystem::ComputeSlices),
+                        .in_set(SpriteSystems::ComputeSlices),
                 ),
             );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
-        if self.add_picking {
-            app.add_plugins(SpritePickingPlugin);
-        }
+        app.add_plugins(SpritePickingPlugin);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -135,12 +109,13 @@ impl Plugin for SpritePlugin {
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
+                .init_resource::<ExtractedSlices>()
                 .init_resource::<SpriteAssetEvents>()
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_sprites.in_set(SpriteSystem::ExtractSprites),
+                        extract_sprites.in_set(SpriteSystems::ExtractSprites),
                         extract_sprite_events,
                     ),
                 )
@@ -148,12 +123,12 @@ impl Plugin for SpritePlugin {
                     Render,
                     (
                         queue_sprites
-                            .in_set(RenderSet::Queue)
+                            .in_set(RenderSystems::Queue)
                             .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                        prepare_sprite_image_bind_groups.in_set(RenderSet::PrepareBindGroups),
-                        prepare_sprite_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
-                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSet::PhaseSort),
-                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSet::PhaseSort),
+                        prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                        prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),
+                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSystems::PhaseSort),
                     ),
                 );
         };
@@ -181,9 +156,9 @@ pub fn calculate_bounds_2d(
     atlases: Res<Assets<TextureAtlasLayout>>,
     meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
-        (Entity, &Sprite),
+        (Entity, &Sprite, &Anchor),
         (
-            Or<(Without<Aabb>, Changed<Sprite>)>,
+            Or<(Without<Aabb>, Changed<Sprite>, Changed<Anchor>)>,
             Without<NoFrustumCulling>,
         ),
     >,
@@ -195,7 +170,7 @@ pub fn calculate_bounds_2d(
             }
         }
     }
-    for (entity, sprite) in &sprites_to_recalculate_aabb {
+    for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {
         if let Some(size) = sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))
@@ -209,7 +184,7 @@ pub fn calculate_bounds_2d(
             })
         {
             let aabb = Aabb {
-                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
+                center: (-anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
             commands.entity(entity).try_insert(aabb);
@@ -346,12 +321,14 @@ mod test {
         // Add entities
         let entity = app
             .world_mut()
-            .spawn(Sprite {
-                rect: Some(Rect::new(0., 0., 0.5, 1.)),
-                anchor: Anchor::TopRight,
-                image: image_handle,
-                ..default()
-            })
+            .spawn((
+                Sprite {
+                    rect: Some(Rect::new(0., 0., 0.5, 1.)),
+                    image: image_handle,
+                    ..default()
+                },
+                Anchor::TOP_RIGHT,
+            ))
             .id();
 
         // Create AABB

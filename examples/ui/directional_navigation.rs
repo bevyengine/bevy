@@ -19,7 +19,7 @@ use bevy::{
         backend::HitData,
         pointer::{Location, PointerId},
     },
-    platform_support::collections::{HashMap, HashSet},
+    platform::collections::{HashMap, HashSet},
     prelude::*,
     render::camera::NormalizedRenderTarget,
 };
@@ -70,7 +70,7 @@ fn universal_button_click_behavior(
     mut trigger: Trigger<Pointer<Click>>,
     mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
 ) {
-    let button_entity = trigger.target();
+    let button_entity = trigger.target().unwrap();
     if let Ok((mut color, mut reset_timer)) = button_query.get_mut(button_entity) {
         // This would be a great place to play a little sound effect too!
         color.0 = PRESSED_BUTTON.into();
@@ -186,7 +186,7 @@ fn setup_ui(
                     Text::new(button_name),
                     // And center the text if it flows onto multiple lines
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                 ))
@@ -361,9 +361,9 @@ fn highlight_focused_element(
         if input_focus.0 == Some(entity) && input_focus_visible.0 {
             // Don't change the border size / radius here,
             // as it would result in wiggling buttons when they are focused
-            border_color.0 = FOCUSED_BORDER.into();
+            *border_color = BorderColor::all(FOCUSED_BORDER.into());
         } else {
-            border_color.0 = Color::NONE;
+            *border_color = BorderColor::DEFAULT;
         }
     }
 }
@@ -388,7 +388,7 @@ fn interact_with_focused_button(
                     // This field isn't used, so we're just setting it to a placeholder value
                     pointer_location: Location {
                         target: NormalizedRenderTarget::Image(
-                            bevy_render::camera::ImageRenderTarget {
+                            bevy::render::camera::ImageRenderTarget {
                                 handle: Handle::default(),
                                 scale_factor: FloatOrd(1.0),
                             },

@@ -1,5 +1,6 @@
-use super::{Bloom, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
+use super::{Bloom, BLOOM_TEXTURE_FORMAT};
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     resource::Resource,
@@ -26,6 +27,8 @@ pub struct BloomDownsamplingPipeline {
     /// Layout with a texture, a sampler, and uniforms
     pub bind_group_layout: BindGroupLayout,
     pub sampler: Sampler,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -78,6 +81,7 @@ impl FromWorld for BloomDownsamplingPipeline {
         BloomDownsamplingPipeline {
             bind_group_layout,
             sampler,
+            shader: load_embedded_asset!(world, "bloom.wgsl"),
         }
     }
 }
@@ -120,7 +124,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
             layout,
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: BLOOM_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point,
                 targets: vec![Some(ColorTargetState {

@@ -3,26 +3,27 @@
 use std::{f32::consts::PI, fmt::Write};
 
 use bevy::{
-    core_pipeline::{
+    anti_aliasing::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
-        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         fxaa::{Fxaa, Sensitivity},
-        prepass::{DepthPrepass, MotionVectorPrepass},
         smaa::{Smaa, SmaaPreset},
+        taa::TemporalAntiAliasing,
     },
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
     image::{ImageSampler, ImageSamplerDescriptor},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
-        camera::TemporalJitter,
+        camera::{MipBias, TemporalJitter},
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
+        view::Hdr,
     },
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
@@ -31,6 +32,7 @@ fn main() {
 type TaaComponents = (
     TemporalAntiAliasing,
     TemporalJitter,
+    MipBias,
     DepthPrepass,
     MotionVectorPrepass,
 );
@@ -300,10 +302,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ContrastAdaptiveSharpening {
             enabled: false,

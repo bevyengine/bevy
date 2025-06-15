@@ -12,11 +12,11 @@ use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
 use tracing::error;
@@ -30,7 +30,7 @@ use crate::{
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 /// A plugin that manages GPU memory for mesh data.
@@ -78,6 +78,9 @@ pub struct MeshAllocator {
     /// WebGL 2. On this platform, we must give each vertex array its own
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
+
+    /// Additional buffer usages to add to any vertex or index buffers created.
+    pub extra_buffer_usages: BufferUsages,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -158,6 +161,10 @@ pub struct MeshBufferSlice<'a> {
 pub struct SlabId(pub NonMaxU32);
 
 /// Data for a single slab.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 enum Slab {
     /// A slab that can contain multiple objects.
     General(GeneralSlab),
@@ -311,7 +318,7 @@ impl Plugin for MeshAllocatorPlugin {
             .add_systems(
                 Render,
                 allocate_and_free_meshes
-                    .in_set(RenderSet::PrepareAssets)
+                    .in_set(RenderSystems::PrepareAssets)
                     .before(prepare_assets::<RenderMesh>),
             );
     }
@@ -344,6 +351,7 @@ impl FromWorld for MeshAllocator {
             mesh_id_to_index_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
+            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
@@ -358,7 +366,10 @@ pub fn allocate_and_free_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    // Process newly-added meshes.
+    // Process removed or modified meshes.
+    mesh_allocator.free_meshes(&extracted_meshes);
+
+    // Process newly-added or modified meshes.
     mesh_allocator.allocate_meshes(
         &mesh_allocator_settings,
         &extracted_meshes,
@@ -366,9 +377,6 @@ pub fn allocate_and_free_meshes(
         &render_device,
         &render_queue,
     );
-
-    // Process removed meshes.
-    mesh_allocator.free_meshes(&extracted_meshes);
 }
 
 impl MeshAllocator {
@@ -594,7 +602,7 @@ impl MeshAllocator {
                         buffer_usages_to_str(buffer_usages)
                     )),
                     size: len as u64,
-                    usage: buffer_usages | BufferUsages::COPY_DST,
+                    usage: buffer_usages | BufferUsages::COPY_DST | self.extra_buffer_usages,
                     mapped_at_creation: true,
                 });
                 {
@@ -607,9 +615,17 @@ impl MeshAllocator {
         }
     }
 
+    /// Frees allocations for meshes that were removed or modified this frame.
     fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
         let mut empty_slabs = <HashSet<_>>::default();
-        for mesh_id in &extracted_meshes.removed {
+
+        // TODO: Consider explicitly reusing allocations for changed meshes of the same size
+        let meshes_to_free = extracted_meshes
+            .removed
+            .iter()
+            .chain(extracted_meshes.modified.iter());
+
+        for mesh_id in meshes_to_free {
             if let Some(slab_id) = self.mesh_id_to_vertex_slab.remove(mesh_id) {
                 self.free_allocation_in_slab(mesh_id, slab_id, &mut empty_slabs);
             }
@@ -823,7 +839,7 @@ impl MeshAllocator {
                 buffer_usages_to_str(buffer_usages)
             )),
             size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
-            usage: buffer_usages,
+            usage: buffer_usages | self.extra_buffer_usages,
             mapped_at_creation: false,
         });
 

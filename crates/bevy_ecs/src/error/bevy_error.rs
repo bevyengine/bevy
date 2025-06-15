@@ -34,48 +34,11 @@ impl BevyError {
     pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
         self.inner.error.downcast_ref::<E>()
     }
-}
 
-/// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
-/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
-/// We don't need to optimize it to that degree.
-/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but thats not a huge priority right now and the code simplicity
-/// of the current impl is nice.
-struct InnerBevyError {
-    error: Box<dyn Error + Send + Sync + 'static>,
-    #[cfg(feature = "backtrace")]
-    backtrace: std::backtrace::Backtrace,
-}
-
-// NOTE: writing the impl this way gives us From<&str> ... nice!
-impl<E> From<E> for BevyError
-where
-    Box<dyn Error + Send + Sync + 'static>: From<E>,
-{
-    #[cold]
-    fn from(error: E) -> Self {
-        BevyError {
-            inner: Box::new(InnerBevyError {
-                error: error.into(),
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            }),
-        }
-    }
-}
-
-impl Display for BevyError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{}", self.inner.error)?;
-        Ok(())
-    }
-}
-
-impl Debug for BevyError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{:?}", self.inner.error)?;
+    fn format_backtrace(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         #[cfg(feature = "backtrace")]
         {
+            let f = _f;
             let backtrace = &self.inner.backtrace;
             if let std::backtrace::BacktraceStatus::Captured = backtrace.status() {
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
@@ -113,17 +76,60 @@ impl Debug for BevyError {
                             break;
                         }
                     }
-                    writeln!(f, "{}", line)?;
+                    writeln!(f, "{line}")?;
                 }
                 if !full_backtrace {
                     if std::thread::panicking() {
-                        SKIP_NORMAL_BACKTRACE.store(1, core::sync::atomic::Ordering::Relaxed);
+                        SKIP_NORMAL_BACKTRACE.set(true);
                     }
                     writeln!(f, "{FILTER_MESSAGE}")?;
                 }
             }
         }
+        Ok(())
+    }
+}
 
+/// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
+/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
+/// We don't need to optimize it to that degree.
+/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but thats not a huge priority right now and the code simplicity
+/// of the current impl is nice.
+struct InnerBevyError {
+    error: Box<dyn Error + Send + Sync + 'static>,
+    #[cfg(feature = "backtrace")]
+    backtrace: std::backtrace::Backtrace,
+}
+
+// NOTE: writing the impl this way gives us From<&str> ... nice!
+impl<E> From<E> for BevyError
+where
+    Box<dyn Error + Send + Sync + 'static>: From<E>,
+{
+    #[cold]
+    fn from(error: E) -> Self {
+        BevyError {
+            inner: Box::new(InnerBevyError {
+                error: error.into(),
+                #[cfg(feature = "backtrace")]
+                backtrace: std::backtrace::Backtrace::capture(),
+            }),
+        }
+    }
+}
+
+impl Display for BevyError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "{}", self.inner.error)?;
+        self.format_backtrace(f)?;
+        Ok(())
+    }
+}
+
+impl Debug for BevyError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "{:?}", self.inner.error)?;
+        self.format_backtrace(f)?;
         Ok(())
     }
 }
@@ -132,22 +138,24 @@ impl Debug for BevyError {
 const FILTER_MESSAGE: &str = "note: Some \"noisy\" backtrace lines have been filtered out. Run with `BEVY_BACKTRACE=full` for a verbose backtrace.";
 
 #[cfg(feature = "backtrace")]
-static SKIP_NORMAL_BACKTRACE: core::sync::atomic::AtomicUsize =
-    core::sync::atomic::AtomicUsize::new(0);
+std::thread_local! {
+    static SKIP_NORMAL_BACKTRACE: core::cell::Cell<bool> =
+        const { core::cell::Cell::new(false) };
+}
 
 /// When called, this will skip the currently configured panic hook when a [`BevyError`] backtrace has already been printed.
-#[cfg(feature = "std")]
+#[cfg(feature = "backtrace")]
+#[expect(clippy::print_stdout, reason = "Allowed behind `std` feature gate.")]
 pub fn bevy_error_panic_hook(
     current_hook: impl Fn(&std::panic::PanicHookInfo),
 ) -> impl Fn(&std::panic::PanicHookInfo) {
     move |info| {
-        if SKIP_NORMAL_BACKTRACE.load(core::sync::atomic::Ordering::Relaxed) > 0 {
+        if SKIP_NORMAL_BACKTRACE.replace(false) {
             if let Some(payload) = info.payload().downcast_ref::<&str>() {
                 std::println!("{payload}");
             } else if let Some(payload) = info.payload().downcast_ref::<alloc::string::String>() {
                 std::println!("{payload}");
             }
-            SKIP_NORMAL_BACKTRACE.store(0, core::sync::atomic::Ordering::Relaxed);
             return;
         }
 

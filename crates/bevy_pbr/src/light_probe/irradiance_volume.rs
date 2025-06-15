@@ -137,8 +137,8 @@ use bevy_image::Image;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
-        TextureSampleType, TextureView,
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType,
+        TextureView,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -146,7 +146,7 @@ use bevy_render::{
 use bevy_utils::default;
 use core::{num::NonZero, ops::Deref};
 
-use bevy_asset::{weak_handle, AssetId, Handle};
+use bevy_asset::{AssetId, Handle};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
@@ -155,9 +155,6 @@ use crate::{
 };
 
 use super::LightProbeComponent;
-
-pub const IRRADIANCE_VOLUME_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("7fc7dcd8-3f90-4124-b093-be0e53e08205");
 
 /// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
 /// overflow the number of texture bindings when deferred rendering is in use
@@ -168,7 +165,7 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
 #[derive(Clone, Reflect, Component, Debug)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
     /// described in [`crate::irradiance_volume`].

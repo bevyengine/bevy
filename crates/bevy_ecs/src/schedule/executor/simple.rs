@@ -1,3 +1,5 @@
+#![expect(deprecated, reason = "Everything here is deprecated")]
+
 use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
 
@@ -8,18 +10,24 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
-    error::{BevyError, SystemErrorContext},
+    error::{ErrorContext, ErrorHandler},
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
     world::World,
 };
+#[cfg(feature = "hotpatching")]
+use crate::{event::Events, HotPatched};
 
 use super::__rust_begin_short_backtrace;
 
 /// A variant of [`SingleThreadedExecutor`](crate::schedule::SingleThreadedExecutor) that calls
 /// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running each system.
 #[derive(Default)]
+#[deprecated(
+    since = "0.17.0",
+    note = "Use SingleThreadedExecutor instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
+)]
 pub struct SimpleExecutor {
     /// Systems sets whose conditions have been evaluated.
     evaluated_sets: FixedBitSet,
@@ -44,7 +52,7 @@ impl SystemExecutor for SimpleExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(BevyError, SystemErrorContext),
+        error_handler: ErrorHandler,
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -53,6 +61,12 @@ impl SystemExecutor for SimpleExecutor {
             // mark skipped systems as completed
             self.completed_systems |= skipped_systems;
         }
+
+        #[cfg(feature = "hotpatching")]
+        let should_update_hotpatch = !world
+            .get_resource::<Events<HotPatched>>()
+            .map(Events::is_empty)
+            .unwrap_or(true);
 
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
@@ -67,8 +81,11 @@ impl SystemExecutor for SimpleExecutor {
                 }
 
                 // evaluate system set's conditions
-                let set_conditions_met =
-                    evaluate_and_fold_conditions(&mut schedule.set_conditions[set_idx], world);
+                let set_conditions_met = evaluate_and_fold_conditions(
+                    &mut schedule.set_conditions[set_idx],
+                    world,
+                    error_handler,
+                );
 
                 if !set_conditions_met {
                     self.completed_systems
@@ -80,19 +97,41 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             // evaluate system's conditions
-            let system_conditions_met =
-                evaluate_and_fold_conditions(&mut schedule.system_conditions[system_index], world);
+            let system_conditions_met = evaluate_and_fold_conditions(
+                &mut schedule.system_conditions[system_index],
+                world,
+                error_handler,
+            );
 
             should_run &= system_conditions_met;
 
             let system = &mut schedule.systems[system_index];
             if should_run {
-                let valid_params = system.validate_param(world);
+                let valid_params = match system.validate_param(world) {
+                    Ok(()) => true,
+                    Err(e) => {
+                        if !e.skipped {
+                            error_handler(
+                                e.into(),
+                                ErrorContext::System {
+                                    name: system.name(),
+                                    last_run: system.get_last_run(),
+                                },
+                            );
+                        }
+                        false
+                    }
+                };
                 should_run &= valid_params;
             }
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
+
+            #[cfg(feature = "hotpatching")]
+            if should_update_hotpatch {
+                system.refresh_hotpatch();
+            }
 
             // system has either been skipped or will run
             self.completed_systems.insert(system_index);
@@ -109,7 +148,7 @@ impl SystemExecutor for SimpleExecutor {
                 if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
                     error_handler(
                         err,
-                        SystemErrorContext {
+                        ErrorContext::System {
                             name: system.name(),
                             last_run: system.get_last_run(),
                         },
@@ -118,6 +157,7 @@ impl SystemExecutor for SimpleExecutor {
             });
 
             #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
                 if let Err(payload) = std::panic::catch_unwind(f) {
                     eprintln!("Encountered a panic in system `{}`!", &*system.name());
@@ -150,8 +190,21 @@ impl SimpleExecutor {
         }
     }
 }
+#[deprecated(
+    since = "0.17.0",
+    note = "Use SingleThreadedExecutor instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
+)]
+fn evaluate_and_fold_conditions(
+    conditions: &mut [BoxedCondition],
+    world: &mut World,
+    error_handler: ErrorHandler,
+) -> bool {
+    #[cfg(feature = "hotpatching")]
+    let should_update_hotpatch = !world
+        .get_resource::<Events<HotPatched>>()
+        .map(Events::is_empty)
+        .unwrap_or(true);
 
-fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
     #[expect(
         clippy::unnecessary_fold,
         reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
@@ -159,8 +212,24 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            if !condition.validate_param(world) {
-                return false;
+            match condition.validate_param(world) {
+                Ok(()) => (),
+                Err(e) => {
+                    if !e.skipped {
+                        error_handler(
+                            e.into(),
+                            ErrorContext::System {
+                                name: condition.name(),
+                                last_run: condition.get_last_run(),
+                            },
+                        );
+                    }
+                    return false;
+                }
+            }
+            #[cfg(feature = "hotpatching")]
+            if should_update_hotpatch {
+                condition.refresh_hotpatch();
             }
             __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
         })

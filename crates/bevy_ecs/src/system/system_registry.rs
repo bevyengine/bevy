@@ -3,13 +3,13 @@ use crate::reflect::ReflectComponent;
 use crate::{
     change_detection::Mut,
     entity::Entity,
-    system::{input::SystemInput, BoxedSystem, IntoSystem},
+    system::{input::SystemInput, BoxedSystem, IntoSystem, SystemParamValidationError},
     world::World,
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::marker::PhantomData;
 use thiserror::Error;
 
@@ -33,7 +33,7 @@ impl<I, O> RegisteredSystem<I, O> {
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
 #[derive(Component, Default)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
 pub struct SystemIdMarker;
 
 /// A system that has been removed from the registry.
@@ -213,11 +213,9 @@ impl World {
     /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
     /// because it keeps local state between calls and change detection works correctly.
     ///
+    /// Also runs any queued-up commands.
+    ///
     /// In order to run a chained system with an input, use [`World::run_system_with`] instead.
-    ///
-    /// # Limitations
-    ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
     ///
     /// # Examples
     ///
@@ -305,9 +303,7 @@ impl World {
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
     ///
-    /// # Limitations
-    ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
+    /// Also runs any queued-up commands.
     ///
     /// # Examples
     ///
@@ -336,12 +332,12 @@ impl World {
         I: SystemInput + 'static,
         O: 'static,
     {
-        // lookup
+        // Lookup
         let mut entity = self
             .get_entity_mut(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
-        // take ownership of system trait object
+        // Take ownership of system trait object
         let RegisteredSystem {
             mut initialized,
             mut system,
@@ -349,25 +345,33 @@ impl World {
             .take::<RegisteredSystem<I, O>>()
             .ok_or(RegisteredSystemError::Recursive(id))?;
 
-        // run the system
+        // Run the system
         if !initialized {
             system.initialize(self);
             initialized = true;
         }
 
-        let result = if system.validate_param(self) {
-            Ok(system.run(input, self))
-        } else {
-            Err(RegisteredSystemError::InvalidParams(id))
-        };
+        let result = system
+            .validate_param(self)
+            .map_err(|err| RegisteredSystemError::InvalidParams { system: id, err })
+            .map(|()| {
+                // Wait to run the commands until the system is available again.
+                // This is needed so the systems can recursively run themselves.
+                let ret = system.run_without_applying_deferred(input, self);
+                system.queue_deferred(self.into());
+                ret
+            });
 
-        // return ownership of system trait object (if entity still exists)
+        // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
             entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
                 initialized,
                 system,
             });
         }
+
+        // Run any commands enqueued by the system
+        self.flush();
         result
     }
 
@@ -489,10 +493,14 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
-    ///
-    /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
-    InvalidParams(SystemId<I, O>),
+    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
+    #[error("System {system:?} did not run due to failed parameter validation: {err}")]
+    InvalidParams {
+        /// The identifier of the system that was run.
+        system: SystemId<I, O>,
+        /// The returned parameter validation error.
+        err: SystemParamValidationError,
+    },
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -504,13 +512,22 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
             Self::SystemNotCached => write!(f, "SystemNotCached"),
             Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
             Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
-            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
+            Self::InvalidParams { system, err } => f
+                .debug_struct("InvalidParams")
+                .field("system", system)
+                .field("err", err)
+                .finish(),
         }
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use crate::prelude::*;
+    use core::cell::Cell;
+
+    use bevy_utils::default;
+
+    use crate::{prelude::*, system::SystemId};
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -848,19 +865,54 @@ mod tests {
     #[test]
     fn run_system_invalid_params() {
         use crate::system::RegisteredSystemError;
+        use alloc::{format, string::ToString};
 
         struct T;
         impl Resource for T {}
         fn system(_: Res<T>) {}
 
         let mut world = World::new();
-        let id = world.register_system(system.warn_param_missing());
+        let id = world.register_system(system);
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 
         assert!(matches!(
             result,
-            Err(RegisteredSystemError::InvalidParams(_))
+            Err(RegisteredSystemError::InvalidParams { .. })
         ));
+        let expected = format!("System {id:?} did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `When<T>` to skip the system when it happens.");
+        assert_eq!(expected, result.unwrap_err().to_string());
+    }
+
+    #[test]
+    fn run_system_recursive() {
+        std::thread_local! {
+            static INVOCATIONS_LEFT: Cell<i32> = const { Cell::new(3) };
+            static SYSTEM_ID: Cell<Option<SystemId>> = default();
+        }
+
+        fn system(mut commands: Commands) {
+            let count = INVOCATIONS_LEFT.get() - 1;
+            INVOCATIONS_LEFT.set(count);
+            if count > 0 {
+                commands.run_system(SYSTEM_ID.get().unwrap());
+            }
+        }
+
+        let mut world = World::new();
+        let id = world.register_system(system);
+        SYSTEM_ID.set(Some(id));
+        world.run_system(id).unwrap();
+
+        assert_eq!(INVOCATIONS_LEFT.get(), 0);
+    }
+
+    #[test]
+    fn run_system_exclusive_adapters() {
+        let mut world = World::new();
+        fn system(_: &mut World) {}
+        world.run_system_cached(system).unwrap();
+        world.run_system_cached(system.pipe(system)).unwrap();
+        world.run_system_cached(system.map(|()| {})).unwrap();
     }
 }

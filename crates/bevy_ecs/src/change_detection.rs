@@ -71,6 +71,9 @@ pub trait DetectChanges {
     /// [`SystemParam`](crate::system::SystemParam).
     fn last_changed(&self) -> Tick;
 
+    /// Returns the change tick recording the time this data was added.
+    fn added(&self) -> Tick;
+
     /// The location that last caused this to change.
     fn changed_by(&self) -> MaybeLocation;
 }
@@ -118,6 +121,15 @@ pub trait DetectChangesMut: DetectChanges {
     /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
 
+    /// Flags this value as having been added.
+    ///
+    /// It is not normally necessary to call this method.
+    /// The 'added' tick is set when the value is first added,
+    /// and is not normally changed afterwards.
+    ///
+    /// **Note**: This operation cannot be undone.
+    fn set_added(&mut self);
+
     /// Manually sets the change tick recording the time when this data was last mutated.
     ///
     /// # Warning
@@ -125,6 +137,12 @@ pub trait DetectChangesMut: DetectChanges {
     /// If you merely want to flag this data as changed, use [`set_changed`](DetectChangesMut::set_changed) instead.
     /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) instead.
     fn set_last_changed(&mut self, last_changed: Tick);
+
+    /// Manually sets the added tick recording the time when this data was last added.
+    ///
+    /// # Warning
+    /// The caveats of [`set_last_changed`](DetectChangesMut::set_last_changed) apply. This modifies both the added and changed ticks together.
+    fn set_last_added(&mut self, last_added: Tick);
 
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
     ///
@@ -341,6 +359,11 @@ macro_rules! change_detection_impl {
             }
 
             #[inline]
+            fn added(&self) -> Tick {
+                *self.ticks.added
+            }
+
+            #[inline]
             fn changed_by(&self) -> MaybeLocation {
                 self.changed_by.copied()
             }
@@ -378,8 +401,24 @@ macro_rules! change_detection_mut_impl {
 
             #[inline]
             #[track_caller]
+            fn set_added(&mut self) {
+                *self.ticks.changed = self.ticks.this_run;
+                *self.ticks.added = self.ticks.this_run;
+                self.changed_by.assign(MaybeLocation::caller());
+            }
+
+            #[inline]
+            #[track_caller]
             fn set_last_changed(&mut self, last_changed: Tick) {
                 *self.ticks.changed = last_changed;
+                self.changed_by.assign(MaybeLocation::caller());
+            }
+
+            #[inline]
+            #[track_caller]
+            fn set_last_added(&mut self, last_added: Tick) {
+                *self.ticks.added = last_added;
+                *self.ticks.changed = last_added;
                 self.changed_by.assign(MaybeLocation::caller());
             }
 
@@ -859,63 +898,39 @@ impl_debug!(Ref<'w, T>,);
 
 /// Unique mutable borrow of an entity's component or of a resource.
 ///
-/// This can be used in queries to opt into change detection on both their mutable and immutable forms, as opposed to
-/// `&mut T`, which only provides access to change detection while in its mutable form:
+/// This can be used in queries to access change detection from immutable query methods, as opposed
+/// to `&mut T` which only provides access to change detection from mutable query methods.
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::query::QueryData;
 /// #
-/// #[derive(Component, Clone)]
+/// #[derive(Component, Clone, Debug)]
 /// struct Name(String);
 ///
-/// #[derive(Component, Clone, Copy)]
+/// #[derive(Component, Clone, Copy, Debug)]
 /// struct Health(f32);
 ///
-/// #[derive(Component, Clone, Copy)]
-/// struct Position {
-///     x: f32,
-///     y: f32,
-/// };
+/// fn my_system(mut query: Query<(Mut<Name>, &mut Health)>) {
+///     // Mutable access provides change detection information for both parameters:
+///     // - `name` has type `Mut<Name>`
+///     // - `health` has type `Mut<Health>`
+///     for (name, health) in query.iter_mut() {
+///         println!("Name: {:?} (last changed {:?})", name, name.last_changed());
+///         println!("Health: {:?} (last changed: {:?})", health, health.last_changed());
+/// #        println!("{}{}", name.0, health.0); // Silence dead_code warning
+///     }
 ///
-/// #[derive(Component, Clone, Copy)]
-/// struct Player {
-///     id: usize,
-/// };
-///
-/// #[derive(QueryData)]
-/// #[query_data(mutable)]
-/// struct PlayerQuery {
-///     id: &'static Player,
-///
-///     // Reacting to `PlayerName` changes is expensive, so we need to enable change detection when reading it.
-///     name: Mut<'static, Name>,
-///
-///     health: &'static mut Health,
-///     position: &'static mut Position,
-/// }
-///
-/// fn update_player_avatars(players_query: Query<PlayerQuery>) {
-///     // The item returned by the iterator is of type `PlayerQueryReadOnlyItem`.
-///     for player in players_query.iter() {
-///         if player.name.is_changed() {
-///             // Update the player's name. This clones a String, and so is more expensive.
-///             update_player_name(player.id, player.name.clone());
-///         }
-///
-///         // Update the health bar.
-///         update_player_health(player.id, *player.health);
-///
-///         // Update the player's position.
-///         update_player_position(player.id, *player.position);
+///     // Immutable access only provides change detection for `Name`:
+///     // - `name` has type `Ref<Name>`
+///     // - `health` has type `&Health`
+///     for (name, health) in query.iter() {
+///         println!("Name: {:?} (last changed {:?})", name, name.last_changed());
+///         println!("Health: {:?}", health);
 ///     }
 /// }
 ///
-/// # bevy_ecs::system::assert_is_system(update_player_avatars);
-///
-/// # fn update_player_name(player: &Player, new_name: Name) {}
-/// # fn update_player_health(player: &Player, new_health: Health) {}
-/// # fn update_player_position(player: &Player, new_position: Position) {}
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
@@ -1139,6 +1154,11 @@ impl<'w> DetectChanges for MutUntyped<'w> {
     fn changed_by(&self) -> MaybeLocation {
         self.changed_by.copied()
     }
+
+    #[inline]
+    fn added(&self) -> Tick {
+        *self.ticks.added
+    }
 }
 
 impl<'w> DetectChangesMut for MutUntyped<'w> {
@@ -1153,8 +1173,24 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
 
     #[inline]
     #[track_caller]
+    fn set_added(&mut self) {
+        *self.ticks.changed = self.ticks.this_run;
+        *self.ticks.added = self.ticks.this_run;
+        self.changed_by.assign(MaybeLocation::caller());
+    }
+
+    #[inline]
+    #[track_caller]
     fn set_last_changed(&mut self, last_changed: Tick) {
         *self.ticks.changed = last_changed;
+        self.changed_by.assign(MaybeLocation::caller());
+    }
+
+    #[inline]
+    #[track_caller]
+    fn set_last_added(&mut self, last_added: Tick) {
+        *self.ticks.added = last_added;
+        *self.ticks.changed = last_added;
         self.changed_by.assign(MaybeLocation::caller());
     }
 
@@ -1197,7 +1233,7 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct MaybeLocation<T: ?Sized = &'static Location<'static>> {
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     marker: PhantomData<T>,
     #[cfg(feature = "track_location")]
     value: T,
@@ -1457,7 +1493,7 @@ impl MaybeLocation {
     /// within a non-tracked function body.
     #[inline]
     #[track_caller]
-    pub fn caller() -> Self {
+    pub const fn caller() -> Self {
         // Note that this cannot use `new_with`, since `FnOnce` invocations cannot be annotated with `#[track_caller]`.
         MaybeLocation {
             #[cfg(feature = "track_location")]
@@ -1787,8 +1823,7 @@ mod tests {
 
         let mut new = value.map_unchanged(|ptr| {
             // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.
-            let value = unsafe { reflect_from_ptr.as_reflect_mut(ptr) };
-            value
+            unsafe { reflect_from_ptr.as_reflect_mut(ptr) }
         });
 
         assert!(!new.is_changed());

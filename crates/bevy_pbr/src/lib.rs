@@ -2,8 +2,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 extern crate alloc;
@@ -124,60 +124,31 @@ pub mod graph {
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetApp, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetPath, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{CameraUpdateSystem, Projection},
+    camera::{sort_cameras, CameraUpdateSystems, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    render_asset::prepare_assets,
+    load_shader_library,
     render_graph::RenderGraph,
-    render_resource::Shader,
+    render_resource::{Shader, ShaderRef},
     sync_component::SyncComponentPlugin,
-    texture::GpuImage,
     view::VisibilitySystems,
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 
-use bevy_transform::TransformSystem;
+use bevy_transform::TransformSystems;
 
-pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("b0330585-2335-4268-9032-a6c4c2d932f6");
-pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("13834c18-c7ec-4c4b-bbbd-432c3ba4cace");
-pub const UTILS_HANDLE: Handle<Shader> = weak_handle!("0a32978f-2744-4608-98b6-4c3000a0638d");
-pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> =
-    weak_handle!("f8e3b4c6-60b7-4b23-8b2e-a6b27bb4ddce");
-pub const PBR_LIGHTING_HANDLE: Handle<Shader> =
-    weak_handle!("de0cf697-2876-49a0-aa0f-f015216f70c2");
-pub const PBR_TRANSMISSION_HANDLE: Handle<Shader> =
-    weak_handle!("22482185-36bb-4c16-9b93-a20e6d4a2725");
-pub const SHADOWS_HANDLE: Handle<Shader> = weak_handle!("ff758c5a-3927-4a15-94c3-3fbdfc362590");
-pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> =
-    weak_handle!("f6bf5843-54bc-4e39-bd9d-56bfcd77b033");
-pub const PBR_FRAGMENT_HANDLE: Handle<Shader> =
-    weak_handle!("1bd3c10d-851b-400c-934a-db489d99cc50");
-pub const PBR_SHADER_HANDLE: Handle<Shader> = weak_handle!("0eba65ed-3e5b-4752-93ed-e8097e7b0c84");
-pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("9afeaeab-7c45-43ce-b322-4b97799eaeb9");
-pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> =
-    weak_handle!("815b8618-f557-4a96-91a5-a2fb7e249fb0");
-pub const PBR_AMBIENT_HANDLE: Handle<Shader> = weak_handle!("4a90b95b-112a-4a10-9145-7590d6f14260");
-pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("6cf57d9f-222a-429a-bba4-55ba9586e1d4");
-pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("ec047703-cde3-4876-94df-fed121544abb");
-pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("77b1bd3a-877c-4b2c-981b-b9c68d1b774a");
-pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> =
-    weak_handle!("43060da7-a717-4240-80a8-dbddd92bd25d");
-pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> =
-    weak_handle!("9dc46746-c51d-45e3-a321-6a50c3963420");
-pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> =
-    weak_handle!("90c19aa3-6a11-4252-8586-d9299352e94f");
+use std::path::PathBuf;
+
+fn shader_ref(path: PathBuf) -> ShaderRef {
+    ShaderRef::Path(AssetPath::from_path_buf(path).with_source("embedded"))
+}
+
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("69187376-3dea-4d0f-b3f5-185bde63d6a2");
 
@@ -213,110 +184,26 @@ impl Default for PbrPlugin {
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            PBR_TYPES_SHADER_HANDLE,
-            "render/pbr_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_BINDINGS_SHADER_HANDLE,
-            "render/pbr_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, UTILS_HANDLE, "render/utils.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            CLUSTERED_FORWARD_HANDLE,
-            "render/clustered_forward.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_LIGHTING_HANDLE,
-            "render/pbr_lighting.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_TRANSMISSION_HANDLE,
-            "render/pbr_transmission.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SHADOWS_HANDLE,
-            "render/shadows.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_DEFERRED_TYPES_HANDLE,
-            "deferred/pbr_deferred_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_DEFERRED_FUNCTIONS_HANDLE,
-            "deferred/pbr_deferred_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SHADOW_SAMPLING_HANDLE,
-            "render/shadow_sampling.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_FUNCTIONS_HANDLE,
-            "render/pbr_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            RGB9E5_FUNCTIONS_HANDLE,
-            "render/rgb9e5.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_AMBIENT_HANDLE,
-            "render/pbr_ambient.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_FRAGMENT_HANDLE,
-            "render/pbr_fragment.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            PBR_PREPASS_FUNCTIONS_SHADER_HANDLE,
-            "render/pbr_prepass_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_PREPASS_SHADER_HANDLE,
-            "render/pbr_prepass.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PARALLAX_MAPPING_SHADER_HANDLE,
-            "render/parallax_mapping.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            VIEW_TRANSFORMATIONS_SHADER_HANDLE,
-            "render/view_transformations.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "render/pbr_types.wgsl");
+        load_shader_library!(app, "render/pbr_bindings.wgsl");
+        load_shader_library!(app, "render/utils.wgsl");
+        load_shader_library!(app, "render/clustered_forward.wgsl");
+        load_shader_library!(app, "render/pbr_lighting.wgsl");
+        load_shader_library!(app, "render/pbr_transmission.wgsl");
+        load_shader_library!(app, "render/shadows.wgsl");
+        load_shader_library!(app, "deferred/pbr_deferred_types.wgsl");
+        load_shader_library!(app, "deferred/pbr_deferred_functions.wgsl");
+        load_shader_library!(app, "render/shadow_sampling.wgsl");
+        load_shader_library!(app, "render/pbr_functions.wgsl");
+        load_shader_library!(app, "render/rgb9e5.wgsl");
+        load_shader_library!(app, "render/pbr_ambient.wgsl");
+        load_shader_library!(app, "render/pbr_fragment.wgsl");
+        load_shader_library!(app, "render/pbr.wgsl");
+        load_shader_library!(app, "render/pbr_prepass_functions.wgsl");
+        load_shader_library!(app, "render/pbr_prepass.wgsl");
+        load_shader_library!(app, "render/parallax_mapping.wgsl");
+        load_shader_library!(app, "render/view_transformations.wgsl");
+
         // Setup dummy shaders for when MeshletPlugin is not used to prevent shader import errors.
         load_internal_asset!(
             app,
@@ -403,21 +290,21 @@ impl Plugin for PbrPlugin {
                 (
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
-                        .after(CameraUpdateSystem),
+                        .after(CameraUpdateSystems),
                     assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
-                        .after(TransformSystem::TransformPropagate)
+                        .after(TransformSystems::Propagate)
                         .after(VisibilitySystems::CheckVisibility)
-                        .after(CameraUpdateSystem),
+                        .after(CameraUpdateSystems),
                     clear_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        .after(TransformSystem::TransformPropagate)
-                        .after(CameraUpdateSystem),
+                        .after(TransformSystems::Propagate)
+                        .after(CameraUpdateSystems),
                     update_directional_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         // This must run after CheckVisibility because it relies on `ViewVisibility`
                         .after(VisibilitySystems::CheckVisibility)
-                        .after(TransformSystem::TransformPropagate)
+                        .after(TransformSystems::Propagate)
                         .after(SimulationLightSystems::UpdateDirectionalLightCascades)
                         // We assume that no entity will be both a directional light and a spot light,
                         // so these systems will run independently of one another.
@@ -425,11 +312,11 @@ impl Plugin for PbrPlugin {
                         .ambiguous_with(update_spot_light_frusta),
                     update_point_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        .after(TransformSystem::TransformPropagate)
+                        .after(TransformSystems::Propagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     update_spot_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        .after(TransformSystem::TransformPropagate)
+                        .after(TransformSystems::Propagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     (
                         check_dir_light_mesh_visibility,
@@ -437,7 +324,7 @@ impl Plugin for PbrPlugin {
                     )
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)
-                        .after(TransformSystem::TransformPropagate)
+                        .after(TransformSystems::Propagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                         // because that resets entity `ViewVisibility` for the first view
@@ -468,14 +355,21 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_clusters,
+                    extract_lights,
+                    late_sweep_material_instances,
+                ),
+            )
             .add_systems(
                 Render,
                 (
                     prepare_lights
-                        .in_set(RenderSet::ManageViews)
-                        .after(prepare_assets::<GpuImage>),
-                    prepare_clusters.in_set(RenderSet::PrepareResources),
+                        .in_set(RenderSystems::ManageViews)
+                        .after(sort_cameras),
+                    prepare_clusters.in_set(RenderSystems::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>()

@@ -1,22 +1,20 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
-use bevy_platform_support::collections::HashSet;
-use bevy_platform_support::time::Instant;
-use bevy_reflect::Reflect;
+use bevy_platform::collections::HashSet;
+use bevy_platform::time::Instant;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    load_shader_library,
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{
-        BufferUsages, BufferVec, DynamicUniformBuffer, Shader, ShaderType, TextureUsages,
-    },
+    render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, ShaderType, TextureUsages},
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_window::PrimaryWindow;
 use resolve::{
@@ -33,10 +31,6 @@ use crate::core_3d::{
 /// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;
 
-/// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer.
-pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("0cd3c764-39b8-437b-86b4-4e45635fc03d");
-
 /// Used to identify which camera will use OIT to render transparent meshes
 /// and to configure OIT.
 // TODO consider supporting multiple OIT techniques like WBOIT, Moment Based OIT,
@@ -44,6 +38,7 @@ pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> =
 // This should probably be done by adding an enum to this component.
 // We use the same struct to pass on the settings to the drawing shader.
 #[derive(Clone, Copy, ExtractComponent, Reflect, ShaderType)]
+#[reflect(Clone, Default)]
 pub struct OrderIndependentTransparencySettings {
     /// Controls how many layers will be used to compute the blending.
     /// The more layers you use the more memory it will use but it will also give better results.
@@ -104,12 +99,7 @@ impl Component for OrderIndependentTransparencySettings {
 pub struct OrderIndependentTransparencyPlugin;
 impl Plugin for OrderIndependentTransparencyPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            OIT_DRAW_SHADER_HANDLE,
-            "oit_draw.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "oit_draw.wgsl");
 
         app.add_plugins((
             ExtractComponentPlugin::<OrderIndependentTransparencySettings>::default(),
@@ -125,7 +115,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 
         render_app.add_systems(
             Render,
-            prepare_oit_buffers.in_set(RenderSet::PrepareResources),
+            prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
         );
 
         render_app

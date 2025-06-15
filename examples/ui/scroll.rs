@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     // header
                     parent.spawn((
-                        Text::new("Horizontally Scrolling list (Ctrl + Mousewheel)"),
+                        Text::new("Horizontally Scrolling list (Ctrl + MouseWheel)"),
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: FONT_SIZE,
@@ -93,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     mut commands: Commands
                                 | {
                                     if trigger.event().button == PointerButton::Primary {
-                                        commands.entity(trigger.target()).despawn();
+                                        commands.entity(trigger.target().unwrap()).despawn();
                                     }
                                 });
                             }

@@ -269,6 +269,14 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         }
                     }
 
+                    fn provide_extra_access(
+                        state: &mut Self::State,
+                        access: &mut #path::query::Access<#path::component::ComponentId>,
+                        available_access: &#path::query::Access<#path::component::ComponentId>,
+                    ) {
+                        #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
+                    }
+
                     /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                     #[inline(always)]
                     unsafe fn fetch<'__w, '__s>(
@@ -316,6 +324,14 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                             #field_idents: <#field_types>::shrink(item.#field_idents),
                         )*
                     }
+                }
+
+                fn provide_extra_access(
+                    state: &mut Self::State,
+                    access: &mut #path::query::Access<#path::component::ComponentId>,
+                    available_access: &#path::query::Access<#path::component::ComponentId>,
+                ) {
+                    #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
                 }
 
                 /// SAFETY: we call `fetch` for each member that implements `Fetch`.

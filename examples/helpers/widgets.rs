@@ -1,4 +1,6 @@
 //! Simple widgets for example UI.
+//!
+//! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 
 use bevy::{ecs::system::EntityCommands, prelude::*};
 
@@ -26,7 +28,7 @@ pub struct RadioButtonText;
 pub const BUTTON_BORDER: UiRect = UiRect::all(Val::Px(1.0));
 
 /// The color of the border that surrounds buttons.
-pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor(Color::WHITE);
+pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor::all(Color::WHITE);
 
 /// The amount of rounding to apply to button corners.
 pub const BUTTON_BORDER_RADIUS_SIZE: Val = Val::Px(6.0);

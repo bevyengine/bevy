@@ -1,5 +1,5 @@
 use alloc::{string::String, vec::Vec};
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
@@ -8,7 +8,7 @@ use crate::Task;
 use std::thread_local;
 
 #[cfg(not(feature = "std"))]
-use bevy_platform_support::sync::{Mutex, PoisonError};
+use bevy_platform::sync::{Mutex, PoisonError};
 
 #[cfg(feature = "std")]
 use crate::executor::LocalExecutor;
@@ -201,23 +201,23 @@ impl TaskPool {
     {
         cfg_if::cfg_if! {
             if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-                return Task::wrap_future(future);
+                Task::wrap_future(future)
             } else if #[cfg(feature = "std")] {
-                return LOCAL_EXECUTOR.with(|executor| {
+                LOCAL_EXECUTOR.with(|executor| {
                     let task = executor.spawn(future);
                     // Loop until all tasks are done
                     while executor.try_tick() {}
 
                     Task::new(task)
-                });
+                })
             } else {
-                return {
+                {
                     let task = LOCAL_EXECUTOR.spawn(future);
                     // Loop until all tasks are done
                     while LOCAL_EXECUTOR.try_tick() {}
 
                     Task::new(task)
-                };
+                }
             }
         }
     }

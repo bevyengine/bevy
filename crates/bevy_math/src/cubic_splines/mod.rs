@@ -51,7 +51,7 @@ use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
 /// ```
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicBezier<P: VectorSpace> {
     /// The control points of the Bezier curve.
     pub control_points: Vec<[P; 4]>,
@@ -68,7 +68,7 @@ impl<P: VectorSpace> CubicBezier<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicBezier<P> {
     type Error = CubicBezierError;
 
     #[inline]
@@ -141,7 +141,7 @@ pub struct CubicBezierError;
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicHermite<P: VectorSpace> {
     /// The control points of the Hermite curve.
     pub control_points: Vec<(P, P)>,
@@ -176,7 +176,7 @@ impl<P: VectorSpace> CubicHermite<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -202,7 +202,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
+impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -270,7 +270,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicCardinalSpline<P: VectorSpace> {
     /// Tension
     pub tension: f32,
@@ -313,7 +313,7 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -351,7 +351,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -432,7 +432,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicBSpline<P: VectorSpace> {
     /// The control points of the spline
     pub control_points: Vec<P>,
@@ -471,7 +471,7 @@ impl<P: VectorSpace> CubicBSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -494,7 +494,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -609,7 +609,7 @@ pub enum CubicNurbsError {
 /// ```
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicNurbs<P: VectorSpace> {
     /// The control points of the NURBS
     pub control_points: Vec<P>,
@@ -620,7 +620,7 @@ pub struct CubicNurbs<P: VectorSpace> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicNurbs<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
     ///
     /// If provided, weights must be the same length as the control points. Defaults to equal weights.
@@ -781,7 +781,7 @@ impl<P: VectorSpace> CubicNurbs<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
+impl<P: VectorSpace<Scalar = f32>> RationalGenerator<P> for CubicNurbs<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -841,7 +841,7 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct LinearSpline<P: VectorSpace> {
     /// The control points of the linear spline.
     pub points: Vec<P>,
@@ -952,13 +952,17 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
 /// [`Curve`]: crate::curve::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 pub struct CubicSegment<P: VectorSpace> {
     /// Polynomial coefficients for the segment.
     pub coeff: [P; 4],
 }
 
-impl<P: VectorSpace> CubicSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicSegment<P> {
     /// Instantaneous position of a point at parametric value `t`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -1173,14 +1177,14 @@ impl CubicSegment<Vec2> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg(feature = "alloc")]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicCurve<P: VectorSpace> {
     /// The segments comprising the curve. This must always be nonempty.
     segments: Vec<CubicSegment<P>>,
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
     pub fn from_segments(segments: impl IntoIterator<Item = CubicSegment<P>>) -> Option<Self> {
@@ -1330,7 +1334,11 @@ pub trait RationalGenerator<P: VectorSpace> {
 /// [`Curve`]: crate::curve::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
     pub coeff: [P; 4],
@@ -1339,7 +1347,7 @@ pub struct RationalSegment<P: VectorSpace> {
     /// The width of the domain of this segment.
     pub knot_span: f32,
 }
-impl<P: VectorSpace> RationalSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -1469,14 +1477,14 @@ impl<P: VectorSpace> RationalSegment<P> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg(feature = "alloc")]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct RationalCurve<P: VectorSpace> {
     /// The segments comprising the curve. This must always be nonempty.
     segments: Vec<RationalSegment<P>>,
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> RationalCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> RationalCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
     pub fn from_segments(segments: impl IntoIterator<Item = RationalSegment<P>>) -> Option<Self> {
@@ -1780,9 +1788,7 @@ mod tests {
             for (i, (a, b)) in cubic_curve.iter().zip(rational_curve.iter()).enumerate() {
                 assert!(
                     a.distance(*b) < EPSILON,
-                    "Mismatch at {name} value {i}. CubicCurve: {} Converted RationalCurve: {}",
-                    a,
-                    b
+                    "Mismatch at {name} value {i}. CubicCurve: {a} Converted RationalCurve: {b}",
                 );
             }
         }

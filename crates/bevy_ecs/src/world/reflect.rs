@@ -70,7 +70,7 @@ impl World {
         entity: Entity,
         type_id: TypeId,
     ) -> Result<&dyn Reflect, GetComponentReflectError> {
-        let Some(component_id) = self.components().get_id(type_id) else {
+        let Some(component_id) = self.components().get_valid_id(type_id) else {
             return Err(GetComponentReflectError::NoCorrespondingComponentId(
                 type_id,
             ));
@@ -80,7 +80,7 @@ impl World {
             let component_name = self
                 .components()
                 .get_name(component_id)
-                .map(ToString::to_string);
+                .map(|name| name.to_string());
 
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {
                 entity,
@@ -158,7 +158,7 @@ impl World {
             ));
         };
 
-        let Some(component_id) = self.components().get_id(type_id) else {
+        let Some(component_id) = self.components().get_valid_id(type_id) else {
             return Err(GetComponentReflectError::NoCorrespondingComponentId(
                 type_id,
             ));
@@ -169,7 +169,7 @@ impl World {
         let component_name = self
             .components()
             .get_name(component_id)
-            .map(ToString::to_string);
+            .map(|name| name.to_string());
 
         let Some(comp_mut_untyped) = self.get_mut_by_id(entity, component_id) else {
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {

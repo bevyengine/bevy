@@ -6,8 +6,8 @@ use crate::{
     ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::collections::HashMap;
+use bevy_platform::sync::Arc;
 use bevy_reflect_derive::impl_type_path;
 use core::{
     fmt::{Debug, Formatter},
@@ -71,8 +71,14 @@ pub trait Struct: PartialReflect {
     /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter;
 
-    /// Clones the struct into a [`DynamicStruct`].
-    fn clone_dynamic(&self) -> DynamicStruct;
+    fn to_dynamic_struct(&self) -> DynamicStruct {
+        let mut dynamic_struct = DynamicStruct::default();
+        dynamic_struct.set_represented_type(self.get_represented_type_info());
+        for (i, value) in self.iter_fields().enumerate() {
+            dynamic_struct.insert_boxed(self.name_at(i).unwrap(), value.to_dynamic());
+        }
+        dynamic_struct
+    }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
@@ -286,8 +292,7 @@ impl DynamicStruct {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Struct(_)),
-                "expected TypeInfo::Struct but received: {:?}",
-                represented_type
+                "expected TypeInfo::Struct but received: {represented_type:?}"
             );
         }
 
@@ -370,19 +375,6 @@ impl Struct for DynamicStruct {
             index: 0,
         }
     }
-
-    fn clone_dynamic(&self) -> DynamicStruct {
-        DynamicStruct {
-            represented_type: self.get_represented_type_info(),
-            field_names: self.field_names.clone(),
-            field_indices: self.field_indices.clone(),
-            fields: self
-                .fields
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-        }
-    }
 }
 
 impl PartialReflect for DynamicStruct {
@@ -447,11 +439,6 @@ impl PartialReflect for DynamicStruct {
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Struct(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {

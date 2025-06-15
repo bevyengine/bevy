@@ -1,7 +1,6 @@
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::Access,
+    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
@@ -14,6 +13,8 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
+use super::{SystemParamValidationError, SystemStateFlags};
+
 /// A function system that runs with exclusive [`World`] access.
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
@@ -25,6 +26,8 @@ where
     F: ExclusiveSystemParamFunction<Marker>,
 {
     func: F,
+    #[cfg(feature = "hotpatching")]
+    current_ptr: subsecond::HotFnPtr,
     param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
@@ -57,6 +60,11 @@ where
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(
+                <F as ExclusiveSystemParamFunction<Marker>>::run,
+            )
+            .ptr_address(),
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
@@ -80,44 +88,27 @@ where
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.system_meta.component_access_set
     }
 
     #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.system_meta.archetype_component_access
-    }
-
-    #[inline]
-    fn is_send(&self) -> bool {
-        // exclusive systems should have access to non-send resources
+    fn flags(&self) -> SystemStateFlags {
+        // non-send , exclusive , no deferred
         // the executor runs exclusive systems on the main thread, so this
         // field reflects that constraint
-        false
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        true
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
         // exclusive systems have no deferred system params
-        false
+        SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
     }
 
     #[inline]
     unsafe fn run_unsafe(
         &mut self,
-        _input: SystemIn<'_, Self>,
-        _world: UnsafeWorldCell,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
     ) -> Self::Out {
-        panic!("Cannot run exclusive systems with a shared World reference");
-    }
-
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        // SAFETY: The safety is upheld by the caller.
+        let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();
@@ -126,6 +117,20 @@ where
                 self.param_state.as_mut().expect(PARAM_MESSAGE),
                 &self.system_meta,
             );
+
+            #[cfg(feature = "hotpatching")]
+            let out = {
+                let mut hot_fn =
+                    subsecond::HotFn::current(<F as ExclusiveSystemParamFunction<Marker>>::run);
+                // SAFETY:
+                // - pointer used to call is from the current jump table
+                unsafe {
+                    hot_fn
+                        .try_call_with_ptr(self.current_ptr, (&mut self.func, world, input, params))
+                        .expect("Error calling hotpatched system. Run a full rebuild")
+                }
+            };
+            #[cfg(not(feature = "hotpatching"))]
             let out = self.func.run(world, input, params);
 
             world.flush();
@@ -133,6 +138,17 @@ where
 
             out
         })
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        let new = subsecond::HotFn::current(<F as ExclusiveSystemParamFunction<Marker>>::run)
+            .ptr_address();
+        if new != self.current_ptr {
+            log::debug!("system {} hotpatched", self.name());
+        }
+        self.current_ptr = new;
     }
 
     #[inline]
@@ -150,9 +166,12 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        _world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // All exclusive system params are always available.
-        true
+        Ok(())
     }
 
     #[inline]
@@ -160,8 +179,6 @@ where
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
-
-    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {
@@ -281,6 +298,7 @@ macro_rules! impl_exclusive_system_function {
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
+                    _: PhantomData<In>,
                     mut f: impl FnMut(In::Param<'_>, &mut World, $($param,)*) -> Out,
                     input: In::Inner<'_>,
                     world: &mut World,
@@ -289,7 +307,7 @@ macro_rules! impl_exclusive_system_function {
                     f(In::wrap(input), world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, input, world, $($param),*)
+                call_inner(PhantomData::<In>, self, input, world, $($param),*)
             }
         }
     };

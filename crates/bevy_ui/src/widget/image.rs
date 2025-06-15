@@ -11,7 +11,7 @@ use taffy::{MaybeMath, MaybeResolve};
 
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(Node, ImageNodeSize, ContentSize)]
 pub struct ImageNode {
     /// The tint color used to draw the image.
@@ -138,7 +138,8 @@ impl From<Handle<Image>> for ImageNode {
 }
 
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
-#[derive(Default, Debug, Clone, Reflect)]
+#[derive(Default, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Clone, Default, PartialEq)]
 pub enum NodeImageMode {
     /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]
@@ -174,7 +175,7 @@ impl NodeImageMode {
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct ImageNodeSize {
     /// The size of the image's texture
     ///

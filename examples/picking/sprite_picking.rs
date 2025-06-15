@@ -1,5 +1,5 @@
-//! Demonstrates picking for sprites and sprite atlases. The picking backend only tests against the
-//! sprite bounds, so the sprite atlas can be picked by clicking on its transparent areas.
+//! Demonstrates picking for sprites and sprite atlases.
+//! By default, the sprite picking backend considers a sprite only when a pointer is over an opaque pixel.
 
 use bevy::{prelude::*, sprite::Anchor};
 use std::fmt::Debug;
@@ -38,16 +38,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((Transform::default(), Visibility::default()))
         .with_children(|commands| {
             for (anchor_index, anchor) in [
-                Anchor::TopLeft,
-                Anchor::TopCenter,
-                Anchor::TopRight,
-                Anchor::CenterLeft,
-                Anchor::Center,
-                Anchor::CenterRight,
-                Anchor::BottomLeft,
-                Anchor::BottomCenter,
-                Anchor::BottomRight,
-                Anchor::Custom(Vec2::new(0.5, 0.5)),
+                Anchor::TOP_LEFT,
+                Anchor::TOP_CENTER,
+                Anchor::TOP_RIGHT,
+                Anchor::CENTER_LEFT,
+                Anchor::CENTER,
+                Anchor::CENTER_RIGHT,
+                Anchor::BOTTOM_LEFT,
+                Anchor::BOTTOM_CENTER,
+                Anchor::BOTTOM_RIGHT,
             ]
             .iter()
             .enumerate()
@@ -73,9 +72,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             image: asset_server.load("branding/bevy_bird_dark.png"),
                             custom_size: Some(sprite_size),
                             color: Color::srgb(1.0, 0.0, 0.0),
-                            anchor: anchor.to_owned(),
                             ..default()
                         },
+                        anchor.to_owned(),
                         // 3x3 grid of anchor examples by changing transform
                         Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
@@ -153,7 +152,7 @@ fn setup_atlas(
 // An observer listener that changes the target entity's color.
 fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
     move |ev, mut sprites| {
-        let Ok(mut sprite) = sprites.get_mut(ev.target()) else {
+        let Ok(mut sprite) = sprites.get_mut(ev.target().unwrap()) else {
             return;
         };
         sprite.color = color;

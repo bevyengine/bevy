@@ -1,6 +1,0 @@
-[package]
-name = "remapped-test"
-edition = "2024"
-
-[dependencies]
-bevi = { path = "../../", package = "bevy" }

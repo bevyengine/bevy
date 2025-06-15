@@ -1,7 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -19,7 +19,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use bevy_platform_support::sync::Mutex;
+use bevy_platform::sync::Mutex;
 
 mod event;
 mod monitor;
@@ -45,8 +45,9 @@ pub use window::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection, Window,
-        WindowMoved, WindowPlugin, WindowPosition, WindowResizeConstraints,
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
+        VideoModeSelection, Window, WindowMoved, WindowPlugin, WindowPosition,
+        WindowResizeConstraints,
     };
 }
 
@@ -176,11 +177,11 @@ impl Plugin for WindowPlugin {
 pub enum ExitCondition {
     /// Close application when the primary window is closed
     ///
-    /// The plugin will add [`exit_on_primary_closed`] to [`Update`].
+    /// The plugin will add [`exit_on_primary_closed`] to [`PostUpdate`].
     OnPrimaryClosed,
     /// Close application when all windows are closed
     ///
-    /// The plugin will add [`exit_on_all_closed`] to [`Update`].
+    /// The plugin will add [`exit_on_all_closed`] to [`PostUpdate`].
     OnAllClosed,
     /// Keep application running headless even after closing all windows
     ///

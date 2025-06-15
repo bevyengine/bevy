@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -54,7 +54,11 @@ pub struct ActionRequest(pub accesskit::ActionRequest);
 /// Useful if a third-party plugin needs to conditionally integrate with
 /// `AccessKit`
 #[derive(Resource, Default, Clone, Debug, Deref, DerefMut)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Clone, Resource)
+)]
 pub struct AccessibilityRequested(Arc<AtomicBool>);
 
 impl AccessibilityRequested {
@@ -78,7 +82,11 @@ impl AccessibilityRequested {
 /// will generate conflicting updates.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Resource, Clone, Default)
+)]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)
@@ -127,12 +135,16 @@ impl From<Node> for AccessibilityNode {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
-    reflect(Serialize, Deserialize)
+    reflect(Serialize, Deserialize, Clone)
 )]
-pub enum AccessibilitySystem {
+pub enum AccessibilitySystems {
     /// Update the accessibility tree
     Update,
 }
+
+/// Deprecated alias for [`AccessibilitySystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AccessibilitySystems`.")]
+pub type AccessibilitySystem = AccessibilitySystems;
 
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
 #[derive(Default)]

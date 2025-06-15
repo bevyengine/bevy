@@ -16,6 +16,7 @@ The default feature set enables most of the expected features of a game engine, 
 |animation|Enable animation support, and glTF animation loading|
 |async_executor|Uses `async-executor` as a task execution backend.|
 |bevy_animation|Provides animation functionality|
+|bevy_anti_aliasing|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
 |bevy_color|Provides shared color types and operations|
@@ -84,6 +85,7 @@ The default feature set enables most of the expected features of a game engine, 
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
+|hotpatching|Enable hotpatching of Bevy systems|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|

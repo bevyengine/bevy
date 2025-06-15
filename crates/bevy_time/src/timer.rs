@@ -14,7 +14,11 @@ use core::time::Duration;
 /// Note that in order to advance the timer [`tick`](Timer::tick) **MUST** be called.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Clone, PartialEq)
+)]
 pub struct Timer {
     stopwatch: Stopwatch,
     duration: Duration,
@@ -61,6 +65,34 @@ impl Timer {
     ///
     /// let mut timer_once = Timer::from_seconds(1.0, TimerMode::Once);
     /// timer_once.tick(Duration::from_secs_f32(1.5));
+    /// assert!(timer_once.is_finished());
+    /// timer_once.tick(Duration::from_secs_f32(0.5));
+    /// assert!(timer_once.is_finished());
+    ///
+    /// let mut timer_repeating = Timer::from_seconds(1.0, TimerMode::Repeating);
+    /// timer_repeating.tick(Duration::from_secs_f32(1.1));
+    /// assert!(timer_repeating.is_finished());
+    /// timer_repeating.tick(Duration::from_secs_f32(0.8));
+    /// assert!(!timer_repeating.is_finished());
+    /// timer_repeating.tick(Duration::from_secs_f32(0.6));
+    /// assert!(timer_repeating.is_finished());
+    /// ```
+    #[inline]
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+
+    /// Returns `true` if the timer has reached its duration.
+    ///
+    /// For repeating timers, this method behaves identically to [`Timer::just_finished`].
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_time::*;
+    /// use std::time::Duration;
+    ///
+    /// let mut timer_once = Timer::from_seconds(1.0, TimerMode::Once);
+    /// timer_once.tick(Duration::from_secs_f32(1.5));
     /// assert!(timer_once.finished());
     /// timer_once.tick(Duration::from_secs_f32(0.5));
     /// assert!(timer_once.finished());
@@ -73,6 +105,7 @@ impl Timer {
     /// timer_repeating.tick(Duration::from_secs_f32(0.6));
     /// assert!(timer_repeating.finished());
     /// ```
+    #[deprecated(since = "0.17.0", note = "Use `is_finished` instead")]
     #[inline]
     pub fn finished(&self) -> bool {
         self.finished
@@ -139,7 +172,7 @@ impl Timer {
     /// timer.set_elapsed(Duration::from_secs(2));
     /// assert_eq!(timer.elapsed(), Duration::from_secs(2));
     /// // the timer is not finished even if the elapsed time is greater than the duration.
-    /// assert!(!timer.finished());
+    /// assert!(!timer.is_finished());
     /// ```
     #[inline]
     pub fn set_elapsed(&mut self, time: Duration) {
@@ -226,7 +259,7 @@ impl Timer {
     /// assert_eq!(repeating.elapsed_secs(), 0.5);
     /// ```
     pub fn tick(&mut self, delta: Duration) -> &Self {
-        if self.paused() {
+        if self.is_paused() {
             self.times_finished_this_tick = 0;
             if self.mode == TimerMode::Repeating {
                 self.finished = false;
@@ -234,7 +267,7 @@ impl Timer {
             return self;
         }
 
-        if self.mode != TimerMode::Repeating && self.finished() {
+        if self.mode != TimerMode::Repeating && self.is_finished() {
             self.times_finished_this_tick = 0;
             return self;
         }
@@ -242,7 +275,7 @@ impl Timer {
         self.stopwatch.tick(delta);
         self.finished = self.elapsed() >= self.duration();
 
-        if self.finished() {
+        if self.is_finished() {
             if self.mode == TimerMode::Repeating {
                 self.times_finished_this_tick = self
                     .elapsed()
@@ -312,12 +345,32 @@ impl Timer {
     /// ```
     /// # use bevy_time::*;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
+    /// assert!(!timer.is_paused());
+    /// timer.pause();
+    /// assert!(timer.is_paused());
+    /// timer.unpause();
+    /// assert!(!timer.is_paused());
+    /// ```
+    #[inline]
+    pub fn is_paused(&self) -> bool {
+        self.stopwatch.is_paused()
+    }
+
+    /// Returns `true` if the timer is paused.
+    ///
+    /// See also [`Stopwatch::is_paused`](Stopwatch::is_paused).
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_time::*;
+    /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     /// assert!(!timer.paused());
     /// timer.pause();
     /// assert!(timer.paused());
     /// timer.unpause();
     /// assert!(!timer.paused());
     /// ```
+    #[deprecated(since = "0.17.0", note = "Use `is_paused` instead")]
     #[inline]
     pub fn paused(&self) -> bool {
         self.stopwatch.is_paused()
@@ -334,7 +387,7 @@ impl Timer {
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(1.5));
     /// timer.reset();
-    /// assert!(!timer.finished());
+    /// assert!(!timer.is_finished());
     /// assert!(!timer.just_finished());
     /// assert_eq!(timer.elapsed_secs(), 0.0);
     /// ```
@@ -437,7 +490,11 @@ impl Timer {
 /// Specifies [`Timer`] behavior.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Clone, PartialEq, Hash)
+)]
 pub enum TimerMode {
     /// Run once and stop.
     #[default]
@@ -458,7 +515,7 @@ mod tests {
         assert_eq!(t.elapsed_secs(), 0.25);
         assert_eq!(t.elapsed_secs_f64(), 0.25);
         assert_eq!(t.duration(), Duration::from_secs_f32(10.0));
-        assert!(!t.finished());
+        assert!(!t.is_finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.mode(), TimerMode::Once);
@@ -469,7 +526,7 @@ mod tests {
         t.tick(Duration::from_secs_f32(500.0));
         assert_eq!(t.elapsed_secs(), 0.25);
         assert_eq!(t.duration(), Duration::from_secs_f32(10.0));
-        assert!(!t.finished());
+        assert!(!t.is_finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.mode(), TimerMode::Once);
@@ -480,7 +537,7 @@ mod tests {
         t.tick(Duration::from_secs_f32(500.0));
         assert_eq!(t.elapsed_secs(), 10.0);
         assert_eq!(t.elapsed_secs_f64(), 10.0);
-        assert!(t.finished());
+        assert!(t.is_finished());
         assert!(t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 1);
         assert_eq!(t.fraction(), 1.0);
@@ -489,7 +546,7 @@ mod tests {
         t.tick(Duration::from_secs_f32(1.0));
         assert_eq!(t.elapsed_secs(), 10.0);
         assert_eq!(t.elapsed_secs_f64(), 10.0);
-        assert!(t.finished());
+        assert!(t.is_finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.fraction(), 1.0);
@@ -504,7 +561,7 @@ mod tests {
         assert_eq!(t.elapsed_secs(), 0.75);
         assert_eq!(t.elapsed_secs_f64(), 0.75);
         assert_eq!(t.duration(), Duration::from_secs_f32(2.0));
-        assert!(!t.finished());
+        assert!(!t.is_finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.mode(), TimerMode::Repeating);
@@ -514,7 +571,7 @@ mod tests {
         t.tick(Duration::from_secs_f32(1.5));
         assert_eq!(t.elapsed_secs(), 0.25);
         assert_eq!(t.elapsed_secs_f64(), 0.25);
-        assert!(t.finished());
+        assert!(t.is_finished());
         assert!(t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 1);
         assert_eq!(t.fraction(), 0.125);
@@ -523,7 +580,7 @@ mod tests {
         t.tick(Duration::from_secs_f32(1.0));
         assert_eq!(t.elapsed_secs(), 1.25);
         assert_eq!(t.elapsed_secs_f64(), 1.25);
-        assert!(!t.finished());
+        assert!(!t.is_finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
         assert_eq!(t.fraction(), 0.625);
@@ -538,7 +595,7 @@ mod tests {
         assert_eq!(t.times_finished_this_tick(), 3);
         assert_eq!(t.elapsed_secs(), 0.5);
         assert_eq!(t.elapsed_secs_f64(), 0.5);
-        assert!(t.finished());
+        assert!(t.is_finished());
         assert!(t.just_finished());
         t.tick(Duration::from_secs_f32(0.2));
         assert_eq!(t.times_finished_this_tick(), 0);
@@ -599,12 +656,12 @@ mod tests {
 
         t.tick(Duration::from_secs_f32(10.0));
         assert!(t.just_finished());
-        assert!(t.finished());
+        assert!(t.is_finished());
         // A paused timer should change just_finished to false after a tick
         t.pause();
         t.tick(Duration::from_secs_f32(5.0));
         assert!(!t.just_finished());
-        assert!(t.finished());
+        assert!(t.is_finished());
     }
 
     #[test]
@@ -613,11 +670,11 @@ mod tests {
 
         t.tick(Duration::from_secs_f32(10.0));
         assert!(t.just_finished());
-        assert!(t.finished());
+        assert!(t.is_finished());
         // A paused repeating timer should change finished and just_finished to false after a tick
         t.pause();
         t.tick(Duration::from_secs_f32(5.0));
         assert!(!t.just_finished());
-        assert!(!t.finished());
+        assert!(!t.is_finished());
     }
 }

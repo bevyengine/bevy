@@ -11,13 +11,13 @@ use crate::{
     archetype::ArchetypeFlags,
     change_detection::MaybeLocation,
     component::ComponentId,
-    entity::hash_map::EntityHashMap,
+    entity::EntityHashMap,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_ptr::Ptr;
 use core::{
     fmt::Debug,
@@ -68,7 +68,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
-    /// be [`Entity::PLACEHOLDER`].
+    /// be [`None`] if the trigger is not for a particular entity.
     ///
     /// Observable events can target specific entities. When those events fire, they will trigger
     /// any observers on the targeted entities. In this case, the `target()` and `observer()` are
@@ -81,7 +81,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     ///
     /// This is an important distinction: the entity reacting to an event is not always the same as
     /// the entity triggered by the event.
-    pub fn target(&self) -> Entity {
+    pub fn target(&self) -> Option<Entity> {
         self.trigger.target
     }
 
@@ -315,13 +315,6 @@ impl ObserverDescriptor {
         self
     }
 
-    pub(crate) fn merge(&mut self, descriptor: &ObserverDescriptor) {
-        self.events.extend(descriptor.events.iter().copied());
-        self.components
-            .extend(descriptor.components.iter().copied());
-        self.entities.extend(descriptor.entities.iter().copied());
-    }
-
     /// Returns the `events` that the observer is watching.
     pub fn events(&self) -> &[ComponentId] {
         &self.events
@@ -348,8 +341,8 @@ pub struct ObserverTrigger {
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
-    pub target: Entity,
-    /// The location of the source code that triggered the obserer.
+    pub target: Option<Entity>,
+    /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
 }
 
@@ -423,7 +416,7 @@ impl Observers {
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
-        target: Entity,
+        target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -462,8 +455,8 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
-        if target != Entity::PLACEHOLDER {
-            if let Some(map) = observers.entity_observers.get(&target) {
+        if let Some(target_entity) = target {
+            if let Some(map) = observers.entity_observers.get(&target_entity) {
                 map.iter().for_each(&mut trigger_observer);
             }
         }
@@ -476,8 +469,8 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if target != Entity::PLACEHOLDER {
-                    if let Some(map) = component_observers.entity_map.get(&target) {
+                if let Some(target_entity) = target {
+                    if let Some(map) = component_observers.entity_map.get(&target_entity) {
                         map.iter().for_each(&mut trigger_observer);
                     }
                 }
@@ -543,6 +536,8 @@ impl World {
     /// Spawns a "global" [`Observer`] which will watch for the given event.
     /// Returns its [`Entity`] as a [`EntityWorldMut`].
     ///
+    /// `system` can be any system whose first parameter is a [`Trigger`].
+    ///
     /// **Calling [`observe`](EntityWorldMut::observe) on the returned
     /// [`EntityWorldMut`] will observe the observer itself, which you very
     /// likely do not want.**
@@ -562,6 +557,10 @@ impl World {
     ///     // ...
     /// });
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given system is an exclusive system.
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
@@ -696,7 +695,7 @@ impl World {
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
                     event_id,
-                    Entity::PLACEHOLDER,
+                    None,
                     targets.components(),
                     event_data,
                     false,
@@ -709,7 +708,7 @@ impl World {
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
                         event_id,
-                        target_entity,
+                        Some(target_entity),
                         targets.components(),
                         event_data,
                         E::AUTO_PROPAGATE,
@@ -724,11 +723,10 @@ impl World {
     pub(crate) fn register_observer(&mut self, observer_entity: Entity) {
         // SAFETY: References do not alias.
         let (observer_state, archetypes, observers) = unsafe {
-            let observer_state: *const ObserverState =
-                self.get::<ObserverState>(observer_entity).unwrap();
+            let observer_state: *const Observer = self.get::<Observer>(observer_entity).unwrap();
             // Populate ObservedBy for each observed entity.
-            for watched_entity in &(*observer_state).descriptor.entities {
-                let mut entity_mut = self.entity_mut(*watched_entity);
+            for watched_entity in (*observer_state).descriptor.entities.iter().copied() {
+                let mut entity_mut = self.entity_mut(watched_entity);
                 let mut observed_by = entity_mut.entry::<ObservedBy>().or_default().into_mut();
                 observed_by.0.push(observer_entity);
             }
@@ -843,13 +841,13 @@ impl World {
 mod tests {
     use alloc::{vec, vec::Vec};
 
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
     use crate::component::ComponentId;
     use crate::{
         change_detection::MaybeLocation,
-        observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},
+        observer::{Observer, OnReplace},
         prelude::*,
         traversal::Traversal,
     };
@@ -1001,20 +999,20 @@ mod tests {
         world.add_observer(
             |obs: Trigger<OnAdd, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.target()).insert(B);
+                commands.entity(obs.target().unwrap()).insert(B);
             },
         );
         world.add_observer(
             |obs: Trigger<OnRemove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.target()).remove::<B>();
+                commands.entity(obs.target().unwrap()).remove::<B>();
             },
         );
 
         world.add_observer(
             |obs: Trigger<OnAdd, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.target()).remove::<A>();
+                commands.entity(obs.target().unwrap()).remove::<A>();
             },
         );
         world.add_observer(|_: Trigger<OnRemove, B>, mut res: ResMut<Order>| {
@@ -1079,7 +1077,7 @@ mod tests {
         world.add_observer(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add_2"));
 
         world.spawn(A).flush();
-        assert_eq!(vec!["add_1", "add_2"], world.resource::<Order>().0);
+        assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
         // Our A entity plus our two observers
         assert_eq!(world.entities().len(), 3);
     }
@@ -1183,7 +1181,7 @@ mod tests {
         };
         world.spawn_empty().observe(system);
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), Entity::PLACEHOLDER);
+            assert_eq!(obs.target(), None);
             res.observed("event_a");
         });
 
@@ -1210,7 +1208,7 @@ mod tests {
             .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), entity);
+            assert_eq!(obs.target().unwrap(), entity);
             res.observed("a_2");
         });
 
@@ -1364,14 +1362,14 @@ mod tests {
         world.init_resource::<Order>();
         let event_a = OnRemove::register_component_id(&mut world);
 
-        world.spawn(ObserverState {
-            // SAFETY: we registered `event_a` above and it matches the type of EventA
-            descriptor: unsafe { ObserverDescriptor::default().with_events(vec![event_a]) },
-            runner: |mut world, _trigger, _ptr, _propagate| {
+        // SAFETY: we registered `event_a` above and it matches the type of EventA
+        let observe = unsafe {
+            Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
-            },
-            ..Default::default()
-        });
+            })
+            .with_event(event_a)
+        };
+        world.spawn(observe);
 
         world.commands().queue(move |world: &mut World| {
             // SAFETY: we registered `event_a` above and it matches the type of EventA
@@ -1630,7 +1628,7 @@ mod tests {
 
         world.add_observer(
             |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(trigger.target()).is_ok() {
+                if query.get(trigger.target().unwrap()).is_ok() {
                     res.observed("event");
                 }
             },
@@ -1646,6 +1644,23 @@ mod tests {
         world.trigger_targets(EventPropagating, child);
         world.flush();
         assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
+    }
+
+    // Originally for https://github.com/bevyengine/bevy/issues/18452
+    #[test]
+    fn observer_modifies_relationship() {
+        fn on_add(trigger: Trigger<OnAdd, A>, mut commands: Commands) {
+            commands
+                .entity(trigger.target().unwrap())
+                .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
+                    rsc.spawn_empty();
+                });
+        }
+
+        let mut world = World::new();
+        world.add_observer(on_add);
+        world.spawn(A);
+        world.flush();
     }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/14467

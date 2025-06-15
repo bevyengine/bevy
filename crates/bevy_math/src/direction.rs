@@ -1,6 +1,6 @@
 use crate::{
     primitives::{Primitive2d, Primitive3d},
-    Quat, Rot2, Vec2, Vec3, Vec3A,
+    Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
 };
 
 use core::f32::consts::FRAC_1_SQRT_2;
@@ -69,17 +69,24 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
     } else if length_error_squared > 2e-4 {
         // Length error is approximately 1e-4 or more.
         #[cfg(feature = "std")]
-        eprintln!(
-            "Warning: {message} The length is {}.",
-            ops::sqrt(length_squared)
-        );
+        #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+        {
+            eprintln!(
+                "Warning: {message} The length is {}.",
+                ops::sqrt(length_squared)
+            );
+        }
     }
 }
 
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -353,7 +360,11 @@ impl approx::UlpsEq for Dir2 {
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq, Into)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -614,7 +625,11 @@ impl approx::UlpsEq for Dir3 {
 /// This may or may not be faster than [`Dir3`]: make sure to benchmark!
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -851,6 +866,195 @@ impl approx::UlpsEq for Dir3A {
     }
 }
 
+/// A normalized vector pointing in a direction in 4D space
+#[derive(Clone, Copy, Debug, PartialEq, Into)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+#[doc(alias = "Direction4d")]
+pub struct Dir4(Vec4);
+
+impl Dir4 {
+    /// A unit vector pointing along the positive X axis
+    pub const X: Self = Self(Vec4::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec4::Y);
+    /// A unit vector pointing along the positive Z axis.
+    pub const Z: Self = Self(Vec4::Z);
+    /// A unit vector pointing along the positive W axis.
+    pub const W: Self = Self(Vec4::W);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec4::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec4::NEG_Y);
+    /// A unit vector pointing along the negative Z axis.
+    pub const NEG_Z: Self = Self(Vec4::NEG_Z);
+    /// A unit vector pointing along the negative W axis.
+    pub const NEG_W: Self = Self(Vec4::NEG_W);
+    /// The directional axes.
+    pub const AXES: [Self; 4] = [Self::X, Self::Y, Self::Z, Self::W];
+
+    /// Create a direction from a finite, nonzero [`Vec4`], normalizing it.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new(value: Vec4) -> Result<Self, InvalidDirectionError> {
+        Self::new_and_length(value).map(|(dir, _)| dir)
+    }
+
+    /// Create a [`Dir4`] from a [`Vec4`] that is already normalized.
+    ///
+    /// # Warning
+    ///
+    /// `value` must be normalized, i.e its length must be `1.0`.
+    pub fn new_unchecked(value: Vec4) -> Self {
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The vector given to `Dir4::new_unchecked` is not normalized.",
+            value.length_squared(),
+        );
+        Self(value)
+    }
+
+    /// Create a direction from a finite, nonzero [`Vec4`], normalizing it and
+    /// also returning its original length.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new_and_length(value: Vec4) -> Result<(Self, f32), InvalidDirectionError> {
+        let length = value.length();
+        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
+
+        direction
+            .map(|dir| (Self(dir), length))
+            .ok_or(InvalidDirectionError::from_length(length))
+    }
+
+    /// Create a direction from its `x`, `y`, `z`, and `w` components.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xyzw(x: f32, y: f32, z: f32, w: f32) -> Result<Self, InvalidDirectionError> {
+        Self::new(Vec4::new(x, y, z, w))
+    }
+
+    /// Create a direction from its `x`, `y`, `z`, and `w` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x`, `y`, `z`, and `w` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xyzw_unchecked(x: f32, y: f32, z: f32, w: f32) -> Self {
+        Self::new_unchecked(Vec4::new(x, y, z, w))
+    }
+
+    /// Returns the inner [`Vec4`]
+    pub const fn as_vec4(&self) -> Vec4 {
+        self.0
+    }
+
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        // We numerically approximate the inverse square root by a Taylor series around 1
+        // As we expect the error (x := length_squared - 1) to be small
+        // inverse_sqrt(length_squared) = (1 + x)^(-1/2) = 1 - 1/2 x + O(x²)
+        // inverse_sqrt(length_squared) ≈ 1 - 1/2 (length_squared - 1) = 1/2 (3 - length_squared)
+
+        // Iterative calls to this method quickly converge to a normalized value,
+        // so long as the denormalization is not large ~ O(1/10).
+        // One iteration can be described as:
+        // l_sq <- l_sq * (1 - 1/2 (l_sq - 1))²;
+        // Rewriting in terms of the error x:
+        // 1 + x <- (1 + x) * (1 - 1/2 x)²
+        // 1 + x <- (1 + x) * (1 - x + 1/4 x²)
+        // 1 + x <- 1 - x + 1/4 x² + x - x² + 1/4 x³
+        // x <- -1/4 x² (3 - x)
+        // If the error is small, say in a range of (-1/2, 1/2), then:
+        // |-1/4 x² (3 - x)| <= (3/4 + 1/4 * |x|) * x² <= (3/4 + 1/4 * 1/2) * x² < x² < 1/2 x
+        // Therefore the sequence of iterates converges to 0 error as a second order method.
+
+        let length_squared = self.0.length_squared();
+        Self(self * (0.5 * (3.0 - length_squared)))
+    }
+}
+
+impl TryFrom<Vec4> for Dir4 {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: Vec4) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl core::ops::Deref for Dir4 {
+    type Target = Vec4;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl core::ops::Neg for Dir4 {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
+    }
+}
+
+impl core::ops::Mul<f32> for Dir4 {
+    type Output = Vec4;
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.0 * rhs
+    }
+}
+
+impl core::ops::Mul<Dir4> for f32 {
+    type Output = Vec4;
+    fn mul(self, rhs: Dir4) -> Self::Output {
+        self * rhs.0
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::AbsDiffEq for Dir4 {
+    type Epsilon = f32;
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        self.as_ref().abs_diff_eq(other.as_ref(), epsilon)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::RelativeEq for Dir4 {
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
+        self.as_ref()
+            .relative_eq(other.as_ref(), epsilon, max_relative)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::UlpsEq for Dir4 {
+    fn default_max_ulps() -> u32 {
+        4
+    }
+
+    fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
+        self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
+    }
+}
+
 #[cfg(test)]
 #[cfg(feature = "approx")]
 mod tests {
@@ -1068,6 +1272,50 @@ mod tests {
             dir_b = dir_b.fast_renormalize();
         }
 
+        // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
+        assert!(
+            !dir_a.is_normalized(),
+            "Denormalization doesn't work, test is faulty"
+        );
+        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
+
+    #[test]
+    fn dir4_creation() {
+        assert_eq!(Dir4::new(Vec4::X * 12.5), Ok(Dir4::X));
+        assert_eq!(
+            Dir4::new(Vec4::new(0.0, 0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            Dir4::new(Vec4::new(f32::INFINITY, 0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Dir4::new(Vec4::new(f32::NEG_INFINITY, 0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Dir4::new(Vec4::new(f32::NAN, 0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(Dir4::new_and_length(Vec4::X * 6.5), Ok((Dir4::X, 6.5)));
+    }
+
+    #[test]
+    fn dir4_renorm() {
+        // Evil denormalized matrix
+        let mat4 = bevy_math::Mat4::from_quat(Quat::from_euler(glam::EulerRot::XYZ, 1.0, 2.0, 3.0))
+            * (1.0 + 1e-5);
+        let mut dir_a = Dir4::from_xyzw(1., 1., 0., 0.).unwrap();
+        let mut dir_b = Dir4::from_xyzw(1., 1., 0., 0.).unwrap();
+        // We test that renormalizing an already normalized dir doesn't do anything
+        assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
+        for _ in 0..50 {
+            dir_a = Dir4(mat4 * *dir_a);
+            dir_b = Dir4(mat4 * *dir_b);
+            dir_b = dir_b.fast_renormalize();
+        }
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),

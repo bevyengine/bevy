@@ -163,24 +163,17 @@ impl Shader {
 
         match import_path {
             ShaderImport::AssetPath(asset_path) => {
-                let asset_path = std::path::PathBuf::from(&asset_path);
-                // Resolve and normalize the path
-                let asset_path = asset_path.canonicalize().unwrap_or(asset_path);
-                // Strip the asset root
-                let mut base_path = bevy_asset::io::file::FileAssetReader::get_base_path();
-                // TODO: integrate better with the asset system rather than hard coding this
-                base_path.push("assets");
-                let asset_path = asset_path
-                    .strip_prefix(&base_path)
-                    .unwrap_or_else(|_| &asset_path);
-                // Wesl paths are provided as absolute relative to the asset root
-                let asset_path = std::path::Path::new("/").join(asset_path);
-                // And with a striped file name
-                let asset_path = asset_path.with_extension("");
-                let asset_path = asset_path.to_str().unwrap_or_else(|| {
-                    panic!("Failed to convert path to string: {:?}", asset_path)
-                });
-                let import_path = ShaderImport::AssetPath(asset_path.to_string());
+                // Create the shader import path - always starting with "/"
+                let shader_path = std::path::Path::new("/").join(&asset_path);
+
+                // Convert to a string with forward slashes and without extension
+                let import_path_str = shader_path
+                    .with_extension("")
+                    .to_string_lossy()
+                    .replace('\\', "/");
+
+                let import_path = ShaderImport::AssetPath(import_path_str.to_string());
+
                 Shader {
                     path,
                     imports,
@@ -331,14 +324,21 @@ pub enum ShaderLoaderError {
     Parse(#[from] alloc::string::FromUtf8Error),
 }
 
+/// Settings for loading shaders.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Default)]
+pub struct ShaderSettings {
+    /// The `#define` specified for this shader.
+    pub shader_defs: Vec<ShaderDefVal>,
+}
+
 impl AssetLoader for ShaderLoader {
     type Asset = Shader;
-    type Settings = ();
+    type Settings = ShaderSettings;
     type Error = ShaderLoaderError;
     async fn load(
         &self,
         reader: &mut dyn Reader,
-        _settings: &Self::Settings,
+        settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
         let ext = load_context.path().extension().unwrap().to_str().unwrap();
@@ -348,9 +348,19 @@ impl AssetLoader for ShaderLoader {
         let path = path.replace(std::path::MAIN_SEPARATOR, "/");
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
+        if ext != "wgsl" && !settings.shader_defs.is_empty() {
+            tracing::warn!(
+                "Tried to load a non-wgsl shader with shader defs, this isn't supported: \
+                    The shader defs will be ignored."
+            );
+        }
         let mut shader = match ext {
             "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
-            "wgsl" => Shader::from_wgsl(String::from_utf8(bytes)?, path),
+            "wgsl" => Shader::from_wgsl_with_defs(
+                String::from_utf8(bytes)?,
+                path,
+                settings.shader_defs.clone(),
+            ),
             "vert" => Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Vertex, path),
             "frag" => {
                 Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Fragment, path)

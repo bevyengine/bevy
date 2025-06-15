@@ -4,7 +4,6 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        // Unlike UiPickingPlugin, MeshPickingPlugin is not a default plugin
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .add_systems(Startup, setup_scene)
         .run();
@@ -28,13 +27,13 @@ fn setup_scene(
         .observe(on_click_spawn_cube)
         .observe(
             |out: Trigger<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
-                let mut text_color = texts.get_mut(out.target()).unwrap();
+                let mut text_color = texts.get_mut(out.target().unwrap()).unwrap();
                 text_color.0 = Color::WHITE;
             },
         )
         .observe(
             |over: Trigger<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
-                let mut color = texts.get_mut(over.target()).unwrap();
+                let mut color = texts.get_mut(over.target().unwrap()).unwrap();
                 color.0 = bevy::color::palettes::tailwind::CYAN_400.into();
             },
         );
@@ -81,7 +80,7 @@ fn on_click_spawn_cube(
 }
 
 fn on_drag_rotate(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
-    if let Ok(mut transform) = transforms.get_mut(drag.target()) {
+    if let Ok(mut transform) = transforms.get_mut(drag.target().unwrap()) {
         transform.rotate_y(drag.delta.x * 0.02);
         transform.rotate_x(drag.delta.y * 0.02);
     }

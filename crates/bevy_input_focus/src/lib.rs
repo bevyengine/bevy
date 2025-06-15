@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -80,7 +80,7 @@ use bevy_reflect::{prelude::*, Reflect};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Resource)
+    reflect(Debug, Default, Resource, Clone)
 )]
 pub struct InputFocus(pub Option<Entity>);
 
@@ -123,7 +123,11 @@ impl InputFocus {
 ///
 /// By default, this resource is set to `false`.
 #[derive(Clone, Debug, Resource, Default)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Resource))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Resource, Clone)
+)]
 pub struct InputFocusVisible(pub bool);
 
 /// A bubble-able user input event that starts at the currently focused entity.
@@ -132,9 +136,9 @@ pub struct InputFocusVisible(pub bool);
 /// If no entity has input focus, then the event is dispatched to the main window.
 ///
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
-/// in the [`InputFocusSet::Dispatch`] system set during [`PreUpdate`].
+/// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct FocusedInput<E: Event + Clone> {
     /// The underlying input event.
     pub input: E,
@@ -161,7 +165,7 @@ impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
 
         // Send event to parent, if it has one.
         if let Some(child_of) = child_of {
-            return Some(child_of.parent);
+            return Some(child_of.parent());
         };
 
         // Otherwise, send it to the window entity (unless this is a window entity).
@@ -191,7 +195,7 @@ impl Plugin for InputDispatchPlugin {
                     dispatch_focused_input::<GamepadButtonChangedEvent>,
                     dispatch_focused_input::<MouseWheel>,
                 )
-                    .in_set(InputFocusSet::Dispatch),
+                    .in_set(InputFocusSystems::Dispatch),
             );
 
         #[cfg(feature = "bevy_reflect")]
@@ -205,10 +209,14 @@ impl Plugin for InputDispatchPlugin {
 ///
 /// These systems run in the [`PreUpdate`] schedule.
 #[derive(SystemSet, Debug, PartialEq, Eq, Hash, Clone)]
-pub enum InputFocusSet {
+pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     Dispatch,
 }
+
+/// Deprecated alias for [`InputFocusSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `InputFocusSystems`.")]
+pub type InputFocusSet = InputFocusSystems;
 
 /// Sets the initial focus to the primary window, if any.
 pub fn set_initial_focus(
@@ -334,7 +342,7 @@ impl IsFocused for World {
             if e == entity {
                 return true;
             }
-            if let Some(parent) = self.entity(e).get::<ChildOf>().map(|c| c.parent) {
+            if let Some(parent) = self.entity(e).get::<ChildOf>().map(ChildOf::parent) {
                 e = parent;
             } else {
                 return false;
@@ -386,7 +394,7 @@ mod tests {
         trigger: Trigger<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(trigger.target()) {
+        if let Ok(mut gather) = query.get_mut(trigger.target().unwrap()) {
             if let Key::Character(c) = &trigger.input.logical_key {
                 gather.0.push_str(c.as_str());
             }

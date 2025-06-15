@@ -160,7 +160,7 @@ use {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_time::prelude::*;
-/// # use bevy_platform_support::time::Instant;
+/// # use bevy_platform::time::Instant;
 /// #
 /// #[derive(Debug)]
 /// struct Custom {

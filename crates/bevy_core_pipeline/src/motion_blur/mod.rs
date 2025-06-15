@@ -7,17 +7,20 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::embedded_asset;
 use bevy_ecs::{
-    component::Component, query::With, reflect::ReflectComponent, schedule::IntoSystemConfigs,
+    component::Component,
+    query::{QueryItem, With},
+    reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, ShaderType, SpecializedRenderPipelines},
-    Render, RenderApp, RenderSet,
+    render_resource::{ShaderType, SpecializedRenderPipelines},
+    Render, RenderApp, RenderSystems,
 };
 
 pub mod node;
@@ -53,9 +56,8 @@ pub mod pipeline;
 /// ));
 /// # }
 /// ````
-#[derive(Reflect, Component, Clone, ExtractComponent, ShaderType)]
-#[reflect(Component, Default)]
-#[extract_component_filter(With<Camera>)]
+#[derive(Reflect, Component, Clone)]
+#[reflect(Component, Default, Clone)]
 #[require(DepthPrepass, MotionVectorPrepass)]
 pub struct MotionBlur {
     /// The strength of motion blur from `0.0` to `1.0`.
@@ -88,9 +90,6 @@ pub struct MotionBlur {
     /// Setting this to `3` will result in `3 * 2 + 1 = 7` samples. Setting this to `0` is
     /// equivalent to disabling motion blur.
     pub samples: u32,
-    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    // WebGL2 structs must be 16 byte aligned.
-    pub _webgl2_padding: bevy_math::Vec2,
 }
 
 impl Default for MotionBlur {
@@ -98,28 +97,44 @@ impl Default for MotionBlur {
         Self {
             shutter_angle: 0.5,
             samples: 1,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            _webgl2_padding: Default::default(),
         }
     }
 }
 
-pub const MOTION_BLUR_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d9ca74af-fa0a-4f11-b0f2-19613b618b93");
+impl ExtractComponent for MotionBlur {
+    type QueryData = &'static Self;
+    type QueryFilter = With<Camera>;
+    type Out = MotionBlurUniform;
+
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
+        Some(MotionBlurUniform {
+            shutter_angle: item.shutter_angle,
+            samples: item.samples,
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding: Default::default(),
+        })
+    }
+}
+
+#[doc(hidden)]
+#[derive(Component, ShaderType, Clone)]
+pub struct MotionBlurUniform {
+    shutter_angle: f32,
+    samples: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    // WebGL2 structs must be 16 byte aligned.
+    _webgl2_padding: bevy_math::Vec2,
+}
 
 /// Adds support for per-object motion blur to the app. See [`MotionBlur`] for details.
 pub struct MotionBlurPlugin;
 impl Plugin for MotionBlurPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            MOTION_BLUR_SHADER_HANDLE,
-            "motion_blur.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "motion_blur.wgsl");
+
         app.add_plugins((
             ExtractComponentPlugin::<MotionBlur>::default(),
-            UniformComponentPlugin::<MotionBlur>::default(),
+            UniformComponentPlugin::<MotionBlurUniform>::default(),
         ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -130,7 +145,7 @@ impl Plugin for MotionBlurPlugin {
             .init_resource::<SpecializedRenderPipelines<pipeline::MotionBlurPipeline>>()
             .add_systems(
                 Render,
-                pipeline::prepare_motion_blur_pipelines.in_set(RenderSet::Prepare),
+                pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
             );
 
         render_app
