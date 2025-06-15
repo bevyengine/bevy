@@ -23,21 +23,14 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{
-        binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
-        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, TextureSampleType,
-    },
-    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSystems,
-};
+use bevy_render::{extract_component::{ExtractComponent, ExtractComponentPlugin}, render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner}, render_resource::{
+    binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+    CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
+    FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
+    RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
+    ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+    TextureFormat, TextureSampleType,
+}, renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue}, view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset}, EmptyBindGroup, Render, RenderApp, RenderSystems};
 use bevy_render::{load_shader_library, render_graph::RenderGraph};
 use bevy_utils::{once, prelude::default};
 use tracing::info;
@@ -154,6 +147,7 @@ pub struct ScreenSpaceReflectionsPipeline {
     depth_linear_sampler: Sampler,
     depth_nearest_sampler: Sampler,
     bind_group_layout: BindGroupLayout,
+    empty_layout: BindGroupLayout,
     binding_arrays_are_usable: bool,
     shader: Handle<Shader>,
 }
@@ -332,9 +326,10 @@ impl ViewNode for ScreenSpaceReflectionsNode {
                 **view_environment_map_offset,
             ],
         );
+        render_pass.set_bind_group(1, &view_bind_group.value_binding_array, &[]);
 
         // Perform the SSR render pass.
-        render_pass.set_bind_group(1, &ssr_bind_group, &[]);
+        render_pass.set_bind_group(2, &ssr_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -344,6 +339,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
 impl FromWorld for ScreenSpaceReflectionsPipeline {
     fn from_world(world: &mut World) -> Self {
         let mesh_view_layouts = world.resource::<MeshPipelineViewLayouts>().clone();
+        let empty_layout = world.resource::<EmptyBindGroup>().layout.clone();
         let render_device = world.resource::<RenderDevice>();
         let render_adapter = world.resource::<RenderAdapter>();
 
@@ -392,6 +388,7 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
 
         Self {
             mesh_view_layouts,
+            empty_layout,
             color_sampler,
             depth_linear_sampler,
             depth_nearest_sampler,

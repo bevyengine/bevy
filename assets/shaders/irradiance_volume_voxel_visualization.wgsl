@@ -12,7 +12,7 @@ struct VoxelVisualizationIrradianceVolumeInfo {
     intensity: f32,
 }
 
-@group(2) @binding(100)
+@group(3) @binding(100)
 var<uniform> irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo;
 
 @fragment

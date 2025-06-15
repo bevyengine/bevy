@@ -499,7 +499,8 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
-                .insert_resource(adapter_info);
+                .insert_resource(adapter_info)
+                .init_resource::<EmptyBindGroup>();
         }
     }
 }
@@ -630,4 +631,21 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
     }
 
     None
+}
+
+
+/// An empty bind group that can be used as a placeholder.
+#[derive(Resource)]
+pub struct EmptyBindGroup {
+    pub layout: render_resource::BindGroupLayout,
+    pub binding: render_resource::BindGroup,
+}
+
+impl FromWorld for EmptyBindGroup {
+    fn from_world(world: &mut World) -> Self {
+        let device = world.resource::<RenderDevice>();
+        let layout = device.create_bind_group_layout("empty_bind_group_layout", &[]);
+        let binding = device.create_bind_group("empty_bind_group", &layout, &[]);
+        EmptyBindGroup { layout, binding }
+    }
 }
