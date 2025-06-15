@@ -38,8 +38,9 @@ use {
 /// dropped silently.
 ///
 /// # Example
+///
 /// ```
-/// use bevy_ecs::event::{BufferedEvent, Events};
+/// use bevy_ecs::event::{BufferedEvent, Event, Events};
 ///
 /// #[derive(Event, BufferedEvent)]
 /// struct MyEvent {
