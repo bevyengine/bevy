@@ -243,6 +243,13 @@ pub fn trigger(event: impl Event) -> impl EntityCommand {
 
 /// An [`EntityCommand`] that clones parts of an entity onto another entity,
 /// configured through [`EntityClonerBuilder`].
+///
+/// This builder tries to clone every component from the source entity except
+/// for components that were explicitly denied, for example by using the
+/// [`deny`](EntityClonerBuilder<AllowAll>::deny) method.
+///
+/// Required components are not considered by denied components and must be
+/// explicitly denied as well if desired.
 pub fn clone_with_allow_all(
     target: Entity,
     config: impl FnOnce(&mut EntityClonerBuilder<AllowAll>) + Send + Sync + 'static,
@@ -252,6 +259,14 @@ pub fn clone_with_allow_all(
     }
 }
 
+/// An [`EntityCommand`] that clones parts of an entity onto another entity,
+/// configured through [`EntityClonerBuilder`].
+///
+/// This builder tries to clone every component that was explicitly allowed
+/// from the source entity, for example by using the
+/// [`allow`](EntityClonerBuilder<DenyAll>::allow) method.
+///
+/// Required components are also cloned when the target entity does not contain them.
 pub fn clone_with_deny_all(
     target: Entity,
     config: impl FnOnce(&mut EntityClonerBuilder<DenyAll>) + Send + Sync + 'static,

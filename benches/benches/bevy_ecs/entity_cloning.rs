@@ -71,7 +71,7 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration>(
     // this bundle are saved.
     let component_ids: Vec<_> = world.register_bundle::<B>().contributed_components().into();
 
-    let mut builder = EntityCloner::build(world);
+    let mut builder = EntityCloner::build_allow_all(world);
 
     // Overwrite the clone handler for all components in the bundle to use `Reflect`, not `Clone`.
     for component in component_ids {
@@ -135,7 +135,7 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
     let mut cloner = if clone_via_reflect {
         reflection_cloner::<B>(&mut world, true)
     } else {
-        let mut builder = EntityCloner::build(&mut world);
+        let mut builder = EntityCloner::build_allow_all(&mut world);
         builder.linked_cloning(true);
         builder.finish()
     };
