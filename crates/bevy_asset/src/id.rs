@@ -1,4 +1,4 @@
-use crate::{Asset, AssetIndex};
+use crate::{Asset, AssetIndex, Handle, UntypedHandle};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -347,6 +347,29 @@ impl InternalAssetId {
     }
 }
 
+/// An asset index bundled with its (dynamic) type.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub(crate) struct ErasedAssetIndex {
+    pub(crate) index: AssetIndex,
+    pub(crate) type_id: TypeId,
+}
+
+impl ErasedAssetIndex {
+    pub(crate) fn new(index: AssetIndex, type_id: TypeId) -> Self {
+        Self { index, type_id }
+    }
+}
+
+impl Display for ErasedAssetIndex {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ErasedAssetIndex")
+            .field("type_id", &self.type_id)
+            .field("index", &self.index.index)
+            .field("generation", &self.index.generation)
+            .finish()
+    }
+}
+
 // Cross Operations
 
 impl<A: Asset> PartialEq<UntypedAssetId> for AssetId<A> {
@@ -413,6 +436,52 @@ impl<A: Asset> TryFrom<UntypedAssetId> for AssetId<A> {
         }
     }
 }
+
+impl TryFrom<UntypedAssetId> for ErasedAssetIndex {
+    type Error = UuidNotSupportedError;
+
+    fn try_from(asset_id: UntypedAssetId) -> Result<Self, Self::Error> {
+        match asset_id {
+            UntypedAssetId::Index { type_id, index } => Ok(ErasedAssetIndex { index, type_id }),
+            UntypedAssetId::Uuid { .. } => Err(UuidNotSupportedError),
+        }
+    }
+}
+
+impl<A: Asset> TryFrom<&Handle<A>> for ErasedAssetIndex {
+    type Error = UuidNotSupportedError;
+
+    fn try_from(handle: &Handle<A>) -> Result<Self, Self::Error> {
+        match handle {
+            Handle::Strong(handle) => Ok(Self::new(handle.index, handle.type_id)),
+            Handle::Uuid(..) => Err(UuidNotSupportedError),
+        }
+    }
+}
+
+impl TryFrom<&UntypedHandle> for ErasedAssetIndex {
+    type Error = UuidNotSupportedError;
+
+    fn try_from(handle: &UntypedHandle) -> Result<Self, Self::Error> {
+        match handle {
+            UntypedHandle::Strong(handle) => Ok(Self::new(handle.index, handle.type_id)),
+            UntypedHandle::Uuid { .. } => Err(UuidNotSupportedError),
+        }
+    }
+}
+
+impl From<ErasedAssetIndex> for UntypedAssetId {
+    fn from(value: ErasedAssetIndex) -> Self {
+        Self::Index {
+            type_id: value.type_id,
+            index: value.index,
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+#[error("Attempted to create a TypedAssetIndex from a Uuid")]
+pub(crate) struct UuidNotSupportedError;
 
 /// Errors preventing the conversion of to/from an [`UntypedAssetId`] and an [`AssetId`].
 #[derive(Error, Debug, PartialEq, Clone)]
