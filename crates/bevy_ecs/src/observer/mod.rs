@@ -253,9 +253,21 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
 impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer.
     ///
+    /// Note that if event bubblign is enabled, this may not be the same as the original target of the event,
+    /// which can be accessed via [`On::original_target`].
+    ///
     /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
     pub fn target(&self) -> Entity {
         self.trigger.current_target.unwrap_or(Entity::PLACEHOLDER)
+    }
+
+    /// Returns the original [`Entity`] that the `event` was targeted at when it was first triggered.
+    ///
+    /// If event bubbling is not enabled, this will always return the same value as [`On::target`].
+    ///
+    /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
+    pub fn original_target(&self) -> Entity {
+        self.trigger.original_target.unwrap_or(Entity::PLACEHOLDER)
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
