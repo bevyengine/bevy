@@ -8,7 +8,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
-use super::{IntoSystem, SystemParamValidationError, SystemStateFlags};
+use super::{IntoSystem, NamedSystem, SystemParamValidationError, SystemStateFlags};
 
 /// A wrapper system to change a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
 pub struct InfallibleSystemWrapper<S: System<In = ()>>(S);
@@ -23,11 +23,6 @@ impl<S: System<In = ()>> InfallibleSystemWrapper<S> {
 impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     type In = ();
     type Out = Result;
-
-    #[inline]
-    fn name(&self) -> Cow<'static, str> {
-        self.0.name()
-    }
 
     fn type_id(&self) -> core::any::TypeId {
         self.0.type_id()
@@ -97,6 +92,13 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 }
 
+impl<S: System<In = ()>> NamedSystem for InfallibleSystemWrapper<S> {
+    #[inline]
+    fn name(&self) -> Cow<'static, str> {
+        self.0.name()
+    }
+}
+
 /// See [`IntoSystem::with_input`] for details.
 pub struct WithInputWrapper<S, T>
 where
@@ -139,10 +141,6 @@ where
     type In = ();
 
     type Out = S::Out;
-
-    fn name(&self) -> Cow<'static, str> {
-        self.system.name()
-    }
 
     #[inline]
     fn flags(&self) -> SystemStateFlags {
@@ -195,6 +193,16 @@ where
     }
 }
 
+impl<S, T> NamedSystem for WithInputWrapper<S, T>
+where
+    for<'i> S: System<In: SystemInput<Inner<'i> = &'i mut T>>,
+    T: Send + Sync + 'static,
+{
+    fn name(&self) -> Cow<'static, str> {
+        self.system.name()
+    }
+}
+
 /// Constructed in [`IntoSystem::with_input_from`].
 pub struct WithInputFromWrapper<S, T> {
     system: S,
@@ -233,10 +241,6 @@ where
     type In = ();
 
     type Out = S::Out;
-
-    fn name(&self) -> Cow<'static, str> {
-        self.system.name()
-    }
 
     #[inline]
     fn flags(&self) -> SystemStateFlags {
@@ -293,6 +297,16 @@ where
 
     fn set_last_run(&mut self, last_run: Tick) {
         self.system.set_last_run(last_run);
+    }
+}
+
+impl<S, T> NamedSystem for WithInputFromWrapper<S, T>
+where
+    for<'i> S: System<In: SystemInput<Inner<'i> = &'i mut T>>,
+    T: FromWorld + Send + Sync + 'static,
+{
+    fn name(&self) -> Cow<'static, str> {
+        self.system.name()
     }
 }
 

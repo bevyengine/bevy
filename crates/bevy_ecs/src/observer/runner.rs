@@ -8,7 +8,7 @@ use crate::{
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
-    system::{IntoObserverSystem, ObserverSystem},
+    system::{IntoObserverSystem, NamedSystem, ObserverSystem},
     world::DeferredWorld,
 };
 use bevy_ptr::PtrMut;

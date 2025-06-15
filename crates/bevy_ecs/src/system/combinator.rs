@@ -10,7 +10,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{IntoSystem, ReadOnlySystem, System};
+use super::{IntoSystem, NamedSystem, ReadOnlySystem, System};
 
 /// Customizes the behavior of a [`CombinatorSystem`].
 ///
@@ -138,10 +138,6 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
-    fn name(&self) -> Cow<'static, str> {
-        self.name.clone()
-    }
-
     #[inline]
     fn flags(&self) -> super::SystemStateFlags {
         self.a.flags() | self.b.flags()
@@ -218,6 +214,17 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
+    }
+}
+
+impl<A, B, Func> NamedSystem for CombinatorSystem<Func, A, B>
+where
+    Func: Combine<A, B> + 'static,
+    A: System,
+    B: System,
+{
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
     }
 }
 
@@ -341,10 +348,6 @@ where
     type In = A::In;
     type Out = B::Out;
 
-    fn name(&self) -> Cow<'static, str> {
-        self.name.clone()
-    }
-
     #[inline]
     fn flags(&self) -> super::SystemStateFlags {
         self.a.flags() | self.b.flags()
@@ -424,6 +427,17 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
+    }
+}
+
+impl<A, B> NamedSystem for PipeSystem<A, B>
+where
+    A: System,
+    B: System,
+    for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
+{
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
     }
 }
 

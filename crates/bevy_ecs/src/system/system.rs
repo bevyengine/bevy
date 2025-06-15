@@ -44,13 +44,12 @@ bitflags! {
 /// It's possible to specify explicit execution order between specific systems,
 /// see [`IntoScheduleConfigs`](crate::schedule::IntoScheduleConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
-pub trait System: Send + Sync + 'static {
+pub trait System: NamedSystem + Send + Sync + 'static {
     /// The system's input.
     type In: SystemInput;
     /// The system's output.
     type Out;
-    /// Returns the system's name.
-    fn name(&self) -> Cow<'static, str>;
+
     /// Returns the [`TypeId`] of the underlying system type.
     #[inline]
     fn type_id(&self) -> TypeId {
@@ -388,6 +387,13 @@ impl RunSystemOnce for &mut World {
             })?;
         Ok(system.run(input, self))
     }
+}
+
+/// Allows for systems to inform their names, either derived from their type
+/// or their custom name.
+pub trait NamedSystem {
+    /// Returns system's name.
+    fn name(&self) -> Cow<'static, str>;
 }
 
 /// Running system failed.

@@ -13,7 +13,7 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
-use super::{SystemParamValidationError, SystemStateFlags};
+use super::{NamedSystem, SystemParamValidationError, SystemStateFlags};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -81,11 +81,6 @@ where
 {
     type In = F::In;
     type Out = F::Out;
-
-    #[inline]
-    fn name(&self) -> Cow<'static, str> {
-        self.system_meta.name.clone()
-    }
 
     #[inline]
     fn flags(&self) -> SystemStateFlags {
@@ -196,6 +191,17 @@ where
 
     fn set_last_run(&mut self, last_run: Tick) {
         self.system_meta.last_run = last_run;
+    }
+}
+
+impl<Marker, F> NamedSystem for ExclusiveFunctionSystem<Marker, F>
+where
+    Marker: 'static,
+    F: ExclusiveSystemParamFunction<Marker>,
+{
+    #[inline]
+    fn name(&self) -> Cow<'static, str> {
+        self.system_meta.name.clone()
     }
 }
 

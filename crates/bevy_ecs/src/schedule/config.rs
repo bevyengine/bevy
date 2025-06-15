@@ -11,7 +11,9 @@ use crate::{
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },
-    system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
+    system::{
+        BoxedSystem, InfallibleSystemWrapper, IntoSystem, NamedSystem, ScheduleSystem, System,
+    },
 };
 
 fn new_condition<M, Out>(condition: impl SystemCondition<M, (), Out>) -> BoxedCondition {

@@ -18,7 +18,8 @@ use variadics_please::all_tuples;
 use tracing::{info_span, Span};
 
 use super::{
-    IntoSystem, ReadOnlySystem, SystemParamBuilder, SystemParamValidationError, SystemStateFlags,
+    IntoSystem, NamedSystem, ReadOnlySystem, SystemParamBuilder, SystemParamValidationError,
+    SystemStateFlags,
 };
 
 /// The metadata of a [`System`].
@@ -600,11 +601,6 @@ where
     type Out = F::Out;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
-        self.system_meta.name.clone()
-    }
-
-    #[inline]
     fn flags(&self) -> SystemStateFlags {
         self.system_meta.flags
     }
@@ -727,6 +723,17 @@ where
 
     fn set_last_run(&mut self, last_run: Tick) {
         self.system_meta.last_run = last_run;
+    }
+}
+
+impl<Marker, F> NamedSystem for FunctionSystem<Marker, F>
+where
+    Marker: 'static,
+    F: SystemParamFunction<Marker>,
+{
+    #[inline]
+    fn name(&self) -> Cow<'static, str> {
+        self.system_meta.name.clone()
     }
 }
 

@@ -62,7 +62,7 @@
 //! [`panic`]: panic()
 //! [`World`]: crate::world::World
 //! [`System`]: crate::system::System
-//! [`name`]: crate::system::System::name
+//! [`name`]: crate::system::NamedSystem::name
 //! [`system piping feature`]: crate::system::In
 
 mod bevy_error;

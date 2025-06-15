@@ -1,6 +1,6 @@
 use alloc::{borrow::Cow, vec::Vec};
 
-use super::{IntoSystem, ReadOnlySystem, System, SystemParamValidationError};
+use super::{IntoSystem, NamedSystem, ReadOnlySystem, System, SystemParamValidationError};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -123,10 +123,6 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
-    fn name(&self) -> Cow<'static, str> {
-        self.name.clone()
-    }
-
     #[inline]
     fn flags(&self) -> super::SystemStateFlags {
         self.system.flags()
@@ -190,6 +186,16 @@ where
 
     fn set_last_run(&mut self, last_run: crate::component::Tick) {
         self.system.set_last_run(last_run);
+    }
+}
+
+impl<Func, S> NamedSystem for AdapterSystem<Func, S>
+where
+    Func: Adapt<S>,
+    S: System,
+{
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
     }
 }
 
