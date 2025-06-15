@@ -8,7 +8,7 @@ use log::warn;
 use thiserror::Error;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -57,9 +57,6 @@ pub trait System: Send + Sync + 'static {
         TypeId::of::<Self>()
     }
 
-    /// Returns the system's component [`FilteredAccessSet`].
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId>;
-
     /// Returns the [`SystemStateFlags`] of the system.
     fn flags(&self) -> SystemStateFlags;
 
@@ -91,7 +88,7 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `component_access_set`. There must be no conflicting
+    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
     ///   [`UnsafeWorldCell::world_mut`] on `world`.
@@ -152,7 +149,7 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `component_access_set`. There must be no conflicting
+    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     unsafe fn validate_param_unsafe(
         &mut self,
@@ -169,13 +166,15 @@ pub trait System: Send + Sync + 'static {
     }
 
     /// Initialize the system.
-    fn initialize(&mut self, _world: &mut World);
+    ///
+    /// Returns a [`FilteredAccessSet`] with the access required to run the system.
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId>;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
     /// This method must be called periodically to ensure that change detection behaves correctly.
     /// When using bevy's default configuration, this will be called for you as needed.
-    fn check_change_tick(&mut self, change_tick: Tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks);
 
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
     ///
@@ -225,9 +224,13 @@ pub unsafe trait ReadOnlySystem: System {
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
-pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
-    if last_run.check_tick(this_run) {
-        let age = this_run.relative_to(*last_run).get();
+pub(crate) fn check_system_change_tick(
+    last_run: &mut Tick,
+    check: CheckChangeTicks,
+    system_name: &str,
+) {
+    if last_run.check_tick(check) {
+        let age = check.present_tick().relative_to(*last_run).get();
         warn!(
             "System '{system_name}' has not run for {age} ticks. \
             Changes older than {} ticks will not be detected.",

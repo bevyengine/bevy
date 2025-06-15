@@ -9,7 +9,9 @@ use std::eprintln;
 
 use crate::{
     error::{ErrorContext, ErrorHandler},
-    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule::{
+        is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
+    },
     world::World,
 };
 #[cfg(feature = "hotpatching")]
@@ -70,7 +72,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
-            let name = schedule.systems[system_index].name();
+            let name = schedule.systems[system_index].system.name();
             #[cfg(feature = "trace")]
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
@@ -105,7 +107,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             should_run &= system_conditions_met;
 
-            let system = &mut schedule.systems[system_index];
+            let system = &mut schedule.systems[system_index].system;
             if should_run {
                 let valid_params = match system.validate_param(world) {
                     Ok(()) => true,
@@ -204,7 +206,7 @@ impl SingleThreadedExecutor {
 
     fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in self.unapplied_systems.ones() {
-            let system = &mut schedule.systems[system_index];
+            let system = &mut schedule.systems[system_index].system;
             system.apply_deferred(world);
         }
 
@@ -213,7 +215,7 @@ impl SingleThreadedExecutor {
 }
 
 fn evaluate_and_fold_conditions(
-    conditions: &mut [BoxedCondition],
+    conditions: &mut [ConditionWithAccess],
     world: &mut World,
     error_handler: ErrorHandler,
 ) -> bool {
@@ -229,7 +231,7 @@ fn evaluate_and_fold_conditions(
     )]
     conditions
         .iter_mut()
-        .map(|condition| {
+        .map(|ConditionWithAccess { condition, .. }| {
             match condition.validate_param(world) {
                 Ok(()) => (),
                 Err(e) => {

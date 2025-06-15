@@ -60,13 +60,17 @@ pub mod world;
 pub use bevy_ptr as ptr;
 
 #[cfg(feature = "hotpatching")]
-use event::Event;
+use event::{BufferedEvent, Event};
 
 /// The ECS prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
+    #[expect(
+        deprecated,
+        reason = "`Trigger` was deprecated in favor of `On`, and `OnX` lifecycle events were deprecated in favor of `X` events."
+    )]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
@@ -74,11 +78,16 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
-        event::{Event, EventMutator, EventReader, EventWriter, Events},
+        event::{
+            BufferedEvent, EntityEvent, Event, EventMutator, EventReader, EventWriter, Events,
+        },
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
-        lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, RemovedComponents},
+        lifecycle::{
+            Add, Despawn, Insert, OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, Remove,
+            RemovedComponents, Replace,
+        },
         name::{Name, NameOrEntity},
-        observer::{Observer, Trigger},
+        observer::{Observer, On, Trigger},
         query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
@@ -130,7 +139,7 @@ pub mod __macro_exports {
 ///
 /// Systems should refresh their inner pointers.
 #[cfg(feature = "hotpatching")]
-#[derive(Event, Default)]
+#[derive(Event, BufferedEvent, Default)]
 pub struct HotPatched;
 
 #[cfg(test)]

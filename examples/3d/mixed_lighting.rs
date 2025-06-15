@@ -72,7 +72,7 @@ enum LightingMode {
 /// An event that's fired whenever the user changes the lighting mode.
 ///
 /// This is also fired when the scene loads for the first time.
-#[derive(Clone, Copy, Default, Event)]
+#[derive(Clone, Copy, Default, Event, BufferedEvent)]
 struct LightingModeChanged;
 
 #[derive(Clone, Copy, Component, Debug)]
@@ -172,7 +172,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
             ),
         ))
         .observe(
-            |_: Trigger<SceneInstanceReady>,
+            |_: On<SceneInstanceReady>,
              mut lighting_mode_change_event_writer: EventWriter<LightingModeChanged>| {
                 // When the scene loads, send a `LightingModeChanged` event so
                 // that we set up the lightmaps.

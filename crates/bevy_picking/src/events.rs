@@ -11,7 +11,7 @@
 //! # use bevy_picking::prelude::*;
 //! # let mut world = World::default();
 //! world.spawn_empty()
-//!     .observe(|trigger: Trigger<Pointer<Over>>| {
+//!     .observe(|trigger: On<Pointer<Over>>| {
 //!         println!("I am being hovered over");
 //!     });
 //! ```
@@ -59,7 +59,8 @@ use crate::{
 ///
 /// The documentation for the [`pointer_events`] explains the events this module exposes and
 /// the order in which they fire.
-#[derive(Clone, PartialEq, Debug, Reflect, Component)]
+#[derive(Event, BufferedEvent, EntityEvent, Clone, PartialEq, Debug, Reflect, Component)]
+#[entity_event(traversal = PointerTraversal, auto_propagate)]
 #[reflect(Component, Debug, Clone)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
     /// The original target of this picking event, before bubbling
@@ -104,15 +105,6 @@ where
 
         None
     }
-}
-
-impl<E> Event for Pointer<E>
-where
-    E: Debug + Clone + Reflect,
-{
-    type Traversal = PointerTraversal;
-
-    const AUTO_PROPAGATE: bool = true;
 }
 
 impl<E: Debug + Clone + Reflect> core::fmt::Display for Pointer<E> {
