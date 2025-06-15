@@ -34,6 +34,8 @@ use futures_lite::{ready, Stream};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+use crate::{retry::AssetLoadRetrySettings, UntypedAssetLoadFailedEvent};
+
 /// Errors that occur while loading assets.
 #[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
@@ -254,6 +256,13 @@ pub trait AssetReader: Send + Sync + 'static {
             Ok(meta_bytes)
         }
     }
+    /// Returns default retry settings to use for a particular failed asset load attempt using this reader.
+    fn get_default_retry_settings(
+        &self,
+        _load_error: &UntypedAssetLoadFailedEvent,
+    ) -> AssetLoadRetrySettings {
+        AssetLoadRetrySettings::no_retries()
+    }
 }
 
 /// Equivalent to an [`AssetReader`] but using boxed futures, necessary eg. when using a `dyn AssetReader`,
@@ -285,6 +294,11 @@ pub trait ErasedAssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Vec<u8>, AssetReaderError>>;
+    /// Returns default retry settings to use for a particular failed asset load attempt using this reader.
+    fn get_default_retry_settings(
+        &self,
+        _load_error: &UntypedAssetLoadFailedEvent,
+    ) -> AssetLoadRetrySettings;
 }
 
 impl<T: AssetReader> ErasedAssetReader for T {
@@ -323,6 +337,14 @@ impl<T: AssetReader> ErasedAssetReader for T {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Vec<u8>, AssetReaderError>> {
         Box::pin(Self::read_meta_bytes(self, path))
+    }
+
+    /// Returns default retry settings to use for a particular failed asset load attempt using this reader.
+    fn get_default_retry_settings(
+        &self,
+        load_error: &UntypedAssetLoadFailedEvent,
+    ) -> AssetLoadRetrySettings {
+        Self::get_default_retry_settings(&self, load_error)
     }
 }
 
