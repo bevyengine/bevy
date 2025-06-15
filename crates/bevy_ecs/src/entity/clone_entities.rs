@@ -438,7 +438,10 @@ impl EntityCloner {
     pub fn build_allow_all(world: &mut World) -> EntityClonerBuilder<AllowAll> {
         EntityClonerBuilder {
             world,
-            entity_cloner: Default::default(),
+            entity_cloner: EntityCloner {
+                filter: None, // to be inserted from `EntityClonerBuilder::filter`
+                ..Default::default()
+            },
             filter: Default::default(),
         }
     }
@@ -452,7 +455,10 @@ impl EntityCloner {
     pub fn build_deny_all(world: &mut World) -> EntityClonerBuilder<DenyAll> {
         EntityClonerBuilder {
             world,
-            entity_cloner: Default::default(),
+            entity_cloner: EntityCloner {
+                filter: None, // to be inserted from `EntityClonerBuilder::filter`
+                ..Default::default()
+            },
             filter: Default::default(),
         }
     }
