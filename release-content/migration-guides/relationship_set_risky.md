@@ -26,7 +26,7 @@ struct Parent(Vec<Entity>);
 let mut entity_mut = world.entity_mut(my_entity);
 
 // if `child_entity` already contains `Child`, then its data is unchanged
-entity_mut.add_related::<Child>(&[child_entity]);
+entity_mut.add_one_related::<Child>(child_entity);
 
 // if `my_entity` already contains `Child`, then its data is overwritten with 42
 entity_mut.insert(Child {
