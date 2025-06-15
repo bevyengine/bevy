@@ -1033,43 +1033,44 @@ fn extract_text_outlines(
         let aa_factor = outline.anti_aliasing.unwrap_or(1.0);
         let color: LinearRgba = outline.color.into();
 
-        for offset_x in -width..=width {
-            for offset_y in -width..=width {
-                if offset_x == 0 && offset_y == 0 {
-                    continue;
-                }
+        for (
+            i,
+            PositionedGlyph {
+                position,
+                atlas_info,
+                span_index,
+                ..
+            },
+        ) in text_layout_info.glyphs.iter().enumerate()
+        {
+            let rect = texture_atlases
+                .get(&atlas_info.texture_atlas)
+                .unwrap()
+                .textures[atlas_info.location.glyph_index]
+                .as_rect();
 
-                // Anti-aliasing.
-                let mut color = color;
-                if (offset_x.abs() == width) || (offset_y.abs() == width) {
-                    color.alpha *= aa_factor;
-                }
+            for offset_x in -width..=width {
+                for offset_y in -width..=width {
+                    if offset_x == 0 && offset_y == 0 {
+                        continue;
+                    }
 
-                let offset = Vec2 {
-                    x: offset_x as f32,
-                    y: offset_y as f32,
-                };
+                    // Anti-aliasing.
+                    let mut color = color;
+                    if (offset_x.abs() == width) || (offset_y.abs() == width) {
+                        color.alpha *= aa_factor;
+                    }
 
-                let transform = Affine2::from(*global_transform)
-                    * Affine2::from_translation(
-                        -0.5 * uinode.size() + offset / uinode.inverse_scale_factor(),
-                    );
+                    let offset = Vec2 {
+                        x: offset_x as f32,
+                        y: offset_y as f32,
+                    };
 
-                for (
-                    i,
-                    PositionedGlyph {
-                        position,
-                        atlas_info,
-                        span_index,
-                        ..
-                    },
-                ) in text_layout_info.glyphs.iter().enumerate()
-                {
-                    let rect = texture_atlases
-                        .get(&atlas_info.texture_atlas)
-                        .unwrap()
-                        .textures[atlas_info.location.glyph_index]
-                        .as_rect();
+                    let transform = Affine2::from(*global_transform)
+                        * Affine2::from_translation(
+                            -0.5 * uinode.size() + offset / uinode.inverse_scale_factor(),
+                        );
+
                     extracted_uinodes.glyphs.push(ExtractedGlyph {
                         transform: Affine2::from_mat3(
                             transform * Mat3::from_translation(*position),
