@@ -32,7 +32,7 @@ let handle = asset_server.load("fox.gltf#Scene0");
 
 // new behavior, converts glTF's coordinate system into Bevy's coordinate system
 let handle = asset_server.load_with_settings(
-    GltfAssetLabel::Scene(0).from_asset("fox.gltf#Scene0"),
+    "fox.gltf#Scene0",
     |settings: &mut GltfLoaderSettings| {
         settings.convert_coordinates = true;
     },
