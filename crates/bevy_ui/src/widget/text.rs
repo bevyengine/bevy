@@ -131,9 +131,7 @@ impl From<String> for Text {
     }
 }
 
-/// Instruction for adding an outline around text.
-///
-/// Inserted as a component to the entity to support animations.
+/// Component for adding an outline around UI text.
 ///
 /// Does *not* interfere with existing [`TextShadow`] components on the entity. The
 /// outline will be 'above' any shadows.
