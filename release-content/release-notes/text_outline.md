@@ -1,5 +1,5 @@
 ---
-title: UI Gradients 
+title: UI Text Outline 
 authors: ["@totalkrill", "@UkoeHB"]
 pull_requests: [19639]
 ---
