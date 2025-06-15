@@ -15,28 +15,6 @@ fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<
     return vec3(x, y, z);
 }
 
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294
-fn sample_disk(disk_radius: f32, rng: ptr<function, u32>) -> vec2<f32> {
-    let ab = 2.0 * rand_vec2f(rng) - 1.0;
-    let a = ab.x;
-    var b = ab.y;
-    if (b == 0.0) { b = 1.0; }
-
-    var phi: f32;
-    var r: f32;
-    if (a * a > b * b) {
-        r = disk_radius * a;
-        phi = (PI / 4.0) * (b / a);
-    } else {
-        r = disk_radius * b;
-        phi = (PI / 2.0) - (PI / 4.0) * (a / b);
-    }
-
-    let x = r * cos(phi);
-    let y = r * sin(phi);
-    return vec2(x, y);
-}
-
 fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
     let light_sample = generate_random_light_sample(rng);
     let light_contribution = calculate_light_contribution(light_sample, ray_origin, origin_world_normal);

@@ -33,7 +33,7 @@ pub mod graph {
 pub struct SolariLightingNode {
     bind_group_layout: BindGroupLayout,
     initial_samples_pipeline: CachedComputePipelineId,
-    spatial_reuse_pipeline: CachedComputePipelineId,
+    reuse_and_shade_pipeline: CachedComputePipelineId,
 }
 
 impl ViewNode for SolariLightingNode {
@@ -66,7 +66,7 @@ impl ViewNode for SolariLightingNode {
         let frame_count = world.resource::<FrameCount>();
         let (
             Some(initial_samples_pipeline),
-            Some(spatial_reuse_pipeline),
+            Some(reuse_and_shade_pipeline),
             Some(scene_bindings),
             Some(viewport),
             Some(gbuffer),
@@ -75,7 +75,7 @@ impl ViewNode for SolariLightingNode {
             Some(view_uniforms),
         ) = (
             pipeline_cache.get_compute_pipeline(self.initial_samples_pipeline),
-            pipeline_cache.get_compute_pipeline(self.spatial_reuse_pipeline),
+            pipeline_cache.get_compute_pipeline(self.reuse_and_shade_pipeline),
             &scene_bindings.bind_group,
             camera.physical_viewport_size,
             view_prepass_textures.deferred_view(),
@@ -130,7 +130,7 @@ impl ViewNode for SolariLightingNode {
         );
         pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
 
-        pass.set_pipeline(spatial_reuse_pipeline);
+        pass.set_pipeline(reuse_and_shade_pipeline);
         pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
 
         Ok(())
@@ -179,9 +179,9 @@ impl FromWorld for SolariLightingNode {
                 zero_initialize_workgroup_memory: false,
             });
 
-        let spatial_reuse_pipeline =
+        let reuse_and_shade_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                label: Some("solari_lighting_spatial_reuse_pipeline".into()),
+                label: Some("solari_lighting_reuse_and_shade_pipeline".into()),
                 layout: vec![
                     scene_bindings.bind_group_layout.clone(),
                     bind_group_layout.clone(),
@@ -192,14 +192,14 @@ impl FromWorld for SolariLightingNode {
                 }],
                 shader: load_embedded_asset!(world, "direct.wgsl"),
                 shader_defs: vec![],
-                entry_point: "spatial_reuse".into(),
+                entry_point: "reuse_and_shade".into(),
                 zero_initialize_workgroup_memory: false,
             });
 
         Self {
             bind_group_layout,
             initial_samples_pipeline,
-            spatial_reuse_pipeline,
+            reuse_and_shade_pipeline,
         }
     }
 }
