@@ -394,6 +394,10 @@ fn slider_on_key_input(
             trigger.propagate(false);
             if let Some(on_change) = slider.on_change {
                 commands.run_system_with(on_change, new_value);
+            } else {
+                commands
+                    .entity(trigger.target().unwrap())
+                    .insert(SliderValue(new_value));
             }
         }
     }
