@@ -20,7 +20,15 @@ fn main() {
             sensor_height: 0.01866,
         }))
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_exposure, toggle_ambient_light, movement, animate_light_direction))
+        .add_systems(
+            Update,
+            (
+                update_exposure,
+                toggle_ambient_light,
+                movement,
+                animate_light_direction,
+            ),
+        )
         .run();
 }
 
@@ -198,7 +206,7 @@ fn setup(
             maximum_distance: 10.0,
             ..default()
         }
-            .build(),
+        .build(),
     ));
 
     // example instructions
@@ -289,17 +297,15 @@ fn toggle_ambient_light(
     if key_input.just_pressed(KeyCode::Space) {
         if ambient_light.brightness > 1. {
             ambient_light.brightness = 0.;
-        }
-        else {
+        } else {
             ambient_light.brightness = 200.;
         }
 
         let entity = *text;
-        let ambient_light_state_text: &str =
-            match ambient_light.brightness {
-                0. => "off",
-                _ => "on",
-            };
+        let ambient_light_state_text: &str = match ambient_light.brightness {
+            0. => "off",
+            _ => "on",
+        };
         *writer.text(entity, 1) = format!("Ambient light is {}\n", ambient_light_state_text);
     }
 }
