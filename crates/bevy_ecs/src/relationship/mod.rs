@@ -86,9 +86,11 @@ pub trait Relationship: Component + Sized {
     /// This is useful for updating the relationship without overwriting other fields stored in `Self`.
     ///
     /// # Warning
-    /// This should generally not be called by user code, as modifying the related entity could invalidate the relationship.
-    /// If this method is used, then the same hooks have to run to keep the relationship valid. For example by calling this
-    /// in [`EntityWorldMut::modify_component`].
+    /// 
+    /// This should generally not be called by user code, as modifying the related entity could invalidate the
+    /// relationship. If this method is used, then has to run [`on_replace`](Relationship::on_replace) before and
+    /// [`on_insert`](Relationship::on_insert) after it.
+    /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
     ///
     /// Prefer to use regular means of insertions when possible.
     fn set_risky(&mut self, entity: Entity);
