@@ -2,7 +2,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::marker::PhantomData;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     error::Result,
     never::Never,
     prelude::{Bundle, On},
@@ -117,11 +117,6 @@ where
     }
 
     #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.observer.component_access_set()
-    }
-
-    #[inline]
     fn flags(&self) -> super::SystemStateFlags {
         self.observer.flags()
     }
@@ -161,13 +156,13 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
-        self.observer.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.observer.initialize(world)
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.observer.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.observer.check_change_tick(check);
     }
 
     #[inline]

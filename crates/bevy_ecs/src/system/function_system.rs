@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     prelude::FromWorld,
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
@@ -25,10 +25,6 @@ use super::{
 #[derive(Clone)]
 pub struct SystemMeta {
     pub(crate) name: Cow<'static, str>,
-    /// The set of component accesses for this system. This is used to determine
-    /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
-    /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
-    pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     flags: SystemStateFlags,
@@ -44,7 +40,6 @@ impl SystemMeta {
         let name = core::any::type_name::<T>();
         Self {
             name: name.into(),
-            component_access_set: FilteredAccessSet::default(),
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
@@ -100,24 +95,6 @@ impl SystemMeta {
     #[inline]
     pub fn set_has_deferred(&mut self) {
         self.flags |= SystemStateFlags::DEFERRED;
-    }
-
-    /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
-    /// Used to check if systems and/or system params have conflicting access.
-    #[inline]
-    pub fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.component_access_set
-    }
-
-    /// Returns a mutable reference to the [`FilteredAccessSet`] for [`ComponentId`].
-    /// Used internally to statically check if systems have conflicting access.
-    ///
-    /// # Safety
-    ///
-    /// No access can be removed from the returned [`FilteredAccessSet`].
-    #[inline]
-    pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
-        &mut self.component_access_set
     }
 }
 
@@ -277,7 +254,11 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let param_state = Param::init_state(world, &mut meta);
+        let param_state = Param::init_state(world);
+        let mut component_access_set = FilteredAccessSet::new();
+        // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
+        // even though we don't use the calculated access.
+        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
         Self {
             meta,
             param_state,
@@ -289,7 +270,11 @@ impl<Param: SystemParam> SystemState<Param> {
     pub(crate) fn from_builder(world: &mut World, builder: impl SystemParamBuilder<Param>) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let param_state = builder.build(world, &mut meta);
+        let param_state = builder.build(world);
+        let mut component_access_set = FilteredAccessSet::new();
+        // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
+        // even though we don't use the calculated access.
+        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
         Self {
             meta,
             param_state,
@@ -494,8 +479,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Modifying the system param states may have unintended consequences.
     /// The param state is generally considered to be owned by the [`SystemParam`]. Modifications
     /// should respect any invariants as required by the [`SystemParam`].
-    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) without also
-    /// updating [`SystemMeta::component_access_set`] will obviously create issues.
+    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) will obviously create issues.
     pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
         &mut self.param_state
     }
@@ -621,11 +605,6 @@ where
     }
 
     #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.system_meta.component_access_set
-    }
-
-    #[inline]
     fn flags(&self) -> SystemStateFlags {
         self.system_meta.flags
     }
@@ -705,27 +684,34 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,
                 world.id(),
                 "System built with a different world than the one it was added to.",
             );
-        } else {
-            self.state = Some(FunctionSystemState {
-                param: F::Param::init_state(world, &mut self.system_meta),
-                world_id: world.id(),
-            });
         }
+        let state = self.state.get_or_insert_with(|| FunctionSystemState {
+            param: F::Param::init_state(world),
+            world_id: world.id(),
+        });
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        let mut component_access_set = FilteredAccessSet::new();
+        F::Param::init_access(
+            &state.param,
+            &mut self.system_meta,
+            &mut component_access_set,
+            world,
+        );
+        component_access_set
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
         check_system_change_tick(
             &mut self.system_meta.last_run,
-            change_tick,
+            check,
             self.system_meta.name.as_ref(),
         );
     }
