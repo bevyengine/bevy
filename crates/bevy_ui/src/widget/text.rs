@@ -133,7 +133,7 @@ impl From<String> for Text {
 
 /// Component for adding an outline around UI text.
 ///
-/// Does *not* interfere with existing [`TextShadow`] components on the entity. The
+/// Does *not* interfere with existing [`TextShadow`](crate::TextShadow) components on the entity. The
 /// outline will be 'above' any shadows.
 #[derive(Component, Reflect, Debug, Copy, Clone, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]

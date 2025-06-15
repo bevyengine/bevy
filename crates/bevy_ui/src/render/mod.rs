@@ -1006,7 +1006,7 @@ fn extract_text_outlines(
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
-    let mut end = start + 1;
+    let mut len = 0;
 
     let mut camera_mapper = camera_map.get_mapper();
     for (
@@ -1038,7 +1038,6 @@ fn extract_text_outlines(
             PositionedGlyph {
                 position,
                 atlas_info,
-                span_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
@@ -1078,26 +1077,30 @@ fn extract_text_outlines(
                         rect,
                     });
 
-                    if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                        info.span_index != *span_index
-                            || info.atlas_info.texture != atlas_info.texture
-                    }) {
-                        extracted_uinodes.uinodes.push(ExtractedUiNode {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                            stack_index: uinode.stack_index,
-                            color,
-                            image: atlas_info.texture.id(),
-                            clip: clip.map(|clip| clip.clip),
-                            extracted_camera_entity,
-                            rect,
-                            item: ExtractedUiItem::Glyphs { range: start..end },
-                            main_entity: entity.into(),
-                        });
-                        start = end;
-                    }
-
-                    end += 1;
+                    len += 1;
                 }
+            }
+
+            if text_layout_info
+                .glyphs
+                .get(i + 1)
+                .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
+            {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    stack_index: uinode.stack_index,
+                    color,
+                    image: atlas_info.texture.id(),
+                    clip: clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    rect,
+                    item: ExtractedUiItem::Glyphs {
+                        range: start..(start + len),
+                    },
+                    main_entity: entity.into(),
+                });
+                start += len;
+                len = 0;
             }
         }
     }
