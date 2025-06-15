@@ -4,7 +4,7 @@ authors: ["@totalkrill", "@UkoeHB"]
 pull_requests: [19639]
 ---
 
-Support for text outline through adding a `TextOutline` component to an entity with a `Text` component
+Support for text outline through adding a `TextOutline` component to an entity with a `Text` component.
 
 ```rust
     commands.spawn((
