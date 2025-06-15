@@ -318,6 +318,7 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(bevy_text::calculate_bounds_text2d),
         ),
     );
+    app.add_observer(bevy_text::enable_text_node_needs_rerender_detection::<Text>);
 
     app.add_plugins(accessibility::AccessibilityPlugin);
 
