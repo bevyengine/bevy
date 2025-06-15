@@ -3,8 +3,8 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        CoreButton, CoreSlider, CoreSliderThumb, CoreWidgetsPlugin, SliderRange, SliderValue,
-        TrackClick,
+        CoreButton, CoreCheckbox, CoreSlider, CoreSliderThumb, CoreWidgetsPlugin, SliderRange,
+        SliderValue, TrackClick,
     },
     ecs::system::SystemId,
     input_focus::{
@@ -13,7 +13,7 @@ use bevy::{
     },
     picking::hover::Hovered,
     prelude::*,
-    ui::{InteractionDisabled, Pressed},
+    ui::{Checked, InteractionDisabled, Pressed},
     winit::WinitSettings,
 };
 
@@ -32,6 +32,8 @@ fn main() {
                 update_button_style2,
                 update_slider_style.after(update_widget_values),
                 update_slider_style2.after(update_widget_values),
+                update_checkbox_style.after(update_widget_values),
+                update_checkbox_style2.after(update_widget_values),
                 toggle_disabled,
             ),
         )
@@ -43,6 +45,8 @@ const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 const SLIDER_TRACK: Color = Color::srgb(0.05, 0.05, 0.05);
 const SLIDER_THUMB: Color = Color::srgb(0.35, 0.75, 0.35);
+const CHECKBOX_OUTLINE: Color = Color::srgb(0.45, 0.45, 0.45);
+const CHECKBOX_CHECK: Color = Color::srgb(0.35, 0.75, 0.35);
 
 /// Marker which identifies buttons with a particular style, in this case the "Demo style".
 #[derive(Component)]
@@ -56,6 +60,10 @@ struct DemoSlider;
 #[derive(Component, Default)]
 struct DemoSliderThumb;
 
+/// Marker which identifies checkboxes with a particular style.
+#[derive(Component, Default)]
+struct DemoCheckbox;
+
 /// A struct to hold the state of various widgets shown in the demo.
 ///
 /// While it is possible to use the widget's own state components as the source of truth,
@@ -65,128 +73,6 @@ struct DemoSliderThumb;
 #[derive(Resource)]
 struct DemoWidgetStates {
     slider_value: f32,
-}
-
-fn update_button_style(
-    mut buttons: Query<
-        (
-            Has<Pressed>,
-            &Hovered,
-            Has<InteractionDisabled>,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &Children,
-        ),
-        (
-            Or<(
-                Changed<Pressed>,
-                Changed<Hovered>,
-                Added<InteractionDisabled>,
-            )>,
-            With<DemoButton>,
-        ),
-    >,
-    mut text_query: Query<&mut Text>,
-) {
-    for (pressed, hovered, disabled, mut color, mut border_color, children) in &mut buttons {
-        let mut text = text_query.get_mut(children[0]).unwrap();
-        set_button_style(
-            disabled,
-            hovered.get(),
-            pressed,
-            &mut color,
-            &mut border_color,
-            &mut text,
-        );
-    }
-}
-
-/// Supplementary system to detect removed marker components
-fn update_button_style2(
-    mut buttons: Query<
-        (
-            Has<Pressed>,
-            &Hovered,
-            Has<InteractionDisabled>,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &Children,
-        ),
-        With<DemoButton>,
-    >,
-    mut removed_depressed: RemovedComponents<Pressed>,
-    mut removed_disabled: RemovedComponents<InteractionDisabled>,
-    mut text_query: Query<&mut Text>,
-) {
-    removed_depressed.read().for_each(|entity| {
-        if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
-            buttons.get_mut(entity)
-        {
-            let mut text = text_query.get_mut(children[0]).unwrap();
-            set_button_style(
-                disabled,
-                hovered.get(),
-                pressed,
-                &mut color,
-                &mut border_color,
-                &mut text,
-            );
-        }
-    });
-    removed_disabled.read().for_each(|entity| {
-        if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
-            buttons.get_mut(entity)
-        {
-            let mut text = text_query.get_mut(children[0]).unwrap();
-            set_button_style(
-                disabled,
-                hovered.get(),
-                pressed,
-                &mut color,
-                &mut border_color,
-                &mut text,
-            );
-        }
-    });
-}
-
-fn set_button_style(
-    disabled: bool,
-    hovered: bool,
-    pressed: bool,
-    color: &mut BackgroundColor,
-    border_color: &mut BorderColor,
-    text: &mut Text,
-) {
-    match (disabled, hovered, pressed) {
-        // Disabled button
-        (true, _, _) => {
-            **text = "Disabled".to_string();
-            *color = NORMAL_BUTTON.into();
-            border_color.set_all(GRAY);
-        }
-
-        // Pressed and hovered button
-        (false, true, true) => {
-            **text = "Press".to_string();
-            *color = PRESSED_BUTTON.into();
-            border_color.set_all(RED);
-        }
-
-        // Hovered, unpressed button
-        (false, true, false) => {
-            **text = "Hover".to_string();
-            *color = HOVERED_BUTTON.into();
-            border_color.set_all(WHITE);
-        }
-
-        // Unhovered button (either pressed or not).
-        (false, false, _) => {
-            **text = "Button".to_string();
-            *color = NORMAL_BUTTON.into();
-            border_color.set_all(BLACK);
-        }
-    }
 }
 
 /// Update the widget states based on the changing resource.
@@ -243,6 +129,7 @@ fn demo_root(
         children![
             button(asset_server, on_click),
             slider(0.0, 100.0, 50.0, Some(on_change_value)),
+            checkbox(asset_server, "Checkbox", None),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
@@ -278,6 +165,116 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
             TextShadow::default(),
         )],
     )
+}
+
+fn update_button_style(
+    mut buttons: Query<
+        (
+            Has<Pressed>,
+            &Hovered,
+            Has<InteractionDisabled>,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        (
+            Or<(
+                Changed<Pressed>,
+                Changed<Hovered>,
+                Added<InteractionDisabled>,
+            )>,
+            With<DemoButton>,
+        ),
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    for (pressed, hovered, disabled, mut color, mut border_color, children) in &mut buttons {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        set_button_style(
+            disabled,
+            hovered.get(),
+            pressed,
+            &mut color,
+            &mut border_color,
+            &mut text,
+        );
+    }
+}
+
+/// Supplementary system to detect removed marker components
+fn update_button_style2(
+    mut buttons: Query<
+        (
+            Has<Pressed>,
+            &Hovered,
+            Has<InteractionDisabled>,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        With<DemoButton>,
+    >,
+    mut removed_depressed: RemovedComponents<Pressed>,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
+    mut text_query: Query<&mut Text>,
+) {
+    removed_depressed
+        .read()
+        .chain(removed_disabled.read())
+        .for_each(|entity| {
+            if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
+                buttons.get_mut(entity)
+            {
+                let mut text = text_query.get_mut(children[0]).unwrap();
+                set_button_style(
+                    disabled,
+                    hovered.get(),
+                    pressed,
+                    &mut color,
+                    &mut border_color,
+                    &mut text,
+                );
+            }
+        });
+}
+
+fn set_button_style(
+    disabled: bool,
+    hovered: bool,
+    pressed: bool,
+    color: &mut BackgroundColor,
+    border_color: &mut BorderColor,
+    text: &mut Text,
+) {
+    match (disabled, hovered, pressed) {
+        // Disabled button
+        (true, _, _) => {
+            **text = "Disabled".to_string();
+            *color = NORMAL_BUTTON.into();
+            border_color.set_all(GRAY);
+        }
+
+        // Pressed and hovered button
+        (false, true, true) => {
+            **text = "Press".to_string();
+            *color = PRESSED_BUTTON.into();
+            border_color.set_all(RED);
+        }
+
+        // Hovered, unpressed button
+        (false, true, false) => {
+            **text = "Hover".to_string();
+            *color = HOVERED_BUTTON.into();
+            border_color.set_all(WHITE);
+        }
+
+        // Unhovered button (either pressed or not).
+        (false, false, _) => {
+            **text = "Button".to_string();
+            *color = NORMAL_BUTTON.into();
+            border_color.set_all(BLACK);
+        }
+    }
 }
 
 /// Create a demo slider
@@ -412,21 +409,208 @@ fn thumb_color(disabled: bool, hovered: bool) -> Color {
     }
 }
 
+/// Create a demo checkbox
+fn checkbox(
+    asset_server: &AssetServer,
+    caption: &str,
+    on_change: Option<SystemId<In<bool>>>,
+) -> impl Bundle {
+    (
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::FlexStart,
+            align_items: AlignItems::Center,
+            align_content: AlignContent::Center,
+            column_gap: Val::Px(4.0),
+            ..default()
+        },
+        Name::new("Checkbox"),
+        Hovered::default(),
+        DemoCheckbox,
+        CoreCheckbox { on_change },
+        TabIndex(0),
+        Children::spawn((
+            Spawn((
+                // Checkbox outer
+                Node {
+                    display: Display::Flex,
+                    width: Val::Px(16.0),
+                    height: Val::Px(16.0),
+                    border: UiRect::all(Val::Px(2.0)),
+                    ..default()
+                },
+                BorderColor::all(CHECKBOX_OUTLINE), // Border color for the checkbox
+                BorderRadius::all(Val::Px(3.0)),
+                children![
+                    // Checkbox inner
+                    (
+                        Node {
+                            display: Display::Flex,
+                            width: Val::Px(8.0),
+                            height: Val::Px(8.0),
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(2.0),
+                            top: Val::Px(2.0),
+                            ..default()
+                        },
+                        BackgroundColor(CHECKBOX_CHECK),
+                    ),
+                ],
+            )),
+            Spawn((
+                Text::new(caption),
+                TextFont {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 20.0,
+                    ..default()
+                },
+            )),
+        )),
+    )
+}
+
+// Update the checkbox's styles.
+fn update_checkbox_style(
+    mut q_checkbox: Query<
+        (Has<Checked>, &Hovered, Has<InteractionDisabled>, &Children),
+        (
+            With<DemoCheckbox>,
+            Or<(
+                Added<DemoCheckbox>,
+                Changed<Hovered>,
+                Added<Checked>,
+                Added<InteractionDisabled>,
+            )>,
+        ),
+    >,
+    mut q_border_color: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
+    mut q_bg_color: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
+) {
+    for (checked, Hovered(is_hovering), is_disabled, children) in q_checkbox.iter_mut() {
+        let Some(border_id) = children.first() else {
+            continue;
+        };
+
+        let Ok((mut border_color, border_children)) = q_border_color.get_mut(*border_id) else {
+            continue;
+        };
+
+        let Some(mark_id) = border_children.first() else {
+            warn!("Checkbox does not have a mark entity.");
+            continue;
+        };
+
+        let Ok(mut mark_bg) = q_bg_color.get_mut(*mark_id) else {
+            warn!("Checkbox mark entity lacking a background color.");
+            continue;
+        };
+
+        set_checkbox_style(
+            is_disabled,
+            *is_hovering,
+            checked,
+            &mut border_color,
+            &mut mark_bg,
+        );
+    }
+}
+
+fn update_checkbox_style2(
+    mut q_checkbox: Query<
+        (Has<Checked>, &Hovered, Has<InteractionDisabled>, &Children),
+        With<DemoCheckbox>,
+    >,
+    mut q_border_color: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
+    mut q_bg_color: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
+    mut removed_checked: RemovedComponents<Checked>,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
+) {
+    removed_checked
+        .read()
+        .chain(removed_disabled.read())
+        .for_each(|entity| {
+            if let Ok((checked, Hovered(is_hovering), is_disabled, children)) =
+                q_checkbox.get_mut(entity)
+            {
+                let Some(border_id) = children.first() else {
+                    return;
+                };
+
+                let Ok((mut border_color, border_children)) = q_border_color.get_mut(*border_id)
+                else {
+                    return;
+                };
+
+                let Some(mark_id) = border_children.first() else {
+                    warn!("Checkbox does not have a mark entity.");
+                    return;
+                };
+
+                let Ok(mut mark_bg) = q_bg_color.get_mut(*mark_id) else {
+                    warn!("Checkbox mark entity lacking a background color.");
+                    return;
+                };
+
+                set_checkbox_style(
+                    is_disabled,
+                    *is_hovering,
+                    checked,
+                    &mut border_color,
+                    &mut mark_bg,
+                );
+            }
+        });
+}
+
+fn set_checkbox_style(
+    disabled: bool,
+    hovering: bool,
+    checked: bool,
+    border_color: &mut BorderColor,
+    mark_bg: &mut BackgroundColor,
+) {
+    let color: Color = if disabled {
+        // If the checkbox is disabled, use a lighter color
+        CHECKBOX_OUTLINE.with_alpha(0.2)
+    } else if hovering {
+        // If hovering, use a lighter color
+        CHECKBOX_OUTLINE.lighter(0.2)
+    } else {
+        // Default color for the checkbox
+        CHECKBOX_OUTLINE
+    };
+
+    // Update the background color of the check mark
+    border_color.set_all(color);
+
+    let mark_color: Color = match (disabled, checked) {
+        (true, true) => CHECKBOX_CHECK.with_alpha(0.5),
+        (false, true) => CHECKBOX_CHECK,
+        (_, false) => Srgba::NONE.into(),
+    };
+
+    if mark_bg.0 != mark_color {
+        // Update the color of the check mark
+        mark_bg.0 = mark_color;
+    }
+}
+
 fn toggle_disabled(
     input: Res<ButtonInput<KeyCode>>,
     mut interaction_query: Query<
         (Entity, Has<InteractionDisabled>),
-        Or<(With<CoreButton>, With<CoreSlider>)>,
+        Or<(With<CoreButton>, With<CoreSlider>, With<CoreCheckbox>)>,
     >,
     mut commands: Commands,
 ) {
     if input.just_pressed(KeyCode::KeyD) {
         for (entity, disabled) in &mut interaction_query {
             if disabled {
-                info!("Widgets enabled");
+                info!("Widget enabled");
                 commands.entity(entity).remove::<InteractionDisabled>();
             } else {
-                info!("Widgets disabled");
+                info!("Widget disabled");
                 commands.entity(entity).insert(InteractionDisabled);
             }
         }
