@@ -46,11 +46,13 @@ pub enum ApplyError {
     },
 
     #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
-    /// Attempted to apply to types with mismatched sizes, e.g. a [u8; 4] to [u8; 3].
+    /// Attempted to apply an [array-like] type to another of different size, e.g. a [u8; 4] to [u8; 3].
+    ///
+    /// [array-like]: crate::Array
     DifferentSize {
-        /// Size of the value we attempted to apply.
+        /// Size of the value we attempted to apply, in elements.
         from_size: usize,
-        /// Size of the type we attempted to apply the value to.
+        /// Size of the type we attempted to apply the value to, in elements.
         to_size: usize,
     },
 
