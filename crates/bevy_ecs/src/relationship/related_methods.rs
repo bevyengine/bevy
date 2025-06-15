@@ -241,28 +241,18 @@ impl<'w> EntityWorldMut<'w> {
             assert_eq!(newly_related_entities, entities_to_relate, "`entities_to_relate` ({entities_to_relate:?}) didn't contain all entities that would end up related");
         };
 
-        if !self.contains::<R::RelationshipTarget>() {
-            self.add_related::<R>(entities_to_relate);
+        match self.get_mut::<R::RelationshipTarget>() {
+            None => {
+                self.add_related::<R>(entities_to_relate);
 
-            return self;
-        };
-
-        if !entities_to_relate.is_empty() {
-            if let Some(mut target) = self.get_mut::<R::RelationshipTarget>() {
+                return self;
+            }
+            Some(mut target) => {
                 // SAFETY: The invariants expected by this function mean we'll only be inserting entities that are already related.
                 let collection = target.collection_mut_risky();
                 collection.clear();
 
                 collection.extend_from_iter(entities_to_relate.iter().copied());
-            } else {
-                let mut empty =
-                    <R::RelationshipTarget as RelationshipTarget>::Collection::with_capacity(
-                        entities_to_relate.len(),
-                    );
-                empty.extend_from_iter(entities_to_relate.iter().copied());
-
-                // SAFETY: We've just initialized this collection and we know there's no `RelationshipTarget` on `self`
-                self.insert(R::RelationshipTarget::from_collection_risky(empty));
             }
         }
 
