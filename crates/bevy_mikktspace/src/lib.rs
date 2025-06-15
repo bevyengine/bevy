@@ -16,6 +16,10 @@
 )]
 #![no_std]
 
+//! An implementation of [Mikkelsen's algorithm] for tangent space generation.
+//!
+//! [Mikkelsen's algorithm]: http://www.mikktspace.com
+
 #[cfg(feature = "std")]
 extern crate std;
 
