@@ -1,6 +1,6 @@
 use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
-    UntypedAssetId,
+    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath,
+    InternalAssetId, UntypedAssetId,
 };
 use alloc::sync::Arc;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
@@ -84,7 +84,8 @@ impl AssetHandleProvider {
 /// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
 #[derive(TypePath)]
 pub struct StrongHandle {
-    pub(crate) id: UntypedAssetId,
+    pub(crate) index: AssetIndex,
+    pub(crate) type_id: TypeId,
     pub(crate) asset_server_managed: bool,
     pub(crate) path: Option<AssetPath<'static>>,
     /// Modifies asset meta. This is stored on the handle because it is:
@@ -106,7 +107,8 @@ impl Drop for StrongHandle {
 impl core::fmt::Debug for StrongHandle {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("StrongHandle")
-            .field("id", &self.id)
+            .field("index", &self.index)
+            .field("type_id", &self.type_id)
             .field("asset_server_managed", &self.asset_server_managed)
             .field("path", &self.path)
             .field("drop_sender", &self.drop_sender)
