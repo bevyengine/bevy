@@ -547,6 +547,13 @@ impl EntityCloner {
             };
 
             match &mut filter {
+                AllowOrDenyAll::AllowAll(filter) => {
+                    for component in source_archetype.components() {
+                        if !filter.deny.contains(&component) {
+                            clone_component(component, self);
+                        }
+                    }
+                }
                 AllowOrDenyAll::DenyAll(filter) => {
                     let target_archetype = filter.needs_target_archetype.then(|| {
                         world
@@ -560,13 +567,6 @@ impl EntityCloner {
                             clone_component(component, self)
                         })
                     };
-                }
-                AllowOrDenyAll::AllowAll(filter) => {
-                    for component in source_archetype.components() {
-                        if !filter.deny.contains(&component) {
-                            clone_component(component, self);
-                        }
-                    }
                 }
             }
 
@@ -650,8 +650,8 @@ impl EntityCloner {
 }
 
 enum AllowOrDenyAll {
-    DenyAll(DenyAll),
     AllowAll(AllowAll),
+    DenyAll(DenyAll),
 }
 
 /// Generic for [`EntityClonerBuilder`] that makes the cloner try to clone every component from the source entity
@@ -669,7 +669,6 @@ pub struct AllowAll {
 /// allowed from the source entity, for example by using the [`allow`](EntityClonerBuilder::allow) method.
 ///
 /// Required components are also cloned when the target entity does not contain them.
-#[derive(Default)]
 pub struct DenyAll {
     /// Contains the components explicitly allowed to be cloned.
     explicits: HashMap<ComponentId, Explicit>,
@@ -726,6 +725,18 @@ struct Required {
     /// The counter is reset to `required_by` when the cloning is over in case another entity needs to be
     /// cloned by the same [`EntityCloner`].
     required_by_reduced: usize,
+}
+
+impl Default for DenyAll {
+    fn default() -> Self {
+        Self {
+            explicits: Default::default(),
+            requires_of_explicits: Default::default(),
+            requires: Default::default(),
+            needs_target_archetype: false,
+            attach_required_components: true
+        }
+    }
 }
 
 impl DenyAll {
@@ -1434,73 +1445,84 @@ mod tests {
         assert!(world.get::<C>(e_clone).is_some());
     }
 
-    /* todo: API does not support mixing deny/allow anymore, see if this test is still needed or needs to be rewritten
     #[test]
-    fn clone_entity_with_override_allow_filter() {
-        #[derive(Component, Clone, PartialEq, Eq)]
-        struct A {
-            field: usize,
-        }
-
-        #[derive(Component, Clone)]
-        struct B;
-
-        #[derive(Component, Clone)]
-        struct C;
+    fn allow_and_allow_if_new_always_allows() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct A(u8);
 
         let mut world = World::default();
+        let e = world.spawn(A(1)).id();
+        let e_clone1 = world.spawn(A(2)).id();
 
-        let component = A { field: 5 };
-
-        let e = world.spawn((component.clone(), B, C)).id();
-        let e_clone = world.spawn_empty().id();
-
-        EntityCloner::build(&mut world)
-            .deny_all()
+        EntityCloner::build_deny_all(&mut world)
+            .allow_if_new::<A>()
             .allow::<A>()
-            .allow::<B>()
-            .allow::<C>()
-            .deny::<B>()
-            .clone_entity(e, e_clone);
+            .clone_entity(e, e_clone1);
 
-        assert!(world.get::<A>(e_clone).is_some_and(|c| *c == component));
-        assert!(world.get::<B>(e_clone).is_none());
-        assert!(world.get::<C>(e_clone).is_some());
+        assert_eq!(world.get::<A>(e_clone1), Some(&A(1)));
+
+        let e_clone2 = world.spawn(A(2)).id();
+
+        EntityCloner::build_deny_all(&mut world)
+            .allow::<A>()
+            .allow_if_new::<A>()
+            .clone_entity(e, e_clone2);
+
+        assert_eq!(world.get::<A>(e_clone2), Some(&A(1)));
     }
-    */
 
-    /* todo: API does not support mixing deny/allow anymore, see if this test is still needed or needs to be rewritten
     #[test]
-    fn clone_entity_with_override_bundle() {
-        #[derive(Component, Clone, PartialEq, Eq)]
-        struct A {
-            field: usize,
-        }
+    fn with_and_without_required_components_include_required() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        #[require(B(5))]
+        struct A;
 
-        #[derive(Component, Clone)]
-        struct B;
-
-        #[derive(Component, Clone)]
-        struct C;
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct B(u8);
 
         let mut world = World::default();
+        let e = world.spawn((A, B(10))).id();
+        let e_clone1 = world.spawn_empty().id();
+        EntityCloner::build_deny_all(&mut world)
+            .without_required_components(|builder| {
+                builder.allow::<A>();
+            })
+            .allow::<A>()
+            .clone_entity(e, e_clone1);
 
-        let component = A { field: 5 };
+        assert_eq!(world.get::<B>(e_clone1), Some(&B(10)));
 
-        let e = world.spawn((component.clone(), B, C)).id();
-        let e_clone = world.spawn_empty().id();
+        let e_clone2 = world.spawn_empty().id();
 
-        EntityCloner::build(&mut world)
-            .deny_all()
-            .allow::<(A, B, C)>()
-            .deny::<(B, C)>()
-            .clone_entity(e, e_clone);
+        EntityCloner::build_deny_all(&mut world)
+            .allow::<A>()
+            .without_required_components(|builder| {
+                builder.allow::<A>();
+            })
+            .clone_entity(e, e_clone2);
 
-        assert!(world.get::<A>(e_clone).is_some_and(|c| *c == component));
-        assert!(world.get::<B>(e_clone).is_none());
-        assert!(world.get::<C>(e_clone).is_none());
+        assert_eq!(world.get::<B>(e_clone2), Some(&B(10)));
     }
-    */
+
+    #[test]
+    fn required_not_cloned_because_requiring_missing() {
+        #[derive(Component, Clone)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Clone, Default)]
+        struct B;
+
+        let mut world = World::default();
+        let e = world.spawn(B).id();
+        let e_clone1 = world.spawn_empty().id();
+
+        EntityCloner::build_deny_all(&mut world)
+            .allow::<A>()
+            .clone_entity(e, e_clone1);
+
+        assert!(world.get::<B>(e_clone1).is_none());
+    }
 
     #[test]
     fn clone_entity_with_required_components() {
