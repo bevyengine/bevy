@@ -11,7 +11,7 @@ use crate::{
     bundle::{Bundle, InsertMode},
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
-    entity::{Entity, EntityClonerBuilder},
+    entity::{AllowAll, DenyAll, Entity, EntityClonerBuilder},
     event::Event,
     relationship::RelationshipHookMode,
     system::IntoObserverSystem,
@@ -243,12 +243,21 @@ pub fn trigger(event: impl Event) -> impl EntityCommand {
 
 /// An [`EntityCommand`] that clones parts of an entity onto another entity,
 /// configured through [`EntityClonerBuilder`].
-pub fn clone_with(
+pub fn clone_with_allow_all(
     target: Entity,
-    config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+    config: impl FnOnce(&mut EntityClonerBuilder<AllowAll>) + Send + Sync + 'static,
 ) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
-        entity.clone_with(target, config);
+        entity.clone_with_allow_all(target, config);
+    }
+}
+
+pub fn clone_with_deny_all(
+    target: Entity,
+    config: impl FnOnce(&mut EntityClonerBuilder<DenyAll>) + Send + Sync + 'static,
+) -> impl EntityCommand {
+    move |mut entity: EntityWorldMut| {
+        entity.clone_with_deny_all(target, config);
     }
 }
 

@@ -62,7 +62,7 @@ impl Component for ObservedBy {
     }
 }
 
-impl EntityClonerBuilder<'_> {
+impl<Filter> EntityClonerBuilder<'_, Filter> {
     /// Sets the option to automatically add cloned entities to the observers targeting source entity.
     pub fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {
@@ -145,7 +145,7 @@ mod tests {
         world.trigger_targets(E, e);
 
         let e_clone = world.spawn_empty().id();
-        EntityCloner::build(&mut world)
+        EntityCloner::build_allow_all(&mut world)
             .add_observers(true)
             .clone_entity(e, e_clone);
 

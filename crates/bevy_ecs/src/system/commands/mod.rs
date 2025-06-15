@@ -18,7 +18,7 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
-    entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
+    entity::{AllowAll, DenyAll, Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::Event,
     observer::{Observer, TriggerTargets},
@@ -2009,12 +2009,20 @@ impl<'a> EntityCommands<'a> {
     /// ```
     ///
     /// See [`EntityClonerBuilder`] for more options.
-    pub fn clone_with(
+    pub fn clone_with_allow_all(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<AllowAll>) + Send + Sync + 'static,
     ) -> &mut Self {
-        self.queue(entity_command::clone_with(target, config))
+        self.queue(entity_command::clone_with_allow_all(target, config))
+    }
+
+    pub fn clone_with_deny_all(
+        &mut self,
+        target: Entity,
+        config: impl FnOnce(&mut EntityClonerBuilder<DenyAll>) + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.queue(entity_command::clone_with_deny_all(target, config))
     }
 
     /// Spawns a clone of this entity and returns the [`EntityCommands`] of the clone.
@@ -2048,7 +2056,7 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     pub fn clone_and_spawn(&mut self) -> EntityCommands<'_> {
-        self.clone_and_spawn_with(|_| {})
+        self.clone_and_spawn_with_allow_all(|_| {})
     }
 
     /// Spawns a clone of this entity and allows configuring cloning behavior
@@ -2087,12 +2095,24 @@ impl<'a> EntityCommands<'a> {
     ///     });
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone_and_spawn_with(
+    pub fn clone_and_spawn_with_allow_all(
         &mut self,
-        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<AllowAll>) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
         let entity_clone = self.commands().spawn_empty().id();
-        self.clone_with(entity_clone, config);
+        self.clone_with_allow_all(entity_clone, config);
+        EntityCommands {
+            commands: self.commands_mut().reborrow(),
+            entity: entity_clone,
+        }
+    }
+
+    pub fn clone_and_spawn_with_deny_all(
+        &mut self,
+        config: impl FnOnce(&mut EntityClonerBuilder<DenyAll>) + Send + Sync + 'static,
+    ) -> EntityCommands<'_> {
+        let entity_clone = self.commands().spawn_empty().id();
+        self.clone_with_deny_all(entity_clone, config);
         EntityCommands {
             commands: self.commands_mut().reborrow(),
             entity: entity_clone,
