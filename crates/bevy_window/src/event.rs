@@ -499,38 +499,64 @@ impl AppLifecycle {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 pub enum WindowEvent {
+    /// TODO
     AppLifecycle(AppLifecycle),
+    /// TODO
     CursorEntered(CursorEntered),
+    /// TODO
     CursorLeft(CursorLeft),
+    /// TODO
     CursorMoved(CursorMoved),
+    /// TODO
     FileDragAndDrop(FileDragAndDrop),
+    /// TODO
     Ime(Ime),
+    /// TODO
     RequestRedraw(RequestRedraw),
+    /// TODO
     WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
+    /// TODO
     WindowCloseRequested(WindowCloseRequested),
+    /// TODO
     WindowCreated(WindowCreated),
+    /// TODO
     WindowDestroyed(WindowDestroyed),
+    /// TODO
     WindowFocused(WindowFocused),
+    /// TODO
     WindowMoved(WindowMoved),
+    /// TODO
     WindowOccluded(WindowOccluded),
+    /// TODO
     WindowResized(WindowResized),
+    /// TODO
     WindowScaleFactorChanged(WindowScaleFactorChanged),
+    /// TODO
     WindowThemeChanged(WindowThemeChanged),
 
+    /// TODO
     MouseButtonInput(MouseButtonInput),
+    /// TODO
     MouseMotion(MouseMotion),
+    /// TODO
     MouseWheel(MouseWheel),
 
+    /// TODO
     PinchGesture(PinchGesture),
+    /// TODO
     RotationGesture(RotationGesture),
+    /// TODO
     DoubleTapGesture(DoubleTapGesture),
+    /// TODO
     PanGesture(PanGesture),
 
+    /// TODO
     TouchInput(TouchInput),
 
+    /// TODO
     KeyboardInput(KeyboardInput),
+    /// TODO
     KeyboardFocusLost(KeyboardFocusLost),
 }
 
