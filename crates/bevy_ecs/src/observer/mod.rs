@@ -255,7 +255,7 @@ impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
     ///
     /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
     pub fn target(&self) -> Entity {
-        self.trigger.target.unwrap_or(Entity::PLACEHOLDER)
+        self.trigger.current_target.unwrap_or(Entity::PLACEHOLDER)
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
@@ -484,7 +484,7 @@ pub struct ObserverTrigger {
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
-    pub target: Option<Entity>,
+    pub current_target: Option<Entity>,
     /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
 }
@@ -573,7 +573,7 @@ impl Observers {
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
-        target: Option<Entity>,
+        current_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -601,7 +601,7 @@ impl Observers {
                     observer,
                     event_type,
                     components: components.clone().collect(),
-                    target,
+                    current_target,
                     caller,
                 },
                 data.into(),
@@ -612,7 +612,7 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
-        if let Some(target_entity) = target {
+        if let Some(target_entity) = current_target {
             if let Some(map) = observers.entity_observers.get(&target_entity) {
                 map.iter().for_each(&mut trigger_observer);
             }
@@ -626,7 +626,7 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if let Some(target_entity) = target {
+                if let Some(target_entity) = current_target {
                     if let Some(map) = component_observers.entity_map.get(&target_entity) {
                         map.iter().for_each(&mut trigger_observer);
                     }

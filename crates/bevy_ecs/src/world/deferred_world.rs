@@ -739,14 +739,14 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers(
         &mut self,
         event: ComponentId,
-        target: Option<Entity>,
+        current_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
-            target,
+            current_target,
             components,
             &mut (),
             &mut false,
@@ -762,7 +762,7 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
         event: ComponentId,
-        target: Option<Entity>,
+        current_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
@@ -773,32 +773,34 @@ impl<'w> DeferredWorld<'w> {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
-            target,
+            current_target,
             components.clone(),
             data,
             &mut propagate,
             caller,
         );
-        let Some(mut target) = target else { return };
+        let Some(mut current_target) = current_target else {
+            return;
+        };
 
         loop {
             if !propagate {
                 return;
             }
             if let Some(traverse_to) = self
-                .get_entity(target)
+                .get_entity(current_target)
                 .ok()
                 .and_then(|entity| entity.get_components::<T>())
                 .and_then(|item| T::traverse(item, data))
             {
-                target = traverse_to;
+                current_target = traverse_to;
             } else {
                 break;
             }
             Observers::invoke::<_>(
                 self.reborrow(),
                 event,
-                Some(target),
+                Some(current_target),
                 components.clone(),
                 data,
                 &mut propagate,
