@@ -466,7 +466,7 @@ pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
-        event::{Event, EventReader},
+        event::{BufferedEvent, EventReader},
         lifecycle::RemovedComponents,
         prelude::{Component, Query, With},
         query::QueryFilter,
@@ -928,7 +928,7 @@ pub mod common_conditions {
     ///     my_system.run_if(on_event::<MyEvent>),
     /// );
     ///
-    /// #[derive(Event)]
+    /// #[derive(Event, BufferedEvent)]
     /// struct MyEvent;
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -945,7 +945,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn on_event<T: Event>(mut reader: EventReader<T>) -> bool {
+    pub fn on_event<T: BufferedEvent>(mut reader: EventReader<T>) -> bool {
         // The events need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
@@ -1328,6 +1328,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
+    use crate::event::{BufferedEvent, Event};
     use crate::query::With;
     use crate::{
         change_detection::ResMut,
@@ -1336,7 +1337,7 @@ mod tests {
         system::Local,
         world::World,
     };
-    use bevy_ecs_macros::{Event, Resource};
+    use bevy_ecs_macros::Resource;
 
     #[derive(Resource, Default)]
     struct Counter(usize);
@@ -1447,7 +1448,7 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
-    #[derive(Event)]
+    #[derive(Event, BufferedEvent)]
     struct TestEvent;
 
     #[derive(Resource)]
