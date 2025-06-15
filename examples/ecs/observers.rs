@@ -16,7 +16,7 @@ fn main() {
         // Observers are systems that run when an event is "triggered". This observer runs whenever
         // `ExplodeMines` is triggered.
         .add_observer(
-            |trigger: Trigger<ExplodeMines>,
+            |trigger: On<ExplodeMines>,
              mines: Query<&Mine>,
              index: Res<SpatialIndex>,
              mut commands: Commands| {
@@ -112,38 +112,34 @@ fn setup(mut commands: Commands) {
     commands.spawn(observer);
 }
 
-fn on_add_mine(
-    trigger: Trigger<OnAdd, Mine>,
-    query: Query<&Mine>,
-    mut index: ResMut<SpatialIndex>,
-) {
-    let mine = query.get(trigger.target()).unwrap();
+fn on_add_mine(trigger: On<Add, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
+    let mine = query.get(trigger.target().unwrap()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
-    index.map.entry(tile).or_default().insert(trigger.target());
+    index
+        .map
+        .entry(tile)
+        .or_default()
+        .insert(trigger.target().unwrap());
 }
 
 // Remove despawned mines from our index
-fn on_remove_mine(
-    trigger: Trigger<OnRemove, Mine>,
-    query: Query<&Mine>,
-    mut index: ResMut<SpatialIndex>,
-) {
-    let mine = query.get(trigger.target()).unwrap();
+fn on_remove_mine(trigger: On<Remove, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
+    let mine = query.get(trigger.target().unwrap()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
     index.map.entry(tile).and_modify(|set| {
-        set.remove(&trigger.target());
+        set.remove(&trigger.target().unwrap());
     });
 }
 
-fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
+fn explode_mine(trigger: On<Explode>, query: Query<&Mine>, mut commands: Commands) {
     // If a triggered event is targeting a specific entity you can access it with `.target()`
-    let id = trigger.target();
+    let id = trigger.target().unwrap();
     let Ok(mut entity) = commands.get_entity(id) else {
         return;
     };

@@ -106,10 +106,13 @@ impl Default for App {
 
         #[cfg(feature = "bevy_reflect")]
         {
+            use bevy_ecs::observer::ObservedBy;
+
             app.init_resource::<AppTypeRegistry>();
             app.register_type::<Name>();
             app.register_type::<ChildOf>();
             app.register_type::<Children>();
+            app.register_type::<ObservedBy>();
         }
 
         #[cfg(feature = "reflect_functions")]
@@ -1306,7 +1309,7 @@ impl App {
 
     /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
     ///
-    /// `observer` can be any system whose first parameter is a [`Trigger`].
+    /// `observer` can be any system whose first parameter is [`On`].
     ///
     /// # Examples
     ///
@@ -1329,7 +1332,7 @@ impl App {
     /// # struct Friend;
     /// #
     ///
-    /// app.add_observer(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    /// app.add_observer(|trigger: On<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
     ///     if trigger.event().friends_allowed {
     ///         for friend in friends.iter() {
     ///             commands.trigger_targets(Invite, friend);
@@ -1483,8 +1486,8 @@ mod tests {
         component::Component,
         entity::Entity,
         event::{Event, EventWriter, Events},
+        lifecycle::RemovedComponents,
         query::With,
-        removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{IntoScheduleConfigs, ScheduleLabel},
         system::{Commands, Query},

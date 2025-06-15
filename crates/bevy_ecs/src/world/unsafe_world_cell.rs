@@ -8,10 +8,10 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     error::{DefaultErrorHandler, ErrorHandler},
+    lifecycle::RemovedComponentEvents,
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
-    removal_detection::RemovedComponentEvents,
     resource::Resource,
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
@@ -36,7 +36,7 @@ use thiserror::Error;
 ///
 /// This alone is not enough to implement bevy systems where multiple systems can access *disjoint* parts of the world concurrently. For this, bevy stores all values of
 /// resources and components (and [`ComponentTicks`]) in [`UnsafeCell`]s, and carefully validates disjoint access patterns using
-/// APIs like [`System::component_access`](crate::system::System::component_access).
+/// APIs like [`System::initialize`](crate::system::System::initialize).
 ///
 /// A system then can be executed using [`System::run_unsafe`](crate::system::System::run_unsafe) with a `&World` and use methods with interior mutability to access resource values.
 ///

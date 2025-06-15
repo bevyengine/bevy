@@ -2,7 +2,7 @@ use core::hint::black_box;
 
 use bevy_ecs::{
     event::Event,
-    observer::{Trigger, TriggerTargets},
+    observer::{On, TriggerTargets},
     world::World,
 };
 
@@ -46,7 +46,7 @@ pub fn observe_simple(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn empty_listener_base(trigger: Trigger<EventBase>) {
+fn empty_listener_base(trigger: On<EventBase>) {
     black_box(trigger);
 }
 

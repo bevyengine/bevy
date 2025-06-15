@@ -41,6 +41,7 @@ pub mod event;
 pub mod hierarchy;
 pub mod intern;
 pub mod label;
+pub mod lifecycle;
 pub mod name;
 pub mod never;
 pub mod observer;
@@ -48,7 +49,6 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod relationship;
-pub mod removal_detection;
 pub mod resource;
 pub mod schedule;
 pub mod spawn;
@@ -67,6 +67,10 @@ use event::Event;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
+    #[expect(
+        deprecated,
+        reason = "`Trigger` was deprecated in favor of `On`, and `OnX` lifecycle events were deprecated in favor of `X` events."
+    )]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
@@ -76,12 +80,15 @@ pub mod prelude {
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
+        lifecycle::{
+            Add, Despawn, Insert, OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, Remove,
+            RemovedComponents, Replace,
+        },
         name::{Name, NameOrEntity},
-        observer::{Observer, Trigger},
+        observer::{Observer, On, Trigger},
         query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
-        removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
             common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
@@ -96,7 +103,7 @@ pub mod prelude {
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
-            FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
+            FromWorld, World,
         },
     };
 
