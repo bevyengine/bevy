@@ -253,7 +253,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
 impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer.
     ///
-    /// Note that if event bubblign is enabled, this may not be the same as the original target of the event,
+    /// Note that if event bubbling is enabled, this may not be the same as the original target of the event,
     /// which can be accessed via [`On::original_target`].
     ///
     /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
