@@ -355,7 +355,7 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(BufferedEvent)]
+    /// # #[derive(Event, BufferedEvent)]
     /// # struct MyEvent;
     /// # let mut app = App::new();
     /// #
@@ -1325,7 +1325,7 @@ impl App {
     /// #   friends_allowed: bool,
     /// # };
     /// #
-    /// # #[derive(EntityEvent)]
+    /// # #[derive(Event, EntityEvent)]
     /// # struct Invite;
     /// #
     /// # #[derive(Component)]
@@ -1417,7 +1417,7 @@ fn run_once(mut app: App) -> AppExit {
 /// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
-#[derive(BufferedEvent, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, Default, PartialEq, Eq)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
@@ -1485,7 +1485,7 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::{BufferedEvent, EventWriter, Events},
+        event::{BufferedEvent, Event, EventWriter, Events},
         lifecycle::RemovedComponents,
         query::With,
         resource::Resource,
@@ -1851,7 +1851,7 @@ mod tests {
     }
     #[test]
     fn events_should_be_updated_once_per_update() {
-        #[derive(BufferedEvent, Clone)]
+        #[derive(Event, BufferedEvent, Clone)]
         struct TestEvent;
 
         let mut app = App::new();

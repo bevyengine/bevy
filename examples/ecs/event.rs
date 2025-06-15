@@ -6,17 +6,17 @@ use bevy::prelude::*;
 
 // In order to send or receive events first you must define them
 // This event should be sent when something attempts to deal damage to another entity.
-#[derive(BufferedEvent, Debug)]
+#[derive(Event, BufferedEvent, Debug)]
 struct DealDamage {
     pub amount: i32,
 }
 
 // This event should be sent when an entity receives damage.
-#[derive(BufferedEvent, Debug, Default)]
+#[derive(Event, BufferedEvent, Debug, Default)]
 struct DamageReceived;
 
 // This event should be sent when an entity blocks damage with armor.
-#[derive(BufferedEvent, Debug, Default)]
+#[derive(Event, BufferedEvent, Debug, Default)]
 struct ArmorBlockedDamage;
 
 // This resource represents a timer used to determine when to deal damage

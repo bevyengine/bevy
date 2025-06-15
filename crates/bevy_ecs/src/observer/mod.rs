@@ -1032,10 +1032,10 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct S;
 
-    #[derive(EntityEvent)]
+    #[derive(Event, EntityEvent)]
     struct EventA;
 
-    #[derive(EntityEvent)]
+    #[derive(Event, EntityEvent)]
     struct EventWithData {
         counter: usize,
     }
@@ -1059,7 +1059,7 @@ mod tests {
         }
     }
 
-    #[derive(Component, EntityEvent)]
+    #[derive(Component, Event, EntityEvent)]
     #[entity_event(traversal = &'static ChildOf, auto_propagate)]
     struct EventPropagating;
 

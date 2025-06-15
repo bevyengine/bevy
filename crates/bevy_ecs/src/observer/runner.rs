@@ -122,7 +122,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
 /// # let entity = world.spawn_empty().id();
-/// #[derive(EntityEvent)]
+/// #[derive(Event, EntityEvent)]
 /// struct Explode;
 ///
 /// world.add_observer(|trigger: On<Explode>, mut commands: Commands| {
@@ -142,7 +142,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # let mut world = World::default();
 /// # let e1 = world.spawn_empty().id();
 /// # let e2 = world.spawn_empty().id();
-/// # #[derive(EntityEvent)]
+/// # #[derive(Event, EntityEvent)]
 /// # struct Explode;
 /// world.trigger_targets(Explode, [e1, e2]);
 /// ```
@@ -156,7 +156,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # let mut world = World::default();
 /// # let e1 = world.spawn_empty().id();
 /// # let e2 = world.spawn_empty().id();
-/// # #[derive(EntityEvent)]
+/// # #[derive(Event, EntityEvent)]
 /// # struct Explode;
 /// world.entity_mut(e1).observe(|trigger: On<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
@@ -178,7 +178,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
 /// # let entity = world.spawn_empty().id();
-/// # #[derive(EntityEvent)]
+/// # #[derive(Event, EntityEvent)]
 /// # struct Explode;
 /// let mut observer = Observer::new(|trigger: On<Explode>| {});
 /// observer.watch_entity(entity);

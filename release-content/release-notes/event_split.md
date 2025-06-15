@@ -57,12 +57,12 @@ commands.trigger(Speak {
 });
 ```
 
-To allow an event to be targeted at entities and even propagated further, you can instead derive `EntityEvent`.
+To allow an event to be targeted at entities and even propagated further, you can also derive `EntityEvent`.
 It supports optionally specifying some options for propagation using the `event` attribute:
 
 ```rust
 // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
-#[derive(EntityEvent)]
+#[derive(Event, EntityEvent)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct Damage {
     amount: f32,
@@ -92,10 +92,10 @@ let armor_piece = commands
 commands.trigger_targets(Damage { amount: 10.0 }, armor_piece);
 ```
 
-To allow an event to be used with the buffered API, you can instead derive `BufferedEvent`:
+To allow an event to be used with the buffered API, you can also derive `BufferedEvent`:
 
 ```rust
-#[derive(BufferedEvent)]
+#[derive(Event, BufferedEvent)]
 struct Message(String);
 ```
 

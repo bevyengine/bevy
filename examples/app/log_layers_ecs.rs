@@ -38,7 +38,7 @@ fn main() {
 }
 
 /// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
-#[derive(Debug, BufferedEvent)]
+#[derive(Debug, Event, BufferedEvent)]
 struct LogEvent {
     message: String,
     level: Level,

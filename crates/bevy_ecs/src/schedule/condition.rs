@@ -928,7 +928,7 @@ pub mod common_conditions {
     ///     my_system.run_if(on_event::<MyEvent>),
     /// );
     ///
-    /// #[derive(BufferedEvent)]
+    /// #[derive(Event, BufferedEvent)]
     /// struct MyEvent;
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -1328,7 +1328,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
-    use crate::event::BufferedEvent;
+    use crate::event::{BufferedEvent, Event};
     use crate::query::With;
     use crate::{
         change_detection::ResMut,
@@ -1448,7 +1448,7 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
-    #[derive(BufferedEvent)]
+    #[derive(Event, BufferedEvent)]
     struct TestEvent;
 
     #[derive(Resource)]

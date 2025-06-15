@@ -69,7 +69,7 @@ use crate::{ButtonInput, ButtonState};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event::{BufferedEvent, EventReader},
+    event::{BufferedEvent, Event, EventReader},
     system::ResMut,
 };
 
@@ -94,7 +94,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
 /// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -139,7 +139,7 @@ pub struct KeyboardInput {
 /// when, for example, switching between windows with 'Alt-Tab' or using any other
 /// OS specific key combination that leads to Bevy window losing focus and not receiving any
 /// input events
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

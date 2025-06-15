@@ -187,7 +187,7 @@ impl StateScopedEventsAppExt for SubApp {
 mod tests {
     use super::*;
     use crate::app::StatesPlugin;
-    use bevy_ecs::event::BufferedEvent;
+    use bevy_ecs::event::{BufferedEvent, Event};
     use bevy_state::prelude::*;
 
     #[derive(States, Default, Clone, Hash, Eq, PartialEq, Debug)]
@@ -197,10 +197,10 @@ mod tests {
         B,
     }
 
-    #[derive(BufferedEvent, Debug)]
+    #[derive(Event, BufferedEvent, Debug)]
     struct StandardEvent;
 
-    #[derive(BufferedEvent, Debug)]
+    #[derive(Event, BufferedEvent, Debug)]
     struct StateScopedEvent;
 
     #[test]

@@ -1,7 +1,7 @@
 use core::{marker::PhantomData, mem};
 
 use bevy_ecs::{
-    event::{BufferedEvent, EventReader, EventWriter},
+    event::{BufferedEvent, Event, EventReader, EventWriter},
     schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
     system::{Commands, In, ResMut},
     world::World,
@@ -59,7 +59,7 @@ pub struct StateTransition;
 /// This includes identity transitions, where `exited` and `entered` have the same value.
 ///
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, BufferedEvent)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Event, BufferedEvent)]
 pub struct StateTransitionEvent<S: States> {
     /// The state being exited.
     pub exited: Option<S>,

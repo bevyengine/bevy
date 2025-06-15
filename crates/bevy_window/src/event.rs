@@ -1,5 +1,8 @@
 use alloc::string::String;
-use bevy_ecs::{entity::Entity, event::BufferedEvent};
+use bevy_ecs::{
+    entity::Entity,
+    event::{BufferedEvent, Event},
+};
 use bevy_input::{
     gestures::*,
     keyboard::{KeyboardFocusLost, KeyboardInput},
@@ -23,7 +26,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use crate::WindowTheme;
 
 /// A window event that is sent whenever a window's logical size has changed.
-#[derive(BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -45,7 +48,7 @@ pub struct WindowResized {
 
 /// An event that indicates all of the application's windows should be redrawn,
 /// even if their control flow is set to `Wait` and there have been no window events.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -61,7 +64,7 @@ pub struct RequestRedraw;
 /// An event that is sent whenever a new window is created.
 ///
 /// To create a new window, spawn an entity with a [`crate::Window`] on it.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -87,7 +90,7 @@ pub struct WindowCreated {
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 /// [`Window`]: crate::Window
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -105,7 +108,7 @@ pub struct WindowCloseRequested {
 
 /// An event that is sent whenever a window is closed. This will be sent when
 /// the window entity loses its [`Window`](crate::window::Window) component or is despawned.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -126,7 +129,7 @@ pub struct WindowClosed {
 
 /// An event that is sent whenever a window is closing. This will be sent when
 /// after a [`WindowCloseRequested`] event is received and the window is in the process of closing.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -146,7 +149,7 @@ pub struct WindowClosing {
 ///
 /// Note that if your application only has a single window, this event may be your last chance to
 /// persist state before the application terminates.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -176,7 +179,7 @@ pub struct WindowDestroyed {
 /// you should not use it for non-cursor-like behavior such as 3D camera control. Please see `MouseMotion` instead.
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
-#[derive(BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -201,7 +204,7 @@ pub struct CursorMoved {
 }
 
 /// An event that is sent whenever the user's cursor enters a window.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -218,7 +221,7 @@ pub struct CursorEntered {
 }
 
 /// An event that is sent whenever the user's cursor leaves a window.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -239,7 +242,7 @@ pub struct CursorLeft {
 /// This event is the translated version of the `WindowEvent::Ime` from the `winit` crate.
 ///
 /// It is only sent if IME was enabled on the window with [`Window::ime_enabled`](crate::window::Window::ime_enabled).
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -284,7 +287,7 @@ pub enum Ime {
 }
 
 /// An event that indicates a window has received or lost focus.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -311,7 +314,7 @@ pub struct WindowFocused {
 /// It is the translated version of [`WindowEvent::Occluded`] from the `winit` crate.
 ///
 /// [`WindowEvent::Occluded`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.Occluded
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -330,7 +333,7 @@ pub struct WindowOccluded {
 }
 
 /// An event that indicates a window's scale factor has changed.
-#[derive(BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -349,7 +352,7 @@ pub struct WindowScaleFactorChanged {
 }
 
 /// An event that indicates a window's OS-reported scale factor has changed.
-#[derive(BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -368,7 +371,7 @@ pub struct WindowBackendScaleFactorChanged {
 }
 
 /// Events related to files being dragged and dropped on a window.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -404,7 +407,7 @@ pub enum FileDragAndDrop {
 }
 
 /// An event that is sent when a window is repositioned in physical pixels.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -426,7 +429,7 @@ pub struct WindowMoved {
 ///
 /// This event is only sent when the window is relying on the system theme to control its appearance.
 /// i.e. It is only sent when [`Window::window_theme`](crate::window::Window::window_theme) is `None` and the system theme changes.
-#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -445,7 +448,7 @@ pub struct WindowThemeChanged {
 }
 
 /// Application lifetime events
-#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -488,7 +491,7 @@ impl AppLifecycle {
 /// access window events in the order they were received from the
 /// operating system. Otherwise, the event types are individually
 /// readable with `EventReader<E>` (e.g. `EventReader<KeyboardInput>`).
-#[derive(BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

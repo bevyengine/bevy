@@ -61,7 +61,7 @@ pub fn event_propagation(criterion: &mut Criterion) {
     group.finish();
 }
 
-#[derive(EntityEvent, Clone, Component)]
+#[derive(Event, EntityEvent, Clone, Component)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct TestEvent<const N: usize> {}
 

@@ -40,12 +40,12 @@ mod tests {
     use bevy_ecs::{event::*, system::assert_is_read_only_system};
     use bevy_ecs_macros::BufferedEvent;
 
-    #[derive(BufferedEvent, Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Event, BufferedEvent, Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
     }
 
-    #[derive(BufferedEvent, Clone, PartialEq, Debug, Default)]
+    #[derive(Event, BufferedEvent, Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
     fn get_events<E: BufferedEvent + Clone>(

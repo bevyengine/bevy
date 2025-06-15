@@ -1534,7 +1534,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(EntityEvent, Reflect, Clone)]
+    #[derive(Event, EntityEvent, Reflect, Clone)]
     struct A;
 
     #[track_caller]

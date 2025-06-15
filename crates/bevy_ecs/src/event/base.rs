@@ -147,7 +147,7 @@ pub trait Event: Send + Sync + 'static {
 /// # use bevy_ecs::prelude::*;
 /// #
 /// // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
-/// #[derive(EntityEvent)]
+/// #[derive(Event, EntityEvent)]
 /// #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// struct Damage {
 ///     amount: f32,
@@ -159,7 +159,7 @@ pub trait Event: Send + Sync + 'static {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(EntityEvent)]
+/// # #[derive(Event, EntityEvent)]
 /// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// # struct Damage {
 /// #     amount: f32,
@@ -198,7 +198,7 @@ pub trait Event: Send + Sync + 'static {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(EntityEvent)]
+/// # #[derive(Event, EntityEvent)]
 /// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// # struct Damage {
 /// #     amount: f32,
@@ -239,7 +239,7 @@ pub trait Event: Send + Sync + 'static {
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `EntityEvent`",
     label = "invalid `EntityEvent`",
-    note = "consider annotating `{Self}` with `#[derive(EntityEvent)]`"
+    note = "consider annotating `{Self}` with `#[derive(Event, EntityEvent)]`"
 )]
 pub trait EntityEvent: Event {
     /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
@@ -283,7 +283,7 @@ pub trait EntityEvent: Event {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// #[derive(BufferedEvent)]
+/// #[derive(Event, BufferedEvent)]
 /// struct Message(String);
 /// ```
 ///
@@ -292,7 +292,7 @@ pub trait EntityEvent: Event {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(BufferedEvent)]
+/// # #[derive(Event, BufferedEvent)]
 /// # struct Message(String);
 /// #
 /// fn write_hello(mut writer: EventWriter<Message>) {
@@ -305,7 +305,7 @@ pub trait EntityEvent: Event {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(BufferedEvent)]
+/// # #[derive(Event, BufferedEvent)]
 /// # struct Message(String);
 /// #
 /// fn read_messages(mut reader: EventReader<Message>) {
@@ -324,7 +324,7 @@ pub trait EntityEvent: Event {
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `BufferedEvent`",
     label = "invalid `BufferedEvent`",
-    note = "consider annotating `{Self}` with `#[derive(BufferedEvent)]`"
+    note = "consider annotating `{Self}` with `#[derive(Event, BufferedEvent)]`"
 )]
 pub trait BufferedEvent: Event {}
 

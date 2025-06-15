@@ -20,7 +20,7 @@ fn main() {
 #[derive(Resource, Deref)]
 struct StreamReceiver(Receiver<u32>);
 
-#[derive(BufferedEvent)]
+#[derive(Event, BufferedEvent)]
 struct StreamEvent(u32);
 
 fn setup(mut commands: Commands) {

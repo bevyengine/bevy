@@ -15,7 +15,7 @@ use bevy_ecs::{
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
-/// #[derive(BufferedEvent, Debug)]
+/// #[derive(Event, BufferedEvent, Debug)]
 /// pub struct MyEvent(pub u32); // Custom event type.
 /// fn my_system(mut reader: EventMutator<MyEvent>) {
 ///     for event in reader.read() {
@@ -69,7 +69,7 @@ impl<'w, 's, E: BufferedEvent> EventMutator<'w, 's, E> {
     /// # use bevy_ecs::prelude::*;
     /// # use std::sync::atomic::{AtomicUsize, Ordering};
     ///
-    /// #[derive(BufferedEvent)]
+    /// #[derive(Event, BufferedEvent)]
     /// struct MyEvent {
     ///     value: usize,
     /// }
@@ -116,7 +116,7 @@ impl<'w, 's, E: BufferedEvent> EventMutator<'w, 's, E> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// #[derive(BufferedEvent)]
+    /// #[derive(Event, BufferedEvent)]
     /// struct CollisionEvent;
     ///
     /// fn play_collision_sound(mut events: EventMutator<CollisionEvent>) {

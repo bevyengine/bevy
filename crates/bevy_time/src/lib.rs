@@ -186,7 +186,8 @@ mod tests {
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
         event::{
-            BufferedEvent, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents,
+            BufferedEvent, Event, EventReader, EventRegistry, EventWriter, Events,
+            ShouldUpdateEvents,
         },
         resource::Resource,
         system::{Local, Res, ResMut},
@@ -195,7 +196,7 @@ mod tests {
     use core::time::Duration;
     use std::println;
 
-    #[derive(BufferedEvent)]
+    #[derive(Event, BufferedEvent)]
     struct TestEvent<T: Default> {
         sender: std::sync::mpsc::Sender<T>,
     }
@@ -208,7 +209,7 @@ mod tests {
         }
     }
 
-    #[derive(BufferedEvent)]
+    #[derive(Event, BufferedEvent)]
     struct DummyEvent;
 
     #[derive(Resource, Default)]

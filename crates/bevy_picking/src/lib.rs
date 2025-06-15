@@ -48,7 +48,7 @@
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_picking::prelude::*;
-//! # #[derive(BufferedEvent)]
+//! # #[derive(Event, BufferedEvent)]
 //! # struct Greeting;
 //! fn setup(mut commands: Commands) {
 //!     commands.spawn(Transform::default())
