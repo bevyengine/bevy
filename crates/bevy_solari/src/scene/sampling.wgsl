@@ -1,7 +1,7 @@
 #define_import_path bevy_solari::sampling
 
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_range_u}
-#import bevy_render::maths::{PI, PI_2}
+#import bevy_render::maths::PI_2
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full}
 
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec28%3A303
@@ -113,7 +113,6 @@ fn trace_light_visibility(light_sample: LightSample, ray_origin: vec3<f32>) -> f
     let light_id = light_sample.light_id.x;
     let light_source = light_sources[light_id];
 
-    // TODO: Faster to have functions return RayDesc, and trace ray in this function uniformly?
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         return trace_directional_light_visibility(light_sample, light_source.id, ray_origin);
     } else {
