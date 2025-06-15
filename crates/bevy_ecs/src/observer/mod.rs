@@ -1581,7 +1581,7 @@ mod tests {
             })
             .id();
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // TODO: ideally this flush is not necessary, but right now observe() returns EntityWorldMut
         // and therefore does not automatically flush.
         world.flush();
         world.trigger_targets(EventPropagating, child);
