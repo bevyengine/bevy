@@ -6089,16 +6089,16 @@ mod tests {
         assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
         assert_eq!(world.entity(entity_b).get::<A>(), Some(&A));
     }
-    /*
+
     #[test]
     fn entity_world_mut_clone_with_move_and_require() {
         #[derive(Component, Clone, PartialEq, Debug)]
-        #[require(B)]
+        #[require(B(3))]
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
         #[require(C(3))]
-        struct B;
+        struct B(u32);
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
         #[require(D)]
@@ -6108,22 +6108,25 @@ mod tests {
         struct D;
 
         let mut world = World::new();
-        let entity_a = world.spawn(A).id();
+        let entity_a = world.spawn((A, B(5))).id();
         let entity_b = world.spawn_empty().id();
 
-        world.entity_mut(entity_a).clone_with_deny_all(entity_b, |builder| {
-            builder
-                .move_components(true)
-                .without_required_components(|builder| {
-                    builder.deny::<A>();
-                });
-        });
+        world
+            .entity_mut(entity_a)
+            .clone_with_deny_all(entity_b, |builder| {
+                builder
+                    .move_components(true)
+                    .allow::<C>()
+                    .without_required_components(|builder| {
+                        builder.allow::<A>();
+                    });
+            });
 
-        assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
-        assert_eq!(world.entity(entity_b).get::<A>(), None);
+        assert_eq!(world.entity(entity_a).get::<A>(), None);
+        assert_eq!(world.entity(entity_b).get::<A>(), Some(&A));
 
-        assert_eq!(world.entity(entity_a).get::<B>(), None);
-        assert_eq!(world.entity(entity_b).get::<B>(), Some(&B));
+        assert_eq!(world.entity(entity_a).get::<B>(), Some(&B(5)));
+        assert_eq!(world.entity(entity_b).get::<B>(), Some(&B(3)));
 
         assert_eq!(world.entity(entity_a).get::<C>(), None);
         assert_eq!(world.entity(entity_b).get::<C>(), Some(&C(3)));
@@ -6131,7 +6134,6 @@ mod tests {
         assert_eq!(world.entity(entity_a).get::<D>(), None);
         assert_eq!(world.entity(entity_b).get::<D>(), Some(&D));
     }
-    */
 
     #[test]
     fn update_despawned_by_after_observers() {
