@@ -2,9 +2,9 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17353."
 )]
+use bevy_utils::prelude::DebugName;
 use bitflags::bitflags;
 use core::fmt::Debug;
-#[cfg(feature = "debug")]
 use log::warn;
 use thiserror::Error;
 
@@ -16,7 +16,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use alloc::{borrow::Cow, boxed::Box, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use core::any::TypeId;
 
 use super::{IntoSystem, SystemParamValidationError};
@@ -52,8 +52,7 @@ pub trait System: Send + Sync + 'static {
     type Out;
 
     /// Returns the system's name.
-    #[cfg(feature = "debug")]
-    fn name(&self) -> Cow<'static, str>;
+    fn name(&self) -> DebugName;
     /// Returns the [`TypeId`] of the underlying system type.
     #[inline]
     fn type_id(&self) -> TypeId {
@@ -227,11 +226,10 @@ pub unsafe trait ReadOnlySystem: System {
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
-#[cfg(feature = "debug")]
 pub(crate) fn check_system_change_tick(
     last_run: &mut Tick,
     check: CheckChangeTicks,
-    system_name: &str,
+    system_name: DebugName,
 ) {
     if last_run.check_tick(check) {
         let age = check.present_tick().relative_to(*last_run).get();
@@ -243,7 +241,6 @@ pub(crate) fn check_system_change_tick(
     }
 }
 
-#[cfg(feature = "debug")]
 impl<In, Out> Debug for dyn System<In = In, Out = Out>
 where
     In: SystemInput + 'static,
@@ -385,15 +382,12 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        system.validate_param(self).map_err(|err| {
-            #[cfg(feature = "debug")]
-            return RunSystemError::InvalidParams {
+        system
+            .validate_param(self)
+            .map_err(|err| RunSystemError::InvalidParams {
                 system: system.name(),
                 err,
-            };
-            #[cfg(not(feature = "debug"))]
-            return RunSystemError::AnonymousInvalidParams { err };
-        })?;
+            })?;
         Ok(system.run(input, self))
     }
 }
@@ -406,14 +400,7 @@ pub enum RunSystemError {
     #[error("System {system} did not run due to failed parameter validation: {err}")]
     InvalidParams {
         /// The identifier of the system that was run.
-        system: Cow<'static, str>,
-        /// The returned parameter validation error.
-        err: SystemParamValidationError,
-    },
-    /// System could not be run due to parameters that failed validation.
-    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
-    #[error("A system did not run due to failed parameter validation: {err}")]
-    AnonymousInvalidParams {
+        system: DebugName,
         /// The returned parameter validation error.
         err: SystemParamValidationError,
     },

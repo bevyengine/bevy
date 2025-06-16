@@ -6,7 +6,7 @@ use fixedbitset::FixedBitSet;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-#[cfg(all(feature = "std", feature = "debug"))]
+#[cfg(feature = "std")]
 use std::eprintln;
 
 use crate::{
@@ -114,13 +114,10 @@ impl SystemExecutor for SimpleExecutor {
                         if !e.skipped {
                             error_handler(
                                 e.into(),
-                                #[cfg(feature = "debug")]
                                 ErrorContext::System {
                                     name: system.name(),
                                     last_run: system.get_last_run(),
                                 },
-                                #[cfg(not(feature = "debug"))]
-                                ErrorContext::Anonymous,
                             );
                         }
                         false
@@ -152,13 +149,10 @@ impl SystemExecutor for SimpleExecutor {
                 if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
                     error_handler(
                         err,
-                        #[cfg(feature = "debug")]
                         ErrorContext::System {
                             name: system.name(),
                             last_run: system.get_last_run(),
                         },
-                        #[cfg(not(feature = "debug"))]
-                        ErrorContext::Anonymous,
                     );
                 }
             });
@@ -167,8 +161,7 @@ impl SystemExecutor for SimpleExecutor {
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
                 if let Err(payload) = std::panic::catch_unwind(f) {
-                    #[cfg(feature = "debug")]
-                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    eprintln!("Encountered a panic in system `{}`!", system.name());
                     std::panic::resume_unwind(payload);
                 }
             }
@@ -226,13 +219,10 @@ fn evaluate_and_fold_conditions(
                     if !e.skipped {
                         error_handler(
                             e.into(),
-                            #[cfg(feature = "debug")]
                             ErrorContext::System {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                             },
-                            #[cfg(not(feature = "debug"))]
-                            ErrorContext::Anonymous,
                         );
                     }
                     return false;

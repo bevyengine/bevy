@@ -544,21 +544,15 @@ impl BundleInfo {
                 }
             }
 
-            #[cfg(feature = "debug")]
-            {
-                let names = dups
-                    .into_iter()
-                    .map(|id| {
-                        // SAFETY: the caller ensures component_id is valid.
-                        unsafe { components.get_info_unchecked(id).name() }
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
+            let names = dups
+                .into_iter()
+                .map(|id| {
+                    // SAFETY: the caller ensures component_id is valid.
+                    unsafe { components.get_info_unchecked(id).name() }
+                })
+                .collect::<Vec<_>>();
 
-                panic!("Bundle {bundle_type_name} has duplicate components: {names}");
-            }
-            #[cfg(not(feature = "debug"))]
-            panic!("Bundle {bundle_type_name} has duplicate components");
+            panic!("Bundle {bundle_type_name} has duplicate components: {names:?}");
         }
 
         // handle explicit components

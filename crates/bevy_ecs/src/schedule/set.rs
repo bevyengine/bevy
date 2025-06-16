@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use bevy_utils::prelude::DebugName;
 use core::{
     any::TypeId,
     fmt::Debug,
@@ -195,10 +196,9 @@ impl<T: 'static> SystemTypeSet<T> {
 
 impl<T> Debug for SystemTypeSet<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let mut debugging = f.debug_tuple("SystemTypeSet");
-        #[cfg(feature = "debug")]
-        debugging.field(&format_args!("fn {}()", &core::any::type_name::<T>()));
-        debugging.finish()
+        f.debug_tuple("SystemTypeSet")
+            .field(&format_args!("fn {}()", DebugName::type_name::<T>()))
+            .finish()
     }
 }
 

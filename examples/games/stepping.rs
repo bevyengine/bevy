@@ -132,10 +132,9 @@ fn build_ui(
             return;
         };
 
-        for (node_id, _system) in systems {
+        for (node_id, system) in systems {
             // skip bevy default systems; we don't want to step those
-            #[cfg(feature = "debug")]
-            if _system.name().starts_with("bevy") {
+            if system.name().as_string().starts_with("bevy") {
                 always_run.push((*label, node_id));
                 continue;
             }
@@ -153,9 +152,8 @@ fn build_ui(
             ));
 
             // add the name of the system to the ui
-            #[cfg(feature = "debug")]
             text_spans.push((
-                TextSpan(format!("{}\n", _system.name())),
+                TextSpan(format!("{}\n", system.name())),
                 TextFont::default(),
                 TextColor(FONT_COLOR),
             ));

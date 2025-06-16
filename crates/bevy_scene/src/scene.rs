@@ -90,12 +90,9 @@ impl Scene {
                 .expect("reflected resources must have a type_id");
 
             let registration = type_registry.get(type_id).ok_or_else(|| {
-                #[cfg(feature = "debug")]
                 return SceneSpawnError::UnregisteredType {
-                    std_type_name: component_info.name().to_string(),
+                    std_type_name: component_info.name(),
                 };
-                #[cfg(not(feature = "debug"))]
-                return SceneSpawnError::AnonymousUnregisteredType;
             })?;
             let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
@@ -135,12 +132,9 @@ impl Scene {
                     let registration = type_registry
                         .get(component_info.type_id().unwrap())
                         .ok_or_else(|| {
-                            #[cfg(feature = "debug")]
                             return SceneSpawnError::UnregisteredType {
-                                std_type_name: component_info.name().to_string(),
+                                std_type_name: component_info.name(),
                             };
-                            #[cfg(not(feature = "debug"))]
-                            return SceneSpawnError::AnonymousUnregisteredType;
                         })?;
                     let reflect_component =
                         registration.data::<ReflectComponent>().ok_or_else(|| {

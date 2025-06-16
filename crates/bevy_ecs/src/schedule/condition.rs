@@ -1,6 +1,5 @@
-use alloc::boxed::Box;
-#[cfg(feature = "debug")]
-use alloc::{borrow::Cow, format};
+use alloc::{boxed::Box, format};
+use bevy_utils::prelude::DebugName;
 use core::ops::Not;
 
 use crate::system::{
@@ -155,14 +154,8 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     fn and<M, C: SystemCondition<M, In>>(self, and: C) -> And<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and);
-        #[cfg(feature = "debug")]
         let name = format!("{} && {}", a.name(), b.name());
-        CombinatorSystem::new(
-            a,
-            b,
-            #[cfg(feature = "debug")]
-            Cow::Owned(name),
-        )
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `false`
@@ -213,14 +206,8 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     fn nand<M, C: SystemCondition<M, In>>(self, nand: C) -> Nand<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nand);
-        #[cfg(feature = "debug")]
         let name = format!("!({} && {})", a.name(), b.name());
-        CombinatorSystem::new(
-            a,
-            b,
-            #[cfg(feature = "debug")]
-            Cow::Owned(name),
-        )
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -271,14 +258,8 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     fn nor<M, C: SystemCondition<M, In>>(self, nor: C) -> Nor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nor);
-        #[cfg(feature = "debug")]
         let name = format!("!({} || {})", a.name(), b.name());
-        CombinatorSystem::new(
-            a,
-            b,
-            #[cfg(feature = "debug")]
-            Cow::Owned(name),
-        )
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that returns `true`
@@ -324,14 +305,8 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     fn or<M, C: SystemCondition<M, In>>(self, or: C) -> Or<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or);
-        #[cfg(feature = "debug")]
         let name = format!("{} || {}", a.name(), b.name());
-        CombinatorSystem::new(
-            a,
-            b,
-            #[cfg(feature = "debug")]
-            Cow::Owned(name),
-        )
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -382,14 +357,8 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     fn xnor<M, C: SystemCondition<M, In>>(self, xnor: C) -> Xnor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xnor);
-        #[cfg(feature = "debug")]
         let name = format!("!({} ^ {})", a.name(), b.name());
-        CombinatorSystem::new(
-            a,
-            b,
-            #[cfg(feature = "debug")]
-            Cow::Owned(name),
-        )
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -430,14 +399,8 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     fn xor<M, C: SystemCondition<M, In>>(self, xor: C) -> Xor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xor);
-        #[cfg(feature = "debug")]
         let name = format!("({} ^ {})", a.name(), b.name());
-        CombinatorSystem::new(
-            a,
-            b,
-            #[cfg(feature = "debug")]
-            Cow::Owned(name),
-        )
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 }
 
@@ -502,8 +465,6 @@ mod sealed {
 /// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
 pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
-    #[cfg(feature = "debug")]
-    use crate::system::System;
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
@@ -511,9 +472,8 @@ pub mod common_conditions {
         prelude::{Component, Query, With},
         query::QueryFilter,
         resource::Resource,
-        system::{In, IntoSystem, Local, Res, SystemInput},
+        system::{In, IntoSystem, Local, Res, System, SystemInput},
     };
-    #[cfg(feature = "debug")]
     use alloc::format;
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
@@ -1083,14 +1043,8 @@ pub mod common_conditions {
         T: IntoSystem<(), TOut, Marker>,
     {
         let condition = IntoSystem::into_system(condition);
-        #[cfg(feature = "debug")]
         let name = format!("!{}", condition.name());
-        NotSystem::new(
-            super::NotMarker,
-            condition,
-            #[cfg(feature = "debug")]
-            name.into(),
-        )
+        NotSystem::new(super::NotMarker, condition, name.into())
     }
 
     /// Generates a [`SystemCondition`] that returns true when the passed one changes.

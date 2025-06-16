@@ -13,9 +13,7 @@ use crate::{
     world::{FromWorld, World},
 };
 use alloc::boxed::Box;
-#[cfg(feature = "debug")]
-use alloc::format;
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
 use bevy_ecs_macros::Event;
 use bevy_platform::sync::Arc;
@@ -26,7 +24,7 @@ use bevy_platform::{
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{prelude::DebugName, TypeIdMap};
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -36,8 +34,6 @@ use core::{
     mem::needs_drop,
     ops::{Deref, DerefMut},
 };
-#[cfg(feature = "debug")]
-use disqualified::ShortName;
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -663,8 +659,7 @@ pub enum StorageType {
 }
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
-#[derive(Clone)]
-#[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
@@ -681,10 +676,9 @@ impl ComponentInfo {
     }
 
     /// Returns the name of the current component.
-    #[cfg(feature = "debug")]
     #[inline]
-    pub fn name(&self) -> &str {
-        &self.descriptor.name
+    pub fn name(&self) -> DebugName {
+        self.descriptor.name.clone()
     }
 
     /// Returns `true` if the current component is mutable.
@@ -841,8 +835,7 @@ impl SparseSetIndex for ComponentId {
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
 pub struct ComponentDescriptor {
-    #[cfg(feature = "debug")]
-    name: Cow<'static, str>,
+    name: DebugName,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
     // associated rust component type if one exists.
     storage_type: StorageType,
@@ -860,7 +853,6 @@ pub struct ComponentDescriptor {
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
-#[cfg(feature = "debug")]
 impl Debug for ComponentDescriptor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ComponentDescriptor")
@@ -889,8 +881,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
-            #[cfg(feature = "debug")]
-            name: Cow::Borrowed(core::any::type_name::<T>()),
+            name: DebugName::type_name::<T>(),
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
@@ -906,7 +897,6 @@ impl ComponentDescriptor {
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
-    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
@@ -916,8 +906,7 @@ impl ComponentDescriptor {
         clone_behavior: ComponentCloneBehavior,
     ) -> Self {
         Self {
-            #[cfg(feature = "debug")]
-            name: name.into(),
+            name: name.into().into(),
             storage_type,
             is_send_and_sync: true,
             type_id: None,
@@ -933,8 +922,7 @@ impl ComponentDescriptor {
     /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
-            #[cfg(feature = "debug")]
-            name: Cow::Borrowed(core::any::type_name::<T>()),
+            name: DebugName::type_name::<T>(),
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
@@ -949,8 +937,7 @@ impl ComponentDescriptor {
 
     fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            #[cfg(feature = "debug")]
-            name: Cow::Borrowed(core::any::type_name::<T>()),
+            name: DebugName::type_name::<T>(),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
@@ -976,9 +963,8 @@ impl ComponentDescriptor {
 
     /// Returns the name of the current component.
     #[inline]
-    #[cfg(feature = "debug")]
-    pub fn name(&self) -> &str {
-        self.name.as_ref()
+    pub fn name(&self) -> DebugName {
+        self.name.clone()
     }
 
     /// Returns whether this component is mutable.
@@ -1743,8 +1729,7 @@ impl<'w> ComponentsRegistrator<'w> {
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
-#[derive(Default)]
-#[cfg_attr(feature = "debug", derive(Debug))]
+#[derive(Debug, Default)]
 pub struct Components {
     components: Vec<Option<ComponentInfo>>,
     indices: TypeIdMap<ComponentId>,
@@ -1868,14 +1853,10 @@ impl Components {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    #[cfg(feature = "debug")]
-    pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, str>> {
+    pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<DebugName> {
         self.components
             .get(id.0)
-            .and_then(|info| {
-                info.as_ref()
-                    .map(|info| Cow::Borrowed(info.descriptor.name()))
-            })
+            .and_then(|info| info.as_ref().map(|info| info.descriptor.name()))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -2814,7 +2795,6 @@ impl RequiredComponents {
 // This exists as a standalone function instead of being inlined into the component derive macro so as
 // to reduce the amount of generated code.
 #[doc(hidden)]
-#[cfg_attr(not(feature = "debug"), expect(unused_variables))]
 pub fn enforce_no_required_components_recursion(
     components: &Components,
     recursion_check_stack: &[ComponentId],
@@ -2825,30 +2805,20 @@ pub fn enforce_no_required_components_recursion(
             .position(|&id| id == requiree)
             .map(|index| index == check.len() - 1)
         {
-            #[cfg(feature = "debug")]
             panic!(
                 "Recursive required components detected: {}\nhelp: {}",
                 recursion_check_stack
                     .iter()
-                    .map(|id| format!("{}", ShortName(&components.get_name(*id).unwrap())))
+                    .map(|id| format!("{}", components.get_name(*id).unwrap().shortname()))
                     .collect::<Vec<_>>()
                     .join(" → "),
                 if direct_recursion {
                     format!(
                         "Remove require({}).",
-                        ShortName(&components.get_name(requiree).unwrap())
+                        components.get_name(requiree).unwrap().shortname()
                     )
                 } else {
                     "If this is intentional, consider merging the components.".into()
-                }
-            );
-            #[cfg(not(feature = "debug"))]
-            panic!(
-                "Recursive required components detected\n help: {}\nEnable the debug feature to get more details",
-                if direct_recursion {
-                    "Remove the recursing required component."
-                } else {
-                    "If this is intentional, consider merging the components."
                 }
             );
         }

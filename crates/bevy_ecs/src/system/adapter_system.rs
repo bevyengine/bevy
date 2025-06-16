@@ -1,6 +1,5 @@
-#[cfg(feature = "debug")]
-use alloc::borrow::Cow;
 use alloc::vec::Vec;
+use bevy_utils::prelude::DebugName;
 
 use super::{IntoSystem, ReadOnlySystem, System, SystemParamValidationError};
 use crate::{
@@ -93,14 +92,8 @@ where
     // Required method
     fn into_system(this: Self) -> Self::System {
         let system = IntoSystem::into_system(this.system);
-        #[cfg(feature = "debug")]
         let name = system.name();
-        AdapterSystem::new(
-            this.func,
-            system,
-            #[cfg(feature = "debug")]
-            name,
-        )
+        AdapterSystem::new(this.func, system, name)
     }
 }
 
@@ -109,8 +102,7 @@ where
 pub struct AdapterSystem<Func, S> {
     func: Func,
     system: S,
-    #[cfg(feature = "debug")]
-    name: Cow<'static, str>,
+    name: DebugName,
 }
 
 impl<Func, S> AdapterSystem<Func, S>
@@ -119,17 +111,8 @@ where
     S: System,
 {
     /// Creates a new [`System`] that uses `func` to adapt `system`, via the [`Adapt`] trait.
-    pub const fn new(
-        func: Func,
-        system: S,
-        #[cfg(feature = "debug")] name: Cow<'static, str>,
-    ) -> Self {
-        Self {
-            func,
-            system,
-            #[cfg(feature = "debug")]
-            name,
-        }
+    pub const fn new(func: Func, system: S, name: DebugName) -> Self {
+        Self { func, system, name }
     }
 }
 
@@ -141,8 +124,7 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
-    #[cfg(feature = "debug")]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.name.clone()
     }
 

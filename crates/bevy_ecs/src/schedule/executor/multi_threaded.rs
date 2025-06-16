@@ -5,7 +5,7 @@ use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
-#[cfg(all(feature = "std", feature = "debug"))]
+#[cfg(feature = "std")]
 use std::eprintln;
 use std::sync::{Mutex, MutexGuard};
 
@@ -326,7 +326,6 @@ impl SystemExecutor for MultiThreadedExecutor {
 }
 
 impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
-    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn system_completed(
         &self,
         system_index: usize,
@@ -340,10 +339,10 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             .push(SystemResult { system_index })
             .unwrap_or_else(|error| unreachable!("{}", error));
         if let Err(payload) = res {
-            #[cfg(all(feature = "std", feature = "debug"))]
+            #[cfg(feature = "std")]
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
-                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                eprintln!("Encountered a panic in system `{}`!", system.name());
             }
             // set the payload to propagate the error
             {
@@ -635,13 +634,10 @@ impl ExecutorState {
                     if !e.skipped {
                         error_handler(
                             e.into(),
-                            #[cfg(feature = "debug")]
                             ErrorContext::System {
                                 name: system.name(),
                                 last_run: system.get_last_run(),
                             },
-                            #[cfg(not(feature = "debug"))]
-                            ErrorContext::Anonymous,
                         );
                     }
                     false
@@ -683,13 +679,10 @@ impl ExecutorState {
                     ) {
                         (context.error_handler)(
                             err,
-                            #[cfg(feature = "debug")]
                             ErrorContext::System {
                                 name: system.name(),
                                 last_run: system.get_last_run(),
                             },
-                            #[cfg(not(feature = "debug"))]
-                            ErrorContext::Anonymous,
                         );
                     }
                 };
@@ -735,13 +728,10 @@ impl ExecutorState {
                     if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
                         (context.error_handler)(
                             err,
-                            #[cfg(feature = "debug")]
                             ErrorContext::System {
                                 name: system.name(),
                                 last_run: system.get_last_run(),
                             },
-                            #[cfg(not(feature = "debug"))]
-                            ErrorContext::Anonymous,
                         );
                     }
                 }));
@@ -804,12 +794,12 @@ fn apply_deferred(
             system.apply_deferred(world);
         }));
         if let Err(payload) = res {
-            #[cfg(all(feature = "std", feature = "debug"))]
+            #[cfg(feature = "std")]
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
                 eprintln!(
                     "Encountered a panic when applying buffers for system `{}`!",
-                    &*system.name()
+                    system.name()
                 );
             }
             return Err(payload);
@@ -842,13 +832,10 @@ unsafe fn evaluate_and_fold_conditions(
                     if !e.skipped {
                         error_handler(
                             e.into(),
-                            #[cfg(feature = "debug")]
                             ErrorContext::System {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                             },
-                            #[cfg(not(feature = "debug"))]
-                            ErrorContext::Anonymous,
                         );
                     }
                     return false;

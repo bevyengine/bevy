@@ -63,9 +63,9 @@ std = [
   "bevy_reflect?/std",
   "bevy_tasks/std",
   "bevy_utils/parallel",
+  "bevy_utils/std",
   "bitflags/std",
   "concurrent-queue/std",
-  "disqualified/alloc",
   "fixedbitset/std",
   "indexmap/std",
   "serde?/std",
@@ -85,8 +85,6 @@ critical-section = [
 
 hotpatching = ["dep:subsecond"]
 
-debug = []
-
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
@@ -100,7 +98,6 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 ] }
 
 bitflags = { version = "2.3", default-features = false }
-disqualified = { version = "1.0", default-features = false }
 fixedbitset = { version = "0.5", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",

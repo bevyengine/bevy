@@ -1,17 +1,17 @@
-#[cfg(feature = "debug")]
-use crate::system::check_system_change_tick;
 use crate::{
     component::{CheckChangeTicks, ComponentId, Tick},
     prelude::FromWorld,
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
-    system::{ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam, SystemParamItem},
+    system::{
+        check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
+        SystemParamItem,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
-#[cfg(feature = "debug")]
-use alloc::borrow::Cow;
-use alloc::{vec, vec::Vec};
+use alloc::{borrow::Cow, vec, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -25,8 +25,7 @@ use super::{
 /// The metadata of a [`System`].
 #[derive(Clone)]
 pub struct SystemMeta {
-    #[cfg(feature = "debug")]
-    pub(crate) name: Cow<'static, str>,
+    pub(crate) name: DebugName,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     flags: SystemStateFlags,
@@ -39,11 +38,8 @@ pub struct SystemMeta {
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
-        #[cfg(feature = "debug")]
-        let name = core::any::type_name::<T>();
         Self {
-            #[cfg(feature = "debug")]
-            name: name.into(),
+            name: DebugName::type_name::<T>(),
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
@@ -55,8 +51,7 @@ impl SystemMeta {
 
     /// Returns the system's name
     #[inline]
-    #[cfg(feature = "debug")]
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &DebugName {
         &self.name
     }
 
@@ -64,7 +59,6 @@ impl SystemMeta {
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
     #[inline]
-    #[cfg(feature = "debug")]
     pub fn set_name(&mut self, new_name: impl Into<Cow<'static, str>>) {
         let new_name: Cow<'static, str> = new_name.into();
         #[cfg(feature = "trace")]
@@ -73,7 +67,7 @@ impl SystemMeta {
             self.system_span = info_span!("system", name = name);
             self.commands_span = info_span!("system_commands", name = name);
         }
-        self.name = new_name;
+        self.name = new_name.into();
     }
 
     /// Returns true if the system is [`Send`].
@@ -539,7 +533,6 @@ where
     /// Return this system with a new name.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
-    #[cfg(feature = "debug")]
     pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
         self.system_meta.set_name(new_name.into());
         self
@@ -607,8 +600,7 @@ where
     type Out = F::Out;
 
     #[inline]
-    #[cfg(feature = "debug")]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system_meta.name.clone()
     }
 
@@ -716,13 +708,11 @@ where
     }
 
     #[inline]
-    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
     fn check_change_tick(&mut self, check: CheckChangeTicks) {
-        #[cfg(feature = "debug")]
         check_system_change_tick(
             &mut self.system_meta.last_run,
             check,
-            self.system_meta.name.as_ref(),
+            self.system_meta.name.clone(),
         );
     }
 

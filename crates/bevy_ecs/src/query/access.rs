@@ -1,15 +1,9 @@
-#[cfg(feature = "debug")]
 use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
-#[cfg(feature = "debug")]
 use crate::world::World;
-#[cfg(feature = "debug")]
-use alloc::{format, string::String};
-use alloc::{vec, vec::Vec};
+use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use derive_more::From;
-#[cfg(feature = "debug")]
-use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use thiserror::Error;
 
@@ -996,7 +990,6 @@ impl AccessConflicts {
         }
     }
 
-    #[cfg(feature = "debug")]
     pub(crate) fn format_conflict_list(&self, world: &World) -> String {
         match self {
             AccessConflicts::All => String::new(),
@@ -1005,12 +998,11 @@ impl AccessConflicts {
                 .map(|index| {
                     format!(
                         "{}",
-                        ShortName(
-                            &world
-                                .components
-                                .get_name(ComponentId::get_sparse_set_index(index))
-                                .unwrap()
-                        )
+                        world
+                            .components
+                            .get_name(ComponentId::get_sparse_set_index(index))
+                            .unwrap()
+                            .shortname()
                     )
                 })
                 .collect::<Vec<_>>()

@@ -70,7 +70,7 @@ use crate::{
     },
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
-use disqualified::ShortName;
+use bevy_utils::prelude::DebugName;
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
 ///
@@ -308,7 +308,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             apply: |mut entity, reflected_component| {
                 if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
                     panic!("Cannot call `ReflectComponent::apply` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
@@ -357,7 +358,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
                     panic!("Cannot call `ReflectComponent::reflect_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
@@ -370,7 +372,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             reflect_unchecked_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
                     panic!("Cannot call `ReflectComponent::reflect_unchecked_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 

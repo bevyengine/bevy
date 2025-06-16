@@ -346,7 +346,7 @@ web = [
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-debug = ["bevy_ecs/debug", "bevy_scene/debug"]
+debug = ["bevy_utils/debug"]
 
 [dependencies]
 # bevy (no_std)

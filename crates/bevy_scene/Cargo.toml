@@ -17,8 +17,6 @@ serialize = [
   "bevy_platform/serialize",
 ]
 
-debug = ["bevy_ecs/debug"]
-
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }

@@ -16,16 +16,10 @@ use crate::{
 
 fn new_condition<M, Out>(condition: impl SystemCondition<M, (), Out>) -> BoxedCondition {
     let condition_system = condition.into_condition_system();
-    #[cfg(feature = "debug")]
     assert!(
         condition_system.is_send(),
         "SystemCondition `{}` accesses `NonSend` resources. This is not currently supported.",
         condition_system.name()
-    );
-    #[cfg(not(feature = "debug"))]
-    assert!(
-        condition_system.is_send(),
-        "A SystemCondition accesses `NonSend` resources. This is not currently supported.",
     );
 
     Box::new(condition_system)

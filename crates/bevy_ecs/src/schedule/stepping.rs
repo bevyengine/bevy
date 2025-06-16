@@ -723,7 +723,7 @@ impl ScheduleState {
                 .get(&node_id)
                 .unwrap_or(&SystemBehavior::Continue);
 
-            #[cfg(all(test, feature = "debug"))]
+            #[cfg(test)]
             debug!(
                 "skipped_systems(): systems[{}], pos {}, Action::{:?}, Behavior::{:?}, {}",
                 i,

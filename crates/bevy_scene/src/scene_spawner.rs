@@ -10,6 +10,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
+use bevy_utils::prelude::DebugName;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -105,7 +106,7 @@ pub enum SceneSpawnError {
     )]
     UnregisteredType {
         /// The [type name](std::any::type_name) for the unregistered type.
-        std_type_name: String,
+        std_type_name: DebugName,
     },
     /// Scene contains an unregistered type.
     #[error(

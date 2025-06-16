@@ -1,6 +1,6 @@
-#[cfg(feature = "debug")]
-use core::any::type_name;
 use core::fmt;
+
+use bevy_utils::prelude::DebugName;
 
 use crate::{
     entity::Entity,
@@ -32,12 +32,9 @@ where
             Ok(_) => {}
             Err(err) => (error_handler)(
                 err.into(),
-                #[cfg(feature = "debug")]
                 ErrorContext::Command {
-                    name: type_name::<C>().into(),
+                    name: DebugName::type_name::<C>(),
                 },
-                #[cfg(not(feature = "debug"))]
-                ErrorContext::Anonymous,
             ),
         }
     }
@@ -47,12 +44,9 @@ where
             Ok(_) => {}
             Err(err) => world.default_error_handler()(
                 err.into(),
-                #[cfg(feature = "debug")]
                 ErrorContext::Command {
-                    name: type_name::<C>().into(),
+                    name: DebugName::type_name::<C>(),
                 },
-                #[cfg(not(feature = "debug"))]
-                ErrorContext::Anonymous,
             ),
         }
     }
