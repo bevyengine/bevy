@@ -391,6 +391,23 @@ impl RunSystemOnce for &mut World {
 
 /// Allows for systems to inform their names, either derived from their type
 /// or their custom name.
+///
+/// ## Example
+/// ```
+/// # use bevy_ecs::system::{IntoSystem, NamedSystem};
+/// fn main() {
+///     // This returns `my_crate::my_system`
+///     println!("{}", IntoSystem::into_system(my_system).name());
+///
+///     // This returns `my_crate::main::{{closure}}`
+///     println!("{}", IntoSystem::into_system(|| {}).name());
+///
+///     // This returns `do_thing`
+///     println!("{}", IntoSystem::into_system(|| {}).with_name("do_thing").name());
+/// }
+///
+/// fn my_system() {}
+/// ```
 pub trait NamedSystem {
     /// Returns system's name.
     fn name(&self) -> Cow<'static, str>;
