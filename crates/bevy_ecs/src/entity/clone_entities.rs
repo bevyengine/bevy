@@ -814,13 +814,20 @@ impl DenyAll {
         target_archetype: LazyCell<&'a Archetype, impl FnOnce() -> &'a Archetype>,
         mut clone_component: impl FnMut(ComponentId),
     ) {
+        let mut uncloned_components = source_archetype.component_count();
+
         // clone explicit components
         for (&component, explicit) in self.allow.iter() {
+            if uncloned_components == 0 {
+                return;
+            }
+
             let do_clone = source_archetype.contains(component)
                 && (explicit.insert_mode == InsertMode::Replace
                     || !target_archetype.contains(component));
             if do_clone {
                 clone_component(component);
+                uncloned_components -= 1;
             } else if let Some(range) = explicit.required_range.clone() {
                 for component in self.required_of_allow[range].iter() {
                     // may be None if required component was also added as explicit later
@@ -844,7 +851,9 @@ impl DenyAll {
                 required.required_by_reduced = required.required_by;
 
                 do_clone.then_some(component)
-            });
+            })
+            .take(uncloned_components);
+
         for required_component in required_components {
             clone_component(required_component);
         }
