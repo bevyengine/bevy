@@ -36,6 +36,8 @@ fn initial_samples(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let gpixel = textureLoad(gbuffer, global_id.xy, 0);
     let world_position = reconstruct_world_position(global_id.xy, depth);
     let world_normal = octahedral_decode(unpack_24bit_normal(gpixel.a));
+    let base_color = pow(unpack4x8unorm(gpixel.r).rgb, vec3(2.2));
+    let diffuse_brdf = base_color / PI;
 
     var reservoir = empty_reservoir();
     var reservoir_target_function = 0.0;
@@ -44,7 +46,7 @@ fn initial_samples(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         let mis_weight = 1.0 / f32(INITIAL_SAMPLES);
         let light_contribution = calculate_light_contribution(light_sample, world_position, world_normal);
-        let target_function = luminance(light_contribution.radiance);
+        let target_function = luminance(light_contribution.radiance * diffuse_brdf);
         let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
 
         reservoir.weight_sum += resampling_weight;
@@ -69,6 +71,8 @@ fn initial_samples(@builtin(global_invocation_id) global_id: vec3<u32>) {
 @compute @workgroup_size(8, 8, 1)
 fn reuse_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.viewport.zw)) { return; }
+
+    let pixel_index = global_id.x + global_id.y * u32(view.viewport.z);
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
