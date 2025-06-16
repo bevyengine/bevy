@@ -146,7 +146,7 @@ where
     }
 }
 
-#[derive(bytemuck::Pod, bytemuck::Zeroable, Copy, Clone, PartialEq , Eq , Hash)]
+#[derive(bytemuck::Pod, bytemuck::Zeroable, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(C, packed)]
 pub struct MaterialExtensionBindGroupData<B, E> {
     pub base: B,

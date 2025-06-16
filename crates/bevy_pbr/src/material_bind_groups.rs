@@ -28,8 +28,8 @@ use bevy_render::{
 };
 use bevy_utils::{default, TypeIdMap};
 use bytemuck::Pod;
+use core::hash::Hash;
 use core::{cmp::Ordering, iter, mem, ops::Range};
-use std::hash::Hash;
 use tracing::{error, trace};
 
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -1725,7 +1725,7 @@ impl MaterialBindlessSlab {
         let bindless_index_tables = bindless_descriptor
             .index_tables
             .iter()
-            .map(|bindless_index_table| MaterialBindlessIndexTable::new(bindless_index_table))
+            .map(MaterialBindlessIndexTable::new)
             .collect();
 
         MaterialBindlessSlab {

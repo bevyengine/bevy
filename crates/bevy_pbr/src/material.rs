@@ -7,6 +7,7 @@ use crate::meshlet::{
     InstanceManager,
 };
 use crate::*;
+use alloc::sync::Arc;
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId};
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
@@ -45,6 +46,7 @@ use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
+    prelude::*,
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
@@ -55,10 +57,9 @@ use bevy_render::{
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use bevy_utils::Parallel;
+use core::any::{Any, TypeId};
 use core::{hash::Hash, marker::PhantomData};
 use smallvec::SmallVec;
-use std::any::{Any, TypeId};
-use std::sync::Arc;
 use tracing::error;
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
@@ -255,17 +256,10 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
 pub trait ErasedMaterialBindGroupData: Any + Sync + Send + 'static {}
 
+#[derive(Default)]
 pub struct MaterialsPlugin {
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
-}
-
-impl Default for MaterialsPlugin {
-    fn default() -> Self {
-        Self {
-            debug_flags: RenderDebugFlags::default(),
-        }
-    }
 }
 
 impl Plugin for MaterialsPlugin {
@@ -311,6 +305,23 @@ impl Plugin for MaterialsPlugin {
                         queue_shadows.in_set(RenderSystems::QueueMeshes),
                     ),
                 );
+
+            #[cfg(feature = "meshlet")]
+            render_app.add_systems(
+                Render,
+                queue_material_meshlet_meshes
+                    .in_set(RenderSystems::QueueMeshes)
+                    .run_if(resource_exists::<InstanceManager>),
+            );
+
+            #[cfg(feature = "meshlet")]
+            render_app.add_systems(
+                Render,
+                prepare_material_meshlet_meshes_main_opaque_pass
+                    .in_set(RenderSystems::QueueMeshes)
+                    .before(queue_material_meshlet_meshes)
+                    .run_if(resource_exists::<InstanceManager>),
+            );
         }
     }
 
@@ -394,23 +405,6 @@ where
                     extract_entities_needs_specialization::<M>.after(extract_cameras),
                 ),
             );
-
-            #[cfg(feature = "meshlet")]
-            render_app.add_systems(
-                Render,
-                queue_material_meshlet_meshes::<M>
-                    .in_set(RenderSystems::QueueMeshes)
-                    .run_if(resource_exists::<InstanceManager>),
-            );
-
-            #[cfg(feature = "meshlet")]
-            render_app.add_systems(
-                Render,
-                prepare_material_meshlet_meshes_main_opaque_pass::<M>
-                    .in_set(RenderSystems::QueueMeshes)
-                    .before(queue_material_meshlet_meshes::<M>)
-                    .run_if(resource_exists::<InstanceManager>),
-            );
         }
     }
 
@@ -430,7 +424,7 @@ where
                         material_uses_bindless_resources::<M>(render_device)
                             .then(|| M::bindless_descriptor())
                             .flatten(),
-                        M::bind_group_layout(&render_device),
+                        M::bind_group_layout(render_device),
                         M::bindless_slot_count(),
                     ),
                 );
@@ -466,8 +460,8 @@ pub struct MaterialPipeline {
 }
 
 pub struct MaterialPipelineSpecializer {
-    pipeline: MaterialPipeline,
-    properties: Arc<MaterialProperties>,
+    pub(crate) pipeline: MaterialPipeline,
+    pub(crate) properties: Arc<MaterialProperties>,
 }
 
 impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
@@ -482,19 +476,21 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             .pipeline
             .mesh_pipeline
             .specialize(key.mesh_key, layout)?;
-        if let Some(vertex_shader) = &self.properties.vertex_shader {
+        if let Some(vertex_shader) = self.properties.get_shader(MaterialVertexShader) {
             descriptor.vertex.shader = vertex_shader.clone();
         }
 
-        if let Some(fragment_shader) = &self.properties.fragment_shader {
+        if let Some(fragment_shader) = self.properties.get_shader(MaterialFragmentShader) {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
         descriptor
             .layout
-            .insert(2, self.properties.material_layout.clone());
+            .insert(2, self.properties.material_layout.as_ref().unwrap().clone());
 
-        (self.properties.specialize)(&self.pipeline, &mut descriptor, layout, key)?;
+        if let Some(specialize) = self.properties.specialize {
+            specialize(&self.pipeline, &mut descriptor, layout, key)?;
+        }
 
         // If bindless mode is on, add a `BINDLESS` define.
         if self.properties.bindless {
@@ -1119,6 +1115,10 @@ pub fn queue_material_meshes(
 
             // Fetch the slabs that this mesh resides in.
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+            let Some(draw_function) = material.properties.get_draw_function(MaterialDrawFunction)
+            else {
+                continue;
+            };
 
             match material.properties.render_phase_type {
                 RenderPhaseType::Transmissive => {
@@ -1126,7 +1126,7 @@ pub fn queue_material_meshes(
                         + material.properties.depth_bias;
                     transmissive_phase.add(Transmissive3d {
                         entity: (*render_entity, *visible_entity),
-                        draw_function: material.properties.draw_function_id,
+                        draw_function,
                         pipeline: pipeline_id,
                         distance,
                         batch_range: 0..1,
@@ -1145,7 +1145,7 @@ pub fn queue_material_meshes(
                     }
                     let batch_set_key = Opaque3dBatchSetKey {
                         pipeline: pipeline_id,
-                        draw_function: material.properties.draw_function_id,
+                        draw_function,
                         material_bind_group_index: Some(material.binding.group.0),
                         vertex_slab: vertex_slab.unwrap_or_default(),
                         index_slab,
@@ -1169,7 +1169,7 @@ pub fn queue_material_meshes(
                 // Alpha mask
                 RenderPhaseType::AlphaMask => {
                     let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                        draw_function: material.properties.draw_function_id,
+                        draw_function,
                         pipeline: pipeline_id,
                         material_bind_group_index: Some(material.binding.group.0),
                         vertex_slab: vertex_slab.unwrap_or_default(),
@@ -1195,7 +1195,7 @@ pub fn queue_material_meshes(
                         + material.properties.depth_bias;
                     transparent_phase.add(Transparent3d {
                         entity: (*render_entity, *visible_entity),
-                        draw_function: material.properties.draw_function_id,
+                        draw_function,
                         pipeline: pipeline_id,
                         distance,
                         batch_range: 0..1,
@@ -1258,7 +1258,47 @@ pub enum OpaqueRendererMethod {
     Auto,
 }
 
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MaterialVertexShader;
+
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MaterialFragmentShader;
+
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct PrepassVertexShader;
+
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct PrepassFragmentShader;
+
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct DeferredVertexShader;
+
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct DeferredFragmentShader;
+
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MeshletFragmentShader;
+
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MeshletPrepassFragmentShader;
+
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MeshletDeferredFragmentShader;
+
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MaterialDrawFunction;
+
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct PrepassDrawFunction;
+
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct DeferredDrawFunction;
+
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct ShadowsDrawFunction;
+
 /// Common [`Material`] properties, calculated for a specific material instance.
+#[derive(Default)]
 pub struct MaterialProperties {
     /// Is this material should be rendered by the deferred renderer when.
     /// [`AlphaMode::Opaque`] or [`AlphaMode::Mask`]
@@ -1280,33 +1320,54 @@ pub struct MaterialProperties {
     /// rendering to take place in a separate [`Transmissive3d`] pass.
     pub reads_view_transmission_texture: bool,
     pub render_phase_type: RenderPhaseType,
-    pub draw_function_id: DrawFunctionId,
-    pub prepass_draw_function_id: Option<DrawFunctionId>,
-    pub deferred_draw_function_id: Option<DrawFunctionId>,
-    pub shadow_draw_function_id: Option<DrawFunctionId>,
-    pub material_layout: BindGroupLayout,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
-    pub prepass_material_vertex_shader: Option<Handle<Shader>>,
-    pub prepass_material_fragment_shader: Option<Handle<Shader>>,
-    pub deferred_material_vertex_shader: Option<Handle<Shader>>,
-    pub deferred_material_fragment_shader: Option<Handle<Shader>>,
+    pub material_layout: Option<BindGroupLayout>,
+    pub draw_functions: HashMap<InternedDrawFunctionLabel, DrawFunctionId>,
+    pub shaders: HashMap<InternedShaderLabel, Handle<Shader>>,
     /// Whether this material *actually* uses bindless resources, taking the
     /// platform support (or lack thereof) of bindless resources into account.
     pub bindless: bool,
-    pub specialize: fn(
-        &MaterialPipeline,
-        &mut RenderPipelineDescriptor,
-        &MeshVertexBufferLayoutRef,
-        ErasedMaterialPipelineKey,
-    ) -> Result<(), SpecializedMeshPipelineError>,
+    pub specialize: Option<
+        fn(
+            &MaterialPipeline,
+            &mut RenderPipelineDescriptor,
+            &MeshVertexBufferLayoutRef,
+            ErasedMaterialPipelineKey,
+        ) -> Result<(), SpecializedMeshPipelineError>,
+    >,
     /// The key for this material, typically a bitfield of flags that are used to modify
     /// the pipeline descriptor used for this material.
     pub material_key: SmallVec<[u8; 8]>,
 }
 
-#[derive(Clone, Copy)]
+impl MaterialProperties {
+    pub fn get_shader(&self, label: impl ShaderLabel) -> Option<Handle<Shader>> {
+        self.shaders.get(&label.intern()).cloned()
+    }
+
+    pub fn add_shader(
+        &mut self,
+        label: impl ShaderLabel,
+        shader: Handle<Shader>,
+    ) -> Option<Handle<Shader>> {
+        self.shaders.insert(label.intern(), shader)
+    }
+
+    pub fn get_draw_function(&self, label: impl DrawFunctionLabel) -> Option<DrawFunctionId> {
+        self.draw_functions.get(&label.intern()).copied()
+    }
+
+    pub fn add_draw_function(
+        &mut self,
+        label: impl DrawFunctionLabel,
+        draw_function: DrawFunctionId,
+    ) -> Option<DrawFunctionId> {
+        self.draw_functions.insert(label.intern(), draw_function)
+    }
+}
+
+#[derive(Clone, Copy, Default)]
 pub enum RenderPhaseType {
+    #[default]
     Opaque,
     AlphaMask,
     Transmissive,
@@ -1431,36 +1492,113 @@ where
             RenderPhaseType::AlphaMask => draw_alpha_mask_deferred,
             _ => None,
         };
+
+        let mut draw_functions = HashMap::new();
+        draw_functions.insert(MaterialDrawFunction.intern(), draw_function_id);
+        if let Some(prepass_draw_function_id) = prepass_draw_function_id {
+            draw_functions.insert(PrepassDrawFunction.intern(), prepass_draw_function_id);
+        }
+        if let Some(deferred_draw_function_id) = deferred_draw_function_id {
+            draw_functions.insert(DeferredDrawFunction.intern(), deferred_draw_function_id);
+        }
+        if let Some(shadow_draw_function_id) = shadow_draw_function_id {
+            draw_functions.insert(ShadowsDrawFunction.intern(), shadow_draw_function_id);
+        }
+
+        let mut shaders = HashMap::new();
+
         let vertex_shader = match M::vertex_shader() {
             ShaderRef::Default => None,
             ShaderRef::Handle(handle) => Some(handle),
             ShaderRef::Path(path) => Some(asset_server.load(path)),
         };
+        if let Some(vertex_shader) = vertex_shader {
+            shaders.insert(MaterialVertexShader.intern(), vertex_shader);
+        }
         let fragment_shader = match M::fragment_shader() {
             ShaderRef::Default => None,
             ShaderRef::Handle(handle) => Some(handle),
             ShaderRef::Path(path) => Some(asset_server.load(path)),
         };
+        if let Some(fragment_shader) = fragment_shader {
+            shaders.insert(MaterialFragmentShader.intern(), fragment_shader);
+        }
         let prepass_material_vertex_shader = match M::prepass_vertex_shader() {
             ShaderRef::Default => None,
             ShaderRef::Handle(handle) => Some(handle),
             ShaderRef::Path(path) => Some(asset_server.load(path)),
         };
+        if let Some(prepass_material_vertex_shader) = prepass_material_vertex_shader {
+            shaders.insert(PrepassVertexShader.intern(), prepass_material_vertex_shader);
+        }
         let prepass_material_fragment_shader = match M::prepass_fragment_shader() {
             ShaderRef::Default => None,
             ShaderRef::Handle(handle) => Some(handle),
             ShaderRef::Path(path) => Some(asset_server.load(path)),
         };
+        if let Some(prepass_material_fragment_shader) = prepass_material_fragment_shader {
+            shaders.insert(
+                PrepassFragmentShader.intern(),
+                prepass_material_fragment_shader,
+            );
+        }
         let deferred_material_vertex_shader = match M::deferred_vertex_shader() {
             ShaderRef::Default => None,
             ShaderRef::Handle(handle) => Some(handle),
             ShaderRef::Path(path) => Some(asset_server.load(path)),
         };
+        if let Some(deferred_material_vertex_shader) = deferred_material_vertex_shader {
+            shaders.insert(
+                DeferredVertexShader.intern(),
+                deferred_material_vertex_shader,
+            );
+        }
         let deferred_material_fragment_shader = match M::deferred_fragment_shader() {
             ShaderRef::Default => None,
             ShaderRef::Handle(handle) => Some(handle),
             ShaderRef::Path(path) => Some(asset_server.load(path)),
         };
+        if let Some(deferred_material_fragment_shader) = deferred_material_fragment_shader {
+            shaders.insert(
+                DeferredFragmentShader.intern(),
+                deferred_material_fragment_shader,
+            );
+        }
+        #[cfg(feature = "meshlet")]
+        {
+            let meshlet_fragment_shader = match M::meshlet_mesh_fragment_shader() {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            };
+            if let Some(meshlet_fragment_shader) = meshlet_fragment_shader {
+                shaders.insert(MeshletFragmentShader.intern(), meshlet_fragment_shader);
+            }
+            let meshlet_prepass_fragment_shader = match M::meshlet_mesh_prepass_fragment_shader() {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            };
+            if let Some(meshlet_prepass_fragment_shader) = meshlet_prepass_fragment_shader {
+                shaders.insert(
+                    MeshletPrepassFragmentShader.intern(),
+                    meshlet_prepass_fragment_shader,
+                );
+            }
+            let meshlet_deferred_fragment_shader = match M::meshlet_mesh_deferred_fragment_shader()
+            {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            };
+            if let Some(meshlet_deferred_fragment_shader) = meshlet_deferred_fragment_shader {
+                shaders.insert(
+                    MeshletDeferredFragmentShader.intern(),
+                    meshlet_deferred_fragment_shader,
+                );
+            }
+        }
+
         let bindless = material_uses_bindless_resources::<M>(render_device);
         let bind_group_data = material.bind_group_data();
         let material_key = SmallVec::from(bytemuck::bytes_of(&bind_group_data));
@@ -1512,21 +1650,13 @@ where
                         depth_bias: material.depth_bias(),
                         reads_view_transmission_texture,
                         render_phase_type,
-                        draw_function_id,
-                        prepass_draw_function_id,
                         render_method,
                         mesh_pipeline_key_bits,
-                        deferred_draw_function_id,
-                        shadow_draw_function_id: None,
-                        material_layout,
-                        vertex_shader,
-                        fragment_shader,
-                        prepass_material_vertex_shader,
-                        prepass_material_fragment_shader,
-                        deferred_material_vertex_shader,
-                        deferred_material_fragment_shader,
+                        material_layout: Some(material_layout),
+                        draw_functions,
+                        shaders,
                         bindless,
-                        specialize: specialize::<M>,
+                        specialize: Some(specialize::<M>),
                         material_key,
                     }),
                 })
@@ -1557,21 +1687,13 @@ where
                                 depth_bias: material.depth_bias(),
                                 reads_view_transmission_texture,
                                 render_phase_type,
-                                draw_function_id,
-                                prepass_draw_function_id,
                                 render_method,
                                 mesh_pipeline_key_bits,
-                                deferred_draw_function_id,
-                                shadow_draw_function_id,
-                                material_layout,
-                                vertex_shader,
-                                fragment_shader,
-                                prepass_material_vertex_shader,
-                                prepass_material_fragment_shader,
-                                deferred_material_vertex_shader,
-                                deferred_material_fragment_shader,
+                                material_layout: Some(material_layout),
+                                draw_functions,
+                                shaders,
                                 bindless,
-                                specialize: specialize::<M>,
+                                specialize: Some(specialize::<M>),
                                 material_key,
                             }),
                         })

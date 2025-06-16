@@ -101,15 +101,16 @@ struct CustomMaterial {
     party_mode: bool,
 }
 
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[repr(C)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CustomMaterialKey {
-    party_mode: bool,
+    party_mode: u32,
 }
 
 impl From<&CustomMaterial> for CustomMaterialKey {
     fn from(material: &CustomMaterial) -> Self {
         Self {
-            party_mode: material.party_mode,
+            party_mode: material.party_mode as u32,
         }
     }
 }
@@ -120,7 +121,7 @@ impl Material for CustomMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
@@ -128,7 +129,7 @@ impl Material for CustomMaterial {
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader_defs.push(ShaderDefVal::Bool(
             "PARTY_MODE".to_string(),
-            key.bind_group_data.party_mode,
+            key.bind_group_data.party_mode == 1,
         ));
         Ok(())
     }

@@ -2035,7 +2035,9 @@ pub fn queue_shadows(
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
                     continue;
                 };
-                let Some(draw_function) = material.properties.shadow_draw_function_id else {
+                let Some(draw_function) =
+                    material.properties.get_draw_function(ShadowsDrawFunction)
+                else {
                     continue;
                 };
 

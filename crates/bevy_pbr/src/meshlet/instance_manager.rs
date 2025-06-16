@@ -1,8 +1,8 @@
 use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
-    material::DUMMY_MESH_MATERIAL, Material, MaterialBindingId, MeshFlags, MeshTransforms,
-    MeshUniform, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    RenderMaterialBindings, RenderMaterialInstances,
+    material::DUMMY_MESH_MATERIAL, MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform,
+    NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform, RenderMaterialBindings,
+    RenderMaterialInstances,
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
@@ -272,7 +272,7 @@ pub fn extract_meshlet_mesh_entities(
 
 /// For each entity in the scene, record what material ID its material was assigned in the `prepare_material_meshlet_meshes` systems,
 /// and note that the material is used by at least one entity in the scene.
-pub fn queue_material_meshlet_meshes<M: Material>(
+pub fn queue_material_meshlet_meshes(
     mut instance_manager: ResMut<InstanceManager>,
     render_material_instances: Res<RenderMaterialInstances>,
 ) {
@@ -280,16 +280,14 @@ pub fn queue_material_meshlet_meshes<M: Material>(
 
     for (i, (instance, _, _)) in instance_manager.instances.iter().enumerate() {
         if let Some(material_instance) = render_material_instances.instances.get(instance) {
-            if let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() {
-                if let Some(material_id) = instance_manager
-                    .material_id_lookup
-                    .get(&material_asset_id.untyped())
-                {
-                    instance_manager
-                        .material_ids_present_in_scene
-                        .insert(*material_id);
-                    instance_manager.instance_material_ids.get_mut()[i] = *material_id;
-                }
+            if let Some(material_id) = instance_manager
+                .material_id_lookup
+                .get(&material_instance.asset_id)
+            {
+                instance_manager
+                    .material_ids_present_in_scene
+                    .insert(*material_id);
+                instance_manager.instance_material_ids.get_mut()[i] = *material_id;
             }
         }
     }

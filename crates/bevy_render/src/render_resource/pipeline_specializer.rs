@@ -14,10 +14,7 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_utils::default;
-use core::{
-    fmt::Debug,
-    hash::{BuildHasher, Hash},
-};
+use core::{fmt::Debug, hash::Hash};
 use thiserror::Error;
 use tracing::error;
 

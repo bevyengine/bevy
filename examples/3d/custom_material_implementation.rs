@@ -3,10 +3,9 @@
 use bevy::core_pipeline::core_3d::Opaque3d;
 use bevy::pbr::{
     DrawMaterial, EntitiesNeedingSpecialization, EntitySpecializationTicks,
-    ErasedMaterialPipelineKey, MaterialBindGroupAllocator, MaterialBindGroupAllocators,
-    MaterialPipeline, MaterialProperties, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
-    RenderMaterialBindings, RenderMaterialInstance, RenderMaterialInstances, RenderPhaseType,
-    SpecializedMaterialPipelineCache,
+    MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialDrawFunction,
+    MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
+    RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
 };
 use bevy::platform::collections::hash_map::Entry;
 use bevy::prelude::*;
@@ -17,14 +16,13 @@ use bevy_ecs::system::{SystemChangeTick, SystemParamItem};
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, PrepareAssetError,
 };
-use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_phase::DrawFunctions;
 use bevy_render::render_resource::binding_types::{sampler, texture_2d};
 use bevy_render::render_resource::{
     AsBindGroup, BindGroupLayout, BindGroupLayoutEntries, BindingResources, OwnedBindingResource,
-    RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-    SpecializedMeshPipelineError, TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
+    Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, TextureSampleType,
+    TextureViewDimension, UnpreparedBindGroup,
 };
 use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
@@ -188,39 +186,13 @@ impl ErasedRenderAsset for ImageMaterial {
                 .insert(bind_group_allocator.allocate_unprepared(unprepared, &material_layout)),
         };
 
-        fn specialize(
-            _pipeline: &MaterialPipeline,
-            _descriptor: &mut RenderPipelineDescriptor,
-            _mesh_layout: &MeshVertexBufferLayoutRef,
-            _erased_key: ErasedMaterialPipelineKey,
-        ) -> Result<(), SpecializedMeshPipelineError> {
-            Ok(())
-        }
+        let mut properties = MaterialProperties::default();
+        properties.add_draw_function(MaterialDrawFunction, draw_function_id);
+        properties.add_shader(MaterialFragmentShader, asset_server.load(SHADER_ASSET_PATH));
 
         Ok(PreparedMaterial {
             binding,
-            properties: Arc::new(MaterialProperties {
-                render_method: OpaqueRendererMethod::Forward,
-                alpha_mode: AlphaMode::Opaque,
-                mesh_pipeline_key_bits: MeshPipelineKey::empty(),
-                depth_bias: 0.0,
-                reads_view_transmission_texture: false,
-                render_phase_type: RenderPhaseType::Opaque,
-                draw_function_id,
-                prepass_draw_function_id: None,
-                deferred_draw_function_id: None,
-                shadow_draw_function_id: None,
-                material_layout,
-                vertex_shader: None,
-                fragment_shader: Some(asset_server.load(SHADER_ASSET_PATH)),
-                prepass_material_vertex_shader: None,
-                prepass_material_fragment_shader: None,
-                deferred_material_vertex_shader: None,
-                deferred_material_fragment_shader: None,
-                bindless: false,
-                specialize,
-                material_key: Vec::new().into(),
-            }),
+            properties: Arc::new(properties),
         })
     }
 }

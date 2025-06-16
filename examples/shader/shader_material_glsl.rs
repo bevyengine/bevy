@@ -79,7 +79,7 @@ impl Material for CustomMaterial {
     // and fragment shaders use the "fragment" entry point (for WGSL shaders).
     // GLSL uses "main" as the entry point, so we must override the defaults here
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
