@@ -57,7 +57,7 @@ pub trait ErasedRenderAsset: Send + Sync + 'static {
     }
 
     /// Size of the data the asset will upload to the gpu. Specifying a return value
-    /// will allow the asset to be throttled via [`ErasedRenderAssetBytesPerFrame`].
+    /// will allow the asset to be throttled via [`RenderAssetBytesPerFrameLimiter`].
     #[inline]
     #[expect(
         unused_variables,

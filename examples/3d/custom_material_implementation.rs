@@ -189,8 +189,10 @@ impl ErasedRenderAsset for ImageMaterial {
                 .insert(bind_group_allocator.allocate_unprepared(unprepared, &material_layout)),
         };
 
-        let mut properties = MaterialProperties::default();
-        properties.material_layout = Some(material_layout);
+        let mut properties = MaterialProperties {
+            material_layout: Some(material_layout),
+            ..Default::default()
+        };
         properties.add_draw_function(MaterialDrawFunction, draw_function_id);
         properties.add_shader(MaterialFragmentShader, asset_server.load(SHADER_ASSET_PATH));
 
