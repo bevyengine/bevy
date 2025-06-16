@@ -481,15 +481,15 @@ impl Deref for BindGroup {
 ///     is_shaded: bool,
 /// }
 ///
-/// #[derive(Copy, Clone, Hash, Eq, PartialEq)]
+/// #[derive(Copy, Clone, Hash, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 /// struct CoolMaterialKey {
-///     is_shaded: bool,
+///     is_shaded: u32,
 /// }
 ///
 /// impl From<&CoolMaterial> for CoolMaterialKey {
 ///     fn from(material: &CoolMaterial) -> CoolMaterialKey {
 ///         CoolMaterialKey {
-///             is_shaded: material.is_shaded,
+///             is_shaded: material.is_shaded as u32,
 ///         }
 ///     }
 /// }
