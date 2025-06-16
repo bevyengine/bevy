@@ -2666,10 +2666,12 @@ impl<'w> EntityWorldMut<'w> {
     /// Clones parts of an entity (components, observers, etc.) onto another entity,
     /// configured through [`EntityClonerBuilder`].
     ///
-    /// By default, the other entity will receive all the components of the original that implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    /// The other entity will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) except those that are
+    /// [denied](EntityClonerBuilder::deny) in the `config`.
     ///
-    /// Configure through [`EntityClonerBuilder`] as follows:
+    /// # Example
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Component, Clone, PartialEq, Debug)]
@@ -2679,14 +2681,15 @@ impl<'w> EntityWorldMut<'w> {
     /// # let mut world = World::new();
     /// # let entity = world.spawn((ComponentA, ComponentB)).id();
     /// # let target = world.spawn_empty().id();
-    /// world.entity_mut(entity).clone_with(target, |builder| {
-    ///     builder.deny::<ComponentB>();
+    /// // Clone all components except ComponentA onto the target.
+    /// world.entity_mut(entity).clone_with_allow_all(target, |builder| {
+    ///     builder.deny::<ComponentA>();
     /// });
-    /// # assert_eq!(world.get::<ComponentA>(target), Some(&ComponentA));
-    /// # assert_eq!(world.get::<ComponentB>(target), None);
+    /// # assert_eq!(world.get::<ComponentA>(target), None);
+    /// # assert_eq!(world.get::<ComponentB>(target), Some(&ComponentB));
     /// ```
     ///
-    /// See [`EntityClonerBuilder`] for more options.
+    /// See [`EntityClonerBuilder<AllowAll>`] for more options.
     ///
     /// # Panics
     ///
@@ -2708,6 +2711,38 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Clones parts of an entity (components, observers, etc.) onto another entity,
+    /// configured through [`EntityClonerBuilder`].
+    ///
+    /// The other entity will receive only the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) and are
+    /// [allowed](EntityClonerBuilder::allow) in the `config`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// # let target = world.spawn_empty().id();
+    /// // Clone only ComponentA onto the target.
+    /// world.entity_mut(entity).clone_with_deny_all(target, |builder| {
+    ///     builder.allow::<ComponentA>();
+    /// });
+    /// # assert_eq!(world.get::<ComponentA>(target), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(target), None);
+    /// ```
+    ///
+    /// See [`EntityClonerBuilder<DenyAll>`] for more options.
+    ///
+    /// # Panics
+    ///
+    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the target entity does not exist.
     pub fn clone_with_deny_all(
         &mut self,
         target: Entity,
@@ -2742,26 +2777,29 @@ impl<'w> EntityWorldMut<'w> {
     /// Spawns a clone of this entity and allows configuring cloning behavior
     /// using [`EntityClonerBuilder`], returning the [`Entity`] of the clone.
     ///
-    /// By default, the clone will receive all the components of the original that implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    /// The clone will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) except those that are
+    /// [denied](EntityClonerBuilder::deny) in the `config`.
     ///
-    /// Configure through [`EntityClonerBuilder`] as follows:
+    /// # Example
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
     /// # #[derive(Component, Clone, PartialEq, Debug)]
     /// # struct ComponentA;
     /// # #[derive(Component, Clone, PartialEq, Debug)]
     /// # struct ComponentB;
-    /// # let mut world = World::new();
-    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
-    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with(|builder| {
-    ///     builder.deny::<ComponentB>();
+    /// // Create a clone of an entity but without ComponentA.
+    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with_allow_all(|builder| {
+    ///     builder.deny::<ComponentA>();
     /// });
-    /// # assert_eq!(world.get::<ComponentA>(entity_clone), Some(&ComponentA));
-    /// # assert_eq!(world.get::<ComponentB>(entity_clone), None);
+    /// # assert_eq!(world.get::<ComponentA>(entity_clone), None);
+    /// # assert_eq!(world.get::<ComponentB>(entity_clone), Some(&ComponentB));
     /// ```
     ///
-    /// See [`EntityClonerBuilder`] for more options.
+    /// See [`EntityClonerBuilder<AllowAll>`] for more options.
     ///
     /// # Panics
     ///
@@ -2784,6 +2822,36 @@ impl<'w> EntityWorldMut<'w> {
         entity_clone
     }
 
+    /// Spawns a clone of this entity and allows configuring cloning behavior
+    /// using [`EntityClonerBuilder`], returning the [`Entity`] of the clone.
+    ///
+    /// The clone will receive only the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) and are
+    /// [allowed](EntityClonerBuilder::allow) in the `config`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// // Create a clone of an entity but only with ComponentA.
+    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with_deny_all(|builder| {
+    ///     builder.allow::<ComponentA>();
+    /// });
+    /// # assert_eq!(world.get::<ComponentA>(entity_clone), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(entity_clone), None);
+    /// ```
+    ///
+    /// See [`EntityClonerBuilder<DenyAll>`] for more options.
+    ///
+    /// # Panics
+    ///
+    /// If this entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn clone_and_spawn_with_deny_all(
         &mut self,
         config: impl FnOnce(&mut EntityClonerBuilder<DenyAll>) + Send + Sync + 'static,
