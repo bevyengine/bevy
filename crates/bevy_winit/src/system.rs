@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     entity::Entity,
     event::EventWriter,
     lifecycle::RemovedComponents,
@@ -88,6 +90,9 @@ pub fn create_windows<F: QueryFilter + 'static>(
                 commands.entity(entity).insert((
                     CachedWindow {
                         window: window.clone(),
+                    },
+                    CachedCursorOptions {
+                        cursor_options: cursor_options.clone(),
                     },
                     WinitWindowPressedKeys::default(),
                 ));
@@ -282,9 +287,15 @@ pub(crate) fn despawn_windows(
 }
 
 /// The cached state of the window so we can check which properties were changed from within the app.
-#[derive(Debug, Clone, Component)]
+#[derive(Debug, Clone, Component, Deref, DerefMut)]
 pub struct CachedWindow {
     pub window: Window,
+}
+
+/// The cached state of the window so we can check which properties were changed from within the app.
+#[derive(Debug, Clone, Component, Deref, DerefMut)]
+pub struct CachedCursorOptions {
+    pub cursor_options: CursorOptions,
 }
 
 /// Propagates changes from [`Window`] entities to the [`winit`] backend.
@@ -571,28 +582,44 @@ pub(crate) fn changed_windows(
 }
 
 pub(crate) fn changed_cursor_options(
-    mut changed_windows: Query<(Entity, &Window, &mut CursorOptions), Changed<CursorOptions>>,
+    mut changed_windows: Query<
+        (
+            Entity,
+            &Window,
+            &mut CursorOptions,
+            &mut CachedCursorOptions,
+        ),
+        Changed<CursorOptions>,
+    >,
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {
-        for (entity, window, mut cursor_options) in &mut changed_windows {
+        for (entity, window, mut cursor_options, mut cache) in &mut changed_windows {
+            // This system already only runs when the cursor options change, so we need to bypass change detection or the next frame will also run this system
+            let cursor_options = cursor_options.bypass_change_detection();
             let Some(winit_window) = winit_windows.get_window(entity) else {
                 continue;
             };
-            let previous_grab_mode = cursor_options.grab_mode;
+            // Don't check the cache for the grab mode. It can change through external means, leaving the cache outdated.
             if crate::winit_windows::attempt_grab(winit_window, cursor_options.grab_mode).is_err() {
-                cursor_options.grab_mode = previous_grab_mode;
+                cursor_options.grab_mode = cache.cursor_options.grab_mode;
+            }
+            cache.cursor_options.grab_mode = cursor_options.grab_mode;
+
+            if cursor_options.visible != cache.cursor_options.visible {
+                cache.cursor_options.visible = cursor_options.visible;
+                winit_window.set_cursor_visible(cursor_options.visible);
             }
 
-            winit_window.set_cursor_visible(cursor_options.visible);
-
-            let previous_hit_test = cursor_options.hit_test;
-            if let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test) {
-                cursor_options.hit_test = previous_hit_test;
-                warn!(
-                    "Could not set cursor hit test for window {}: {}",
-                    window.title, err
-                );
+            if cursor_options.hit_test != cache.cursor_options.hit_test {
+                if let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test) {
+                    warn!(
+                        "Could not set cursor hit test for window {}: {}",
+                        window.title, err
+                    );
+                } else {
+                    cache.cursor_options.hit_test = cursor_options.hit_test;
+                }
             }
         }
     })
