@@ -51,7 +51,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 ] }
 
 # other
-bitflags = "2.3"
+bitflags = { version = "2.3", features = ["bytemuck"] }
 fixedbitset = "0.5"
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }

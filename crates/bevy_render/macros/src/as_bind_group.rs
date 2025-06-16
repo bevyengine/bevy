@@ -1071,6 +1071,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 })
             }
 
+            #[allow(clippy::unused_unit)]
             fn bind_group_data(&self) -> Self::Data {
                 #get_prepared_data
             }

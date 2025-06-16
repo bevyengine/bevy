@@ -1912,7 +1912,7 @@ pub fn specialize_shadows(
                 };
                 let erased_key = ErasedMaterialPipelineKey {
                     mesh_key,
-                    bind_group_data_hash: material.properties.bind_group_data_hash,
+                    material_key: material.properties.material_key.clone(),
                 };
                 let material_pipeline_specializer = PrepassPipelineSpecializer {
                     pipeline: prepass_pipeline.clone(),

@@ -29,16 +29,16 @@ pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipeline
 
 /// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletMainOpaquePass3dNode`],
 /// and register the material with [`InstanceManager`].
-pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
+pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
     mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
-    material_pipeline: Res<MaterialPipeline<M>>,
+    material_pipeline: Res<MaterialPipeline>,
     mesh_pipeline: Res<MeshPipeline>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
+    render_materials: Res<RenderAssets<PreparedMaterial>>,
     render_material_instances: Res<RenderMaterialInstances>,
-    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
+    material_bind_group_allocator: Res<MaterialBindGroupAllocator>,
     asset_server: Res<AssetServer>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     mut views: Query<

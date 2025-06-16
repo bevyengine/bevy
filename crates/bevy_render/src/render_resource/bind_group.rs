@@ -11,7 +11,6 @@ pub use bevy_render_macros::AsBindGroup;
 use bevy_utils::WgpuWrapper;
 use core::ops::Deref;
 use encase::ShaderType;
-use std::any::Any;
 use thiserror::Error;
 use wgpu::{
     BindGroupEntry, BindGroupLayoutEntry, BindingResource, SamplerBindingType, TextureViewDimension,
@@ -497,7 +496,7 @@ impl Deref for BindGroup {
 /// ```
 pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
-    type Data: Send + Sync;
+    type Data: bytemuck::Pod + bytemuck::Zeroable + Send + Sync;
 
     type Param: SystemParam + 'static;
 

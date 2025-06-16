@@ -3,9 +3,10 @@
 use bevy::core_pipeline::core_3d::Opaque3d;
 use bevy::pbr::{
     DrawMaterial, EntitiesNeedingSpecialization, EntitySpecializationTicks,
-    MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialProperties, MeshPipelineKey,
-    OpaqueRendererMethod, PreparedMaterial, RenderMaterialBindings, RenderMaterialInstance,
-    RenderMaterialInstances, RenderPhaseType, SpecializedMaterialPipelineCache,
+    ErasedMaterialPipelineKey, MaterialBindGroupAllocator, MaterialBindGroupAllocators,
+    MaterialPipeline, MaterialProperties, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
+    RenderMaterialBindings, RenderMaterialInstance, RenderMaterialInstances, RenderPhaseType,
+    SpecializedMaterialPipelineCache,
 };
 use bevy::platform::collections::hash_map::Entry;
 use bevy::prelude::*;
@@ -16,13 +17,14 @@ use bevy_ecs::system::{SystemChangeTick, SystemParamItem};
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, PrepareAssetError,
 };
+use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_phase::DrawFunctions;
 use bevy_render::render_resource::binding_types::{sampler, texture_2d};
 use bevy_render::render_resource::{
     AsBindGroup, BindGroupLayout, BindGroupLayoutEntries, BindingResources, OwnedBindingResource,
-    Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, TextureSampleType,
-    TextureViewDimension, UnpreparedBindGroup,
+    RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+    SpecializedMeshPipelineError, TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
 };
 use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
@@ -186,6 +188,15 @@ impl ErasedRenderAsset for ImageMaterial {
                 .insert(bind_group_allocator.allocate_unprepared(unprepared, &material_layout)),
         };
 
+        fn specialize(
+            _pipeline: &MaterialPipeline,
+            _descriptor: &mut RenderPipelineDescriptor,
+            _mesh_layout: &MeshVertexBufferLayoutRef,
+            _erased_key: ErasedMaterialPipelineKey,
+        ) -> Result<(), SpecializedMeshPipelineError> {
+            Ok(())
+        }
+
         Ok(PreparedMaterial {
             binding,
             properties: Arc::new(MaterialProperties {
@@ -207,8 +218,8 @@ impl ErasedRenderAsset for ImageMaterial {
                 deferred_material_vertex_shader: None,
                 deferred_material_fragment_shader: None,
                 bindless: false,
-                specialize: Box::new(|_pipeline, _descriptor, _layout, _key| Ok(())),
-                bind_group_data_hash: 0,
+                specialize,
+                material_key: Vec::new().into(),
             }),
         })
     }

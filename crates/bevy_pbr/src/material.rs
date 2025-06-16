@@ -56,6 +56,7 @@ use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap}
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
+use smallvec::SmallVec;
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 use tracing::error;
@@ -452,10 +453,10 @@ pub struct MaterialPipelineKey<M: Material> {
     pub bind_group_data: M::Data,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ErasedMaterialPipelineKey {
     pub mesh_key: MeshPipelineKey,
-    pub bind_group_data_hash: u64,
+    pub material_key: SmallVec<[u8; 8]>,
 }
 
 /// Render pipeline data for a given [`Material`].
@@ -493,7 +494,7 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             .layout
             .insert(2, self.properties.material_layout.clone());
 
-        (self.properties.specialize)(&self.pipeline, &mut descriptor, layout, key.mesh_key)?;
+        (self.properties.specialize)(&self.pipeline, &mut descriptor, layout, key)?;
 
         // If bindless mode is on, add a `BINDLESS` define.
         if self.properties.bindless {
@@ -1021,7 +1022,7 @@ pub fn specialize_material_meshes(
 
             let erased_key = ErasedMaterialPipelineKey {
                 mesh_key,
-                bind_group_data_hash: material.properties.bind_group_data_hash,
+                material_key: material.properties.material_key.clone(),
             };
             let material_pipeline_specializer = MaterialPipelineSpecializer {
                 pipeline: pipeline.clone(),
@@ -1293,18 +1294,15 @@ pub struct MaterialProperties {
     /// Whether this material *actually* uses bindless resources, taking the
     /// platform support (or lack thereof) of bindless resources into account.
     pub bindless: bool,
-    pub specialize: Box<
-        dyn Fn(
-                &MaterialPipeline,
-                &mut RenderPipelineDescriptor,
-                &MeshVertexBufferLayoutRef,
-                MeshPipelineKey,
-            ) -> Result<(), SpecializedMeshPipelineError>
-            + Send
-            + Sync
-            + 'static,
-    >,
-    pub bind_group_data_hash: u64,
+    pub specialize: fn(
+        &MaterialPipeline,
+        &mut RenderPipelineDescriptor,
+        &MeshVertexBufferLayoutRef,
+        ErasedMaterialPipelineKey,
+    ) -> Result<(), SpecializedMeshPipelineError>,
+    /// The key for this material, typically a bitfield of flags that are used to modify
+    /// the pipeline descriptor used for this material.
+    pub material_key: SmallVec<[u8; 8]>,
 }
 
 #[derive(Clone, Copy)]
@@ -1465,23 +1463,24 @@ where
         };
         let bindless = material_uses_bindless_resources::<M>(render_device);
         let bind_group_data = material.bind_group_data();
-        let specialize = Box::new(
-            move |pipeline: &MaterialPipeline,
-                  descriptor: &mut RenderPipelineDescriptor,
-                  mesh_layout: &MeshVertexBufferLayoutRef,
-                  mesh_key: MeshPipelineKey| {
-                let bind_group_data = bind_group_data.clone();
-                M::specialize(
-                    pipeline,
-                    descriptor,
-                    mesh_layout,
-                    MaterialPipelineKey {
-                        mesh_key,
-                        bind_group_data: bind_group_data.clone(),
-                    },
-                )
-            },
-        );
+        let material_key = SmallVec::from(bytemuck::bytes_of(&bind_group_data));
+        fn specialize<M: Material>(
+            pipeline: &MaterialPipeline,
+            descriptor: &mut RenderPipelineDescriptor,
+            mesh_layout: &MeshVertexBufferLayoutRef,
+            erased_key: ErasedMaterialPipelineKey,
+        ) -> Result<(), SpecializedMeshPipelineError> {
+            let material_key = bytemuck::from_bytes(erased_key.material_key.as_slice());
+            M::specialize(
+                pipeline,
+                descriptor,
+                mesh_layout,
+                MaterialPipelineKey {
+                    mesh_key: erased_key.mesh_key,
+                    bind_group_data: *material_key,
+                },
+            )
+        }
 
         match material.unprepared_bind_group(&material_layout, render_device, material_param, false)
         {
@@ -1527,8 +1526,8 @@ where
                         deferred_material_vertex_shader,
                         deferred_material_fragment_shader,
                         bindless,
-                        specialize,
-                        bind_group_data_hash: 0,
+                        specialize: specialize::<M>,
+                        material_key,
                     }),
                 })
             }
@@ -1572,8 +1571,8 @@ where
                                 deferred_material_vertex_shader,
                                 deferred_material_fragment_shader,
                                 bindless,
-                                specialize,
-                                bind_group_data_hash: 0,
+                                specialize: specialize::<M>,
+                                material_key,
                             }),
                         })
                     }

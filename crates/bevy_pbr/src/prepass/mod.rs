@@ -4,7 +4,7 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, queue_material_meshes, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks,
-    ErasedMaterialPipelineKey, Material, MaterialBindGroupAllocators, MaterialPipeline,
+    ErasedMaterialPipelineKey, MaterialBindGroupAllocators, MaterialPipeline,
     MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod,
     PreparedMaterial, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
     RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
@@ -24,7 +24,7 @@ use bevy_render::{
 };
 pub use prepass_bindings::*;
 
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
@@ -63,7 +63,6 @@ use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSystems::{PrepareAssets, PrepareResources};
-use core::{hash::Hash, marker::PhantomData};
 use std::sync::Arc;
 
 /// Sets up everything required to use the prepass pipeline.
@@ -369,7 +368,7 @@ impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
             &self.pipeline.material_pipeline,
             &mut descriptor,
             layout,
-            key.mesh_key,
+            key,
         )?;
 
         Ok(descriptor)
@@ -951,7 +950,7 @@ pub fn specialize_prepass_material_meshes(
 
             let erased_key = ErasedMaterialPipelineKey {
                 mesh_key,
-                bind_group_data_hash: material.properties.bind_group_data_hash,
+                material_key: material.properties.material_key.clone(),
             };
             let prepass_pipeline_specializer = PrepassPipelineSpecializer {
                 pipeline: prepass_pipeline.clone(),

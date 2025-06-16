@@ -146,12 +146,19 @@ where
     }
 }
 
+#[derive(bytemuck::Pod, bytemuck::Zeroable, Copy, Clone, PartialEq , Eq , Hash)]
+#[repr(C, packed)]
+pub struct MaterialExtensionBindGroupData<B, E> {
+    pub base: B,
+    pub extension: E,
+}
+
 // We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
 // causes the `TypePath` derive to not generate an implementation.
 impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
 
 impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
-    type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
+    type Data = MaterialExtensionBindGroupData<B::Data, E::Data>;
     type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
 
     fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
@@ -176,10 +183,10 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     }
 
     fn bind_group_data(&self) -> Self::Data {
-        (
-            self.base.bind_group_data(),
-            self.extension.bind_group_data(),
-        )
+        MaterialExtensionBindGroupData {
+            base: self.base.bind_group_data(),
+            extension: self.extension.bind_group_data(),
+        }
     }
 
     fn unprepared_bind_group(
@@ -380,7 +387,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         let base_pipeline = MaterialPipeline { mesh_pipeline };
         let base_key = MaterialPipelineKey::<B> {
             mesh_key: key.mesh_key,
-            bind_group_data: key.bind_group_data.0,
+            bind_group_data: key.bind_group_data.base,
         };
         B::specialize(&base_pipeline, descriptor, layout, base_key)?;
 
@@ -393,7 +400,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             layout,
             MaterialExtensionKey {
                 mesh_key: key.mesh_key,
-                bind_group_data: key.bind_group_data.1,
+                bind_group_data: key.bind_group_data.extension,
             },
         )
     }
