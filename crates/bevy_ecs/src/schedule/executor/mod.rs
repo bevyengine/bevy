@@ -15,12 +15,12 @@ pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
-    query::{Access, FilteredAccessSet},
-    schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
-    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError},
+    query::FilteredAccessSet,
+    schedule::{ConditionWithAccess, InternedSystemSet, NodeId, SystemTypeSet, SystemWithAccess},
+    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -74,9 +74,9 @@ pub struct SystemSchedule {
     /// List of system node ids.
     pub(super) system_ids: Vec<NodeId>,
     /// Indexed by system node id.
-    pub(super) systems: Vec<ScheduleSystem>,
+    pub(super) systems: Vec<SystemWithAccess>,
     /// Indexed by system node id.
-    pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
+    pub(super) system_conditions: Vec<Vec<ConditionWithAccess>>,
     /// Indexed by system node id.
     /// Number of systems that the system immediately depends on.
     #[cfg_attr(
@@ -97,7 +97,7 @@ pub struct SystemSchedule {
     /// List of system set node ids.
     pub(super) set_ids: Vec<NodeId>,
     /// Indexed by system set node id.
-    pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
+    pub(super) set_conditions: Vec<Vec<ConditionWithAccess>>,
     /// Indexed by system set node id.
     /// List of systems that are in sets that have conditions.
     ///
@@ -162,35 +162,9 @@ impl System for ApplyDeferred {
         Cow::Borrowed("bevy_ecs::apply_deferred")
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        // This system accesses no components.
-        const { &Access::new() }
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        const { &FilteredAccessSet::new() }
-    }
-
-    fn is_send(&self) -> bool {
-        // Although this system itself does nothing on its own, the system
-        // executor uses it to apply deferred commands. Commands must be allowed
-        // to access non-send resources, so this system must be non-send for
-        // scheduling purposes.
-        false
-    }
-
-    fn is_exclusive(&self) -> bool {
-        // This system is labeled exclusive because it is used by the system
-        // executor to find places where deferred commands should be applied,
-        // and commands can only be applied with exclusive access to the world.
-        true
-    }
-
-    fn has_deferred(&self) -> bool {
-        // This system itself doesn't have any commands to apply, but when it
-        // is pulled from the schedule to be ran, the executor will apply
-        // deferred commands from other systems.
-        false
+    fn flags(&self) -> SystemStateFlags {
+        // non-send , exclusive , no deferred
+        SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
     }
 
     unsafe fn run_unsafe(
@@ -226,9 +200,11 @@ impl System for ApplyDeferred {
         Ok(())
     }
 
-    fn initialize(&mut self, _world: &mut World) {}
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId> {
+        FilteredAccessSet::new()
+    }
 
-    fn check_change_tick(&mut self, _change_tick: Tick) {}
+    fn check_change_tick(&mut self, _check: CheckChangeTicks) {}
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         vec![SystemTypeSet::<Self>::new().intern()]

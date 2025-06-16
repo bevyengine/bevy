@@ -73,9 +73,6 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
 thiserror = { version = "2", default-features = false }
 log = { version = "0.4", default-features = false }
 
-[dev-dependencies]
-smol_str = "0.2"
-
 [lints]
 workspace = true
 

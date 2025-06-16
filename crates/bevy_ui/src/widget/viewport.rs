@@ -171,11 +171,6 @@ pub fn update_viewport_render_target_size(
             height: u32::max(1, size.y as u32),
             ..default()
         };
-        let image = images.get_mut(image_handle).unwrap();
-        if image.data.is_some() {
-            image.resize(size);
-        } else {
-            image.texture_descriptor.size = size;
-        }
+        images.get_mut(image_handle).unwrap().resize(size);
     }
 }

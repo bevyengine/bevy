@@ -1,14 +1,14 @@
 use alloc::{borrow::Cow, vec::Vec};
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     error::Result,
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     system::{input::SystemIn, BoxedSystem, System, SystemInput},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
-use super::{IntoSystem, SystemParamValidationError};
+use super::{IntoSystem, SystemParamValidationError, SystemStateFlags};
 
 /// A wrapper system to change a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
 pub struct InfallibleSystemWrapper<S: System<In = ()>>(S);
@@ -34,28 +34,8 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.0.component_access()
-    }
-
-    #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.0.component_access_set()
-    }
-
-    #[inline]
-    fn is_send(&self) -> bool {
-        self.0.is_send()
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        self.0.is_exclusive()
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
-        self.0.has_deferred()
+    fn flags(&self) -> SystemStateFlags {
+        self.0.flags()
     }
 
     #[inline]
@@ -93,13 +73,13 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
-        self.0.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.0.initialize(world)
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.0.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.0.check_change_tick(check);
     }
 
     #[inline]
@@ -164,24 +144,9 @@ where
         self.system.name()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
-    }
-
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
     }
 
     unsafe fn run_unsafe(
@@ -213,12 +178,12 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn get_last_run(&self) -> Tick {
@@ -273,24 +238,9 @@ where
         self.system.name()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
-    }
-
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
     }
 
     unsafe fn run_unsafe(
@@ -326,15 +276,15 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
+        self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn get_last_run(&self) -> Tick {
