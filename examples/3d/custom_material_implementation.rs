@@ -1,36 +1,39 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
-use bevy::core_pipeline::core_3d::Opaque3d;
-use bevy::pbr::{
-    DrawMaterial, EntitiesNeedingSpecialization, EntitySpecializationTicks,
-    MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialDrawFunction,
-    MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
-    RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
+use bevy::{
+    asset::{AsAssetId, AssetEventSystems},
+    core_pipeline::core_3d::Opaque3d,
+    ecs::system::{
+        lifetimeless::{SRes, SResMut},
+        SystemChangeTick, SystemParamItem,
+    },
+    pbr::{
+        DrawMaterial, EntitiesNeedingSpecialization, EntitySpecializationTicks,
+        MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialDrawFunction,
+        MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
+        RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
+    },
+    platform::collections::hash_map::Entry,
+    prelude::*,
+    render::{
+        erased_render_asset::{ErasedRenderAsset, ErasedRenderAssetPlugin, PrepareAssetError},
+        render_asset::RenderAssets,
+        render_phase::DrawFunctions,
+        render_resource::{
+            binding_types::{sampler, texture_2d},
+            AsBindGroup, BindGroupLayout, BindGroupLayoutEntries, BindingResources,
+            OwnedBindingResource, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+            TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
+        },
+        renderer::RenderDevice,
+        sync_world::MainEntity,
+        texture::GpuImage,
+        view::ExtractedView,
+        Extract, RenderApp,
+    },
+    utils::Parallel,
 };
-use bevy::platform::collections::hash_map::Entry;
-use bevy::prelude::*;
-use bevy::utils::Parallel;
-use bevy_asset::{AsAssetId, AssetEventSystems};
-use bevy_ecs::system::lifetimeless::{SRes, SResMut};
-use bevy_ecs::system::{SystemChangeTick, SystemParamItem};
-use bevy_render::erased_render_asset::{
-    ErasedRenderAsset, ErasedRenderAssetPlugin, PrepareAssetError,
-};
-use bevy_render::render_asset::RenderAssets;
-use bevy_render::render_phase::DrawFunctions;
-use bevy_render::render_resource::binding_types::{sampler, texture_2d};
-use bevy_render::render_resource::{
-    AsBindGroup, BindGroupLayout, BindGroupLayoutEntries, BindingResources, OwnedBindingResource,
-    Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, TextureSampleType,
-    TextureViewDimension, UnpreparedBindGroup,
-};
-use bevy_render::renderer::RenderDevice;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::texture::GpuImage;
-use bevy_render::view::ExtractedView;
-use bevy_render::{Extract, RenderApp};
-use std::any::TypeId;
-use std::sync::Arc;
+use std::{any::TypeId, sync::Arc};
 
 const SHADER_ASSET_PATH: &str = "shaders/custom_material_implementation.wgsl";
 
