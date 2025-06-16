@@ -8,11 +8,10 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     system::{lifetimeless::Read, SystemMeta},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, EntityMut, EntityMutExcept, EntityRef,
+        EntityRefExcept, FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
-use bevy_platform::sync::Arc;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::Parallel;
 use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
@@ -2518,7 +2517,7 @@ pub struct Tracked<'w, 's, T: Component> {
     entity: Entity,
     old: &'w T,
     new: Option<T>,
-    record: &'s TrackedMutationRecord<T>,
+    record: &'s TrackedMutations<T>,
 }
 
 impl<'w, 's, T: Component> Drop for Tracked<'w, 's, T> {
@@ -2545,7 +2544,7 @@ impl<'w, 's, T: Component + Clone> DerefMut for Tracked<'w, 's, T> {
 
 pub struct TrackedFetch<'w, 's, T: Component> {
     fetch: ReadFetch<'w, T>,
-    record: &'s TrackedMutationRecord<T>,
+    record: &'s TrackedMutations<T>,
 }
 
 impl<'w, 's, T: Component> Clone for TrackedFetch<'w, 's, T> {
@@ -2559,18 +2558,18 @@ impl<'w, 's, T: Component> Clone for TrackedFetch<'w, 's, T> {
 
 pub struct TrackedState<T: Component> {
     component_id: ComponentId,
-    record: TrackedMutationRecord<T>,
+    record: TrackedMutations<T>,
 }
 
-struct TrackedMutationRecord<T: Component>(Parallel<EntityHashMap<T>>);
+struct TrackedMutations<T: Component>(Parallel<EntityHashMap<T>>);
 
-impl<T: Component> Default for TrackedMutationRecord<T> {
+impl<T: Component> Default for TrackedMutations<T> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<T: Component> TrackedMutationRecord<T> {
+impl<T: Component> TrackedMutations<T> {
     fn insert(&self, entity: Entity, component: T) {
         self.0.scope(|map| map.insert(entity, component));
     }
@@ -2656,11 +2655,8 @@ unsafe impl<'__w, '__s, T: Component> WorldQuery for Tracked<'__w, '__s, T> {
         world.insert_batch(state.record.drain());
     }
 
-    fn queue(
-        _state: &mut Self::State,
-        _system_meta: &SystemMeta,
-        _world: crate::world::DeferredWorld,
-    ) {
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        todo!()
     }
 }
 
