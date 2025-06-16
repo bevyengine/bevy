@@ -190,6 +190,7 @@ impl ErasedRenderAsset for ImageMaterial {
         };
 
         let mut properties = MaterialProperties::default();
+        properties.material_layout = Some(material_layout);
         properties.add_draw_function(MaterialDrawFunction, draw_function_id);
         properties.add_shader(MaterialFragmentShader, asset_server.load(SHADER_ASSET_PATH));
 
@@ -209,7 +210,7 @@ fn setup(
 ) {
     // cube
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        Mesh3d(meshes.add(Cuboid::new(2.0, 2.0, 2.0))),
         ImageMaterial3d(materials.add(ImageMaterial {
             image: asset_server.load("branding/icon.png"),
         })),
