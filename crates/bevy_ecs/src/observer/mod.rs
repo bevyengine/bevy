@@ -1078,7 +1078,7 @@ mod tests {
     struct ChildOf(Entity);
 
     impl<D> Traversal<D> for &'_ ChildOf {
-        fn traverse(item: Self::Item<'_>, _: &D) -> Option<Entity> {
+        fn traverse(item: Self::Item<'_, '_>, _: &D) -> Option<Entity> {
             Some(item.0)
         }
     }
