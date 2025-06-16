@@ -10,9 +10,9 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
-    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
-    WindowWrapper,
+    ClosingWindow, CursorOptions, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
+    WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
+    WindowResized, WindowWrapper,
 };
 use tracing::{error, info, warn};
 
@@ -59,7 +59,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
 ) {
     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
-            for (entity, mut window, handle_holder) in &mut created_windows {
+            for (entity, mut window, cursor_options, handle_holder) in &mut created_windows {
                 if winit_windows.get_window(entity).is_some() {
                     continue;
                 }
@@ -70,6 +70,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
                     event_loop,
                     entity,
                     &window,
+                    &cursor_options,
                     adapters,
                     &mut handlers,
                     &accessibility_requested,
@@ -407,27 +408,6 @@ pub(crate) fn changed_windows(
                 }
             }
 
-            if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode
-                && crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode)
-                    .is_err()
-            {
-                window.cursor_options.grab_mode = cache.window.cursor_options.grab_mode;
-            }
-
-            if window.cursor_options.visible != cache.window.cursor_options.visible {
-                winit_window.set_cursor_visible(window.cursor_options.visible);
-            }
-
-            if window.cursor_options.hit_test != cache.window.cursor_options.hit_test {
-                if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
-                    window.cursor_options.hit_test = cache.window.cursor_options.hit_test;
-                    warn!(
-                        "Could not set cursor hit test for window {}: {}",
-                        window.title, err
-                    );
-                }
-            }
-
             if window.decorations != cache.window.decorations
                 && window.decorations != winit_window.is_decorated()
             {
@@ -588,6 +568,34 @@ pub(crate) fn changed_windows(
             cache.window = window.clone();
         }
     });
+}
+
+pub(crate) fn changed_cursor_options(
+    mut changed_windows: Query<(Entity, &Window, &mut CursorOptions), Changed<CursorOptions>>,
+    _non_send_marker: NonSendMarker,
+) {
+    WINIT_WINDOWS.with_borrow(|winit_windows| {
+        for (entity, window, mut cursor_options) in &mut changed_windows {
+            let Some(winit_window) = winit_windows.get_window(entity) else {
+                continue;
+            };
+            let previous_grab_mode = cursor_options.grab_mode;
+            if crate::winit_windows::attempt_grab(winit_window, cursor_options.grab_mode).is_err() {
+                cursor_options.grab_mode = previous_grab_mode;
+            }
+
+            winit_window.set_cursor_visible(cursor_options.visible);
+
+            let previous_hit_test = cursor_options.hit_test;
+            if let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test) {
+                cursor_options.hit_test = previous_hit_test;
+                warn!(
+                    "Could not set cursor hit test for window {}: {}",
+                    window.title, err
+                );
+            }
+        }
+    })
 }
 
 /// This keeps track of which keys are pressed on each window.
