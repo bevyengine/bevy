@@ -4,7 +4,7 @@ pull_requests: [19668]
 ---
 
 `Window` has become a very large component over the last few releases. To improve our internal handling of it and to make it more approachable, we
-have split it into multiple components, all on the same entity. So far, this affects `CursorOptions`
+have split it into multiple components, all on the same entity. So far, this affects `CursorOptions`:
 
 ```rust
 // old
