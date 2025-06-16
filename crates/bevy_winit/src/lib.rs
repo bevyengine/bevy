@@ -55,7 +55,9 @@ mod winit_monitors;
 mod winit_windows;
 
 thread_local! {
-    static WINIT_WINDOWS: RefCell<WinitWindows> = const { RefCell::new(WinitWindows::new()) };
+    /// Temporary storage of WinitWindows data to replace usage of `!Send` resources. This will be replaced with proper
+    /// storage of `!Send` data after issue #17667 is complete.
+    pub static WINIT_WINDOWS: RefCell<WinitWindows> = const { RefCell::new(WinitWindows::new()) };
 }
 
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
@@ -69,9 +71,9 @@ thread_local! {
 /// in systems.
 ///
 /// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
-/// `WakeUp` is the default `Event` that bevy uses.
+/// `WakeUp` is the default event that bevy uses.
 #[derive(Default)]
-pub struct WinitPlugin<T: Event = WakeUp> {
+pub struct WinitPlugin<T: BufferedEvent = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///
@@ -85,7 +87,7 @@ pub struct WinitPlugin<T: Event = WakeUp> {
     marker: PhantomData<T>,
 }
 
-impl<T: Event> Plugin for WinitPlugin<T> {
+impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
     fn name(&self) -> &str {
         "bevy_winit::WinitPlugin"
     }
@@ -153,7 +155,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, Event, Reflect)]
+#[derive(Debug, Default, Clone, Copy, Event, BufferedEvent, Reflect)]
 #[reflect(Debug, Default, Clone)]
 pub struct WakeUp;
 
@@ -164,7 +166,7 @@ pub struct WakeUp;
 ///
 /// When you receive this event it has already been handled by Bevy's main loop.
 /// Sending these events will NOT cause them to be processed by Bevy.
-#[derive(Debug, Clone, Event)]
+#[derive(Debug, Clone, Event, BufferedEvent)]
 pub struct RawWinitWindowEvent {
     /// The window for which the event was fired.
     pub window_id: WindowId,
