@@ -1,6 +1,6 @@
 ---
 title: Window is now split into multiple components
-pull_requests: [todo]
+pull_requests: [19668]
 ---
 
 `Window` has become a very large component over the last few releases. To improve our internal handling of it and to make it more approachable, we
