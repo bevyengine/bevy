@@ -382,7 +382,6 @@ fn interact_with_focused_button(
         if let Some(focused_entity) = input_focus.0 {
             commands.trigger_targets(
                 Pointer::<Click> {
-                    target: focused_entity,
                     // We're pretending that we're a mouse
                     pointer_id: PointerId::Mouse,
                     // This field isn't used, so we're just setting it to a placeholder value

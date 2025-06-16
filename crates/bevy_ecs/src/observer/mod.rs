@@ -253,9 +253,21 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
 impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer.
     ///
+    /// Note that if event propagation is enabled, this may not be the same as the original target of the event,
+    /// which can be accessed via [`On::original_target`].
+    ///
     /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
     pub fn target(&self) -> Entity {
-        self.trigger.target.unwrap_or(Entity::PLACEHOLDER)
+        self.trigger.current_target.unwrap_or(Entity::PLACEHOLDER)
+    }
+
+    /// Returns the original [`Entity`] that the `event` was targeted at when it was first triggered.
+    ///
+    /// If event propagation is not enabled, this will always return the same value as [`On::target`].
+    ///
+    /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
+    pub fn original_target(&self) -> Entity {
+        self.trigger.original_target.unwrap_or(Entity::PLACEHOLDER)
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
@@ -483,8 +495,15 @@ pub struct ObserverTrigger {
     pub event_type: ComponentId,
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
-    /// The entity the trigger targeted.
-    pub target: Option<Entity>,
+    /// The entity that the entity-event targeted, if any.
+    ///
+    /// Note that if event propagation is enabled, this may not be the same as [`ObserverTrigger::original_target`].
+    pub current_target: Option<Entity>,
+    /// The entity that the entity-event was originally targeted at, if any.
+    ///
+    /// If event propagation is enabled, this will be the first entity that the event was targeted at,
+    /// even if the event was propagated to other entities.
+    pub original_target: Option<Entity>,
     /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
 }
@@ -573,7 +592,8 @@ impl Observers {
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
-        target: Option<Entity>,
+        current_target: Option<Entity>,
+        original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -601,7 +621,8 @@ impl Observers {
                     observer,
                     event_type,
                     components: components.clone().collect(),
-                    target,
+                    current_target,
+                    original_target,
                     caller,
                 },
                 data.into(),
@@ -612,7 +633,7 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
-        if let Some(target_entity) = target {
+        if let Some(target_entity) = current_target {
             if let Some(map) = observers.entity_observers.get(&target_entity) {
                 map.iter().for_each(&mut trigger_observer);
             }
@@ -626,7 +647,7 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if let Some(target_entity) = target {
+                if let Some(target_entity) = current_target {
                     if let Some(map) = component_observers.entity_map.get(&target_entity) {
                         map.iter().for_each(&mut trigger_observer);
                     }
@@ -752,6 +773,7 @@ impl World {
             world.trigger_observers_with_data::<_, ()>(
                 event_id,
                 None,
+                None,
                 core::iter::empty::<ComponentId>(),
                 event_data,
                 false,
@@ -863,6 +885,7 @@ impl World {
                 world.trigger_observers_with_data::<_, E::Traversal>(
                     event_id,
                     None,
+                    None,
                     targets.components(),
                     event_data,
                     false,
@@ -875,6 +898,7 @@ impl World {
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
                         event_id,
+                        Some(target_entity),
                         Some(target_entity),
                         targets.components(),
                         event_data,
@@ -1543,21 +1567,27 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        let parent = world
-            .spawn_empty()
-            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
+
+        world.entity_mut(parent).observe(
+            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent");
-            })
-            .id();
 
-        let child = world
-            .spawn(ChildOf(parent))
-            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
+                assert_eq!(trigger.target(), parent);
+                assert_eq!(trigger.original_target(), child);
+            },
+        );
+
+        world.entity_mut(child).observe(
+            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
-            })
-            .id();
+                assert_eq!(trigger.target(), child);
+                assert_eq!(trigger.original_target(), child);
+            },
+        );
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // TODO: ideally this flush is not necessary, but right now observe() returns EntityWorldMut
         // and therefore does not automatically flush.
         world.flush();
         world.trigger_targets(EventPropagating, child);
