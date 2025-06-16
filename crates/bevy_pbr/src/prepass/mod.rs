@@ -101,7 +101,7 @@ impl Plugin for PrepassPipelinePlugin {
     }
 }
 
-/// Sets up the prepasses for a [`Material`].
+/// Sets up the prepasses for a material.
 ///
 /// This depends on the [`PrepassPipelinePlugin`].
 pub struct PrepassPlugin {

@@ -40,9 +40,9 @@ pub struct InstanceManager {
     /// Per-view per-instance visibility bit. Used for [`RenderLayers`] and [`NotShadowCaster`] support.
     pub view_instance_visibility: EntityHashMap<StorageBuffer<Vec<u32>>>,
 
-    /// Next material ID available for a [`Material`].
+    /// Next material ID available.
     next_material_id: u32,
-    /// Map of [`Material`] to material ID.
+    /// Map of material asset to material ID.
     material_id_lookup: HashMap<UntypedAssetId, u32>,
     /// Set of material IDs used in the scene.
     material_ids_present_in_scene: HashSet<u32>,
