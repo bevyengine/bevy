@@ -2,7 +2,7 @@ use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::event::{EntityEvent, Event};
-use bevy_ecs::query::Has;
+use bevy_ecs::query::{Has, Without};
 use bevy_ecs::system::{In, ResMut};
 use bevy_ecs::{
     component::Component,
@@ -34,13 +34,12 @@ pub struct CoreCheckbox {
 
 fn checkbox_on_key_input(
     mut ev: On<FocusedInput<KeyboardInput>>,
-    q_checkbox: Query<(&CoreCheckbox, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(&CoreCheckbox, Has<Checked>), Without<InteractionDisabled>>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target()) {
+    if let Ok((checkbox, is_checked)) = q_checkbox.get(ev.target()) {
         let event = &ev.event().input;
-        if !disabled
-            && event.state == ButtonState::Pressed
+        if event.state == ButtonState::Pressed
             && !event.repeat
             && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
         {
