@@ -168,7 +168,8 @@ impl Plugin for WindowPlugin {
         // Register window descriptor and related types
         #[cfg(feature = "bevy_reflect")]
         app.register_type::<Window>()
-            .register_type::<PrimaryWindow>();
+            .register_type::<PrimaryWindow>()
+            .register_type::<CursorOptions>();
     }
 }
 
