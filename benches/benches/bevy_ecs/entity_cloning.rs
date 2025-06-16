@@ -147,41 +147,42 @@ fn bench_single_filtered_complex_into_target(
     type Required = (C1, C2, C3, C4, C5);
 
     let cloner = match scenario {
-        SingleFilteredIntoTargetScenario::AllPass => {
+        deny_all_scenarios::ALL_PASS => {
             source = world.spawn(Explicit::default()).id();
             target = world.spawn_empty().id();
             let mut cloner = EntityCloner::build_deny_all(&mut world);
             cloner.allow::<Explicit>();
             cloner
         }
-        SingleFilteredIntoTargetScenario::AllPassAsNew => {
+        deny_all_scenarios::ALL_PASS_AS_NEW => {
             source = world.spawn(Explicit::default()).id();
             target = world.spawn_empty().id();
             let mut cloner = EntityCloner::build_deny_all(&mut world);
             cloner.allow_if_new::<Explicit>();
             cloner
         }
-        SingleFilteredIntoTargetScenario::ExplicitMissing => {
+        deny_all_scenarios::EXPLICIT_MISSING => {
             source = world.spawn_empty().id();
             target = world.spawn_empty().id();
             let mut cloner = EntityCloner::build_deny_all(&mut world);
             cloner.allow::<Explicit>();
             cloner
         }
-        SingleFilteredIntoTargetScenario::ExplicitNotNew => {
+        deny_all_scenarios::EXPLICIT_NOT_NEW => {
             source = world.spawn(Explicit::default()).id();
             target = world.spawn(Explicit::default()).id();
             let mut cloner = EntityCloner::build_deny_all(&mut world);
             cloner.allow_if_new::<Explicit>();
             cloner
         }
-        SingleFilteredIntoTargetScenario::RequiredNotNew => {
+        deny_all_scenarios::REQUIRED_NOT_NEW => {
             source = world.spawn(Explicit::default()).id();
             target = world.spawn(Required::default()).id();
             let mut cloner = EntityCloner::build_deny_all(&mut world);
             cloner.allow::<Explicit>();
             cloner
         }
+        _ => unimplemented!(),
     };
 
     let mut cloner = cloner.finish();
@@ -265,34 +266,20 @@ fn single_unfiltered_all(c: &mut Criterion) {
     group.finish();
 }
 
-#[derive(Clone, Copy)]
-enum SingleFilteredIntoTargetScenario {
-    AllPass,
-    AllPassAsNew,
-    ExplicitMissing,
-    ExplicitNotNew,
-    RequiredNotNew,
+mod deny_all_scenarios {
+    pub const ALL_PASS: &str = "all_pass";
+    pub const ALL_PASS_AS_NEW: &str = "all_pass_as_new";
+    pub const EXPLICIT_MISSING: &str = "explicit_missing";
+    pub const EXPLICIT_NOT_NEW: &str = "explicit_not_new";
+    pub const REQUIRED_NOT_NEW: &str = "required_not_new";
 }
 
-impl ToString for SingleFilteredIntoTargetScenario {
-    fn to_string(&self) -> String {
-        match self {
-            SingleFilteredIntoTargetScenario::AllPass => "all_pass",
-            SingleFilteredIntoTargetScenario::AllPassAsNew => "all_pass_as_new",
-            SingleFilteredIntoTargetScenario::ExplicitMissing => "explicit_missing",
-            SingleFilteredIntoTargetScenario::ExplicitNotNew => "explicit_not_new",
-            SingleFilteredIntoTargetScenario::RequiredNotNew => "required_not_new",
-        }
-        .to_string()
-    }
-}
-
-const SINGLE_FILTERED_INTO_TARGET_SCENARIOS: [SingleFilteredIntoTargetScenario; 5] = [
-    SingleFilteredIntoTargetScenario::AllPass,
-    SingleFilteredIntoTargetScenario::AllPassAsNew,
-    SingleFilteredIntoTargetScenario::ExplicitMissing,
-    SingleFilteredIntoTargetScenario::ExplicitNotNew,
-    SingleFilteredIntoTargetScenario::RequiredNotNew,
+const SINGLE_FILTERED_INTO_TARGET_SCENARIOS: [&str; 5] = [
+    deny_all_scenarios::ALL_PASS,
+    deny_all_scenarios::ALL_PASS_AS_NEW,
+    deny_all_scenarios::EXPLICIT_MISSING,
+    deny_all_scenarios::EXPLICIT_NOT_NEW,
+    deny_all_scenarios::REQUIRED_NOT_NEW,
 ];
 
 /// Benchmarks cloning a single entity with 10 components where each needs to be evaluated
@@ -303,7 +290,7 @@ fn single_filtered_into_target(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
 
     for scenario in SINGLE_FILTERED_INTO_TARGET_SCENARIOS {
-        group.bench_function(scenario.to_string(), |b| {
+        group.bench_function(scenario, |b| {
             bench_single_filtered_complex_into_target(b, scenario);
         });
     }
