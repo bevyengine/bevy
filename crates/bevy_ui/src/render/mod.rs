@@ -1021,7 +1021,7 @@ fn extract_text_outlines(
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if !inherited_visibility.get() || uinode.is_empty() {
+        if !inherited_visibility.get() || uinode.is_empty() || outline.width == 0.0 {
             continue;
         }
 
