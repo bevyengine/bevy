@@ -137,7 +137,7 @@ fn bench_clone_single_unfiltered_all<B: Bundle + Default + GetTypeRegistration>(
 /// filter and allowing 5 components which each have one required component.
 fn bench_single_filtered_complex_into_target(
     b: &mut Bencher,
-    scenario: SingleFilteredIntoTargetScenario,
+    scenario: &str,
 ) {
     let mut world = World::default();
 
