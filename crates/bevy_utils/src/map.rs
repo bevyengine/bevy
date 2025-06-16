@@ -38,6 +38,86 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 /// Iteration order only depends on the order of insertions and deletions.
 pub type TypeIdMap<V> = HashMap<TypeId, V, NoOpHash>;
 
+/// Extension trait to make use of [`TypeIdMap`] more ergonomic.
+///
+/// # Examples
+///
+/// ```rust
+/// # use std::any::TypeId;
+/// # use bevy_utils::TypeIdMap;
+/// use bevy_utils::TypeIdMapExt;
+///
+/// struct MyType;
+///
+/// // Create a map from `TypeId` to values.
+/// let mut map = TypeIdMap::default();
+///
+/// // Using the built-in `HashMap` functions requires manually looking up `TypeId`s.
+/// map.insert(TypeId::of::<MyType>(), 7);
+/// assert_eq!(map.get(&TypeId::of::<MyType>()), Some(&7));
+/// map.remove(&TypeId::of::<MyType>());
+/// assert_eq!(map.len(), 0);
+///
+/// // Using `TypeIdMapExt` functions does the lookup for you.
+/// map.insert_type::<MyType>(7);
+/// assert_eq!(map.get_type::<MyType>(), Some(&7));
+/// map.remove_type::<MyType>();
+/// assert_eq!(map.len(), 0);
+/// ```
+pub trait TypeIdMapExt<V> {
+    /// Inserts a value for the type `T`.
+    ///
+    /// If the map did not previously contain this key then [`None`] is returned,
+    /// otherwise the value for this key is updated and the old value returned.
+    fn insert_type<T: ?Sized + 'static>(&mut self, v: V) -> Option<V>;
+
+    /// Returns a reference to the value for type `T`, if one exists.
+    fn get_type<T: ?Sized + 'static>(&self) -> Option<&V>;
+
+    /// Removes type `T` from the map, returning the value for this
+    /// key if it was previously present.
+    fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V>;
+}
+
+impl<V> TypeIdMapExt<V> for TypeIdMap<V> {
+    #[inline]
+    fn insert_type<T: ?Sized + 'static>(&mut self, v: V) -> Option<V> {
+        self.insert(TypeId::of::<T>(), v)
+    }
+
+    #[inline]
+    fn get_type<T: ?Sized + 'static>(&self) -> Option<&V> {
+        self.get(&TypeId::of::<T>())
+    }
+
+    #[inline]
+    fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V> {
+        self.remove(&TypeId::of::<T>())
+    }
+}
+
+    // /// Returns a reference to the value corresponding to the key.
+    // ///
+    // /// Refer to [`get`](hb::HashMap::get) for further details.
+    // ///
+    // /// # Examples
+    // ///
+    // /// ```rust
+    // /// # use bevy_platform::collections::HashMap;
+    // /// let mut map = HashMap::new();
+    // ///
+    // /// map.insert("foo", 0);
+    // ///
+    // /// assert_eq!(map.get("foo"), Some(&0));
+    // /// ```
+    // #[inline]
+    // pub fn get<Q>(&self, k: &Q) -> Option<&V>
+    // where
+    //     Q: Hash + Equivalent<K> + ?Sized,
+    // {
+    //     self.0.get(k)
+    // }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -67,7 +147,7 @@ mod tests {
         #[test]
         fn stable_hash_within_same_program_execution() {
             use alloc::vec::Vec;
-    
+
             let mut map_1 = <HashMap<_, _>>::default();
             let mut map_2 = <HashMap<_, _>>::default();
             for i in 1..10 {
