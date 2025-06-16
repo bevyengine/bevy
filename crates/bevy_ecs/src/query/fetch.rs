@@ -2514,14 +2514,14 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
     }
 }
 
-pub struct Tracked<'w, T: Component> {
+pub struct Tracked<'w, 's, T: Component> {
     entity: Entity,
     old: &'w T,
     new: Option<T>,
-    record: TrackedMutationRecord<T>,
+    record: &'s TrackedMutationRecord<T>,
 }
 
-impl<'w, T: Component> Drop for Tracked<'w, T> {
+impl<'w, 's, T: Component> Drop for Tracked<'w, 's, T> {
     fn drop(&mut self) {
         if let Some(new) = self.new.take() {
             self.record.insert(self.entity, new);
@@ -2529,7 +2529,7 @@ impl<'w, T: Component> Drop for Tracked<'w, T> {
     }
 }
 
-impl<'w, T: Component> Deref for Tracked<'w, T> {
+impl<'w, 's, T: Component> Deref for Tracked<'w, 's, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -2537,18 +2537,18 @@ impl<'w, T: Component> Deref for Tracked<'w, T> {
     }
 }
 
-impl<'w, T: Component + Clone> DerefMut for Tracked<'w, T> {
+impl<'w, 's, T: Component + Clone> DerefMut for Tracked<'w, 's, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.new.get_or_insert(self.old.clone())
     }
 }
 
-pub struct TrackedFetch<'w, T: Component> {
+pub struct TrackedFetch<'w, 's, T: Component> {
     fetch: ReadFetch<'w, T>,
-    record: TrackedMutationRecord<T>,
+    record: &'s TrackedMutationRecord<T>,
 }
 
-impl<'w, T: Component> Clone for TrackedFetch<'w, T> {
+impl<'w, 's, T: Component> Clone for TrackedFetch<'w, 's, T> {
     fn clone(&self) -> Self {
         Self {
             fetch: self.fetch,
@@ -2562,17 +2562,11 @@ pub struct TrackedState<T: Component> {
     record: TrackedMutationRecord<T>,
 }
 
-struct TrackedMutationRecord<T: Component>(Arc<Parallel<EntityHashMap<T>>>);
+struct TrackedMutationRecord<T: Component>(Parallel<EntityHashMap<T>>);
 
 impl<T: Component> Default for TrackedMutationRecord<T> {
     fn default() -> Self {
         Self(Default::default())
-    }
-}
-
-impl<T: Component> Clone for TrackedMutationRecord<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
     }
 }
 
@@ -2582,50 +2576,54 @@ impl<T: Component> TrackedMutationRecord<T> {
     }
 
     fn drain(&mut self) -> impl Iterator<Item = (Entity, T)> {
-        Arc::get_mut(&mut self.0)
-            .expect("drain() called while query fetches are still active.")
-            .drain()
+        self.0.drain()
     }
 }
 
 // SAFETY: defer to `<&T as WorldQuery>` for all methods
-unsafe impl<'__w, T: Component> WorldQuery for Tracked<'__w, T> {
-    type Fetch<'a> = TrackedFetch<'a, T>;
+unsafe impl<'__w, '__s, T: Component> WorldQuery for Tracked<'__w, '__s, T> {
+    type Fetch<'w, 's> = TrackedFetch<'w, 's, T>;
 
     type State = TrackedState<T>;
 
-    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+        fetch: Self::Fetch<'wlong, 's>,
+    ) -> Self::Fetch<'wshort, 's> {
         fetch
     }
 
-    unsafe fn init_fetch<'w>(
+    unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
-        state: &Self::State,
+        state: &'s Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> Self::Fetch<'w> {
+    ) -> Self::Fetch<'w, 's> {
         // SAFETY: invariants are upheld by the caller
         let fetch = unsafe {
             <&T as WorldQuery>::init_fetch(world, &state.component_id, last_run, this_run)
         };
         TrackedFetch {
             fetch,
-            record: state.record.clone(),
+            record: &state.record,
         }
     }
 
     const IS_DENSE: bool = true;
 
-    unsafe fn set_archetype<'w>(
+    unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w, 's>,
-        state: &Self::State,
+        state: &'s Self::State,
         archetype: &'w Archetype,
         table: &'w Table,
     ) {
         <&T as WorldQuery>::set_archetype(&mut fetch.fetch, &state.component_id, archetype, table);
     }
 
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+    unsafe fn set_table<'w, 's>(
+        fetch: &mut Self::Fetch<'w, 's>,
+        state: &Self::State,
+        table: &'w Table,
+    ) {
         <&T as WorldQuery>::set_table(&mut fetch.fetch, &state.component_id, table);
     }
 
@@ -2667,12 +2665,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Tracked<'__w, T> {
 }
 
 // SAFETY: Tracked<T> defers to &T internally, so it must be readonly and Self::ReadOnly = Self.
-unsafe impl<'__w, T: Component> QueryData for Tracked<'__w, T> {
+unsafe impl<'__w, '__s, T: Component> QueryData for Tracked<'__w, '__s, T> {
     const IS_READ_ONLY: bool = true;
 
     type ReadOnly = Self;
 
-    type Item<'w, 's> = Tracked<'w, T>;
+    type Item<'w, 's> = Tracked<'w, 's, T>;
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
@@ -2690,18 +2688,18 @@ unsafe impl<'__w, T: Component> QueryData for Tracked<'__w, T> {
         Tracked {
             entity,
             old,
-            // note: we could try to get an existing updated component from the record,
+            // NOTE: we could try to get an existing updated component from the record,
             // but we can't reliably do that across all threads. Better to say that all
             // newly-created Tracked values will match what's in the ECS.
             new: None,
-            record: fetch.record.clone(),
+            record: fetch.record,
         }
     }
 }
 
-// SAFETY: Tracked<T> only accesses &T from the world. Though it provides mutable access,
-// it does so wrapped in `Clone` and commands.
-unsafe impl<'__w, T: Component> ReadOnlyQueryData for Tracked<'__w, T> {}
+// SAFETY: Tracked<T> only accesses &T from the world. Though it provides mutable access, it only
+// applies those changes through commands.
+unsafe impl<'__w, '__s, T: Component> ReadOnlyQueryData for Tracked<'__w, '__s, T> {}
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
