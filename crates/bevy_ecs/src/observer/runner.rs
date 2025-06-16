@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, vec};
+use alloc::{borrow::Cow, boxed::Box, vec};
 use core::any::Any;
 
 use crate::{
@@ -194,7 +194,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 pub struct Observer {
     hook_on_add: ComponentHook,
     error_handler: Option<ErrorHandler>,
-    system: Box<dyn Any + Send + Sync + 'static>,
+    system: Box<dyn AnyNamedSystem + Send + Sync + 'static>,
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) last_trigger_id: u32,
     pub(crate) despawned_watched_entities: u32,
@@ -232,7 +232,7 @@ impl Observer {
     /// Creates a new [`Observer`] with custom runner, this is mostly used for dynamic event observer
     pub fn with_dynamic_runner(runner: ObserverRunner) -> Self {
         Self {
-            system: Box::new(|| {}),
+            system: Box::new(IntoSystem::into_system(|| {})),
             descriptor: Default::default(),
             hook_on_add: |mut world, hook_context| {
                 let default_error_handler = world.default_error_handler();
@@ -299,6 +299,11 @@ impl Observer {
     pub fn descriptor(&self) -> &ObserverDescriptor {
         &self.descriptor
     }
+
+    /// Returns the name of [`Observer`]'s system .
+    pub fn system_name(&self) -> Cow<'static, str> {
+        self.system.name()
+    }
 }
 
 impl Component for Observer {
@@ -364,7 +369,8 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.
     let system: *mut dyn ObserverSystem<E, B> = unsafe {
-        let system = state.system.downcast_mut::<S>().debug_checked_unwrap();
+        let system: &mut dyn Any = state.system.as_mut();
+        let system = system.downcast_mut::<S>().debug_checked_unwrap();
         &mut *system
     };
 
@@ -413,6 +419,10 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
 }
 
+trait AnyNamedSystem: Any + NamedSystem {}
+
+impl<T: Any + NamedSystem> AnyNamedSystem for T {}
+
 /// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::lifecycle::ComponentHooks::on_add`).
 ///
 /// This function exists separate from [`Observer`] to allow [`Observer`] to have its type parameters
@@ -431,11 +441,12 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         B::component_ids(&mut world.components_registrator(), &mut |id| {
             components.push(id);
         });
-        if let Some(mut observe) = world.get_mut::<Observer>(entity) {
-            observe.descriptor.events.push(event_id);
-            observe.descriptor.components.extend(components);
+        if let Some(mut observer) = world.get_mut::<Observer>(entity) {
+            observer.descriptor.events.push(event_id);
+            observer.descriptor.components.extend(components);
 
-            let system: *mut dyn ObserverSystem<E, B> = observe.system.downcast_mut::<S>().unwrap();
+            let system: &mut dyn Any = observer.system.as_mut();
+            let system: *mut dyn ObserverSystem<E, B> = system.downcast_mut::<S>().unwrap();
             // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
             unsafe {
                 (*system).initialize(world);
@@ -444,6 +455,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         }
     });
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
