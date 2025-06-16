@@ -487,7 +487,10 @@ mod tests {
         assert!(entity_ref.get::<B>().is_some());
         assert!(entity_ref.get_mut::<B>().is_none());
 
-        let mut query = QueryBuilder::<(FilteredEntityMut, EntityMutExcept<A>)>::new(&mut world)
+        let mut query =
+            QueryBuilder::<(FilteredEntityMut, EntityMutExcept<A>), Without<IsResource>>::new(
+                &mut world,
+            )
             .data::<EntityMut>()
             .build();
 
@@ -498,7 +501,10 @@ mod tests {
         assert!(entity_ref_1.get::<B>().is_none());
         assert!(entity_ref_1.get_mut::<B>().is_none());
 
-        let mut query = QueryBuilder::<(FilteredEntityMut, EntityRefExcept<A>)>::new(&mut world)
+        let mut query =
+            QueryBuilder::<(FilteredEntityMut, EntityRefExcept<A>), Without<IsResource>>::new(
+                &mut world,
+            )
             .data::<EntityMut>()
             .build();
 

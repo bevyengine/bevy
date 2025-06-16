@@ -412,7 +412,8 @@ mod tests {
         name::Name,
         prelude::{Add, AnyOf, EntityRef, On},
         query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
-        resource::Resource,
+        removal_detection::RemovedComponents,
+        resource::{IsResource, Resource},
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, IntoScheduleConfigs, Schedule,
             SystemCondition,
@@ -1332,8 +1333,9 @@ mod tests {
         world.spawn_empty();
         let spawn_tick = world.change_tick();
 
-        let mut system_state: SystemState<Option<Single<SpawnDetails, Spawned>>> =
-            SystemState::new(&mut world);
+        let mut system_state: SystemState<
+            Option<Single<SpawnDetails, (Spawned, Without<IsResource>)>>,
+        > = SystemState::new(&mut world);
         {
             let query = system_state.get(&world);
             assert_eq!(query.unwrap().spawned_at(), spawn_tick);
