@@ -562,8 +562,8 @@ impl EntityCloner {
                             .archetype()
                     });
                     filter.for_each_clone(source_archetype, target_archetype, |component| {
-                        clone_component(component, self)
-                    })
+                        clone_component(component, self);
+                    });
                 }
             }
 
