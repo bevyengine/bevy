@@ -24,17 +24,33 @@ Long-term, we'd like to fix our glTF imports to use the correct coordinate syste
 But changing the import behavior would mean that *all* imported glTFs of *all* users would suddenly look different, breaking their scenes!
 Not to mention that any bugs in the conversion code would be incredibly frustating for users.
 
-This is why we are now gradually rolling out support for corrected glTF imports. Starting now you can opt into the new behavior by setting the `GltfLoaderSettings`:
+This is why we are now gradually rolling out support for corrected glTF imports. Starting now you can opt into the new behavior by setting `convert_coordinates` on `GltfPlugin`:
 
 ```rust
 // old behavior, ignores glTF's coordinate system
+App::new()
+    .add_plugins(DefaultPlugins)
+    .run();
+
+// new behavior, converts the coordinate system of all glTF assets into Bevy's coordinate system
+App::new()
+    .add_plugins(DefaultPlugins.set(GltfPlugin {
+        convert_coordinates: true,
+        ..default()
+    }))
+    .run();
+```
+
+You can also control this on a per-asset-level:
+```rust
+// Use the global default
 let handle = asset_server.load("fox.gltf#Scene0");
 
-// new behavior, converts glTF's coordinate system into Bevy's coordinate system
+// Manually opt in or out of coordinate conversion for an individual asset
 let handle = asset_server.load_with_settings(
     "fox.gltf#Scene0",
     |settings: &mut GltfLoaderSettings| {
-        settings.convert_coordinates = true;
+        settings.convert_coordinates = Some(true);
     },
 );
 ```
