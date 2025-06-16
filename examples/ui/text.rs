@@ -7,7 +7,7 @@ use bevy::{
     color::palettes::css::{BLACK, GOLD, GREEN},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    ui::widget::TextOutline,
+    ui::widget::{TextOutline, TextOutlineWidth},
 };
 
 fn main() {
@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
         TextOutline {
-            width: 1.,
+            width: TextOutlineWidth::Px1,
             color: GREEN.into(),
             anti_aliasing: None,
         },
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Text with Outline"),
         TextOutline {
-            width: 2.,
+            width: TextOutlineWidth::Px2,
             color: BLACK.into(),
             anti_aliasing: Some(2.),
         },
@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // This will use the default font (a minimal subset of FiraMono) and apply the default styling.
         Text::new("From an &str into a Text with the default font!"),
         TextOutline {
-            width: 2.,
+            width: TextOutlineWidth::Px2,
             color: Color::BLACK,
             anti_aliasing: None,
         },

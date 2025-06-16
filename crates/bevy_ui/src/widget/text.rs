@@ -143,10 +143,10 @@ impl From<String> for Text {
     reflect(Serialize, Deserialize)
 )]
 pub struct TextOutline {
-    /// Width of the outline in pixels.
+    /// Width of the outline,
     ///
     /// Large widths may have a noticeable performance impact, especially if large amounts of text are outlined.
-    pub width: f32,
+    pub width: TextOutlineWidth,
     /// Defaults to [`Color::BLACK`].
     #[reflect(default = "TextOutline::default_color")]
     pub color: Color,
@@ -167,12 +167,50 @@ impl TextOutline {
 impl Default for TextOutline {
     fn default() -> Self {
         Self {
-            width: 0.0,
+            width: Default::default(),
             color: Self::default_color(),
             anti_aliasing: None,
         }
     }
 }
+
+/// Due to the current implementation, the computation of the the outline is increasing exponentially with outline width
+#[derive(Reflect, Debug, Copy, Clone, PartialEq, Default)]
+#[reflect(Default, Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum TextOutlineWidth {
+    /// No outline drawn
+    None,
+    /// One pixel outline width
+    #[default]
+    Px1,
+    /// Two pixel outline width
+    Px2,
+    /// Three pixel outline width
+    Px3,
+    /// Allows arbitrary outline width but may be very expensive to render.
+    HighCost(f32),
+}
+
+impl TextOutlineWidth {
+    pub fn as_f32(&self) -> f32 {
+        match *self {
+            TextOutlineWidth::None => 0.0,
+            TextOutlineWidth::Px1 => 1.0,
+            TextOutlineWidth::Px2 => 2.0,
+            TextOutlineWidth::Px3 => 3.0,
+            TextOutlineWidth::HighCost(arbitrary) => arbitrary,
+        }
+    }
+    pub fn as_i32(&self) -> i32 {
+        self.as_f32() as i32
+    }
+}
+
 /// UI alias for [`TextReader`].
 pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 
