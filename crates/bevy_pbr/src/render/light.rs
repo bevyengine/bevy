@@ -551,7 +551,7 @@ pub(crate) fn add_light_view_entities(
     trigger: On<Add, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
-    if let Ok(mut v) = commands.get_entity(trigger.target().unwrap()) {
+    if let Ok(mut v) = commands.get_entity(trigger.target()) {
         v.insert(LightViewEntities::default());
     }
 }
@@ -561,7 +561,7 @@ pub(crate) fn extracted_light_removed(
     trigger: On<Remove, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
-    if let Ok(mut v) = commands.get_entity(trigger.target().unwrap()) {
+    if let Ok(mut v) = commands.get_entity(trigger.target()) {
         v.try_remove::<LightViewEntities>();
     }
 }
@@ -571,7 +571,7 @@ pub(crate) fn remove_light_view_entities(
     query: Query<&LightViewEntities>,
     mut commands: Commands,
 ) {
-    if let Ok(entities) = query.get(trigger.target().unwrap()) {
+    if let Ok(entities) = query.get(trigger.target()) {
         for v in entities.0.values() {
             for e in v.iter().copied() {
                 if let Ok(mut v) = commands.get_entity(e) {
