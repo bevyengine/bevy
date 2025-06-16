@@ -732,7 +732,7 @@ impl AssetInfos {
     pub(crate) fn consume_handle_drop_events(&mut self) {
         for provider in self.handle_providers.values() {
             while let Ok(drop_event) = provider.drop_receiver.try_recv() {
-                let id = drop_event.id;
+                let id = drop_event.index;
                 if drop_event.asset_server_managed {
                     Self::process_handle_drop_internal(
                         &mut self.infos,
