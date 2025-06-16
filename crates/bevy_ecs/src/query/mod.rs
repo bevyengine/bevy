@@ -819,34 +819,37 @@ mod tests {
     /// SAFETY:
     /// `update_component_access` adds resource read access for `R`.
     unsafe impl WorldQuery for ReadsRData {
-        type Fetch<'w> = ();
+        type Fetch<'w, 's> = ();
         type State = ComponentId;
 
-        fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
+        fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+            _: Self::Fetch<'wlong, 's>,
+        ) -> Self::Fetch<'wshort, 's> {
+        }
 
-        unsafe fn init_fetch<'w>(
+        unsafe fn init_fetch<'w, 's>(
             _world: UnsafeWorldCell<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _last_run: Tick,
             _this_run: Tick,
-        ) -> Self::Fetch<'w> {
+        ) -> Self::Fetch<'w, 's> {
         }
 
         const IS_DENSE: bool = true;
 
         #[inline]
-        unsafe fn set_archetype<'w>(
-            _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
+        unsafe fn set_archetype<'w, 's>(
+            _fetch: &mut Self::Fetch<'w, 's>,
+            _state: &'s Self::State,
             _archetype: &'w Archetype,
             _table: &Table,
         ) {
         }
 
         #[inline]
-        unsafe fn set_table<'w>(
-            _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
+        unsafe fn set_table<'w, 's>(
+            _fetch: &mut Self::Fetch<'w, 's>,
+            _state: &'s Self::State,
             _table: &'w Table,
         ) {
         }
@@ -882,16 +885,19 @@ mod tests {
     unsafe impl QueryData for ReadsRData {
         const IS_READ_ONLY: bool = true;
         type ReadOnly = Self;
-        type Item<'w> = ();
+        type Item<'w, 's> = ();
 
-        fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            _item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
+        }
 
         #[inline(always)]
-        unsafe fn fetch<'w>(
-            _fetch: &mut Self::Fetch<'w>,
+        unsafe fn fetch<'w, 's>(
+            _fetch: &mut Self::Fetch<'w, 's>,
             _entity: Entity,
             _table_row: TableRow,
-        ) -> Self::Item<'w> {
+        ) -> Self::Item<'w, 's> {
         }
     }
 
