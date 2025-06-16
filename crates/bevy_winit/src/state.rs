@@ -474,7 +474,7 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 if let Ok((window_component, mut cache)) = windows.get_mut(self.world_mut(), window)
                 {
                     if window_component.is_changed() {
-                        cache.window = window_component.clone();
+                        **cache = window_component.clone();
                     }
                 }
             });
