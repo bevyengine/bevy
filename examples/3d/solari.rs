@@ -85,7 +85,7 @@ fn add_raytracing_meshes_on_scene_load(
     mut commands: Commands,
     args: Res<Args>,
 ) {
-    // Ensure meshes are bery_solari compatible
+    // Ensure meshes are bevy_solari compatible
     for (_, mesh) in meshes.iter_mut() {
         mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1.id);
         mesh.generate_tangents().unwrap();
