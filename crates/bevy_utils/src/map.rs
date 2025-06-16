@@ -54,13 +54,19 @@ pub type TypeIdMap<V> = HashMap<TypeId, V, NoOpHash>;
 ///
 /// // Using the built-in `HashMap` functions requires manually looking up `TypeId`s.
 /// map.insert(TypeId::of::<MyType>(), 7);
-/// assert_eq!(map.get(&TypeId::of::<MyType>()), Some(&7));
+/// if let Some(x) = map.get_mut(&TypeId::of::<MyType>()) {
+///     *x += 1;
+/// }
+/// assert_eq!(map.get(&TypeId::of::<MyType>()), Some(&8));
 /// map.remove(&TypeId::of::<MyType>());
 /// assert_eq!(map.len(), 0);
 ///
 /// // Using `TypeIdMapExt` functions does the lookup for you.
 /// map.insert_type::<MyType>(7);
-/// assert_eq!(map.get_type::<MyType>(), Some(&7));
+/// if let Some(x) = map.get_type_mut::<MyType>() {
+///     *x += 1;
+/// }
+/// assert_eq!(map.get_type::<MyType>(), Some(&8));
 /// map.remove_type::<MyType>();
 /// assert_eq!(map.len(), 0);
 /// ```
@@ -73,6 +79,9 @@ pub trait TypeIdMapExt<V> {
 
     /// Returns a reference to the value for type `T`, if one exists.
     fn get_type<T: ?Sized + 'static>(&self) -> Option<&V>;
+
+    /// Returns a mutable reference to the value for type `T`, if one exists.
+    fn get_type_mut<T: ?Sized + 'static>(&mut self) -> Option<&mut V>;
 
     /// Removes type `T` from the map, returning the value for this
     /// key if it was previously present.
@@ -91,32 +100,15 @@ impl<V> TypeIdMapExt<V> for TypeIdMap<V> {
     }
 
     #[inline]
+    fn get_type_mut<T: ?Sized + 'static>(&mut self) -> Option<&mut V> {
+        self.get_mut(&TypeId::of::<T>())
+    }
+
+    #[inline]
     fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V> {
         self.remove(&TypeId::of::<T>())
     }
 }
-
-    // /// Returns a reference to the value corresponding to the key.
-    // ///
-    // /// Refer to [`get`](hb::HashMap::get) for further details.
-    // ///
-    // /// # Examples
-    // ///
-    // /// ```rust
-    // /// # use bevy_platform::collections::HashMap;
-    // /// let mut map = HashMap::new();
-    // ///
-    // /// map.insert("foo", 0);
-    // ///
-    // /// assert_eq!(map.get("foo"), Some(&0));
-    // /// ```
-    // #[inline]
-    // pub fn get<Q>(&self, k: &Q) -> Option<&V>
-    // where
-    //     Q: Hash + Equivalent<K> + ?Sized,
-    // {
-    //     self.0.get(k)
-    // }
 
 #[cfg(test)]
 mod tests {
