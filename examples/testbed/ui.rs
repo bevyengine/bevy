@@ -20,6 +20,7 @@ fn main() {
         .add_systems(OnEnter(Scene::Overflow), overflow::setup)
         .add_systems(OnEnter(Scene::Slice), slice::setup)
         .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
+        .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
         .add_systems(Update, switch_scene);
 
     #[cfg(feature = "bevy_ci_testing")]
@@ -41,6 +42,7 @@ enum Scene {
     Overflow,
     Slice,
     LayoutRounding,
+    RadialGradient,
 }
 
 impl Next for Scene {
@@ -54,7 +56,8 @@ impl Next for Scene {
             Scene::TextWrap => Scene::Overflow,
             Scene::Overflow => Scene::Slice,
             Scene::Slice => Scene::LayoutRounding,
-            Scene::LayoutRounding => Scene::Image,
+            Scene::LayoutRounding => Scene::RadialGradient,
+            Scene::RadialGradient => Scene::Image,
         }
     }
 }
@@ -227,7 +230,7 @@ mod borders {
                             ..default()
                         },
                         BackgroundColor(MAROON.into()),
-                        BorderColor(RED.into()),
+                        BorderColor::all(RED.into()),
                         Outline {
                             width: Val::Px(10.),
                             offset: Val::Px(10.),
@@ -319,7 +322,7 @@ mod box_shadow {
                             border: UiRect::all(Val::Px(2.)),
                             ..default()
                         },
-                        BorderColor(WHITE.into()),
+                        BorderColor::all(WHITE.into()),
                         border_radius,
                         BackgroundColor(BLUE.into()),
                         BoxShadow::new(
@@ -369,7 +372,7 @@ mod text_wrap {
             for (j, message) in messages.into_iter().enumerate() {
                 commands.entity(root).with_child((
                     Text(message.clone()),
-                    TextLayout::new(JustifyText::Left, linebreak),
+                    TextLayout::new(Justify::Left, linebreak),
                     BackgroundColor(Color::srgb(0.8 - j as f32 * 0.3, 0., 0.)),
                 ));
             }
@@ -417,7 +420,7 @@ mod overflow {
                                 overflow,
                                 ..default()
                             },
-                            BorderColor(RED.into()),
+                            BorderColor::all(RED.into()),
                             BackgroundColor(Color::WHITE),
                         ))
                         .with_children(|parent| {
@@ -519,10 +522,107 @@ mod layout_rounding {
                                         ..Default::default()
                                     },
                                     BackgroundColor(MAROON.into()),
-                                    BorderColor(DARK_BLUE.into()),
+                                    BorderColor::all(DARK_BLUE.into()),
                                 ));
                             }
                         });
+                }
+            });
+    }
+}
+
+mod radial_gradient {
+    use bevy::color::palettes::css::RED;
+    use bevy::color::palettes::tailwind::GRAY_700;
+    use bevy::prelude::*;
+    use bevy::ui::ColorStop;
+
+    const CELL_SIZE: f32 = 80.;
+    const GAP: f32 = 10.;
+
+    pub fn setup(mut commands: Commands) {
+        let color_stops = vec![
+            ColorStop::new(Color::BLACK, Val::Px(5.)),
+            ColorStop::new(Color::WHITE, Val::Px(5.)),
+            ColorStop::new(Color::WHITE, Val::Percent(100.)),
+            ColorStop::auto(RED),
+        ];
+
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::RadialGradient)));
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    display: Display::Grid,
+                    align_items: AlignItems::Start,
+                    grid_template_columns: vec![RepeatedGridTrack::px(
+                        GridTrackRepetition::AutoFill,
+                        CELL_SIZE,
+                    )],
+                    grid_auto_flow: GridAutoFlow::Row,
+                    row_gap: Val::Px(GAP),
+                    column_gap: Val::Px(GAP),
+                    padding: UiRect::all(Val::Px(GAP)),
+                    ..default()
+                },
+                DespawnOnExitState(super::Scene::RadialGradient),
+            ))
+            .with_children(|commands| {
+                for (shape, shape_label) in [
+                    (RadialGradientShape::ClosestSide, "ClosestSide"),
+                    (RadialGradientShape::FarthestSide, "FarthestSide"),
+                    (
+                        RadialGradientShape::Circle(Val::Percent(55.)),
+                        "Circle(55%)",
+                    ),
+                    (RadialGradientShape::FarthestCorner, "FarthestCorner"),
+                ] {
+                    for (position, position_label) in [
+                        (UiPosition::TOP_LEFT, "TOP_LEFT"),
+                        (UiPosition::LEFT, "LEFT"),
+                        (UiPosition::BOTTOM_LEFT, "BOTTOM_LEFT"),
+                        (UiPosition::TOP, "TOP"),
+                        (UiPosition::CENTER, "CENTER"),
+                        (UiPosition::BOTTOM, "BOTTOM"),
+                        (UiPosition::TOP_RIGHT, "TOP_RIGHT"),
+                        (UiPosition::RIGHT, "RIGHT"),
+                        (UiPosition::BOTTOM_RIGHT, "BOTTOM_RIGHT"),
+                    ] {
+                        for (w, h) in [(CELL_SIZE, CELL_SIZE), (CELL_SIZE, CELL_SIZE / 2.)] {
+                            commands
+                                .spawn((
+                                    BackgroundColor(GRAY_700.into()),
+                                    Node {
+                                        display: Display::Grid,
+                                        width: Val::Px(CELL_SIZE),
+                                        ..Default::default()
+                                    },
+                                ))
+                                .with_children(|commands| {
+                                    commands.spawn((
+                                        Node {
+                                            margin: UiRect::all(Val::Px(2.0)),
+                                            ..default()
+                                        },
+                                        Text(format!("{shape_label}\n{position_label}")),
+                                        TextFont::from_font_size(9.),
+                                    ));
+                                    commands.spawn((
+                                        Node {
+                                            width: Val::Px(w),
+                                            height: Val::Px(h),
+                                            ..default()
+                                        },
+                                        BackgroundGradient::from(RadialGradient {
+                                            stops: color_stops.clone(),
+                                            position,
+                                            shape,
+                                        }),
+                                    ));
+                                });
+                        }
+                    }
                 }
             });
     }

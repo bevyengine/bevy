@@ -10,11 +10,16 @@ const TAU: f32 = 2. * PI;
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
 const BOTTOM_VERTEX = 4u;
-const BORDER: u32 = 8u;
+// must align with BORDER_* shader_flags from bevy_ui/render/mod.rs
 const RADIAL: u32 = 16u;
 const FILL_START: u32 = 32u;
 const FILL_END: u32 = 64u;
 const CONIC: u32 = 128u;
+const BORDER_LEFT: u32 = 256u;
+const BORDER_TOP: u32 = 512u;
+const BORDER_RIGHT: u32 = 1024u;
+const BORDER_BOTTOM: u32 = 2048u;
+const BORDER_ANY: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
 
 fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
@@ -102,8 +107,8 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
         in.flags
     );
 
-    if enabled(in.flags, BORDER) {
-        return draw_uinode_border(gradient_color, in.point, in.size, in.radius, in.border);
+    if enabled(in.flags, BORDER_ANY) {
+        return draw_uinode_border(gradient_color, in.point, in.size, in.radius, in.border, in.flags);
     } else {
         return draw_uinode_background(gradient_color, in.point, in.size, in.radius, in.border);
     }

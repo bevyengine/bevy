@@ -62,7 +62,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     ///     query.par_iter().for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += 1;
     ///      });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
@@ -130,7 +130,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
         let max_items = || {
             let id_iter = self.state.matched_storage_ids.iter();
             if self.state.is_dense {
@@ -147,10 +147,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                     .map(|id| unsafe { archetypes[id.archetype_id].len() })
                     .max()
             }
+            .map(|v| v as usize)
             .unwrap_or(0)
         };
         self.batching_strategy
-            .calc_batch_size(max_items, thread_count)
+            .calc_batch_size(max_items, thread_count) as u32
     }
 }
 
@@ -232,7 +233,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///     query.par_iter_many(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item);
     ///     });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
@@ -301,9 +302,9 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
         self.batching_strategy
-            .calc_batch_size(|| self.entity_list.len(), thread_count)
+            .calc_batch_size(|| self.entity_list.len(), thread_count) as u32
     }
 }
 
@@ -387,7 +388,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///     query.par_iter_many_unique(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item);
     ///     });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
@@ -456,8 +457,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
         self.batching_strategy
-            .calc_batch_size(|| self.entity_list.len(), thread_count)
+            .calc_batch_size(|| self.entity_list.len(), thread_count) as u32
     }
 }

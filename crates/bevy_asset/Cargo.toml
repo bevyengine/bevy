@@ -3,7 +3,7 @@ name = "bevy_asset"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Provides asset functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -54,7 +54,7 @@ parking_lot = { version = "0.12", default-features = false, features = [
   "arc_lock",
   "send_guard",
 ] }
-ron = { version = "0.8", default-features = false }
+ron = { version = "0.10", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }

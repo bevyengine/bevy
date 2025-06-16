@@ -127,33 +127,9 @@ where
         self.name.clone()
     }
 
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(
-        &self,
-    ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
-        self.system.component_access_set()
-    }
-
     #[inline]
-    fn archetype_component_access(
-        &self,
-    ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
-        self.system.archetype_component_access()
-    }
-
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    fn flags(&self) -> super::SystemStateFlags {
+        self.system.flags()
     }
 
     #[inline]
@@ -166,6 +142,12 @@ where
         self.func.adapt(input, |input| unsafe {
             self.system.run_unsafe(input, world)
         })
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
     }
 
     #[inline]
@@ -187,17 +169,15 @@ where
         unsafe { self.system.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut crate::prelude::World) {
-        self.system.initialize(world);
+    fn initialize(
+        &mut self,
+        world: &mut crate::prelude::World,
+    ) -> crate::query::FilteredAccessSet<crate::component::ComponentId> {
+        self.system.initialize(world)
     }
 
-    #[inline]
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
-    }
-
-    fn check_change_tick(&mut self, change_tick: crate::component::Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: crate::component::CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {

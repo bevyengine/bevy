@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -26,7 +26,8 @@ use accesskit::Node;
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Event},
+    component::Component,
+    event::{BufferedEvent, Event},
     resource::Resource,
     schedule::SystemSet,
 };
@@ -44,7 +45,7 @@ use serde::{Deserialize, Serialize};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
-#[derive(Event, Deref, DerefMut)]
+#[derive(Event, BufferedEvent, Deref, DerefMut)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct ActionRequest(pub accesskit::ActionRequest);
 

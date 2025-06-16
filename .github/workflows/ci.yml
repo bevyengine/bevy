@@ -13,7 +13,7 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly-2025-05-16 # pinned until a fix for https://github.com/rust-lang/miri/issues/4323 is released
+  NIGHTLY_TOOLCHAIN: nightly
   RUSTFLAGS: "-D warnings"
   BINSTALL_VERSION: "v1.12.3"
 
@@ -247,7 +247,7 @@ jobs:
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
-          RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory -D warnings"
+          RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory"
 
   markdownlint:
     runs-on: ubuntu-latest
@@ -293,7 +293,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.32.0
+        uses: crate-ci/typos@v1.33.1
       - name: Typos info
         if: failure()
         run: |

@@ -1,4 +1,133 @@
-//! Types for creating and storing [`Observer`]s
+//! Observers are a push-based tool for responding to [`Event`]s.
+//!
+//! ## Observer targeting
+//!
+//! Observers can be "global", listening for events that are both targeted at and not targeted at any specific entity,
+//! or they can be "entity-specific", listening for events that are targeted at specific entities.
+//!
+//! They can also be further refined by listening to events targeted at specific components
+//! (instead of using a generic event type), as is done with the [`Add`] family of lifecycle events.
+//!
+//! When entities are observed, they will receive an [`ObservedBy`] component,
+//! which will be updated to track the observers that are currently observing them.
+//!
+//! Currently, [observers cannot be retargeted after spawning](https://github.com/bevyengine/bevy/issues/19587):
+//! despawn and respawn an observer as a workaround.
+//!
+//! ## Writing observers
+//!
+//! Observers are systems which implement [`IntoObserverSystem`] that listen for [`Event`]s matching their
+//! type and target(s).
+//! To write observer systems, use [`On`] as the first parameter of your system.
+//! This parameter provides access to the specific event that triggered the observer,
+//! as well as the entity that the event was targeted at, if any.
+//!
+//! Observers can request other data from the world, such as via a [`Query`] or [`Res`].
+//! Commonly, you might want to verify that the entity that the observable event is targeting
+//! has a specific component, or meets some other condition. [`Query::get`] or [`Query::contains`]
+//! on the [`On::target`] entity is a good way to do this.
+//!
+//! [`Commands`] can also be used inside of observers.
+//! This can be particularly useful for triggering other observers!
+//!
+//! ## Spawning observers
+//!
+//! Observers can be spawned via [`World::add_observer`], or the equivalent app method.
+//! This will cause an entity with the [`Observer`] component to be created,
+//! which will then run the observer system whenever the event it is watching is triggered.
+//!
+//! You can control the targets that an observer is watching by calling [`Observer::watch_entity`]
+//! once the entity is spawned, or by manually spawning an entity with the [`Observer`] component
+//! configured with the desired targets.
+//!
+//! Observers are fundamentally defined as "entities which have the [`Observer`] component"
+//! allowing you to add it manually to existing entities.
+//! At first, this seems convenient, but only one observer can be added to an entity at a time,
+//! regardless of the event it responds to: like always, components are unique.
+//!
+//! Instead, a better way to achieve a similar aim is to
+//! use the [`EntityWorldMut::observe`] / [`EntityCommands::observe`] method,
+//! which spawns a new observer, and configures it to watch the entity it is called on.
+//! Unfortunately, observers defined in this way
+//! [currently cannot be spawned as part of bundles](https://github.com/bevyengine/bevy/issues/14204).
+//!
+//! ## Triggering observers
+//!
+//! Observers are most commonly triggered by [`Commands`],
+//! via [`Commands::trigger`] (for untargeted [`Event`]s) or [`Commands::trigger_targets`] (for targeted [`EntityEvent`]s).
+//! Like usual, equivalent methods are available on [`World`], allowing you to reduce overhead when working with exclusive world access.
+//!
+//! If your observer is configured to watch for a specific component or set of components instead,
+//! you can pass in [`ComponentId`]s into [`Commands::trigger_targets`] by using the [`TriggerTargets`] trait.
+//! As discussed in the [`On`] documentation, this use case is rare, and is currently only used
+//! for [lifecycle](crate::lifecycle) events, which are automatically emitted.
+//!
+//! ## Observer bubbling
+//!
+//! When using an [`EntityEvent`] targeted at an entity, the event can optionally be propagated to other targets,
+//! typically up to parents in an entity hierarchy.
+//!
+//! This behavior is controlled via [`EntityEvent::Traversal`] and [`EntityEvent::AUTO_PROPAGATE`],
+//! with the details of the propagation path specified by the [`Traversal`](crate::traversal::Traversal) trait.
+//!
+//! When auto-propagation is enabled, propagation must be manually stopped to prevent the event from
+//! continuing to other targets. This can be done using the [`On::propagate`] method inside of your observer.
+//!
+//! ## Observer timing
+//!
+//! Observers are triggered via [`Commands`], which imply that they are evaluated at the next sync point in the ECS schedule.
+//! Accordingly, they have full access to the world, and are evaluated sequentially, in the order that the commands were sent.
+//!
+//! To control the relative ordering of observers sent from different systems,
+//! order the systems in the schedule relative to each other.
+//!
+//! Currently, Bevy does not provide [a way to specify the ordering of observers](https://github.com/bevyengine/bevy/issues/14890)
+//! listening to the same event relative to each other.
+//!
+//! Commands sent by observers are [currently not immediately applied](https://github.com/bevyengine/bevy/issues/19569).
+//! Instead, all queued observers will run, and then all of the commands from those observers will be applied.
+//! Careful use of [`Schedule::apply_deferred`] may help as a workaround.
+//!
+//! ## Lifecycle events and observers
+//!
+//! It is important to note that observers, just like [hooks](crate::lifecycle::ComponentHooks),
+//! can listen to and respond to [lifecycle](crate::lifecycle) events.
+//! Unlike hooks, observers are not treated as an "innate" part of component behavior:
+//! they can be added or removed at runtime, and multiple observers
+//! can be registered for the same lifecycle event for the same component.
+//!
+//! The ordering of hooks versus observers differs based on the lifecycle event in question:
+//!
+//! - when adding components, hooks are evaluated first, then observers
+//! - when removing components, observers are evaluated first, then hooks
+//!
+//! This allows hooks to act as constructors and destructors for components,
+//! as they always have the first and final say in the component's lifecycle.
+//!
+//! ## Cleaning up observers
+//!
+//! Currently, observer entities are never cleaned up, even if their target entity(s) are despawned.
+//! This won't cause any runtime overhead, but is a waste of memory and can result in memory leaks.
+//!
+//! If you run into this problem, you could manually scan the world for observer entities and despawn them,
+//! by checking if the entity in [`Observer::descriptor`] still exists.
+//!
+//! ## Observers vs buffered events
+//!
+//! By contrast, [`EventReader`] and [`EventWriter`] ("buffered events"), are pull-based.
+//! They require periodically polling the world to check for new events, typically in a system that runs as part of a schedule.
+//!
+//! This imposes a small overhead, making observers a better choice for extremely rare events,
+//! but buffered events can be more efficient for events that are expected to occur multiple times per frame,
+//! as it allows for batch processing of events.
+//!
+//! The difference in timing is also an important consideration:
+//! buffered events are evaluated at fixed points during schedules,
+//! while observers are evaluated as soon as possible after the event is triggered.
+//!
+//! This provides more control over the timing of buffered event evaluation,
+//! but allows for a more ad hoc approach with observers,
+//! and enables indefinite chaining of observers triggering other observers (for both better and worse!).
 
 mod entity_observer;
 mod runner;
@@ -28,16 +157,31 @@ use smallvec::SmallVec;
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
-/// contains event propagation information. See [`Trigger::propagate`] for more information.
-pub struct Trigger<'w, E, B: Bundle = ()> {
+/// contains event propagation information. See [`On::propagate`] for more information.
+///
+/// The generic `B: Bundle` is used to modify the further specialize the events that this observer is interested in.
+/// The entity involved *does not* have to have these components, but the observer will only be
+/// triggered if the event matches the components in `B`.
+///
+/// This is used to to avoid providing a generic argument in your event, as is done for [`Add`]
+/// and the other lifecycle events.
+///
+/// Providing multiple components in this bundle will cause this event to be triggered by any
+/// matching component in the bundle,
+/// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
+pub struct On<'w, E, B: Bundle = ()> {
     event: &'w mut E,
     propagate: &'w mut bool,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
 }
 
-impl<'w, E, B: Bundle> Trigger<'w, E, B> {
-    /// Creates a new trigger for the given event and observer information.
+/// Deprecated in favor of [`On`].
+#[deprecated(since = "0.17.0", note = "Renamed to `On`.")]
+pub type Trigger<'w, E, B = ()> = On<'w, E, B>;
+
+impl<'w, E, B: Bundle> On<'w, E, B> {
+    /// Creates a new instance of [`On`] for the given event and observer information.
     pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
         Self {
             event,
@@ -47,7 +191,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         }
     }
 
-    /// Returns the event type of this trigger.
+    /// Returns the event type of this [`On`] instance.
     pub fn event_type(&self) -> ComponentId {
         self.trigger.event_type
     }
@@ -67,24 +211,6 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         Ptr::from(&self.event)
     }
 
-    /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
-    /// be [`Entity::PLACEHOLDER`].
-    ///
-    /// Observable events can target specific entities. When those events fire, they will trigger
-    /// any observers on the targeted entities. In this case, the `target()` and `observer()` are
-    /// the same, because the observer that was triggered is attached to the entity that was
-    /// targeted by the event.
-    ///
-    /// However, it is also possible for those events to bubble up the entity hierarchy and trigger
-    /// observers on *different* entities, or trigger a global observer. In these cases, the
-    /// observing entity is *different* from the entity being targeted by the event.
-    ///
-    /// This is an important distinction: the entity reacting to an event is not always the same as
-    /// the entity triggered by the event.
-    pub fn target(&self) -> Entity {
-        self.trigger.target
-    }
-
     /// Returns the components that triggered the observer, out of the
     /// components defined in `B`. Does not necessarily include all of them as
     /// `B` acts like an `OR` filter rather than an `AND` filter.
@@ -98,14 +224,14 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_ecs::prelude::{Commands, Trigger};
+    /// # use bevy_ecs::prelude::{Commands, On};
     /// #
     /// # struct MyEvent {
     /// #   done: bool,
     /// # }
     /// #
     /// /// Handle `MyEvent` and if it is done, stop observation.
-    /// fn my_observer(trigger: Trigger<MyEvent>, mut commands: Commands) {
+    /// fn my_observer(trigger: On<MyEvent>, mut commands: Commands) {
     ///     if trigger.event().done {
     ///         commands.entity(trigger.observer()).despawn();
     ///         return;
@@ -118,14 +244,40 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         self.trigger.observer
     }
 
+    /// Returns the source code location that triggered this observer.
+    pub fn caller(&self) -> MaybeLocation {
+        self.trigger.caller
+    }
+}
+
+impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
+    /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer.
+    ///
+    /// Note that if event propagation is enabled, this may not be the same as the original target of the event,
+    /// which can be accessed via [`On::original_target`].
+    ///
+    /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
+    pub fn target(&self) -> Entity {
+        self.trigger.current_target.unwrap_or(Entity::PLACEHOLDER)
+    }
+
+    /// Returns the original [`Entity`] that the `event` was targeted at when it was first triggered.
+    ///
+    /// If event propagation is not enabled, this will always return the same value as [`On::target`].
+    ///
+    /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
+    pub fn original_target(&self) -> Entity {
+        self.trigger.original_target.unwrap_or(Entity::PLACEHOLDER)
+    }
+
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
     ///
     /// The path an event will propagate along is specified by its associated [`Traversal`] component. By default, events
     /// use `()` which ends the path immediately and prevents propagation.
     ///
     /// To enable propagation, you must:
-    /// + Set [`Event::Traversal`] to the component you want to propagate along.
-    /// + Either call `propagate(true)` in the first observer or set [`Event::AUTO_PROPAGATE`] to `true`.
+    /// + Set [`EntityEvent::Traversal`] to the component you want to propagate along.
+    /// + Either call `propagate(true)` in the first observer or set [`EntityEvent::AUTO_PROPAGATE`] to `true`.
     ///
     /// You can prevent an event from propagating further using `propagate(false)`.
     ///
@@ -136,20 +288,15 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
 
     /// Returns the value of the flag that controls event propagation. See [`propagate`] for more information.
     ///
-    /// [`propagate`]: Trigger::propagate
+    /// [`propagate`]: On::propagate
     pub fn get_propagate(&self) -> bool {
         *self.propagate
     }
-
-    /// Returns the source code location that triggered this observer.
-    pub fn caller(&self) -> MaybeLocation {
-        self.trigger.caller
-    }
 }
 
-impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
+impl<'w, E: Debug, B: Bundle> Debug for On<'w, E, B> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Trigger")
+        f.debug_struct("On")
             .field("event", &self.event)
             .field("propagate", &self.propagate)
             .field("trigger", &self.trigger)
@@ -158,7 +305,7 @@ impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
+impl<'w, E, B: Bundle> Deref for On<'w, E, B> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -166,16 +313,20 @@ impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
+impl<'w, E, B: Bundle> DerefMut for On<'w, E, B> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
     }
 }
 
-/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of type [`Entity`] or [`ComponentId`].
+/// Represents a collection of targets for a specific [`On`] instance of an [`Event`].
 ///
-/// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches for that specific event-target combination
-/// will run.
+/// When an event is triggered with [`TriggerTargets`], any [`Observer`] that watches for that specific
+/// event-target combination will run.
+///
+/// This trait is implemented for both [`Entity`] and [`ComponentId`], allowing you to target specific entities or components.
+/// It is also implemented for various collections of these types, such as [`Vec`], arrays, and tuples,
+/// allowing you to trigger events for multiple targets at once.
 pub trait TriggerTargets {
     /// The components the trigger should target.
     fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_;
@@ -280,7 +431,9 @@ all_tuples!(
     T
 );
 
-/// A description of what an [`Observer`] observes.
+/// Store information about what an [`Observer`] observes.
+///
+/// This information is stored inside of the [`Observer`] component,
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
     /// The events the observer is watching.
@@ -331,7 +484,9 @@ impl ObserverDescriptor {
     }
 }
 
-/// Event trigger metadata for a given [`Observer`],
+/// Metadata about a specific [`Event`] that triggered an observer.
+///
+/// This information is exposed via methods on [`On`].
 #[derive(Debug)]
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
@@ -340,8 +495,15 @@ pub struct ObserverTrigger {
     pub event_type: ComponentId,
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
-    /// The entity the trigger targeted.
-    pub target: Entity,
+    /// The entity that the entity-event targeted, if any.
+    ///
+    /// Note that if event propagation is enabled, this may not be the same as [`ObserverTrigger::original_target`].
+    pub current_target: Option<Entity>,
+    /// The entity that the entity-event was originally targeted at, if any.
+    ///
+    /// If event propagation is enabled, this will be the first entity that the event was targeted at,
+    /// even if the event was propagated to other entities.
+    pub original_target: Option<Entity>,
     /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
 }
@@ -357,6 +519,8 @@ impl ObserverTrigger {
 type ObserverMap = EntityHashMap<ObserverRunner>;
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
+///
+/// This is stored inside of [`CachedObservers`].
 #[derive(Default, Debug)]
 pub struct CachedComponentObservers {
     // Observers listening to triggers targeting this component
@@ -366,6 +530,8 @@ pub struct CachedComponentObservers {
 }
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger.
+///
+/// This is stored inside of [`Observers`], specialized for each kind of observer.
 #[derive(Default, Debug)]
 pub struct CachedObservers {
     // Observers listening for any time this trigger is fired
@@ -376,38 +542,48 @@ pub struct CachedObservers {
     entity_observers: EntityHashMap<ObserverMap>,
 }
 
-/// Metadata for observers. Stores a cache mapping trigger ids to the registered observers.
+/// An internal lookup table tracking all of the observers in the world.
+///
+/// Stores a cache mapping trigger ids to the registered observers.
+/// Some observer kinds (like [lifecycle](crate::lifecycle) observers) have a dedicated field,
+/// saving lookups for the most common triggers.
+///
+/// This is stored as a field of the [`World`].
 #[derive(Default, Debug)]
 pub struct Observers {
     // Cached ECS observers to save a lookup most common triggers.
-    on_add: CachedObservers,
-    on_insert: CachedObservers,
-    on_replace: CachedObservers,
-    on_remove: CachedObservers,
-    on_despawn: CachedObservers,
-    // Map from trigger type to set of observers
+    add: CachedObservers,
+    insert: CachedObservers,
+    replace: CachedObservers,
+    remove: CachedObservers,
+    despawn: CachedObservers,
+    // Map from trigger type to set of observers listening to that trigger
     cache: HashMap<ComponentId, CachedObservers>,
 }
 
 impl Observers {
     pub(crate) fn get_observers(&mut self, event_type: ComponentId) -> &mut CachedObservers {
+        use crate::lifecycle::*;
+
         match event_type {
-            ON_ADD => &mut self.on_add,
-            ON_INSERT => &mut self.on_insert,
-            ON_REPLACE => &mut self.on_replace,
-            ON_REMOVE => &mut self.on_remove,
-            ON_DESPAWN => &mut self.on_despawn,
+            ADD => &mut self.add,
+            INSERT => &mut self.insert,
+            REPLACE => &mut self.replace,
+            REMOVE => &mut self.remove,
+            DESPAWN => &mut self.despawn,
             _ => self.cache.entry(event_type).or_default(),
         }
     }
 
     pub(crate) fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
+        use crate::lifecycle::*;
+
         match event_type {
-            ON_ADD => Some(&self.on_add),
-            ON_INSERT => Some(&self.on_insert),
-            ON_REPLACE => Some(&self.on_replace),
-            ON_REMOVE => Some(&self.on_remove),
-            ON_DESPAWN => Some(&self.on_despawn),
+            ADD => Some(&self.add),
+            INSERT => Some(&self.insert),
+            REPLACE => Some(&self.replace),
+            REMOVE => Some(&self.remove),
+            DESPAWN => Some(&self.despawn),
             _ => self.cache.get(&event_type),
         }
     }
@@ -416,7 +592,8 @@ impl Observers {
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
-        target: Entity,
+        current_target: Option<Entity>,
+        original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -444,7 +621,8 @@ impl Observers {
                     observer,
                     event_type,
                     components: components.clone().collect(),
-                    target,
+                    current_target,
+                    original_target,
                     caller,
                 },
                 data.into(),
@@ -455,8 +633,8 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
-        if target != Entity::PLACEHOLDER {
-            if let Some(map) = observers.entity_observers.get(&target) {
+        if let Some(target_entity) = current_target {
+            if let Some(map) = observers.entity_observers.get(&target_entity) {
                 map.iter().for_each(&mut trigger_observer);
             }
         }
@@ -469,8 +647,8 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if target != Entity::PLACEHOLDER {
-                    if let Some(map) = component_observers.entity_map.get(&target) {
+                if let Some(target_entity) = current_target {
+                    if let Some(map) = component_observers.entity_map.get(&target_entity) {
                         map.iter().for_each(&mut trigger_observer);
                     }
                 }
@@ -479,12 +657,14 @@ impl Observers {
     }
 
     pub(crate) fn is_archetype_cached(event_type: ComponentId) -> Option<ArchetypeFlags> {
+        use crate::lifecycle::*;
+
         match event_type {
-            ON_ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
-            ON_INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
-            ON_REPLACE => Some(ArchetypeFlags::ON_REPLACE_OBSERVER),
-            ON_REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
-            ON_DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
+            ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
+            INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
+            REPLACE => Some(ArchetypeFlags::ON_REPLACE_OBSERVER),
+            REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
+            DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
             _ => None,
         }
     }
@@ -494,39 +674,23 @@ impl Observers {
         component_id: ComponentId,
         flags: &mut ArchetypeFlags,
     ) {
-        if self.on_add.component_observers.contains_key(&component_id) {
+        if self.add.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_ADD_OBSERVER);
         }
 
-        if self
-            .on_insert
-            .component_observers
-            .contains_key(&component_id)
-        {
+        if self.insert.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_INSERT_OBSERVER);
         }
 
-        if self
-            .on_replace
-            .component_observers
-            .contains_key(&component_id)
-        {
+        if self.replace.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_REPLACE_OBSERVER);
         }
 
-        if self
-            .on_remove
-            .component_observers
-            .contains_key(&component_id)
-        {
+        if self.remove.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_REMOVE_OBSERVER);
         }
 
-        if self
-            .on_despawn
-            .component_observers
-            .contains_key(&component_id)
-        {
+        if self.despawn.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_DESPAWN_OBSERVER);
         }
     }
@@ -535,6 +699,8 @@ impl Observers {
 impl World {
     /// Spawns a "global" [`Observer`] which will watch for the given event.
     /// Returns its [`Entity`] as a [`EntityWorldMut`].
+    ///
+    /// `system` can be any system whose first parameter is [`On`].
     ///
     /// **Calling [`observe`](EntityWorldMut::observe) on the returned
     /// [`EntityWorldMut`] will observe the observer itself, which you very
@@ -548,10 +714,10 @@ impl World {
     /// struct A;
     ///
     /// # let mut world = World::new();
-    /// world.add_observer(|_: Trigger<OnAdd, A>| {
+    /// world.add_observer(|_: On<Add, A>| {
     ///     // ...
     /// });
-    /// world.add_observer(|_: Trigger<OnRemove, A>| {
+    /// world.add_observer(|_: On<Remove, A>| {
     ///     // ...
     /// });
     /// ```
@@ -580,7 +746,7 @@ impl World {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe {
-            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, (), caller);
+            self.trigger_dynamic_ref_with_caller(event_id, &mut event, caller);
         }
     }
 
@@ -592,20 +758,41 @@ impl World {
     pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, event, ()) };
+        unsafe { self.trigger_dynamic_ref_with_caller(event_id, event, MaybeLocation::caller()) };
     }
 
-    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
+    unsafe fn trigger_dynamic_ref_with_caller<E: Event>(
+        &mut self,
+        event_id: ComponentId,
+        event_data: &mut E,
+        caller: MaybeLocation,
+    ) {
+        let mut world = DeferredWorld::from(self);
+        // SAFETY: `event_data` is accessible as the type represented by `event_id`
+        unsafe {
+            world.trigger_observers_with_data::<_, ()>(
+                event_id,
+                None,
+                None,
+                core::iter::empty::<ComponentId>(),
+                event_data,
+                false,
+                caller,
+            );
+        };
+    }
+
+    /// Triggers the given [`EntityEvent`] for the given `targets`, which will run any [`Observer`]s watching for it.
     ///
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
     #[track_caller]
-    pub fn trigger_targets<E: Event>(&mut self, event: E, targets: impl TriggerTargets) {
+    pub fn trigger_targets<E: EntityEvent>(&mut self, event: E, targets: impl TriggerTargets) {
         self.trigger_targets_with_caller(event, targets, MaybeLocation::caller());
     }
 
-    pub(crate) fn trigger_targets_with_caller<E: Event>(
+    pub(crate) fn trigger_targets_with_caller<E: EntityEvent>(
         &mut self,
         mut event: E,
         targets: impl TriggerTargets,
@@ -618,19 +805,23 @@ impl World {
         }
     }
 
-    /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
+    /// Triggers the given [`EntityEvent`] as a mutable reference for the given `targets`,
     /// which will run any [`Observer`]s watching for it.
     ///
     /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     #[track_caller]
-    pub fn trigger_targets_ref<E: Event>(&mut self, event: &mut E, targets: impl TriggerTargets) {
+    pub fn trigger_targets_ref<E: EntityEvent>(
+        &mut self,
+        event: &mut E,
+        targets: impl TriggerTargets,
+    ) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe { self.trigger_targets_dynamic_ref(event_id, event, targets) };
     }
 
-    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
+    /// Triggers the given [`EntityEvent`] for the given `targets`, which will run any [`Observer`]s watching for it.
     ///
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
@@ -640,7 +831,7 @@ impl World {
     ///
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
     #[track_caller]
-    pub unsafe fn trigger_targets_dynamic<E: Event, Targets: TriggerTargets>(
+    pub unsafe fn trigger_targets_dynamic<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
         mut event_data: E,
@@ -652,7 +843,7 @@ impl World {
         };
     }
 
-    /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
+    /// Triggers the given [`EntityEvent`] as a mutable reference for the given `targets`,
     /// which will run any [`Observer`]s watching for it.
     ///
     /// Compared to [`World::trigger_targets_dynamic`], this method is most useful when it's necessary to check
@@ -662,7 +853,7 @@ impl World {
     ///
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
     #[track_caller]
-    pub unsafe fn trigger_targets_dynamic_ref<E: Event, Targets: TriggerTargets>(
+    pub unsafe fn trigger_targets_dynamic_ref<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
         event_data: &mut E,
@@ -679,7 +870,7 @@ impl World {
     /// # Safety
     ///
     /// See `trigger_targets_dynamic_ref`
-    unsafe fn trigger_targets_dynamic_ref_with_caller<E: Event, Targets: TriggerTargets>(
+    unsafe fn trigger_targets_dynamic_ref_with_caller<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
         event_data: &mut E,
@@ -693,7 +884,8 @@ impl World {
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
                     event_id,
-                    Entity::PLACEHOLDER,
+                    None,
+                    None,
                     targets.components(),
                     event_data,
                     false,
@@ -706,7 +898,8 @@ impl World {
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
                         event_id,
-                        target_entity,
+                        Some(target_entity),
+                        Some(target_entity),
                         targets.components(),
                         event_data,
                         E::AUTO_PROPAGATE,
@@ -845,7 +1038,7 @@ mod tests {
     use crate::component::ComponentId;
     use crate::{
         change_detection::MaybeLocation,
-        observer::{Observer, OnReplace},
+        observer::{Observer, Replace},
         prelude::*,
         traversal::Traversal,
     };
@@ -863,10 +1056,10 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct S;
 
-    #[derive(Event)]
+    #[derive(Event, EntityEvent)]
     struct EventA;
 
-    #[derive(Event)]
+    #[derive(Event, EntityEvent)]
     struct EventWithData {
         counter: usize,
     }
@@ -890,8 +1083,8 @@ mod tests {
         }
     }
 
-    #[derive(Component, Event)]
-    #[event(traversal = &'static ChildOf, auto_propagate)]
+    #[derive(Component, Event, EntityEvent)]
+    #[entity_event(traversal = &'static ChildOf, auto_propagate)]
     struct EventPropagating;
 
     #[test]
@@ -899,14 +1092,12 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add"));
-        world
-            .add_observer(|_: Trigger<OnInsert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: Trigger<OnReplace, A>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
+        world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
+        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
             res.observed("replace");
         });
-        world
-            .add_observer(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove"));
+        world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
@@ -921,14 +1112,12 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add"));
-        world
-            .add_observer(|_: Trigger<OnInsert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: Trigger<OnReplace, A>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
+        world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
+        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
             res.observed("replace");
         });
-        world
-            .add_observer(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove"));
+        world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.spawn_empty();
         entity.insert(A);
@@ -945,14 +1134,12 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: Trigger<OnAdd, S>, mut res: ResMut<Order>| res.observed("add"));
-        world
-            .add_observer(|_: Trigger<OnInsert, S>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: Trigger<OnReplace, S>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add, S>, mut res: ResMut<Order>| res.observed("add"));
+        world.add_observer(|_: On<Insert, S>, mut res: ResMut<Order>| res.observed("insert"));
+        world.add_observer(|_: On<Replace, S>, mut res: ResMut<Order>| {
             res.observed("replace");
         });
-        world
-            .add_observer(|_: Trigger<OnRemove, S>, mut res: ResMut<Order>| res.observed("remove"));
+        world.add_observer(|_: On<Remove, S>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.spawn_empty();
         entity.insert(S);
@@ -971,14 +1158,12 @@ mod tests {
 
         let entity = world.spawn(A).id();
 
-        world.add_observer(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add"));
-        world
-            .add_observer(|_: Trigger<OnInsert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: Trigger<OnReplace, A>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
+        world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
+        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
             res.observed("replace");
         });
-        world
-            .add_observer(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove"));
+        world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
@@ -995,25 +1180,25 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
         world.add_observer(
-            |obs: Trigger<OnAdd, A>, mut res: ResMut<Order>, mut commands: Commands| {
+            |obs: On<Add, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
                 commands.entity(obs.target()).insert(B);
             },
         );
         world.add_observer(
-            |obs: Trigger<OnRemove, A>, mut res: ResMut<Order>, mut commands: Commands| {
+            |obs: On<Remove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
                 commands.entity(obs.target()).remove::<B>();
             },
         );
 
         world.add_observer(
-            |obs: Trigger<OnAdd, B>, mut res: ResMut<Order>, mut commands: Commands| {
+            |obs: On<Add, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
                 commands.entity(obs.target()).remove::<A>();
             },
         );
-        world.add_observer(|_: Trigger<OnRemove, B>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Remove, B>, mut res: ResMut<Order>| {
             res.observed("remove_b");
         });
 
@@ -1031,9 +1216,9 @@ mod tests {
     fn observer_trigger_ref() {
         let mut world = World::new();
 
-        world.add_observer(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 1);
-        world.add_observer(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 2);
-        world.add_observer(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 4);
+        world.add_observer(|mut trigger: On<EventWithData>| trigger.event_mut().counter += 1);
+        world.add_observer(|mut trigger: On<EventWithData>| trigger.event_mut().counter += 2);
+        world.add_observer(|mut trigger: On<EventWithData>| trigger.event_mut().counter += 4);
         // This flush is required for the last observer to be called when triggering the event,
         // due to `World::add_observer` returning `WorldEntityMut`.
         world.flush();
@@ -1047,13 +1232,13 @@ mod tests {
     fn observer_trigger_targets_ref() {
         let mut world = World::new();
 
-        world.add_observer(|mut trigger: Trigger<EventWithData, A>| {
+        world.add_observer(|mut trigger: On<EventWithData, A>| {
             trigger.event_mut().counter += 1;
         });
-        world.add_observer(|mut trigger: Trigger<EventWithData, B>| {
+        world.add_observer(|mut trigger: On<EventWithData, B>| {
             trigger.event_mut().counter += 2;
         });
-        world.add_observer(|mut trigger: Trigger<EventWithData, A>| {
+        world.add_observer(|mut trigger: On<EventWithData, A>| {
             trigger.event_mut().counter += 4;
         });
         // This flush is required for the last observer to be called when triggering the event,
@@ -1071,8 +1256,8 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add_1"));
-        world.add_observer(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add_2"));
+        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add_1"));
+        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add_2"));
 
         world.spawn(A).flush();
         assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
@@ -1084,11 +1269,11 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = OnRemove::register_component_id(&mut world);
+        let on_remove = Remove::register_component_id(&mut world);
         world.spawn(
-            // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
+            // SAFETY: Add and Remove are both unit types, so this is safe
             unsafe {
-                Observer::new(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| {
+                Observer::new(|_: On<Add, A>, mut res: ResMut<Order>| {
                     res.observed("add/remove");
                 })
                 .with_event(on_remove)
@@ -1110,7 +1295,7 @@ mod tests {
         world.register_component::<A>();
         world.register_component::<B>();
 
-        world.add_observer(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add, (A, B)>, mut res: ResMut<Order>| {
             res.observed("add_ab");
         });
 
@@ -1124,7 +1309,7 @@ mod tests {
     fn observer_despawn() {
         let mut world = World::new();
 
-        let system: fn(Trigger<OnAdd, A>) = |_| {
+        let system: fn(On<Add, A>) = |_| {
             panic!("Observer triggered after being despawned.");
         };
         let observer = world.add_observer(system).id();
@@ -1140,11 +1325,11 @@ mod tests {
 
         let entity = world.spawn((A, B)).flush();
 
-        world.add_observer(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| {
             res.observed("remove_a");
         });
 
-        let system: fn(Trigger<OnRemove, B>) = |_: Trigger<OnRemove, B>| {
+        let system: fn(On<Remove, B>) = |_: On<Remove, B>| {
             panic!("Observer triggered after being despawned.");
         };
 
@@ -1161,7 +1346,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add, (A, B)>, mut res: ResMut<Order>| {
             res.observed("add_ab");
         });
 
@@ -1174,11 +1359,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        let system: fn(Trigger<EventA>) = |_| {
+        let system: fn(On<EventA>) = |_| {
             panic!("Trigger routed to non-targeted entity.");
         };
         world.spawn_empty().observe(system);
-        world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
+        world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.target(), Entity::PLACEHOLDER);
             res.observed("event_a");
         });
@@ -1196,16 +1381,16 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        let system: fn(Trigger<EventA>) = |_| {
+        let system: fn(On<EventA>) = |_| {
             panic!("Trigger routed to non-targeted entity.");
         };
 
         world.spawn_empty().observe(system);
         let entity = world
             .spawn_empty()
-            .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
+            .observe(|_: On<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
-        world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
+        world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.target(), entity);
             res.observed("a_2");
         });
@@ -1231,26 +1416,26 @@ mod tests {
         // targets (entity_1, A)
         let entity_1 = world
             .spawn_empty()
-            .observe(|_: Trigger<EventA, A>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: On<EventA, A>, mut res: ResMut<R>| res.0 += 1)
             .id();
         // targets (entity_2, B)
         let entity_2 = world
             .spawn_empty()
-            .observe(|_: Trigger<EventA, B>, mut res: ResMut<R>| res.0 += 10)
+            .observe(|_: On<EventA, B>, mut res: ResMut<R>| res.0 += 10)
             .id();
         // targets any entity or component
-        world.add_observer(|_: Trigger<EventA>, mut res: ResMut<R>| res.0 += 100);
+        world.add_observer(|_: On<EventA>, mut res: ResMut<R>| res.0 += 100);
         // targets any entity, and components A or B
-        world.add_observer(|_: Trigger<EventA, (A, B)>, mut res: ResMut<R>| res.0 += 1000);
+        world.add_observer(|_: On<EventA, (A, B)>, mut res: ResMut<R>| res.0 += 1000);
         // test all tuples
-        world.add_observer(|_: Trigger<EventA, (A, B, (A, B))>, mut res: ResMut<R>| res.0 += 10000);
+        world.add_observer(|_: On<EventA, (A, B, (A, B))>, mut res: ResMut<R>| res.0 += 10000);
         world.add_observer(
-            |_: Trigger<EventA, (A, B, (A, B), ((A, B), (A, B)))>, mut res: ResMut<R>| {
+            |_: On<EventA, (A, B, (A, B), ((A, B), (A, B)))>, mut res: ResMut<R>| {
                 res.0 += 100000;
             },
         );
         world.add_observer(
-            |_: Trigger<EventA, (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))>,
+            |_: On<EventA, (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))>,
              mut res: ResMut<R>| res.0 += 1000000,
         );
 
@@ -1338,7 +1523,7 @@ mod tests {
 
         let component_id = world.register_component::<A>();
         world.spawn(
-            Observer::new(|_: Trigger<OnAdd>, mut res: ResMut<Order>| res.observed("event_a"))
+            Observer::new(|_: On<Add>, mut res: ResMut<Order>| res.observed("event_a"))
                 .with_component(component_id),
         );
 
@@ -1358,7 +1543,7 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let event_a = OnRemove::register_component_id(&mut world);
+        let event_a = Remove::register_component_id(&mut world);
 
         // SAFETY: we registered `event_a` above and it matches the type of EventA
         let observe = unsafe {
@@ -1382,21 +1567,27 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        let parent = world
-            .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
+
+        world.entity_mut(parent).observe(
+            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent");
-            })
-            .id();
 
-        let child = world
-            .spawn(ChildOf(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                assert_eq!(trigger.target(), parent);
+                assert_eq!(trigger.original_target(), child);
+            },
+        );
+
+        world.entity_mut(child).observe(
+            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
-            })
-            .id();
+                assert_eq!(trigger.target(), child);
+                assert_eq!(trigger.original_target(), child);
+            },
+        );
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // TODO: ideally this flush is not necessary, but right now observe() returns EntityWorldMut
         // and therefore does not automatically flush.
         world.flush();
         world.trigger_targets(EventPropagating, child);
@@ -1411,14 +1602,14 @@ mod tests {
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent");
             })
             .id();
 
         let child = world
             .spawn(ChildOf(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
             })
             .id();
@@ -1441,14 +1632,14 @@ mod tests {
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent");
             })
             .id();
 
         let child = world
             .spawn(ChildOf(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
             })
             .id();
@@ -1471,7 +1662,7 @@ mod tests {
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent");
             })
             .id();
@@ -1479,7 +1670,7 @@ mod tests {
         let child = world
             .spawn(ChildOf(parent))
             .observe(
-                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                |mut trigger: On<EventPropagating>, mut res: ResMut<Order>| {
                     res.observed("child");
                     trigger.propagate(false);
                 },
@@ -1501,21 +1692,21 @@ mod tests {
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent");
             })
             .id();
 
         let child_a = world
             .spawn(ChildOf(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_a");
             })
             .id();
 
         let child_b = world
             .spawn(ChildOf(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_b");
             })
             .id();
@@ -1538,7 +1729,7 @@ mod tests {
 
         let entity = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("event");
             })
             .id();
@@ -1558,7 +1749,7 @@ mod tests {
 
         let parent_a = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent_a");
             })
             .id();
@@ -1566,7 +1757,7 @@ mod tests {
         let child_a = world
             .spawn(ChildOf(parent_a))
             .observe(
-                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                |mut trigger: On<EventPropagating>, mut res: ResMut<Order>| {
                     res.observed("child_a");
                     trigger.propagate(false);
                 },
@@ -1575,14 +1766,14 @@ mod tests {
 
         let parent_b = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent_b");
             })
             .id();
 
         let child_b = world
             .spawn(ChildOf(parent_b))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe(|_: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_b");
             })
             .id();
@@ -1603,7 +1794,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<EventPropagating>, mut res: ResMut<Order>| {
             res.observed("event");
         });
 
@@ -1625,7 +1816,7 @@ mod tests {
         world.init_resource::<Order>();
 
         world.add_observer(
-            |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
+            |trigger: On<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
                 if query.get(trigger.target()).is_ok() {
                     res.observed("event");
                 }
@@ -1647,7 +1838,7 @@ mod tests {
     // Originally for https://github.com/bevyengine/bevy/issues/18452
     #[test]
     fn observer_modifies_relationship() {
-        fn on_add(trigger: Trigger<OnAdd, A>, mut commands: Commands) {
+        fn on_add(trigger: On<Add, A>, mut commands: Commands) {
             commands
                 .entity(trigger.target())
                 .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
@@ -1668,7 +1859,7 @@ mod tests {
         let mut world = World::new();
 
         // Observe the removal of A - this will run during despawn
-        world.add_observer(|_: Trigger<OnRemove, A>, mut cmd: Commands| {
+        world.add_observer(|_: On<Remove, A>, mut cmd: Commands| {
             // Spawn a new entity - this reserves a new ID and requires a flush
             // afterward before Entities::free can be called.
             cmd.spawn_empty();
@@ -1676,7 +1867,7 @@ mod tests {
 
         let ent = world.spawn(A).id();
 
-        // Despawn our entity, which runs the OnRemove observer and allocates a
+        // Despawn our entity, which runs the Remove observer and allocates a
         // new Entity.
         // Should not panic - if it does, then Entities was not flushed properly
         // after the observer's spawn_empty.
@@ -1694,7 +1885,7 @@ mod tests {
 
         let mut world = World::new();
         // This fails because `ResA` is not present in the world
-        world.add_observer(|_: Trigger<EventA>, _: Res<ResA>, mut commands: Commands| {
+        world.add_observer(|_: On<EventA>, _: Res<ResA>, mut commands: Commands| {
             commands.insert_resource(ResB);
         });
         world.trigger(EventA);
@@ -1707,7 +1898,7 @@ mod tests {
 
         let mut world = World::new();
         world.add_observer(
-            |_: Trigger<EventA>, mut params: ParamSet<(Query<Entity>, Commands)>| {
+            |_: On<EventA>, mut params: ParamSet<(Query<Entity>, Commands)>| {
                 params.p1().insert_resource(ResA);
             },
         );
@@ -1728,7 +1919,7 @@ mod tests {
 
         let caller = MaybeLocation::caller();
         let mut world = World::new();
-        world.add_observer(move |trigger: Trigger<EventA>| {
+        world.add_observer(move |trigger: On<EventA>| {
             assert_eq!(trigger.caller(), caller);
         });
         world.trigger(EventA);
@@ -1742,10 +1933,10 @@ mod tests {
 
         let caller = MaybeLocation::caller();
         let mut world = World::new();
-        world.add_observer(move |trigger: Trigger<OnAdd, Component>| {
+        world.add_observer(move |trigger: On<Add, Component>| {
             assert_eq!(trigger.caller(), caller);
         });
-        world.add_observer(move |trigger: Trigger<OnRemove, Component>| {
+        world.add_observer(move |trigger: On<Remove, Component>| {
             assert_eq!(trigger.caller(), caller);
         });
         world.commands().spawn(Component).clear();
@@ -1763,7 +1954,7 @@ mod tests {
         let b_id = world.register_component::<B>();
 
         world.add_observer(
-            |trigger: Trigger<EventA, (A, B)>, mut counter: ResMut<Counter>| {
+            |trigger: On<EventA, (A, B)>, mut counter: ResMut<Counter>| {
                 for &component in trigger.components() {
                     *counter.0.entry(component).or_default() += 1;
                 }

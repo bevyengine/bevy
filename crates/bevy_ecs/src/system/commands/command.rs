@@ -9,7 +9,7 @@ use crate::{
     change_detection::MaybeLocation,
     entity::Entity,
     error::Result,
-    event::{Event, Events},
+    event::{BufferedEvent, EntityEvent, Event, Events},
     observer::TriggerTargets,
     resource::Resource,
     schedule::ScheduleLabel,
@@ -208,7 +208,7 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
     }
 }
 
-/// A [`Command`] that sends a global [`Trigger`](crate::observer::Trigger) without any targets.
+/// A [`Command`] that sends a global [`Event`] without any targets.
 #[track_caller]
 pub fn trigger(event: impl Event) -> impl Command {
     let caller = MaybeLocation::caller();
@@ -217,9 +217,9 @@ pub fn trigger(event: impl Event) -> impl Command {
     }
 }
 
-/// A [`Command`] that sends a [`Trigger`](crate::observer::Trigger) for the given targets.
+/// A [`Command`] that sends an [`EntityEvent`] for the given targets.
 pub fn trigger_targets(
-    event: impl Event,
+    event: impl EntityEvent,
     targets: impl TriggerTargets + Send + Sync + 'static,
 ) -> impl Command {
     let caller = MaybeLocation::caller();
@@ -228,9 +228,9 @@ pub fn trigger_targets(
     }
 }
 
-/// A [`Command`] that sends an arbitrary [`Event`].
+/// A [`Command`] that sends an arbitrary [`BufferedEvent`].
 #[track_caller]
-pub fn send_event<E: Event>(event: E) -> impl Command {
+pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
         let mut events = world.resource_mut::<Events<E>>();

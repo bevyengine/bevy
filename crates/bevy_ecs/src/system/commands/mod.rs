@@ -16,11 +16,11 @@ use core::marker::PhantomData;
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode, NoBundleEffect},
-    change_detection::Mut,
+    change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::Event,
+    event::{BufferedEvent, EntityEvent, Event},
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -120,31 +120,26 @@ const _: () = {
 
         type Item<'w, 's> = Commands<'w, 's>;
 
-        fn init_state(
-            world: &mut World,
-            system_meta: &mut bevy_ecs::system::SystemMeta,
-        ) -> Self::State {
+        fn init_state(world: &mut World) -> Self::State {
             FetchState {
                 state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
                     world,
-                    system_meta,
                 ),
             }
         }
 
-        unsafe fn new_archetype(
-            state: &mut Self::State,
-            archetype: &bevy_ecs::archetype::Archetype,
+        fn init_access(
+            state: &Self::State,
             system_meta: &mut bevy_ecs::system::SystemMeta,
+            component_access_set: &mut bevy_ecs::query::FilteredAccessSet<ComponentId>,
+            world: &mut World,
         ) {
-            // SAFETY: Caller guarantees the archetype is from the world used in `init_state`
-            unsafe {
-                <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::new_archetype(
-                    &mut state.state,
-                    archetype,
-                    system_meta,
-                );
-            };
+            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_access(
+                &state.state,
+                system_meta,
+                component_access_set,
+                world,
+            );
         }
 
         fn apply(
@@ -173,12 +168,12 @@ const _: () = {
 
         #[inline]
         unsafe fn validate_param(
-            state: &Self::State,
+            state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell,
         ) -> Result<(), SystemParamValidationError> {
             <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
-                &state.state,
+                &mut state.state,
                 system_meta,
                 world,
             )
@@ -317,12 +312,24 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`spawn`](Self::spawn) to spawn an entity with components.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities
     ///   with the same combination of components.
+    #[track_caller]
     pub fn spawn_empty(&mut self) -> EntityCommands {
         let entity = self.entities.reserve_entity();
-        EntityCommands {
+        let mut entity_commands = EntityCommands {
             entity,
             commands: self.reborrow(),
-        }
+        };
+        let caller = MaybeLocation::caller();
+        entity_commands.queue(move |entity: EntityWorldMut| {
+            let index = entity.id().index();
+            let world = entity.into_world_mut();
+            let tick = world.change_tick();
+            // SAFETY: Entity has been flushed
+            unsafe {
+                world.entities_mut().mark_spawn_despawn(index, caller, tick);
+            }
+        });
+        entity_commands
     }
 
     /// Spawns a new [`Entity`] with the given components
@@ -369,9 +376,35 @@ impl<'w, 's> Commands<'w, 's> {
     ///   with the same combination of components.
     #[track_caller]
     pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
-        let mut entity = self.spawn_empty();
-        entity.insert(bundle);
-        entity
+        let entity = self.entities.reserve_entity();
+        let mut entity_commands = EntityCommands {
+            entity,
+            commands: self.reborrow(),
+        };
+        let caller = MaybeLocation::caller();
+
+        entity_commands.queue(move |mut entity: EntityWorldMut| {
+            // Store metadata about the spawn operation.
+            // This is the same as in `spawn_empty`, but merged into
+            // the same command for better performance.
+            let index = entity.id().index();
+            entity.world_scope(|world| {
+                let tick = world.change_tick();
+                // SAFETY: Entity has been flushed
+                unsafe {
+                    world.entities_mut().mark_spawn_despawn(index, caller, tick);
+                }
+            });
+
+            entity.insert_with_caller(
+                bundle,
+                InsertMode::Replace,
+                caller,
+                crate::relationship::RelationshipHookMode::Run,
+            );
+        });
+        // entity_command::insert(bundle, InsertMode::Replace)
+        entity_commands
     }
 
     /// Returns the [`EntityCommands`] for the given [`Entity`].
@@ -1045,7 +1078,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
-    /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
+    /// Sends a global [`Event`] without any targets.
     ///
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     #[track_caller]
@@ -1053,13 +1086,13 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger(event));
     }
 
-    /// Sends a [`Trigger`](crate::observer::Trigger) for the given targets.
+    /// Sends an [`EntityEvent`] for the given targets.
     ///
-    /// This will run any [`Observer`] of the given [`Event`] watching those targets.
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
     #[track_caller]
     pub fn trigger_targets(
         &mut self,
-        event: impl Event,
+        event: impl EntityEvent,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
         self.queue(command::trigger_targets(event, targets));
@@ -1068,6 +1101,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
     /// with the entity that stores the observer.
     ///
+    /// `observer` can be any system whose first parameter is [`On`].
+    ///
     /// **Calling [`observe`](EntityCommands::observe) on the returned
     /// [`EntityCommands`] will observe the observer itself, which you very
     /// likely do not want.**
@@ -1075,6 +1110,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
+    ///
+    /// [`On`]: crate::observer::On
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -1082,7 +1119,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.spawn(Observer::new(observer))
     }
 
-    /// Sends an arbitrary [`Event`].
+    /// Sends an arbitrary [`BufferedEvent`].
     ///
     /// This is a convenience method for sending events
     /// without requiring an [`EventWriter`](crate::event::EventWriter).
@@ -1095,7 +1132,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// If these events are performance-critical or very frequently sent,
     /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
     #[track_caller]
-    pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
         self.queue(command::send_event(event));
         self
     }
@@ -1231,15 +1268,32 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Level(u32);
     ///
+    ///
+    /// #[derive(Component, Default)]
+    /// struct Mana {
+    ///     max: u32,
+    ///     current: u32,
+    /// }
+    ///
     /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     // If a component already exists then modify it, otherwise insert a default value
     ///     commands
     ///         .entity(player.entity)
     ///         .entry::<Level>()
-    ///         // Modify the component if it exists.
     ///         .and_modify(|mut lvl| lvl.0 += 1)
-    ///         // Otherwise, insert a default value.
     ///         .or_insert(Level(0));
+    ///
+    ///     // Add a default value if none exists, and then modify the existing or new value
+    ///     commands
+    ///         .entity(player.entity)
+    ///         .entry::<Mana>()
+    ///         .or_default()
+    ///         .and_modify(|mut mana| {
+    ///             mana.max += 10;
+    ///             mana.current = mana.max;
+    ///     });
     /// }
+    ///
     /// # bevy_ecs::system::assert_is_system(level_up_system);
     /// ```
     pub fn entry<T: Component>(&mut self) -> EntityEntryCommands<T> {
@@ -1903,16 +1957,16 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Sends a [`Trigger`](crate::observer::Trigger) targeting the entity.
+    /// Sends an [`EntityEvent`] targeting the entity.
     ///
-    /// This will run any [`Observer`] of the given [`Event`] watching this entity.
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching this entity.
     #[track_caller]
-    pub fn trigger(&mut self, event: impl Event) -> &mut Self {
+    pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
         self.queue(entity_command::trigger(event))
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
@@ -2572,5 +2626,18 @@ mod tests {
         queue_1.apply(&mut world);
         assert!(world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn track_spawn_ticks() {
+        let mut world = World::default();
+        world.increment_change_tick();
+        let expected = world.change_tick();
+        let id = world.commands().spawn_empty().id();
+        world.flush();
+        assert_eq!(
+            Some(expected),
+            world.entities().entity_get_spawned_or_despawned_at(id)
+        );
     }
 }

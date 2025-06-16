@@ -1,11 +1,11 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! This crate provides additional utilities for the [Bevy game engine](https://bevyengine.org),
+//! This crate provides additional utilities for the [Bevy game engine](https://bevy.org),
 //! focused on improving developer experience.
 
 use bevy_app::prelude::*;

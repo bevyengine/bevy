@@ -1,15 +1,16 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHash;
+use bevy_ecs::lifecycle::{Add, Remove};
 use bevy_ecs::{
     component::Component,
     entity::{ContainsEntity, Entity, EntityEquivalent},
-    observer::Trigger,
+    observer::On,
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
     system::{Local, Query, ResMut, SystemState},
-    world::{Mut, OnAdd, OnRemove, World},
+    world::{Mut, World},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -93,12 +94,12 @@ impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
-            |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.target()));
             },
         );
         app.add_observer(
-            |trigger: Trigger<OnRemove, SyncToRenderWorld>,
+            |trigger: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.target()) {
@@ -219,10 +220,10 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                 EntityRecord::Added(e) => {
                     if let Ok(mut main_entity) = world.get_entity_mut(e) {
                         match main_entity.entry::<RenderEntity>() {
-                            bevy_ecs::world::Entry::Occupied(_) => {
+                            bevy_ecs::world::ComponentEntry::Occupied(_) => {
                                 panic!("Attempting to synchronize an entity that has already been synchronized!");
                             }
-                            bevy_ecs::world::Entry::Vacant(entry) => {
+                            bevy_ecs::world::ComponentEntry::Vacant(entry) => {
                                 let id = render_world.spawn(MainEntity(e)).id();
 
                                 entry.insert(RenderEntity(id));
@@ -490,10 +491,11 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        observer::Trigger,
+        lifecycle::{Add, Remove},
+        observer::On,
         query::With,
         system::{Query, ResMut},
-        world::{OnAdd, OnRemove, World},
+        world::World,
     };
 
     use super::{
@@ -511,12 +513,12 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity>();
 
         main_world.add_observer(
-            |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.target()));
             },
         );
         main_world.add_observer(
-            |trigger: Trigger<OnRemove, SyncToRenderWorld>,
+            |trigger: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.target()) {
