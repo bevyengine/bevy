@@ -17,7 +17,7 @@ use crate::{entity::Entity, query::ReadOnlyQueryData, relationship::Relationship
 /// parameter `D` is the event type given in `On<E>`. This allows traversal to differ depending on event
 /// data.
 ///
-/// [specify the direction]: crate::event::Event::Traversal
+/// [specify the direction]: crate::event::EntityEvent::Traversal
 /// [event propagation]: crate::observer::On::propagate
 /// [observers]: crate::observer::Observer
 pub trait Traversal<D: ?Sized>: ReadOnlyQueryData {
