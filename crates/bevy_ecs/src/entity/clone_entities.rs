@@ -561,7 +561,7 @@ impl EntityCloner {
                             .expect("Target entity must exist")
                             .archetype()
                     });
-                    filter.iter_components(source_archetype, target_archetype, |component| {
+                    filter.for_each_clone(source_archetype, target_archetype, |component| {
                         clone_component(component, self)
                     })
                 }
@@ -728,11 +728,50 @@ impl Default for DenyAll {
 }
 
 impl DenyAll {
-    /// Helper function that allows a component through the filter.
-    fn filter_allow(&mut self, id: ComponentId, world: &World, insert_mode: InsertMode) {
-        // extend `Self::requires_of_explicits` with required components in `info` and return inserted range
-        let mut update_requires_get_range = |info: &ComponentInfo| -> Range<usize> {
-            let iter = info.required_components().iter_ids().inspect(|id| {
+    /// Allows a component through the filter, include required components if
+    /// [`Self::attach_required_components`] is true.
+    fn filter_allow(&mut self, id: ComponentId, world: &World, mut insert_mode: InsertMode) {
+        match self.explicits.entry(id) {
+            Entry::Vacant(explicit) => {
+                // explicit components should not appear in the required map
+                self.requires.remove(&id);
+
+                if !self.attach_required_components {
+                    explicit.insert(Explicit {
+                        insert_mode,
+                        requires: None,
+                    });
+                } else {
+                    self.filter_allow_with_required(id, world, insert_mode);
+                }
+            }
+            Entry::Occupied(explicit) => {
+                let explicit = explicit.get();
+
+                // set required component range if it was inserted with `None` earlier
+                if self.attach_required_components && explicit.requires.is_none() {
+                    if explicit.insert_mode == InsertMode::Replace {
+                        // do not overwrite with Keep if component was allowed as Replace earlier
+                        insert_mode = InsertMode::Replace;
+                    }
+
+                    self.filter_allow_with_required(id, world, insert_mode);
+                }
+            }
+        };
+    }
+
+    // Allow a component through the filter and include required components.
+    fn filter_allow_with_required(&mut self, id: ComponentId, world: &World, insert_mode: InsertMode) {
+        let Some(info) = world.components().get_info(id) else {
+            return;
+        };
+        
+        let iter = info
+            .required_components()
+            .iter_ids()
+            .filter(|id| !self.explicits.contains_key(id))
+            .inspect(|id| {
                 // set or increase the number of components this `id` is required by
                 self.requires
                     .entry(*id)
@@ -744,49 +783,17 @@ impl DenyAll {
                         required_by: 1,
                         required_by_reduced: 1,
                     });
-            });
+        });
 
-            let start = self.requires_of_explicits.len();
-            self.requires_of_explicits.extend(iter);
-            let end = self.requires_of_explicits.len();
+        let start = self.requires_of_explicits.len();
+        self.requires_of_explicits.extend(iter);
+        let end = self.requires_of_explicits.len();
 
-            start..end
-        };
-
-        match self.explicits.entry(id) {
-            Entry::Vacant(vacant) => {
-                if !self.attach_required_components {
-                    vacant.insert(Explicit {
-                        insert_mode,
-                        requires: None,
-                    });
-                } else if let Some(info) = world.components().get_info(id) {
-                    vacant.insert(Explicit {
-                        insert_mode,
-                        requires: Some(update_requires_get_range(info)),
-                    });
-                }
-            }
-            Entry::Occupied(mut occupied) => {
-                let explicit = occupied.get_mut();
-
-                if insert_mode == InsertMode::Replace {
-                    // overwrite value if it was inserted as `Keep` earlier
-                    explicit.insert_mode = InsertMode::Replace;
-                }
-
-                // set required component range if it was inserted with `None` earlier
-                if self.attach_required_components && explicit.requires.is_none() {
-                    if let Some(info) = world.components().get_info(id) {
-                        explicit.requires = Some(update_requires_get_range(info));
-                    }
-                }
-            }
-        };
+        self.explicits.insert(id, Explicit { insert_mode, requires: Some(start..end) });
     }
 
     /// Call `clone_component` for all components to be cloned.
-    fn iter_components<'a>(
+    fn for_each_clone<'a>(
         &mut self,
         source_archetype: &Archetype,
         target_archetype: LazyCell<&'a Archetype, impl FnOnce() -> &'a Archetype>,
@@ -804,11 +811,10 @@ impl DenyAll {
                 clone_component(component);
             } else if let Some(range) = explicit.requires.clone() {
                 for component in self.requires_of_explicits[range].iter() {
-                    let required = self.requires.get_mut(component);
-                    // SAFETY: It is certain the ComponentId in `requires_of_explicits` is present in `requires`
-                    let required = unsafe { required.debug_checked_unwrap() };
-                    // track that this required component should not be cloned solely for this explicit component
-                    required.required_by_reduced -= 1;
+                    // may be None if required component was also added as explicit later
+                    if let Some(required) = self.requires.get_mut(component) {
+                        required.required_by_reduced -= 1;
+                    }
                 }
             }
         }
@@ -820,8 +826,7 @@ impl DenyAll {
             .filter_map(|(&component, required)| {
                 let to_clone = required.required_by_reduced > 0 // required by a cloned component
                     && source_archetype.contains(component) // must exist to clone, may miss if removed
-                    && !target_archetype.contains(component) // do not overwrite existing values
-                    && !self.explicits.contains_key(&component); // was not already cloned as explicit
+                    && !target_archetype.contains(component); // do not overwrite existing values
 
                 // revert reductions for the next entity to clone with this EntityCloner
                 required.required_by_reduced = required.required_by;
