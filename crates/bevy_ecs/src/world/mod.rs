@@ -54,7 +54,6 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    removal_detection::RemovedComponentEvents,
     resource::{Resource, ResourceEntity},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -3639,7 +3638,7 @@ mod tests {
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
-        resource::Resource,
+        resource::{IsResource, Resource},
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
@@ -4069,7 +4068,11 @@ mod tests {
 
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
-            for entity in world.iter_entities() {
+            for entity in world
+                .iter_entities()
+                // exclude resources
+                .filter(|e| e.get::<IsResource>().is_none())
+            {
                 let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
             }
@@ -4166,7 +4169,11 @@ mod tests {
         assert_eq!(world.entity(b1).get(), Some(&B(2)));
         assert_eq!(world.entity(b2).get(), Some(&B(4)));
 
-        let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
+        let mut entities = world
+            .iter_entities_mut()
+            // exclude resources
+            .filter(|e| e.get::<IsResource>().is_none())
+            .collect::<Vec<_>>();
         entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);
         core::mem::swap(

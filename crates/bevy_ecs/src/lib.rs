@@ -375,11 +375,12 @@ mod tests {
     #[test]
     fn despawn_table_storage() {
         let mut world = World::new();
+        let num_resources = world.components().num_resources() as u32;
         let e = world.spawn((TableStored("abc"), A(123))).id();
         let f = world.spawn((TableStored("def"), A(456))).id();
-        assert_eq!(world.entities.len(), 2);
+        assert_eq!(world.entities.len() - num_resources, 2);
         assert!(world.despawn(e));
-        assert_eq!(world.entities.len(), 1);
+        assert_eq!(world.entities.len() - num_resources, 1);
         assert!(world.get::<TableStored>(e).is_none());
         assert!(world.get::<A>(e).is_none());
         assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
@@ -389,12 +390,13 @@ mod tests {
     #[test]
     fn despawn_mixed_storage() {
         let mut world = World::new();
+        let num_resources = world.components().num_resources() as u32;
 
         let e = world.spawn((TableStored("abc"), SparseStored(123))).id();
         let f = world.spawn((TableStored("def"), SparseStored(456))).id();
-        assert_eq!(world.entities.len(), 2);
+        assert_eq!(world.entities.len() - num_resources, 2);
         assert!(world.despawn(e));
-        assert_eq!(world.entities.len(), 1);
+        assert_eq!(world.entities.len() - num_resources, 1);
         assert!(world.get::<TableStored>(e).is_none());
         assert!(world.get::<SparseStored>(e).is_none());
         assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
@@ -1634,12 +1636,13 @@ mod tests {
         world.spawn(A(1));
         world.spawn(SparseStored(1));
 
+        let num_resources = world.components().num_resources() as u32;
         let mut q1 = world.query::<&A>();
         let mut q2 = world.query::<&SparseStored>();
 
         assert_eq!(q1.iter(&world).len(), 1);
         assert_eq!(q2.iter(&world).len(), 1);
-        assert_eq!(world.entities().len(), 2);
+        assert_eq!(world.entities().len() - num_resources, 2);
 
         world.clear_entities();
 

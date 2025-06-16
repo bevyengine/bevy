@@ -275,6 +275,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 mod tests {
     use crate::{
         prelude::*,
+        resource::IsResource,
         world::{EntityMutExcept, EntityRefExcept, FilteredEntityMut, FilteredEntityRef},
     };
     use std::dbg;
@@ -332,6 +333,9 @@ mod tests {
     #[test]
     fn builder_or() {
         let mut world = World::new();
+        // We don't want to query resources for this test.
+        world.register_disabling_component::<IsResource>();
+
         world.spawn((A(0), B(0)));
         world.spawn(B(0));
         world.spawn(C(0));

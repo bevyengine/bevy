@@ -452,9 +452,10 @@ mod tests {
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.entities.len(), 0);
+        let num_resources = world.components().num_resources() as u32;
+        assert_eq!(world.entities.len() - num_resources, 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.entities.len(), 1);
+        assert_eq!(world.entities.len() - num_resources, 1);
     }
 
     #[test]

@@ -1825,6 +1825,11 @@ impl Components {
         self.resource_entities.get(&id).copied()
     }
 
+    /// Return the number of registered resources.
+    pub fn num_resources(&self) -> usize {
+        return self.resource_entities.len();
+    }
+
     /// Returns the number of components registered or queued with this instance.
     #[inline]
     pub fn len(&self) -> usize {
