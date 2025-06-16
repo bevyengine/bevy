@@ -968,6 +968,17 @@ impl<'w> EntityClonerBuilder<'w, AllowAll> {
         self
     }
 
+    /// Disallows all components of the bundle from being cloned.
+    pub fn deny_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
+        if let Some(bundle) = self.world.bundles().get(bundle_id) {
+            let ids = bundle.explicit_components().to_owned();
+            for id in ids {
+                self.filter.deny.insert(id);
+            }
+        }
+        self
+    }
+
     /// Extends the list of components that shouldn't be cloned.
     pub fn deny_by_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
         for id in ids {
