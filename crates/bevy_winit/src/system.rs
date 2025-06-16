@@ -284,11 +284,11 @@ pub(crate) fn despawn_windows(
 
 /// The cached state of the window so we can check which properties were changed from within the app.
 #[derive(Debug, Clone, Component, Deref, DerefMut)]
-pub struct CachedWindow(Window);
+pub(crate) struct CachedWindow(Window);
 
 /// The cached state of the window so we can check which properties were changed from within the app.
 #[derive(Debug, Clone, Component, Deref, DerefMut)]
-pub struct CachedCursorOptions(CursorOptions);
+pub(crate) struct CachedCursorOptions(CursorOptions);
 
 /// Propagates changes from [`Window`] entities to the [`winit`] backend.
 ///
