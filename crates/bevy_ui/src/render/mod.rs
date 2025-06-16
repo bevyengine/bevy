@@ -1053,7 +1053,9 @@ fn extract_text_outlines(
                     if offset_x == 0 && offset_y == 0 {
                         continue;
                     }
-
+                    if width * width < offset_x * offset_x + offset_y * offset_y {
+                        continue;
+                    }
                     // Anti-aliasing.
                     let mut color = color;
                     if (offset_x.abs() == width) || (offset_y.abs() == width) {
