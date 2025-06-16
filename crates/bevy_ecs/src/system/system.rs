@@ -44,11 +44,14 @@ bitflags! {
 /// It's possible to specify explicit execution order between specific systems,
 /// see [`IntoScheduleConfigs`](crate::schedule::IntoScheduleConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
-pub trait System: NamedSystem + Send + Sync + 'static {
+pub trait System: Send + Sync + 'static {
     /// The system's input.
     type In: SystemInput;
     /// The system's output.
     type Out;
+
+    /// Returns system's name.
+    fn name(&self) -> Cow<'static, str>;
 
     /// Returns the [`TypeId`] of the underlying system type.
     #[inline]
@@ -387,30 +390,6 @@ impl RunSystemOnce for &mut World {
             })?;
         Ok(system.run(input, self))
     }
-}
-
-/// Allows for systems to inform their names, either derived from their type
-/// or their custom name.
-///
-/// ## Example
-/// ```
-/// # use bevy_ecs::system::{IntoSystem, NamedSystem};
-/// fn main() {
-///     // This returns `my_crate::my_system`
-///     println!("{}", IntoSystem::into_system(my_system).name());
-///
-///     // This returns `my_crate::main::{{closure}}`
-///     println!("{}", IntoSystem::into_system(|| {}).name());
-///
-///     // This returns `do_thing`
-///     println!("{}", IntoSystem::into_system(|| {}).with_name("do_thing").name());
-/// }
-///
-/// fn my_system() {}
-/// ```
-pub trait NamedSystem {
-    /// Returns system's name.
-    fn name(&self) -> Cow<'static, str>;
 }
 
 /// Running system failed.

@@ -8,7 +8,7 @@ use crate::{
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
-    system::{IntoObserverSystem, NamedSystem, ObserverSystem},
+    system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
 };
 use bevy_ptr::PtrMut;
@@ -194,7 +194,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 pub struct Observer {
     hook_on_add: ComponentHook,
     error_handler: Option<ErrorHandler>,
-    system: Box<dyn AnyNamedSystem + Send + Sync + 'static>,
+    system: Box<dyn AnyNamedSystem>,
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) last_trigger_id: u32,
     pub(crate) despawned_watched_entities: u32,
@@ -302,7 +302,7 @@ impl Observer {
 
     /// Returns the name of [`Observer`]'s system .
     pub fn system_name(&self) -> Cow<'static, str> {
-        self.system.name()
+        self.system.system_name()
     }
 }
 
@@ -419,9 +419,15 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
 }
 
-trait AnyNamedSystem: Any + NamedSystem {}
+trait AnyNamedSystem: Any + Send + Sync + 'static {
+    fn system_name(&self) -> Cow<'static, str>;
+}
 
-impl<T: Any + NamedSystem> AnyNamedSystem for T {}
+impl<T: Any + System> AnyNamedSystem for T {
+    fn system_name(&self) -> Cow<'static, str> {
+        self.name()
+    }
+}
 
 /// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::lifecycle::ComponentHooks::on_add`).
 ///

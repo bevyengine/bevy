@@ -20,9 +20,7 @@ use crate::{
     prelude::{IntoSystemSet, SystemSet},
     query::FilteredAccessSet,
     schedule::{ConditionWithAccess, InternedSystemSet, NodeId, SystemTypeSet, SystemWithAccess},
-    system::{
-        NamedSystem, ScheduleSystem, System, SystemIn, SystemParamValidationError, SystemStateFlags,
-    },
+    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -160,6 +158,10 @@ impl System for ApplyDeferred {
     type In = ();
     type Out = Result<()>;
 
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed("bevy_ecs::apply_deferred")
+    }
+
     fn flags(&self) -> SystemStateFlags {
         // non-send , exclusive , no deferred
         SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
@@ -214,12 +216,6 @@ impl System for ApplyDeferred {
     }
 
     fn set_last_run(&mut self, _last_run: Tick) {}
-}
-
-impl NamedSystem for ApplyDeferred {
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed("bevy_ecs::apply_deferred")
-    }
 }
 
 impl IntoSystemSet<()> for ApplyDeferred {

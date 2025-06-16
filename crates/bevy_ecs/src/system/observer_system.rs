@@ -12,7 +12,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use super::{IntoSystem, NamedSystem, SystemParamValidationError};
+use super::{IntoSystem, SystemParamValidationError};
 
 /// Implemented for [`System`]s that have [`On`] as the first argument.
 pub trait ObserverSystem<E: 'static, B: Bundle, Out = Result>:
@@ -112,6 +112,11 @@ where
     type Out = Result;
 
     #[inline]
+    fn name(&self) -> Cow<'static, str> {
+        self.observer.name()
+    }
+
+    #[inline]
     fn flags(&self) -> super::SystemStateFlags {
         self.observer.flags()
     }
@@ -172,19 +177,6 @@ where
 
     fn default_system_sets(&self) -> Vec<crate::schedule::InternedSystemSet> {
         self.observer.default_system_sets()
-    }
-}
-
-impl<E, B, S, Out> NamedSystem for InfallibleObserverWrapper<E, B, S, Out>
-where
-    S: ObserverSystem<E, B, Out>,
-    E: Send + Sync + 'static,
-    B: Bundle,
-    Out: Send + Sync + 'static,
-{
-    #[inline]
-    fn name(&self) -> Cow<'static, str> {
-        self.observer.name()
     }
 }
 

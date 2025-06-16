@@ -2,8 +2,8 @@ use alloc::{borrow::Cow, boxed::Box, format};
 use core::ops::Not;
 
 use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, NamedSystem, ReadOnlySystem,
-    System, SystemIn, SystemInput,
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
+    SystemInput,
 };
 
 /// A type-erased run condition stored in a [`Box`].
@@ -471,7 +471,7 @@ pub mod common_conditions {
         prelude::{Component, Query, With},
         query::QueryFilter,
         resource::Resource,
-        system::{In, IntoSystem, Local, NamedSystem, Res, SystemInput},
+        system::{In, IntoSystem, Local, Res, System, SystemInput},
     };
     use alloc::format;
 
