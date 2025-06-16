@@ -42,6 +42,7 @@ App::new()
 ```
 
 You can also control this on a per-asset-level:
+
 ```rust
 // Use the global default
 let handle = asset_server.load("fox.gltf#Scene0");
