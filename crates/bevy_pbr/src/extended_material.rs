@@ -1,6 +1,6 @@
 use alloc::borrow::Cow;
 
-use bevy_asset::{Asset, Handle};
+use bevy_asset::Asset;
 use bevy_ecs::system::SystemParamItem;
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
@@ -9,8 +9,8 @@ use bevy_render::{
     mesh::MeshVertexBufferLayoutRef,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
-        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor, Shader,
-        ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
+        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor, ShaderRef,
+        SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
 };

@@ -4,7 +4,7 @@
 //! allocator manages each bind group, assigning slots to materials as
 //! appropriate.
 
-use crate::{ErasedMaterialBindGroupData, Material};
+use crate::Material;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
@@ -28,8 +28,7 @@ use bevy_render::{
 };
 use bevy_utils::{default, TypeIdMap};
 use bytemuck::Pod;
-use core::{cmp::Ordering, iter, marker::PhantomData, mem, ops::Range};
-use std::any::Any;
+use core::{cmp::Ordering, iter, mem, ops::Range};
 use std::hash::Hash;
 use tracing::{error, trace};
 
@@ -352,7 +351,7 @@ enum MaterialNonBindlessSlab<'a> {
     /// A slab that has a bind group.
     Prepared(&'a PreparedBindGroup),
     /// A slab that doesn't yet have a bind group.
-    Unprepared(&'a UnpreparedBindGroup),
+    Unprepared,
 }
 
 /// Manages an array of untyped plain old data on GPU and allocates individual
@@ -1848,8 +1847,8 @@ impl MaterialBindGroupNonBindlessAllocator {
                 MaterialNonBindlessAllocatedBindGroup::Prepared { bind_group, .. } => {
                     MaterialNonBindlessSlab::Prepared(bind_group)
                 }
-                MaterialNonBindlessAllocatedBindGroup::Unprepared { bind_group, .. } => {
-                    MaterialNonBindlessSlab::Unprepared(bind_group)
+                MaterialNonBindlessAllocatedBindGroup::Unprepared { .. } => {
+                    MaterialNonBindlessSlab::Unprepared
                 }
             })
     }
@@ -1940,7 +1939,7 @@ impl<'a> MaterialSlab<'a> {
             MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Prepared(
                 prepared_bind_group,
             )) => Some(&prepared_bind_group.bind_group),
-            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Unprepared(_)) => None,
+            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Unprepared) => None,
         }
     }
 }

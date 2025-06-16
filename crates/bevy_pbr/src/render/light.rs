@@ -1,5 +1,4 @@
 use self::assign::ClusterableObjectType;
-use crate::material_bind_groups::MaterialBindGroupAllocator;
 use crate::*;
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
@@ -45,7 +44,7 @@ use bevy_render::{
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
-use core::{hash::Hash, marker::PhantomData, ops::Range};
+use core::{hash::Hash, ops::Range};
 #[cfg(feature = "trace")]
 use tracing::info_span;
 use tracing::{error, warn};

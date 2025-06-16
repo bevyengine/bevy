@@ -36,8 +36,7 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::camera::extract_cameras;
 use bevy_render::erased_render_asset::{
-    prepare_erased_assets, ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets,
-    PrepareAssetError,
+    ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
@@ -465,7 +464,7 @@ pub struct MaterialPipeline {
     pub mesh_pipeline: MeshPipeline,
 }
 
-struct MaterialPipelineSpecializer {
+pub struct MaterialPipelineSpecializer {
     pipeline: MaterialPipeline,
     properties: Arc<MaterialProperties>,
 }
@@ -1601,7 +1600,7 @@ where
         else {
             return;
         };
-        let mut bind_group_allactor = bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
+        let bind_group_allactor = bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
         bind_group_allactor.free(material_binding_id);
     }
 }

@@ -2,13 +2,12 @@ mod prepass_bindings;
 
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
-    collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
-    queue_material_meshes, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs, skin,
-    DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey, Material,
-    MaterialBindGroupAllocators, MaterialPipeline, MaterialPipelineKey, MaterialProperties,
-    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
-    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
-    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    collect_meshes_for_gpu_building, queue_material_meshes, set_mesh_motion_vector_flags,
+    setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks,
+    ErasedMaterialPipelineKey, Material, MaterialBindGroupAllocators, MaterialPipeline,
+    MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod,
+    PreparedMaterial, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
+    RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -267,8 +266,6 @@ impl FromWorld for PrepassPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let render_adapter = world.resource::<RenderAdapter>();
-        let asset_server = world.resource::<AssetServer>();
-
         let visibility_ranges_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
@@ -797,7 +794,6 @@ pub fn specialize_prepass_material_meshes(
     render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    material_bind_group_allocator: Res<MaterialBindGroupAllocators>,
     view_key_cache: Res<ViewKeyPrepassCache>,
     views: Query<(
         &ExtractedView,

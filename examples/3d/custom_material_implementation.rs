@@ -6,12 +6,11 @@ use bevy::pbr::{
     MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialProperties, MeshPipelineKey,
     OpaqueRendererMethod, PreparedMaterial, RenderMaterialBindings, RenderMaterialInstance,
     RenderMaterialInstances, RenderPhaseType, SpecializedMaterialPipelineCache,
-    SpecializedPrepassMaterialPipelineCache, SpecializedShadowMaterialPipelineCache,
 };
 use bevy::platform::collections::hash_map::Entry;
 use bevy::prelude::*;
 use bevy::utils::Parallel;
-use bevy_asset::{AsAssetId, AssetEventSystems, AssetPath};
+use bevy_asset::{AsAssetId, AssetEventSystems};
 use bevy_ecs::system::lifetimeless::{SRes, SResMut};
 use bevy_ecs::system::{SystemChangeTick, SystemParamItem};
 use bevy_render::erased_render_asset::{
@@ -21,9 +20,9 @@ use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_phase::DrawFunctions;
 use bevy_render::render_resource::binding_types::{sampler, texture_2d};
 use bevy_render::render_resource::{
-    AsBindGroup, BindGroupLayout, BindGroupLayoutEntries, BindingResources, IntoBinding,
-    OwnedBindingResource, Sampler, SamplerBindingType, SamplerDescriptor, ShaderRef, ShaderStages,
-    TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
+    AsBindGroup, BindGroupLayout, BindGroupLayoutEntries, BindingResources, OwnedBindingResource,
+    Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, TextureSampleType,
+    TextureViewDimension, UnpreparedBindGroup,
 };
 use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
@@ -151,7 +150,7 @@ impl ErasedRenderAsset for ImageMaterial {
     ) -> std::result::Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
         let material_layout = material_layout.0.clone();
         let draw_function_id = opaque_draw_functions.read().id::<DrawMaterial>();
-        let mut bind_group_allocator = bind_group_allocators
+        let bind_group_allocator = bind_group_allocators
             .get_mut(&TypeId::of::<ImageMaterial>())
             .unwrap();
         let Some(image) = gpu_images.get(&source_asset.image) else {
@@ -208,7 +207,7 @@ impl ErasedRenderAsset for ImageMaterial {
                 deferred_material_vertex_shader: None,
                 deferred_material_fragment_shader: None,
                 bindless: false,
-                specialize: Box::new(|pipeline, descriptor, layout, key| Ok(())),
+                specialize: Box::new(|_pipeline, _descriptor, _layout, _key| Ok(())),
                 bind_group_data_hash: 0,
             }),
         })
