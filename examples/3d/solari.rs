@@ -82,12 +82,14 @@ fn add_raytracing_meshes_on_scene_load(
     children: Query<&Children>,
     mesh: Query<&Mesh3d>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
     args: Res<Args>,
 ) {
     // Ensure meshes are bevy_solari compatible
     for (_, mesh) in meshes.iter_mut() {
         mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1.id);
+        mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR.id);
         mesh.generate_tangents().unwrap();
 
         if let Some(indices) = mesh.indices_mut() {
@@ -97,6 +99,7 @@ fn add_raytracing_meshes_on_scene_load(
         }
     }
 
+    // Add raytracing mesh handles
     for descendant in children.iter_descendants(trigger.target().unwrap()) {
         if let Ok(mesh) = mesh.get(descendant) {
             commands
@@ -107,5 +110,10 @@ fn add_raytracing_meshes_on_scene_load(
                 commands.entity(descendant).remove::<Mesh3d>();
             }
         }
+    }
+
+    // Increase material emissive intensity
+    for (_, material) in materials.iter_mut() {
+        material.emissive *= 200.0;
     }
 }
