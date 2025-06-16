@@ -285,7 +285,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     }
 }
 
-/// A configuration determining how to clone entities. This can be built using [`EntityCloner::build`], which
+/// A configuration determining how to clone entities. This can be built using [`EntityCloner::build_allow_all`]/
+/// [`deny_all`](EntityCloner::build_deny_all), which
 /// returns an [`EntityClonerBuilder`].
 ///
 /// After configuration is complete an entity can be cloned using [`Self::clone_entity`].
@@ -968,7 +969,7 @@ impl<'w> EntityClonerBuilder<'w, AllowAll> {
         self
     }
 
-    /// Disallows all components of the bundle from being cloned.
+    /// Disallows all components of the bundle ID from being cloned.
     pub fn deny_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
         if let Some(bundle) = self.world.bundles().get(bundle_id) {
             let ids = bundle.explicit_components().to_owned();

@@ -2765,7 +2765,8 @@ impl<'w> EntityWorldMut<'w> {
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
     /// To configure cloning behavior (such as only cloning certain components),
-    /// use [`EntityWorldMut::clone_and_spawn_with`].
+    /// use [`EntityWorldMut::clone_and_spawn_with_allow_all`]/
+    /// [`deny_all`](`EntityWorldMut::clone_and_spawn_with_deny_all`).
     ///
     /// # Panics
     ///
