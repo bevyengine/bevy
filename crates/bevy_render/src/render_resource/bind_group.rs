@@ -481,6 +481,7 @@ impl Deref for BindGroup {
 ///     is_shaded: bool,
 /// }
 ///
+/// #[repr(C)]
 /// #[derive(Copy, Clone, Hash, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 /// struct CoolMaterialKey {
 ///     is_shaded: u32,
