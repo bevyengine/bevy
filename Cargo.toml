@@ -1278,7 +1278,7 @@ required-features = ["bevy_solari"]
 
 [package.metadata.example.solari]
 name = "Solari"
-description = "Demonstrates realtime dynamic global illumination rendering using Bevy Solari."
+description = "Demonstrates realtime dynamic raytraced lighting using Bevy Solari."
 category = "3D Rendering"
 wasm = false
 
