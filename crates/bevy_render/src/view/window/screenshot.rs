@@ -39,7 +39,7 @@ use std::{
 use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
-#[derive(Event, Deref, DerefMut, Reflect, Debug)]
+#[derive(Event, EntityEvent, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ScreenshotCaptured(pub Image);
 
