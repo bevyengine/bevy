@@ -1028,6 +1028,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "custom_material_implementation"
+path = "examples/3d/custom_material_implementation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_material_implementation]
+name = "Custom Material Implementation"
+description = "Demonstrates how to implement a custom material"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "edit_material_on_gltf"
 path = "examples/3d/edit_material_on_gltf.rs"
 doc-scrape-examples = true

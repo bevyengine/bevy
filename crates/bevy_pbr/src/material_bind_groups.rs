@@ -4,6 +4,7 @@
 //! allocator manages each bind group, assigning slots to materials as
 //! appropriate.
 
+use crate::{ErasedMaterialBindGroupData, Material};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
@@ -11,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::render_resource::BindlessSlabResourceLimit;
 use bevy_render::{
     render_resource::{
         BindGroup, BindGroupEntry, BindGroupLayout, BindingNumber, BindingResource,
@@ -30,8 +32,6 @@ use core::{cmp::Ordering, iter, marker::PhantomData, mem, ops::Range};
 use std::any::Any;
 use std::hash::Hash;
 use tracing::{error, trace};
-
-use crate::{ErasedMaterialBindGroupData, Material};
 
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct MaterialBindGroupAllocators(TypeIdMap<MaterialBindGroupAllocator>);
@@ -456,14 +456,24 @@ impl GetBindingResourceId for TextureView {
 impl MaterialBindGroupAllocator {
     /// Creates a new [`MaterialBindGroupAllocator`] managing the data for a
     /// single material.
-    pub fn new<M: Material>(render_device: &RenderDevice) -> MaterialBindGroupAllocator {
-        if material_uses_bindless_resources::<M>(render_device) {
-            MaterialBindGroupAllocator::Bindless(Box::new(
-                MaterialBindGroupBindlessAllocator::new::<M>(render_device),
-            ))
+    pub fn new(
+        render_device: &RenderDevice,
+        label: Option<&'static str>,
+        bindless_descriptor: Option<BindlessDescriptor>,
+        bind_group_layout: BindGroupLayout,
+        slab_capacity: Option<BindlessSlabResourceLimit>,
+    ) -> MaterialBindGroupAllocator {
+        if let Some(bindless_descriptor) = bindless_descriptor {
+            MaterialBindGroupAllocator::Bindless(Box::new(MaterialBindGroupBindlessAllocator::new(
+                render_device,
+                label,
+                bindless_descriptor,
+                bind_group_layout,
+                slab_capacity,
+            )))
         } else {
             MaterialBindGroupAllocator::NonBindless(Box::new(
-                MaterialBindGroupNonBindlessAllocator::new::<M>(),
+                MaterialBindGroupNonBindlessAllocator::new(label),
             ))
         }
     }
@@ -716,9 +726,13 @@ where
 impl MaterialBindGroupBindlessAllocator {
     /// Creates a new [`MaterialBindGroupBindlessAllocator`] managing the data
     /// for a single bindless material.
-    fn new<M: Material>(render_device: &RenderDevice) -> MaterialBindGroupBindlessAllocator {
-        let bindless_descriptor = M::bindless_descriptor()
-            .expect("Non-bindless materials should use the non-bindless allocator");
+    fn new(
+        render_device: &RenderDevice,
+        label: Option<&'static str>,
+        bindless_descriptor: BindlessDescriptor,
+        bind_group_layout: BindGroupLayout,
+        slab_capacity: Option<BindlessSlabResourceLimit>,
+    ) -> MaterialBindGroupBindlessAllocator {
         let fallback_buffers = bindless_descriptor
             .buffers
             .iter()
@@ -739,12 +753,12 @@ impl MaterialBindGroupBindlessAllocator {
             .collect();
 
         MaterialBindGroupBindlessAllocator {
-            label: M::label(),
+            label,
             slabs: vec![],
-            bind_group_layout: M::bind_group_layout(render_device),
+            bind_group_layout,
             bindless_descriptor,
             fallback_buffers,
-            slab_capacity: M::bindless_slot_count()
+            slab_capacity: slab_capacity
                 .expect("Non-bindless materials should use the non-bindless allocator")
                 .resolve(),
         }
@@ -1756,9 +1770,9 @@ impl FromWorld for FallbackBindlessResources {
 impl MaterialBindGroupNonBindlessAllocator {
     /// Creates a new [`MaterialBindGroupNonBindlessAllocator`] managing the
     /// bind groups for a single non-bindless material.
-    fn new<M: Material>() -> MaterialBindGroupNonBindlessAllocator {
+    fn new(label: Option<&'static str>) -> MaterialBindGroupNonBindlessAllocator {
         MaterialBindGroupNonBindlessAllocator {
-            label: M::label(),
+            label,
             bind_groups: vec![],
             to_prepare: HashSet::default(),
             free_indices: vec![],

@@ -414,8 +414,8 @@ where
         }
     }
 
-    fn finish(&self, _app: &mut App) {
-        let Some(render_app) = _app.get_sub_app_mut(RenderApp) else {
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -424,7 +424,15 @@ where
                 let render_device = world.resource::<RenderDevice>();
                 bind_group_allocators.insert(
                     TypeId::of::<M>(),
-                    MaterialBindGroupAllocator::new::<M>(render_device),
+                    MaterialBindGroupAllocator::new(
+                        render_device,
+                        M::label(),
+                        material_uses_bindless_resources::<M>(render_device)
+                            .then(|| M::bindless_descriptor())
+                            .flatten(),
+                        M::bind_group_layout(&render_device),
+                        M::bindless_slot_count(),
+                    ),
                 );
             },
         );
@@ -508,7 +516,7 @@ impl FromWorld for MaterialPipeline {
     }
 }
 
-type DrawMaterial = (
+pub type DrawMaterial = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
@@ -575,7 +583,7 @@ pub struct RenderMaterialInstances {
     /// A monotonically-increasing counter, which we use to sweep
     /// [`RenderMaterialInstances::instances`] when the entities and/or required
     /// components are removed.
-    current_change_tick: Tick,
+    pub current_change_tick: Tick,
 }
 
 impl RenderMaterialInstances {
@@ -599,10 +607,10 @@ impl RenderMaterialInstances {
 /// material type, for simplicity.
 pub struct RenderMaterialInstance {
     /// The material asset.
-    pub(crate) asset_id: UntypedAssetId,
+    pub asset_id: UntypedAssetId,
     /// The [`RenderMaterialInstances::current_change_tick`] at which this
     /// material instance was last modified.
-    last_change_tick: Tick,
+    pub last_change_tick: Tick,
 }
 
 /// A [`SystemSet`] that contains all `extract_mesh_materials` systems.
