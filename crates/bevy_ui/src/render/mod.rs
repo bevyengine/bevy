@@ -1073,9 +1073,7 @@ fn extract_text_outlines(
                         );
 
                     extracted_uinodes.glyphs.push(ExtractedGlyph {
-                        transform: Affine2::from_mat3(
-                            transform * Mat3::from_translation(*position),
-                        ),
+                        transform: transform * Affine2::from_translation(*position),
                         rect,
                     });
 
