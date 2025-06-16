@@ -412,6 +412,7 @@ bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.17.
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.17.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.17.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.17.0-dev" }
+bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.17.0-dev" }
 bevy_input_focus = { path = "../bevy_input_focus", optional = true, version = "0.17.0-dev", default-features = false, features = [
   "bevy_reflect",

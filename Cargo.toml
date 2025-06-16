@@ -135,6 +135,7 @@ default = [
   "bevy_core_pipeline",
   "bevy_core_widgets",
   "bevy_anti_aliasing",
+  "bevy_feathers",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
@@ -305,6 +306,9 @@ bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
 # Headless widget collection for Bevy UI.
 bevy_core_widgets = ["bevy_internal/bevy_core_widgets"]
+
+# Feathers widget collection.
+bevy_feathers = ["bevy_internal/bevy_feathers"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
