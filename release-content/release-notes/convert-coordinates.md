@@ -1,7 +1,7 @@
 ---
 title: Allow importing glTFs with a corrected coordinate system
 authors: ["@janhohenheim"]
-pull_requests: [19633]
+pull_requests: [19633, 19685]
 ---
 
 glTF uses the following coordinate system:
