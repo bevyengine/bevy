@@ -60,7 +60,7 @@ pub trait ExtractComponent: Component {
     // type Out: Component = Self;
 
     /// Defines how the component is transferred into the "render world".
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out>;
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out>;
 }
 
 /// This plugin prepares the components of the corresponding type for the GPU
