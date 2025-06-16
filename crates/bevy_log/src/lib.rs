@@ -294,7 +294,6 @@ impl Plugin for LogPlugin {
         // `layer.with(next_layer)`.
         // Otherwise, the types of each successive layer becomes unwieldy,
         // as the type of each new layer would depend on the types of the previous layers.
-        //
         let mut layers: Vec<BoxedLayer> = Vec::new();
 
         // Add optional layer provided by user
