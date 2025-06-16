@@ -3,8 +3,8 @@ use crate::{
     loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex, Handle,
-    UntypedAssetId, UntypedHandle,
+    Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
+    Handle, UntypedHandle,
 };
 use alloc::{
     boxed::Box,
@@ -271,19 +271,19 @@ impl ErasedLoadedAsset {
 
 /// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a [`World`]'s [`Assets`] collection.
 pub(crate) trait AssetContainer: Downcast + Any + Send + Sync + 'static {
-    fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
+    fn insert(self: Box<Self>, id: AssetIndex, world: &mut World);
     fn asset_type_name(&self) -> &'static str;
 }
 
 impl_downcast!(AssetContainer);
 
 impl<A: Asset> AssetContainer for A {
-    fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World) {
+    fn insert(self: Box<Self>, index: AssetIndex, world: &mut World) {
         // We only ever call this if we know the asset is still alive, so it is fine to unwrap here.
         world
             .resource_mut::<Assets<A>>()
-            .insert(id.typed(), *self)
-            .expect("the AssetId is still valid");
+            .insert(index, *self)
+            .expect("the AssetIndex is still valid");
     }
 
     fn asset_type_name(&self) -> &'static str {

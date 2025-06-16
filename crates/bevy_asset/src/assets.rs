@@ -578,7 +578,7 @@ impl<A: Asset> Assets<A> {
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             if drop_event.asset_server_managed {
                 // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
-                if !infos.process_handle_drop(drop_event.index.into()) {
+                if !infos.process_handle_drop(drop_event.index) {
                     // a new handle has been created, or the asset doesn't exist
                     continue;
                 }
