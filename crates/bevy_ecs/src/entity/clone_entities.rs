@@ -486,7 +486,7 @@ impl EntityCloner {
         {
             let world = world.as_unsafe_world_cell();
             let source_entity = world.get_entity(source).expect("Source entity must exist");
-            let mut filter = self.filter.take().expect("todo");
+            let mut filter = self.filter.take().expect("Filter must be inserted");
 
             #[cfg(feature = "bevy_reflect")]
             // SAFETY: we have unique access to `world`, nothing else accesses the registry at this moment, and we clone
@@ -954,7 +954,7 @@ impl<'w> EntityClonerBuilder<'w, AllowAll> {
         self.entity_cloner.clone_entity(self.world, source, target);
         match self.entity_cloner.filter.take() {
             Some(AllowOrDenyAll::AllowAll(filter)) => self.filter = filter,
-            _ => unreachable!("todo"),
+            _ => unreachable!("Inserted AllowAll above"),
         }
         self
     }
@@ -1013,7 +1013,7 @@ impl<'w> EntityClonerBuilder<'w, DenyAll> {
         self.entity_cloner.clone_entity(self.world, source, target);
         match self.entity_cloner.filter.take() {
             Some(AllowOrDenyAll::DenyAll(filter)) => self.filter = filter,
-            _ => unreachable!("todo"),
+            _ => unreachable!("Inserted DenyAll above"),
         }
         self
     }
@@ -1485,6 +1485,34 @@ mod tests {
             .without_required_components(|builder| {
                 builder.allow::<A>();
             })
+            .clone_entity(e, e_clone2);
+
+        assert_eq!(world.get::<B>(e_clone2), Some(&B(10)));
+    }
+
+    #[test]
+    fn clone_required_becoming_explicit() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        #[require(B(5))]
+        struct A;
+
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct B(u8);
+
+        let mut world = World::default();
+        let e = world.spawn((A, B(10))).id();
+        let e_clone1 = world.spawn(B(20)).id();
+        EntityCloner::build_deny_all(&mut world)
+            .allow::<A>()
+            .allow::<B>()
+            .clone_entity(e, e_clone1);
+
+        assert_eq!(world.get::<B>(e_clone1), Some(&B(10)));
+
+        let e_clone2 = world.spawn(B(20)).id();
+        EntityCloner::build_deny_all(&mut world)
+            .allow::<A>()
+            .allow::<B>()
             .clone_entity(e, e_clone2);
 
         assert_eq!(world.get::<B>(e_clone2), Some(&B(10)));
