@@ -691,41 +691,41 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_DESPAWN_HOOK)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`OnAdd`] observer
+    /// Returns true if any of the components in this archetype have at least one [`Add`] observer
     ///
-    /// [`OnAdd`]: crate::world::OnAdd
+    /// [`Add`]: crate::lifecycle::Add
     #[inline]
     pub fn has_add_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_ADD_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`OnInsert`] observer
+    /// Returns true if any of the components in this archetype have at least one [`Insert`] observer
     ///
-    /// [`OnInsert`]: crate::world::OnInsert
+    /// [`Insert`]: crate::lifecycle::Insert
     #[inline]
     pub fn has_insert_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`OnReplace`] observer
+    /// Returns true if any of the components in this archetype have at least one [`Replace`] observer
     ///
-    /// [`OnReplace`]: crate::world::OnReplace
+    /// [`Replace`]: crate::lifecycle::Replace
     #[inline]
     pub fn has_replace_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REPLACE_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`OnRemove`] observer
+    /// Returns true if any of the components in this archetype have at least one [`Remove`] observer
     ///
-    /// [`OnRemove`]: crate::world::OnRemove
+    /// [`Remove`]: crate::lifecycle::Remove
     #[inline]
     pub fn has_remove_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`OnDespawn`] observer
+    /// Returns true if any of the components in this archetype have at least one [`Despawn`] observer
     ///
-    /// [`OnDespawn`]: crate::world::OnDespawn
+    /// [`Despawn`]: crate::lifecycle::Despawn
     #[inline]
     pub fn has_despawn_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_DESPAWN_OBSERVER)

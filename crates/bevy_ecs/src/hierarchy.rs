@@ -10,8 +10,9 @@
 use crate::reflect::{ReflectComponent, ReflectFromWorld};
 use crate::{
     bundle::Bundle,
-    component::{Component, HookContext},
+    component::Component,
     entity::Entity,
+    lifecycle::HookContext,
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
@@ -293,6 +294,12 @@ impl<'w> EntityWorldMut<'w> {
         self.insert_related::<ChildOf>(index, children)
     }
 
+    /// Insert child at specific index.
+    /// See also [`insert_related`](Self::insert_related).
+    pub fn insert_child(&mut self, index: usize, child: Entity) -> &mut Self {
+        self.insert_related::<ChildOf>(index, &[child])
+    }
+
     /// Adds the given child to this entity
     /// See also [`add_related`](Self::add_related).
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
@@ -302,6 +309,11 @@ impl<'w> EntityWorldMut<'w> {
     /// Removes the relationship between this entity and the given entities.
     pub fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         self.remove_related::<ChildOf>(children)
+    }
+
+    /// Removes the relationship between this entity and the given entity.
+    pub fn remove_child(&mut self, child: Entity) -> &mut Self {
+        self.remove_related::<ChildOf>(&[child])
     }
 
     /// Replaces all the related children with a new set of children.
@@ -373,6 +385,12 @@ impl<'a> EntityCommands<'a> {
         self.insert_related::<ChildOf>(index, children)
     }
 
+    /// Insert children at specific index.
+    /// See also [`insert_related`](Self::insert_related).
+    pub fn insert_child(&mut self, index: usize, child: Entity) -> &mut Self {
+        self.insert_related::<ChildOf>(index, &[child])
+    }
+
     /// Adds the given child to this entity
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
         self.add_related::<ChildOf>(&[child])
@@ -381,6 +399,11 @@ impl<'a> EntityCommands<'a> {
     /// Removes the relationship between this entity and the given entities.
     pub fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         self.remove_related::<ChildOf>(children)
+    }
+
+    /// Removes the relationship between this entity and the given entity.
+    pub fn remove_child(&mut self, child: Entity) -> &mut Self {
+        self.remove_related::<ChildOf>(&[child])
     }
 
     /// Replaces the children on this entity with a new list of children.
@@ -640,6 +663,29 @@ mod tests {
         );
     }
 
+    #[test]
+    fn insert_child() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+
+        let mut entity_world_mut = world.spawn_empty();
+
+        let first_children = entity_world_mut.add_children(&[child1, child2]);
+
+        let root = first_children.insert_child(1, child3).id();
+
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(
+                root,
+                vec![Node::new(child1), Node::new(child3), Node::new(child2)]
+            )
+        );
+    }
+
     // regression test for https://github.com/bevyengine/bevy/pull/19134
     #[test]
     fn insert_children_index_bound() {
@@ -694,6 +740,25 @@ mod tests {
         assert_eq!(
             hierarchy,
             Node::new_with(root, vec![Node::new(child1), Node::new(child4)])
+        );
+    }
+
+    #[test]
+    fn remove_child() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+
+        let mut root = world.spawn_empty();
+        root.add_children(&[child1, child2, child3]);
+        root.remove_child(child2);
+        let root = root.id();
+
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(root, vec![Node::new(child1), Node::new(child3)])
         );
     }
 

@@ -1,17 +1,28 @@
 use crate::{
-    component::{
-        Component, ComponentCloneBehavior, ComponentHook, HookContext, Mutable, StorageType,
-    },
+    component::{Component, ComponentCloneBehavior, Mutable, StorageType},
     entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
+    lifecycle::{ComponentHook, HookContext},
     world::World,
 };
 use alloc::vec::Vec;
 
+#[cfg(feature = "bevy_reflect")]
+use crate::prelude::ReflectComponent;
+
 use super::Observer;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
-#[derive(Default)]
+#[derive(Default, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, Debug))]
 pub struct ObservedBy(pub(crate) Vec<Entity>);
+
+impl ObservedBy {
+    /// Provides a read-only reference to the list of entities observing this entity.
+    pub fn get(&self) -> &[Entity] {
+        &self.0
+    }
+}
 
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
@@ -110,14 +121,18 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::EntityCloner, event::Event, observer::Trigger, resource::Resource, system::ResMut,
+        entity::EntityCloner,
+        event::{EntityEvent, Event},
+        observer::On,
+        resource::Resource,
+        system::ResMut,
         world::World,
     };
 
     #[derive(Resource, Default)]
     struct Num(usize);
 
-    #[derive(Event)]
+    #[derive(Event, EntityEvent)]
     struct E;
 
     #[test]
@@ -127,7 +142,7 @@ mod tests {
 
         let e = world
             .spawn_empty()
-            .observe(|_: Trigger<E>, mut res: ResMut<Num>| res.0 += 1)
+            .observe(|_: On<E>, mut res: ResMut<Num>| res.0 += 1)
             .id();
         world.flush();
 

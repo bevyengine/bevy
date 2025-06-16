@@ -8,9 +8,9 @@ use bevy_ecs::{
     entity::Entity,
     event::EventCursor,
     hierarchy::ChildOf,
+    lifecycle::RemovedComponentEntity,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-    removal_detection::RemovedComponentEntity,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
