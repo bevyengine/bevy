@@ -396,7 +396,7 @@ fn slider_on_key_input(
                 commands.run_system_with(on_change, new_value);
             } else {
                 commands
-                    .entity(trigger.target().unwrap())
+                    .entity(trigger.target())
                     .insert(SliderValue(new_value));
             }
         }
