@@ -95,14 +95,14 @@ impl Plugin for SyncWorldPlugin {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
             |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.target().unwrap()));
+                pending.push(EntityRecord::Added(trigger.target()));
             },
         );
         app.add_observer(
             |trigger: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.target().unwrap()) {
+                if let Ok(e) = query.get(trigger.target()) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },
@@ -281,7 +281,7 @@ mod render_entities_world_query_impls {
         archetype::Archetype,
         component::{ComponentId, Components, Tick},
         entity::Entity,
-        query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
+        query::{FilteredAccess, QueryData, ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery},
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -289,22 +289,22 @@ mod render_entities_world_query_impls {
     /// SAFETY: defers completely to `&RenderEntity` implementation,
     /// and then only modifies the output safely.
     unsafe impl WorldQuery for RenderEntity {
-        type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
+        type Fetch<'w, 's> = <&'static RenderEntity as WorldQuery>::Fetch<'w, 's>;
         type State = <&'static RenderEntity as WorldQuery>::State;
 
-        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
-            fetch: Self::Fetch<'wlong>,
-        ) -> Self::Fetch<'wshort> {
+        fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+            fetch: Self::Fetch<'wlong, 's>,
+        ) -> Self::Fetch<'wshort, 's> {
             fetch
         }
 
         #[inline]
-        unsafe fn init_fetch<'w>(
+        unsafe fn init_fetch<'w, 's>(
             world: UnsafeWorldCell<'w>,
-            component_id: &ComponentId,
+            component_id: &'s ComponentId,
             last_run: Tick,
             this_run: Tick,
-        ) -> Self::Fetch<'w> {
+        ) -> Self::Fetch<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             unsafe {
                 <&RenderEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
@@ -314,9 +314,9 @@ mod render_entities_world_query_impls {
         const IS_DENSE: bool = <&'static RenderEntity as WorldQuery>::IS_DENSE;
 
         #[inline]
-        unsafe fn set_archetype<'w>(
-            fetch: &mut Self::Fetch<'w>,
-            component_id: &ComponentId,
+        unsafe fn set_archetype<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
+            component_id: &'s ComponentId,
             archetype: &'w Archetype,
             table: &'w Table,
         ) {
@@ -327,9 +327,9 @@ mod render_entities_world_query_impls {
         }
 
         #[inline]
-        unsafe fn set_table<'w>(
-            fetch: &mut Self::Fetch<'w>,
-            &component_id: &ComponentId,
+        unsafe fn set_table<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
+            &component_id: &'s ComponentId,
             table: &'w Table,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
@@ -364,18 +364,20 @@ mod render_entities_world_query_impls {
     unsafe impl QueryData for RenderEntity {
         const IS_READ_ONLY: bool = true;
         type ReadOnly = RenderEntity;
-        type Item<'w> = Entity;
+        type Item<'w, 's> = Entity;
 
-        fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
             item
         }
 
         #[inline(always)]
-        unsafe fn fetch<'w>(
-            fetch: &mut Self::Fetch<'w>,
+        unsafe fn fetch<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Self::Item<'w> {
+        ) -> Self::Item<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             let component =
                 unsafe { <&RenderEntity as QueryData>::fetch(fetch, entity, table_row) };
@@ -386,25 +388,31 @@ mod render_entities_world_query_impls {
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
     unsafe impl ReadOnlyQueryData for RenderEntity {}
 
+    impl ReleaseStateQueryData for RenderEntity {
+        fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
+            item
+        }
+    }
+
     /// SAFETY: defers completely to `&RenderEntity` implementation,
     /// and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
-        type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
+        type Fetch<'w, 's> = <&'static MainEntity as WorldQuery>::Fetch<'w, 's>;
         type State = <&'static MainEntity as WorldQuery>::State;
 
-        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
-            fetch: Self::Fetch<'wlong>,
-        ) -> Self::Fetch<'wshort> {
+        fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+            fetch: Self::Fetch<'wlong, 's>,
+        ) -> Self::Fetch<'wshort, 's> {
             fetch
         }
 
         #[inline]
-        unsafe fn init_fetch<'w>(
+        unsafe fn init_fetch<'w, 's>(
             world: UnsafeWorldCell<'w>,
-            component_id: &ComponentId,
+            component_id: &'s ComponentId,
             last_run: Tick,
             this_run: Tick,
-        ) -> Self::Fetch<'w> {
+        ) -> Self::Fetch<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             unsafe {
                 <&MainEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
@@ -414,8 +422,8 @@ mod render_entities_world_query_impls {
         const IS_DENSE: bool = <&'static MainEntity as WorldQuery>::IS_DENSE;
 
         #[inline]
-        unsafe fn set_archetype<'w>(
-            fetch: &mut Self::Fetch<'w>,
+        unsafe fn set_archetype<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
             component_id: &ComponentId,
             archetype: &'w Archetype,
             table: &'w Table,
@@ -427,9 +435,9 @@ mod render_entities_world_query_impls {
         }
 
         #[inline]
-        unsafe fn set_table<'w>(
-            fetch: &mut Self::Fetch<'w>,
-            &component_id: &ComponentId,
+        unsafe fn set_table<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
+            &component_id: &'s ComponentId,
             table: &'w Table,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
@@ -464,18 +472,20 @@ mod render_entities_world_query_impls {
     unsafe impl QueryData for MainEntity {
         const IS_READ_ONLY: bool = true;
         type ReadOnly = MainEntity;
-        type Item<'w> = Entity;
+        type Item<'w, 's> = Entity;
 
-        fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
             item
         }
 
         #[inline(always)]
-        unsafe fn fetch<'w>(
-            fetch: &mut Self::Fetch<'w>,
+        unsafe fn fetch<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Self::Item<'w> {
+        ) -> Self::Item<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             let component = unsafe { <&MainEntity as QueryData>::fetch(fetch, entity, table_row) };
             component.id()
@@ -484,6 +494,12 @@ mod render_entities_world_query_impls {
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
     unsafe impl ReadOnlyQueryData for MainEntity {}
+
+    impl ReleaseStateQueryData for MainEntity {
+        fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
+            item
+        }
+    }
 }
 
 #[cfg(test)]
@@ -514,14 +530,14 @@ mod tests {
 
         main_world.add_observer(
             |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.target().unwrap()));
+                pending.push(EntityRecord::Added(trigger.target()));
             },
         );
         main_world.add_observer(
             |trigger: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.target().unwrap()) {
+                if let Ok(e) = query.get(trigger.target()) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },

@@ -40,7 +40,7 @@ fn disable_entities_on_click(
     valid_query: Query<&DisableOnClick>,
     mut commands: Commands,
 ) {
-    let clicked_entity = trigger.target().unwrap();
+    let clicked_entity = trigger.target();
     // Windows and text are entities and can be clicked!
     // We definitely don't want to disable the window itself,
     // because that would cause the app to close!

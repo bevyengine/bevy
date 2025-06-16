@@ -57,7 +57,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Resource)]
 /// # struct SomeResource;
-/// # #[derive(Event)]
+/// # #[derive(Event, BufferedEvent)]
 /// # struct SomeEvent;
 /// # #[derive(Resource)]
 /// # struct SomeOtherResource;
@@ -389,9 +389,11 @@ fn assert_component_access_compatibility(
 
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Single<'a, D, F> {
+unsafe impl<'a, 'b, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for Single<'a, 'b, D, F>
+{
     type State = QueryState<D, F>;
-    type Item<'w, 's> = Single<'w, D, F>;
+    type Item<'w, 's> = Single<'w, 's, D, F>;
 
     fn init_state(world: &mut World) -> Self::State {
         Query::init_state(world)
@@ -451,8 +453,8 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for Single<'a, D, F>
+unsafe impl<'a, 'b, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Single<'a, 'b, D, F>
 {
 }
 
@@ -598,7 +600,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event)]
+/// # #[derive(Event, BufferedEvent)]
 /// # struct MyEvent;
 /// # impl MyEvent {
 /// #   pub fn new() -> Self { Self }
@@ -2841,7 +2843,7 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::system::assert_is_system;
+    use crate::{event::Event, system::assert_is_system};
     use core::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
@@ -3087,11 +3089,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `EventReader<MissingEvent>::events` failed validation: Event not initialized"]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `EventReader<MissingEvent>::events` failed validation: BufferedEvent not initialized"]
     fn missing_event_error() {
-        use crate::prelude::{Event, EventReader};
+        use crate::prelude::{BufferedEvent, EventReader};
 
-        #[derive(Event)]
+        #[derive(Event, BufferedEvent)]
         pub struct MissingEvent;
 
         let mut schedule = crate::schedule::Schedule::default();
