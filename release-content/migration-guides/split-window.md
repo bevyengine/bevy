@@ -33,7 +33,6 @@ app.add_plugins(DefaultPlugins.set(WindowPlugin {
     ..default()
 }));
 
-
 // new
 app.add_plugins(DefaultPlugins.set(WindowPlugin {
     primary_cursor_options: Some(CursorOptions {
@@ -42,5 +41,4 @@ app.add_plugins(DefaultPlugins.set(WindowPlugin {
     }),
     ..default()
 }));
-
 ```
