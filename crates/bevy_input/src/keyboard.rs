@@ -155,25 +155,37 @@ pub struct KeyboardFocusLost;
 /// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] resources is that
 /// the latter has convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`] and is window id agnostic.
 pub fn keyboard_input_system(
-    mut key_input: ResMut<ButtonInput<KeyCode>>,
+    mut keycode_input: ResMut<ButtonInput<KeyCode>>,
+    mut key_input: ResMut<ButtonInput<Key>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
     mut focus_events: EventReader<KeyboardFocusLost>,
 ) {
-    // Avoid clearing if it's not empty to ensure change detection is not triggered.
+    // Avoid clearing if not empty to ensure change detection is not triggered.
+    keycode_input.bypass_change_detection().clear();
     key_input.bypass_change_detection().clear();
+
     for event in keyboard_input_events.read() {
         let KeyboardInput {
-            key_code, state, ..
+            key_code,
+            logical_key,
+            state,
+            ..
         } = event;
         match state {
-            ButtonState::Pressed => key_input.press(*key_code),
-            ButtonState::Released => key_input.release(*key_code),
+            ButtonState::Pressed => {
+                keycode_input.press(*key_code);
+                key_input.press(logical_key.clone());
+            }
+            ButtonState::Released => {
+                keycode_input.release(*key_code);
+                key_input.release(logical_key.clone());
+            }
         }
     }
 
     // Release all cached input to avoid having stuck input when switching between windows in os
     if !focus_events.is_empty() {
-        key_input.release_all();
+        keycode_input.release_all();
         focus_events.clear();
     }
 }
