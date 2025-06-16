@@ -72,7 +72,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
                     event_loop,
                     entity,
                     &window,
-                    &cursor_options,
+                    cursor_options,
                     adapters,
                     &mut handlers,
                     &accessibility_requested,
@@ -622,7 +622,7 @@ pub(crate) fn changed_cursor_options(
                 }
             }
         }
-    })
+    });
 }
 
 /// This keeps track of which keys are pressed on each window.
