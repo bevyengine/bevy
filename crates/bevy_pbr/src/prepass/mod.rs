@@ -216,11 +216,16 @@ pub fn update_previous_view_data(
     query: Query<(Entity, &Camera, &GlobalTransform), Or<(With<Camera3d>, With<ShadowView>)>>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        let view_from_world = camera_transform.compute_matrix().inverse();
+        let world_from_view = camera_transform.compute_matrix();
+        let view_from_world = world_from_view.inverse();
+        let view_from_clip = camera.clip_from_view().inverse();
+
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
             clip_from_view: camera.clip_from_view(),
+            world_from_clip: world_from_view * view_from_clip,
+            view_from_clip,
         });
     }
 }
@@ -698,11 +703,16 @@ pub fn prepare_previous_view_uniforms(
         let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let view_from_world = camera.world_from_view.compute_matrix().inverse();
+                let world_from_view = camera.world_from_view.compute_matrix();
+                let view_from_world = world_from_view.inverse();
+                let view_from_clip = camera.clip_from_view.inverse();
+
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
                     clip_from_view: camera.clip_from_view,
+                    world_from_clip: world_from_view * view_from_clip,
+                    view_from_clip,
                 }
             }
         };

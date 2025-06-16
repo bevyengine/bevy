@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::{args::Args, Prepare, PreparedCommand};
 use argh::FromArgs;
 use xshell::cmd;
 
@@ -21,12 +21,18 @@ pub fn get_integration_tests(sh: &xshell::Shell) -> Vec<String> {
 pub struct IntegrationTestCheckCommand {}
 
 impl Prepare for IntegrationTestCheckCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
+        let jobs = args.build_jobs();
+        let jobs_ref = jobs.as_ref();
+
         get_integration_tests(sh)
             .into_iter()
             .map(|path| {
                 PreparedCommand::new::<Self>(
-                    cmd!(sh, "cargo check --manifest-path {path}/Cargo.toml --tests"),
+                    cmd!(
+                        sh,
+                        "cargo check --manifest-path {path}/Cargo.toml --tests {jobs_ref...}"
+                    ),
                     "Please fix compiler errors for tests in output above.",
                 )
             })

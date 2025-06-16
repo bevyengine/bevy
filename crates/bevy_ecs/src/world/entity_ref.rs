@@ -16,7 +16,7 @@ use crate::{
     event::EntityEvent,
     lifecycle::{DESPAWN, REMOVE, REPLACE},
     observer::Observer,
-    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
+    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
     relationship::RelationshipHookMode,
     resource::Resource,
     system::IntoObserverSystem,
@@ -279,14 +279,16 @@ impl<'w> EntityRef<'w> {
     /// # Panics
     ///
     /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'w> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'w, 'static> {
         self.get_components::<Q>()
             .expect("Query does not match the current entity")
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+        &self,
+    ) -> Option<Q::Item<'w, 'static>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.cell.get_components::<Q>() }
     }
@@ -546,13 +548,15 @@ impl<'w> EntityMut<'w> {
     /// # Panics
     ///
     /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
         self.as_readonly().components::<Q>()
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+        &self,
+    ) -> Option<Q::Item<'_, 'static>> {
         self.as_readonly().get_components::<Q>()
     }
 
@@ -1310,7 +1314,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity does not have the components required by the query `Q` or if the entity
     /// has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
         self.as_readonly().components::<Q>()
     }
 
@@ -1321,7 +1325,9 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+        &self,
+    ) -> Option<Q::Item<'_, 'static>> {
         self.as_readonly().get_components::<Q>()
     }
 
