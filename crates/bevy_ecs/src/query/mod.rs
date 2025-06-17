@@ -819,12 +819,12 @@ mod tests {
     /// SAFETY:
     /// `update_component_access` adds resource read access for `R`.
     unsafe impl WorldQuery for ReadsRData {
-        type Fetch<'w, 's> = ();
+        type Fetch<'w> = ();
         type State = ComponentId;
 
-        fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
-            _: Self::Fetch<'wlong, 's>,
-        ) -> Self::Fetch<'wshort, 's> {
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
+            _: Self::Fetch<'wlong>,
+        ) -> Self::Fetch<'wshort> {
         }
 
         unsafe fn init_fetch<'w, 's>(
@@ -832,14 +832,14 @@ mod tests {
             _state: &'s Self::State,
             _last_run: Tick,
             _this_run: Tick,
-        ) -> Self::Fetch<'w, 's> {
+        ) -> Self::Fetch<'w> {
         }
 
         const IS_DENSE: bool = true;
 
         #[inline]
         unsafe fn set_archetype<'w, 's>(
-            _fetch: &mut Self::Fetch<'w, 's>,
+            _fetch: &mut Self::Fetch<'w>,
             _state: &'s Self::State,
             _archetype: &'w Archetype,
             _table: &Table,
@@ -848,7 +848,7 @@ mod tests {
 
         #[inline]
         unsafe fn set_table<'w, 's>(
-            _fetch: &mut Self::Fetch<'w, 's>,
+            _fetch: &mut Self::Fetch<'w>,
             _state: &'s Self::State,
             _table: &'w Table,
         ) {
@@ -894,7 +894,7 @@ mod tests {
 
         #[inline(always)]
         unsafe fn fetch<'w, 's>(
-            _fetch: &mut Self::Fetch<'w, 's>,
+            _fetch: &mut Self::Fetch<'w>,
             _entity: Entity,
             _table_row: TableRow,
         ) -> Self::Item<'w, 's> {

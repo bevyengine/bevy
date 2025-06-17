@@ -979,7 +979,7 @@ where
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w, 's>,
+    fetch: D::Fetch<'w>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -1123,8 +1123,8 @@ pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item:
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w, 's>,
-    filter: F::Fetch<'w, 's>,
+    fetch: D::Fetch<'w>,
+    filter: F::Fetch<'w>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -1171,8 +1171,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
         entities: &'w Entities,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
-        fetch: &mut D::Fetch<'w, 's>,
-        filter: &mut F::Fetch<'w, 's>,
+        fetch: &mut D::Fetch<'w>,
+        filter: &mut F::Fetch<'w>,
         query_state: &'s QueryState<D, F>,
     ) -> Option<D::Item<'w, 's>> {
         for entity_borrow in entity_iter {
@@ -1919,7 +1919,7 @@ pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w, 's>,
+    fetch: D::Fetch<'w>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -2313,8 +2313,8 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     storage_id_iter: core::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
-    fetch: D::Fetch<'w, 's>,
-    filter: F::Fetch<'w, 's>,
+    fetch: D::Fetch<'w>,
+    filter: F::Fetch<'w>,
     // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
     current_len: u32,
     // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense

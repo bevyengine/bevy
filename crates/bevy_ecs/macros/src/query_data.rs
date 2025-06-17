@@ -74,13 +74,23 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let user_generics = ast.generics.clone();
     let (user_impl_generics, user_ty_generics, user_where_clauses) = user_generics.split_for_impl();
     let user_generics_with_world = {
+        let mut generics = ast.generics.clone();
+        generics.params.insert(0, parse_quote!('__w));
+        generics
+    };
+    let (user_impl_generics_with_world, user_ty_generics_with_world, user_where_clauses_with_world) =
+        user_generics_with_world.split_for_impl();
+    let user_generics_with_world_and_state = {
         let mut generics = ast.generics;
         generics.params.insert(0, parse_quote!('__w));
         generics.params.insert(0, parse_quote!('__s));
         generics
     };
-    let (user_impl_generics_with_world, user_ty_generics_with_world, user_where_clauses_with_world) =
-        user_generics_with_world.split_for_impl();
+    let (
+        user_impl_generics_with_world_and_state,
+        user_ty_generics_with_world_and_state,
+        user_where_clauses_with_world_and_state,
+    ) = user_generics_with_world_and_state.split_for_impl();
 
     let struct_name = ast.ident;
     let read_only_struct_name = if attributes.is_mutable {
@@ -165,13 +175,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         &visibility,
         &item_struct_name,
         &field_types,
-        &user_impl_generics_with_world,
+        &user_impl_generics_with_world_and_state,
         &field_attrs,
         &field_visibilities,
         &field_idents,
         &user_ty_generics,
-        &user_ty_generics_with_world,
-        user_where_clauses_with_world,
+        &user_ty_generics_with_world_and_state,
+        user_where_clauses_with_world_and_state,
     );
     let mutable_world_query_impl = world_query_impl(
         &path,
@@ -200,13 +210,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             &visibility,
             &read_only_item_struct_name,
             &read_only_field_types,
-            &user_impl_generics_with_world,
+            &user_impl_generics_with_world_and_state,
             &field_attrs,
             &field_visibilities,
             &field_idents,
             &user_ty_generics,
-            &user_ty_generics_with_world,
-            user_where_clauses_with_world,
+            &user_ty_generics_with_world_and_state,
+            user_where_clauses_with_world_and_state,
         );
         let readonly_world_query_impl = world_query_impl(
             &path,
@@ -257,7 +267,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     const IS_READ_ONLY: bool = true;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
-                    type Item<'__w, '__s> = #read_only_item_struct_name #user_ty_generics_with_world;
+                    type Item<'__w, '__s> = #read_only_item_struct_name #user_ty_generics_with_world_and_state;
 
                     fn shrink<'__wlong: '__wshort, '__wshort, '__s>(
                         item: Self::Item<'__wlong, '__s>
@@ -280,7 +290,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                     #[inline(always)]
                     unsafe fn fetch<'__w, '__s>(
-                        _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w, '__s>,
+                        _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
                     ) -> Self::Item<'__w, '__s> {
@@ -314,7 +324,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             for #struct_name #user_ty_generics #user_where_clauses {
                 const IS_READ_ONLY: bool = #is_read_only;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
-                type Item<'__w, '__s> = #item_struct_name #user_ty_generics_with_world;
+                type Item<'__w, '__s> = #item_struct_name #user_ty_generics_with_world_and_state;
 
                 fn shrink<'__wlong: '__wshort, '__wshort, '__s>(
                     item: Self::Item<'__wlong, '__s>
@@ -337,7 +347,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                 #[inline(always)]
                 unsafe fn fetch<'__w, '__s>(
-                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w, '__s>,
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
                 ) -> Self::Item<'__w, '__s> {

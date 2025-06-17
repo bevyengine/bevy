@@ -23,7 +23,6 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     let user_generics_with_world = {
         let mut generics = ast.generics;
         generics.params.insert(0, parse_quote!('__w));
-        generics.params.insert(0, parse_quote!('__s));
         generics
     };
     let (user_impl_generics_with_world, user_ty_generics_with_world, user_where_clauses_with_world) =
@@ -102,8 +101,8 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
 
             #[allow(unused_variables)]
             #[inline(always)]
-            unsafe fn filter_fetch<'__w, '__s>(
-                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w, '__s>,
+            unsafe fn filter_fetch<'__w>(
+                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _entity: #path::entity::Entity,
                 _table_row: #path::storage::TableRow,
             ) -> bool {

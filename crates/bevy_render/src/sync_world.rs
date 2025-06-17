@@ -289,12 +289,12 @@ mod render_entities_world_query_impls {
     /// SAFETY: defers completely to `&RenderEntity` implementation,
     /// and then only modifies the output safely.
     unsafe impl WorldQuery for RenderEntity {
-        type Fetch<'w, 's> = <&'static RenderEntity as WorldQuery>::Fetch<'w, 's>;
+        type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static RenderEntity as WorldQuery>::State;
 
-        fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
-            fetch: Self::Fetch<'wlong, 's>,
-        ) -> Self::Fetch<'wshort, 's> {
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
+            fetch: Self::Fetch<'wlong>,
+        ) -> Self::Fetch<'wshort> {
             fetch
         }
 
@@ -304,7 +304,7 @@ mod render_entities_world_query_impls {
             component_id: &'s ComponentId,
             last_run: Tick,
             this_run: Tick,
-        ) -> Self::Fetch<'w, 's> {
+        ) -> Self::Fetch<'w> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             unsafe {
                 <&RenderEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
@@ -315,7 +315,7 @@ mod render_entities_world_query_impls {
 
         #[inline]
         unsafe fn set_archetype<'w, 's>(
-            fetch: &mut Self::Fetch<'w, 's>,
+            fetch: &mut Self::Fetch<'w>,
             component_id: &'s ComponentId,
             archetype: &'w Archetype,
             table: &'w Table,
@@ -328,7 +328,7 @@ mod render_entities_world_query_impls {
 
         #[inline]
         unsafe fn set_table<'w, 's>(
-            fetch: &mut Self::Fetch<'w, 's>,
+            fetch: &mut Self::Fetch<'w>,
             &component_id: &'s ComponentId,
             table: &'w Table,
         ) {
@@ -374,7 +374,7 @@ mod render_entities_world_query_impls {
 
         #[inline(always)]
         unsafe fn fetch<'w, 's>(
-            fetch: &mut Self::Fetch<'w, 's>,
+            fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
         ) -> Self::Item<'w, 's> {
@@ -397,12 +397,12 @@ mod render_entities_world_query_impls {
     /// SAFETY: defers completely to `&RenderEntity` implementation,
     /// and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
-        type Fetch<'w, 's> = <&'static MainEntity as WorldQuery>::Fetch<'w, 's>;
+        type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static MainEntity as WorldQuery>::State;
 
-        fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
-            fetch: Self::Fetch<'wlong, 's>,
-        ) -> Self::Fetch<'wshort, 's> {
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
+            fetch: Self::Fetch<'wlong>,
+        ) -> Self::Fetch<'wshort> {
             fetch
         }
 
@@ -412,7 +412,7 @@ mod render_entities_world_query_impls {
             component_id: &'s ComponentId,
             last_run: Tick,
             this_run: Tick,
-        ) -> Self::Fetch<'w, 's> {
+        ) -> Self::Fetch<'w> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             unsafe {
                 <&MainEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
@@ -423,7 +423,7 @@ mod render_entities_world_query_impls {
 
         #[inline]
         unsafe fn set_archetype<'w, 's>(
-            fetch: &mut Self::Fetch<'w, 's>,
+            fetch: &mut Self::Fetch<'w>,
             component_id: &ComponentId,
             archetype: &'w Archetype,
             table: &'w Table,
@@ -436,7 +436,7 @@ mod render_entities_world_query_impls {
 
         #[inline]
         unsafe fn set_table<'w, 's>(
-            fetch: &mut Self::Fetch<'w, 's>,
+            fetch: &mut Self::Fetch<'w>,
             &component_id: &'s ComponentId,
             table: &'w Table,
         ) {
@@ -482,7 +482,7 @@ mod render_entities_world_query_impls {
 
         #[inline(always)]
         unsafe fn fetch<'w, 's>(
-            fetch: &mut Self::Fetch<'w, 's>,
+            fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
         ) -> Self::Item<'w, 's> {
