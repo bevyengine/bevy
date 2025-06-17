@@ -138,7 +138,6 @@ where
     T: Send + Sync + 'static,
 {
     type In = ();
-
     type Out = S::Out;
 
     fn name(&self) -> DebugName {
@@ -232,7 +231,6 @@ where
     T: FromWorld + Send + Sync + 'static,
 {
     type In = ();
-
     type Out = S::Out;
 
     fn name(&self) -> DebugName {
