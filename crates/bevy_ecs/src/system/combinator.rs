@@ -56,7 +56,7 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///     IntoSystem::into_system(resource_equals(A(1))),
 ///     IntoSystem::into_system(resource_equals(B(1))),
 ///     // The name of the combined system.
-///     std::borrow::Cow::Borrowed("a ^ b"),
+///     "a ^ b".into(),
 /// )));
 /// # fn my_system(mut flag: ResMut<RanFlag>) { flag.0 = true; }
 /// #

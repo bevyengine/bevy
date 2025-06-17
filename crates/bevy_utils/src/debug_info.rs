@@ -94,3 +94,9 @@ impl From<String> for DebugName {
         Self::owned(value)
     }
 }
+
+impl From<&'static str> for DebugName {
+    fn from(value: &'static str) -> Self {
+        Self::borrowed(value)
+    }
+}

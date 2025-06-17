@@ -1692,7 +1692,7 @@ impl ScheduleGraph {
 
     #[inline]
     fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
-        let name = match id {
+        match id {
             NodeId::System(_) => {
                 let name = self.systems[id.index()].get().unwrap().system.name();
                 let name = if self.settings.use_shortnames {
@@ -1721,8 +1721,7 @@ impl ScheduleGraph {
                     set.name()
                 }
             }
-        };
-        name
+        }
     }
 
     fn anonymous_set_name(&self, id: &NodeId) -> String {
