@@ -2513,6 +2513,7 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
     }
 }
 
+/// Provides mutable access to a component, wrapped through commands.
 pub struct DeferredMut<'w, 's, T: Component> {
     entity: Entity,
     old: &'w T,
@@ -2542,6 +2543,7 @@ impl<'w, 's, T: Component + Clone> DerefMut for DeferredMut<'w, 's, T> {
     }
 }
 
+/// The [`WorldQuery::Fetch`] type for [`DeferredMut`]
 pub struct DeferredMutFetch<'w, 's, T: Component> {
     fetch: ReadFetch<'w, T>,
     record: &'s DeferredMutations<T>,
@@ -2556,7 +2558,8 @@ impl<'w, 's, T: Component> Clone for DeferredMutFetch<'w, 's, T> {
     }
 }
 
-pub struct TrackedState<T: Component> {
+/// The [`WorldQuery::State`] type for [`DeferredMut`]
+pub struct DeferredMutState<T: Component> {
     component_id: ComponentId,
     record: DeferredMutations<T>,
 }
@@ -2579,11 +2582,11 @@ impl<T: Component> DeferredMutations<T> {
     }
 }
 
-// SAFETY: defer to `<&T as WorldQuery>` for all methods
+// SAFETY: impl defers to `<&T as WorldQuery>` for all methods
 unsafe impl<'__w, '__s, T: Component> WorldQuery for DeferredMut<'__w, '__s, T> {
     type Fetch<'w, 's> = DeferredMutFetch<'w, 's, T>;
 
-    type State = TrackedState<T>;
+    type State = DeferredMutState<T>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
         fetch: Self::Fetch<'wlong, 's>,
@@ -2631,14 +2634,14 @@ unsafe impl<'__w, '__s, T: Component> WorldQuery for DeferredMut<'__w, '__s, T> 
     }
 
     fn init_state(world: &mut World) -> Self::State {
-        TrackedState {
+        DeferredMutState {
             component_id: world.register_component::<T>(),
             record: Default::default(),
         }
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        Some(TrackedState {
+        Some(DeferredMutState {
             component_id: components.component_id::<T>()?,
             record: Default::default(),
         })
@@ -2655,7 +2658,7 @@ unsafe impl<'__w, '__s, T: Component> WorldQuery for DeferredMut<'__w, '__s, T> 
         world.insert_batch(state.record.drain());
     }
 
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+    fn queue(state: &mut Self::State, _system_meta: &SystemMeta, mut world: DeferredWorld) {
         world
             .commands()
             .insert_batch(state.record.drain().collect::<alloc::vec::Vec<_>>());
