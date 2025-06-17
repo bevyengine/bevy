@@ -43,5 +43,5 @@ This was handy! We've enabled this functionality for all entity-events: simply c
 
 ## Expose name of the Observer's system
 
-The name of the Observer's system is now accessable through `Observer::system_name`,
+The name of the Observer's system is now accessible through `Observer::system_name`,
 this opens up the possibility for the debug tools to show more meaningful names for observers.
