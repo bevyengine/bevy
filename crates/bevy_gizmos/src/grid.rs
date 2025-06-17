@@ -397,9 +397,18 @@ fn draw_grid<Config, Clear>(
         }
     }
 
-    let x_line_count = UVec2::new(adj(outer_edges[0], cell_count.y), adj(outer_edges[0], cell_count.z));
-    let y_line_count = UVec2::new(adj(outer_edges[1], cell_count.z), adj(outer_edges[1], cell_count.x));
-    let z_line_count = UVec2::new(adj(outer_edges[2], cell_count.x), adj(outer_edges[2], cell_count.y));
+    let x_line_count = UVec2::new(
+        adj(outer_edges[0], cell_count.y),
+        adj(outer_edges[0], cell_count.z),
+    );
+    let y_line_count = UVec2::new(
+        adj(outer_edges[1], cell_count.z),
+        adj(outer_edges[1], cell_count.x),
+    );
+    let z_line_count = UVec2::new(
+        adj(outer_edges[2], cell_count.x),
+        adj(outer_edges[2], cell_count.y),
+    );
 
     let x_start = grid_start + or_zero(!outer_edges[0], dy + dz);
     let y_start = grid_start + or_zero(!outer_edges[1], dx + dz);
