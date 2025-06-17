@@ -297,7 +297,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
     let convert_coordinates = match settings.convert_coordinates {
         Some(convert_coordinates) => convert_coordinates,
-        None => loader.default_convert_coordinates.load(Ordering::SeqCst),
+        None => loader.default_convert_coordinates,
     };
 
     #[cfg(feature = "bevy_animation")]
