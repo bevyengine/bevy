@@ -99,7 +99,7 @@ mod vertex_attributes;
 extern crate alloc;
 
 use alloc::sync::Arc;
-use bevy_platform::sync::atomic::AtomicBool;
+use bevy_platform::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tracing::warn;
 
@@ -107,6 +107,7 @@ use bevy_platform::collections::HashMap;
 
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
+use bevy_ecs::prelude::Resource;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageSamplerDescriptor};
 use bevy_mesh::MeshVertexAttribute;
 
@@ -120,9 +121,84 @@ pub mod prelude {
 
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
+// Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
+/// Stores default [`ImageSamplerDescriptor`] in main world.
+#[derive(Resource)]
+pub(crate) struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
+
+impl DefaultGltfImageSampler {
+    /// Creates a new [`DefaultGltfImageSampler`].
+    pub(crate) fn new(descriptor: &ImageSamplerDescriptor) -> Self {
+        Self(Arc::new(Mutex::new(descriptor.clone())))
+    }
+
+    /// Returns the current default [`ImageSamplerDescriptor`].
+    pub(crate) fn get(&self) -> ImageSamplerDescriptor {
+        self.0.lock().unwrap().clone()
+    }
+
+    /// Makes a clone of internal [`Arc`] pointer.
+    ///
+    /// Intended only to be used by code with no access to ECS.
+    pub(crate) fn get_internal(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
+        self.0.clone()
+    }
+
+    /// Replaces default [`ImageSamplerDescriptor`].
+    ///
+    /// Doesn't apply to samplers already built on top of it, i.e. `GltfLoader`'s output.
+    /// Assets need to manually be reloaded.
+    pub(crate) fn set(&self, descriptor: &ImageSamplerDescriptor) {
+        *self.0.lock().unwrap() = descriptor.clone();
+    }
+}
+
+// Has to store an Arc<...> as there is no other way to mutate fields of asset loaders.
+/// Stores the default value for whether to convert the coordinates of loaded glTF assets to Bevy's coordinate system.
+/// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system.
+/// - glTF:
+///   - forward: Z
+///   - up: Y
+///   - right: -X
+/// - Bevy:
+///   - forward: -Z
+///   - up: Y
+///   - right: X
+#[derive(Resource)]
+pub(crate) struct DefaultGltfConvertCoordinates(Arc<AtomicBool>);
+
+impl DefaultGltfConvertCoordinates {
+    /// Creates a new [`DefaultGltfConvertCoordinates`].
+    pub(crate) fn new(convert_coordinates: bool) -> Self {
+        Self(Arc::new(AtomicBool::new(convert_coordinates)))
+    }
+
+    /// Returns the current default [`bool`].
+    pub(crate) fn get(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+
+    /// Makes a clone of internal [`Arc`] pointer.
+    ///
+    /// Intended only to be used by code with no access to ECS.
+    pub(crate) fn get_internal(&self) -> Arc<AtomicBool> {
+        self.0.clone()
+    }
+
+    /// Replaces default glTF coordinate conversion setting.
+    ///
+    /// Doesn't apply to glTF assets already loaded, i.e. `GltfLoader`'s output.
+    /// Assets need to manually be reloaded.
+    pub(crate) fn set(&self, convert_coordinates: bool) {
+        self.0.store(convert_coordinates, Ordering::SeqCst);
+    }
+}
+
 /// Adds support for glTF file loading to the app.
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
+    ///
+    /// Can be modified with the [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
 
     /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
@@ -135,6 +211,8 @@ pub struct GltfPlugin {
     ///   - forward: -Z
     ///   - up: Y
     ///   - right: X
+    ///
+    /// Can be modified with the [`DefaultGltfConvertCoordinates`] resource.
     pub convert_coordinates: bool,
 
     /// Registry for custom vertex attributes.
@@ -196,8 +274,14 @@ impl Plugin for GltfPlugin {
             CompressedImageFormats::NONE
         };
 
-        let default_sampler = Arc::new(Mutex::new(self.default_sampler.clone()));
-        let default_convert_coordinates = Arc::new(AtomicBool::new(self.convert_coordinates));
+        let default_sampler_resource = DefaultGltfImageSampler::new(&self.default_sampler);
+        let default_sampler = default_sampler_resource.get_internal();
+        app.insert_resource(default_sampler_resource);
+
+        let default_convert_coordinates_resource =
+            DefaultGltfConvertCoordinates::new(self.convert_coordinates);
+        let default_convert_coordinates = default_convert_coordinates_resource.get_internal();
+        app.insert_resource(default_convert_coordinates_resource);
 
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
