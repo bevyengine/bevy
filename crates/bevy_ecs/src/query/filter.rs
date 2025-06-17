@@ -103,6 +103,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
     unsafe fn filter_fetch(
+        state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
@@ -204,6 +205,7 @@ unsafe impl<T: Component> QueryFilter for With<T> {
 
     #[inline(always)]
     unsafe fn filter_fetch(
+        _state: &Self::State,
         _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
@@ -304,6 +306,7 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 
     #[inline(always)]
     unsafe fn filter_fetch(
+        _state: &Self::State,
         _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
@@ -495,20 +498,22 @@ macro_rules! impl_or_query_filter {
 
             #[inline(always)]
             unsafe fn filter_fetch(
+                state: &Self::State,
                 fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
+                let ($($state,)*) = state;
                 let ($($filter,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, entity, table_row) }))*
+                false $(|| ($filter.matches && unsafe { $filter::filter_fetch($state, &mut $filter.fetch, entity, table_row) }))*
             }
         }
     };
 }
 
 macro_rules! impl_tuple_query_filter {
-    ($(#[$meta:meta])* $($name: ident),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such the lints below may not always apply."
@@ -528,13 +533,15 @@ macro_rules! impl_tuple_query_filter {
 
             #[inline(always)]
             unsafe fn filter_fetch(
+                state: &Self::State,
                 fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
+                let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
+                true $(&& unsafe { $name::filter_fetch($state, $name, entity, table_row) })*
             }
         }
 
@@ -546,7 +553,8 @@ all_tuples!(
     impl_tuple_query_filter,
     0,
     15,
-    F
+    F,
+    S
 );
 all_tuples!(
     #[doc(fake_variadic)]
@@ -609,7 +617,12 @@ unsafe impl<T: Component> QueryFilter for Allows<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
-    unsafe fn filter_fetch(_: &mut Self::Fetch<'_>, _: Entity, _: TableRow) -> bool {
+    unsafe fn filter_fetch(
+        _: &Self::State,
+        _: &mut Self::Fetch<'_>,
+        _: Entity,
+        _: TableRow,
+    ) -> bool {
         true
     }
 }
@@ -807,6 +820,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
     #[inline(always)]
     unsafe fn filter_fetch(
+        _state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
@@ -1034,6 +1048,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 
     #[inline(always)]
     unsafe fn filter_fetch(
+        _state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
@@ -1188,6 +1203,7 @@ unsafe impl QueryFilter for Spawned {
 
     #[inline(always)]
     unsafe fn filter_fetch(
+        _state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         _table_row: TableRow,

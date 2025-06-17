@@ -325,6 +325,7 @@ pub unsafe trait QueryData: WorldQuery {
     ///   `table_row` must be in the range of the current table and archetype.
     /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
     unsafe fn fetch<'w, 's>(
+        state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
@@ -421,6 +422,7 @@ unsafe impl QueryData for Entity {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         _fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
@@ -509,6 +511,7 @@ unsafe impl QueryData for EntityLocation {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
@@ -671,6 +674,7 @@ unsafe impl QueryData for SpawnDetails {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
@@ -789,6 +793,7 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
@@ -891,6 +896,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
@@ -1017,6 +1023,7 @@ unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         (fetch, access): &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
@@ -1138,6 +1145,7 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         (fetch, access): &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
@@ -1247,6 +1255,7 @@ where
     }
 
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _: TableRow,
@@ -1357,6 +1366,7 @@ where
     }
 
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _: TableRow,
@@ -1440,6 +1450,7 @@ unsafe impl QueryData for &Archetype {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
@@ -1593,6 +1604,7 @@ unsafe impl<T: Component> QueryData for &T {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
@@ -1777,6 +1789,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
@@ -1984,6 +1997,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
@@ -2137,13 +2151,14 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
     #[inline(always)]
     // Forwarded to `&mut T`
     unsafe fn fetch<'w, 's>(
+        state: &'s Self::State,
         // Rust complains about lifetime bounds not matching the trait if I directly use `WriteFetch<'w, T>` right here.
         // But it complains nowhere else in the entire trait implementation.
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w, 's> {
-        <&mut T as QueryData>::fetch(fetch, entity, table_row)
+        <&mut T as QueryData>::fetch(state, fetch, entity, table_row)
     }
 }
 
@@ -2275,6 +2290,7 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
@@ -2282,7 +2298,7 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
         fetch
             .matches
             // SAFETY: The invariants are upheld by the caller.
-            .then(|| unsafe { T::fetch(&mut fetch.fetch, entity, table_row) })
+            .then(|| unsafe { T::fetch(state, &mut fetch.fetch, entity, table_row) })
     }
 }
 
@@ -2451,6 +2467,7 @@ unsafe impl<T: Component> QueryData for Has<T> {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
         _table_row: TableRow,
@@ -2476,7 +2493,7 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
 pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
-    ($(#[$meta:meta])* $(($name: ident, $item: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $item: ident, $state: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such the lints below may not always apply."
@@ -2519,13 +2536,15 @@ macro_rules! impl_tuple_query_data {
 
             #[inline(always)]
             unsafe fn fetch<'w, 's>(
+                state: &'s Self::State,
                 fetch: &mut Self::Fetch<'w>,
                 entity: Entity,
                 table_row: TableRow
             ) -> Self::Item<'w, 's> {
+                let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe { $name::fetch($name, entity, table_row) },)*)
+                ($(unsafe { $name::fetch($state, $name, entity, table_row) },)*)
             }
         }
 
@@ -2694,14 +2713,16 @@ macro_rules! impl_anytuple_fetch {
 
             #[inline(always)]
             unsafe fn fetch<'w, 's>(
+                _state: &'s Self::State,
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
                 _table_row: TableRow
             ) -> Self::Item<'w, 's> {
                 let ($($name,)*) = _fetch;
+                let ($($state,)*) = _state;
                 ($(
                     // SAFETY: The invariants are required to be upheld by the caller.
-                    $name.1.then(|| unsafe { $name::fetch(&mut $name.0, _entity, _table_row) }),
+                    $name.1.then(|| unsafe { $name::fetch($state, &mut $name.0, _entity, _table_row) }),
                 )*)
             }
         }
@@ -2732,7 +2753,8 @@ all_tuples!(
     0,
     15,
     F,
-    i
+    i,
+    s
 );
 all_tuples!(
     #[doc(fake_variadic)]
@@ -2813,6 +2835,7 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
 
     #[inline(always)]
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
         _table_row: TableRow,
@@ -2893,6 +2916,7 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     }
 
     unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
         _table_row: TableRow,
@@ -3100,6 +3124,7 @@ mod tests {
 
             #[inline(always)]
             unsafe fn fetch<'w, 's>(
+                _state: &'s Self::State,
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
                 _table_row: TableRow,

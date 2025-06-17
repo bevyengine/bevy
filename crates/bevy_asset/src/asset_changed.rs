@@ -269,6 +269,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 
     #[inline]
     unsafe fn filter_fetch(
+        state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
@@ -276,7 +277,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
         fetch.inner.as_mut().is_some_and(|inner| {
             // SAFETY: We delegate to the inner `fetch` for `A`
             unsafe {
-                let handle = <&A>::fetch(inner, entity, table_row);
+                let handle = <&A>::fetch(&state.asset_id, inner, entity, table_row);
                 fetch.check.has_changed(handle)
             }
         })

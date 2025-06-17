@@ -822,10 +822,7 @@ mod tests {
         type Fetch<'w> = ();
         type State = ComponentId;
 
-        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
-            _: Self::Fetch<'wlong>,
-        ) -> Self::Fetch<'wshort> {
-        }
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
         unsafe fn init_fetch<'w, 's>(
             _world: UnsafeWorldCell<'w>,
@@ -894,6 +891,7 @@ mod tests {
 
         #[inline(always)]
         unsafe fn fetch<'w, 's>(
+            _state: &'s Self::State,
             _fetch: &mut Self::Fetch<'w>,
             _entity: Entity,
             _table_row: TableRow,

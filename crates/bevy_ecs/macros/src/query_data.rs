@@ -290,12 +290,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                     #[inline(always)]
                     unsafe fn fetch<'__w, '__s>(
+                        _state: &'__s Self::State,
                         _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
                     ) -> Self::Item<'__w, '__s> {
                         Self::Item {
-                            #(#field_idents: <#read_only_field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                            #(#field_idents: <#read_only_field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row),)*
                         }
                     }
                 }
@@ -347,12 +348,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                 #[inline(always)]
                 unsafe fn fetch<'__w, '__s>(
+                    _state: &'__s Self::State,
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
                 ) -> Self::Item<'__w, '__s> {
                     Self::Item {
-                        #(#field_idents: <#field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                        #(#field_idents: <#field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row),)*
                     }
                 }
             }

@@ -374,13 +374,14 @@ mod render_entities_world_query_impls {
 
         #[inline(always)]
         unsafe fn fetch<'w, 's>(
+            state: &'s Self::State,
             fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
         ) -> Self::Item<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             let component =
-                unsafe { <&RenderEntity as QueryData>::fetch(fetch, entity, table_row) };
+                unsafe { <&RenderEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.id()
         }
     }
@@ -482,12 +483,14 @@ mod render_entities_world_query_impls {
 
         #[inline(always)]
         unsafe fn fetch<'w, 's>(
+            state: &'s Self::State,
             fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
         ) -> Self::Item<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
-            let component = unsafe { <&MainEntity as QueryData>::fetch(fetch, entity, table_row) };
+            let component =
+                unsafe { <&MainEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.id()
         }
     }

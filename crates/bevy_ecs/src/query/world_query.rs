@@ -50,9 +50,7 @@ pub unsafe trait WorldQuery {
     type State: Send + Sync + Sized;
 
     /// This function manually implements subtyping for the query fetches.
-    fn shrink_fetch<'wlong: 'wshort, 'wshort>(
-        fetch: Self::Fetch<'wlong>,
-    ) -> Self::Fetch<'wshort>;
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
 
     /// Creates a new instance of [`Self::Fetch`](WorldQuery::Fetch),
     /// by combining data from the [`World`] with the cached [`Self::State`](WorldQuery::State).
