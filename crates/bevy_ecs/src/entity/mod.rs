@@ -448,7 +448,7 @@ impl Entity {
     /// Construct an [`Entity`] from a raw `row` value and a non-zero `generation` value.
     /// Ensure that the generation value is never greater than `0x7FFF_FFFF`.
     #[inline(always)]
-    pub fn from_raw_and_generation(row: EntityRow, generation: EntityGeneration) -> Entity {
+    pub const fn from_raw_and_generation(row: EntityRow, generation: EntityGeneration) -> Entity {
         Self { row, generation }
     }
 
