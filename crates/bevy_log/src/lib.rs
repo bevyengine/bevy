@@ -56,6 +56,7 @@ use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 use tracing_subscriber::{
     filter::{FromEnvError, ParseError},
+    layer::Layered,
     prelude::*,
     registry::Registry,
     EnvFilter, Layer,
@@ -83,8 +84,6 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///   logging to `stdout`.
 /// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
 ///   logging to Android logs.
-/// * Using [`tracing_oslog`](https://crates.io/crates/tracing_oslog) on iOS,
-///   logging to iOS logs.
 /// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging
 ///   to the browser console.
 ///
@@ -255,14 +254,25 @@ pub struct LogPlugin {
     /// timestamp from the log output.
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
-    ///
-    /// Note that this field has no effect when `os_target` is `android`, `ios` or `wasm`, as on those
-    /// platforms we don't use [`tracing_subscriber::fmt::Layer`] but rather the platform default.
-    pub fmt_layer: fn(app: &mut App) -> Option<BoxedLayer>,
+    pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
 }
 
 /// A boxed [`Layer`] that can be used with [`LogPlugin::custom_layer`].
 pub type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
+
+#[cfg(feature = "trace")]
+type BaseSubscriber =
+    Layered<EnvFilter, Layered<Option<Box<dyn Layer<Registry> + Send + Sync>>, Registry>>;
+
+#[cfg(feature = "trace")]
+type PreFmtSubscriber = Layered<tracing_error::ErrorLayer<BaseSubscriber>, BaseSubscriber>;
+
+#[cfg(not(feature = "trace"))]
+type PreFmtSubscriber =
+    Layered<EnvFilter, Layered<Option<Box<dyn Layer<Registry> + Send + Sync>>, Registry>>;
+
+/// A boxed [`Layer`] that can be used with [`LogPlugin::fmt_layer`].
+pub type BoxedFmtLayer = Box<dyn Layer<PreFmtSubscriber> + Send + Sync + 'static>;
 
 /// The default [`LogPlugin`] [`EnvFilter`].
 pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
@@ -290,25 +300,30 @@ impl Plugin for LogPlugin {
             }));
         }
 
-        // We use a Vec of BoxedLayer instead of adding each layer individually using the
-        // `layer.with(next_layer)`.
-        // Otherwise, the types of each successive layer becomes unwieldy,
-        // as the type of each new layer would depend on the types of the previous layers.
-        let mut layers: Vec<BoxedLayer> = Vec::new();
+        let finished_subscriber;
+        let subscriber = Registry::default();
 
-        // Add optional layer provided by user
-        // As they are added first, any of the following layers won't be applied.
-        // In particular, it won't be affected by the filtering we put in place next.
-        if let Some(layer) = (self.custom_layer)(app) {
-            layers.push(layer);
-        }
+        // add optional layer provided by user
+        let subscriber = subscriber.with((self.custom_layer)(app));
 
-        layers.push(Self::build_filter_layer(self.level, &self.filter));
+        let default_filter = { format!("{},{}", self.level, self.filter) };
+        let filter_layer = EnvFilter::try_from_default_env()
+            .or_else(|from_env_error| {
+                _ = from_env_error
+                    .source()
+                    .and_then(|source| source.downcast_ref::<ParseError>())
+                    .map(|parse_err| {
+                        // we cannot use the `error!` macro here because the logger is not ready yet.
+                        eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
+                    });
+
+                Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
+            })
+            .unwrap();
+        let subscriber = subscriber.with(filter_layer);
 
         #[cfg(feature = "trace")]
-        layers.push(tracing_error::ErrorLayer::default().boxed());
-
-        layers.push(Self::build_system_output_layer((self.fmt_layer)(app)));
+        let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
         #[cfg(all(
             not(target_arch = "wasm32"),
@@ -317,19 +332,76 @@ impl Plugin for LogPlugin {
         ))]
         {
             #[cfg(feature = "tracing-chrome")]
-            {
-                let (chrome_layer, guard) = Self::build_chrome_layer();
+            let chrome_layer = {
+                let mut layer = tracing_chrome::ChromeLayerBuilder::new();
+                if let Ok(path) = std::env::var("TRACE_CHROME") {
+                    layer = layer.file(path);
+                }
+                let (chrome_layer, guard) = layer
+                    .name_fn(Box::new(|event_or_span| match event_or_span {
+                        tracing_chrome::EventOrSpan::Event(event) => event.metadata().name().into(),
+                        tracing_chrome::EventOrSpan::Span(span) => {
+                            if let Some(fields) =
+                                span.extensions().get::<FormattedFields<DefaultFields>>()
+                            {
+                                format!("{}: {}", span.metadata().name(), fields.fields.as_str())
+                            } else {
+                                span.metadata().name().into()
+                            }
+                        }
+                    }))
+                    .build();
                 app.insert_resource(FlushGuard(SyncCell::new(guard)));
-                layers.push(chrome_layer);
-            }
+                chrome_layer
+            };
+
             #[cfg(feature = "tracing-tracy")]
-            layers.push(tracing_tracy::TracyLayer::default().boxed());
+            let tracy_layer = tracing_tracy::TracyLayer::default();
+
+            let fmt_layer = (self.fmt_layer)(app).unwrap_or_else(|| {
+                // note: the implementation of `Default` reads from the env var NO_COLOR
+                // to decide whether to use ANSI color codes, which is common convention
+                // https://no-color.org/
+                Box::new(tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr))
+            });
+
+            // bevy_render::renderer logs a `tracy.frame_mark` event every frame
+            // at Level::INFO. Formatted logs should omit it.
+            #[cfg(feature = "tracing-tracy")]
+            let fmt_layer =
+                fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
+                    meta.fields().field("tracy.frame_mark").is_none()
+                }));
+
+            let subscriber = subscriber.with(fmt_layer);
+
+            #[cfg(feature = "tracing-chrome")]
+            let subscriber = subscriber.with(chrome_layer);
+            #[cfg(feature = "tracing-tracy")]
+            let subscriber = subscriber.with(tracy_layer);
+            finished_subscriber = subscriber;
         }
 
-        let subscriber = Registry::default().with(layers);
+        #[cfg(target_arch = "wasm32")]
+        {
+            finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
+                tracing_wasm::WASMLayerConfig::default(),
+            ));
+        }
+
+        #[cfg(target_os = "android")]
+        {
+            finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            finished_subscriber = subscriber.with(tracing_oslog::OsLogger::default());
+        }
 
         let logger_already_set = LogTracer::init().is_err();
-        let subscriber_already_set = tracing::subscriber::set_global_default(subscriber).is_err();
+        let subscriber_already_set =
+            tracing::subscriber::set_global_default(finished_subscriber).is_err();
 
         match (logger_already_set, subscriber_already_set) {
             (true, true) => error!(
@@ -339,114 +411,5 @@ impl Plugin for LogPlugin {
             (false, true) => error!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
             (false, false) => (),
         }
-    }
-}
-
-impl LogPlugin {
-    /// Build a [`BoxedLayer`] that will filter which logs are outputted.
-    /// It will read the `RUST_LOG` env variable to override the settings
-    /// on a given run, the default will fallback to the provided `level` and `filter`
-    fn build_filter_layer(level: Level, filter: &str) -> BoxedLayer {
-        let default_filter = { format!("{},{}", level, filter) };
-
-        EnvFilter::try_from_default_env()
-            .or_else(|from_env_error| {
-                _ = from_env_error
-                    .source()
-                    .and_then(|source| source.downcast_ref::<ParseError>())
-                    .map(|parse_err| {
-                        #[expect(
-                            clippy::print_stderr,
-                            reason = "We cannot use the `error!` macro here because the logger is not ready yet."
-                        )]
-                        {
-                        eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
-                        }
-                    });
-
-                Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
-            })
-            .unwrap().boxed()
-    }
-
-    #[cfg(feature = "tracing-chrome")]
-    /// [`BoxedLayer`] to build the necessary output when the `tracing-chrome` feature is enabled.
-    /// The [`tracing_chrome::FlushGuard`] must be kept around till we don't need to output logs
-    /// any more
-    fn build_chrome_layer() -> (BoxedLayer, tracing_chrome::FlushGuard) {
-        let mut layer = tracing_chrome::ChromeLayerBuilder::new();
-        if let Ok(path) = std::env::var("TRACE_CHROME") {
-            layer = layer.file(path);
-        }
-        let (chrome_layer, guard) = layer
-            .name_fn(Box::new(|event_or_span| match event_or_span {
-                tracing_chrome::EventOrSpan::Event(event) => event.metadata().name().into(),
-                tracing_chrome::EventOrSpan::Span(span) => {
-                    if let Some(fields) = span.extensions().get::<FormattedFields<DefaultFields>>()
-                    {
-                        format!("{}: {}", span.metadata().name(), fields.fields.as_str())
-                    } else {
-                        span.metadata().name().into()
-                    }
-                }
-            }))
-            .build();
-        (chrome_layer.boxed(), guard)
-    }
-
-    #[expect(
-        clippy::allow_attributes,
-        reason = "We can't switch to `expect` for allow(unused_variables) as we use it if not on those platforms"
-    )]
-    #[allow(unused_variables, reason = "Not used on `wasm32`, `android` or `ios")]
-    /// Build a [`BoxedLayer`] that outputs logs to the system default.
-    /// On most platforms, it will be `stderr` with [`tracing_subscriber::fmt::Layer`], expect on `android`, `ios` and` wasm32` where it
-    /// uses those system default log infrastructure.
-    /// It is possible to override how you output those logs by providing a `custom_format_layer`.
-    /// Note that won't have an effect on platform that don't use [`tracing_subscriber::fmt::Layer`]
-    fn build_system_output_layer(custom_format_layer: Option<BoxedLayer>) -> BoxedLayer {
-        let layer: BoxedLayer;
-        #[cfg(target_arch = "wasm32")]
-        {
-            layer = tracing_wasm::WASMLayer::new(tracing_wasm::WASMLayerConfig::default()).boxed();
-        }
-
-        #[cfg(target_os = "android")]
-        {
-            layer = android_tracing::AndroidLayer::default().boxed();
-        }
-
-        #[cfg(target_os = "ios")]
-        {
-            layer = tracing_oslog::OsLogger::default().boxed();
-        }
-
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            not(target_os = "android"),
-            not(target_os = "ios")
-        ))]
-        {
-            layer = {
-                let fmt_layer = custom_format_layer.unwrap_or_else(|| {
-                    tracing_subscriber::fmt::Layer::default()
-                        // note: the implementation of `Default` reads from the env var NO_COLOR
-                        // to decide whether to use ANSI color codes, which is common convention
-                        // https://no-color.org/
-                        .with_writer(std::io::stderr)
-                        .boxed()
-                });
-
-                // bevy_render::renderer logs a `tracy.frame_mark` event every frame
-                // at Level::INFO. Formatted logs should omit it.
-                #[cfg(feature = "tracing-tracy")]
-                let fmt_layer =
-                    fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
-                        meta.fields().field("tracy.frame_mark").is_none()
-                    }));
-                fmt_layer.boxed()
-            }
-        }
-        layer
     }
 }
