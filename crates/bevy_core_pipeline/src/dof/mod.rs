@@ -352,7 +352,7 @@ impl ViewNode for DepthOfFieldNode {
             view_bind_group_layouts,
             depth_of_field_uniform_index,
             auxiliary_dof_texture,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();

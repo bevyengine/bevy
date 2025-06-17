@@ -76,6 +76,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let user_generics_with_world = {
         let mut generics = ast.generics;
         generics.params.insert(0, parse_quote!('__w));
+        generics.params.insert(0, parse_quote!('__s));
         generics
     };
     let (user_impl_generics_with_world, user_ty_generics_with_world, user_where_clauses_with_world) =
@@ -256,11 +257,11 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     const IS_READ_ONLY: bool = true;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
-                    type Item<'__w> = #read_only_item_struct_name #user_ty_generics_with_world;
+                    type Item<'__w, '__s> = #read_only_item_struct_name #user_ty_generics_with_world;
 
-                    fn shrink<'__wlong: '__wshort, '__wshort>(
-                        item: Self::Item<'__wlong>
-                    ) -> Self::Item<'__wshort> {
+                    fn shrink<'__wlong: '__wshort, '__wshort, '__s>(
+                        item: Self::Item<'__wlong, '__s>
+                    ) -> Self::Item<'__wshort, '__s> {
                         #read_only_item_struct_name {
                             #(
                                 #field_idents: <#read_only_field_types>::shrink(item.#field_idents),
@@ -278,13 +279,25 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
                     /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                     #[inline(always)]
-                    unsafe fn fetch<'__w>(
-                        _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                    unsafe fn fetch<'__w, '__s>(
+                        _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w, '__s>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
-                    ) -> Self::Item<'__w> {
+                    ) -> Self::Item<'__w, '__s> {
                         Self::Item {
                             #(#field_idents: <#read_only_field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                        }
+                    }
+                }
+
+                impl #user_impl_generics #path::query::ReleaseStateQueryData
+                for #read_only_struct_name #user_ty_generics #user_where_clauses
+                // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+                // See https://github.com/rust-lang/rust/issues/48214
+                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::ReleaseStateQueryData>,)* {
+                    fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
+                        Self::Item {
+                            #(#field_idents: <#read_only_field_types>::release_state(_item.#field_idents),)*
                         }
                     }
                 }
@@ -301,11 +314,11 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             for #struct_name #user_ty_generics #user_where_clauses {
                 const IS_READ_ONLY: bool = #is_read_only;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
-                type Item<'__w> = #item_struct_name #user_ty_generics_with_world;
+                type Item<'__w, '__s> = #item_struct_name #user_ty_generics_with_world;
 
-                fn shrink<'__wlong: '__wshort, '__wshort>(
-                    item: Self::Item<'__wlong>
-                ) -> Self::Item<'__wshort> {
+                fn shrink<'__wlong: '__wshort, '__wshort, '__s>(
+                    item: Self::Item<'__wlong, '__s>
+                ) -> Self::Item<'__wshort, '__s> {
                     #item_struct_name {
                         #(
                             #field_idents: <#field_types>::shrink(item.#field_idents),
@@ -323,13 +336,25 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
                 /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                 #[inline(always)]
-                unsafe fn fetch<'__w>(
-                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                unsafe fn fetch<'__w, '__s>(
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w, '__s>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
-                ) -> Self::Item<'__w> {
+                ) -> Self::Item<'__w, '__s> {
                     Self::Item {
                         #(#field_idents: <#field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                    }
+                }
+            }
+
+            impl #user_impl_generics #path::query::ReleaseStateQueryData
+            for #struct_name #user_ty_generics #user_where_clauses
+            // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+            // See https://github.com/rust-lang/rust/issues/48214
+            where #(for<'__a> #field_types: #path::query::ReleaseStateQueryData,)* {
+                fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
+                    Self::Item {
+                        #(#field_idents: <#field_types>::release_state(_item.#field_idents),)*
                     }
                 }
             }
