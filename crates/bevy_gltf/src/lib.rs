@@ -124,23 +124,23 @@ pub use {assets::*, label::GltfAssetLabel, loader::*};
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.
 #[derive(Resource)]
-pub struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
+pub(crate) struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
 
 impl DefaultGltfImageSampler {
     /// Creates a new [`DefaultGltfImageSampler`].
-    pub fn new(descriptor: &ImageSamplerDescriptor) -> Self {
+    pub(crate) fn new(descriptor: &ImageSamplerDescriptor) -> Self {
         Self(Arc::new(Mutex::new(descriptor.clone())))
     }
 
     /// Returns the current default [`ImageSamplerDescriptor`].
-    pub fn get(&self) -> ImageSamplerDescriptor {
+    pub(crate) fn get(&self) -> ImageSamplerDescriptor {
         self.0.lock().unwrap().clone()
     }
 
     /// Makes a clone of internal [`Arc`] pointer.
     ///
     /// Intended only to be used by code with no access to ECS.
-    pub fn get_internal(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
+    pub(crate) fn get_internal(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
         self.0.clone()
     }
 
@@ -148,7 +148,7 @@ impl DefaultGltfImageSampler {
     ///
     /// Doesn't apply to samplers already built on top of it, i.e. `GltfLoader`'s output.
     /// Assets need to manually be reloaded.
-    pub fn set(&self, descriptor: &ImageSamplerDescriptor) {
+    pub(crate) fn set(&self, descriptor: &ImageSamplerDescriptor) {
         *self.0.lock().unwrap() = descriptor.clone();
     }
 }
@@ -165,23 +165,23 @@ impl DefaultGltfImageSampler {
 ///   - up: Y
 ///   - right: X
 #[derive(Resource)]
-pub struct DefaultGltfConvertCoordinates(Arc<AtomicBool>);
+pub(crate) struct DefaultGltfConvertCoordinates(Arc<AtomicBool>);
 
 impl DefaultGltfConvertCoordinates {
     /// Creates a new [`DefaultGltfConvertCoordinates`].
-    pub fn new(convert_coordinates: bool) -> Self {
+    pub(crate) fn new(convert_coordinates: bool) -> Self {
         Self(Arc::new(AtomicBool::new(convert_coordinates)))
     }
 
     /// Returns the current default [`bool`].
-    pub fn get(&self) -> bool {
+    pub(crate) fn get(&self) -> bool {
         self.0.load(Ordering::SeqCst)
     }
 
     /// Makes a clone of internal [`Arc`] pointer.
     ///
     /// Intended only to be used by code with no access to ECS.
-    pub fn get_internal(&self) -> Arc<AtomicBool> {
+    pub(crate) fn get_internal(&self) -> Arc<AtomicBool> {
         self.0.clone()
     }
 
@@ -189,7 +189,7 @@ impl DefaultGltfConvertCoordinates {
     ///
     /// Doesn't apply to glTF assets already loaded, i.e. `GltfLoader`'s output.
     /// Assets need to manually be reloaded.
-    pub fn set(&self, convert_coordinates: bool) {
+    pub(crate) fn set(&self, convert_coordinates: bool) {
         self.0.store(convert_coordinates, Ordering::SeqCst);
     }
 }
