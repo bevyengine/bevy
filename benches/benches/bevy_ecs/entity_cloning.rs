@@ -3,7 +3,7 @@ use core::hint::black_box;
 use benches::bench;
 use bevy_ecs::bundle::Bundle;
 use bevy_ecs::component::ComponentCloneBehavior;
-use bevy_ecs::entity::EntityCloner;
+use bevy_ecs::entity::{EntityCloner, EntityClonerBuilder};
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, world::World};
@@ -13,41 +13,41 @@ use criterion::{criterion_group, Bencher, Criterion, Throughput};
 
 criterion_group!(
     benches,
-    single_unfiltered_all,
+    single,
     hierarchy_tall,
     hierarchy_wide,
     hierarchy_many,
 );
 
-#[derive(Component, Default, Clone)]
+#[derive(Component, Reflect, Default, Clone)]
 #[require(C1)]
 struct E1(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
 struct C1(Mat4);
 
-#[derive(Component, Default, Clone)]
+#[derive(Component, Reflect, Default, Clone)]
 #[require(C2)]
 struct E2(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
 struct C2(Mat4);
 
-#[derive(Component, Default, Clone)]
+#[derive(Component, Reflect, Default, Clone)]
 #[require(C3)]
 struct E3(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
 struct C3(Mat4);
 
-#[derive(Component, Default, Clone)]
+#[derive(Component, Reflect, Default, Clone)]
 #[require(C4)]
 struct E4(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
 struct C4(Mat4);
 
-#[derive(Component, Default, Clone)]
+#[derive(Component, Reflect, Default, Clone)]
 #[require(C5)]
 struct E5(Mat4);
 
@@ -73,10 +73,10 @@ type ComplexBundle = (C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
 
 /// Sets the [`ComponentCloneBehavior`] for all explicit and required components in a bundle `B` to
 /// use the [`Reflect`] trait instead of [`Clone`].
-fn reflection_cloner<B: Bundle + GetTypeRegistration>(
+fn reflection_cloner<B: Bundle + GetTypeRegistration, Filter>(
     world: &mut World,
     linked_cloning: bool,
-) -> EntityCloner {
+) -> impl FnOnce(&mut EntityClonerBuilder<Filter>) + 'static {
     // Get mutable access to the type registry, creating it if it does not exist yet.
     let registry = world.get_resource_or_init::<AppTypeRegistry>();
 
@@ -91,15 +91,13 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration>(
     // this bundle are saved.
     let component_ids: Vec<_> = world.register_bundle::<B>().contributed_components().into();
 
-    let mut builder = EntityCloner::build_allow_all(world);
-
-    // Overwrite the clone handler for all components in the bundle to use `Reflect`, not `Clone`.
-    for component in component_ids {
-        builder.override_clone_behavior_with_id(component, ComponentCloneBehavior::reflect());
+    move |builder| {
+        // Overwrite the clone handler for all components in the bundle to use `Reflect`, not `Clone`.
+        for component in component_ids {
+            builder.override_clone_behavior_with_id(component, ComponentCloneBehavior::reflect());
+        }
+        builder.linked_cloning(linked_cloning);
     }
-    builder.linked_cloning(linked_cloning);
-
-    builder.finish()
 }
 
 /// A helper function that benchmarks running [`EntityCloner::spawn_clone`] with a bundle `B`.
@@ -111,14 +109,17 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration>(
 /// components (which is usually [`ComponentCloneBehavior::clone()`]). If `clone_via_reflect`
 /// is true, it will overwrite the handler for all components in the bundle to be
 /// [`ComponentCloneBehavior::reflect()`].
-fn bench_clone_single_unfiltered_all<B: Bundle + Default + GetTypeRegistration>(
+fn bench_single<B: Bundle + Default + GetTypeRegistration>(
     b: &mut Bencher,
     clone_via_reflect: bool,
 ) {
     let mut world = World::default();
 
     let mut cloner = if clone_via_reflect {
-        reflection_cloner::<B>(&mut world, false)
+        let cfg = reflection_cloner::<B, _>(&mut world, false);
+        let mut builder = EntityCloner::build_allow_all(&mut world);
+        cfg(&mut builder);
+        builder.finish()
     } else {
         EntityCloner::default()
     };
@@ -135,54 +136,26 @@ fn bench_clone_single_unfiltered_all<B: Bundle + Default + GetTypeRegistration>(
 
 /// A helper function that benchmarks running [`EntityCloner::clone_entity`] with[`bevy_ecs::entity::DenyAll`]
 /// filter and allowing 5 components which each have one required component.
-fn bench_single_filtered_complex_into_target(b: &mut Bencher, scenario: &str) {
+fn bench_single_actively_filtered<B: Bundle + Default + GetTypeRegistration>(
+    b: &mut Bencher,
+    clone_via_reflect: bool,
+) {
     let mut world = World::default();
 
-    let (source, target);
-
-    type Explicit = (E1, E2, E3, E4, E5);
-    type Required = (C1, C2, C3, C4, C5);
-
-    let cloner = match scenario {
-        deny_all_scenarios::ALL_PASS => {
-            source = world.spawn(Explicit::default()).id();
-            target = world.spawn_empty().id();
-            let mut cloner = EntityCloner::build_deny_all(&mut world);
-            cloner.allow::<Explicit>();
-            cloner
-        }
-        deny_all_scenarios::ALL_PASS_AS_NEW => {
-            source = world.spawn(Explicit::default()).id();
-            target = world.spawn_empty().id();
-            let mut cloner = EntityCloner::build_deny_all(&mut world);
-            cloner.allow_if_new::<Explicit>();
-            cloner
-        }
-        deny_all_scenarios::EXPLICIT_MISSING => {
-            source = world.spawn_empty().id();
-            target = world.spawn_empty().id();
-            let mut cloner = EntityCloner::build_deny_all(&mut world);
-            cloner.allow::<Explicit>();
-            cloner
-        }
-        deny_all_scenarios::EXPLICIT_NOT_NEW => {
-            source = world.spawn(Explicit::default()).id();
-            target = world.spawn(Explicit::default()).id();
-            let mut cloner = EntityCloner::build_deny_all(&mut world);
-            cloner.allow_if_new::<Explicit>();
-            cloner
-        }
-        deny_all_scenarios::REQUIRED_NOT_NEW => {
-            source = world.spawn(Explicit::default()).id();
-            target = world.spawn(Required::default()).id();
-            let mut cloner = EntityCloner::build_deny_all(&mut world);
-            cloner.allow::<Explicit>();
-            cloner
-        }
-        _ => unimplemented!(),
+    let mut cloner = if clone_via_reflect {
+        let cfg = reflection_cloner::<B, _>(&mut world, false);
+        let mut builder = EntityCloner::build_deny_all(&mut world);
+        cfg(&mut builder);
+        builder.allow::<B>();
+        builder.finish()
+    } else {
+        let mut builder = EntityCloner::build_deny_all(&mut world);
+        builder.allow::<B>();
+        builder.finish()
     };
 
-    let mut cloner = cloner.finish();
+    let source = world.spawn(B::default()).id();
+    let target = world.spawn_empty().id();
 
     b.iter(|| {
         // clones the given entity's components to the target
@@ -209,7 +182,10 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
     let mut world = World::default();
 
     let mut cloner = if clone_via_reflect {
-        reflection_cloner::<B>(&mut world, true)
+        let cfg = reflection_cloner::<B, _>(&mut world, true);
+        let mut builder = EntityCloner::build_allow_all(&mut world);
+        cfg(&mut builder);
+        builder.finish()
     } else {
         let mut builder = EntityCloner::build_allow_all(&mut world);
         builder.linked_cloning(true);
@@ -245,50 +221,34 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
 
 // Each benchmark runs twice: using either the `Clone` or `Reflect` traits to clone entities. This
 // constant represents this as an easy array that can be used in a `for` loop.
-const SINGLE_UNFILTERED_ALL_SCENARIOS: [(&str, bool); 2] = [("clone", false), ("reflect", true)];
+const SCENARIOS: [(&str, bool); 2] = [("clone", false), ("reflect", true)];
 
 /// Benchmarks cloning a single entity with 10 components and no children.
-fn single_unfiltered_all(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("single_unfiltered_all"));
+fn single(c: &mut Criterion) {
+    let mut group = c.benchmark_group(bench!("single"));
 
     // We're cloning 1 entity.
     group.throughput(Throughput::Elements(1));
 
-    for (id, clone_via_reflect) in SINGLE_UNFILTERED_ALL_SCENARIOS {
+    for (id, clone_via_reflect) in SCENARIOS {
         group.bench_function(id, |b| {
-            bench_clone_single_unfiltered_all::<ComplexBundle>(b, clone_via_reflect);
+            bench_single::<ComplexBundle>(b, clone_via_reflect);
         });
     }
 
     group.finish();
 }
 
-mod deny_all_scenarios {
-    pub const ALL_PASS: &str = "all_pass";
-    pub const ALL_PASS_AS_NEW: &str = "all_pass_as_new";
-    pub const EXPLICIT_MISSING: &str = "explicit_missing";
-    pub const EXPLICIT_NOT_NEW: &str = "explicit_not_new";
-    pub const REQUIRED_NOT_NEW: &str = "required_not_new";
-}
-
-const SINGLE_FILTERED_INTO_TARGET_SCENARIOS: [&str; 5] = [
-    deny_all_scenarios::ALL_PASS,
-    deny_all_scenarios::ALL_PASS_AS_NEW,
-    deny_all_scenarios::EXPLICIT_MISSING,
-    deny_all_scenarios::EXPLICIT_NOT_NEW,
-    deny_all_scenarios::REQUIRED_NOT_NEW,
-];
-
 /// Benchmarks cloning a single entity with 10 components where each needs to be evaluated
-fn single_filtered_into_target(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("single_filtered_into_target"));
+fn single_actively_filtered(c: &mut Criterion) {
+    let mut group = c.benchmark_group(bench!("single_actively_filtered"));
 
-    // We're cloning 1 entity into another.
+    // We're cloning 1 entity.
     group.throughput(Throughput::Elements(1));
 
-    for scenario in SINGLE_FILTERED_INTO_TARGET_SCENARIOS {
-        group.bench_function(scenario, |b| {
-            bench_single_filtered_complex_into_target(b, scenario);
+    for (id, clone_via_reflect) in SCENARIOS {
+        group.bench_function(id, |b| {
+            bench_single_actively_filtered::<(E1, E2, E3, E4, E5)>(b, clone_via_reflect);
         });
     }
 
@@ -302,7 +262,7 @@ fn hierarchy_tall(c: &mut Criterion) {
     // We're cloning both the root entity and its 50 descendents.
     group.throughput(Throughput::Elements(51));
 
-    for (id, clone_via_reflect) in SINGLE_UNFILTERED_ALL_SCENARIOS {
+    for (id, clone_via_reflect) in SCENARIOS {
         group.bench_function(id, |b| {
             bench_clone_hierarchy::<C1>(b, 50, 1, clone_via_reflect);
         });
@@ -318,7 +278,7 @@ fn hierarchy_wide(c: &mut Criterion) {
     // We're cloning both the root entity and its 50 direct children.
     group.throughput(Throughput::Elements(51));
 
-    for (id, clone_via_reflect) in SINGLE_UNFILTERED_ALL_SCENARIOS {
+    for (id, clone_via_reflect) in SCENARIOS {
         group.bench_function(id, |b| {
             bench_clone_hierarchy::<C1>(b, 1, 50, clone_via_reflect);
         });
@@ -336,7 +296,7 @@ fn hierarchy_many(c: &mut Criterion) {
     // of entities spawned in `bench_clone_hierarchy()` with a `println!()` statement. :)
     group.throughput(Throughput::Elements(364));
 
-    for (id, clone_via_reflect) in SINGLE_UNFILTERED_ALL_SCENARIOS {
+    for (id, clone_via_reflect) in SCENARIOS {
         group.bench_function(id, |b| {
             bench_clone_hierarchy::<ComplexBundle>(b, 5, 3, clone_via_reflect);
         });
