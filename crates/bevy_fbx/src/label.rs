@@ -19,6 +19,8 @@ pub enum FbxAssetLabel {
     Skeleton(usize),
     /// `Node{}`: Individual FBX node in the scene hierarchy
     Node(usize),
+    /// `Skin{}`: FBX skin for skeletal animation
+    Skin(usize),
     /// `Light{}`: FBX light definition
     Light(usize),
     /// `Camera{}`: FBX camera definition
@@ -43,6 +45,7 @@ impl core::fmt::Display for FbxAssetLabel {
             FbxAssetLabel::AnimationStack(index) => f.write_str(&format!("AnimationStack{index}")),
             FbxAssetLabel::Skeleton(index) => f.write_str(&format!("Skeleton{index}")),
             FbxAssetLabel::Node(index) => f.write_str(&format!("Node{index}")),
+            FbxAssetLabel::Skin(index) => f.write_str(&format!("Skin{index}")),
             FbxAssetLabel::Light(index) => f.write_str(&format!("Light{index}")),
             FbxAssetLabel::Camera(index) => f.write_str(&format!("Camera{index}")),
             FbxAssetLabel::Texture(index) => f.write_str(&format!("Texture{index}")),
