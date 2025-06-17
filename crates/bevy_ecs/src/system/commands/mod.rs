@@ -19,7 +19,7 @@ use crate::{
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
-    error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
+    error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::{BufferedEvent, EntityEvent, Event},
     observer::{Observer, TriggerTargets},
     resource::Resource,
@@ -638,7 +638,12 @@ impl<'w, 's> Commands<'w, 's> {
         command: C,
         error_handler: fn(BevyError, ErrorContext),
     ) {
-        self.queue_internal(command.handle_error_with(error_handler));
+        self.queue_internal(command.handle_error_with(Some(error_handler)));
+    }
+
+    /// Pushes a generic [`Command`] to the queue like [`queue_handled`], but instead silently ignores any errors.
+    pub fn queue_silenced<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+        self.queue_internal(command.handle_error_with(None));
     }
 
     fn queue_internal(&mut self, command: impl Command) {
@@ -744,7 +749,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.queue(command::insert_batch(batch, InsertMode::Replace).handle_error_with(warn));
+        self.queue(command::insert_batch(batch, InsertMode::Replace).handle_error_with(Some(warn)));
     }
 
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
@@ -775,7 +780,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.queue(command::insert_batch(batch, InsertMode::Keep).handle_error_with(warn));
+        self.queue(command::insert_batch(batch, InsertMode::Keep).handle_error_with(Some(warn)));
     }
 
     /// Inserts a [`Resource`] into the [`World`] with an inferred value.
@@ -873,7 +878,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn run_system<O: 'static>(&mut self, id: SystemId<(), O>) {
-        self.queue(command::run_system(id).handle_error_with(warn));
+        self.queue(command::run_system(id).handle_error_with(Some(warn)));
     }
 
     /// Runs the system corresponding to the given [`SystemId`] with input.
@@ -898,7 +903,7 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(command::run_system_with(id, input).handle_error_with(warn));
+        self.queue(command::run_system_with(id, input).handle_error_with(Some(warn)));
     }
 
     /// Registers a system and returns its [`SystemId`] so it can later be called by
@@ -992,7 +997,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: 'static,
     {
-        self.queue(command::unregister_system(system_id).handle_error_with(warn));
+        self.queue(command::unregister_system(system_id).handle_error_with(Some(warn)));
     }
 
     /// Removes a system previously registered with one of the following:
@@ -1014,7 +1019,7 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<I, O, M> + Send + 'static,
     {
-        self.queue(command::unregister_system_cached(system).handle_error_with(warn));
+        self.queue(command::unregister_system_cached(system).handle_error_with(Some(warn)));
     }
 
     /// Runs a cached system, registering it if necessary.
@@ -1045,7 +1050,7 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<(), O, M> + Send + 'static,
     {
-        self.queue(command::run_system_cached(system).handle_error_with(warn));
+        self.queue(command::run_system_cached(system).handle_error_with(Some(warn)));
     }
 
     /// Runs a cached system with an input, registering it if necessary.
@@ -1077,7 +1082,7 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<I, O, M> + Send + 'static,
     {
-        self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
+        self.queue(command::run_system_cached_with(system, input).handle_error_with(Some(warn)));
     }
 
     /// Sends a global [`Event`] without any targets.
@@ -1183,7 +1188,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.queue(command::run_schedule(label).handle_error_with(warn));
+        self.queue(command::run_schedule(label).handle_error_with(Some(warn)));
     }
 }
 
@@ -1466,12 +1471,11 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        self.queue_handled(
+        self.queue_silenced(
             // SAFETY:
             // - `ComponentId` safety is ensured by the caller.
             // - `T` safety is ensured by the caller.
             unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
-            ignore,
         )
     }
 
@@ -1523,7 +1527,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle, InsertMode::Replace), ignore)
+        self.queue_silenced(entity_command::insert(bundle, InsertMode::Replace))
     }
 
     /// Adds a [`Bundle`] of components to the entity if the predicate returns true.
@@ -1579,7 +1583,7 @@ impl<'a> EntityCommands<'a> {
     /// the resulting error will be ignored.
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle, InsertMode::Keep), ignore)
+        self.queue_silenced(entity_command::insert(bundle, InsertMode::Keep))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1724,7 +1728,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     pub fn try_remove<B: Bundle>(&mut self) -> &mut Self {
-        self.queue_handled(entity_command::remove::<B>(), ignore)
+        self.queue_silenced(entity_command::remove::<B>())
     }
 
     /// Removes a [`Bundle`] of components from the entity,
@@ -1818,7 +1822,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     pub fn try_despawn(&mut self) {
-        self.queue_handled(entity_command::despawn(), ignore);
+        self.queue_silenced(entity_command::despawn());
     }
 
     /// Pushes an [`EntityCommand`] to the queue,
@@ -1904,6 +1908,18 @@ impl<'a> EntityCommands<'a> {
     ) -> &mut Self {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);
+        self
+    }
+
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// Unlike [`queue_handled`], this will completely ignore any errors that occur.
+    pub fn queue_silenced<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
+        &mut self,
+        command: C,
+    ) -> &mut Self {
+        self.commands
+            .queue_silenced(command.with_entity(self.entity));
         self
     }
 

@@ -147,8 +147,3 @@ pub fn debug(error: BevyError, ctx: ErrorContext) {
 pub fn trace(error: BevyError, ctx: ErrorContext) {
     inner!(log::trace, error, ctx);
 }
-
-/// Error handler that ignores the system error.
-#[track_caller]
-#[inline]
-pub fn ignore(_: BevyError, _: ErrorContext) {}
