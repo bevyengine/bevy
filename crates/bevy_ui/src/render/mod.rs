@@ -97,10 +97,11 @@ pub mod graph {
 /// a positive offset on a node below.
 pub mod stack_z_offsets {
     pub const BOX_SHADOW: f32 = -0.1;
-    pub const TEXTURE_SLICE: f32 = 0.0;
     pub const NODE: f32 = 0.0;
-    pub const GRADIENT: f32 = 0.1;
-    pub const MATERIAL: f32 = 0.18267;
+    pub const GRADIENT: f32 = 0.01;
+    pub const MATERIAL: f32 = 0.02;
+    pub const IMAGE: f32 = 0.03;
+    pub const TEXT: f32 = 0.1;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
