@@ -45,7 +45,7 @@ fn print_full_asset_path(
         return;
     };
     match full_path_provider.full_asset_path(&asset_path) {
-        Ok(full_path) => info!("Full asset path: {:?}", full_path),
+        Ok(full_path) => info!("Full asset path: {}", full_path.display()),
         Err(e) => error!(
             "Failed to get full asset path for {}: {}",
             asset_path.path().display(),
