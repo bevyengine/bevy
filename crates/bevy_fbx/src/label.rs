@@ -62,4 +62,3 @@ impl FbxAssetLabel {
         path.into().with_label(self.to_string())
     }
 }
-
