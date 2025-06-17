@@ -99,7 +99,7 @@ mod vertex_attributes;
 extern crate alloc;
 
 use alloc::sync::Arc;
-use bevy_platform::sync::atomic::{AtomicBool, Ordering};
+use bevy_platform::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use tracing::warn;
 
