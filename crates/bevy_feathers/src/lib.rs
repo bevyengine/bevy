@@ -1,9 +1,15 @@
 //! `bevy_feathers` is a collection of styled and themed widgets for building editors and
 //! inspectors.
 
-use bevy_app::{Plugin, PostUpdate};
+use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
+use bevy_ecs::query::With;
+use bevy_text::{TextColor, TextFont};
 
-use crate::{controls::ControlsPlugin, cursor::CursorIconPlugin};
+use crate::{
+    controls::ControlsPlugin,
+    cursor::CursorIconPlugin,
+    theme::{UiTheme, UseTheme},
+};
 
 /// Standard feathers color palette.
 pub mod colors;
@@ -31,8 +37,16 @@ pub struct FeathersPlugin;
 
 impl Plugin for FeathersPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_plugins((ControlsPlugin, CursorIconPlugin));
-        app.add_systems(PostUpdate, font_styles::update_text_styles);
-        app.add_observer(font_styles::set_initial_text_style);
+        app.init_resource::<UiTheme>();
+        app.add_plugins((
+            ControlsPlugin,
+            CursorIconPlugin,
+            HierarchyPropagatePlugin::<TextColor, With<UseTheme>>::default(),
+            HierarchyPropagatePlugin::<TextFont, With<UseTheme>>::default(),
+        ));
+        app.add_systems(PostUpdate, theme::update_theme);
+        app.add_observer(theme::on_changed_background);
+        app.add_observer(theme::on_changed_font_color);
+        app.add_observer(font_styles::on_changed_font);
     }
 }

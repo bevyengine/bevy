@@ -4514,3 +4514,14 @@ name = "Core Widgets (w/Observers)"
 description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "feathers"
+path = "examples/ui/feathers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.feathers]
+name = "Feathers Widgets"
+description = "Gallery of Feathers Widgets"
+category = "UI (User Interface)"
+wasm = true
