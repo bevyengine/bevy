@@ -124,23 +124,23 @@ pub use {assets::*, label::GltfAssetLabel, loader::*};
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.
 #[derive(Resource)]
-pub(crate) struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
+pub struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
 
 impl DefaultGltfImageSampler {
     /// Creates a new [`DefaultGltfImageSampler`].
-    pub(crate) fn new(descriptor: &ImageSamplerDescriptor) -> Self {
+    pub fn new(descriptor: &ImageSamplerDescriptor) -> Self {
         Self(Arc::new(Mutex::new(descriptor.clone())))
     }
 
     /// Returns the current default [`ImageSamplerDescriptor`].
-    pub(crate) fn get(&self) -> ImageSamplerDescriptor {
+    pub fn get(&self) -> ImageSamplerDescriptor {
         self.0.lock().unwrap().clone()
     }
 
     /// Makes a clone of internal [`Arc`] pointer.
     ///
     /// Intended only to be used by code with no access to ECS.
-    pub(crate) fn get_internal(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
+    pub fn get_internal(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
         self.0.clone()
     }
 
@@ -148,7 +148,7 @@ impl DefaultGltfImageSampler {
     ///
     /// Doesn't apply to samplers already built on top of it, i.e. `GltfLoader`'s output.
     /// Assets need to manually be reloaded.
-    pub(crate) fn set(&self, descriptor: &ImageSamplerDescriptor) {
+    pub fn set(&self, descriptor: &ImageSamplerDescriptor) {
         *self.0.lock().unwrap() = descriptor.clone();
     }
 }
