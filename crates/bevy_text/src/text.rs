@@ -276,7 +276,7 @@ impl From<Justify> for cosmic_text::Align {
 
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, and the color.
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
