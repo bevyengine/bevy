@@ -160,12 +160,13 @@ fn prepare_uniform_components<C>(
 /// This plugin extracts the components into the render world for synced entities.
 ///
 /// To do so, it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
-pub struct ExtractComponentPlugin<C, F = ()> {
+pub struct ExtractComponentPlugin<C> {
     only_extract_visible: bool,
-    marker: PhantomData<fn() -> (C, F)>,
+    // The use of the `fn` type here ensures that this is always `Send`, even if `C` is not.
+    marker: PhantomData<fn() -> C>,
 }
 
-impl<C, F> Default for ExtractComponentPlugin<C, F> {
+impl<C> Default for ExtractComponentPlugin<C> {
     fn default() -> Self {
         Self {
             only_extract_visible: false,
@@ -174,7 +175,7 @@ impl<C, F> Default for ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C, F> ExtractComponentPlugin<C, F> {
+impl<C> ExtractComponentPlugin<C> {
     pub fn extract_visible() -> Self {
         Self {
             only_extract_visible: true,
