@@ -68,7 +68,7 @@ impl<A: Asset> AssetId<A> {
     }
 
     #[inline]
-    pub(crate) fn internal(self) -> InternalAssetId {
+    fn internal(self) -> InternalAssetId {
         match self {
             AssetId::Index { index, .. } => InternalAssetId::Index(index),
             AssetId::Uuid { uuid } => InternalAssetId::Uuid(uuid),
@@ -255,7 +255,7 @@ impl UntypedAssetId {
     }
 
     #[inline]
-    pub(crate) fn internal(self) -> InternalAssetId {
+    fn internal(self) -> InternalAssetId {
         match self {
             UntypedAssetId::Index { index, .. } => InternalAssetId::Index(index),
             UntypedAssetId::Uuid { uuid, .. } => InternalAssetId::Uuid(uuid),
@@ -314,37 +314,11 @@ impl PartialOrd for UntypedAssetId {
 
 /// An asset id without static or dynamic types associated with it.
 ///
-/// This exist to support efficient type erased id drop tracking. We
-/// could use [`UntypedAssetId`] for this, but the [`TypeId`] is unnecessary.
-///
-/// Do not _ever_ use this across asset types for comparison.
-/// [`InternalAssetId`] contains no type information and will happily collide
-/// with indices across types.
+/// This is provided to make implementing traits easier for the many different asset ID types.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, From)]
-pub(crate) enum InternalAssetId {
+enum InternalAssetId {
     Index(AssetIndex),
     Uuid(Uuid),
-}
-
-impl InternalAssetId {
-    #[inline]
-    pub(crate) fn typed<A: Asset>(self) -> AssetId<A> {
-        match self {
-            InternalAssetId::Index(index) => AssetId::Index {
-                index,
-                marker: PhantomData,
-            },
-            InternalAssetId::Uuid(uuid) => AssetId::Uuid { uuid },
-        }
-    }
-
-    #[inline]
-    pub(crate) fn untyped(self, type_id: TypeId) -> UntypedAssetId {
-        match self {
-            InternalAssetId::Index(index) => UntypedAssetId::Index { index, type_id },
-            InternalAssetId::Uuid(uuid) => UntypedAssetId::Uuid { uuid, type_id },
-        }
-    }
 }
 
 /// An asset index bundled with its (dynamic) type.
