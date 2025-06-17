@@ -24,7 +24,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
-use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
+use bevy_math::{Affine2, FloatOrd, Mat3, Mat4, Rect, UVec4, Vec2};
 use bevy_render::load_shader_library;
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
@@ -988,6 +988,7 @@ pub fn extract_text_shadows(
 }
 
 fn extract_text_outlines(
+    mut aa_glyph_cache: Local<Vec<ExtractedGlyph>>,
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
@@ -1005,6 +1006,7 @@ fn extract_text_outlines(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    aa_glyph_cache.clear();
     let mut start = extracted_uinodes.glyphs.len();
     let mut len = 0;
 
@@ -1029,9 +1031,12 @@ fn extract_text_outlines(
             continue;
         };
 
-        let width = outline.width.as_i32();
+        let width = (outline.width.as_f32() / uinode.inverse_scale_factor()).ceil() as i32;
+        let width_pow2 = width.pow(2);
         let aa_factor = outline.anti_aliasing.unwrap_or(1.0);
         let color: LinearRgba = outline.color.into();
+        let mut aa_color = color;
+        aa_color.alpha *= aa_factor;
 
         for (
             i,
@@ -1049,17 +1054,12 @@ fn extract_text_outlines(
                 .as_rect();
 
             for offset_x in -width..=width {
-                for offset_y in -width..=width {
+                // Adjust height to follow a radial pattern.
+                let height = ((width_pow2 - offset_x.pow(2)).abs() as f32).sqrt().ceil() as i32;
+
+                for offset_y in -height..=height {
                     if offset_x == 0 && offset_y == 0 {
                         continue;
-                    }
-                    if width * width < offset_x * offset_x + offset_y * offset_y {
-                        continue;
-                    }
-                    // Anti-aliasing.
-                    let mut color = color;
-                    if (offset_x.abs() == width) || (offset_y.abs() == width) {
-                        color.alpha *= aa_factor;
                     }
 
                     let offset = Vec2 {
@@ -1072,35 +1072,64 @@ fn extract_text_outlines(
                             -0.5 * uinode.size() + offset / uinode.inverse_scale_factor(),
                         );
 
-                    extracted_uinodes.glyphs.push(ExtractedGlyph {
+                    let extracted_glyph = ExtractedGlyph {
                         transform: transform * Affine2::from_translation(*position),
                         rect,
-                    });
+                    };
 
-                    len += 1;
-                }
-            }
+                    if aa_factor != 1.0 && offset_y.abs() == height {
+                        aa_glyph_cache.push(extracted_glyph);
+                    } else {
+                        extracted_uinodes.glyphs.push(extracted_glyph);
+                        len += 1;
+                    }
+                } // y offset
+            } // x offset
 
             if text_layout_info
                 .glyphs
                 .get(i + 1)
                 .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
             {
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    stack_index: uinode.stack_index,
-                    color,
-                    image: atlas_info.texture.id(),
-                    clip: clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
-                    rect,
-                    item: ExtractedUiItem::Glyphs {
-                        range: start..(start + len),
-                    },
-                    main_entity: entity.into(),
-                });
-                start += len;
-                len = 0;
+                if len > 0 {
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        stack_index: uinode.stack_index,
+                        color,
+                        image: atlas_info.texture.id(),
+                        clip: clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        rect,
+                        item: ExtractedUiItem::Glyphs {
+                            range: start..(start + len),
+                        },
+                        main_entity: entity.into(),
+                    });
+                    start += len;
+                    len = 0;
+                }
+
+                let aa_len = aa_glyph_cache.len();
+                for aa_glyph in aa_glyph_cache.drain(..) {
+                    extracted_uinodes.glyphs.push(aa_glyph);
+                }
+
+                if aa_len > 0 {
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        stack_index: uinode.stack_index,
+                        color: aa_color,
+                        image: atlas_info.texture.id(),
+                        clip: clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        rect,
+                        item: ExtractedUiItem::Glyphs {
+                            range: start..(start + aa_len),
+                        },
+                        main_entity: entity.into(),
+                    });
+                    start += aa_len;
+                }
             }
         }
     }
