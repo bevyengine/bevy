@@ -798,10 +798,10 @@ impl Stream for EmptyPathStream {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-/// If we're using a [`FileAssetReader`](file::FileAssetReader) to read an asset,
+/// If we're using a [`FileAssetReader`] to read an asset,
 /// this resource will tell us the full path used to load something from a given [`AssetPath`].
 ///
-/// Only available on platforms where [`FileAssetReader`](file::FileAssetReader) is also available.
+/// Only available on platforms where [`FileAssetReader`] is also available.
 #[derive(Resource, Reflect, Debug, Clone, PartialEq, Eq, Hash, Deref, DerefMut)]
 #[reflect(Resource)]
 pub struct FullAssetPathProvider {
