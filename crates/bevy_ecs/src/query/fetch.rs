@@ -2513,7 +2513,21 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
     }
 }
 
-/// Provides mutable access to a component, wrapped through commands.
+/// Provides "fake" mutable access to the component `T`
+///
+/// `DeferredMut` only accesses `&T` from the world, but when mutably
+/// dereferenced will clone that value and return the cloned value as a
+/// mutable reference. Once the `DeferredMut` is dropped, the query keeps
+/// track of the new value and inserts it into the world at the next sync point.
+///
+/// This can be used to "mutably" access immutable components!
+/// However, this will still be slower than direct mutation, so
+///
+/// # Footguns
+///
+/// # Examples
+///
+///
 pub struct DeferredMut<'w, 's, T: Component> {
     entity: Entity,
     old: &'w T,

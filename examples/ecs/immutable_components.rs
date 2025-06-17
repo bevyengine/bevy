@@ -195,7 +195,7 @@ fn demo_3(world: &mut World) {
     }
 }
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
 #[component(immutable)]
 pub struct MyImmutableCounter(u32);
 
@@ -207,8 +207,6 @@ fn demo_4(world: &mut World) {
             counter.0 += 1;
         }
     });
-
-    assert!()
 }
 
 fn main() {
