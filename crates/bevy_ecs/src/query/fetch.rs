@@ -2551,7 +2551,7 @@ impl<'w, 's, T: Component> Clone for TrackedFetch<'w, 's, T> {
     fn clone(&self) -> Self {
         Self {
             fetch: self.fetch,
-            record: self.record.clone(),
+            record: self.record,
         }
     }
 }
@@ -2656,7 +2656,9 @@ unsafe impl<'__w, '__s, T: Component> WorldQuery for Tracked<'__w, '__s, T> {
     }
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
-        todo!()
+        world
+            .commands()
+            .insert_batch(state.record.drain().collect::<alloc::vec::Vec<_>>());
     }
 }
 
