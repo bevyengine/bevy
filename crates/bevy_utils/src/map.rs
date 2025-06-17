@@ -1,7 +1,7 @@
 use core::{any::TypeId, hash::Hash};
 
 use bevy_platform::{
-    collections::HashMap,
+    collections::{hash_map::Entry, HashMap},
     hash::{Hashed, NoOpHash, PassHash},
 };
 
@@ -40,6 +40,10 @@ pub type TypeIdMap<V> = HashMap<TypeId, V, NoOpHash>;
 
 /// Extension trait to make use of [`TypeIdMap`] more ergonomic.
 ///
+/// Each function on this trait is a trivial wrapper for a function
+/// on [`HashMap`], replacing a `TypeId` key with a
+/// generic parameter `T`.
+///
 /// # Examples
 ///
 /// ```rust
@@ -49,26 +53,14 @@ pub type TypeIdMap<V> = HashMap<TypeId, V, NoOpHash>;
 ///
 /// struct MyType;
 ///
-/// // Create a map from `TypeId` to values.
-/// let mut map = TypeIdMap::default();
-///
 /// // Using the built-in `HashMap` functions requires manually looking up `TypeId`s.
+/// let mut map = TypeIdMap::default();
 /// map.insert(TypeId::of::<MyType>(), 7);
-/// if let Some(x) = map.get_mut(&TypeId::of::<MyType>()) {
-///     *x += 1;
-/// }
-/// assert_eq!(map.get(&TypeId::of::<MyType>()), Some(&8));
-/// map.remove(&TypeId::of::<MyType>());
-/// assert_eq!(map.len(), 0);
+/// assert_eq!(map.get(&TypeId::of::<MyType>()), Some(&7));
 ///
 /// // Using `TypeIdMapExt` functions does the lookup for you.
 /// map.insert_type::<MyType>(7);
-/// if let Some(x) = map.get_type_mut::<MyType>() {
-///     *x += 1;
-/// }
-/// assert_eq!(map.get_type::<MyType>(), Some(&8));
-/// map.remove_type::<MyType>();
-/// assert_eq!(map.len(), 0);
+/// assert_eq!(map.get_type::<MyType>(), Some(&7));
 /// ```
 pub trait TypeIdMapExt<V> {
     /// Inserts a value for the type `T`.
@@ -86,6 +78,9 @@ pub trait TypeIdMapExt<V> {
     /// Removes type `T` from the map, returning the value for this
     /// key if it was previously present.
     fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V>;
+
+    /// Gets the type `T`'s entry in the map for in-place manipulation.
+    fn entry_type<T: ?Sized + 'static>(&mut self) -> Entry<'_, TypeId, V, NoOpHash>;
 }
 
 impl<V> TypeIdMapExt<V> for TypeIdMap<V> {
@@ -108,6 +103,53 @@ impl<V> TypeIdMapExt<V> for TypeIdMap<V> {
     fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V> {
         self.remove(&TypeId::of::<T>())
     }
+
+    #[inline]
+    fn entry_type<T: ?Sized + 'static>(&mut self) -> Entry<'_, TypeId, V, NoOpHash> {
+        self.entry(TypeId::of::<T>())
+    }
+
+    //    /// Gets the given key's corresponding entry in the map for in-place manipulation.
+    // ///
+    // /// Refer to [`entry`](hb::HashMap::entry) for further details.
+    // ///
+    // /// # Examples
+    // ///
+    // /// ```rust
+    // /// # use bevy_platform::collections::HashMap;
+    // /// let mut map = HashMap::new();
+    // ///
+    // /// let value = map.entry("foo").or_insert(0);
+    // /// #
+    // /// # assert_eq!(*value, 0);
+    // /// ```
+    // #[inline]
+    // pub fn entry(&mut self, key: K) -> Entry<'_, K, V, S> {
+    //     self.0.entry(key)
+    // }
+
+    // /// Gets the given key's corresponding entry by reference in the map for in-place manipulation.
+    // ///
+    // /// Refer to [`entry_ref`](hb::HashMap::entry_ref) for further details.
+    // ///
+    // /// # Examples
+    // ///
+    // /// ```rust
+    // /// # use bevy_platform::collections::HashMap;
+    // /// let mut map = HashMap::new();
+    // /// # let mut map: HashMap<&'static str, usize> = map;
+    // ///
+    // /// let value = map.entry_ref("foo").or_insert(0);
+    // /// #
+    // /// # assert_eq!(*value, 0);
+    // /// ```
+    // #[inline]
+    // pub fn entry_ref<'a, 'b, Q>(&'a mut self, key: &'b Q) -> EntryRef<'a, 'b, K, Q, V, S>
+    // where
+    //     Q: Hash + Equivalent<K> + ?Sized,
+    // {
+    //     self.0.entry_ref(key)
+    // }
 }
 
 #[cfg(test)]
