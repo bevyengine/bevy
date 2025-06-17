@@ -192,7 +192,7 @@ impl ExtractInstance for EnvironmentMapIds {
 
     type QueryFilter = ();
 
-    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
+    fn extract(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self> {
         Some(EnvironmentMapIds {
             diffuse: item.diffuse_map.id(),
             specular: item.specular_map.id(),
