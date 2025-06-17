@@ -92,8 +92,9 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// ## Usage
 ///
-/// The event is consumed inside of the [`keyboard_input_system`]
-/// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
+/// The event is consumed inside of the [`keyboard_input_system`] to update the
+/// [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) and
+/// [`ButtonInput<Key>`](ButtonInput<Key>) resources.
 #[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -107,8 +108,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 )]
 pub struct KeyboardInput {
     /// The physical key code of the key.
+    ///
+    /// This corresponds to the location of the key independent of the keyboard layout.
     pub key_code: KeyCode,
-    /// The logical key of the input
+    /// The logical key of the input.
+    ///
+    /// This corresponds to the actual key taking keyboard layout into account.
     pub logical_key: Key,
     /// The press state of the key.
     pub state: ButtonState,
@@ -148,11 +153,11 @@ pub struct KeyboardInput {
 )]
 pub struct KeyboardFocusLost;
 
-/// Updates the [`ButtonInput<KeyCode>`] resource with the latest [`KeyboardInput`] events.
+/// Updates the [`ButtonInput<KeyCode>`] and [`ButtonInput<Key>`] resources with the latest [`KeyboardInput`] events.
 ///
 /// ## Differences
 ///
-/// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] resources is that
+/// The main difference between the [`KeyboardInput`] event and the [`ButtonInput`] resources are that
 /// the latter has convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`] and is window id agnostic.
 pub fn keyboard_input_system(
     mut keycode_input: ResMut<ButtonInput<KeyCode>>,
@@ -232,13 +237,13 @@ pub enum NativeKeyCode {
 /// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<ButtonInput<KeyCode>>`.
 ///
 /// Code representing the location of a physical key
-/// This mostly conforms to the UI Events Specification's [`KeyboardEvent.code`] with a few
+/// This mostly conforms to the [`UI Events Specification's KeyboardEvent.code`] with a few
 /// exceptions:
 /// - The keys that the specification calls `MetaLeft` and `MetaRight` are named `SuperLeft` and
 ///   `SuperRight` here.
 /// - The key that the specification calls "Super" is reported as `Unidentified` here.
 ///
-/// [`KeyboardEvent.code`]: https://w3c.github.io/uievents-code/#code-value-tables
+/// [`UI Events Specification's KeyboardEvent.code`]: https://w3c.github.io/uievents-code/#code-value-tables
 ///
 /// ## Updating
 ///
@@ -767,6 +772,19 @@ pub enum NativeKey {
 }
 
 /// The logical key code of a [`KeyboardInput`].
+///
+/// This contains the actual value that is produced by pressing the key. This is
+/// useful when you need the actual letters, and for symbols like `+` and `-`
+/// when implementing zoom, as they can be in different locations depending on
+/// the keyboard layout.
+///
+/// In many cases you want the key location instead, for example when
+/// implementing WASD controls so the keys are located the same place on QWERTY
+/// and other layouts. In that case use [`KeyCode`] instead.
+///
+/// ## Usage
+///
+/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<ButtonInput<Key>>`.
 ///
 /// ## Technical
 ///
