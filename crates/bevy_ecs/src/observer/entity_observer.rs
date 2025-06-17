@@ -97,7 +97,7 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
             let event_types = observer_state.descriptor.events.clone();
             let components = observer_state.descriptor.components.clone();
             for event_type in event_types {
-                let observers = world.observers.get_observers(event_type);
+                let observers = world.observers.get_observers_mut(event_type);
                 if components.is_empty() {
                     if let Some(map) = observers.entity_observers.get(&source).cloned() {
                         observers.entity_observers.insert(target, map);
@@ -108,8 +108,10 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
                         else {
                             continue;
                         };
-                        if let Some(map) = observers.entity_map.get(&source).cloned() {
-                            observers.entity_map.insert(target, map);
+                        if let Some(map) =
+                            observers.entity_component_observers.get(&source).cloned()
+                        {
+                            observers.entity_component_observers.insert(target, map);
                         }
                     }
                 }
@@ -121,14 +123,18 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::EntityCloner, event::Event, observer::On, resource::Resource, system::ResMut,
+        entity::EntityCloner,
+        event::{EntityEvent, Event},
+        observer::On,
+        resource::Resource,
+        system::ResMut,
         world::World,
     };
 
     #[derive(Resource, Default)]
     struct Num(usize);
 
-    #[derive(Event)]
+    #[derive(Event, EntityEvent)]
     struct E;
 
     #[test]

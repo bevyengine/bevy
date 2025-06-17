@@ -1,6 +1,7 @@
 use crate::{
+    args::Args,
     commands::{ClippyCommand, FormatCommand},
-    Flag, Prepare, PreparedCommand,
+    Prepare, PreparedCommand,
 };
 use argh::FromArgs;
 
@@ -10,10 +11,10 @@ use argh::FromArgs;
 pub struct LintsCommand {}
 
 impl Prepare for LintsCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
         let mut commands = vec![];
-        commands.append(&mut FormatCommand::default().prepare(sh, flags));
-        commands.append(&mut ClippyCommand::default().prepare(sh, flags));
+        commands.append(&mut FormatCommand::default().prepare(sh, args));
+        commands.append(&mut ClippyCommand::default().prepare(sh, args));
         commands
     }
 }
