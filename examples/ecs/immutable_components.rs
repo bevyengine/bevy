@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
     ptr::OwningPtr,
 };
-use bevy_ecs::{query::Tracked, system::RunSystemOnce};
+use bevy_ecs::{query::DeferredMut, system::RunSystemOnce};
 use core::{alloc::Layout, iter};
 
 /// This component is mutable, the default case. This is indicated by components
@@ -202,11 +202,13 @@ pub struct MyImmutableCounter(u32);
 fn demo_4(world: &mut World) {
     world.spawn_batch(iter::repeat_n(MyImmutableCounter(0), 10));
 
-    let _ = world.run_system_once(|counters: Query<Tracked<MyImmutableCounter>>| {
+    let _ = world.run_system_once(|counters: Query<DeferredMut<MyImmutableCounter>>| {
         for mut counter in counters {
             counter.0 += 1;
         }
     });
+
+    assert!()
 }
 
 fn main() {
