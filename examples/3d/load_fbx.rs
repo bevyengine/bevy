@@ -22,12 +22,12 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.7, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        // Transform::from_xyz(0.7, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 250.0,
+            intensity: 550.0,
             ..default()
         },
     ));
@@ -50,9 +50,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Load the FBX file and spawn its first scene
-    commands.spawn(SceneRoot(
-        asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/cube/cube.fbx")),
-    ));
+    // commands.spawn(SceneRoot(
+    //     asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/cube/cube.fbx")),
+    // ));
+    // commands.spawn(SceneRoot(
+    //     asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/cube_anim.fbx")),
+    // ));
+    // commands.spawn(SceneRoot(asset_server.load(
+    //     FbxAssetLabel::Scene(0).from_asset("models/instanced_materials.fbx"),
+    // )));
+    // commands.spawn(SceneRoot(
+    //     asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/nurbs_saddle.fbx")),
+    // ));
+    commands.spawn(SceneRoot(asset_server.load(
+        FbxAssetLabel::Scene(0).from_asset("models/max2009_blob_6100_binary.fbx"),
+    )));
 }
 
 fn animate_light_direction(
