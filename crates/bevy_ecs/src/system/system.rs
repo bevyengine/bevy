@@ -49,10 +49,8 @@ pub trait System: Send + Sync + 'static {
     type In: SystemInput;
     /// The system's output.
     type Out;
-
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
-
     /// Returns the [`TypeId`] of the underlying system type.
     #[inline]
     fn type_id(&self) -> TypeId {

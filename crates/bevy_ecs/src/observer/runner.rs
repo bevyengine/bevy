@@ -461,7 +461,6 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         }
     });
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
