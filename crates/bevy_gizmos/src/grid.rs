@@ -5,7 +5,7 @@
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
-use bevy_math::{ops, Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::{ops, Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3};
 
 /// A builder returned by [`GizmoBuffer::grid_3d`]
 pub struct GridBuilder3d<'a, Config, Clear>
