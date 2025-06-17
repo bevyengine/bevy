@@ -950,10 +950,10 @@ impl CloneByFilter for EntityClonerFilter {
     ) {
         match self {
             Self::AllowAll(filter) => {
-                filter.clone_components(source_archetype, target, world, clone_component)
+                filter.clone_components(source_archetype, target, world, clone_component);
             }
             Self::DenyAll(filter) => {
-                filter.clone_components(source_archetype, target, world, clone_component)
+                filter.clone_components(source_archetype, target, world, clone_component);
             }
         }
     }
