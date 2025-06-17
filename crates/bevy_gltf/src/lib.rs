@@ -235,13 +235,11 @@ impl Plugin for GltfPlugin {
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
 
-        let default_convert_coordinates = Arc::new(AtomicBool::new(self.convert_coordinates));
-
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
-            default_convert_coordinates,
+            default_convert_coordinates: Arc::new(AtomicBool::new(self.convert_coordinates)),
         });
     }
 }
