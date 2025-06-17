@@ -24,7 +24,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
-use bevy_math::{Affine2, FloatOrd, Mat3, Mat4, Rect, UVec4, Vec2};
+use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::load_shader_library;
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
