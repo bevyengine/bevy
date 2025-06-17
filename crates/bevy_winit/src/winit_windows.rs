@@ -4,8 +4,8 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_platform::collections::HashMap;
 use bevy_window::{
-    CursorGrabMode, MonitorSelection, VideoModeSelection, Window, WindowMode, WindowPosition,
-    WindowResolution, WindowWrapper,
+    CursorGrabMode, CursorOptions, MonitorSelection, VideoModeSelection, Window, WindowMode,
+    WindowPosition, WindowResolution, WindowWrapper,
 };
 use tracing::warn;
 
@@ -58,6 +58,7 @@ impl WinitWindows {
         event_loop: &ActiveEventLoop,
         entity: Entity,
         window: &Window,
+        cursor_options: &CursorOptions,
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionRequestHandlers,
         accessibility_requested: &AccessibilityRequested,
@@ -310,16 +311,16 @@ impl WinitWindows {
         winit_window.set_visible(window.visible);
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
-        if window.cursor_options.grab_mode != CursorGrabMode::None {
-            let _ = attempt_grab(&winit_window, window.cursor_options.grab_mode);
+        if cursor_options.grab_mode != CursorGrabMode::None {
+            let _ = attempt_grab(&winit_window, cursor_options.grab_mode);
         }
 
-        winit_window.set_cursor_visible(window.cursor_options.visible);
+        winit_window.set_cursor_visible(cursor_options.visible);
 
         // Do not set the cursor hittest on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
-        if !window.cursor_options.hit_test {
-            if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
+        if !cursor_options.hit_test {
+            if let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test) {
                 warn!(
                     "Could not set cursor hit test for window {}: {}",
                     window.title, err
