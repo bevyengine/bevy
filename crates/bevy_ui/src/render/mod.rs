@@ -1068,9 +1068,7 @@ fn extract_text_outlines(
                     };
 
                     let transform = Affine2::from(*global_transform)
-                        * Affine2::from_translation(
-                            -0.5 * uinode.size() + offset,
-                        );
+                        * Affine2::from_translation(-0.5 * uinode.size() + offset);
 
                     let extracted_glyph = ExtractedGlyph {
                         transform: transform * Affine2::from_translation(*position),
