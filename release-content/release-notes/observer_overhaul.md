@@ -1,7 +1,7 @@
 ---
 title: Observer Overhaul
-authors: ["@Jondolf", "@alice-i-cecile"]
-pull_requests: [19596, 19663]
+authors: ["@Jondolf", "@alice-i-cecile", "@hukasu]
+pull_requests: [19596, 19663, 19611]
 ---
 
 ## Rename `Trigger` to `On`
@@ -40,3 +40,8 @@ allowing you to bubble events up your hierarchy to see if any of the parents car
 then act on the entity that was actually picked in the first place.
 
 This was handy! We've enabled this functionality for all entity-events: simply call `On::original_target`.
+
+## Expose name of the Observer's system
+
+The name of the Observer's system is now accessable through `Observer::system_name`,
+this opens up the possibility for the debug tools to show more meaningful names for observers.
