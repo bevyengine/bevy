@@ -207,6 +207,8 @@ pub use server::*;
 pub use ron;
 pub use uuid;
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::io::FullAssetPathProvider;
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
@@ -226,6 +228,8 @@ use bevy_ecs::{
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
 use tracing::error;
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
@@ -424,6 +428,13 @@ impl Plugin for AssetPlugin {
             // needs to be robust to stochastic delays anyways.
             .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
             .register_type::<AssetPath>();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            app.insert_resource(FullAssetPathProvider {
+                relative_assets_dir: PathBuf::from(self.file_path.clone()),
+            });
+            app.register_type::<FullAssetPathProvider>();
+        }
     }
 }
 

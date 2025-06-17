@@ -21,6 +21,8 @@ mod source;
 pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
+#[cfg(not(target_arch = "wasm32"))]
+use alloc::string::ToString;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::future::Future;
@@ -33,6 +35,17 @@ use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{io::file::FileAssetReader, AssetPath};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_ecs::prelude::{ReflectResource, Resource};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_platform::prelude::String;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_reflect::Reflect;
+#[cfg(not(target_arch = "wasm32"))]
+use derive_more::{Deref, DerefMut};
 
 /// Errors that occur while loading assets.
 #[derive(Error, Debug, Clone)]
@@ -782,4 +795,39 @@ impl Stream for EmptyPathStream {
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+/// If we're using a [`FileAssetReader`](file::FileAssetReader) to read an asset,
+/// this resource will tell us the full path used to load something from a given [`AssetPath`].
+///
+/// Only available on platforms where [`FileAssetReader`](file::FileAssetReader) is also available.
+#[derive(Resource, Reflect, Debug, Clone, PartialEq, Eq, Hash, Deref, DerefMut)]
+#[reflect(Resource)]
+pub struct FullAssetPathProvider {
+    pub(crate) relative_assets_dir: PathBuf,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl FullAssetPathProvider {
+    pub fn full_asset_path(&self, asset_path: &AssetPath) -> Result<PathBuf, FullAssetPathError> {
+        match asset_path.source() {
+            AssetSourceId::Default => {}
+            AssetSourceId::Name(name) => {
+                return Err(FullAssetPathError::NonDefaultSource(name.to_string()));
+            }
+        };
+        let base_path = FileAssetReader::get_base_path();
+        let relative_asset_path = self.relative_assets_dir.as_path();
+        let full_path = base_path.join(relative_asset_path).join(asset_path.path());
+        Ok(full_path)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+/// Error returned by [`FullAssetPathProvider::full_asset_path`].
+#[derive(Debug, thiserror::Error)]
+pub(super) enum FullAssetPathError {
+    #[error("Asset path is not coming from the default source: {0}")]
+    NonDefaultSource(String),
 }
