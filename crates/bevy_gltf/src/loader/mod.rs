@@ -200,13 +200,13 @@ pub struct GltfLoaderSettings {
     pub include_source: bool,
     /// Overrides the default sampler. Data from sampler node is added on top of that.
     ///
-    /// If None, uses global default which is stored in the [`DefaultGltfImageSampler`](crate::DefaultGltfImageSampler) resource.
+    /// If None, uses the global default which was set in the [`GltfPlugin`](crate::GltfPlugin).
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
     /// Overrides the default glTF coordinate conversion setting.
     ///
-    /// If None, uses global default which is stored in the [`DefaultGltfConvertCoordinates`](crate::DefaultGltfConvertCoordinates) resource.
+    /// If None, uses the global default which was set in the [`GltfPlugin`](crate::GltfPlugin).
     /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system.
     /// - glTF:
     ///   - forward: Z
