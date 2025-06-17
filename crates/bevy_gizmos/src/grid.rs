@@ -388,9 +388,18 @@ fn draw_grid<Config, Clear>(
     let cell_count_half = cell_count.as_vec3() * 0.5;
     let grid_start = -cell_count_half.x * dx - cell_count_half.y * dy - cell_count_half.z * dz;
 
-    let outer_edges_u32 = UVec3::from(outer_edges.map(|v| v as u32));
-    let line_count = outer_edges_u32 * cell_count.saturating_add(UVec3::ONE)
-        + (UVec3::ONE - outer_edges_u32) * cell_count.saturating_sub(UVec3::ONE);
+    #[inline]
+    fn adj(cond: bool, val: u32) -> u32 {
+        if cond {
+            val.saturating_add(1)
+        } else {
+            val.saturating_sub(1).max(1)
+        }
+    }
+
+    let x_line_count = UVec2::new(adj(outer_edges[0], cell_count.y), adj(outer_edges[0], cell_count.z));
+    let y_line_count = UVec2::new(adj(outer_edges[1], cell_count.z), adj(outer_edges[1], cell_count.x));
+    let z_line_count = UVec2::new(adj(outer_edges[2], cell_count.x), adj(outer_edges[2], cell_count.y));
 
     let x_start = grid_start + or_zero(!outer_edges[0], dy + dz);
     let y_start = grid_start + or_zero(!outer_edges[1], dx + dz);
@@ -415,11 +424,12 @@ fn draw_grid<Config, Clear>(
     }
 
     // Lines along the x direction
-    let x_lines = iter_lines(dx, dy, dz, line_count.yz(), cell_count.x, x_start);
+    let x_lines = iter_lines(dx, dy, dz, x_line_count, cell_count.x, x_start);
     // Lines along the y direction
-    let y_lines = iter_lines(dy, dz, dx, line_count.zx(), cell_count.y, y_start);
+    let y_lines = iter_lines(dy, dz, dx, y_line_count, cell_count.y, y_start);
     // Lines along the z direction
-    let z_lines = iter_lines(dz, dx, dy, line_count.xy(), cell_count.z, z_start);
+    let z_lines = iter_lines(dz, dx, dy, z_line_count, cell_count.z, z_start);
+
     x_lines
         .chain(y_lines)
         .chain(z_lines)
