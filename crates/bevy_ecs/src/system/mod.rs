@@ -412,7 +412,6 @@ mod tests {
         name::Name,
         prelude::{Add, AnyOf, EntityRef, On},
         query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
-        removal_detection::RemovedComponents,
         resource::{IsResource, Resource},
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, IntoScheduleConfigs, Schedule,
