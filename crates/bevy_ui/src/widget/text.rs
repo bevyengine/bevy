@@ -174,7 +174,11 @@ impl Default for TextOutline {
     }
 }
 
-/// Due to the current implementation, the computation of the the outline is increasing exponentially with outline width
+/// The width in pixels of a text outline.
+///
+/// Note that the computation cost of the outline increases exponentially with width in the current implementation, so it is not recommended to use a width greater than 3.
+///
+/// Outline width is scaled like other parts of UI, so computation cost may unexpectedly increase when changing `UiScale`.
 #[derive(Reflect, Debug, Copy, Clone, PartialEq, Default)]
 #[reflect(Default, Debug, PartialEq, Clone)]
 #[cfg_attr(
