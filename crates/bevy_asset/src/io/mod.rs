@@ -827,7 +827,7 @@ impl FullAssetPathProvider {
 #[cfg(not(target_arch = "wasm32"))]
 /// Error returned by [`FullAssetPathProvider::full_asset_path`].
 #[derive(Debug, thiserror::Error)]
-pub(super) enum FullAssetPathError {
+pub enum FullAssetPathError {
     #[error("Asset path is not coming from the default source: {0}")]
     NonDefaultSource(String),
 }

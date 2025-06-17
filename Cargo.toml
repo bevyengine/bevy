@@ -1782,6 +1782,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "full_asset_path"
+path = "examples/asset/full_asset_path.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.full_asset_path]
+name = "Full Asset Path"
+description = "Shows how to get the full path of an asset that was loaded from disk"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_settings"
 path = "examples/asset/asset_settings.rs"
 doc-scrape-examples = true
