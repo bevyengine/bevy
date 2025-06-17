@@ -153,7 +153,7 @@ impl DefaultGltfImageSampler {
     }
 }
 
-// Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
+// Has to store an Arc<...> as there is no other way to mutate fields of asset loaders.
 /// Stores the default value for whether to convert the coordinates of loaded glTF assets to Bevy's coordinate system.
 /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system.
 /// - glTF:
