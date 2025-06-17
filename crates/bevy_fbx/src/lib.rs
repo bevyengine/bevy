@@ -15,8 +15,8 @@ use bevy_asset::{
     io::Reader, Asset, AssetApp, AssetLoader, Handle, LoadContext, RenderAssetUsages,
 };
 use bevy_ecs::prelude::*;
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
+use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 
 use bevy_platform::collections::HashMap;
@@ -26,11 +26,11 @@ use bevy_render::prelude::Visibility;
 use bevy_scene::Scene;
 
 use bevy_animation::AnimationClip;
-use bevy_transform::prelude::*;
-use bevy_math::{Mat4, Vec3, Quat};
 use bevy_color::Color;
 use bevy_image::Image;
+use bevy_math::{Mat4, Quat, Vec3};
 use bevy_render::alpha::AlphaMode;
+use bevy_transform::prelude::*;
 
 mod label;
 pub use label::FbxAssetLabel;
@@ -406,7 +406,9 @@ impl AssetLoader for FbxLoader {
         }
 
         if bytes.len() < 32 {
-            return Err(FbxError::Parse("FBX file too small to be valid".to_string()));
+            return Err(FbxError::Parse(
+                "FBX file too small to be valid".to_string(),
+            ));
         }
 
         // Parse using `ufbx` and normalize the units/axes so that `1.0` equals
@@ -419,7 +421,7 @@ impl AssetLoader for FbxLoader {
                 ..Default::default()
             },
         )
-            .map_err(|e| FbxError::Parse(format!("{:?}", e)))?;
+        .map_err(|e| FbxError::Parse(format!("{:?}", e)))?;
         let scene: &ufbx::Scene = &*root;
 
         let mut meshes = Vec::new();
@@ -428,7 +430,9 @@ impl AssetLoader for FbxLoader {
         let mut scratch = Vec::new();
 
         for (index, node) in scene.nodes.as_ref().iter().enumerate() {
-            let Some(mesh_ref) = node.mesh.as_ref() else { continue };
+            let Some(mesh_ref) = node.mesh.as_ref() else {
+                continue;
+            };
             let mesh = mesh_ref.as_ref();
 
             // Basic mesh validation
@@ -437,8 +441,9 @@ impl AssetLoader for FbxLoader {
             }
 
             // Each mesh becomes a Bevy `Mesh` asset.
-            let handle =
-                load_context.labeled_asset_scope::<_, FbxError>(FbxAssetLabel::Mesh(index).to_string(), |_lc| {
+            let handle = load_context.labeled_asset_scope::<_, FbxError>(
+                FbxAssetLabel::Mesh(index).to_string(),
+                |_lc| {
                     let positions: Vec<[f32; 3]> = mesh
                         .vertex_position
                         .values
@@ -485,18 +490,28 @@ impl AssetLoader for FbxLoader {
                             let mut weight_count = 0;
                             let mut total_weight = 0.0f32;
 
-                            for (cluster_index, cluster) in skin_deformer.clusters.iter().enumerate() {
-                                if weight_count >= 4 { break; }
+                            for (cluster_index, cluster) in
+                                skin_deformer.clusters.iter().enumerate()
+                            {
+                                if weight_count >= 4 {
+                                    break;
+                                }
 
                                 // Find weight for this vertex in this cluster
                                 for &weight_vertex in cluster.vertices.iter() {
                                     if weight_vertex as usize == vertex_index {
-                                        if let Some(weight_index) = cluster.vertices.iter().position(|&v| v as usize == vertex_index) {
+                                        if let Some(weight_index) = cluster
+                                            .vertices
+                                            .iter()
+                                            .position(|&v| v as usize == vertex_index)
+                                        {
                                             if weight_index < cluster.weights.len() {
                                                 let weight = cluster.weights[weight_index] as f32;
                                                 if weight > 0.0 {
-                                                    joint_indices[vertex_index][weight_count] = cluster_index as u16;
-                                                    joint_weights[vertex_index][weight_count] = weight;
+                                                    joint_indices[vertex_index][weight_count] =
+                                                        cluster_index as u16;
+                                                    joint_weights[vertex_index][weight_count] =
+                                                        weight;
                                                     total_weight += weight;
                                                     weight_count += 1;
                                                 }
@@ -519,10 +534,7 @@ impl AssetLoader for FbxLoader {
                             Mesh::ATTRIBUTE_JOINT_INDEX,
                             VertexAttributeValues::Uint16x4(joint_indices),
                         );
-                        bevy_mesh.insert_attribute(
-                            Mesh::ATTRIBUTE_JOINT_WEIGHT,
-                            joint_weights,
-                        );
+                        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
                     }
 
                     let mut indices = Vec::new();
@@ -537,7 +549,8 @@ impl AssetLoader for FbxLoader {
                     bevy_mesh.insert_indices(Indices::U32(indices));
 
                     Ok(bevy_mesh)
-                })?;
+                },
+            )?;
             if !node.element.name.is_empty() {
                 named_meshes.insert(Box::from(node.element.name.as_ref()), handle.clone());
             }
@@ -573,8 +586,14 @@ impl AssetLoader for FbxLoader {
                     texture.absolute_filename.to_string()
                 } else {
                     // Try relative to the FBX file
-                    let fbx_dir = load_context.path().parent().unwrap_or_else(|| std::path::Path::new(""));
-                    fbx_dir.join(texture.filename.as_ref()).to_string_lossy().to_string()
+                    let fbx_dir = load_context
+                        .path()
+                        .parent()
+                        .unwrap_or_else(|| std::path::Path::new(""));
+                    fbx_dir
+                        .join(texture.filename.as_ref())
+                        .to_string_lossy()
+                        .to_string()
                 };
 
                 // Load texture as Image asset
@@ -641,7 +660,10 @@ impl AssetLoader for FbxLoader {
             );
 
             if !ufbx_material.element.name.is_empty() {
-                named_materials.insert(Box::from(ufbx_material.element.name.as_ref()), handle.clone());
+                named_materials.insert(
+                    Box::from(ufbx_material.element.name.as_ref()),
+                    handle.clone(),
+                );
             }
 
             fbx_materials.push(fbx_material);
@@ -654,10 +676,14 @@ impl AssetLoader for FbxLoader {
         let mut skin_map = HashMap::new(); // Map from ufbx skin ID to FbxSkin handle
 
         for (skin_index, mesh_node) in scene.nodes.as_ref().iter().enumerate() {
-            let Some(mesh_ref) = &mesh_node.mesh else { continue };
+            let Some(mesh_ref) = &mesh_node.mesh else {
+                continue;
+            };
             let mesh = mesh_ref.as_ref();
 
-            if mesh.skin_deformers.is_empty() { continue; }
+            if mesh.skin_deformers.is_empty() {
+                continue;
+            }
 
             let skin_deformer = &mesh.skin_deformers[0];
 
@@ -669,11 +695,24 @@ impl AssetLoader for FbxLoader {
                 // Convert ufbx matrix to Mat4
                 let bind_matrix = cluster.bind_to_world;
                 let inverse_bind_matrix = Mat4::from_cols_array(&[
-                    bind_matrix.m00 as f32, bind_matrix.m10 as f32, bind_matrix.m20 as f32, 0.0,
-                    bind_matrix.m01 as f32, bind_matrix.m11 as f32, bind_matrix.m21 as f32, 0.0,
-                    bind_matrix.m02 as f32, bind_matrix.m12 as f32, bind_matrix.m22 as f32, 0.0,
-                    bind_matrix.m03 as f32, bind_matrix.m13 as f32, bind_matrix.m23 as f32, 1.0,
-                ]).inverse();
+                    bind_matrix.m00 as f32,
+                    bind_matrix.m10 as f32,
+                    bind_matrix.m20 as f32,
+                    0.0,
+                    bind_matrix.m01 as f32,
+                    bind_matrix.m11 as f32,
+                    bind_matrix.m21 as f32,
+                    0.0,
+                    bind_matrix.m02 as f32,
+                    bind_matrix.m12 as f32,
+                    bind_matrix.m22 as f32,
+                    0.0,
+                    bind_matrix.m03 as f32,
+                    bind_matrix.m13 as f32,
+                    bind_matrix.m23 as f32,
+                    1.0,
+                ])
+                .inverse();
 
                 inverse_bind_matrices.push(inverse_bind_matrix);
 
@@ -696,7 +735,15 @@ impl AssetLoader for FbxLoader {
                 };
 
                 // Store skin info for later processing
-                skin_map.insert(mesh_node.element.element_id, (inverse_bindposes_handle, joint_node_ids, skin_name, skin_index));
+                skin_map.insert(
+                    mesh_node.element.element_id,
+                    (
+                        inverse_bindposes_handle,
+                        joint_node_ids,
+                        skin_name,
+                        skin_index,
+                    ),
+                );
             }
         }
 
@@ -716,18 +763,21 @@ impl AssetLoader for FbxLoader {
             // Find associated mesh
             let mesh_handle = if let Some(_mesh_ref) = &ufbx_node.mesh {
                 // Find the mesh in our processed meshes
-                meshes.iter().enumerate().find_map(|(mesh_idx, mesh_handle)| {
-                    // Check if this mesh corresponds to this node
-                    if let Some(mesh_node) = scene.nodes.as_ref().get(mesh_idx) {
-                        if mesh_node.element.element_id == ufbx_node.element.element_id {
-                            Some(mesh_handle.clone())
+                meshes
+                    .iter()
+                    .enumerate()
+                    .find_map(|(mesh_idx, mesh_handle)| {
+                        // Check if this mesh corresponds to this node
+                        if let Some(mesh_node) = scene.nodes.as_ref().get(mesh_idx) {
+                            if mesh_node.element.element_id == ufbx_node.element.element_id {
+                                Some(mesh_handle.clone())
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
-                    } else {
-                        None
-                    }
-                })
+                    })
             } else {
                 None
             };
@@ -762,10 +812,8 @@ impl AssetLoader for FbxLoader {
                 visible: ufbx_node.visible,
             };
 
-            let node_handle = load_context.add_labeled_asset(
-                FbxAssetLabel::Node(index).to_string(),
-                fbx_node,
-            );
+            let node_handle =
+                load_context.add_labeled_asset(FbxAssetLabel::Node(index).to_string(), fbx_node);
 
             node_map.insert(ufbx_node.element.element_id, node_handle.clone());
             nodes.push(node_handle.clone());
@@ -780,7 +828,9 @@ impl AssetLoader for FbxLoader {
         // Note: Parent-child relationships not implemented yet to avoid ufbx crashes
 
         // Third pass: Create actual FbxSkin assets now that all nodes are created
-        for (_mesh_node_id, (inverse_bindposes_handle, joint_node_ids, skin_name, skin_index)) in skin_map.iter() {
+        for (_mesh_node_id, (inverse_bindposes_handle, joint_node_ids, skin_name, skin_index)) in
+            skin_map.iter()
+        {
             let mut joint_handles = Vec::new();
 
             // Resolve joint node IDs to handles
@@ -797,10 +847,8 @@ impl AssetLoader for FbxLoader {
                 inverse_bind_matrices: inverse_bindposes_handle.clone(),
             };
 
-            let skin_handle = load_context.add_labeled_asset(
-                FbxAssetLabel::Skin(*skin_index).to_string(),
-                fbx_skin,
-            );
+            let skin_handle = load_context
+                .add_labeled_asset(FbxAssetLabel::Skin(*skin_index).to_string(), fbx_skin);
 
             skins.push(skin_handle.clone());
 
@@ -828,18 +876,40 @@ impl AssetLoader for FbxLoader {
             )
         });
 
-        tracing::info!("FBX Loader: Found {} meshes, {} nodes", meshes.len(), scene.nodes.len());
+        tracing::info!(
+            "FBX Loader: Found {} meshes, {} nodes",
+            meshes.len(),
+            scene.nodes.len()
+        );
 
         // For now, spawn all meshes with their original transforms
-        for (mesh_index, (mesh_handle, transform_matrix)) in meshes.iter().zip(transforms.iter()).enumerate() {
+        for (mesh_index, (mesh_handle, transform_matrix)) in
+            meshes.iter().zip(transforms.iter()).enumerate()
+        {
             let transform = Transform::from_matrix(Mat4::from_cols_array(&[
-                transform_matrix.m00 as f32, transform_matrix.m10 as f32, transform_matrix.m20 as f32, 0.0,
-                transform_matrix.m01 as f32, transform_matrix.m11 as f32, transform_matrix.m21 as f32, 0.0,
-                transform_matrix.m02 as f32, transform_matrix.m12 as f32, transform_matrix.m22 as f32, 0.0,
-                transform_matrix.m03 as f32, transform_matrix.m13 as f32, transform_matrix.m23 as f32, 1.0,
+                transform_matrix.m00 as f32,
+                transform_matrix.m10 as f32,
+                transform_matrix.m20 as f32,
+                0.0,
+                transform_matrix.m01 as f32,
+                transform_matrix.m11 as f32,
+                transform_matrix.m21 as f32,
+                0.0,
+                transform_matrix.m02 as f32,
+                transform_matrix.m12 as f32,
+                transform_matrix.m22 as f32,
+                0.0,
+                transform_matrix.m03 as f32,
+                transform_matrix.m13 as f32,
+                transform_matrix.m23 as f32,
+                1.0,
             ]));
 
-            tracing::info!("FBX Loader: Spawning mesh {} with transform: {:?}", mesh_index, transform);
+            tracing::info!(
+                "FBX Loader: Spawning mesh {} with transform: {:?}",
+                mesh_index,
+                transform
+            );
 
             world.spawn((
                 Mesh3d(mesh_handle.clone()),
@@ -850,7 +920,8 @@ impl AssetLoader for FbxLoader {
             ));
         }
 
-        let scene_handle = load_context.add_labeled_asset(FbxAssetLabel::Scene(0).to_string(), Scene::new(world));
+        let scene_handle =
+            load_context.add_labeled_asset(FbxAssetLabel::Scene(0).to_string(), Scene::new(world));
         scenes.push(scene_handle.clone());
 
         Ok(Fbx {
