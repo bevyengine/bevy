@@ -108,13 +108,6 @@ pub enum SceneSpawnError {
         /// The [type name](std::any::type_name) for the unregistered type.
         std_type_name: DebugName,
     },
-    /// Scene contains an unregistered type.
-    #[error(
-        "scene contains an unregistered type. \
-        consider reflecting it with `#[derive(Reflect)]` \
-        and registering the type using `app.register_type::<T>()`"
-    )]
-    AnonymousUnregisteredType,
     /// Scene contains an unregistered type which has a `TypePath`.
     #[error(
         "scene contains the reflected type `{type_path}` but it was not found in the type registry. \
