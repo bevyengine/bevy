@@ -484,6 +484,26 @@ mod slice {
                         },
                     ));
                 }
+
+                parent.spawn((
+                    ImageNode {
+                        image: asset_server
+                            .load("textures/fantasy_ui_borders/panel-border-010.png"),
+                        image_mode: NodeImageMode::Sliced(TextureSlicer {
+                            border: BorderRect::all(22.0),
+                            center_scale_mode: SliceScaleMode::Stretch,
+                            sides_scale_mode: SliceScaleMode::Stretch,
+                            max_corner_scale: 1.0,
+                        }),
+                        ..Default::default()
+                    },
+                    Node {
+                        width: Val::Px(100.),
+                        height: Val::Px(100.),
+                        ..default()
+                    },
+                    BackgroundColor(bevy::color::palettes::css::NAVY.into()),
+                ));
             });
     }
 }
