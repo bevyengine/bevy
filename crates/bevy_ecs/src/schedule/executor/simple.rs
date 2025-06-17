@@ -73,7 +73,7 @@ impl SystemExecutor for SimpleExecutor {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].system.name();
             #[cfg(feature = "trace")]
-            let should_run_span = info_span!("check_conditions", name = &*name).entered();
+            let should_run_span = info_span!("check_conditions", name = name.as_string()).entered();
 
             let mut should_run = !self.completed_systems.contains(system_index);
             for set_idx in schedule.sets_with_conditions_of_systems[system_index].ones() {

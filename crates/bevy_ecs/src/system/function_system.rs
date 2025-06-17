@@ -38,14 +38,15 @@ pub struct SystemMeta {
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
+        let name = DebugName::type_name::<T>();
         Self {
-            name: DebugName::type_name::<T>(),
+            #[cfg(feature = "trace")]
+            system_span: info_span!("system", name = name.clone().as_string()),
+            #[cfg(feature = "trace")]
+            commands_span: info_span!("system_commands", name = name.clone().as_string()),
+            name,
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
-            #[cfg(feature = "trace")]
-            system_span: info_span!("system", name = name),
-            #[cfg(feature = "trace")]
-            commands_span: info_span!("system_commands", name = name),
         }
     }
 

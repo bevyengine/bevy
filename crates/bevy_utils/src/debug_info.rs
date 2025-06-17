@@ -1,9 +1,7 @@
-use alloc::borrow::Cow;
-use alloc::string::String;
+use alloc::{borrow::Cow, fmt, string::String};
 #[cfg(feature = "debug")]
 use core::any::type_name;
 use disqualified::ShortName;
-use std::fmt;
 
 #[cfg(not(feature = "debug"))]
 const FEATURE_DISABLED: &'static str = "Enable the debug feature to see the name";
@@ -11,7 +9,7 @@ const FEATURE_DISABLED: &'static str = "Enable the debug feature to see the name
 /// Wrapper to help debugging ECS issues. This is used to display the names of systems, components, ...
 ///
 /// * If the `debug` feature is enabled, the actual name will be used
-/// * If it is disabled, a string mentionning the disabled feature will be used
+/// * If it is disabled, a string mentioning the disabled feature will be used
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DebugName {
     #[cfg(feature = "debug")]

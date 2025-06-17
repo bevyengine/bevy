@@ -134,6 +134,7 @@ fn build_ui(
 
         for (node_id, system) in systems {
             // skip bevy default systems; we don't want to step those
+            #[cfg(feature = "debug")]
             if system.name().as_string().starts_with("bevy") {
                 always_run.push((*label, node_id));
                 continue;
