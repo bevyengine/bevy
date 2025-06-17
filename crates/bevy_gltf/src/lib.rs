@@ -153,47 +153,6 @@ impl DefaultGltfImageSampler {
     }
 }
 
-// Has to store an Arc<...> as there is no other way to mutate fields of asset loaders.
-/// Stores the default value for whether to convert the coordinates of loaded glTF assets to Bevy's coordinate system.
-/// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system.
-/// - glTF:
-///   - forward: Z
-///   - up: Y
-///   - right: -X
-/// - Bevy:
-///   - forward: -Z
-///   - up: Y
-///   - right: X
-#[derive(Resource)]
-pub(crate) struct DefaultGltfConvertCoordinates(Arc<AtomicBool>);
-
-impl DefaultGltfConvertCoordinates {
-    /// Creates a new [`DefaultGltfConvertCoordinates`].
-    pub(crate) fn new(convert_coordinates: bool) -> Self {
-        Self(Arc::new(AtomicBool::new(convert_coordinates)))
-    }
-
-    /// Returns the current default [`bool`].
-    pub(crate) fn get(&self) -> bool {
-        self.0.load(Ordering::SeqCst)
-    }
-
-    /// Makes a clone of internal [`Arc`] pointer.
-    ///
-    /// Intended only to be used by code with no access to ECS.
-    pub(crate) fn get_internal(&self) -> Arc<AtomicBool> {
-        self.0.clone()
-    }
-
-    /// Replaces default glTF coordinate conversion setting.
-    ///
-    /// Doesn't apply to glTF assets already loaded, i.e. `GltfLoader`'s output.
-    /// Assets need to manually be reloaded.
-    pub(crate) fn set(&self, convert_coordinates: bool) {
-        self.0.store(convert_coordinates, Ordering::SeqCst);
-    }
-}
-
 /// Adds support for glTF file loading to the app.
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
@@ -211,8 +170,6 @@ pub struct GltfPlugin {
     ///   - forward: -Z
     ///   - up: Y
     ///   - right: X
-    ///
-    /// Can be modified with the [`DefaultGltfConvertCoordinates`] resource.
     pub convert_coordinates: bool,
 
     /// Registry for custom vertex attributes.
@@ -278,10 +235,7 @@ impl Plugin for GltfPlugin {
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
 
-        let default_convert_coordinates_resource =
-            DefaultGltfConvertCoordinates::new(self.convert_coordinates);
-        let default_convert_coordinates = default_convert_coordinates_resource.get_internal();
-        app.insert_resource(default_convert_coordinates_resource);
+        let default_convert_coordinates = Arc::new(AtomicBool::new(self.convert_coordinates));
 
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
