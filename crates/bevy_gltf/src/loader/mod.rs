@@ -153,7 +153,10 @@ pub struct GltfLoader {
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
     /// Arc to default [`AtomicBool`] for whether to convert glTF coordinates to Bevy's coordinate system.
-    /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system.
+    /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
+    /// such that objects looking forward in glTF will also look forward in Bevy.
+    ///
+    /// The exact coordinate system conversion is as follows:
     /// - glTF:
     ///   - forward: Z
     ///   - up: Y
@@ -206,7 +209,10 @@ pub struct GltfLoaderSettings {
     pub override_sampler: bool,
     /// Overrides the default glTF coordinate conversion setting.
     ///
-    /// If set to `Some(true)`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system.
+    /// If set to `Some(true)`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
+    /// such that objects looking forward in glTF will also look forward in Bevy.
+    ///
+    /// The exact coordinate system conversion is as follows:
     /// - glTF:
     ///   - forward: Z
     ///   - up: Y
