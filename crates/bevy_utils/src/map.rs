@@ -108,48 +108,6 @@ impl<V> TypeIdMapExt<V> for TypeIdMap<V> {
     fn entry_type<T: ?Sized + 'static>(&mut self) -> Entry<'_, TypeId, V, NoOpHash> {
         self.entry(TypeId::of::<T>())
     }
-
-    //    /// Gets the given key's corresponding entry in the map for in-place manipulation.
-    // ///
-    // /// Refer to [`entry`](hb::HashMap::entry) for further details.
-    // ///
-    // /// # Examples
-    // ///
-    // /// ```rust
-    // /// # use bevy_platform::collections::HashMap;
-    // /// let mut map = HashMap::new();
-    // ///
-    // /// let value = map.entry("foo").or_insert(0);
-    // /// #
-    // /// # assert_eq!(*value, 0);
-    // /// ```
-    // #[inline]
-    // pub fn entry(&mut self, key: K) -> Entry<'_, K, V, S> {
-    //     self.0.entry(key)
-    // }
-
-    // /// Gets the given key's corresponding entry by reference in the map for in-place manipulation.
-    // ///
-    // /// Refer to [`entry_ref`](hb::HashMap::entry_ref) for further details.
-    // ///
-    // /// # Examples
-    // ///
-    // /// ```rust
-    // /// # use bevy_platform::collections::HashMap;
-    // /// let mut map = HashMap::new();
-    // /// # let mut map: HashMap<&'static str, usize> = map;
-    // ///
-    // /// let value = map.entry_ref("foo").or_insert(0);
-    // /// #
-    // /// # assert_eq!(*value, 0);
-    // /// ```
-    // #[inline]
-    // pub fn entry_ref<'a, 'b, Q>(&'a mut self, key: &'b Q) -> EntryRef<'a, 'b, K, Q, V, S>
-    // where
-    //     Q: Hash + Equivalent<K> + ?Sized,
-    // {
-    //     self.0.entry_ref(key)
-    // }
 }
 
 #[cfg(test)]
