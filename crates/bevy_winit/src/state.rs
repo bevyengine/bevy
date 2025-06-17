@@ -46,7 +46,7 @@ use bevy_window::{
     WindowScaleFactorChanged, WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
-use bevy_window::{PrimaryWindow, RawHandleWrapper};
+use bevy_window::{CursorOptions, PrimaryWindow, RawHandleWrapper};
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
@@ -605,10 +605,12 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
             {
                 // Get windows that are cached but without raw handles. Those window were already created, but got their
                 // handle wrapper removed when the app was suspended.
+
                 let mut query = self.world_mut()
-                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.single(&self.world()) {
+                    .query_filtered::<(Entity, &Window, &CursorOptions), (With<CachedWindow>, Without<RawHandleWrapper>)>();
+                if let Ok((entity, window, cursor_options)) = query.single(&self.world()) {
                     let window = window.clone();
+                    let cursor_options = cursor_options.clone();
 
                     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
                         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
@@ -622,6 +624,7 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
                                 event_loop,
                                 entity,
                                 &window,
+                                &cursor_options,
                                 adapters,
                                 &mut handlers,
                                 &accessibility_requested,

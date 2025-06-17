@@ -559,7 +559,6 @@ pub(crate) fn changed_windows(
                 }
                 if window.preferred_screen_edges_deferring_system_gestures
                     != cache
-                        .window
                         .preferred_screen_edges_deferring_system_gestures
                 {
                     use crate::converters::convert_screen_edge;
