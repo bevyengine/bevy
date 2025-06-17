@@ -300,7 +300,7 @@ impl Observer {
         &self.descriptor
     }
 
-    /// Returns the name of [`Observer`]'s system .
+    /// Returns the name of the [`Observer`]'s system .
     pub fn system_name(&self) -> Cow<'static, str> {
         self.system.system_name()
     }
