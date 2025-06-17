@@ -99,7 +99,6 @@ mod vertex_attributes;
 extern crate alloc;
 
 use alloc::sync::Arc;
-use bevy_platform::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use tracing::warn;
 
@@ -242,7 +241,7 @@ impl Plugin for GltfPlugin {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
-            default_convert_coordinates: Arc::new(AtomicBool::new(self.convert_coordinates)),
+            default_convert_coordinates: self.convert_coordinates,
         });
     }
 }

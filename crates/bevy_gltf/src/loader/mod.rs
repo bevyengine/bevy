@@ -38,7 +38,6 @@ use bevy_pbr::{
     DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, MAX_JOINTS,
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_platform::sync::atomic::{AtomicBool, Ordering};
 use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     mesh::Mesh3d,
@@ -152,7 +151,7 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
-    /// Arc to default [`AtomicBool`] for whether to convert glTF coordinates to Bevy's coordinate system.
+    /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
     /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
     /// such that objects looking forward in glTF will also look forward in Bevy.
     ///
@@ -165,7 +164,7 @@ pub struct GltfLoader {
     ///   - forward: -Z
     ///   - up: Y
     ///   - right: X
-    pub default_convert_coordinates: Arc<AtomicBool>,
+    pub default_convert_coordinates: bool,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
