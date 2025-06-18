@@ -355,6 +355,93 @@ impl Default for EntityCloner {
     }
 }
 
+/// An expandable scratch space for defining a dynamic bundle.
+struct BundleScratch<'a> {
+    component_ids: Vec<ComponentId>,
+    component_ptrs: Vec<PtrMut<'a>>,
+}
+
+impl<'a> BundleScratch<'a> {
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
+        Self {
+            component_ids: Vec::with_capacity(capacity),
+            component_ptrs: Vec::with_capacity(capacity),
+        }
+    }
+
+    /// Pushes the `ptr` component onto this storage with the given `id` [`ComponentId`].
+    ///
+    /// # Safety
+    /// The `id` [`ComponentId`] must match the component `ptr` for whatever [`World`] this scratch will
+    /// be written to. `ptr` must contain valid uniquely-owned data that matches the type of component referenced
+    /// in `id`.
+    pub(crate) unsafe fn push_ptr(&mut self, id: ComponentId, ptr: PtrMut<'a>) {
+        self.component_ids.push(id);
+        self.component_ptrs.push(ptr);
+    }
+
+    /// Pushes the `C` component onto this storage with the given `id` [`ComponentId`], using the given `bump` allocator.
+    ///
+    /// # Safety
+    /// The `id` [`ComponentId`] must match the component `C` for whatever [`World`] this scratch will
+    /// be written to.
+    pub(crate) unsafe fn push<C: Component>(
+        &mut self,
+        allocator: &'a Bump,
+        id: ComponentId,
+        component: C,
+    ) {
+        let component_ref = allocator.alloc(component);
+        self.component_ids.push(id);
+        self.component_ptrs.push(PtrMut::from(component_ref));
+    }
+
+    /// Writes the scratch components to the given entity in the given world.
+    ///
+    /// # Safety
+    /// All [`ComponentId`] values in this instance must come from `world`.
+    pub(crate) unsafe fn write(
+        self,
+        world: &mut World,
+        entity: Entity,
+        relationship_hook_insert_mode: RelationshipHookMode,
+    ) {
+        // SAFETY:
+        // - All `component_ids` are from the same world as `target` entity
+        // - All `component_data_ptrs` are valid types represented by `component_ids`
+        unsafe {
+            world.entity_mut(entity).insert_by_ids_internal(
+                &self.component_ids,
+                self.component_ptrs.into_iter().map(|ptr| ptr.promote()),
+                relationship_hook_insert_mode,
+            );
+        }
+    }
+}
+
+/// Part of the [`EntityCloner`], see there for more information.
+struct EntityClonerConfig {
+    clone_behavior_overrides: HashMap<ComponentId, ComponentCloneBehavior>,
+    move_components: bool,
+    linked_cloning: bool,
+    default_clone_fn: ComponentCloneFn,
+    clone_queue: VecDeque<Entity>,
+    deferred_commands: VecDeque<Box<dyn FnOnce(&mut World, &mut dyn EntityMapper)>>,
+}
+
+impl Default for EntityClonerConfig {
+    fn default() -> Self {
+        Self {
+            move_components: false,
+            linked_cloning: false,
+            default_clone_fn: ComponentCloneBehavior::global_default_fn(),
+            clone_behavior_overrides: Default::default(),
+            clone_queue: Default::default(),
+            deferred_commands: Default::default(),
+        }
+    }
+}
+
 impl EntityCloner {
     /// Returns a new [`EntityClonerBuilder`] using the given `world` with the [`AllowAll`] configuration.
     ///
@@ -391,15 +478,6 @@ impl EntityCloner {
         self.other.linked_cloning
     }
 
-    /// Clones and inserts components from the `source` entity into a newly spawned entity using the stored configuration.
-    /// If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it will recursively spawn entities as defined
-    /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
-    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
-    #[track_caller]
-    pub fn spawn_clone(&mut self, world: &mut World, source: Entity) -> Entity {
-        self.other.spawn_clone(&mut self.filter, world, source)
-    }
-
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
     /// If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it will recursively spawn entities as defined
     /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
@@ -408,6 +486,15 @@ impl EntityCloner {
     pub fn clone_entity(&mut self, world: &mut World, source: Entity, target: Entity) {
         self.other
             .clone_entity(&mut self.filter, world, source, target);
+    }
+
+    /// Clones and inserts components from the `source` entity into a newly spawned entity using the stored configuration.
+    /// If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it will recursively spawn entities as defined
+    /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
+    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
+    #[track_caller]
+    pub fn spawn_clone(&mut self, world: &mut World, source: Entity) -> Entity {
+        self.other.spawn_clone(&mut self.filter, world, source)
     }
 
     /// Clones the entity into whatever entity `mapper` chooses for it.
@@ -420,280 +507,6 @@ impl EntityCloner {
     ) -> Entity {
         self.other
             .clone_entity_mapped(&mut self.filter, world, source, mapper)
-    }
-}
-
-/// A builder for configuring [`EntityCloner`]. See [`EntityCloner`] for more information.
-pub struct EntityClonerBuilder<'w, Filter> {
-    world: &'w mut World,
-    filter: Filter,
-    entity_cloner: EntityClonerConfig,
-}
-
-impl<'w> EntityClonerBuilder<'w, AllowAll> {
-    /// Finishes configuring [`EntityCloner`] returns it.
-    pub fn finish(self) -> EntityCloner {
-        EntityCloner {
-            filter: EntityClonerFilter::AllowAll(self.filter),
-            other: self.entity_cloner,
-        }
-    }
-
-    /// Internally calls [`EntityCloner::clone_entity`] on the builder's [`World`].
-    pub fn clone_entity(&mut self, source: Entity, target: Entity) -> &mut Self {
-        self.entity_cloner
-            .clone_entity(&mut self.filter, self.world, source, target);
-        self
-    }
-
-    /// Disallows all components of the bundle from being cloned.
-    pub fn deny<T: Bundle>(&mut self) -> &mut Self {
-        let bundle = self.world.register_bundle::<T>();
-        let ids = bundle.explicit_components().to_owned();
-        for id in ids {
-            self.filter.deny.insert(id);
-        }
-        self
-    }
-
-    /// Disallows all components of the bundle ID from being cloned.
-    pub fn deny_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
-        if let Some(bundle) = self.world.bundles().get(bundle_id) {
-            let ids = bundle.explicit_components().to_owned();
-            for id in ids {
-                self.filter.deny.insert(id);
-            }
-        }
-        self
-    }
-
-    /// Extends the list of components that shouldn't be cloned.
-    pub fn deny_by_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
-        for id in ids {
-            self.filter.deny.insert(id);
-        }
-        self
-    }
-
-    /// Extends the list of components that shouldn't be cloned by type ids.
-    pub fn deny_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
-        for type_id in ids {
-            if let Some(id) = self.world.components().get_valid_id(type_id) {
-                self.filter.deny.insert(id);
-            }
-        }
-        self
-    }
-}
-
-impl<'w, Filter> EntityClonerBuilder<'w, Filter> {
-    /// Sets the default clone function to use.
-    pub fn with_default_clone_fn(&mut self, clone_fn: ComponentCloneFn) -> &mut Self {
-        self.entity_cloner.default_clone_fn = clone_fn;
-        self
-    }
-
-    /// Sets whether the cloner should remove any components that were cloned,
-    /// effectively moving them from the source entity to the target.
-    ///
-    /// This is disabled by default.
-    ///
-    /// The setting only applies to components that are allowed through the filter
-    /// at the time [`EntityClonerBuilder::clone_entity`] is called.
-    pub fn move_components(&mut self, enable: bool) -> &mut Self {
-        self.entity_cloner.move_components = enable;
-        self
-    }
-
-    /// Overrides the [`ComponentCloneBehavior`] for a component in this builder.
-    /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
-    ///
-    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
-    pub fn override_clone_behavior<T: Component>(
-        &mut self,
-        clone_behavior: ComponentCloneBehavior,
-    ) -> &mut Self {
-        if let Some(id) = self.world.components().valid_component_id::<T>() {
-            self.entity_cloner
-                .clone_behavior_overrides
-                .insert(id, clone_behavior);
-        }
-        self
-    }
-
-    /// Overrides the [`ComponentCloneBehavior`] for a component with the given `component_id` in this builder.
-    /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
-    ///
-    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
-    pub fn override_clone_behavior_with_id(
-        &mut self,
-        component_id: ComponentId,
-        clone_behavior: ComponentCloneBehavior,
-    ) -> &mut Self {
-        self.entity_cloner
-            .clone_behavior_overrides
-            .insert(component_id, clone_behavior);
-        self
-    }
-
-    /// Removes a previously set override of [`ComponentCloneBehavior`] for a component in this builder.
-    pub fn remove_clone_behavior_override<T: Component>(&mut self) -> &mut Self {
-        if let Some(id) = self.world.components().valid_component_id::<T>() {
-            self.entity_cloner.clone_behavior_overrides.remove(&id);
-        }
-        self
-    }
-
-    /// Removes a previously set override of [`ComponentCloneBehavior`] for a given `component_id` in this builder.
-    pub fn remove_clone_behavior_override_with_id(
-        &mut self,
-        component_id: ComponentId,
-    ) -> &mut Self {
-        self.entity_cloner
-            .clone_behavior_overrides
-            .remove(&component_id);
-        self
-    }
-
-    /// When true this cloner will be configured to clone entities referenced in cloned components via [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN).
-    /// This will produce "deep" / recursive clones of relationship trees that have "linked spawn".
-    pub fn linked_cloning(&mut self, linked_cloning: bool) -> &mut Self {
-        self.entity_cloner.linked_cloning = linked_cloning;
-        self
-    }
-}
-
-impl<'w> EntityClonerBuilder<'w, DenyAll> {
-    /// Finishes configuring [`EntityCloner`] returns it.
-    pub fn finish(self) -> EntityCloner {
-        EntityCloner {
-            filter: EntityClonerFilter::DenyAll(self.filter),
-            other: self.entity_cloner,
-        }
-    }
-
-    /// Internally calls [`EntityCloner::clone_entity`] on the builder's [`World`].
-    pub fn clone_entity(&mut self, source: Entity, target: Entity) -> &mut Self {
-        self.entity_cloner
-            .clone_entity(&mut self.filter, self.world, source, target);
-        self
-    }
-
-    /// By default, any components allowed/denied through the filter will automatically
-    /// allow/deny all of their required components.
-    ///
-    /// This method allows for a scoped mode where any changes to the filter
-    /// will not involve required components.
-    pub fn without_required_components(&mut self, builder: impl FnOnce(&mut Self)) -> &mut Self {
-        self.filter.attach_required_components = false;
-        builder(self);
-        self.filter.attach_required_components = true;
-        self
-    }
-
-    /// Adds all components of the bundle to the list of components to clone.
-    pub fn allow<T: Bundle>(&mut self) -> &mut Self {
-        let bundle = self.world.register_bundle::<T>();
-        let ids = bundle.explicit_components().to_owned();
-        for id in ids {
-            self.filter
-                .filter_allow(id, self.world, InsertMode::Replace);
-        }
-        self
-    }
-
-    /// Adds all components of the bundle to the list of components to clone if the target does not contain them.
-    pub fn allow_if_new<T: Bundle>(&mut self) -> &mut Self {
-        let bundle = self.world.register_bundle::<T>();
-        let ids = bundle.explicit_components().to_owned();
-        for id in ids {
-            self.filter.filter_allow(id, self.world, InsertMode::Keep);
-        }
-        self
-    }
-
-    /// Adds all components of the bundle ID to the list of components to clone.
-    pub fn allow_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
-        if let Some(bundle) = self.world.bundles().get(bundle_id) {
-            let ids = bundle.explicit_components().to_owned();
-            for id in ids {
-                self.filter
-                    .filter_allow(id, self.world, InsertMode::Replace);
-            }
-        }
-        self
-    }
-
-    /// Adds all components of the bundle ID to the list of components to clone if the target does not contain them.
-    pub fn allow_by_bundle_id_if_new(&mut self, bundle_id: BundleId) -> &mut Self {
-        if let Some(bundle) = self.world.bundles().get(bundle_id) {
-            let ids = bundle.explicit_components().to_owned();
-            for id in ids {
-                self.filter.filter_allow(id, self.world, InsertMode::Keep);
-            }
-        }
-        self
-    }
-
-    /// Extends the list of components to clone.
-    pub fn allow_by_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
-        for id in ids {
-            self.filter
-                .filter_allow(id, self.world, InsertMode::Replace);
-        }
-        self
-    }
-
-    /// Extends the list of components to clone if the target does not contain them.
-    pub fn allow_by_ids_if_new(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
-        for id in ids {
-            self.filter.filter_allow(id, self.world, InsertMode::Keep);
-        }
-        self
-    }
-
-    /// Extends the list of components to clone using [`TypeId`]s.
-    pub fn allow_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
-        for type_id in ids {
-            if let Some(id) = self.world.components().get_valid_id(type_id) {
-                self.filter
-                    .filter_allow(id, self.world, InsertMode::Replace);
-            }
-        }
-        self
-    }
-
-    /// Extends the list of components to clone using [`TypeId`]s if the target does not contain them.
-    pub fn allow_by_type_ids_if_new(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
-        for type_id in ids {
-            if let Some(id) = self.world.components().get_valid_id(type_id) {
-                self.filter.filter_allow(id, self.world, InsertMode::Keep);
-            }
-        }
-        self
-    }
-}
-
-/// Part of the [`EntityCloner`], see there for more information.
-struct EntityClonerConfig {
-    clone_behavior_overrides: HashMap<ComponentId, ComponentCloneBehavior>,
-    move_components: bool,
-    linked_cloning: bool,
-    default_clone_fn: ComponentCloneFn,
-    clone_queue: VecDeque<Entity>,
-    deferred_commands: VecDeque<Box<dyn FnOnce(&mut World, &mut dyn EntityMapper)>>,
-}
-
-impl Default for EntityClonerConfig {
-    fn default() -> Self {
-        Self {
-            move_components: false,
-            linked_cloning: false,
-            default_clone_fn: ComponentCloneBehavior::global_default_fn(),
-            clone_behavior_overrides: Default::default(),
-            clone_queue: Default::default(),
-            deferred_commands: Default::default(),
-        }
     }
 }
 
@@ -858,67 +671,254 @@ impl EntityClonerConfig {
     }
 }
 
-/// An expandable scratch space for defining a dynamic bundle.
-struct BundleScratch<'a> {
-    component_ids: Vec<ComponentId>,
-    component_ptrs: Vec<PtrMut<'a>>,
+/// A builder for configuring [`EntityCloner`]. See [`EntityCloner`] for more information.
+pub struct EntityClonerBuilder<'w, Filter> {
+    world: &'w mut World,
+    filter: Filter,
+    entity_cloner: EntityClonerConfig,
 }
 
-impl<'a> BundleScratch<'a> {
-    pub(crate) fn with_capacity(capacity: usize) -> Self {
-        Self {
-            component_ids: Vec::with_capacity(capacity),
-            component_ptrs: Vec::with_capacity(capacity),
-        }
+impl<'w, Filter> EntityClonerBuilder<'w, Filter> {
+    /// Sets the default clone function to use.
+    pub fn with_default_clone_fn(&mut self, clone_fn: ComponentCloneFn) -> &mut Self {
+        self.entity_cloner.default_clone_fn = clone_fn;
+        self
     }
 
-    /// Pushes the `ptr` component onto this storage with the given `id` [`ComponentId`].
+    /// Sets whether the cloner should remove any components that were cloned,
+    /// effectively moving them from the source entity to the target.
     ///
-    /// # Safety
-    /// The `id` [`ComponentId`] must match the component `ptr` for whatever [`World`] this scratch will
-    /// be written to. `ptr` must contain valid uniquely-owned data that matches the type of component referenced
-    /// in `id`.
-    pub(crate) unsafe fn push_ptr(&mut self, id: ComponentId, ptr: PtrMut<'a>) {
-        self.component_ids.push(id);
-        self.component_ptrs.push(ptr);
+    /// This is disabled by default.
+    ///
+    /// The setting only applies to components that are allowed through the filter
+    /// at the time [`EntityClonerBuilder::clone_entity`] is called.
+    pub fn move_components(&mut self, enable: bool) -> &mut Self {
+        self.entity_cloner.move_components = enable;
+        self
     }
 
-    /// Pushes the `C` component onto this storage with the given `id` [`ComponentId`], using the given `bump` allocator.
+    /// Overrides the [`ComponentCloneBehavior`] for a component in this builder.
+    /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
     ///
-    /// # Safety
-    /// The `id` [`ComponentId`] must match the component `C` for whatever [`World`] this scratch will
-    /// be written to.
-    pub(crate) unsafe fn push<C: Component>(
+    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    pub fn override_clone_behavior<T: Component>(
         &mut self,
-        allocator: &'a Bump,
-        id: ComponentId,
-        component: C,
-    ) {
-        let component_ref = allocator.alloc(component);
-        self.component_ids.push(id);
-        self.component_ptrs.push(PtrMut::from(component_ref));
+        clone_behavior: ComponentCloneBehavior,
+    ) -> &mut Self {
+        if let Some(id) = self.world.components().valid_component_id::<T>() {
+            self.entity_cloner
+                .clone_behavior_overrides
+                .insert(id, clone_behavior);
+        }
+        self
     }
 
-    /// Writes the scratch components to the given entity in the given world.
+    /// Overrides the [`ComponentCloneBehavior`] for a component with the given `component_id` in this builder.
+    /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
     ///
-    /// # Safety
-    /// All [`ComponentId`] values in this instance must come from `world`.
-    pub(crate) unsafe fn write(
-        self,
-        world: &mut World,
-        entity: Entity,
-        relationship_hook_insert_mode: RelationshipHookMode,
-    ) {
-        // SAFETY:
-        // - All `component_ids` are from the same world as `target` entity
-        // - All `component_data_ptrs` are valid types represented by `component_ids`
-        unsafe {
-            world.entity_mut(entity).insert_by_ids_internal(
-                &self.component_ids,
-                self.component_ptrs.into_iter().map(|ptr| ptr.promote()),
-                relationship_hook_insert_mode,
-            );
+    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    pub fn override_clone_behavior_with_id(
+        &mut self,
+        component_id: ComponentId,
+        clone_behavior: ComponentCloneBehavior,
+    ) -> &mut Self {
+        self.entity_cloner
+            .clone_behavior_overrides
+            .insert(component_id, clone_behavior);
+        self
+    }
+
+    /// Removes a previously set override of [`ComponentCloneBehavior`] for a component in this builder.
+    pub fn remove_clone_behavior_override<T: Component>(&mut self) -> &mut Self {
+        if let Some(id) = self.world.components().valid_component_id::<T>() {
+            self.entity_cloner.clone_behavior_overrides.remove(&id);
         }
+        self
+    }
+
+    /// Removes a previously set override of [`ComponentCloneBehavior`] for a given `component_id` in this builder.
+    pub fn remove_clone_behavior_override_with_id(
+        &mut self,
+        component_id: ComponentId,
+    ) -> &mut Self {
+        self.entity_cloner
+            .clone_behavior_overrides
+            .remove(&component_id);
+        self
+    }
+
+    /// When true this cloner will be configured to clone entities referenced in cloned components via [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN).
+    /// This will produce "deep" / recursive clones of relationship trees that have "linked spawn".
+    pub fn linked_cloning(&mut self, linked_cloning: bool) -> &mut Self {
+        self.entity_cloner.linked_cloning = linked_cloning;
+        self
+    }
+}
+
+impl<'w> EntityClonerBuilder<'w, AllowAll> {
+    /// Finishes configuring [`EntityCloner`] returns it.
+    pub fn finish(self) -> EntityCloner {
+        EntityCloner {
+            filter: EntityClonerFilter::AllowAll(self.filter),
+            other: self.entity_cloner,
+        }
+    }
+
+    /// Internally calls [`EntityCloner::clone_entity`] on the builder's [`World`].
+    pub fn clone_entity(&mut self, source: Entity, target: Entity) -> &mut Self {
+        self.entity_cloner
+            .clone_entity(&mut self.filter, self.world, source, target);
+        self
+    }
+
+    /// Disallows all components of the bundle from being cloned.
+    pub fn deny<T: Bundle>(&mut self) -> &mut Self {
+        let bundle = self.world.register_bundle::<T>();
+        let ids = bundle.explicit_components().to_owned();
+        for id in ids {
+            self.filter.deny.insert(id);
+        }
+        self
+    }
+
+    /// Disallows all components of the bundle ID from being cloned.
+    pub fn deny_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
+        if let Some(bundle) = self.world.bundles().get(bundle_id) {
+            let ids = bundle.explicit_components().to_owned();
+            for id in ids {
+                self.filter.deny.insert(id);
+            }
+        }
+        self
+    }
+
+    /// Extends the list of components that shouldn't be cloned.
+    pub fn deny_by_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
+        for id in ids {
+            self.filter.deny.insert(id);
+        }
+        self
+    }
+
+    /// Extends the list of components that shouldn't be cloned by type ids.
+    pub fn deny_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
+        for type_id in ids {
+            if let Some(id) = self.world.components().get_valid_id(type_id) {
+                self.filter.deny.insert(id);
+            }
+        }
+        self
+    }
+}
+
+impl<'w> EntityClonerBuilder<'w, DenyAll> {
+    /// Finishes configuring [`EntityCloner`] returns it.
+    pub fn finish(self) -> EntityCloner {
+        EntityCloner {
+            filter: EntityClonerFilter::DenyAll(self.filter),
+            other: self.entity_cloner,
+        }
+    }
+
+    /// Internally calls [`EntityCloner::clone_entity`] on the builder's [`World`].
+    pub fn clone_entity(&mut self, source: Entity, target: Entity) -> &mut Self {
+        self.entity_cloner
+            .clone_entity(&mut self.filter, self.world, source, target);
+        self
+    }
+
+    /// By default, any components allowed/denied through the filter will automatically
+    /// allow/deny all of their required components.
+    ///
+    /// This method allows for a scoped mode where any changes to the filter
+    /// will not involve required components.
+    pub fn without_required_components(&mut self, builder: impl FnOnce(&mut Self)) -> &mut Self {
+        self.filter.attach_required_components = false;
+        builder(self);
+        self.filter.attach_required_components = true;
+        self
+    }
+
+    /// Adds all components of the bundle to the list of components to clone.
+    pub fn allow<T: Bundle>(&mut self) -> &mut Self {
+        let bundle = self.world.register_bundle::<T>();
+        let ids = bundle.explicit_components().to_owned();
+        for id in ids {
+            self.filter
+                .filter_allow(id, self.world, InsertMode::Replace);
+        }
+        self
+    }
+
+    /// Adds all components of the bundle to the list of components to clone if the target does not contain them.
+    pub fn allow_if_new<T: Bundle>(&mut self) -> &mut Self {
+        let bundle = self.world.register_bundle::<T>();
+        let ids = bundle.explicit_components().to_owned();
+        for id in ids {
+            self.filter.filter_allow(id, self.world, InsertMode::Keep);
+        }
+        self
+    }
+
+    /// Adds all components of the bundle ID to the list of components to clone.
+    pub fn allow_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
+        if let Some(bundle) = self.world.bundles().get(bundle_id) {
+            let ids = bundle.explicit_components().to_owned();
+            for id in ids {
+                self.filter
+                    .filter_allow(id, self.world, InsertMode::Replace);
+            }
+        }
+        self
+    }
+
+    /// Adds all components of the bundle ID to the list of components to clone if the target does not contain them.
+    pub fn allow_by_bundle_id_if_new(&mut self, bundle_id: BundleId) -> &mut Self {
+        if let Some(bundle) = self.world.bundles().get(bundle_id) {
+            let ids = bundle.explicit_components().to_owned();
+            for id in ids {
+                self.filter.filter_allow(id, self.world, InsertMode::Keep);
+            }
+        }
+        self
+    }
+
+    /// Extends the list of components to clone.
+    pub fn allow_by_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
+        for id in ids {
+            self.filter
+                .filter_allow(id, self.world, InsertMode::Replace);
+        }
+        self
+    }
+
+    /// Extends the list of components to clone if the target does not contain them.
+    pub fn allow_by_ids_if_new(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
+        for id in ids {
+            self.filter.filter_allow(id, self.world, InsertMode::Keep);
+        }
+        self
+    }
+
+    /// Extends the list of components to clone using [`TypeId`]s.
+    pub fn allow_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
+        for type_id in ids {
+            if let Some(id) = self.world.components().get_valid_id(type_id) {
+                self.filter
+                    .filter_allow(id, self.world, InsertMode::Replace);
+            }
+        }
+        self
+    }
+
+    /// Extends the list of components to clone using [`TypeId`]s if the target does not contain them.
+    pub fn allow_by_type_ids_if_new(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
+        for type_id in ids {
+            if let Some(id) = self.world.components().get_valid_id(type_id) {
+                self.filter.filter_allow(id, self.world, InsertMode::Keep);
+            }
+        }
+        self
     }
 }
 
