@@ -13,7 +13,7 @@ pub(crate) fn bevy_asset_path() -> Path {
 
 const DEPENDENCY_ATTRIBUTE: &str = "dependency";
 
-/// Implemement the `Asset` trait.
+/// Implement the `Asset` trait.
 #[proc_macro_derive(Asset, attributes(dependency))]
 pub fn derive_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
