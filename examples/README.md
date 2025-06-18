@@ -530,6 +530,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[FBX Scene Viewer](../examples/tools/scene_viewer_fbx/main.rs) | A simple way to view FBX models with Bevy. Just run `cargo run --release --example scene_viewer_fbx --features=fbx /path/to/model.fbx`, replacing the path as appropriate. Provides enhanced controls for FBX-specific features like material inspection and texture debugging
 [Gamepad Viewer](../examples/tools/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers
 [Scene Viewer](../examples/tools/scene_viewer/main.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
 
