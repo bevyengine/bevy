@@ -165,6 +165,7 @@ default = [
   "vorbis",
   "webgl2",
   "x11",
+  "wayland",
 ]
 
 # Recommended defaults for no_std applications
