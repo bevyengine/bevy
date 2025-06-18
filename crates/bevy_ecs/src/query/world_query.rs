@@ -13,11 +13,11 @@ use variadics_please::all_tuples;
 /// # Safety
 ///
 /// Implementor must ensure that
-/// [`update_component_access`], [`matches_component_set`], [`QueryData::fetch`], [`QueryFilter::filter_fetch`] and [`init_fetch`]
+/// [`update_component_access`], [`QueryData::provide_extra_access`], [`matches_component_set`], [`QueryData::fetch`], [`QueryFilter::filter_fetch`] and [`init_fetch`]
 /// obey the following:
 ///
-/// - For each component mutably accessed by [`QueryData::fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
-/// - For each component readonly accessed by [`QueryData::fetch`] or [`QueryFilter::filter_fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
+/// - For each component mutably accessed by [`QueryData::fetch`], [`update_component_access`] or [`QueryData::provide_extra_access`] should add write access unless read or write access has already been added, in which case it should panic.
+/// - For each component readonly accessed by [`QueryData::fetch`] or [`QueryFilter::filter_fetch`], [`update_component_access`] or [`QueryData::provide_extra_access`] should add read access unless write access has already been added, in which case it should panic.
 /// - If `fetch` mutably accesses the same component twice, [`update_component_access`] should panic.
 /// - [`update_component_access`] may not add a `Without` filter for a component unless [`matches_component_set`] always returns `false` when the component set contains that component.
 /// - [`update_component_access`] may not add a `With` filter for a component unless [`matches_component_set`] always returns `false` when the component set doesn't contain that component.
@@ -27,9 +27,11 @@ use variadics_please::all_tuples;
 ///     - Each filter in that disjunction must be a conjunction of the corresponding element's filter with the previous `access`
 /// - For each resource readonly accessed by [`init_fetch`], [`update_component_access`] should add read access.
 /// - Mutable resource access is not allowed.
+/// - Any access added during [`QueryData::provide_extra_access`] must be a subset of `available_access`, and must not conflict with any access in `access`.
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
+/// [`QueryData::provide_extra_access`]: crate::query::QueryData::provide_extra_access
 /// [`QueryData::fetch`]: crate::query::QueryData::fetch
 /// [`QueryFilter::filter_fetch`]: crate::query::QueryFilter::filter_fetch
 /// [`init_fetch`]: Self::init_fetch
@@ -40,7 +42,7 @@ use variadics_please::all_tuples;
 /// [`QueryFilter`]: crate::query::QueryFilter
 pub unsafe trait WorldQuery {
     /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](crate::query::QueryData::Item) for each entity.
-    type Fetch<'a>: Clone;
+    type Fetch<'w, 's>: Clone;
 
     /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
     /// so it is best to move as much data / computation here as possible to reduce the cost of
@@ -48,7 +50,9 @@ pub unsafe trait WorldQuery {
     type State: Send + Sync + Sized;
 
     /// This function manually implements subtyping for the query fetches.
-    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
+    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+        fetch: Self::Fetch<'wlong, 's>,
+    ) -> Self::Fetch<'wshort, 's>;
 
     /// Creates a new instance of [`Self::Fetch`](WorldQuery::Fetch),
     /// by combining data from the [`World`] with the cached [`Self::State`](WorldQuery::State).
@@ -60,12 +64,12 @@ pub unsafe trait WorldQuery {
     ///   in to this function.
     /// - `world` must have the **right** to access any access registered in `update_component_access`.
     /// - There must not be simultaneous resource access conflicting with readonly resource access registered in [`WorldQuery::update_component_access`].
-    unsafe fn init_fetch<'w>(
+    unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
-        state: &Self::State,
+        state: &'s Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> Self::Fetch<'w>;
+    ) -> Self::Fetch<'w, 's>;
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
     /// all of the matched components.
@@ -85,9 +89,9 @@ pub unsafe trait WorldQuery {
     /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `table` must correspond to `archetype`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_archetype<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &Self::State,
+    unsafe fn set_archetype<'w, 's>(
+        fetch: &mut Self::Fetch<'w, 's>,
+        state: &'s Self::State,
         archetype: &'w Archetype,
         table: &'w Table,
     );
@@ -99,13 +103,11 @@ pub unsafe trait WorldQuery {
     ///
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
-
-    /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
-    /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
-    ///
-    /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
-    fn set_access(_state: &mut Self::State, _access: &FilteredAccess<ComponentId>) {}
+    unsafe fn set_table<'w, 's>(
+        fetch: &mut Self::Fetch<'w, 's>,
+        state: &'s Self::State,
+        table: &'w Table,
+    );
 
     /// Adds any component accesses used by this [`WorldQuery`] to `access`.
     ///
@@ -158,11 +160,11 @@ macro_rules! impl_tuple_world_query {
         /// `update_component_access` adds all `With` and `Without` filters from the subqueries.
         /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
-            type Fetch<'w> = ($($name::Fetch<'w>,)*);
+            type Fetch<'w, 's> = ($($name::Fetch<'w, 's>,)*);
             type State = ($($name::State,)*);
 
 
-            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+            fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(fetch: Self::Fetch<'wlong, 's>) -> Self::Fetch<'wshort, 's> {
                 let ($($name,)*) = fetch;
                 ($(
                     $name::shrink_fetch($name),
@@ -170,7 +172,7 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w, 's> {
                 let ($($name,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
                 ($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*)
@@ -179,9 +181,9 @@ macro_rules! impl_tuple_world_query {
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             #[inline]
-            unsafe fn set_archetype<'w>(
-                fetch: &mut Self::Fetch<'w>,
-                state: &Self::State,
+            unsafe fn set_archetype<'w, 's>(
+                fetch: &mut Self::Fetch<'w, 's>,
+                state: &'s Self::State,
                 archetype: &'w Archetype,
                 table: &'w Table
             ) {
@@ -192,7 +194,7 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w, 's>, state: &'s Self::State, table: &'w Table) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.

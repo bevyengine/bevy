@@ -34,14 +34,14 @@ pub(crate) fn item_struct(
             #derive_macro_call
             #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
-                #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::QueryData>::Item<'__w>,)*
+                #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::QueryData>::Item<'__w, '__s>,)*
             }
         },
         Fields::Unnamed(_) => quote! {
             #derive_macro_call
             #item_attrs
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world(
-                #( #field_visibilities <#field_types as #path::query::QueryData>::Item<'__w>, )*
+                #( #field_visibilities <#field_types as #path::query::QueryData>::Item<'__w, '__s>, )*
             );
         },
         Fields::Unit => quote! {
@@ -78,8 +78,8 @@ pub(crate) fn world_query_impl(
         )]
         #[automatically_derived]
         #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
-            #(#named_field_idents: <#field_types as #path::query::WorldQuery>::Fetch<'__w>,)*
-            #marker_name: &'__w (),
+            #(#named_field_idents: <#field_types as #path::query::WorldQuery>::Fetch<'__w, '__s>,)*
+            #marker_name: (&'__w(), &'__s()),
         }
 
         impl #user_impl_generics_with_world Clone for #fetch_struct_name #user_ty_generics_with_world
@@ -87,35 +87,35 @@ pub(crate) fn world_query_impl(
                 fn clone(&self) -> Self {
                     Self {
                         #(#named_field_idents: self.#named_field_idents.clone(),)*
-                        #marker_name: &(),
+                        #marker_name: (&(), &()),
                     }
                 }
             }
 
-        // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
+        // SAFETY: `update_component_access` is called on every field
         unsafe impl #user_impl_generics #path::query::WorldQuery
             for #struct_name #user_ty_generics #user_where_clauses {
 
-            type Fetch<'__w> = #fetch_struct_name #user_ty_generics_with_world;
+            type Fetch<'__w, '__s> = #fetch_struct_name #user_ty_generics_with_world;
             type State = #state_struct_name #user_ty_generics;
 
-            fn shrink_fetch<'__wlong: '__wshort, '__wshort>(
-                fetch: <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wlong>
-            ) -> <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wshort> {
+            fn shrink_fetch<'__wlong: '__wshort, '__wshort, '__s>(
+                fetch: <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wlong, '__s>
+            ) -> <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wshort, '__s> {
                 #fetch_struct_name {
                     #(
                         #named_field_idents: <#field_types>::shrink_fetch(fetch.#named_field_idents),
                     )*
-                    #marker_name: &(),
+                    #marker_name: (&(), &()),
                 }
             }
 
-            unsafe fn init_fetch<'__w>(
+            unsafe fn init_fetch<'__w, '__s>(
                 _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'__w>,
-                state: &Self::State,
+                state: &'__s Self::State,
                 _last_run: #path::component::Tick,
                 _this_run: #path::component::Tick,
-            ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
+            ) -> <Self as #path::query::WorldQuery>::Fetch<'__w, '__s> {
                 #fetch_struct_name {
                     #(#named_field_idents:
                         <#field_types>::init_fetch(
@@ -125,7 +125,7 @@ pub(crate) fn world_query_impl(
                             _this_run,
                         ),
                     )*
-                    #marker_name: &(),
+                    #marker_name: (&(), &()),
                 }
             }
 
@@ -133,9 +133,9 @@ pub(crate) fn world_query_impl(
 
             /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
             #[inline]
-            unsafe fn set_archetype<'__w>(
-                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
-                _state: &Self::State,
+            unsafe fn set_archetype<'__w, '__s>(
+                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w, '__s>,
+                _state: &'__s Self::State,
                 _archetype: &'__w #path::archetype::Archetype,
                 _table: &'__w #path::storage::Table
             ) {
@@ -144,9 +144,9 @@ pub(crate) fn world_query_impl(
 
             /// SAFETY: we call `set_table` for each member that implements `Fetch`
             #[inline]
-            unsafe fn set_table<'__w>(
-                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
-                _state: &Self::State,
+            unsafe fn set_table<'__w, '__s>(
+                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w, '__s>,
+                _state: &'__s Self::State,
                 _table: &'__w #path::storage::Table
             ) {
                 #(<#field_types>::set_table(&mut _fetch.#named_field_idents, &_state.#named_field_idents, _table);)*

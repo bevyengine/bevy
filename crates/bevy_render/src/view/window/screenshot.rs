@@ -13,11 +13,11 @@ use crate::{
     renderer::RenderDevice,
     texture::{GpuImage, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
@@ -39,7 +39,7 @@ use std::{
 use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
-#[derive(Event, Deref, DerefMut, Reflect, Debug)]
+#[derive(Event, EntityEvent, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ScreenshotCaptured(pub Image);
 
@@ -122,7 +122,7 @@ struct RenderScreenshotsPrepared(EntityHashMap<ScreenshotPreparedState>);
 struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 
 /// Saves the captured screenshot to disk at the provided path.
-pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCaptured>) {
+pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
     move |trigger| {
         let img = trigger.event().deref().clone();
@@ -392,9 +392,6 @@ fn prepare_screenshot_state(
 
 pub struct ScreenshotPlugin;
 
-const SCREENSHOT_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("c31753d6-326a-47cb-a359-65c97a471fda");
-
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
@@ -403,21 +400,16 @@ impl Plugin for ScreenshotPlugin {
                 .after(event_update_system)
                 .before(ApplyDeferred),
         )
-        .add_systems(Update, trigger_screenshots)
         .register_type::<Screenshot>()
         .register_type::<ScreenshotCaptured>();
 
-        load_internal_asset!(
-            app,
-            SCREENSHOT_SHADER_HANDLE,
-            "screenshot.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "screenshot.wgsl");
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
         let (tx, rx) = std::sync::mpsc::channel();
-        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))));
+        app.add_systems(Update, trigger_screenshots)
+            .insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -425,13 +417,14 @@ impl Plugin for ScreenshotPlugin {
                 .init_resource::<RenderScreenshotTargets>()
                 .init_resource::<RenderScreenshotsPrepared>()
                 .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+                .init_resource::<ScreenshotToScreenPipeline>()
                 .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
                 .add_systems(
                     Render,
                     prepare_screenshots
                         .after(prepare_view_attachments)
                         .before(prepare_view_targets)
-                        .in_set(RenderSet::ManageViews),
+                        .in_set(RenderSystems::ManageViews),
                 );
         }
     }
@@ -440,6 +433,7 @@ impl Plugin for ScreenshotPlugin {
 #[derive(Resource)]
 pub struct ScreenshotToScreenPipeline {
     pub bind_group_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
 }
 
 impl FromWorld for ScreenshotToScreenPipeline {
@@ -454,7 +448,12 @@ impl FromWorld for ScreenshotToScreenPipeline {
             ),
         );
 
-        Self { bind_group_layout }
+        let shader = load_embedded_asset!(render_world, "screenshot.wgsl");
+
+        Self {
+            bind_group_layout,
+            shader,
+        }
     }
 }
 
@@ -469,7 +468,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 buffers: vec![],
                 shader_defs: vec![],
                 entry_point: Cow::Borrowed("vs_main"),
-                shader: SCREENSHOT_SHADER_HANDLE,
+                shader: self.shader.clone(),
             },
             primitive: wgpu::PrimitiveState {
                 cull_mode: Some(wgpu::Face::Back),
@@ -478,7 +477,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
             depth_stencil: None,
             multisample: Default::default(),
             fragment: Some(FragmentState {
-                shader: SCREENSHOT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: Cow::Borrowed("fs_main"),
                 shader_defs: vec![],
                 targets: vec![Some(wgpu::ColorTargetState {

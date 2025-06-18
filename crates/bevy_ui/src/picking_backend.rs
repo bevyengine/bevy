@@ -24,14 +24,13 @@
 
 #![deny(missing_docs)]
 
-use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
+use crate::{prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::{Rect, Vec2};
+use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::prelude::*;
-use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -81,7 +80,7 @@ impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiPickingSettings>()
             .register_type::<(UiPickingCamera, UiPickingSettings)>()
-            .add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
+            .add_systems(PreUpdate, ui_picking.in_set(PickingSystems::Backend));
     }
 }
 
@@ -91,9 +90,8 @@ impl Plugin for UiPickingPlugin {
 pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
-    global_transform: &'static GlobalTransform,
+    transform: &'static UiGlobalTransform,
     pickable: Option<&'static Pickable>,
-    calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedNodeTarget,
 }
@@ -104,17 +102,14 @@ pub struct NodeQuery {
 /// we need for determining picking.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(
-        Entity,
-        &Camera,
-        Has<IsDefaultUiCamera>,
-        Has<UiPickingCamera>,
-    )>,
+    camera_query: Query<(Entity, &Camera, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
+    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
+    child_of_query: Query<&ChildOf>,
 ) {
     // For each camera, the pointer and its position
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
@@ -128,8 +123,8 @@ pub fn ui_picking(
         // cameras. We want to ensure we return all cameras with a matching target.
         for camera in camera_query
             .iter()
-            .filter(|(_, _, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
-            .map(|(entity, camera, _, _)| {
+            .filter(|(_, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
+            .map(|(entity, camera, _)| {
                 (
                     entity,
                     camera.target.normalize(primary_window.single().ok()),
@@ -139,7 +134,7 @@ pub fn ui_picking(
             .filter(|(_entity, target)| target == &pointer_location.target)
             .map(|(cam_entity, _target)| cam_entity)
         {
-            let Ok((_, camera_data, _, _)) = camera_query.get(camera) else {
+            let Ok((_, camera_data, _)) = camera_query.get(camera) else {
                 continue;
             };
             let mut pointer_pos =
@@ -186,43 +181,33 @@ pub fn ui_picking(
             continue;
         };
 
-        let node_rect = Rect::from_center_size(
-            node.global_transform.translation().truncate(),
-            node.node.size(),
-        );
-
         // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
-        if node_rect.size() == Vec2::ZERO {
+        if node.node.size() == Vec2::ZERO {
             continue;
         }
 
-        // Intersect with the calculated clip rect to find the bounds of the visible region of the node
-        let visible_rect = node
-            .calculated_clip
-            .map(|clip| node_rect.intersect(clip.clip))
-            .unwrap_or(node_rect);
-
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
-        // The mouse position relative to the node
-        // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
+        // Find the normalized cursor position relative to the node.
+        // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
         // Coordinates are relative to the entire node, not just the visible region.
         for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
-            let relative_cursor_position = (*cursor_position - node_rect.min) / node_rect.size();
-
-            if visible_rect
-                .normalize(node_rect)
-                .contains(relative_cursor_position)
-                && pick_rounded_rect(
-                    *cursor_position - node_rect.center(),
-                    node_rect.size(),
-                    node.node.border_radius,
+            if node.node.contains_point(*node.transform, *cursor_position)
+                && clip_check_recursive(
+                    *cursor_position,
+                    *node_entity,
+                    &clipping_query,
+                    &child_of_query,
                 )
             {
                 hit_nodes
                     .entry((camera_entity, *pointer_id))
                     .or_default()
-                    .push((*node_entity, relative_cursor_position));
+                    .push((
+                        *node_entity,
+                        node.transform.inverse().transform_point2(*cursor_position)
+                            / node.node.size(),
+                    ));
             }
         }
     }
@@ -260,10 +245,34 @@ pub fn ui_picking(
 
         let order = camera_query
             .get(*camera)
-            .map(|(_, cam, _, _)| cam.order)
+            .map(|(_, cam, _)| cam.order)
             .unwrap_or_default() as f32
             + 0.5; // bevy ui can run on any camera, it's a special case
 
         output.write(PointerHits::new(*pointer, picks, order));
     }
+}
+
+/// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
+pub fn clip_check_recursive(
+    point: Vec2,
+    entity: Entity,
+    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
+    child_of_query: &Query<&ChildOf>,
+) -> bool {
+    if let Ok(child_of) = child_of_query.get(entity) {
+        let parent = child_of.0;
+        if let Ok((computed_node, transform, node)) = clipping_query.get(parent) {
+            if !computed_node
+                .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
+                .contains(transform.inverse().transform_point2(point))
+            {
+                // The point is clipped and should be ignored by picking
+                return false;
+            }
+        }
+        return clip_check_recursive(point, parent, clipping_query, child_of_query);
+    }
+    // Reached root, point unclipped by all ancestors
+    true
 }

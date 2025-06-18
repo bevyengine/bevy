@@ -3,7 +3,7 @@ use crate::{
     oit::OrderIndependentTransparencySettings,
 };
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -16,19 +16,15 @@ use bevy_render::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
         BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
         FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
-        Shader, ShaderDefVal, ShaderStages, TextureFormat,
+        ShaderDefVal, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use tracing::warn;
 
 use super::OitBuffers;
-
-/// Shader handle for the shader that sorts the OIT layers, blends the colors based on depth and renders them to the screen.
-pub const OIT_RESOLVE_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("562d2917-eb06-444d-9ade-41de76b0f5ae");
 
 /// Contains the render node used to run the resolve pass.
 pub mod node;
@@ -40,12 +36,7 @@ pub const OIT_REQUIRED_STORAGE_BUFFERS: u32 = 2;
 pub struct OitResolvePlugin;
 impl Plugin for OitResolvePlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(
-            app,
-            OIT_RESOLVE_SHADER_HANDLE,
-            "oit_resolve.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "oit_resolve.wgsl");
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
@@ -65,8 +56,8 @@ impl Plugin for OitResolvePlugin {
             .add_systems(
                 Render,
                 (
-                    queue_oit_resolve_pipeline.in_set(RenderSet::Queue),
-                    prepare_oit_resolve_bind_group.in_set(RenderSet::PrepareBindGroups),
+                    queue_oit_resolve_pipeline.in_set(RenderSystems::Queue),
+                    prepare_oit_resolve_bind_group.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             .init_resource::<OitResolvePipeline>();
@@ -165,6 +156,7 @@ pub fn queue_oit_resolve_pipeline(
         ),
         With<OrderIndependentTransparencySettings>,
     >,
+    asset_server: Res<AssetServer>,
     // Store the key with the id to make the clean up logic easier.
     // This also means it will always replace the entry if the key changes so nothing to clean up.
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
@@ -184,7 +176,7 @@ pub fn queue_oit_resolve_pipeline(
             }
         }
 
-        let desc = specialize_oit_resolve_pipeline(key, &resolve_pipeline);
+        let desc = specialize_oit_resolve_pipeline(key, &resolve_pipeline, &asset_server);
 
         let pipeline_id = pipeline_cache.queue_render_pipeline(desc);
         commands.entity(e).insert(OitResolvePipelineId(pipeline_id));
@@ -202,6 +194,7 @@ pub fn queue_oit_resolve_pipeline(
 fn specialize_oit_resolve_pipeline(
     key: OitResolvePipelineKey,
     resolve_pipeline: &OitResolvePipeline,
+    asset_server: &AssetServer,
 ) -> RenderPipelineDescriptor {
     let format = if key.hdr {
         ViewTarget::TEXTURE_FORMAT_HDR
@@ -217,7 +210,7 @@ fn specialize_oit_resolve_pipeline(
         ],
         fragment: Some(FragmentState {
             entry_point: "fragment".into(),
-            shader: OIT_RESOLVE_SHADER_HANDLE,
+            shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
             shader_defs: vec![ShaderDefVal::UInt(
                 "LAYER_COUNT".into(),
                 key.layer_count as u32,

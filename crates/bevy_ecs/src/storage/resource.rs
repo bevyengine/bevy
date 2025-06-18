@@ -1,11 +1,10 @@
 use crate::{
-    archetype::ArchetypeComponentId,
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
+    component::{CheckChangeTicks, ComponentId, ComponentTicks, Components, Tick, TickCells},
     storage::{blob_vec::BlobVec, SparseSet},
 };
-use alloc::string::String;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, mem::ManuallyDrop, panic::Location};
 
 #[cfg(feature = "std")]
@@ -24,8 +23,7 @@ pub struct ResourceData<const SEND: bool> {
         not(feature = "std"),
         expect(dead_code, reason = "currently only used with the std feature")
     )]
-    type_name: String,
-    id: ArchetypeComponentId,
+    type_name: DebugName,
     #[cfg(feature = "std")]
     origin_thread_id: Option<ThreadId>,
     changed_by: MaybeLocation<UnsafeCell<&'static Location<'static>>>,
@@ -98,12 +96,6 @@ impl<const SEND: bool> ResourceData<SEND> {
     #[inline]
     pub fn is_present(&self) -> bool {
         !self.data.is_empty()
-    }
-
-    /// Gets the [`ArchetypeComponentId`] for the resource.
-    #[inline]
-    pub fn id(&self) -> ArchetypeComponentId {
-        self.id
     }
 
     /// Returns a reference to the resource, if it exists.
@@ -306,9 +298,9 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        self.added_ticks.get_mut().check_tick(change_tick);
-        self.changed_ticks.get_mut().check_tick(change_tick);
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+        self.added_ticks.get_mut().check_tick(check);
+        self.changed_ticks.get_mut().check_tick(check);
     }
 }
 
@@ -371,7 +363,6 @@ impl<const SEND: bool> Resources<SEND> {
         &mut self,
         component_id: ComponentId,
         components: &Components,
-        f: impl FnOnce() -> ArchetypeComponentId,
     ) -> &mut ResourceData<SEND> {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
@@ -394,8 +385,7 @@ impl<const SEND: bool> Resources<SEND> {
                 data: ManuallyDrop::new(data),
                 added_ticks: UnsafeCell::new(Tick::new(0)),
                 changed_ticks: UnsafeCell::new(Tick::new(0)),
-                type_name: String::from(component_info.name()),
-                id: f(),
+                type_name: component_info.name(),
                 #[cfg(feature = "std")]
                 origin_thread_id: None,
                 changed_by: MaybeLocation::caller().map(UnsafeCell::new),
@@ -403,9 +393,9 @@ impl<const SEND: bool> Resources<SEND> {
         })
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for info in self.resources.values_mut() {
-            info.check_change_ticks(change_tick);
+            info.check_change_ticks(check);
         }
     }
 }

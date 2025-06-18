@@ -1,5 +1,5 @@
-//! Demonstrates picking for sprites and sprite atlases. The picking backend only tests against the
-//! sprite bounds, so the sprite atlas can be picked by clicking on its transparent areas.
+//! Demonstrates picking for sprites and sprite atlases.
+//! By default, the sprite picking backend considers a sprite only when a pointer is over an opaque pixel.
 
 use bevy::{prelude::*, sprite::Anchor};
 use std::fmt::Debug;
@@ -63,8 +63,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::BLACK))
-                    .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(1.0, 1.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 1.0)));
+                    .observe(recolor_on::<Pointer<Press>>(Color::srgb(1.0, 1.0, 0.0)))
+                    .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 1.0)));
 
                 commands
                     .spawn((
@@ -72,9 +72,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             image: asset_server.load("branding/bevy_bird_dark.png"),
                             custom_size: Some(sprite_size),
                             color: Color::srgb(1.0, 0.0, 0.0),
-                            anchor: anchor.to_owned(),
                             ..default()
                         },
+                        anchor.to_owned(),
                         // 3x3 grid of anchor examples by changing transform
                         Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
@@ -83,8 +83,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 0.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 0.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(0.0, 0.0, 1.0)))
-                    .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 0.0)));
+                    .observe(recolor_on::<Pointer<Press>>(Color::srgb(0.0, 0.0, 1.0)))
+                    .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 0.0)));
             }
         });
 }
@@ -145,12 +145,14 @@ fn setup_atlas(
         ))
         .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
         .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 1.0, 1.0)))
-        .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(1.0, 1.0, 0.0)))
-        .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 1.0)));
+        .observe(recolor_on::<Pointer<Press>>(Color::srgb(1.0, 1.0, 0.0)))
+        .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 1.0)));
 }
 
-// An observer listener that changes the target entity's color.
-fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
+// An observer that changes the target entity's color.
+fn recolor_on<E: EntityEvent + Debug + Clone + Reflect>(
+    color: Color,
+) -> impl Fn(On<E>, Query<&mut Sprite>) {
     move |ev, mut sprites| {
         let Ok(mut sprite) = sprites.get_mut(ev.target()) else {
             return;

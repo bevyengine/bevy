@@ -1,5 +1,5 @@
-//! In this example a system sends a custom event with a 50/50 chance during any frame.
-//! If an event was send, it will be printed by the console in a receiving system.
+//! In this example a system sends a custom buffered event with a 50/50 chance during any frame.
+//! If an event was sent, it will be printed by the console in a receiving system.
 
 #![expect(clippy::print_stdout, reason = "Allowed in examples.")]
 
@@ -15,17 +15,17 @@ fn main() {
     // Create a schedule to store our systems
     let mut schedule = Schedule::default();
 
-    // Events need to be updated in every frame in order to clear our buffers.
+    // Buffered events need to be updated every frame in order to clear our buffers.
     // This update should happen before we use the events.
     // Here, we use system sets to control the ordering.
     #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-    pub struct FlushEvents;
+    pub struct EventFlusherSystems;
 
-    schedule.add_systems(bevy_ecs::event::event_update_system.in_set(FlushEvents));
+    schedule.add_systems(bevy_ecs::event::event_update_system.in_set(EventFlusherSystems));
 
     // Add systems sending and receiving events after the events are flushed.
     schedule.add_systems((
-        sending_system.after(FlushEvents),
+        sending_system.after(EventFlusherSystems),
         receiving_system.after(sending_system),
     ));
 
@@ -37,7 +37,7 @@ fn main() {
 }
 
 // This is our event that we will send and receive in systems
-#[derive(Event)]
+#[derive(Event, BufferedEvent)]
 struct MyEvent {
     pub message: String,
     pub random_value: f32,

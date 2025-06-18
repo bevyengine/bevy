@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Mikkelsen tangent space algorithm"
 documentation = "https://docs.rs/bevy"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "Zlib AND (MIT OR Apache-2.0)"
 keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]

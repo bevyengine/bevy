@@ -1,13 +1,16 @@
 //! A [`bevy_picking`] backend for sprites. Works for simple sprites and sprite atlases. Works for
-//! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
-//! This means a partially transparent sprite is pickable even in its transparent areas.
+//! sprites with arbitrary transforms.
+//!
+//! By default, picking for sprites is based on pixel opacity.
+//! A sprite is picked only when a pointer is over an opaque pixel.
+//! Alternatively, you can configure picking to be based on sprite bounds.
 //!
 //! ## Implementation Notes
 //!
 //! - The `position` reported in `HitData` in in world space, and the `normal` is a normalized
 //!   vector provided by the target's `GlobalTransform::back()`.
 
-use crate::Sprite;
+use crate::{Anchor, Sprite};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_color::Alpha;
@@ -45,9 +48,10 @@ pub enum SpritePickingMode {
 #[reflect(Resource, Default)]
 pub struct SpritePickingSettings {
     /// When set to `true` sprite picking will only consider cameras marked with
-    /// [`SpritePickingCamera`].
+    /// [`SpritePickingCamera`]. Defaults to `false`.
+    /// Regardless of this setting, only sprites marked with [`Pickable`] will be considered.
     ///
-    /// This setting is provided to give you fine-grained control over which cameras and entities
+    /// This setting is provided to give you fine-grained control over which cameras
     /// should be used by the sprite picking backend at runtime.
     pub require_markers: bool,
     /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
@@ -75,7 +79,7 @@ impl Plugin for SpritePickingPlugin {
             .register_type::<SpritePickingCamera>()
             .register_type::<SpritePickingMode>()
             .register_type::<SpritePickingSettings>()
-            .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
+            .add_systems(PreUpdate, sprite_picking.in_set(PickingSystems::Backend));
     }
 }
 
@@ -96,6 +100,7 @@ fn sprite_picking(
         Entity,
         &Sprite,
         &GlobalTransform,
+        &Anchor,
         &Pickable,
         &ViewVisibility,
     )>,
@@ -103,9 +108,9 @@ fn sprite_picking(
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter_map(|(entity, sprite, transform, pickable, vis)| {
+        .filter_map(|(entity, sprite, transform, anchor, pickable, vis)| {
             if !transform.affine().is_nan() && vis.get() {
-                Some((entity, sprite, transform, pickable))
+                Some((entity, sprite, transform, anchor, pickable))
             } else {
                 None
             }
@@ -113,7 +118,7 @@ fn sprite_picking(
         .collect();
 
     // radsort is a stable radix sort that performed better than `slice::sort_by_key`
-    radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _)| {
+    radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _, _)| {
         -transform.translation().z
     });
 
@@ -155,7 +160,7 @@ fn sprite_picking(
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
             .copied()
-            .filter_map(|(entity, sprite, sprite_transform, pickable)| {
+            .filter_map(|(entity, sprite, sprite_transform, anchor, pickable)| {
                 if blocked {
                     return None;
                 }
@@ -188,6 +193,7 @@ fn sprite_picking(
 
                 let Ok(cursor_pixel_space) = sprite.compute_pixel_space_point(
                     cursor_pos_sprite,
+                    *anchor,
                     &images,
                     &texture_atlas_layout,
                 ) else {

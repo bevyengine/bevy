@@ -13,7 +13,7 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
+        ColorGrading, ExtractedView, ExtractedWindows, Hdr, Msaa, NoIndirectDrawing, RenderLayers,
         RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
@@ -22,9 +22,10 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::{Component, HookContext},
+    component::Component,
     entity::{ContainsEntity, Entity},
     event::EventReader,
+    lifecycle::HookContext,
     prelude::With,
     query::Has,
     reflect::ReflectComponent,
@@ -356,9 +357,6 @@ pub struct Camera {
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
     pub target: RenderTarget,
-    /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
-    /// This allows rendering with a wider range of lighting values.
-    pub hdr: bool,
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     #[reflect(ignore, clone)]
@@ -389,7 +387,6 @@ impl Default for Camera {
             computed: Default::default(),
             target: Default::default(),
             output_mode: Default::default(),
-            hdr: false,
             msaa_writeback: true,
             clear_color: Default::default(),
             sub_camera_view: None,
@@ -604,8 +601,7 @@ impl Camera {
         rect_relative.y = 1.0 - rect_relative.y;
 
         let ndc = rect_relative * 2. - Vec2::ONE;
-        let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
+        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
         let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
@@ -671,7 +667,7 @@ impl Camera {
     ) -> Option<Vec3> {
         // Build a transformation matrix to convert from world space to NDC using camera data
         let clip_from_world: Mat4 =
-            self.computed.clip_from_view * camera_transform.compute_matrix().inverse();
+            self.computed.clip_from_view * camera_transform.to_matrix().inverse();
         let ndc_space_coords: Vec3 = clip_from_world.project_point3(world_position);
 
         (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
@@ -692,8 +688,7 @@ impl Camera {
     /// Will panic if the projection matrix is invalid (has a determinant of 0) and `glam_assert` is enabled.
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
-        let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
+        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
 
         let world_space_coords = ndc_to_world.project_point3(ndc);
 
@@ -719,12 +714,13 @@ impl Camera {
     }
 }
 
-/// Control how this camera outputs once rendering is completed.
+/// Control how this [`Camera`] outputs once rendering is completed.
 #[derive(Debug, Clone, Copy)]
 pub enum CameraOutputMode {
     /// Writes the camera output to configured render target.
     Write {
         /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
+        /// If not set, the output will be written as-is, ignoring `clear_color` and the existing data in the final render target texture.
         blend_state: Option<BlendState>,
         /// The clear color operation to perform on the final render target texture.
         clear_color: ClearColorConfig,
@@ -1064,6 +1060,7 @@ pub fn camera_system(
 #[reflect(opaque)]
 #[reflect(Component, Default, Clone)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
+
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
         Self(
@@ -1071,6 +1068,13 @@ impl Default for CameraMainTextureUsages {
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
         )
+    }
+}
+
+impl CameraMainTextureUsages {
+    pub fn with(mut self, usages: TextureUsages) -> Self {
+        self.0 |= usages;
+        self
     }
 }
 
@@ -1101,9 +1105,11 @@ pub fn extract_cameras(
             &GlobalTransform,
             &VisibleEntities,
             &Frustum,
+            Has<Hdr>,
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
+            Option<&MipBias>,
             Option<&RenderLayers>,
             Option<&Projection>,
             Has<NoIndirectDrawing>,
@@ -1122,9 +1128,11 @@ pub fn extract_cameras(
         transform,
         visible_entities,
         frustum,
+        hdr,
         color_grading,
         exposure,
         temporal_jitter,
+        mip_bias,
         render_layers,
         projection,
         no_indirect_drawing,
@@ -1136,6 +1144,7 @@ pub fn extract_cameras(
                 ExtractedView,
                 RenderVisibleEntities,
                 TemporalJitter,
+                MipBias,
                 RenderLayers,
                 Projection,
                 NoIndirectDrawing,
@@ -1200,14 +1209,14 @@ pub fn extract_cameras(
                     exposure: exposure
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
-                    hdr: camera.hdr,
+                    hdr,
                 },
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    hdr: camera.hdr,
+                    hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,
@@ -1222,14 +1231,26 @@ pub fn extract_cameras(
 
             if let Some(temporal_jitter) = temporal_jitter {
                 commands.insert(temporal_jitter.clone());
+            } else {
+                commands.remove::<TemporalJitter>();
+            }
+
+            if let Some(mip_bias) = mip_bias {
+                commands.insert(mip_bias.clone());
+            } else {
+                commands.remove::<MipBias>();
             }
 
             if let Some(render_layers) = render_layers {
                 commands.insert(render_layers.clone());
+            } else {
+                commands.remove::<RenderLayers>();
             }
 
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
+            } else {
+                commands.remove::<Projection>();
             }
 
             if no_indirect_drawing
@@ -1239,6 +1260,8 @@ pub fn extract_cameras(
                 )
             {
                 commands.insert(NoIndirectDrawing);
+            } else {
+                commands.remove::<NoIndirectDrawing>();
             }
         };
     }
@@ -1339,6 +1362,12 @@ impl TemporalJitter {
 /// Camera component specifying a mip bias to apply when sampling from material textures.
 ///
 /// Often used in conjunction with antialiasing post-process effects to reduce textures blurriness.
-#[derive(Default, Component, Reflect)]
+#[derive(Component, Reflect, Clone)]
 #[reflect(Default, Component)]
 pub struct MipBias(pub f32);
+
+impl Default for MipBias {
+    fn default() -> Self {
+        Self(-1.0)
+    }
+}

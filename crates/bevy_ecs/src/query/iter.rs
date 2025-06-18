@@ -19,6 +19,7 @@ use core::{
     mem::MaybeUninit,
     ops::Range,
 };
+use nonmax::NonMaxU32;
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -136,10 +137,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         storage: StorageId,
-        range: Option<Range<usize>>,
+        range: Option<Range<u32>>,
     ) -> B
     where
-        Func: FnMut(B, D::Item<'w>) -> B,
+        Func: FnMut(B, D::Item<'w, 's>) -> B,
     {
         if self.cursor.is_dense {
             // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table ids.
@@ -199,18 +200,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         table: &'w Table,
-        rows: Range<usize>,
+        rows: Range<u32>,
     ) -> B
     where
-        Func: FnMut(B, D::Item<'w>) -> B,
+        Func: FnMut(B, D::Item<'w, 's>) -> B,
     {
         if table.is_empty() {
             return accum;
         }
-        debug_assert!(
-            rows.end <= u32::MAX as usize,
-            "TableRow is only valid up to u32::MAX"
-        );
 
         D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
         F::set_table(
@@ -222,8 +219,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let entities = table.entities();
         for row in rows {
             // SAFETY: Caller assures `row` in range of the current archetype.
-            let entity = unsafe { entities.get_unchecked(row) };
-            let row = TableRow::from_usize(row);
+            let entity = unsafe { entities.get_unchecked(row as usize) };
+            // SAFETY: This is from an exclusive range, so it can't be max.
+            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
 
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
@@ -254,10 +252,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         archetype: &'w Archetype,
-        indices: Range<usize>,
+        indices: Range<u32>,
     ) -> B
     where
-        Func: FnMut(B, D::Item<'w>) -> B,
+        Func: FnMut(B, D::Item<'w, 's>) -> B,
     {
         if archetype.is_empty() {
             return accum;
@@ -279,7 +277,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let entities = archetype.entities();
         for index in indices {
             // SAFETY: Caller assures `index` in range of the current archetype.
-            let archetype_entity = unsafe { entities.get_unchecked(index) };
+            let archetype_entity = unsafe { entities.get_unchecked(index as usize) };
 
             // SAFETY: set_archetype was called prior.
             // Caller assures `index` in range of the current archetype.
@@ -315,7 +313,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Safety
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
-    ///  - `archetype` must have the same length with it's table.
+    ///  - `archetype` must have the same length as its table.
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
@@ -323,22 +321,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         archetype: &'w Archetype,
-        rows: Range<usize>,
+        rows: Range<u32>,
     ) -> B
     where
-        Func: FnMut(B, D::Item<'w>) -> B,
+        Func: FnMut(B, D::Item<'w, 's>) -> B,
     {
         if archetype.is_empty() {
             return accum;
         }
-        debug_assert!(
-            rows.end <= u32::MAX as usize,
-            "TableRow is only valid up to u32::MAX"
-        );
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
         debug_assert!(
             archetype.len() == table.entity_count(),
-            "archetype and it's table must have the same length. "
+            "archetype and its table must have the same length. "
         );
 
         D::set_archetype(
@@ -356,8 +350,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let entities = table.entities();
         for row in rows {
             // SAFETY: Caller assures `row` in range of the current archetype.
-            let entity = unsafe { *entities.get_unchecked(row) };
-            let row = TableRow::from_usize(row);
+            let entity = unsafe { *entities.get_unchecked(row as usize) };
+            // SAFETY: This is from an exclusive range, so it can't be max.
+            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
 
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
@@ -497,7 +492,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        for<'lw> L::Item<'lw>: Ord,
+        for<'lw, 'ls> L::Item<'lw, 'ls>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
@@ -554,7 +549,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        for<'lw> L::Item<'lw>: Ord,
+        for<'lw, 'ls> L::Item<'lw, 'ls>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
@@ -610,7 +605,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_, '_>, &L::Item<'_, '_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -642,7 +637,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_, '_>, &L::Item<'_, '_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -734,7 +729,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'_>) -> K,
+        mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -767,7 +762,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'_>) -> K,
+        mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -802,7 +797,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'_>) -> K,
+        mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -832,7 +827,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'_>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'_, '_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedIter<
         'w,
         's,
@@ -861,7 +856,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             .map(|(key, entity)| (key, NeutralOrd(entity)))
             .collect();
         f(&mut keyed_query);
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
+        let entity_iter = keyed_query
+            .into_iter()
+            .map(|(.., entity)| entity.0)
+            .collect::<Vec<_>>()
+            .into_iter();
         // SAFETY:
         // `self.world` has permission to access the required components.
         // Each lens query item is dropped before the respective actual query item is accessed.
@@ -878,7 +877,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -895,7 +894,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
         let max_size = self.cursor.max_remaining(self.tables, self.archetypes);
         let archetype_query = F::IS_ARCHETYPAL;
         let min_size = if archetype_query { max_size } else { 0 };
-        (min_size, Some(max_size))
+        (min_size as usize, Some(max_size as usize))
     }
 
     #[inline]
@@ -980,7 +979,7 @@ where
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w>,
+    fetch: D::Fetch<'w, 's>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -1015,7 +1014,7 @@ where
     /// # Safety
     /// `entity` must stem from `self.entity_iter`, and not have been passed before.
     #[inline(always)]
-    unsafe fn fetch_next(&mut self, entity: Entity) -> D::Item<'w> {
+    unsafe fn fetch_next(&mut self, entity: Entity) -> D::Item<'w, 's> {
         let (location, archetype, table);
         // SAFETY:
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
@@ -1053,7 +1052,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Iterator
 where
     I: Iterator<Item = Entity>,
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1124,8 +1123,8 @@ pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item:
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w>,
-    filter: F::Fetch<'w>,
+    fetch: D::Fetch<'w, 's>,
+    filter: F::Fetch<'w, 's>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -1172,10 +1171,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
         entities: &'w Entities,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
-        fetch: &mut D::Fetch<'w>,
-        filter: &mut F::Fetch<'w>,
+        fetch: &mut D::Fetch<'w, 's>,
+        filter: &mut F::Fetch<'w, 's>,
         query_state: &'s QueryState<D, F>,
-    ) -> Option<D::Item<'w>> {
+    ) -> Option<D::Item<'w, 's>> {
         for entity_borrow in entity_iter {
             let entity = entity_borrow.entity();
             let Some(location) = entities.get(entity) else {
@@ -1217,7 +1216,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
 
     /// Get next result from the query
     #[inline(always)]
-    pub fn fetch_next(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
         // SAFETY:
         // All arguments stem from self.
         // We are limiting the returned reference to self,
@@ -1341,7 +1340,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        for<'lw> L::Item<'lw>: Ord,
+        for<'lw, 'ls> L::Item<'lw, 'ls>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
@@ -1399,7 +1398,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        for<'lw> L::Item<'lw>: Ord,
+        for<'lw, 'ls> L::Item<'lw, 'ls>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
@@ -1456,7 +1455,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// ```
     pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_, '_>, &L::Item<'_, '_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1487,7 +1486,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_, '_>, &L::Item<'_, '_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1581,7 +1580,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// ```
     pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'_>) -> K,
+        mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1613,7 +1612,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'_>) -> K,
+        mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1647,7 +1646,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'_>) -> K,
+        mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1676,7 +1675,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// called on [`QueryManyIter`] before.
     fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'_>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'_, '_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1726,7 +1725,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityEq
 {
     /// Get next result from the back of the query
     #[inline(always)]
-    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>> {
         // SAFETY:
         // All arguments stem from self.
         // We are limiting the returned reference to self,
@@ -1750,7 +1749,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityEq
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>> Iterator
     for QueryManyIter<'w, 's, D, F, I>
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1866,7 +1865,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator>
 impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator> Iterator
     for QueryManyUniqueIter<'w, 's, D, F, I>
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1920,7 +1919,7 @@ pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w>,
+    fetch: D::Fetch<'w, 's>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -1959,7 +1958,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
     /// It is always safe for shared access.
     /// `entity` must stem from `self.entity_iter`, and not have been passed before.
     #[inline(always)]
-    unsafe fn fetch_next_aliased_unchecked(&mut self, entity: Entity) -> D::Item<'w> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self, entity: Entity) -> D::Item<'w, 's> {
         let (location, archetype, table);
         // SAFETY:
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
@@ -1993,7 +1992,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
 
     /// Get next result from the query
     #[inline(always)]
-    pub fn fetch_next(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
         let entity = self.entity_iter.next()?;
 
         // SAFETY:
@@ -2012,7 +2011,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item = Entity>
 {
     /// Get next result from the query
     #[inline(always)]
-    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>> {
         let entity = self.entity_iter.next_back()?;
 
         // SAFETY:
@@ -2029,7 +2028,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item = Entity>
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item = Entity>> Iterator
     for QuerySortedManyIter<'w, 's, D, F, I>
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -2190,7 +2189,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
     /// .
     /// It is always safe for shared access.
     #[inline]
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[D::Item<'w>; K]> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[D::Item<'w, 's>; K]> {
         // PERF: can speed up the following code using `cursor.remaining()` instead of `next_item.is_none()`
         // when D::IS_ARCHETYPAL && F::IS_ARCHETYPAL
         //
@@ -2216,9 +2215,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
             }
         }
 
-        let mut values = MaybeUninit::<[D::Item<'w>; K]>::uninit();
+        let mut values = MaybeUninit::<[D::Item<'w, 's>; K]>::uninit();
 
-        let ptr = values.as_mut_ptr().cast::<D::Item<'w>>();
+        let ptr = values.as_mut_ptr().cast::<D::Item<'w, 's>>();
         for (offset, cursor) in self.cursors.iter_mut().enumerate() {
             ptr.add(offset).write(cursor.peek_last().unwrap());
         }
@@ -2228,7 +2227,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
 
     /// Get next combination of queried components
     #[inline]
-    pub fn fetch_next(&mut self) -> Option<[D::Item<'_>; K]> {
+    pub fn fetch_next(&mut self) -> Option<[D::Item<'_, 's>; K]> {
         // SAFETY: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
@@ -2245,7 +2244,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, D, F, K>
 {
-    type Item = [D::Item<'w>; K];
+    type Item = [D::Item<'w, 's>; K];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -2275,7 +2274,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
             .enumerate()
             .try_fold(0, |acc, (i, cursor)| {
                 let n = cursor.max_remaining(self.tables, self.archetypes);
-                Some(acc + choose(n, K - i)?)
+                Some(acc + choose(n as usize, K - i)?)
             });
 
         let archetype_query = F::IS_ARCHETYPAL;
@@ -2314,12 +2313,12 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     storage_id_iter: core::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
-    fetch: D::Fetch<'w>,
-    filter: F::Fetch<'w>,
+    fetch: D::Fetch<'w, 's>,
+    filter: F::Fetch<'w, 's>,
     // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
-    current_len: usize,
+    current_len: u32,
     // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense
-    current_row: usize,
+    current_row: u32,
 }
 
 impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
@@ -2395,12 +2394,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// The result of `next` and any previous calls to `peek_last` with this row must have been
     /// dropped to prevent aliasing mutable references.
     #[inline]
-    unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
+    unsafe fn peek_last(&mut self) -> Option<D::Item<'w, 's>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
             if self.is_dense {
                 // SAFETY: This must have been called previously in `next` as `current_row > 0`
-                let entity = unsafe { self.table_entities.get_unchecked(index) };
+                let entity = unsafe { self.table_entities.get_unchecked(index as usize) };
                 // SAFETY:
                 //  - `set_table` must have been called previously either in `next` or before it.
                 //  - `*entity` and `index` are in the current table.
@@ -2408,12 +2407,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     Some(D::fetch(
                         &mut self.fetch,
                         *entity,
-                        TableRow::from_usize(index),
+                        // SAFETY: This is from an exclusive range, so it can't be max.
+                        TableRow::new(NonMaxU32::new_unchecked(index)),
                     ))
                 }
             } else {
                 // SAFETY: This must have been called previously in `next` as `current_row > 0`
-                let archetype_entity = unsafe { self.archetype_entities.get_unchecked(index) };
+                let archetype_entity =
+                    unsafe { self.archetype_entities.get_unchecked(index as usize) };
                 // SAFETY:
                 //  - `set_archetype` must have been called previously either in `next` or before it.
                 //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
@@ -2434,9 +2435,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     ///
     /// Note that if `F::IS_ARCHETYPAL`, the return value
     /// will be **the exact count of remaining values**.
-    fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
+    fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> u32 {
         let ids = self.storage_id_iter.clone();
-        let remaining_matched: usize = if self.is_dense {
+        let remaining_matched: u32 = if self.is_dense {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
         } else {
@@ -2460,7 +2461,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         tables: &'w Tables,
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<D, F>,
-    ) -> Option<D::Item<'w>> {
+    ) -> Option<D::Item<'w, 's>> {
         if self.is_dense {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
@@ -2483,8 +2484,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
                 // SAFETY: set_table was called prior.
                 // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
-                let entity = unsafe { self.table_entities.get_unchecked(self.current_row) };
-                let row = TableRow::from_usize(self.current_row);
+                let entity =
+                    unsafe { self.table_entities.get_unchecked(self.current_row as usize) };
+                // SAFETY: The row is less than the u32 len, so it must not be max.
+                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.current_row)) };
                 if !F::filter_fetch(&mut self.filter, *entity, row) {
                     self.current_row += 1;
                     continue;
@@ -2532,8 +2535,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
                 // SAFETY: set_archetype was called prior.
                 // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let archetype_entity =
-                    unsafe { self.archetype_entities.get_unchecked(self.current_row) };
+                let archetype_entity = unsafe {
+                    self.archetype_entities
+                        .get_unchecked(self.current_row as usize)
+                };
                 if !F::filter_fetch(
                     &mut self.filter,
                     archetype_entity.id(),

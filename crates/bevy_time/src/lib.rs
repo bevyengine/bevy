@@ -2,8 +2,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -57,7 +57,11 @@ pub struct TimePlugin;
 /// Updates the elapsed time. Any system that interacts with [`Time`] component should run after
 /// this.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-pub struct TimeSystem;
+pub struct TimeSystems;
+
+/// Deprecated alias for [`TimeSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `TimeSystems`.")]
+pub type TimeSystem = TimeSystems;
 
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
@@ -79,12 +83,12 @@ impl Plugin for TimePlugin {
         app.add_systems(
             First,
             time_system
-                .in_set(TimeSystem)
+                .in_set(TimeSystems)
                 .ambiguous_with(event_update_system),
         )
         .add_systems(
             RunFixedMainLoop,
-            run_fixed_main_schedule.in_set(RunFixedMainLoopSystem::FixedMainLoop),
+            run_fixed_main_schedule.in_set(RunFixedMainLoopSystems::FixedMainLoop),
         );
 
         // Ensure the events are not dropped until `FixedMain` systems can observe them
@@ -109,7 +113,7 @@ pub enum TimeUpdateStrategy {
     /// [`Time`] will be updated to the specified [`Instant`] value each frame.
     /// In order for time to progress, this value must be manually updated each frame.
     ///
-    /// Note that the `Time` resource will not be updated until [`TimeSystem`] runs.
+    /// Note that the `Time` resource will not be updated until [`TimeSystems`] runs.
     ManualInstant(Instant),
     /// [`Time`] will be incremented by the specified [`Duration`] each frame.
     ManualDuration(Duration),
@@ -181,7 +185,10 @@ mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
-        event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
+        event::{
+            BufferedEvent, Event, EventReader, EventRegistry, EventWriter, Events,
+            ShouldUpdateEvents,
+        },
         resource::Resource,
         system::{Local, Res, ResMut},
     };
@@ -189,7 +196,7 @@ mod tests {
     use core::time::Duration;
     use std::println;
 
-    #[derive(Event)]
+    #[derive(Event, BufferedEvent)]
     struct TestEvent<T: Default> {
         sender: std::sync::mpsc::Sender<T>,
     }
@@ -202,7 +209,7 @@ mod tests {
         }
     }
 
-    #[derive(Event)]
+    #[derive(Event, BufferedEvent)]
     struct DummyEvent;
 
     #[derive(Resource, Default)]

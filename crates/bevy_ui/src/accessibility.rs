@@ -1,6 +1,7 @@
 use crate::{
     experimental::UiChildren,
     prelude::{Button, Label},
+    ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
     ComputedNode,
 };
@@ -13,11 +14,9 @@ use bevy_ecs::{
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_math::Vec3Swizzles;
-use bevy_render::camera::CameraUpdateSystem;
-use bevy_transform::prelude::GlobalTransform;
 
 use accesskit::{Node, Rect, Role};
+use bevy_render::camera::CameraUpdateSystems;
 
 fn calc_label(
     text_reader: &mut TextUiReader,
@@ -40,12 +39,12 @@ fn calc_bounds(
     mut nodes: Query<(
         &mut AccessibilityNode,
         Ref<ComputedNode>,
-        Ref<GlobalTransform>,
+        Ref<UiGlobalTransform>,
     )>,
 ) {
     for (mut accessible, node, transform) in &mut nodes {
         if node.is_changed() || transform.is_changed() {
-            let center = transform.translation().xy();
+            let center = transform.translation;
             let half_size = 0.5 * node.size;
             let min = center - half_size;
             let max = center + half_size;
@@ -151,8 +150,8 @@ impl Plugin for AccessibilityPlugin {
             PostUpdate,
             (
                 calc_bounds
-                    .after(bevy_transform::TransformSystem::TransformPropagate)
-                    .after(CameraUpdateSystem)
+                    .after(bevy_transform::TransformSystems::Propagate)
+                    .after(CameraUpdateSystems)
                     // the listed systems do not affect calculated size
                     .ambiguous_with(crate::ui_stack_system),
                 button_changed,

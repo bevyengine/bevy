@@ -1,7 +1,7 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
+use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -19,32 +19,25 @@ use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
+    load_shader_library,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
-    render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
+    render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Visibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
-use crate::{
-    irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
-    light_probe::environment_map::{
-        EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE,
-    },
-};
+use crate::light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight};
 
 use self::irradiance_volume::IrradianceVolume;
-
-pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("e80a2ae6-1c5a-4d9a-a852-d66ff0e6bf7f");
 
 pub mod environment_map;
 pub mod irradiance_volume;
@@ -344,24 +337,9 @@ pub struct ViewEnvironmentMapUniformOffset(u32);
 
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            LIGHT_PROBE_SHADER_HANDLE,
-            "light_probe.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            ENVIRONMENT_MAP_SHADER_HANDLE,
-            "environment_map.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            IRRADIANCE_VOLUME_SHADER_HANDLE,
-            "irradiance_volume.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "light_probe.wgsl");
+        load_shader_library!(app, "environment_map.wgsl");
+        load_shader_library!(app, "irradiance_volume.wgsl");
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
@@ -383,7 +361,7 @@ impl Plugin for LightProbePlugin {
             .add_systems(
                 Render,
                 (upload_light_probes, prepare_environment_uniform_buffer)
-                    .in_set(RenderSet::PrepareResources),
+                    .in_set(RenderSystems::PrepareResources),
             );
     }
 }
@@ -400,7 +378,7 @@ fn gather_environment_map_uniform(
         let environment_map_uniform = if let Some(environment_map_light) = environment_map_light {
             EnvironmentMapUniform {
                 transform: Transform::from_rotation(environment_map_light.rotation)
-                    .compute_matrix()
+                    .to_matrix()
                     .inverse(),
             }
         } else {
@@ -617,7 +595,7 @@ where
     ) -> Option<LightProbeInfo<C>> {
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             world_from_light: light_probe_transform.affine(),
-            light_from_world: light_probe_transform.compute_matrix().inverse(),
+            light_from_world: light_probe_transform.to_matrix().inverse(),
             asset_id: id,
             intensity: environment_map.intensity(),
             affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),

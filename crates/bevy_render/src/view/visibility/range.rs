@@ -10,9 +10,9 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
+    lifecycle::RemovedComponents,
     query::{Changed, With},
     reflect::ReflectComponent,
-    removal_detection::RemovedComponents,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{Local, Query, Res, ResMut},
@@ -32,7 +32,7 @@ use crate::{
     primitives::Aabb,
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
 /// We need at least 4 storage buffer bindings available to enable the
@@ -72,7 +72,7 @@ impl Plugin for VisibilityRangePlugin {
             .add_systems(ExtractSchedule, extract_visibility_ranges)
             .add_systems(
                 Render,
-                write_render_visibility_ranges.in_set(RenderSet::PrepareResourcesFlush),
+                write_render_visibility_ranges.in_set(RenderSystems::PrepareResourcesFlush),
             );
     }
 }
