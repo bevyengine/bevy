@@ -95,6 +95,10 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     fn default_system_sets(&self) -> Vec<crate::schedule::InternedSystemSet> {
         self.0.default_system_sets()
     }
+
+    unsafe fn should_react_unsafe(&self, world: UnsafeWorldCell, this_run: Tick) -> bool {
+        self.0.should_react_unsafe(world, this_run)
+    }
 }
 
 /// See [`IntoSystem::with_input`] for details.
@@ -191,6 +195,10 @@ where
 
     fn set_last_run(&mut self, last_run: Tick) {
         self.system.set_last_run(last_run);
+    }
+
+    unsafe fn should_react_unsafe(&self, world: UnsafeWorldCell, this_run: Tick) -> bool {
+        self.system.should_react_unsafe(world, this_run)
     }
 }
 
@@ -291,6 +299,10 @@ where
 
     fn set_last_run(&mut self, last_run: Tick) {
         self.system.set_last_run(last_run);
+    }
+
+    unsafe fn should_react_unsafe(&self, world: UnsafeWorldCell, this_run: Tick) -> bool {
+        self.system.should_react_unsafe(world, this_run)
     }
 }
 

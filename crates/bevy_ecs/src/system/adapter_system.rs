@@ -191,6 +191,14 @@ where
     fn set_last_run(&mut self, last_run: crate::component::Tick) {
         self.system.set_last_run(last_run);
     }
+
+    unsafe fn should_react_unsafe(
+        &self,
+        world: UnsafeWorldCell,
+        this_run: crate::component::Tick,
+    ) -> bool {
+        self.system.should_react_unsafe(world, this_run)
+    }
 }
 
 // SAFETY: The inner system is read-only.

@@ -178,6 +178,10 @@ where
     fn default_system_sets(&self) -> Vec<crate::schedule::InternedSystemSet> {
         self.observer.default_system_sets()
     }
+
+    unsafe fn should_react_unsafe(&self, world: UnsafeWorldCell, this_run: Tick) -> bool {
+        self.observer.should_react_unsafe(world, this_run)
+    }
 }
 
 #[cfg(test)]

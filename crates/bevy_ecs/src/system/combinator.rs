@@ -219,6 +219,10 @@ where
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
     }
+
+    unsafe fn should_react_unsafe(&self, world: UnsafeWorldCell, this_run: Tick) -> bool {
+        self.a.should_react_unsafe(world, this_run) || self.b.should_react_unsafe(world, this_run)
+    }
 }
 
 /// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
@@ -424,6 +428,10 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
+    }
+
+    unsafe fn should_react_unsafe(&self, world: UnsafeWorldCell, this_run: Tick) -> bool {
+        self.a.should_react_unsafe(world, this_run) || self.b.should_react_unsafe(world, this_run)
     }
 }
 
