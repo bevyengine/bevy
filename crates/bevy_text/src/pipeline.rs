@@ -1,6 +1,6 @@
 use alloc::sync::Arc;
 
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::{AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -136,7 +136,7 @@ impl TextPipeline {
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
-                text_font,
+                text_font.font.clone(),
                 font_system,
                 &mut self.map_handle_to_font_id,
                 fonts,
@@ -454,6 +454,7 @@ pub struct TextLayoutInfo {
     /// Rects bounding the text block's text sections.
     /// A text section spanning more than one line will have multiple bounding rects.
     pub section_rects: Vec<(Entity, Rect)>,
+    pub selection_rects: Vec<Rect>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
@@ -490,12 +491,11 @@ impl TextMeasureInfo {
 
 /// Add the font to the cosmic text's `FontSystem`'s in-memory font database
 pub fn load_font_to_fontdb(
-    text_font: &TextFont,
+    font_handle: Handle<Font>,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
 ) -> FontFaceInfo {
-    let font_handle = text_font.font.clone();
     let (face_id, family_name) = map_handle_to_font_id
         .entry(font_handle.id())
         .or_insert_with(|| {

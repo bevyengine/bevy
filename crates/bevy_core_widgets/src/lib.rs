@@ -11,6 +11,7 @@
 //! user interface is showing a live view of dynamic data coming from deeper within the game engine.
 
 mod core_button;
+pub mod text_input;
 
 use bevy_app::{App, Plugin};
 
