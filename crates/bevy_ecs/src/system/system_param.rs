@@ -310,10 +310,16 @@ pub unsafe trait SystemParam: Sized {
     ) -> Self::Item<'world, 'state>;
 
     /// Returns true if this system param has changed since the system was last run.
-    fn should_react(
+    ///
+    /// # Safety
+    ///
+    /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
+    ///   in [`init_access`](SystemParam::init_access).
+    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
+    unsafe fn should_react(
         _state: &Self::State,
         _system_meta: &SystemMeta,
-        _world: &World,
+        _world: UnsafeWorldCell,
         _last_run: Tick,
         _this_run: Tick,
     ) -> bool {
@@ -833,15 +839,16 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         }
     }
 
-    fn should_react(
+    unsafe fn should_react(
         state: &Self::State,
         _system_meta: &SystemMeta,
-        world: &World,
+        world: UnsafeWorldCell,
         last_run: Tick,
         this_run: Tick,
     ) -> bool {
-        world
-            .get_resource_change_ticks_by_id(*state)
+        let resource_data = world.storages().resources.get(*state).unwrap();
+        resource_data
+            .get_ticks()
             .unwrap()
             .is_changed(last_run, this_run)
     }
@@ -924,15 +931,16 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         }
     }
 
-    fn should_react(
+    unsafe fn should_react(
         state: &Self::State,
         _system_meta: &SystemMeta,
-        world: &World,
+        world: UnsafeWorldCell,
         last_run: Tick,
         this_run: Tick,
     ) -> bool {
-        world
-            .get_resource_change_ticks_by_id(*state)
+        let resource_data = world.storages().resources.get(*state).unwrap();
+        resource_data
+            .get_ticks()
             .unwrap()
             .is_changed(last_run, this_run)
     }
@@ -2202,7 +2210,7 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            fn should_react(state: &Self::State, system_meta: &SystemMeta, _world: &World, _last_run: Tick, _this_run: Tick) -> bool {
+            unsafe fn should_react(state: &Self::State, system_meta: &SystemMeta, _world: UnsafeWorldCell, _last_run: Tick, _this_run: Tick) -> bool {
                 let ($($param,)*) = &state;
                 false $(|| <$param as SystemParam>::should_react($param, system_meta, _world, _last_run, _this_run))*
             }
@@ -2371,10 +2379,10 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         StaticSystemParam(unsafe { P::get_param(state, system_meta, world, change_tick) })
     }
 
-    fn should_react(
+    unsafe fn should_react(
         state: &Self::State,
         system_meta: &SystemMeta,
-        world: &World,
+        world: UnsafeWorldCell,
         last_run: Tick,
         this_run: Tick,
     ) -> bool {

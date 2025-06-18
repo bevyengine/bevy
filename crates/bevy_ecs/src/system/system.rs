@@ -195,8 +195,22 @@ pub trait System: Send + Sync + 'static {
     fn set_last_run(&mut self, last_run: Tick);
 
     /// Returns true if this system's input has changed since its last run and should therefore be run again to "react" to those changes.
-    fn should_react(&self, _world: &World, _this_run: Tick) -> bool {
+    ///
+    /// # Safety
+    ///
+    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
+    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
+    ///   simultaneous accesses while the system is running.
+    /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
+    ///   [`UnsafeWorldCell::world_mut`] on `world`.
+    unsafe fn should_react_unsafe(&self, _world: UnsafeWorldCell, _this_run: Tick) -> bool {
         false
+    }
+
+    /// Returns true if this system's input has changed since its last run and should therefore be run again to "react" to those changes.
+    fn should_react(&self, world: &mut World, this_run: Tick) -> bool {
+        // SAFETY: We have exclusive access to the entire world.
+        unsafe { self.should_react_unsafe(world.as_unsafe_world_cell(), this_run) }
     }
 }
 
@@ -504,42 +518,42 @@ mod tests {
         system.initialize(&mut world);
         let current_tick = world.change_tick();
         assert!(
-            system.should_react(&world, current_tick),
+            system.should_react(&mut world, current_tick),
             "system should react because the system has not yet seen the initial values of A or B"
         );
         // run the system as a "reaction"
         system.run((), &mut world);
         let current_tick = world.change_tick();
         assert!(
-            !system.should_react(&world, current_tick),
+            !system.should_react(&mut world, current_tick),
             "system should not react because nothing has changed since the last run",
         );
 
         world.resource_mut::<A>().0 += 1;
         let current_tick = world.change_tick();
         assert!(
-            system.should_react(&world, current_tick),
+            system.should_react(&mut world, current_tick),
             "system should react because A changed since the last system run"
         );
         system.run((), &mut world);
 
         let current_tick = world.change_tick();
         assert!(
-            !system.should_react(&world, current_tick),
+            !system.should_react(&mut world, current_tick),
             "system should not react because nothing has changed since the last run"
         );
 
         world.resource_mut::<B>().0 += 1;
         let current_tick = world.change_tick();
         assert!(
-            system.should_react(&world, current_tick),
+            system.should_react(&mut world, current_tick),
             "system should react because B changed since the last system run"
         );
         system.run((), &mut world);
 
         let current_tick = world.change_tick();
         assert!(
-            !system.should_react(&world, current_tick),
+            !system.should_react(&mut world, current_tick),
             "system should not react because nothing has changed since the last run"
         );
     }

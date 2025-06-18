@@ -729,7 +729,7 @@ where
         self.system_meta.last_run = last_run;
     }
 
-    fn should_react(&self, world: &World, this_run: Tick) -> bool {
+    unsafe fn should_react_unsafe(&self, world: UnsafeWorldCell, this_run: Tick) -> bool {
         let last_run = self.get_last_run();
         if let Some(state) = &self.state {
             <F::Param as SystemParam>::should_react(
