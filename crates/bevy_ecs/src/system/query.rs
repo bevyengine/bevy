@@ -622,24 +622,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // SAFETY:
         // - This is memory safe because the caller ensures that there are no conflicting references.
         // - The world matches because it was the same one used to construct self.
-        unsafe { self.copy_unsafe() }
-    }
-
-    /// Returns a new `Query` copying the access from this one.
-    /// The current query will still be usable while the new one exists, but must not be used in a way that violates aliasing.
-    ///
-    /// # Safety
-    ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in a mutable or shared reference to a component with a mutable reference.
-    ///
-    /// # See also
-    ///
-    /// - [`reborrow_unsafe`](Self::reborrow_unsafe) for a safer version that constrains the returned `'w` lifetime to the length of the borrow.
-    unsafe fn copy_unsafe(&self) -> Query<'w, 's, D, F> {
-        // SAFETY:
-        // - This is memory safe because the caller ensures that there are no conflicting references.
-        // - The world matches because it was the same one used to construct self.
         unsafe { Query::new(self.world, self.state, self.last_run, self.this_run) }
     }
 
@@ -1537,6 +1519,24 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_mut`](Self::get_mut) to get the item using a mutable borrow of the [`Query`].
     #[inline]
     pub fn get_inner(self, entity: Entity) -> Result<D::Item<'w, 's>, QueryEntityError> {
+        // SAFETY: This query has access to this item,
+        // and we consume the query so it is never used again.
+        unsafe { self.get_unchecked_inner(entity) }
+    }
+
+    /// Returns the query item for the given [`Entity`].
+    ///
+    /// This is similar to [`Self::get_unchecked`], but returns results with the actual "inner" world lifetime.
+    ///
+    /// # Safety
+    ///
+    /// This function makes it possible to violate Rust's aliasing guarantees.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
+    #[inline]
+    unsafe fn get_unchecked_inner(
+        &self,
+        entity: Entity,
+    ) -> Result<D::Item<'w, 's>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1831,7 +1831,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
         for (value, entity) in core::iter::zip(&mut values, entities) {
             // SAFETY: The caller asserts that the results don't alias
-            let item = unsafe { self.copy_unsafe() }.get_inner(entity)?;
+            let item = unsafe { self.get_unchecked_inner(entity)? };
             *value = MaybeUninit::new(item);
         }
 
