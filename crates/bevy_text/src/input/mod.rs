@@ -99,6 +99,7 @@ pub enum TextInputCommand {
     Undo,
     Redo,
     SelectAll,
+    SelectLine,
 }
 
 pub fn apply_text_input_commands() {}
