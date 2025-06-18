@@ -36,11 +36,15 @@ pub enum ButtonVariant {
 
 /// Parameters for the button template.
 #[derive(Default, Clone)]
-pub struct ButtonProps<C: SpawnableList<ChildOf>> {
+pub struct ButtonProps<C: SpawnableList<ChildOf>, B: Bundle> {
     /// Color variant for the button.
     pub variant: ButtonVariant,
+    /// Rounded corners options
+    pub corners: RoundedCorners,
     /// Click handler
     pub on_click: Option<SystemId>,
+    /// Components that are merged into the bundle.
+    pub overrides: B,
     /// Used to specify the label or icond for the button.
     pub children: C,
 }
@@ -49,8 +53,8 @@ pub struct ButtonProps<C: SpawnableList<ChildOf>> {
 /// Q: How to pass in theme?
 /// Q: How to get asset handles?
 /// Q: How to customize styles
-pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static>(
-    props: ButtonProps<C>,
+pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
+    props: ButtonProps<C, B>,
 ) -> impl Bundle {
     (
         Node {
@@ -69,14 +73,15 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static>(
         CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
         // Some(InteractionDisabled),
         TabIndex(0),
-        RoundedCorners::All.to_border_radius(4.0),
+        props.corners.to_border_radius(4.0),
         ThemeBackgroundColor(theme::tokens::BUTTON_BG),
         ThemeFontColor(theme::tokens::BUTTON_TEXT),
         InheritableFont {
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
             font_size: 16.0,
         },
-        Children::spawn::<C>(props.children),
+        props.overrides,
+        Children::spawn(props.children),
     )
 }
 
@@ -89,19 +94,22 @@ fn update_button_styles(
             Has<Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
+            &ThemeFontColor,
         ),
         Or<(Changed<Hovered>, Added<Pressed>, Added<InteractionDisabled>)>,
     >,
     mut commands: Commands,
 ) {
-    for (button_ent, variant, disabled, pressed, hovered, bg_color) in q_buttons.iter() {
-        set_button_styles(
+    for (button_ent, variant, disabled, pressed, hovered, bg_color, font_color) in q_buttons.iter()
+    {
+        set_button_colors(
             button_ent,
             variant,
             disabled,
             pressed,
             hovered.0,
             bg_color,
+            font_color,
             &mut commands,
         );
     }
@@ -115,6 +123,7 @@ fn update_button_styles_remove(
         Has<Pressed>,
         &Hovered,
         &ThemeBackgroundColor,
+        &ThemeFontColor,
     )>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_pressed: RemovedComponents<Pressed>,
@@ -124,29 +133,31 @@ fn update_button_styles_remove(
         .read()
         .chain(removed_pressed.read())
         .for_each(|ent| {
-            if let Ok((button_ent, variant, disabled, pressed, hovered, bg_color)) =
+            if let Ok((button_ent, variant, disabled, pressed, hovered, bg_color, font_color)) =
                 q_buttons.get(ent)
             {
-                set_button_styles(
+                set_button_colors(
                     button_ent,
                     variant,
                     disabled,
                     pressed,
                     hovered.0,
                     bg_color,
+                    font_color,
                     &mut commands,
                 );
             }
         });
 }
 
-fn set_button_styles(
+fn set_button_colors(
     button_ent: Entity,
     variant: &ButtonVariant,
     disabled: bool,
     pressed: bool,
     hovered: bool,
     bg_color: &ThemeBackgroundColor,
+    font_color: &ThemeFontColor,
     commands: &mut Commands,
 ) {
     let bg_token = match (variant, disabled, pressed, hovered) {
@@ -160,11 +171,25 @@ fn set_button_styles(
         (ButtonVariant::Primary, false, false, false) => theme::tokens::BUTTON_PRIMARY_BG,
     };
 
+    let font_color_token = match (variant, disabled) {
+        (ButtonVariant::Normal, true) => theme::tokens::BUTTON_TEXT_DISABLED,
+        (ButtonVariant::Normal, false) => theme::tokens::BUTTON_TEXT,
+        (ButtonVariant::Primary, true) => theme::tokens::BUTTON_PRIMARY_TEXT_DISABLED,
+        (ButtonVariant::Primary, false) => theme::tokens::BUTTON_PRIMARY_TEXT,
+    };
+
     // Change background color
     if bg_color.0 != bg_token {
         commands
             .entity(button_ent)
             .insert(ThemeBackgroundColor(bg_token));
+    }
+
+    // Change font color
+    if font_color.0 != font_color_token {
+        commands
+            .entity(button_ent)
+            .insert(ThemeFontColor(font_color_token));
     }
 }
 

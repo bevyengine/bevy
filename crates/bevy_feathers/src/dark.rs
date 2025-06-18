@@ -31,6 +31,11 @@ pub fn create_dark_theme() -> ThemeProps {
                 tokens::BUTTON_TEXT_DISABLED.into(),
                 colors::WHITE.with_alpha(0.5),
             ),
+            (tokens::BUTTON_PRIMARY_TEXT.into(), colors::WHITE),
+            (
+                tokens::BUTTON_PRIMARY_TEXT_DISABLED.into(),
+                colors::WHITE.with_alpha(0.5),
+            ),
             (tokens::SLIDER_BG.into(), colors::GRAY_1),
             (tokens::SLIDER_BAR.into(), colors::ACCENT),
             (tokens::SLIDER_BAR_DISABLED.into(), colors::GRAY_2),

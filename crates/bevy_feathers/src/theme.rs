@@ -242,7 +242,7 @@ pub mod corners {
         /// Convert the `RoundedCorners` to a `BorderRadius` for use in a `Node`.
         pub fn to_border_radius(&self, radius: f32) -> BorderRadius {
             let radius = Val::Px(radius);
-            let zero = Val::Px(0.0);
+            let zero = Val::ZERO;
             match self {
                 RoundedCorners::None => BorderRadius::all(zero),
                 RoundedCorners::All => BorderRadius::all(radius),

@@ -6,7 +6,7 @@ use bevy::{
     feathers::{
         controls::{button, slider, ButtonProps, ButtonVariant, SliderProps},
         dark::create_dark_theme,
-        theme::{self, ThemeBackgroundColor, UiTheme, UseTheme},
+        theme::{self, corners::RoundedCorners, ThemeBackgroundColor, UiTheme, UseTheme},
         FeathersPlugin,
     },
     input_focus::{tab_navigation::TabGroup, InputDispatchPlugin},
@@ -128,20 +128,62 @@ fn demo_root(on_click: SystemId, on_change_value: SystemId<In<f32>>) -> impl Bun
                     children![
                         button(ButtonProps {
                             on_click: Some(on_click),
-                            children: Spawn((Text::new("Button 1"), UseTheme)),
+                            children: Spawn((Text::new("Normal"), UseTheme)),
                             variant: ButtonVariant::Normal,
+                            corners: RoundedCorners::All,
+                            overrides: (),
                             // ..Default::default()
                         }),
                         button(ButtonProps {
                             on_click: Some(on_click),
-                            children: Spawn((Text::new("Button 2"), UseTheme)),
+                            children: Spawn((Text::new("Disabled"), UseTheme)),
                             variant: ButtonVariant::Normal,
+                            corners: RoundedCorners::All,
+                            overrides: (InteractionDisabled),
                             // ..Default::default()
                         }),
                         button(ButtonProps {
                             on_click: Some(on_click),
-                            children: Spawn((Text::new("Button 2"), UseTheme)),
+                            children: Spawn((Text::new("Primary"), UseTheme)),
                             variant: ButtonVariant::Primary,
+                            corners: RoundedCorners::All,
+                            overrides: (),
+                            // ..Default::default()
+                        }),
+                    ]
+                ),
+                (
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Start,
+                        column_gap: Val::Px(1.0),
+                        ..default()
+                    },
+                    children![
+                        button(ButtonProps {
+                            on_click: Some(on_click),
+                            children: Spawn((Text::new("Left"), UseTheme)),
+                            variant: ButtonVariant::Normal,
+                            corners: RoundedCorners::Left,
+                            overrides: (),
+                            // ..Default::default()
+                        }),
+                        button(ButtonProps {
+                            on_click: Some(on_click),
+                            children: Spawn((Text::new("Center"), UseTheme)),
+                            variant: ButtonVariant::Normal,
+                            corners: RoundedCorners::None,
+                            overrides: (),
+                            // ..Default::default()
+                        }),
+                        button(ButtonProps {
+                            on_click: Some(on_click),
+                            children: Spawn((Text::new("Right"), UseTheme)),
+                            variant: ButtonVariant::Primary,
+                            corners: RoundedCorners::Right,
+                            overrides: (),
                             // ..Default::default()
                         }),
                     ]
@@ -150,6 +192,8 @@ fn demo_root(on_click: SystemId, on_change_value: SystemId<In<f32>>) -> impl Bun
                     on_click: Some(on_click),
                     children: Spawn((Text::new("Button"), UseTheme)),
                     variant: ButtonVariant::Normal,
+                    corners: RoundedCorners::All,
+                    overrides: (),
                     // ..Default::default()
                 }),
                 slider(SliderProps {
@@ -160,7 +204,6 @@ fn demo_root(on_click: SystemId, on_change_value: SystemId<In<f32>>) -> impl Bun
                     on_change: None,
                     // on_change: Some(on_change_value)
                 }),
-                Text::new("Press 'D' to toggle widget disabled states"),
             ]
         ),],
     )
