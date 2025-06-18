@@ -5,12 +5,16 @@ A Bevy plugin for loading FBX files using the [ufbx](https://github.com/ufbx/ufb
 ## Features
 
 - ✅ **Mesh Loading**: Load 3D meshes with vertices, normals, UVs, and indices
-- ✅ **Material Support**: Basic PBR material loading with textures
+- ✅ **Material Support**: Enhanced PBR material loading with texture application
+- ✅ **Texture Application**: Automatic application of textures to StandardMaterial
+  - Base color (diffuse) textures
+  - Normal maps
+  - Metallic/roughness textures
+  - Emission textures
+  - Ambient occlusion textures
 - ✅ **Skinning Data**: Complete skinning support with joint weights and inverse bind matrices
-- ✅ **Animation Framework**: Structure ready for animation clip loading
 - ✅ **Node Hierarchy**: Basic scene graph support
-- ⚠️ **Textures**: Loaded but not yet applied to materials
-- ⚠️ **Animations**: Framework in place, needs ufbx animation API integration
+- ⚠️ **Animations**: Framework in place, temporarily disabled due to ufbx API compatibility
 
 ## Usage
 
@@ -99,17 +103,26 @@ let animation: Handle<AnimationClip> = asset_server.load("model.fbx#Animation0")
 ## Supported FBX Features
 
 - **Geometry**: Triangulated meshes with positions, normals, UVs
-- **Materials**: Basic PBR properties (base color, metallic, roughness)
-- **Textures**: Diffuse, normal, metallic, roughness maps (loaded but not applied)
+- **Materials**: Enhanced PBR properties with automatic texture application
+  - Base color, metallic, roughness, emission values
+  - Automatic extraction from FBX material properties
+- **Textures**: Complete texture support with automatic application to StandardMaterial
+  - Base color (diffuse) textures → `base_color_texture`
+  - Normal maps → `normal_map_texture`
+  - Metallic textures → `metallic_roughness_texture`
+  - Roughness textures → `metallic_roughness_texture`
+  - Emission textures → `emissive_texture`
+  - Ambient occlusion textures → `occlusion_texture`
 - **Skinning**: Joint weights, indices, and inverse bind matrices
 - **Hierarchy**: Node transforms and basic parent-child relationships
 
 ## Limitations
 
-- Animations are not yet fully implemented
-- Complex material features are not supported
-- Some FBX-specific features may not be available
-- Large files may have performance implications
+- **Animations**: Framework in place but temporarily disabled due to ufbx API compatibility
+- **Complex Materials**: Advanced material features beyond PBR are not supported
+- **FBX-Specific Features**: Some proprietary FBX features may not be available
+- **Performance**: Large files may have performance implications during loading
+- **Texture Formats**: Only common image formats supported by Bevy are loaded
 
 ## Examples
 
