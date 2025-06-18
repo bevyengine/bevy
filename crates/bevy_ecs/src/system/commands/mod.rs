@@ -641,7 +641,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue_internal(command.handle_error_with(Some(error_handler)));
     }
 
-    /// Pushes a generic [`Command`] to the queue like [`queue_handled`], but instead silently ignores any errors.
+    /// Pushes a generic [`Command`] to the queue like [`Commands::queue_handled`], but instead silently ignores any errors.
     pub fn queue_silenced<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
         self.queue_internal(command.handle_error_with(None));
     }
