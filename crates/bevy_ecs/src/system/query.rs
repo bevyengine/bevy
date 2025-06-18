@@ -1555,6 +1555,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     where
         S: ConsumableQueryState<'s, Data = D, Filter = F>,
     {
+        // SAFETY: This query has access to this item,
+        // and we consume the query so it is never used again.
         unsafe { self.get_unchecked_inner(entity) }
     }
 
@@ -2789,7 +2791,7 @@ mod tests {
         let mut world = World::new();
         let lens = world
             .query::<EntityRef>()
-            .query(&mut world)
+            .query(&world)
             .transmute_lens_inner::<Entity>();
         lens.single_inner().unwrap_err();
     }
