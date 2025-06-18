@@ -2,6 +2,7 @@
 //! inspectors.
 
 use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
+use bevy_asset::embedded_asset;
 use bevy_ecs::query::With;
 use bevy_text::{TextColor, TextFont};
 
@@ -38,6 +39,12 @@ pub struct FeathersPlugin;
 impl Plugin for FeathersPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<UiTheme>();
+
+        embedded_asset!(app, "assets/fonts/FiraSans-Bold.ttf");
+        embedded_asset!(app, "assets/fonts/FiraSans-BoldItalic.ttf");
+        embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
+        embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
+
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,

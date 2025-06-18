@@ -3,10 +3,13 @@ use bevy_core_widgets::CoreSlider;
 use bevy_ecs::{component::Component, schedule::IntoScheduleConfigs};
 use bevy_picking::PickingSystems;
 
+pub struct SliderProps {}
+
 #[derive(Component, Default, Clone)]
 #[require(CoreSlider)]
 pub struct SliderStyle;
 
+/// Plugin which registers the systems for updating the slider styles.
 pub struct SliderPlugin;
 
 fn update_slider_styles() {}
