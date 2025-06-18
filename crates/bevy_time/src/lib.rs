@@ -2,8 +2,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -185,7 +185,10 @@ mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
-        event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
+        event::{
+            BufferedEvent, Event, EventReader, EventRegistry, EventWriter, Events,
+            ShouldUpdateEvents,
+        },
         resource::Resource,
         system::{Local, Res, ResMut},
     };
@@ -193,7 +196,7 @@ mod tests {
     use core::time::Duration;
     use std::println;
 
-    #[derive(Event)]
+    #[derive(Event, BufferedEvent)]
     struct TestEvent<T: Default> {
         sender: std::sync::mpsc::Sender<T>,
     }
@@ -206,7 +209,7 @@ mod tests {
         }
     }
 
-    #[derive(Event)]
+    #[derive(Event, BufferedEvent)]
     struct DummyEvent;
 
     #[derive(Resource, Default)]

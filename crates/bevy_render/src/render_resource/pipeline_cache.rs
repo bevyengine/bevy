@@ -1,4 +1,3 @@
-use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
@@ -14,6 +13,7 @@ use bevy_ecs::{
 use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::default;
+use bevy_utils::WgpuWrapper;
 use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
@@ -80,6 +80,10 @@ pub struct CachedPipeline {
 }
 
 /// State of a cached pipeline inserted into a [`PipelineCache`].
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 #[derive(Debug)]
 pub enum CachedPipelineState {
     /// The pipeline GPU object is queued for creation.
@@ -135,7 +139,7 @@ struct ShaderCache {
     composer: naga_oil::compose::Composer,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderDefVal {
     Bool(String, bool),
     Int(String, i32),
@@ -189,33 +193,42 @@ impl ShaderCache {
         }
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )]
     fn add_import_to_composer(
         composer: &mut naga_oil::compose::Composer,
         import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
         shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
     ) -> Result<(), PipelineCacheError> {
-        if !composer.contains_module(&import.module_name()) {
-            if let Some(shader_handle) = import_path_shaders.get(import) {
-                if let Some(shader) = shaders.get(shader_handle) {
-                    for import in &shader.imports {
-                        Self::add_import_to_composer(
-                            composer,
-                            import_path_shaders,
-                            shaders,
-                            import,
-                        )?;
-                    }
-
-                    composer.add_composable_module(shader.into())?;
-                }
-            }
-            // if we fail to add a module the composer will tell us what is missing
+        // Early out if we've already imported this module
+        if composer.contains_module(&import.module_name()) {
+            return Ok(());
         }
+
+        // Check if the import is available (this handles the recursive import case)
+        let shader = import_path_shaders
+            .get(import)
+            .and_then(|handle| shaders.get(handle))
+            .ok_or(PipelineCacheError::ShaderImportNotYetAvailable)?;
+
+        // Recurse down to ensure all import dependencies are met
+        for import in &shader.imports {
+            Self::add_import_to_composer(composer, import_path_shaders, shaders, import)?;
+        }
+
+        composer.add_composable_module(shader.into())?;
+        // if we fail to add a module the composer will tell us what is missing
 
         Ok(())
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )]
     fn get(
         &mut self,
         render_device: &RenderDevice,
@@ -1101,6 +1114,10 @@ fn create_pipeline_task(
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
@@ -1175,6 +1192,10 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     capabilities.set(
         Capabilities::MULTISAMPLED_SHADING,
         downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
+    );
+    capabilities.set(
+        Capabilities::RAY_QUERY,
+        features.contains(Features::EXPERIMENTAL_RAY_QUERY),
     );
     capabilities.set(
         Capabilities::DUAL_SOURCE_BLENDING,

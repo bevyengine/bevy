@@ -15,7 +15,7 @@
 //! [Depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -68,8 +68,6 @@ use crate::{
     },
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
-
-const DOF_SHADER_HANDLE: Handle<Shader> = weak_handle!("c3580ddc-2cbc-4535-a02b-9a2959066b52");
 
 /// A plugin that adds support for the depth of field effect to Bevy.
 pub struct DepthOfFieldPlugin;
@@ -206,7 +204,7 @@ enum DofPass {
 
 impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, DOF_SHADER_HANDLE, "dof.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "dof.wgsl");
 
         app.register_type::<DepthOfField>();
         app.register_type::<DepthOfFieldMode>();
@@ -327,6 +325,8 @@ pub struct DepthOfFieldPipeline {
     /// The bind group layout shared among all invocations of the depth of field
     /// shader.
     global_bind_group_layout: BindGroupLayout,
+    /// The shader asset handle.
+    shader: Handle<Shader>,
 }
 
 impl ViewNode for DepthOfFieldNode {
@@ -352,7 +352,7 @@ impl ViewNode for DepthOfFieldNode {
             view_bind_group_layouts,
             depth_of_field_uniform_index,
             auxiliary_dof_texture,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -678,11 +678,13 @@ pub fn prepare_depth_of_field_pipelines(
         &ViewDepthOfFieldBindGroupLayouts,
         &Msaa,
     )>,
+    asset_server: Res<AssetServer>,
 ) {
     for (entity, view, depth_of_field, view_bind_group_layouts, msaa) in view_targets.iter() {
         let dof_pipeline = DepthOfFieldPipeline {
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
+            shader: load_embedded_asset!(asset_server.as_ref(), "dof.wgsl"),
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
@@ -800,7 +802,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
             depth_stencil: None,
             multisample: default(),
             fragment: Some(FragmentState {
-                shader: DOF_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: match key.pass {
                     DofPass::GaussianHorizontal => "gaussian_horizontal".into(),

@@ -39,7 +39,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -62,7 +62,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
     ///     query.par_iter().for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += 1;
     ///      });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
@@ -76,7 +76,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {
@@ -130,7 +130,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
         let max_items = || {
             let id_iter = self.state.storage_ids();
             if self.state.is_dense {
@@ -147,10 +147,11 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
                     .map(|id| unsafe { archetypes[id.archetype_id].len() })
                     .max()
             }
+            .map(|v| v as usize)
             .unwrap_or(0)
         };
         self.batching_strategy
-            .calc_batch_size(max_items, thread_count)
+            .calc_batch_size(max_items, thread_count) as u32
     }
 }
 
@@ -189,7 +190,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -232,7 +233,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent
     ///     query.par_iter_many(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item);
     ///     });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
@@ -246,7 +247,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {
@@ -301,9 +302,9 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
         self.batching_strategy
-            .calc_batch_size(|| self.entity_list.len(), thread_count)
+            .calc_batch_size(|| self.entity_list.len(), thread_count) as u32
     }
 }
 
@@ -343,7 +344,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -386,7 +387,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
     ///     query.par_iter_many_unique(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item);
     ///     });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
@@ -400,7 +401,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {
@@ -455,8 +456,8 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
         self.batching_strategy
-            .calc_batch_size(|| self.entity_list.len(), thread_count)
+            .calc_batch_size(|| self.entity_list.len(), thread_count) as u32
     }
 }

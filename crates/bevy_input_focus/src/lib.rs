@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -30,7 +30,7 @@ pub mod tab_navigation;
 mod autofocus;
 pub use autofocus::*;
 
-use bevy_app::{App, Plugin, PreUpdate, Startup};
+use bevy_app::{App, Plugin, PostStartup, PreUpdate};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 use bevy_window::{PrimaryWindow, Window};
@@ -137,19 +137,14 @@ pub struct InputFocusVisible(pub bool);
 ///
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
-#[derive(Clone, Debug, Component)]
+#[derive(Event, EntityEvent, Clone, Debug, Component)]
+#[entity_event(traversal = WindowTraversal, auto_propagate)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
-pub struct FocusedInput<E: Event + Clone> {
+pub struct FocusedInput<E: BufferedEvent + Clone> {
     /// The underlying input event.
     pub input: E,
     /// The primary window entity.
     window: Entity,
-}
-
-impl<E: Event + Clone> Event for FocusedInput<E> {
-    type Traversal = WindowTraversal;
-
-    const AUTO_PROPAGATE: bool = true;
 }
 
 #[derive(QueryData)]
@@ -159,8 +154,8 @@ pub struct WindowTraversal {
     window: Option<&'static Window>,
 }
 
-impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
-    fn traverse(item: Self::Item<'_>, event: &FocusedInput<E>) -> Option<Entity> {
+impl<E: BufferedEvent + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
+    fn traverse(item: Self::Item<'_, '_>, event: &FocusedInput<E>) -> Option<Entity> {
         let WindowTraversalItem { child_of, window } = item;
 
         // Send event to parent, if it has one.
@@ -185,7 +180,7 @@ pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, set_initial_focus)
+        app.add_systems(PostStartup, set_initial_focus)
             .init_resource::<InputFocus>()
             .init_resource::<InputFocusVisible>()
             .add_systems(
@@ -218,17 +213,19 @@ pub enum InputFocusSystems {
 #[deprecated(since = "0.17.0", note = "Renamed to `InputFocusSystems`.")]
 pub type InputFocusSet = InputFocusSystems;
 
-/// Sets the initial focus to the primary window, if any.
+/// If no entity is focused, sets the focus to the primary window, if any.
 pub fn set_initial_focus(
     mut input_focus: ResMut<InputFocus>,
     window: Single<Entity, With<PrimaryWindow>>,
 ) {
-    input_focus.0 = Some(*window);
+    if input_focus.0.is_none() {
+        input_focus.0 = Some(*window);
+    }
 }
 
 /// System which dispatches bubbled input events to the focused entity, or to the primary window
 /// if no entity has focus.
-pub fn dispatch_focused_input<E: Event + Clone>(
+pub fn dispatch_focused_input<E: BufferedEvent + Clone>(
     mut key_events: EventReader<E>,
     focus: Res<InputFocus>,
     windows: Query<Entity, With<PrimaryWindow>>,
@@ -368,30 +365,18 @@ mod tests {
     use super::*;
 
     use alloc::string::String;
-    use bevy_ecs::{
-        component::HookContext, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
-    };
+    use bevy_app::Startup;
+    use bevy_ecs::{observer::On, system::RunSystemOnce, world::DeferredWorld};
     use bevy_input::{
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,
     };
-    use bevy_window::WindowResolution;
-    use smol_str::SmolStr;
-
-    #[derive(Component)]
-    #[component(on_add = set_focus_on_add)]
-    struct SetFocusOnAdd;
-
-    fn set_focus_on_add(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
-        let mut input_focus = world.resource_mut::<InputFocus>();
-        input_focus.set(entity);
-    }
 
     #[derive(Component, Default)]
     struct GatherKeyboardEvents(String);
 
     fn gather_keyboard_events(
-        trigger: Trigger<FocusedInput<KeyboardInput>>,
+        trigger: On<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
         if let Ok(mut gather) = query.get_mut(trigger.target()) {
@@ -401,14 +386,16 @@ mod tests {
         }
     }
 
-    const KEY_A_EVENT: KeyboardInput = KeyboardInput {
-        key_code: KeyCode::KeyA,
-        logical_key: Key::Character(SmolStr::new_static("A")),
-        state: ButtonState::Pressed,
-        text: Some(SmolStr::new_static("A")),
-        repeat: false,
-        window: Entity::PLACEHOLDER,
-    };
+    fn key_a_event() -> KeyboardInput {
+        KeyboardInput {
+            key_code: KeyCode::KeyA,
+            logical_key: Key::Character("A".into()),
+            state: ButtonState::Pressed,
+            text: Some("A".into()),
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        }
+    }
 
     #[test]
     fn test_no_panics_if_resource_missing() {
@@ -439,6 +426,55 @@ mod tests {
     }
 
     #[test]
+    fn initial_focus_unset_if_no_primary_window() {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin));
+
+        app.update();
+
+        assert_eq!(app.world().resource::<InputFocus>().0, None);
+    }
+
+    #[test]
+    fn initial_focus_set_to_primary_window() {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin));
+
+        let entity_window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        app.update();
+
+        assert_eq!(app.world().resource::<InputFocus>().0, Some(entity_window));
+    }
+
+    #[test]
+    fn initial_focus_not_overridden() {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin));
+
+        app.world_mut().spawn((Window::default(), PrimaryWindow));
+
+        app.add_systems(Startup, |mut commands: Commands| {
+            commands.spawn(AutoFocus);
+        });
+
+        app.update();
+
+        let autofocus_entity = app
+            .world_mut()
+            .query_filtered::<Entity, With<AutoFocus>>()
+            .single(app.world())
+            .unwrap();
+
+        assert_eq!(
+            app.world().resource::<InputFocus>().0,
+            Some(autofocus_entity)
+        );
+    }
+
+    #[test]
     fn test_keyboard_events() {
         fn get_gathered(app: &App, entity: Entity) -> &str {
             app.world()
@@ -454,18 +490,14 @@ mod tests {
         app.add_plugins((InputPlugin, InputDispatchPlugin))
             .add_observer(gather_keyboard_events);
 
-        let window = Window {
-            resolution: WindowResolution::new(800., 600.),
-            ..Default::default()
-        };
-        app.world_mut().spawn((window, PrimaryWindow));
+        app.world_mut().spawn((Window::default(), PrimaryWindow));
 
         // Run the world for a single frame to set up the initial focus
         app.update();
 
         let entity_a = app
             .world_mut()
-            .spawn((GatherKeyboardEvents::default(), SetFocusOnAdd))
+            .spawn((GatherKeyboardEvents::default(), AutoFocus))
             .id();
 
         let child_of_b = app
@@ -487,7 +519,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(child_of_b));
 
         // entity_a should receive this event
-        app.world_mut().send_event(KEY_A_EVENT);
+        app.world_mut().send_event(key_a_event());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -500,7 +532,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(entity_a));
 
         // This event should be lost
-        app.world_mut().send_event(KEY_A_EVENT);
+        app.world_mut().send_event(key_a_event());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -520,7 +552,8 @@ mod tests {
         assert!(app.world().is_focus_within(entity_b));
 
         // These events should be received by entity_b and child_of_b
-        app.world_mut().send_event_batch([KEY_A_EVENT; 4]);
+        app.world_mut()
+            .send_event_batch(core::iter::repeat_n(key_a_event(), 4));
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");

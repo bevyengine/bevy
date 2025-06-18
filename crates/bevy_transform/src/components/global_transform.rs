@@ -139,8 +139,9 @@ impl GlobalTransform {
         }
     }
 
-    /// Returns the isometric part of the transformation as an [isometry]. Any scaling done by the
-    /// transformation will be ignored.
+    /// Computes a Scale-Rotation-Translation decomposition of the transformation and returns
+    /// the isometric part as an [isometry]. Any scaling done by the transformation will be ignored.
+    /// Note: this is a somewhat costly and lossy conversion.
     ///
     /// The transform is expected to be non-degenerate and without shearing, or the output
     /// will be invalid.
@@ -161,7 +162,7 @@ impl GlobalTransform {
     ///
     /// ```
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
-    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
+    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands, ChildOf};
     /// #[derive(Component)]
     /// struct ToReparent {
     ///     new_parent: Entity,
@@ -176,7 +177,7 @@ impl GlobalTransform {
     ///             *transform = initial.reparented_to(parent_transform);
     ///             commands.entity(entity)
     ///                 .remove::<ToReparent>()
-    ///                 .set_parent(to_reparent.new_parent);
+    ///                 .insert(ChildOf(to_reparent.new_parent));
     ///         }
     ///     }
     /// }

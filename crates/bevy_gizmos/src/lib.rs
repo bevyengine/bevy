@@ -1,7 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
@@ -102,7 +102,7 @@ use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 #[cfg(feature = "bevy_render")]
 use {
     crate::retained::extract_linegizmos,
-    bevy_asset::{weak_handle, AssetId},
+    bevy_asset::AssetId,
     bevy_ecs::{
         component::Component,
         entity::Entity,
@@ -119,8 +119,8 @@ use {
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
             binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
-            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader,
-            ShaderStages, ShaderType, VertexFormat,
+            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, ShaderStages,
+            ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
         sync_world::{MainEntity, TemporaryRenderEntity},
@@ -144,12 +144,6 @@ use gizmos::{GizmoStorage, Swap};
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
 
-#[cfg(feature = "bevy_render")]
-const LINE_SHADER_HANDLE: Handle<Shader> = weak_handle!("15dc5869-ad30-4664-b35a-4137cb8804a1");
-#[cfg(feature = "bevy_render")]
-const LINE_JOINT_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("7b5bdda5-df81-4711-a6cf-e587700de6f2");
-
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
 /// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
@@ -160,14 +154,9 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "bevy_render")]
         {
-            use bevy_asset::load_internal_asset;
-            load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
-            load_internal_asset!(
-                app,
-                LINE_JOINT_SHADER_HANDLE,
-                "line_joints.wgsl",
-                Shader::from_wgsl
-            );
+            use bevy_asset::embedded_asset;
+            embedded_asset!(app, "lines.wgsl");
+            embedded_asset!(app, "line_joints.wgsl");
         }
 
         app.register_type::<GizmoConfig>()
@@ -642,8 +631,8 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewQuery>,
-        uniform_index: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        uniform_index: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -673,8 +662,8 @@ impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewQuery>,
-        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        config: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -736,8 +725,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewQuery>,
-        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        config: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

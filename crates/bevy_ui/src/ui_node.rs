@@ -1,5 +1,8 @@
-use crate::{FocusPolicy, UiRect, Val};
-use bevy_color::Color;
+use crate::{
+    ui_transform::{UiGlobalTransform, UiTransform},
+    FocusPolicy, UiRect, Val,
+};
+use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
@@ -7,13 +10,11 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     view::Visibility,
-    view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::num::NonZero;
+use core::{f32, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -162,8 +163,8 @@ impl ComputedNode {
         ResolvedBorderRadius {
             top_left: compute_radius(self.border_radius.top_left, outer_distance),
             top_right: compute_radius(self.border_radius.top_right, outer_distance),
-            bottom_left: compute_radius(self.border_radius.bottom_left, outer_distance),
             bottom_right: compute_radius(self.border_radius.bottom_right, outer_distance),
+            bottom_left: compute_radius(self.border_radius.bottom_left, outer_distance),
         }
     }
 
@@ -200,8 +201,8 @@ impl ComputedNode {
         ResolvedBorderRadius {
             top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
             top_right: clamp_corner(self.border_radius.top_right, s, b.zy()),
-            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
             bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
+            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
         }
     }
 
@@ -229,6 +230,73 @@ impl ComputedNode {
     #[inline]
     pub const fn inverse_scale_factor(&self) -> f32 {
         self.inverse_scale_factor
+    }
+
+    // Returns true if `point` within the node.
+    //
+    // Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
+    pub fn contains_point(&self, transform: UiGlobalTransform, point: Vec2) -> bool {
+        let Some(local_point) = transform
+            .try_inverse()
+            .map(|transform| transform.transform_point2(point))
+        else {
+            return false;
+        };
+        let [top, bottom] = if local_point.x < 0. {
+            [self.border_radius.top_left, self.border_radius.bottom_left]
+        } else {
+            [
+                self.border_radius.top_right,
+                self.border_radius.bottom_right,
+            ]
+        };
+        let r = if local_point.y < 0. { top } else { bottom };
+        let corner_to_point = local_point.abs() - 0.5 * self.size;
+        let q = corner_to_point + r;
+        let l = q.max(Vec2::ZERO).length();
+        let m = q.max_element().min(0.);
+        l + m - r < 0.
+    }
+
+    /// Transform a point to normalized node space with the center of the node at the origin and the corners at [+/-0.5, +/-0.5]
+    pub fn normalize_point(&self, transform: UiGlobalTransform, point: Vec2) -> Option<Vec2> {
+        self.size
+            .cmpgt(Vec2::ZERO)
+            .all()
+            .then(|| transform.try_inverse())
+            .flatten()
+            .map(|transform| transform.transform_point2(point) / self.size)
+    }
+
+    /// Resolve the node's clipping rect in local space
+    pub fn resolve_clip_rect(
+        &self,
+        overflow: Overflow,
+        overflow_clip_margin: OverflowClipMargin,
+    ) -> Rect {
+        let mut clip_rect = Rect::from_center_size(Vec2::ZERO, self.size);
+
+        let clip_inset = match overflow_clip_margin.visual_box {
+            OverflowClipBox::BorderBox => BorderRect::ZERO,
+            OverflowClipBox::ContentBox => self.content_inset(),
+            OverflowClipBox::PaddingBox => self.border(),
+        };
+
+        clip_rect.min.x += clip_inset.left;
+        clip_rect.min.y += clip_inset.top;
+        clip_rect.max.x -= clip_inset.right;
+        clip_rect.max.y -= clip_inset.bottom;
+
+        if overflow.x == OverflowAxis::Visible {
+            clip_rect.min.x = -f32::INFINITY;
+            clip_rect.max.x = f32::INFINITY;
+        }
+        if overflow.y == OverflowAxis::Visible {
+            clip_rect.min.y = -f32::INFINITY;
+            clip_rect.max.y = f32::INFINITY;
+        }
+
+        clip_rect
     }
 }
 
@@ -324,14 +392,13 @@ impl From<Vec2> for ScrollPosition {
 #[require(
     ComputedNode,
     ComputedNodeTarget,
+    UiTransform,
     BackgroundColor,
     BorderColor,
     BorderRadius,
     FocusPolicy,
     ScrollPosition,
-    Transform,
     Visibility,
-    VisibilityClass,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
@@ -2036,17 +2103,50 @@ impl<T: Into<Color>> From<T> for BackgroundColor {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BorderColor(pub Color);
+pub struct BorderColor {
+    pub top: Color,
+    pub right: Color,
+    pub bottom: Color,
+    pub left: Color,
+}
 
 impl<T: Into<Color>> From<T> for BorderColor {
     fn from(color: T) -> Self {
-        Self(color.into())
+        Self::all(color.into())
     }
 }
 
 impl BorderColor {
     /// Border color is transparent by default.
-    pub const DEFAULT: Self = BorderColor(Color::NONE);
+    pub const DEFAULT: Self = BorderColor::all(Color::NONE);
+
+    /// Helper to create a `BorderColor` struct with all borders set to the given color
+    pub const fn all(color: Color) -> Self {
+        Self {
+            top: color,
+            bottom: color,
+            left: color,
+            right: color,
+        }
+    }
+
+    /// Helper to set all border colors to a given color.
+    pub fn set_all(&mut self, color: impl Into<Color>) -> &mut Self {
+        let color: Color = color.into();
+        self.top = color;
+        self.bottom = color;
+        self.left = color;
+        self.right = color;
+        self
+    }
+
+    /// Check if all contained border colors are transparent
+    pub fn is_fully_transparent(&self) -> bool {
+        self.top.is_fully_transparent()
+            && self.bottom.is_fully_transparent()
+            && self.left.is_fully_transparent()
+            && self.right.is_fully_transparent()
+    }
 }
 
 impl Default for BorderColor {
@@ -2217,8 +2317,8 @@ pub struct GlobalZIndex(pub i32);
 pub struct BorderRadius {
     pub top_left: Val,
     pub top_right: Val,
-    pub bottom_left: Val,
     pub bottom_right: Val,
+    pub bottom_left: Val,
 }
 
 impl Default for BorderRadius {
@@ -2430,56 +2530,52 @@ impl BorderRadius {
 
     /// Resolve the border radius for a single corner from the given context values.
     /// Returns the radius of the corner in physical pixels.
-    pub fn resolve_single_corner(
+    pub const fn resolve_single_corner(
         radius: Val,
-        node_size: Vec2,
-        viewport_size: Vec2,
         scale_factor: f32,
+        min_length: f32,
+        viewport_size: Vec2,
     ) -> f32 {
-        match radius {
-            Val::Auto => 0.,
-            Val::Px(px) => px * scale_factor,
-            Val::Percent(percent) => node_size.min_element() * percent / 100.,
-            Val::Vw(percent) => viewport_size.x * percent / 100.,
-            Val::Vh(percent) => viewport_size.y * percent / 100.,
-            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
-            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
+        if let Ok(radius) = radius.resolve(scale_factor, min_length, viewport_size) {
+            radius.clamp(0., 0.5 * min_length)
+        } else {
+            0.
         }
-        .clamp(0., 0.5 * node_size.min_element())
     }
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
-    pub fn resolve(
+    pub const fn resolve(
         &self,
+        scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
-        scale_factor: f32,
     ) -> ResolvedBorderRadius {
+        let length = node_size.x.min(node_size.y);
         ResolvedBorderRadius {
             top_left: Self::resolve_single_corner(
                 self.top_left,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             top_right: Self::resolve_single_corner(
                 self.top_right,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             bottom_left: Self::resolve_single_corner(
                 self.bottom_left,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             bottom_right: Self::resolve_single_corner(
                 self.bottom_right,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
         }
     }
@@ -2493,16 +2589,16 @@ impl BorderRadius {
 pub struct ResolvedBorderRadius {
     pub top_left: f32,
     pub top_right: f32,
-    pub bottom_left: f32,
     pub bottom_right: f32,
+    pub bottom_left: f32,
 }
 
 impl ResolvedBorderRadius {
     pub const ZERO: Self = Self {
         top_left: 0.,
         top_right: 0.,
-        bottom_left: 0.,
         bottom_right: 0.,
+        bottom_left: 0.,
     };
 }
 
@@ -2597,37 +2693,6 @@ pub struct LayoutConfig {
 impl Default for LayoutConfig {
     fn default() -> Self {
         Self { use_rounding: true }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::GridPlacement;
-
-    #[test]
-    fn invalid_grid_placement_values() {
-        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
-    }
-
-    #[test]
-    fn grid_placement_accessors() {
-        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
-        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
-        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
-        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
-        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
-        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }
 
@@ -2810,8 +2875,10 @@ impl ComputedNodeTarget {
 }
 
 /// Adds a shadow behind text
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
+///
+/// Not supported by `Text2d`
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct TextShadow {
     /// Shadow displacement in logical pixels
     /// With a value of zero the shadow will be hidden directly behind the text
@@ -2826,5 +2893,36 @@ impl Default for TextShadow {
             offset: Vec2::splat(4.),
             color: Color::linear_rgba(0., 0., 0., 0.75),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::GridPlacement;
+
+    #[test]
+    fn invalid_grid_placement_values() {
+        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
+    }
+
+    #[test]
+    fn grid_placement_accessors() {
+        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
+        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
+        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
+        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
+        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
+        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }

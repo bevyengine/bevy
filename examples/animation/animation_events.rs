@@ -9,7 +9,6 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_event::<MessageEvent>()
         .add_systems(Startup, setup)
         .add_systems(Update, animate_text_opacity)
         .add_observer(edit_message)
@@ -19,14 +18,14 @@ fn main() {
 #[derive(Component)]
 struct MessageText;
 
-#[derive(Event, Clone)]
+#[derive(Event, EntityEvent, Clone)]
 struct MessageEvent {
     value: String,
     color: Color,
 }
 
 fn edit_message(
-    trigger: Trigger<MessageEvent>,
+    trigger: On<MessageEvent>,
     text: Single<(&mut Text2d, &mut TextColor), With<MessageText>>,
 ) {
     let (mut text, mut color) = text.into_inner();
@@ -44,7 +43,6 @@ fn setup(
         Camera2d,
         Camera {
             clear_color: ClearColorConfig::Custom(BLACK.into()),
-            hdr: true,
             ..Default::default()
         },
         Bloom {

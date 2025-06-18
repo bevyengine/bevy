@@ -3,7 +3,7 @@ name = "bevy_animation"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Provides animation functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -32,7 +32,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 
 # other
 petgraph = { version = "0.7", features = ["serde-1"] }
-ron = "0.8"
+ron = "0.10"
 serde = "1"
 blake3 = { version = "1.0" }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }

@@ -42,7 +42,7 @@
 //!
 //! A "function" is a callable that does not capture its environment.
 //! These are typically defined with the `fn` keyword, which are referred to as _named_ functions.
-//! But they are also _anonymous_ functions, which are unnamed and defined with anonymous function syntax.
+//! But there are also _anonymous_ functions, which are unnamed and defined with anonymous function syntax.
 //!
 //! ```rust
 //! // This is a named function:

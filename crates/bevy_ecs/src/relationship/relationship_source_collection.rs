@@ -86,13 +86,13 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     /// Inserts the entity at a specific index.
     /// If the index is too large, the entity will be added to the end of the collection.
     fn insert(&mut self, index: usize, entity: Entity);
-    /// Removes the entity at the specified idnex if it exists.
+    /// Removes the entity at the specified index if it exists.
     fn remove_at(&mut self, index: usize) -> Option<Entity>;
     /// Inserts the entity at a specific index.
     /// This will never reorder other entities.
     /// If the index is too large, the entity will be added to the end of the collection.
     fn insert_stable(&mut self, index: usize, entity: Entity);
-    /// Removes the entity at the specified idnex if it exists.
+    /// Removes the entity at the specified index if it exists.
     /// This will never reorder other entities.
     fn remove_at_stable(&mut self, index: usize) -> Option<Entity>;
     /// Sorts the source collection.
@@ -220,15 +220,14 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
 
     fn place_most_recent(&mut self, index: usize) {
         if let Some(entity) = self.pop() {
-            let index = index.min(self.len().saturating_sub(1));
+            let index = index.min(self.len());
             self.insert(index, entity);
         }
     }
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
-            // The len is at least 1, so the subtraction is safe.
-            let index = index.min(self.len().saturating_sub(1));
+            let index = index.min(self.len());
             Vec::remove(self, current);
             self.insert(index, entity);
         };
@@ -709,7 +708,7 @@ mod tests {
         let collection = rel_target.collection();
 
         // Insertions should maintain ordering
-        assert!(collection.iter().eq(&[b, c, d]));
+        assert!(collection.iter().eq(&[d, c, b]));
 
         world.entity_mut(c).despawn();
 
@@ -717,7 +716,7 @@ mod tests {
         let collection = rel_target.collection();
 
         // Removals should maintain ordering
-        assert!(collection.iter().eq(&[b, d]));
+        assert!(collection.iter().eq(&[d, b]));
     }
 
     #[test]

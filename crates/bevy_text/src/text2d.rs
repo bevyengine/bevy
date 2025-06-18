@@ -2,7 +2,7 @@ use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
     TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter, YAxisOrientation,
+    TextSpanAccess, TextWriter,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -51,7 +51,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, Text2d, TextLayout, TextFont, TextColor, TextSpan};
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -73,7 +73,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// // With text justification.
 /// world.spawn((
 ///     Text2d::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(JustifyText::Center)
+///     TextLayout::new_with_justify(Justify::Center)
 /// ));
 ///
 /// // With spans
@@ -182,10 +182,10 @@ pub fn extract_text2d_sprite(
             text_bounds.width.unwrap_or(text_layout_info.size.x),
             text_bounds.height.unwrap_or(text_layout_info.size.y),
         );
-        let bottom_left =
-            -(anchor.as_vec() + 0.5) * size + (size.y - text_layout_info.size.y) * Vec2::Y;
+
+        let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
         let transform =
-            *global_transform * GlobalTransform::from_translation(bottom_left.extend(0.)) * scaling;
+            *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
 
@@ -218,7 +218,7 @@ pub fn extract_text2d_sprite(
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
             extracted_slices.slices.push(ExtractedSlice {
-                offset: *position,
+                offset: Vec2::new(position.x, -position.y),
                 rect,
                 size: rect.size(),
             });
@@ -316,7 +316,6 @@ pub fn update_text2d_layout(
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                YAxisOrientation::BottomToTop,
                 computed.as_mut(),
                 &mut font_system,
                 &mut swash_cache,

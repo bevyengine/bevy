@@ -7,16 +7,18 @@
     unsafe_op_in_unsafe_fn,
     clippy::all,
     clippy::undocumented_unsafe_blocks,
-    clippy::ptr_cast_constness,
-    // FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-    missing_docs
+    clippy::ptr_cast_constness
 )]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
+
+//! An implementation of [Mikkelsen's algorithm] for tangent space generation.
+//!
+//! [Mikkelsen's algorithm]: http://www.mikktspace.com
 
 #[cfg(feature = "std")]
 extern crate std;

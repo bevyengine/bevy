@@ -1,5 +1,5 @@
 use alloc::{boxed::Box, vec::Vec};
-use bevy_utils::synccell::SyncCell;
+use bevy_platform::cell::SyncCell;
 use variadics_please::all_tuples;
 
 use crate::{
@@ -7,7 +7,8 @@ use crate::{
     query::{QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
-        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam, When,
+        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemParam,
+        SystemParamValidationError, When,
     },
     world::{
         FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
@@ -16,7 +17,7 @@ use crate::{
 };
 use core::fmt::Debug;
 
-use super::{init_query_param, Res, ResMut, SystemState};
+use super::{Res, ResMut, SystemState};
 
 /// A builder that can create a [`SystemParam`].
 ///
@@ -103,19 +104,15 @@ use super::{init_query_param, Res, ResMut, SystemState};
 ///
 /// # Safety
 ///
-/// The implementor must ensure the following is true.
-/// - [`SystemParamBuilder::build`] correctly registers all [`World`] accesses used
-///   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
-/// - None of the world accesses may conflict with any prior accesses registered
-///   on `system_meta`.
-///
-/// Note that this depends on the implementation of [`SystemParam::get_param`],
+/// The implementor must ensure that the state returned
+/// from [`SystemParamBuilder::build`] is valid for `P`.
+/// Note that the exact safety requiremensts depend on the implementation of [`SystemParam`],
 /// so if `Self` is not a local type then you must call [`SystemParam::init_state`]
-/// or another [`SystemParamBuilder::build`]
+/// or another [`SystemParamBuilder::build`].
 pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
     /// Registers any [`World`] access used by this [`SystemParam`]
     /// and creates a new instance of this param's [`State`](SystemParam::State).
-    fn build(self, world: &mut World, meta: &mut SystemMeta) -> P::State;
+    fn build(self, world: &mut World) -> P::State;
 
     /// Create a [`SystemState`] from a [`SystemParamBuilder`].
     /// To create a system, call [`SystemState::build_system`] on the result.
@@ -168,8 +165,8 @@ pub struct ParamBuilder;
 
 // SAFETY: Calls `SystemParam::init_state`
 unsafe impl<P: SystemParam> SystemParamBuilder<P> for ParamBuilder {
-    fn build(self, world: &mut World, meta: &mut SystemMeta) -> P::State {
-        P::init_state(world, meta)
+    fn build(self, world: &mut World) -> P::State {
+        P::init_state(world)
     }
 }
 
@@ -207,13 +204,13 @@ impl ParamBuilder {
     }
 }
 
-// SAFETY: Calls `init_query_param`, just like `Query::init_state`.
+// SAFETY: Any `QueryState<D, F>` for the correct world is valid for `Query::State`,
+// and we check the world during `build`.
 unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
     SystemParamBuilder<Query<'w, 's, D, F>> for QueryState<D, F>
 {
-    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
+    fn build(self, world: &mut World) -> QueryState<D, F> {
         self.validate_world(world.id());
-        init_query_param(world, system_meta, &self);
         self
     }
 }
@@ -281,7 +278,8 @@ impl<'a, D: QueryData, F: QueryFilter>
     }
 }
 
-// SAFETY: Calls `init_query_param`, just like `Query::init_state`.
+// SAFETY: Any `QueryState<D, F>` for the correct world is valid for `Query::State`,
+// and `QueryBuilder` produces one with the given `world`.
 unsafe impl<
         'w,
         's,
@@ -290,12 +288,10 @@ unsafe impl<
         T: FnOnce(&mut QueryBuilder<D, F>),
     > SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
 {
-    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
+    fn build(self, world: &mut World) -> QueryState<D, F> {
         let mut builder = QueryBuilder::new(world);
         (self.0)(&mut builder);
-        let state = builder.build();
-        init_query_param(world, system_meta, &state);
-        state
+        builder.build()
     }
 }
 
@@ -316,13 +312,13 @@ macro_rules! impl_system_param_builder_tuple {
         $(#[$meta])*
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
-            fn build(self, world: &mut World, meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
+            fn build(self, world: &mut World) -> <($($param,)*) as SystemParam>::State {
                 let ($($builder,)*) = self;
                 #[allow(
                     clippy::unused_unit,
                     reason = "Zero-length tuples won't generate any calls to the system parameter builders."
                 )]
-                ($($builder.build(world, meta),)*)
+                ($($builder.build(world),)*)
             }
         }
     };
@@ -339,9 +335,9 @@ all_tuples!(
 
 // SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
-    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <Vec<P> as SystemParam>::State {
+    fn build(self, world: &mut World) -> <Vec<P> as SystemParam>::State {
         self.into_iter()
-            .map(|builder| builder.build(world, meta))
+            .map(|builder| builder.build(world))
             .collect()
     }
 }
@@ -421,7 +417,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
-    ($(($param: ident, $builder: ident, $meta: ident)),*) => {
+    ($(($param: ident, $builder: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is in a macro; as such, the below lints may not always apply."
@@ -436,85 +432,38 @@ macro_rules! impl_param_set_builder_tuple {
         )]
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<'w, 's, $($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<ParamSet<'w, 's, ($($param,)*)>> for ParamSetBuilder<($($builder,)*)> {
-            fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
+            fn build(self, world: &mut World) -> <($($param,)*) as SystemParam>::State {
                 let ParamSetBuilder(($($builder,)*)) = self;
-                // Note that this is slightly different from `init_state`, which calls `init_state` on each param twice.
-                // One call populates an empty `SystemMeta` with the new access, while the other runs against a cloned `SystemMeta` to check for conflicts.
-                // Builders can only be invoked once, so we do both in a single call here.
-                // That means that any `filtered_accesses` in the `component_access_set` will get copied to every `$meta`
-                // and will appear multiple times in the final `SystemMeta`.
-                $(
-                    let mut $meta = system_meta.clone();
-                    let $param = $builder.build(world, &mut $meta);
-                )*
-                // Make the ParamSet non-send if any of its parameters are non-send.
-                if false $(|| !$meta.is_send())* {
-                    system_meta.set_non_send();
-                }
-                $(
-                    system_meta
-                        .component_access_set
-                        .extend($meta.component_access_set);
-                    system_meta
-                        .archetype_component_access
-                        .extend(&$meta.archetype_component_access);
-                )*
-                #[allow(
-                    clippy::unused_unit,
-                    reason = "Zero-length tuples won't generate any calls to the system parameter builders."
-                )]
-                ($($param,)*)
+                ($($builder.build(world),)*)
             }
         }
     };
 }
 
-all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
+all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B);
 
-// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
-// with any prior access, a panic will occur.
+// SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
 unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
     SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
 {
-    fn build(
-        self,
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-    ) -> <Vec<P> as SystemParam>::State {
-        let mut states = Vec::with_capacity(self.0.len());
-        let mut metas = Vec::with_capacity(self.0.len());
-        for builder in self.0 {
-            let mut meta = system_meta.clone();
-            states.push(builder.build(world, &mut meta));
-            metas.push(meta);
-        }
-        if metas.iter().any(|m| !m.is_send()) {
-            system_meta.set_non_send();
-        }
-        for meta in metas {
-            system_meta
-                .component_access_set
-                .extend(meta.component_access_set);
-            system_meta
-                .archetype_component_access
-                .extend(&meta.archetype_component_access);
-        }
-        states
+    fn build(self, world: &mut World) -> <Vec<P> as SystemParam>::State {
+        self.0
+            .into_iter()
+            .map(|builder| builder.build(world))
+            .collect()
     }
 }
 
 /// A [`SystemParamBuilder`] for a [`DynSystemParam`].
 /// See the [`DynSystemParam`] docs for examples.
-pub struct DynParamBuilder<'a>(
-    Box<dyn FnOnce(&mut World, &mut SystemMeta) -> DynSystemParamState + 'a>,
-);
+pub struct DynParamBuilder<'a>(Box<dyn FnOnce(&mut World) -> DynSystemParamState + 'a>);
 
 impl<'a> DynParamBuilder<'a> {
     /// Creates a new [`DynParamBuilder`] by wrapping a [`SystemParamBuilder`] of any type.
     /// The built [`DynSystemParam`] can be downcast to `T`.
     pub fn new<T: SystemParam + 'static>(builder: impl SystemParamBuilder<T> + 'a) -> Self {
-        Self(Box::new(|world, meta| {
-            DynSystemParamState::new::<T>(builder.build(world, meta))
+        Self(Box::new(|world| {
+            DynSystemParamState::new::<T>(builder.build(world))
         }))
     }
 }
@@ -523,12 +472,8 @@ impl<'a> DynParamBuilder<'a> {
 // and the boxed builder was a valid implementation of `SystemParamBuilder` for that type.
 // The resulting `DynSystemParam` can only perform access by downcasting to that param type.
 unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamBuilder<'a> {
-    fn build(
-        self,
-        world: &mut World,
-        meta: &mut SystemMeta,
-    ) -> <DynSystemParam<'w, 's> as SystemParam>::State {
-        (self.0)(world, meta)
+    fn build(self, world: &mut World) -> <DynSystemParam<'w, 's> as SystemParam>::State {
+        (self.0)(world)
     }
 }
 
@@ -554,15 +499,11 @@ unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamB
 #[derive(Default, Debug, Clone)]
 pub struct LocalBuilder<T>(pub T);
 
-// SAFETY: `Local` performs no world access.
+// SAFETY: Any value of `T` is a valid state for `Local`.
 unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
     for LocalBuilder<T>
 {
-    fn build(
-        self,
-        _world: &mut World,
-        _meta: &mut SystemMeta,
-    ) -> <Local<'s, T> as SystemParam>::State {
+    fn build(self, _world: &mut World) -> <Local<'s, T> as SystemParam>::State {
         SyncCell::new(self.0)
     }
 }
@@ -590,44 +531,14 @@ impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuil
     }
 }
 
-// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
-// conflicts with any prior access, a panic will occur.
+// SAFETY: Any `Access` is a valid state for `FilteredResources`.
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
     SystemParamBuilder<FilteredResources<'w, 's>> for FilteredResourcesParamBuilder<T>
 {
-    fn build(
-        self,
-        world: &mut World,
-        meta: &mut SystemMeta,
-    ) -> <FilteredResources<'w, 's> as SystemParam>::State {
+    fn build(self, world: &mut World) -> <FilteredResources<'w, 's> as SystemParam>::State {
         let mut builder = FilteredResourcesBuilder::new(world);
         (self.0)(&mut builder);
-        let access = builder.build();
-
-        let combined_access = meta.component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(&access);
-        if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
-        }
-
-        if access.has_read_all_resources() {
-            meta.component_access_set
-                .add_unfiltered_read_all_resources();
-            meta.archetype_component_access.read_all_resources();
-        } else {
-            for component_id in access.resource_reads_and_writes() {
-                meta.component_access_set
-                    .add_unfiltered_resource_read(component_id);
-
-                let archetype_component_id = world.initialize_resource_internal(component_id).id();
-                meta.archetype_component_access
-                    .add_resource_read(archetype_component_id);
-            }
-        }
-
-        access
+        builder.build()
     }
 }
 
@@ -654,59 +565,43 @@ impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesM
     }
 }
 
-// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
-// conflicts with any prior access, a panic will occur.
+// SAFETY: Any `Access` is a valid state for `FilteredResourcesMut`.
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
     SystemParamBuilder<FilteredResourcesMut<'w, 's>> for FilteredResourcesMutParamBuilder<T>
+{
+    fn build(self, world: &mut World) -> <FilteredResourcesMut<'w, 's> as SystemParam>::State {
+        let mut builder = FilteredResourcesMutBuilder::new(world);
+        (self.0)(&mut builder);
+        builder.build()
+    }
+}
+
+/// A [`SystemParamBuilder`] for an [`Option`].
+#[derive(Clone)]
+pub struct OptionBuilder<T>(T);
+
+// SAFETY: `OptionBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Option<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Option<P>>
+    for OptionBuilder<B>
+{
+    fn build(self, world: &mut World) -> <Option<P> as SystemParam>::State {
+        self.0.build(world)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`Result`] of [`SystemParamValidationError`].
+#[derive(Clone)]
+pub struct ResultBuilder<T>(T);
+
+// SAFETY: `ResultBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Result<P, SystemParamValidationError>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>>
+    SystemParamBuilder<Result<P, SystemParamValidationError>> for ResultBuilder<B>
 {
     fn build(
         self,
         world: &mut World,
-        meta: &mut SystemMeta,
-    ) -> <FilteredResourcesMut<'w, 's> as SystemParam>::State {
-        let mut builder = FilteredResourcesMutBuilder::new(world);
-        (self.0)(&mut builder);
-        let access = builder.build();
-
-        let combined_access = meta.component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(&access);
-        if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
-        }
-
-        if access.has_read_all_resources() {
-            meta.component_access_set
-                .add_unfiltered_read_all_resources();
-            meta.archetype_component_access.read_all_resources();
-        } else {
-            for component_id in access.resource_reads() {
-                meta.component_access_set
-                    .add_unfiltered_resource_read(component_id);
-
-                let archetype_component_id = world.initialize_resource_internal(component_id).id();
-                meta.archetype_component_access
-                    .add_resource_read(archetype_component_id);
-            }
-        }
-
-        if access.has_write_all_resources() {
-            meta.component_access_set
-                .add_unfiltered_write_all_resources();
-            meta.archetype_component_access.write_all_resources();
-        } else {
-            for component_id in access.resource_writes() {
-                meta.component_access_set
-                    .add_unfiltered_resource_write(component_id);
-
-                let archetype_component_id = world.initialize_resource_internal(component_id).id();
-                meta.archetype_component_access
-                    .add_resource_write(archetype_component_id);
-            }
-        }
-
-        access
+    ) -> <Result<P, SystemParamValidationError> as SystemParam>::State {
+        self.0.build(world)
     }
 }
 
@@ -718,8 +613,8 @@ pub struct WhenBuilder<T>(T);
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<When<P>>
     for WhenBuilder<B>
 {
-    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <When<P> as SystemParam>::State {
-        self.0.build(world, meta)
+    fn build(self, world: &mut World) -> <When<P> as SystemParam>::State {
+        self.0.build(world)
     }
 }
 
