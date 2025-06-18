@@ -26,7 +26,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
@@ -944,7 +944,11 @@ impl AssetServer {
     /// removed, added or moved. This includes files in subdirectories and moving, adding,
     /// or removing complete subdirectories.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
-    pub fn load_folder<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedFolder> {
+    pub fn load_folder<'a>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        filter: Option<Arc<dyn Fn(&Path) -> bool + Send + Sync + 'static>>,
+    ) -> Handle<LoadedFolder> {
         let path = path.into().into_owned();
         let (handle, should_load) = self
             .data
@@ -959,23 +963,34 @@ impl AssetServer {
             return handle;
         }
         let id = handle.id().untyped();
-        self.load_folder_internal(id, path);
+        self.load_folder_internal(id, path, filter);
 
         handle
     }
 
-    pub(crate) fn load_folder_internal(&self, id: UntypedAssetId, path: AssetPath) {
+    pub(crate) fn load_folder_internal(
+        &self,
+        id: UntypedAssetId,
+        path: AssetPath,
+        filter: Option<Arc<dyn Fn(&Path) -> bool + Send + Sync + 'static>>,
+    ) {
         async fn load_folder<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
             reader: &'a dyn ErasedAssetReader,
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
+            filter: Option<Arc<dyn Fn(&Path) -> bool + Send + Sync + 'static>>,
         ) -> Result<(), AssetLoadError> {
             let is_dir = reader.is_directory(path).await?;
             if is_dir {
                 let mut path_stream = reader.read_directory(path.as_ref()).await?;
                 while let Some(child_path) = path_stream.next().await {
+                    if let Some(ref filter_fn) = filter {
+                        if !filter_fn(path) {
+                            continue;
+                        }
+                    }
                     if reader.is_directory(&child_path).await? {
                         Box::pin(load_folder(
                             source.clone(),
@@ -983,6 +998,7 @@ impl AssetServer {
                             reader,
                             server,
                             handles,
+                            filter.clone(),
                         ))
                         .await?;
                     } else {
@@ -1030,11 +1046,12 @@ impl AssetServer {
                 };
 
                 let mut handles = Vec::new();
-                match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles).await {
+                let filter_clone = filter.clone();
+                match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles,filter).await {
                     Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded {
                         id,
                         loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedFolder { handles },
+                            LoadedFolder { handles,filter:filter_clone },
                         )
                         .into(),
                     }),
@@ -1690,7 +1707,11 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     AssetPath::from(current_folder.clone()).with_source(source.clone());
                 for folder_handle in infos.get_path_handles(&parent_asset_path) {
                     info!("Reloading folder {parent_asset_path} because the content has changed");
-                    server.load_folder_internal(folder_handle.id(), parent_asset_path.clone());
+                    server.load_folder_internal(
+                        folder_handle.id(),
+                        parent_asset_path.clone(),
+                        None,
+                    );
                 }
             }
         };

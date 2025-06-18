@@ -1,6 +1,8 @@
+use std::{path::Path, sync::Arc};
+
 use alloc::vec::Vec;
 
-use crate::{Asset, UntypedHandle};
+use crate::{io::ErasedAssetReader, Asset, UntypedHandle};
 use bevy_reflect::TypePath;
 
 /// A "loaded folder" containing handles for all assets stored in a given [`AssetPath`].
@@ -13,4 +15,5 @@ pub struct LoadedFolder {
     /// The handles of all assets stored in the folder.
     #[dependency]
     pub handles: Vec<UntypedHandle>,
+    pub filter: Option<Arc<dyn Fn(&Path) -> bool + Send + Sync + 'static>>
 }
