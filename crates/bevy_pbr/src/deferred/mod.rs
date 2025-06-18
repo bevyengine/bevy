@@ -1,11 +1,16 @@
 use crate::{
     graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
-    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
+    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
     ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+};
+use crate::{
+    DistanceFog, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
+    ViewLightsUniformOffset,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     deferred::{
@@ -15,31 +20,24 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::binding_types::uniform_buffer,
-    render_resource::*,
+    render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
-    texture::BevyDefault,
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSet,
-};
-
-use crate::{
-    MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset,
+    Render, RenderApp, RenderSystems,
 };
 
 pub struct DeferredPbrLightingPlugin;
 
-pub const DEFERRED_LIGHTING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2708011359337029741);
-
 pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 
 /// Component with a `depth_id` for specifying which corresponding materials should be rendered by this specific PBR deferred lighting pass.
+///
 /// Will be automatically added to entities with the [`DeferredPrepass`] component that don't already have a [`PbrDeferredLightingDepthId`].
 #[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
 pub struct PbrDeferredLightingDepthId {
@@ -99,12 +97,7 @@ impl Plugin for DeferredPbrLightingPlugin {
         ))
         .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
 
-        load_internal_asset!(
-            app,
-            DEFERRED_LIGHTING_SHADER_HANDLE,
-            "deferred_lighting.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "deferred_lighting.wgsl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -114,7 +107,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
             .add_systems(
                 Render,
-                (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
+                (prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),),
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
                 Core3d,
@@ -236,6 +229,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 pub struct DeferredLightingLayout {
     mesh_pipeline: MeshPipeline,
     bind_group_layout_1: BindGroupLayout,
+    deferred_lighting_shader: Handle<Shader>,
 }
 
 #[derive(Component)]
@@ -259,11 +253,11 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("TONEMAP_IN_SHADER".into());
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
-                21,
+                TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
             ));
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
-                22,
+                TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
             ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
@@ -328,6 +322,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("HAS_PREVIOUS_MORPH".into());
         }
 
+        if key.contains(MeshPipelineKey::DISTANCE_FOG) {
+            shader_defs.push("DISTANCE_FOG".into());
+        }
+
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
 
@@ -340,6 +338,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
         }
+        if self.mesh_pipeline.binding_arrays_are_usable {
+            shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+            shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
+        }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
@@ -351,13 +353,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 self.bind_group_layout_1.clone(),
             ],
             vertex: VertexState {
-                shader: DEFERRED_LIGHTING_SHADER_HANDLE,
+                shader: self.deferred_lighting_shader.clone(),
                 shader_defs: shader_defs.clone(),
                 entry_point: "vertex".into(),
                 buffers: Vec::new(),
             },
             fragment: Some(FragmentState {
-                shader: DEFERRED_LIGHTING_SHADER_HANDLE,
+                shader: self.deferred_lighting_shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -389,6 +391,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }),
             multisample: MultisampleState::default(),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -406,6 +409,7 @@ impl FromWorld for DeferredLightingLayout {
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             bind_group_layout_1: layout,
+            deferred_lighting_shader: load_embedded_asset!(world, "deferred_lighting.wgsl"),
         }
     }
 }
@@ -426,27 +430,27 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     deferred_lighting_layout: Res<DeferredLightingLayout>,
-    views: Query<
+    views: Query<(
+        Entity,
+        &ExtractedView,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        Option<&ShadowFilteringMethod>,
         (
-            Entity,
-            &ExtractedView,
-            Option<&Tonemapping>,
-            Option<&DebandDither>,
-            Option<&ShadowFilteringMethod>,
-            (
-                Has<ScreenSpaceAmbientOcclusionSettings>,
-                Has<ScreenSpaceReflectionsUniform>,
-            ),
-            (
-                Has<NormalPrepass>,
-                Has<DepthPrepass>,
-                Has<MotionVectorPrepass>,
-            ),
-            Has<RenderViewLightProbes<EnvironmentMapLight>>,
-            Has<RenderViewLightProbes<IrradianceVolume>>,
+            Has<ScreenSpaceAmbientOcclusion>,
+            Has<ScreenSpaceReflectionsUniform>,
+            Has<DistanceFog>,
         ),
-        With<DeferredPrepass>,
-    >,
+        (
+            Has<NormalPrepass>,
+            Has<DepthPrepass>,
+            Has<MotionVectorPrepass>,
+            Has<DeferredPrepass>,
+        ),
+        Has<RenderViewLightProbes<EnvironmentMapLight>>,
+        Has<RenderViewLightProbes<IrradianceVolume>>,
+        Has<SkipDeferredLighting>,
+    )>,
 ) {
     for (
         entity,
@@ -454,12 +458,21 @@ pub fn prepare_deferred_lighting_pipelines(
         tonemapping,
         dither,
         shadow_filter_method,
-        (ssao, ssr),
-        (normal_prepass, depth_prepass, motion_vector_prepass),
+        (ssao, ssr, distance_fog),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         has_environment_maps,
         has_irradiance_volumes,
+        skip_deferred_lighting,
     ) in &views
     {
+        // If there is no deferred prepass or we want to skip the deferred lighting pass,
+        // remove the old pipeline if there was one. This handles the case in which a
+        // view using deferred stops using it.
+        if !deferred_prepass || skip_deferred_lighting {
+            commands.entity(entity).remove::<DeferredLightingPipeline>();
+            continue;
+        }
+
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
 
         if normal_prepass {
@@ -506,6 +519,9 @@ pub fn prepare_deferred_lighting_pipelines(
         if ssr {
             view_key |= MeshPipelineKey::SCREEN_SPACE_REFLECTIONS;
         }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
+        }
 
         // We don't need to check to see whether the environment map is loaded
         // because [`gather_light_probes`] already checked that for us before
@@ -538,3 +554,14 @@ pub fn prepare_deferred_lighting_pipelines(
             .insert(DeferredLightingPipeline { pipeline_id });
     }
 }
+
+/// Component to skip running the deferred lighting pass in [`DeferredOpaquePass3dPbrLightingNode`] for a specific view.
+///
+/// This works like [`crate::PbrPlugin::add_default_deferred_lighting_plugin`], but is per-view instead of global.
+///
+/// Useful for cases where you want to generate a gbuffer, but skip the built-in deferred lighting pass
+/// to run your own custom lighting pass instead.
+///
+/// Insert this component in the render world only.
+#[derive(Component, Clone, Copy, Default)]
+pub struct SkipDeferredLighting;

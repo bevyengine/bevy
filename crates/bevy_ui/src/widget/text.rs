@@ -1,50 +1,149 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
-    TargetCamera, UiScale,
+    ComputedNode, ComputedNodeTarget, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
+    NodeMeasure,
 };
 use bevy_asset::Assets;
+use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
-    prelude::{Component, DetectChanges},
+    change_detection::DetectChanges,
+    component::Component,
+    entity::Entity,
     query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
+    system::{Query, Res, ResMut},
     world::{Mut, Ref},
 };
+use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::Camera, texture::Image};
-use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, Text, TextBounds,
-    TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, YAxisOrientation,
+    scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
+    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
-use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
+use tracing::error;
 
-/// Text system flags
+/// UI text system flags.
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
-pub struct TextFlags {
-    /// If set a new measure function for the text node will be created
-    needs_new_measure_func: bool,
-    /// If set the text will be recomputed
+#[reflect(Component, Default, Debug, Clone)]
+pub struct TextNodeFlags {
+    /// If set then a new measure function for the text node will be created.
+    needs_measure_fn: bool,
+    /// If set then the text will be recomputed.
     needs_recompute: bool,
 }
 
-impl Default for TextFlags {
+impl Default for TextNodeFlags {
     fn default() -> Self {
         Self {
-            needs_new_measure_func: true,
+            needs_measure_fn: true,
             needs_recompute: true,
         }
     }
 }
 
+/// The top-level UI text component.
+///
+/// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
+///
+/// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
+/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
+///
+/// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
+///
+///
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::BLUE;
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_ui::prelude::Text;
+/// #
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// // Basic usage.
+/// world.spawn(Text::new("hello world!"));
+///
+/// // With non-default style.
+/// world.spawn((
+///     Text::new("hello world!"),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(BLUE.into()),
+/// ));
+///
+/// // With text justification.
+/// world.spawn((
+///     Text::new("hello world\nand bevy!"),
+///     TextLayout::new_with_justify(Justify::Center)
+/// ));
+///
+/// // With spans
+/// world.spawn(Text::new("hello ")).with_children(|parent| {
+///     parent.spawn(TextSpan::new("world"));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+/// });
+/// ```
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+pub struct Text(pub String);
+
+impl Text {
+    /// Makes a new text component.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
+}
+
+impl TextRoot for Text {}
+
+impl TextSpanAccess for Text {
+    fn read_span(&self) -> &str {
+        self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
+    }
+}
+
+impl From<&str> for Text {
+    fn from(value: &str) -> Self {
+        Self(String::from(value))
+    }
+}
+
+impl From<String> for Text {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+/// UI alias for [`TextReader`].
+pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
+
+/// UI alias for [`TextWriter`].
+pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
+
+/// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
+}
+
+impl TextMeasure {
+    /// Checks if the cosmic text buffer is needed for measuring the text.
+    pub fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
+        height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
+    }
 }
 
 impl Measure for TextMeasure {
@@ -53,6 +152,7 @@ impl Measure for TextMeasure {
             width,
             height,
             available_width,
+            buffer,
             font_system,
             ..
         } = measure_args;
@@ -71,9 +171,18 @@ impl Measure for TextMeasure {
         height
             .map_or_else(
                 || match available_width {
-                    AvailableSpace::Definite(_) => self
-                        .info
-                        .compute_size(TextBounds::new_horizontal(x), font_system),
+                    AvailableSpace::Definite(_) => {
+                        if let Some(buffer) = buffer {
+                            self.info.compute_size(
+                                TextBounds::new_horizontal(x),
+                                buffer,
+                                font_system,
+                            )
+                        } else {
+                            error!("text measure failed, buffer is missing");
+                            Vec2::default()
+                        }
+                    }
                     AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
                     AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
@@ -83,40 +192,42 @@ impl Measure for TextMeasure {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 #[inline]
-fn create_text_measure(
+fn create_text_measure<'a>(
+    entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    text: Ref<Text>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+    block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
-    mut text_flags: Mut<TextFlags>,
-    buffer: &mut CosmicBuffer,
-    text_alignment: JustifyText,
+    mut text_flags: Mut<TextNodeFlags>,
+    mut computed: Mut<ComputedTextBlock>,
+    font_system: &mut CosmicFontSystem,
 ) {
     match text_pipeline.create_text_measure(
+        entity,
         fonts,
-        &text.sections,
+        spans,
         scale_factor,
-        text.linebreak_behavior,
-        buffer,
-        text_alignment,
+        &block,
+        computed.as_mut(),
+        font_system,
     ) {
         Ok(measure) => {
-            if text.linebreak_behavior == BreakLineOn::NoWrap {
+            if block.linebreak == LineBreak::NoWrap {
                 content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
             } else {
                 content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
             }
 
-            // Text measure func created successfully, so set `TextFlags` to schedule a recompute
-            text_flags.needs_new_measure_func = false;
+            // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
+            text_flags.needs_measure_fn = false;
             text_flags.needs_recompute = true;
         }
         Err(TextError::NoSuchFont) => {
             // Try again next frame
-            text_flags.needs_new_measure_func = true;
+            text_flags.needs_measure_fn = true;
         }
         Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
             panic!("Fatal error when processing text: {e}.");
@@ -125,74 +236,58 @@ fn create_text_measure(
 }
 
 /// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
+///
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 ///
-/// * Measures are regenerated if the target camera's scale factor (or primary window if no specific target) or [`UiScale`] is changed.
+/// * Measures are regenerated on changes to either [`ComputedTextBlock`] or [`ComputedNodeTarget`].
 /// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
-///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
-///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
-///     method should be called when only changing the `Text`'s colors.
+///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
-    mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
-    ui_scale: Res<UiScale>,
     mut text_query: Query<
         (
-            Ref<Text>,
+            Entity,
+            Ref<TextLayout>,
             &mut ContentSize,
-            &mut TextFlags,
-            Option<&TargetCamera>,
-            &mut CosmicBuffer,
+            &mut TextNodeFlags,
+            &mut ComputedTextBlock,
+            Ref<ComputedNodeTarget>,
         ),
         With<Node>,
     >,
+    mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
+    mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
-
-    for (text, content_size, text_flags, camera, mut buffer) in &mut text_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
-            continue;
-        };
-        let scale_factor = match scale_factors.entry(camera_entity) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => *entry.insert(
-                camera_query
-                    .get(camera_entity)
-                    .ok()
-                    .and_then(|(_, c)| c.target_scaling_factor())
-                    .unwrap_or(1.0)
-                    * ui_scale.0,
-            ),
-        };
-        if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
-            || text.is_changed()
-            || text_flags.needs_new_measure_func
+    for (entity, block, content_size, text_flags, computed, computed_target) in &mut text_query {
+        // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
+        if computed_target.is_changed()
+            || computed.needs_rerender()
+            || text_flags.needs_measure_fn
             || content_size.is_added()
         {
-            let text_alignment = text.justify;
             create_text_measure(
+                entity,
                 &fonts,
-                scale_factor.into(),
-                text,
+                computed_target.scale_factor.into(),
+                text_reader.iter(entity),
+                block,
                 &mut text_pipeline,
                 content_size,
                 text_flags,
-                buffer.as_mut(),
-                text_alignment,
+                computed,
+                &mut font_system,
             );
         }
     }
-    *last_scale_factors = scale_factors;
 }
 
-#[allow(clippy::too_many_arguments)]
 #[inline]
 fn queue_text(
+    entity: Entity,
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
     font_atlas_sets: &mut FontAtlasSets,
@@ -200,122 +295,104 @@ fn queue_text(
     textures: &mut Assets<Image>,
     scale_factor: f32,
     inverse_scale_factor: f32,
-    text: &Text,
-    node: Ref<Node>,
-    mut text_flags: Mut<TextFlags>,
-    mut text_layout_info: Mut<TextLayoutInfo>,
-    buffer: &mut CosmicBuffer,
+    block: &TextLayout,
+    node: Ref<ComputedNode>,
+    mut text_flags: Mut<TextNodeFlags>,
+    text_layout_info: Mut<TextLayoutInfo>,
+    computed: &mut ComputedTextBlock,
+    text_reader: &mut TextUiReader,
+    font_system: &mut CosmicFontSystem,
+    swash_cache: &mut SwashCache,
 ) {
     // Skip the text node if it is waiting for a new measure func
-    if !text_flags.needs_new_measure_func {
-        let physical_node_size = if text.linebreak_behavior == BreakLineOn::NoWrap {
-            // With `NoWrap` set, no constraints are placed on the width of the text.
-            TextBounds::UNBOUNDED
-        } else {
-            // `scale_factor` is already multiplied by `UiScale`
-            TextBounds::new(
-                node.unrounded_size.x * scale_factor,
-                node.unrounded_size.y * scale_factor,
-            )
-        };
+    if text_flags.needs_measure_fn {
+        return;
+    }
 
-        match text_pipeline.queue_text(
-            fonts,
-            &text.sections,
-            scale_factor.into(),
-            text.justify,
-            text.linebreak_behavior,
-            physical_node_size,
-            font_atlas_sets,
-            texture_atlases,
-            textures,
-            YAxisOrientation::TopToBottom,
-            buffer,
-        ) {
-            Err(TextError::NoSuchFont) => {
-                // There was an error processing the text layout, try again next frame
-                text_flags.needs_recompute = true;
-            }
-            Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
-                panic!("Fatal error when processing text: {e}.");
-            }
-            Ok(mut info) => {
-                info.size.x = scale_value(info.size.x, inverse_scale_factor);
-                info.size.y = scale_value(info.size.y, inverse_scale_factor);
-                *text_layout_info = info;
-                text_flags.needs_recompute = false;
-            }
+    let physical_node_size = if block.linebreak == LineBreak::NoWrap {
+        // With `NoWrap` set, no constraints are placed on the width of the text.
+        TextBounds::UNBOUNDED
+    } else {
+        // `scale_factor` is already multiplied by `UiScale`
+        TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
+    };
+
+    let text_layout_info = text_layout_info.into_inner();
+    match text_pipeline.queue_text(
+        text_layout_info,
+        fonts,
+        text_reader.iter(entity),
+        scale_factor.into(),
+        block,
+        physical_node_size,
+        font_atlas_sets,
+        texture_atlases,
+        textures,
+        computed,
+        font_system,
+        swash_cache,
+    ) {
+        Err(TextError::NoSuchFont) => {
+            // There was an error processing the text layout, try again next frame
+            text_flags.needs_recompute = true;
+        }
+        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+            panic!("Fatal error when processing text: {e}.");
+        }
+        Ok(()) => {
+            text_layout_info.size.x = scale_value(text_layout_info.size.x, inverse_scale_factor);
+            text_layout_info.size.y = scale_value(text_layout_info.size.y, inverse_scale_factor);
+            text_flags.needs_recompute = false;
         }
     }
 }
 
 /// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
-/// or when the `needs_recompute` field of [`TextFlags`] is set to true.
+/// or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
 /// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
 ///
 /// ## World Resources
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
-#[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
-    ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
-        Ref<Node>,
-        &Text,
+        Entity,
+        Ref<ComputedNode>,
+        &TextLayout,
         &mut TextLayoutInfo,
-        &mut TextFlags,
-        Option<&TargetCamera>,
-        &mut CosmicBuffer,
+        &mut TextNodeFlags,
+        &mut ComputedTextBlock,
     )>,
+    mut text_reader: TextUiReader,
+    mut font_system: ResMut<CosmicFontSystem>,
+    mut swash_cache: ResMut<SwashCache>,
 ) {
-    let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
-
-    for (node, text, text_layout_info, text_flags, camera, mut buffer) in &mut text_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
-            continue;
-        };
-        let scale_factor = match scale_factors.entry(camera_entity) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => *entry.insert(
-                camera_query
-                    .get(camera_entity)
-                    .ok()
-                    .and_then(|(_, c)| c.target_scaling_factor())
-                    .unwrap_or(1.0)
-                    * ui_scale.0,
-            ),
-        };
-        let inverse_scale_factor = scale_factor.recip();
-
-        if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
-            || node.is_changed()
-            || text_flags.needs_recompute
-        {
+    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+        if node.is_changed() || text_flags.needs_recompute {
             queue_text(
+                entity,
                 &fonts,
                 &mut text_pipeline,
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                scale_factor,
-                inverse_scale_factor,
-                text,
+                node.inverse_scale_factor.recip(),
+                node.inverse_scale_factor,
+                block,
                 node,
                 text_flags,
                 text_layout_info,
-                buffer.as_mut(),
+                computed.as_mut(),
+                &mut text_reader,
+                &mut font_system,
+                &mut swash_cache,
             );
         }
     }
-    *last_scale_factors = scale_factors;
 }

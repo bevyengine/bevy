@@ -1,9 +1,13 @@
-use crate::component::Tick;
-use crate::prelude::World;
-use crate::system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam};
-use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use std::borrow::Cow;
-use std::ops::Deref;
+use crate::{
+    component::{ComponentId, Tick},
+    prelude::World,
+    query::FilteredAccessSet,
+    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
+    world::unsafe_world_cell::UnsafeWorldCell,
+};
+use alloc::borrow::Cow;
+use core::ops::Deref;
+use derive_more::derive::{AsRef, Display, Into};
 
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
@@ -16,11 +20,11 @@ use std::ops::Deref;
 /// # use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// struct Logger<'s> {
-///     system_name: SystemName<'s>,
+/// struct Logger {
+///     system_name: SystemName,
 /// }
 ///
-/// impl<'s> Logger<'s> {
+/// impl Logger {
 ///     fn log(&mut self, message: &str) {
 ///         eprintln!("{}: {}", self.system_name, message);
 ///     }
@@ -31,82 +35,71 @@ use std::ops::Deref;
 ///     logger.log("Hello");
 /// }
 /// ```
-#[derive(Debug)]
-pub struct SystemName<'s>(&'s str);
+#[derive(Debug, Into, Display, AsRef)]
+#[as_ref(str)]
+pub struct SystemName(Cow<'static, str>);
 
-impl<'s> SystemName<'s> {
+impl SystemName {
     /// Gets the name of the system.
     pub fn name(&self) -> &str {
-        self.0
+        &self.0
     }
 }
 
-impl<'s> Deref for SystemName<'s> {
+impl Deref for SystemName {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         self.name()
     }
 }
 
-impl<'s> AsRef<str> for SystemName<'s> {
-    fn as_ref(&self) -> &str {
-        self.name()
-    }
-}
-
-impl<'s> From<SystemName<'s>> for &'s str {
-    fn from(name: SystemName<'s>) -> &'s str {
-        name.0
-    }
-}
-
-impl<'s> std::fmt::Display for SystemName<'s> {
-    #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name(), f)
-    }
-}
-
 // SAFETY: no component value access
-unsafe impl SystemParam for SystemName<'_> {
-    type State = Cow<'static, str>;
-    type Item<'w, 's> = SystemName<'s>;
+unsafe impl SystemParam for SystemName {
+    type State = ();
+    type Item<'w, 's> = SystemName;
 
-    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet<ComponentId>,
+        _world: &mut World,
+    ) {
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        name: &'s mut Self::State,
-        _system_meta: &SystemMeta,
+        _state: &'s mut Self::State,
+        system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        SystemName(name)
+        SystemName(system_meta.name.clone())
     }
 }
 
 // SAFETY: Only reads internal system state
-unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
+unsafe impl ReadOnlySystemParam for SystemName {}
 
-impl ExclusiveSystemParam for SystemName<'_> {
-    type State = Cow<'static, str>;
-    type Item<'s> = SystemName<'s>;
+impl ExclusiveSystemParam for SystemName {
+    type State = ();
+    type Item<'s> = SystemName;
 
-    fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
-    }
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
-    fn get_param<'s>(state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
-        SystemName(state)
+    fn get_param<'s>(_state: &'s mut Self::State, system_meta: &SystemMeta) -> Self::Item<'s> {
+        SystemName(system_meta.name.clone())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::system::{IntoSystem, RunSystemOnce, SystemName};
-    use crate::world::World;
+    use crate::{
+        system::{IntoSystem, RunSystemOnce, SystemName},
+        world::World,
+    };
+    use alloc::{borrow::ToOwned, string::String};
 
     #[test]
     fn test_system_name_regular_param() {
@@ -137,7 +130,7 @@ mod tests {
         let mut world = World::default();
         let system =
             IntoSystem::into_system(|name: SystemName| name.name().to_owned()).with_name("testing");
-        let name = world.run_system_once(system);
+        let name = world.run_system_once(system).unwrap();
         assert_eq!(name, "testing");
     }
 
@@ -147,7 +140,7 @@ mod tests {
         let system =
             IntoSystem::into_system(|_world: &mut World, name: SystemName| name.name().to_owned())
                 .with_name("testing");
-        let name = world.run_system_once(system);
+        let name = world.run_system_once(system).unwrap();
         assert_eq!(name, "testing");
     }
 }

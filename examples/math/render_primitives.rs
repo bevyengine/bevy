@@ -1,10 +1,7 @@
 //! This example demonstrates how each of Bevy's math primitives look like in 2D and 3D with meshes
 //! and with gizmos
-#![allow(clippy::match_same_arms)]
 
-use bevy::{
-    input::common_conditions::input_just_pressed, prelude::*, sprite::MaterialMesh2dBundle,
-};
+use bevy::{input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*};
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
 const LEFT_RIGHT_OFFSET_3D: f32 = 2.0;
@@ -190,12 +187,14 @@ const LINE2D: Line2d = Line2d { direction: Dir2::X };
 const LINE3D: Line3d = Line3d { direction: Dir3::X };
 
 const SEGMENT_2D: Segment2d = Segment2d {
-    direction: Dir2::X,
-    half_length: BIG_2D,
+    vertices: [Vec2::new(-BIG_2D / 2., 0.), Vec2::new(BIG_2D / 2., 0.)],
 };
+
 const SEGMENT_3D: Segment3d = Segment3d {
-    direction: Dir3::X,
-    half_length: BIG_3D,
+    vertices: [
+        Vec3::new(-BIG_3D / 2., 0., 0.),
+        Vec3::new(BIG_3D / 2., 0., 0.),
+    ],
 };
 
 const POLYLINE_2D: Polyline2d<4> = Polyline2d {
@@ -300,16 +299,13 @@ fn setup_cameras(mut commands: Commands) {
         ..Default::default()
     };
 
-    commands.spawn(Camera2dBundle {
-        camera: make_camera(start_in_2d),
-        ..Default::default()
-    });
+    commands.spawn((Camera2d, make_camera(start_in_2d)));
 
-    commands.spawn(Camera3dBundle {
-        camera: make_camera(!start_in_2d),
-        transform: Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
-        ..Default::default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        make_camera(!start_in_2d),
+        Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
+    ));
 }
 
 fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
@@ -317,15 +313,14 @@ fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
 }
 
 fn setup_lights(mut commands: Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 5000.0,
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
+        Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
             .looking_at(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    ));
 }
 
 /// Marker component for header text
@@ -338,12 +333,12 @@ pub struct HeaderNode;
 
 fn update_active_cameras(
     state: Res<State<CameraActive>>,
-    mut camera_2d: Query<(Entity, &mut Camera), With<Camera2d>>,
-    mut camera_3d: Query<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
-    mut text: Query<&mut TargetCamera, With<HeaderNode>>,
+    camera_2d: Single<(Entity, &mut Camera), With<Camera2d>>,
+    camera_3d: Single<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
+    mut text: Query<&mut UiTargetCamera, With<HeaderNode>>,
 ) {
-    let (entity_2d, mut cam_2d) = camera_2d.single_mut();
-    let (entity_3d, mut cam_3d) = camera_3d.single_mut();
+    let (entity_2d, mut cam_2d) = camera_2d.into_inner();
+    let (entity_3d, mut cam_3d) = camera_3d.into_inner();
     let is_camera_2d_active = matches!(*state.get(), CameraActive::Dim2);
 
     cam_2d.is_active = is_camera_2d_active;
@@ -356,7 +351,7 @@ fn update_active_cameras(
     };
 
     text.iter_mut().for_each(|mut target_camera| {
-        *target_camera = TargetCamera(active_camera);
+        *target_camera = UiTargetCamera(active_camera);
     });
 }
 
@@ -373,51 +368,42 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
-    let text = format!("{text}", text = PrimitiveSelected::default());
-    let style = TextStyle::default();
-    let instructions = "Press 'C' to switch between 2D and 3D mode\n\
-        Press 'Up' or 'Down' to switch to the next/previous primitive";
-    let text = [
-        TextSection::new("Primitive: ", style.clone()),
-        TextSection::new(text, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(instructions, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(
-            "(If nothing is displayed, there's no rendering support yet)",
-            style.clone(),
-        ),
-    ];
-
-    commands
-        .spawn((
-            HeaderNode,
-            NodeBundle {
-                style: Style {
-                    justify_self: JustifySelf::Center,
-                    top: Val::Px(5.0),
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-            TargetCamera(active_camera),
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                HeaderText,
-                TextBundle::from_sections(text).with_text_justify(JustifyText::Center),
-            ));
-        });
+    commands.spawn((
+        HeaderNode,
+        Node {
+            justify_self: JustifySelf::Center,
+            top: Val::Px(5.0),
+            ..Default::default()
+        },
+        UiTargetCamera(active_camera),
+        children![(
+            Text::default(),
+            HeaderText,
+            TextLayout::new_with_justify(Justify::Center),
+            children![
+                TextSpan::new("Primitive: "),
+                TextSpan(format!("{text}", text = PrimitiveSelected::default())),
+                TextSpan::new("\n\n"),
+                TextSpan::new(
+                    "Press 'C' to switch between 2D and 3D mode\n\
+                    Press 'Up' or 'Down' to switch to the next/previous primitive",
+                ),
+                TextSpan::new("\n\n"),
+                TextSpan::new("(If nothing is displayed, there's no rendering support yet)",),
+            ]
+        )],
+    ));
 }
 
 fn update_text(
     primitive_state: Res<State<PrimitiveSelected>>,
-    mut header: Query<&mut Text, With<HeaderText>>,
+    header: Query<Entity, With<HeaderText>>,
+    mut writer: TextUiWriter,
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
-    header.iter_mut().for_each(|mut header_text| {
-        if let Some(kind) = header_text.sections.get_mut(1) {
-            kind.value.clone_from(&new_text);
+    header.iter().for_each(|header_text| {
+        if let Some(mut text) = writer.get_text(header_text, 2) {
+            (*text).clone_from(&new_text);
         };
     });
 }
@@ -444,40 +430,45 @@ fn in_mode(active: CameraActive) -> impl Fn(Res<State<CameraActive>>) -> bool {
 
 fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
     const POSITION: Vec2 = Vec2::new(-LEFT_RIGHT_OFFSET_2D, 0.0);
-    let angle = time.elapsed_seconds();
+    let angle = time.elapsed_secs();
+    let isometry = Isometry2d::new(POSITION, Rot2::radians(angle));
     let color = Color::WHITE;
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Certain primitives don't have any 2D rendering support yet."
+    )]
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
-            gizmos.primitive_2d(&RECTANGLE, POSITION, angle, color);
+            gizmos.primitive_2d(&RECTANGLE, isometry, color);
         }
         PrimitiveSelected::CircleAndSphere => {
-            gizmos.primitive_2d(&CIRCLE, POSITION, angle, color);
+            gizmos.primitive_2d(&CIRCLE, isometry, color);
         }
-        PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, POSITION, angle, color)),
-        PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, POSITION, angle, color),
-        PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, POSITION, angle, color),
-        PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, POSITION, angle, color)),
+        PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, isometry, color)),
+        PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, isometry, color),
+        PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, isometry, color),
+        PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, isometry, color)),
         PrimitiveSelected::Segment => {
-            drop(gizmos.primitive_2d(&SEGMENT_2D, POSITION, angle, color));
+            drop(gizmos.primitive_2d(&SEGMENT_2D, isometry, color));
         }
-        PrimitiveSelected::Polyline => gizmos.primitive_2d(&POLYLINE_2D, POSITION, angle, color),
-        PrimitiveSelected::Polygon => gizmos.primitive_2d(&POLYGON_2D, POSITION, angle, color),
+        PrimitiveSelected::Polyline => gizmos.primitive_2d(&POLYLINE_2D, isometry, color),
+        PrimitiveSelected::Polygon => gizmos.primitive_2d(&POLYGON_2D, isometry, color),
         PrimitiveSelected::RegularPolygon => {
-            gizmos.primitive_2d(&REGULAR_POLYGON, POSITION, angle, color);
+            gizmos.primitive_2d(&REGULAR_POLYGON, isometry, color);
         }
-        PrimitiveSelected::Capsule => gizmos.primitive_2d(&CAPSULE_2D, POSITION, angle, color),
+        PrimitiveSelected::Capsule => gizmos.primitive_2d(&CAPSULE_2D, isometry, color),
         PrimitiveSelected::Cylinder => {}
         PrimitiveSelected::Cone => {}
         PrimitiveSelected::ConicalFrustum => {}
-        PrimitiveSelected::Torus => drop(gizmos.primitive_2d(&ANNULUS, POSITION, angle, color)),
+        PrimitiveSelected::Torus => drop(gizmos.primitive_2d(&ANNULUS, isometry, color)),
         PrimitiveSelected::Tetrahedron => {}
-        PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, POSITION, angle, color),
+        PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, isometry, color),
         PrimitiveSelected::CircularSector => {
-            gizmos.primitive_2d(&CIRCULAR_SECTOR, POSITION, angle, color);
+            gizmos.primitive_2d(&CIRCULAR_SECTOR, isometry, color);
         }
         PrimitiveSelected::CircularSegment => {
-            gizmos.primitive_2d(&CIRCULAR_SEGMENT, POSITION, angle, color);
+            gizmos.primitive_2d(&CIRCULAR_SEGMENT, isometry, color);
         }
     }
 }
@@ -533,12 +524,9 @@ fn spawn_primitive_2d(
                     camera_mode,
                     primitive_state: state,
                 },
-                MaterialMesh2dBundle {
-                    mesh: meshes.add(mesh).into(),
-                    material: material.clone(),
-                    transform: Transform::from_translation(POSITION),
-                    ..Default::default()
-                },
+                Mesh2d(meshes.add(mesh)),
+                MeshMaterial2d(material.clone()),
+                Transform::from_translation(POSITION),
             ));
         }
     });
@@ -580,12 +568,9 @@ fn spawn_primitive_3d(
                     camera_mode,
                     primitive_state: state,
                 },
-                PbrBundle {
-                    mesh: meshes.add(mesh),
-                    material: material.clone(),
-                    transform: Transform::from_translation(POSITION),
-                    ..Default::default()
-                },
+                Mesh3d(meshes.add(mesh)),
+                MeshMaterial3d(material.clone()),
+                Transform::from_translation(POSITION),
             ));
         }
     });
@@ -614,7 +599,7 @@ fn rotate_primitive_2d_meshes(
     >,
     time: Res<Time>,
 ) {
-    let rotation_2d = Quat::from_mat3(&Mat3::from_angle(time.elapsed_seconds()));
+    let rotation_2d = Quat::from_mat3(&Mat3::from_angle(time.elapsed_secs()));
     primitives_2d
         .iter_mut()
         .filter(|(_, vis)| vis.get())
@@ -633,9 +618,9 @@ fn rotate_primitive_3d_meshes(
     let rotation_3d = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            ops::sin(time.elapsed_secs()),
+            ops::cos(time.elapsed_secs()),
+            ops::sin(time.elapsed_secs()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),
@@ -653,60 +638,65 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let rotation = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            ops::sin(time.elapsed_secs()),
+            ops::cos(time.elapsed_secs()),
+            ops::sin(time.elapsed_secs()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),
     );
+    let isometry = Isometry3d::new(POSITION, rotation);
     let color = Color::WHITE;
     let resolution = 10;
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Certain primitives don't have any 3D rendering support yet."
+    )]
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
-            gizmos.primitive_3d(&CUBOID, POSITION, rotation, color);
+            gizmos.primitive_3d(&CUBOID, isometry, color);
         }
         PrimitiveSelected::CircleAndSphere => drop(
             gizmos
-                .primitive_3d(&SPHERE, POSITION, rotation, color)
+                .primitive_3d(&SPHERE, isometry, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::Ellipse => {}
-        PrimitiveSelected::Triangle => gizmos.primitive_3d(&TRIANGLE_3D, POSITION, rotation, color),
-        PrimitiveSelected::Plane => drop(gizmos.primitive_3d(&PLANE_3D, POSITION, rotation, color)),
-        PrimitiveSelected::Line => gizmos.primitive_3d(&LINE3D, POSITION, rotation, color),
-        PrimitiveSelected::Segment => gizmos.primitive_3d(&SEGMENT_3D, POSITION, rotation, color),
-        PrimitiveSelected::Polyline => gizmos.primitive_3d(&POLYLINE_3D, POSITION, rotation, color),
+        PrimitiveSelected::Triangle => gizmos.primitive_3d(&TRIANGLE_3D, isometry, color),
+        PrimitiveSelected::Plane => drop(gizmos.primitive_3d(&PLANE_3D, isometry, color)),
+        PrimitiveSelected::Line => gizmos.primitive_3d(&LINE3D, isometry, color),
+        PrimitiveSelected::Segment => gizmos.primitive_3d(&SEGMENT_3D, isometry, color),
+        PrimitiveSelected::Polyline => gizmos.primitive_3d(&POLYLINE_3D, isometry, color),
         PrimitiveSelected::Polygon => {}
         PrimitiveSelected::RegularPolygon => {}
         PrimitiveSelected::Capsule => drop(
             gizmos
-                .primitive_3d(&CAPSULE_3D, POSITION, rotation, color)
+                .primitive_3d(&CAPSULE_3D, isometry, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::Cylinder => drop(
             gizmos
-                .primitive_3d(&CYLINDER, POSITION, rotation, color)
+                .primitive_3d(&CYLINDER, isometry, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::Cone => drop(
             gizmos
-                .primitive_3d(&CONE, POSITION, rotation, color)
+                .primitive_3d(&CONE, isometry, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::ConicalFrustum => {
-            gizmos.primitive_3d(&CONICAL_FRUSTUM, POSITION, rotation, color);
+            gizmos.primitive_3d(&CONICAL_FRUSTUM, isometry, color);
         }
 
         PrimitiveSelected::Torus => drop(
             gizmos
-                .primitive_3d(&TORUS, POSITION, rotation, color)
+                .primitive_3d(&TORUS, isometry, color)
                 .minor_resolution(resolution)
                 .major_resolution(resolution),
         ),
         PrimitiveSelected::Tetrahedron => {
-            gizmos.primitive_3d(&TETRAHEDRON, POSITION, rotation, color);
+            gizmos.primitive_3d(&TETRAHEDRON, isometry, color);
         }
 
         PrimitiveSelected::Arc => {}

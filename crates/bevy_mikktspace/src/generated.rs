@@ -5,7 +5,7 @@
 //! modification to Morten S. Mikkelsen's original tangent space algorithm
 //! implementation written in C. The original source code can be found at
 //! <https://archive.blender.org/wiki/index.php/Dev:Shading/Tangent_Space_Normal_Maps>
-//! and includes the following licence:
+//! and includes the following license:
 //!
 //! Copyright (C) 2011 by Morten S. Mikkelsen
 //!
@@ -45,7 +45,8 @@
     unsafe_code
 )]
 
-use std::ptr::{self, null_mut};
+use alloc::{vec, vec::Vec};
+use core::ptr::{self, null_mut};
 
 use glam::Vec3;
 
@@ -94,7 +95,7 @@ impl STSpace {
 // of the vertex shader, as explained earlier, then be sure to do this in the normal map sampler also.
 // Finally, beware of quad triangulations. If the normal map sampler doesn't use the same triangulation of
 // quads as your renderer then problems will occur since the interpolated tangent spaces will differ
-// eventhough the vertex level tangent spaces match. This can be solved either by triangulating before
+// even though the vertex level tangent spaces match. This can be solved either by triangulating before
 // sampling/exporting or by using the order-independent choice of diagonal for splitting quads suggested earlier.
 // However, this must be used both by the sampler and your tools/rendering pipeline.
 // internal structure
@@ -135,7 +136,7 @@ pub struct SGroup {
     pub iNrFaces: i32,
     pub pFaceIndices: *mut i32,
     pub iVertexRepresentative: i32,
-    pub bOrientPreservering: bool,
+    pub bOrientPreserving: bool,
 }
 
 impl SGroup {
@@ -144,7 +145,7 @@ impl SGroup {
             iNrFaces: 0,
             pFaceIndices: null_mut(),
             iVertexRepresentative: 0,
-            bOrientPreservering: false,
+            bOrientPreserving: false,
         }
     }
 }
@@ -211,7 +212,7 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
     let mut index = 0;
     let iNrFaces = geometry.num_faces();
     let mut bRes: bool = false;
-    let fThresCos = fAngularThreshold.to_radians().cos();
+    let fThresCos = cos(fAngularThreshold.to_radians());
     f = 0;
     while f < iNrFaces {
         let verts = geometry.num_vertices_of_face(f);
@@ -253,6 +254,10 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         t += 1
     }
     iNrTrianglesIn = iTotTris - iDegenTriangles;
+
+    if iNrTrianglesIn <= 0 {
+        return false;
+    }
     DegenPrologue(
         pTriInfos.as_mut_ptr(),
         piTriListIn.as_mut_ptr(),
@@ -571,11 +576,11 @@ unsafe fn GenerateTSpaces<I: Geometry>(
             if (*pTS_out).iCounter == 1i32 {
                 *pTS_out = AvgTSpace(pTS_out, &mut pSubGroupTspace[l]);
                 (*pTS_out).iCounter = 2i32;
-                (*pTS_out).bOrient = (*pGroup).bOrientPreservering
+                (*pTS_out).bOrient = (*pGroup).bOrientPreserving
             } else {
                 *pTS_out = pSubGroupTspace[l];
                 (*pTS_out).iCounter = 1i32;
-                (*pTS_out).bOrient = (*pGroup).bOrientPreservering
+                (*pTS_out).bOrient = (*pGroup).bOrientPreserving
             }
             i += 1
         }
@@ -626,7 +631,7 @@ unsafe fn VNotZero(v: Vec3) -> bool {
 }
 
 unsafe fn NotZero(fX: f32) -> bool {
-    fX.abs() > 1.17549435e-38f32
+    abs(fX) > 1.17549435e-38f32
 }
 
 unsafe fn EvalTspace<I: Geometry>(
@@ -720,7 +725,7 @@ unsafe fn EvalTspace<I: Geometry>(
             } else {
                 fCos
             };
-            fAngle = (fCos as f64).acos() as f32;
+            fAngle = acosf64(fCos as f64) as f32;
             fMagS = (*pTriInfos.offset(f as isize)).fMagS;
             fMagT = (*pTriInfos.offset(f as isize)).fMagT;
             res.vOs = res.vOs + (fAngle * vOs);
@@ -751,7 +756,7 @@ unsafe fn CompareSubGroups(mut pg1: *const SSubGroup, mut pg2: *const SSubGroup)
         return false;
     }
     while i < (*pg1).iNrFaces as usize && bStillSame {
-        bStillSame = if (*pg1).pTriMembers[i] == (*pg2).pTriMembers[i] {
+        bStillSame = if (&(*pg1).pTriMembers)[i] == (&(*pg2).pTriMembers)[i] {
             true
         } else {
             false
@@ -833,7 +838,7 @@ unsafe fn Build4RuleGroups(
                 *fresh2 = ptr::from_mut(&mut *pGroups.offset(iNrActiveGroups as isize));
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize])
                     .iVertexRepresentative = vert_index;
-                (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).bOrientPreservering =
+                (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).bOrientPreserving =
                     (*pTriInfos.offset(f as isize)).iFlag & 8i32 != 0i32;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces = 0i32;
                 let ref mut fresh3 =
@@ -922,7 +927,7 @@ unsafe fn AssignRecur(
             && (*pMyTriInfo).AssignedGroup[2usize].is_null()
         {
             (*pMyTriInfo).iFlag &= !8i32;
-            (*pMyTriInfo).iFlag |= if (*pGroup).bOrientPreservering {
+            (*pMyTriInfo).iFlag |= if (*pGroup).bOrientPreserving {
                 8i32
             } else {
                 0i32
@@ -934,7 +939,7 @@ unsafe fn AssignRecur(
     } else {
         false
     };
-    if bOrient != (*pGroup).bOrientPreservering {
+    if bOrient != (*pGroup).bOrientPreserving {
         return false;
     }
     AddTriToGroup(pGroup, iMyTriIndex);
@@ -1006,7 +1011,7 @@ unsafe fn InitTriInfo<I: Geometry>(
             0i32
         };
         if NotZero(fSignedAreaSTx2) {
-            let fAbsArea: f32 = fSignedAreaSTx2.abs();
+            let fAbsArea: f32 = abs(fSignedAreaSTx2);
             let fLenOs: f32 = vOs.length();
             let fLenOt: f32 = vOt.length();
             let fS: f32 = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 == 0i32 {
@@ -1030,7 +1035,7 @@ unsafe fn InitTriInfo<I: Geometry>(
         }
         f += 1
     }
-    while t < iNrTrianglesIn - 1 {
+    while t + 1 < iNrTrianglesIn {
         let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
         let iFO_b: i32 = (*pTriInfos.offset((t + 1) as isize)).iOrgFaceNumber;
         if iFO_a == iFO_b {
@@ -1803,4 +1808,64 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
         t += 1
     }
     return iTSpacesOffs;
+}
+
+fn cos(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.cos()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::cosf(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `cos`")
+    }
+}
+
+fn acos(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.acos()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::acosf(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `acos`")
+    }
+}
+
+fn abs(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.abs()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::fabsf(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `abs`")
+    }
+}
+
+fn acosf64(value: f64) -> f64 {
+    #[cfg(feature = "std")]
+    {
+        value.acos()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::acos(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `acos`")
+    }
 }

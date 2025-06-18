@@ -1,9 +1,9 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
-use bevy::{input::common_conditions::input_just_pressed, prelude::*};
+
+use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::TextUiWriter};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
-const HALF_CONTAINER_SIZE: f32 = CONTAINER_SIZE / 2.0;
 const LOOP_LENGTH: f32 = 4.0;
 
 fn main() {
@@ -40,16 +40,16 @@ struct AnimationState {
 struct Container(u8);
 
 trait UpdateTransform {
-    fn update(&self, t: f32, transform: &mut Transform);
+    fn update(&self, t: f32, transform: &mut UiTransform);
 }
 
 #[derive(Component)]
 struct Move;
 
 impl UpdateTransform for Move {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.translation.x = (t * TAU - FRAC_PI_2).sin() * HALF_CONTAINER_SIZE;
-        transform.translation.y = -(t * TAU - FRAC_PI_2).cos() * HALF_CONTAINER_SIZE;
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.translation.x = Val::Percent(ops::sin(t * TAU - FRAC_PI_2) * 50.);
+        transform.translation.y = Val::Percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.);
     }
 }
 
@@ -57,9 +57,9 @@ impl UpdateTransform for Move {
 struct Scale;
 
 impl UpdateTransform for Scale {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.scale.x = 1.0 + 0.5 * (t * TAU).cos().max(0.0);
-        transform.scale.y = 1.0 + 0.5 * (t * TAU + PI).cos().max(0.0);
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
+        transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
     }
 }
 
@@ -67,61 +67,57 @@ impl UpdateTransform for Scale {
 struct Rotate;
 
 impl UpdateTransform for Rotate {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.rotation = Quat::from_axis_angle(Vec3::Z, ((t * TAU).cos() * 45.0).to_radians());
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.rotation = Rot2::radians(ops::cos(t * TAU) * 45.0);
     }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Instructions
 
-    let text_style = TextStyle::default();
+    let text_font = TextFont::default();
 
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new(
+    commands
+        .spawn((
+            Text::new(
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
-                text_style.clone(),
             ),
-            TextSection::new(format!("{:?}", Overflow::clip()), text_style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-        Instructions,
-    ));
+            text_font.clone(),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+            Instructions,
+        ))
+        .with_child((
+            TextSpan::new(format!("{:?}", Overflow::clip())),
+            text_font.clone(),
+        ));
 
     // Overflow Debug
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             ..default()
         })
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        display: Display::Grid,
-                        grid_template_columns: RepeatedGridTrack::px(3, CONTAINER_SIZE),
-                        grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
-                        row_gap: Val::Px(80.),
-                        column_gap: Val::Px(80.),
-                        ..default()
-                    },
+                .spawn(Node {
+                    display: Display::Grid,
+                    grid_template_columns: RepeatedGridTrack::px(3, CONTAINER_SIZE),
+                    grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
+                    row_gap: Val::Px(80.),
+                    column_gap: Val::Px(80.),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -137,36 +133,35 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn spawn_image(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     asset_server: &Res<AssetServer>,
     update_transform: impl UpdateTransform + Component,
 ) {
     spawn_container(parent, update_transform, |parent| {
-        parent.spawn(ImageBundle {
-            image: UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
-            style: Style {
+        parent.spawn((
+            ImageNode::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+            Node {
                 height: Val::Px(100.),
                 position_type: PositionType::Absolute,
                 top: Val::Px(-50.),
                 left: Val::Px(-200.),
                 ..default()
             },
-            ..default()
-        });
+        ));
     });
 }
 
 fn spawn_text(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     asset_server: &Res<AssetServer>,
     update_transform: impl UpdateTransform + Component,
 ) {
     spawn_container(parent, update_transform, |parent| {
-        parent.spawn(TextBundle::from_section(
-            "Bevy",
-            TextStyle {
+        parent.spawn((
+            Text::new("Bevy"),
+            TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 120.0,
+                font_size: 100.0,
                 ..default()
             },
         ));
@@ -174,42 +169,29 @@ fn spawn_text(
 }
 
 fn spawn_container(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     update_transform: impl UpdateTransform + Component,
-    spawn_children: impl FnOnce(&mut ChildBuilder),
+    spawn_children: impl FnOnce(&mut ChildSpawnerCommands),
 ) {
-    let mut transform = Transform::default();
-
-    update_transform.update(0.0, &mut transform);
-
     parent
         .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    overflow: Overflow::clip(),
-                    ..default()
-                },
-                background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+            Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
                 ..default()
             },
+            BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
             Container(0),
         ))
         .with_children(|parent| {
             parent
                 .spawn((
-                    NodeBundle {
-                        style: Style {
-                            align_items: AlignItems::Center,
-                            justify_content: JustifyContent::Center,
-                            top: Val::Px(transform.translation.x),
-                            left: Val::Px(transform.translation.y),
-                            ..default()
-                        },
-                        transform,
+                    Node {
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
                         ..default()
                     },
                     update_transform,
@@ -223,7 +205,7 @@ fn update_animation(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    let delta = time.elapsed_seconds();
+    let delta = time.elapsed_secs();
 
     if keys.just_pressed(KeyCode::Space) {
         animation.playing = !animation.playing;
@@ -242,22 +224,20 @@ fn update_animation(
 
 fn update_transform<T: UpdateTransform + Component>(
     animation: Res<AnimationState>,
-    mut containers: Query<(&mut Transform, &mut Style, &T)>,
+    mut containers: Query<(&mut UiTransform, &T)>,
 ) {
-    for (mut transform, mut style, update_transform) in &mut containers {
+    for (mut transform, update_transform) in &mut containers {
         update_transform.update(animation.t, &mut transform);
-
-        style.left = Val::Px(transform.translation.x);
-        style.top = Val::Px(transform.translation.y);
     }
 }
 
 fn toggle_overflow(
-    mut containers: Query<&mut Style, With<Container>>,
-    mut instructions: Query<&mut Text, With<Instructions>>,
+    mut containers: Query<&mut Node, With<Container>>,
+    instructions: Single<Entity, With<Instructions>>,
+    mut writer: TextUiWriter,
 ) {
-    for mut style in &mut containers {
-        style.overflow = match style.overflow {
+    for mut node in &mut containers {
+        node.overflow = match node.overflow {
             Overflow {
                 x: OverflowAxis::Visible,
                 y: OverflowAxis::Visible,
@@ -273,20 +253,20 @@ fn toggle_overflow(
             _ => Overflow::visible(),
         };
 
-        let mut text = instructions.single_mut();
-        text.sections[1].value = format!("{:?}", style.overflow);
+        let entity = *instructions;
+        *writer.text(entity, 1) = format!("{:?}", node.overflow);
     }
 }
 
-fn next_container_size(mut containers: Query<(&mut Style, &mut Container)>) {
-    for (mut style, mut container) in &mut containers {
+fn next_container_size(mut containers: Query<(&mut Node, &mut Container)>) {
+    for (mut node, mut container) in &mut containers {
         container.0 = (container.0 + 1) % 3;
 
-        style.width = match container.0 {
+        node.width = match container.0 {
             2 => Val::Percent(30.),
             _ => Val::Percent(100.),
         };
-        style.height = match container.0 {
+        node.height = match container.0 {
             1 => Val::Percent(30.),
             _ => Val::Percent(100.),
         };

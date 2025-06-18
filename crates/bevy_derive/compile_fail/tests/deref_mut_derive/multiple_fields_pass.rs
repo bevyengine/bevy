@@ -1,7 +1,7 @@
 //@check-pass
 
 use bevy_derive::DerefMut;
-use std::ops::Deref;
+use core::ops::Deref;
 
 #[derive(DerefMut)]
 // The first field is never read, but we want it there to check that the derive skips it.

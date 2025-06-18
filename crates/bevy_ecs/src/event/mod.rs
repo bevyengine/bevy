@@ -11,8 +11,8 @@ mod update;
 mod writer;
 
 pub(crate) use base::EventInstance;
-pub use base::{Event, EventId};
-pub use bevy_ecs_macros::Event;
+pub use base::{BufferedEvent, EntityEvent, Event, EventId};
+pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
 pub use collections::{Events, SendBatchIds};
 pub use event_cursor::EventCursor;
 #[cfg(feature = "multi_threaded")]
@@ -24,26 +24,34 @@ pub use mut_iterators::{EventMutIterator, EventMutIteratorWithId};
 pub use mutator::EventMutator;
 pub use reader::EventReader;
 pub use registry::{EventRegistry, ShouldUpdateEvents};
+#[expect(
+    deprecated,
+    reason = "`EventUpdates` was renamed to `EventUpdateSystems`."
+)]
 pub use update::{
-    event_update_condition, event_update_system, signal_event_update_system, EventUpdates,
+    event_update_condition, event_update_system, signal_event_update_system, EventUpdateSystems,
+    EventUpdates,
 };
 pub use writer::EventWriter;
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
+    use alloc::{vec, vec::Vec};
     use bevy_ecs::{event::*, system::assert_is_read_only_system};
-    use bevy_ecs_macros::Event;
+    use bevy_ecs_macros::BufferedEvent;
 
-    #[derive(Event, Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Event, BufferedEvent, Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
     }
 
-    #[derive(Event, Clone, PartialEq, Debug, Default)]
+    #[derive(Event, BufferedEvent, Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
-    fn get_events<E: Event + Clone>(events: &Events<E>, cursor: &mut EventCursor<E>) -> Vec<E> {
+    fn get_events<E: BufferedEvent + Clone>(
+        events: &Events<E>,
+        cursor: &mut EventCursor<E>,
+    ) -> Vec<E> {
         cursor.read(events).cloned().collect::<Vec<E>>()
     }
 
@@ -421,7 +429,7 @@ mod tests {
     #[test]
     fn test_event_cursor_par_read() {
         use crate::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use core::sync::atomic::{AtomicUsize, Ordering};
 
         #[derive(Resource)]
         struct Counter(AtomicUsize);
@@ -463,7 +471,7 @@ mod tests {
     #[test]
     fn test_event_cursor_par_read_mut() {
         use crate::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use core::sync::atomic::{AtomicUsize, Ordering};
 
         #[derive(Resource)]
         struct Counter(AtomicUsize);
@@ -567,7 +575,6 @@ mod tests {
         assert!(last.is_none(), "EventMutator should be empty");
     }
 
-    #[allow(clippy::iter_nth_zero)]
     #[test]
     fn test_event_reader_iter_nth() {
         use bevy_ecs::prelude::*;
@@ -594,7 +601,6 @@ mod tests {
         schedule.run(&mut world);
     }
 
-    #[allow(clippy::iter_nth_zero)]
     #[test]
     fn test_event_mutator_iter_nth() {
         use bevy_ecs::prelude::*;

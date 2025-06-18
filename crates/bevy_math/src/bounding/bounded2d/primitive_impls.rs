@@ -1,25 +1,32 @@
 //! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
 use crate::{
+    bounding::BoundingVolume,
+    ops,
     primitives::{
-        Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
-        CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon,
-        Rhombus, Segment2d, Triangle2d,
+        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
+        Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
+        Triangle2d,
     },
     Dir2, Isometry2d, Mat2, Rot2, Vec2,
 };
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use core::f32::consts::{FRAC_PI_2, PI, TAU};
+
+#[cfg(feature = "alloc")]
+use crate::primitives::{BoxedPolygon, BoxedPolyline2d};
 
 use smallvec::SmallVec;
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
 
 impl Bounded2d for Circle {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
         Aabb2d::new(isometry.translation, Vec2::splat(self.radius))
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, self.radius)
     }
 }
@@ -38,18 +45,20 @@ fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2;
     // The half-angles are measured from a starting point of π/2, being the angle of Vec2::Y.
     // Compute the normalized angles of the endpoints with the rotation taken into account, and then
     // check if we are looking for an angle that is between or outside them.
-    let left_angle = (FRAC_PI_2 + arc.half_angle + rotation.as_radians()).rem_euclid(TAU);
-    let right_angle = (FRAC_PI_2 - arc.half_angle + rotation.as_radians()).rem_euclid(TAU);
+    let left_angle = ops::rem_euclid(FRAC_PI_2 + arc.half_angle + rotation.as_radians(), TAU);
+    let right_angle = ops::rem_euclid(FRAC_PI_2 - arc.half_angle + rotation.as_radians(), TAU);
     let inverted = left_angle < right_angle;
     for extremum in [Vec2::X, Vec2::Y, Vec2::NEG_X, Vec2::NEG_Y] {
-        let angle = extremum.to_angle().rem_euclid(TAU);
+        let angle = ops::rem_euclid(extremum.to_angle(), TAU);
         // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
         // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
         // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
-        #[allow(clippy::nonminimal_bool)]
-        if !inverted && angle >= right_angle && angle <= left_angle
-            || inverted && (angle >= right_angle || angle <= left_angle)
-        {
+        let angle_within_parameters = if inverted {
+            angle >= right_angle || angle <= left_angle
+        } else {
+            angle >= right_angle && angle <= left_angle
+        };
+        if angle_within_parameters {
             bounds.push(extremum * arc.radius);
         }
     }
@@ -57,11 +66,13 @@ fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2;
 }
 
 impl Bounded2d for Arc2d {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         // If our arc covers more than a circle, just return the bounding box of the circle.
         if self.half_angle >= PI {
             return Circle::new(self.radius).aabb_2d(isometry);
         }
+
+        let isometry = isometry.into();
 
         Aabb2d::from_point_cloud(
             Isometry2d::from_translation(isometry.translation),
@@ -69,7 +80,9 @@ impl Bounded2d for Arc2d {
         )
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
+
         // There are two possibilities for the bounding circle.
         if self.is_major() {
             // If the arc is major, then the widest distance between two points is a diameter of the arc's circle;
@@ -85,7 +98,9 @@ impl Bounded2d for Arc2d {
 }
 
 impl Bounded2d for CircularSector {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
+
         // If our sector covers more than a circle, just return the bounding box of the circle.
         if self.half_angle() >= PI {
             return Circle::new(self.radius()).aabb_2d(isometry);
@@ -98,8 +113,10 @@ impl Bounded2d for CircularSector {
         Aabb2d::from_point_cloud(Isometry2d::from_translation(isometry.translation), &bounds)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         if self.arc.is_major() {
+            let isometry = isometry.into();
+
             // If the arc is major, that is, greater than a semicircle,
             // then bounding circle is just the circle defining the sector.
             BoundingCircle::new(isometry.translation, self.arc.radius)
@@ -120,17 +137,19 @@ impl Bounded2d for CircularSector {
 }
 
 impl Bounded2d for CircularSegment {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         self.arc.aabb_2d(isometry)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         self.arc.bounding_circle(isometry)
     }
 }
 
 impl Bounded2d for Ellipse {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
+
         //           V = (hh * cos(beta), hh * sin(beta))
         //      #####*#####
         //   ###     |     ###
@@ -154,28 +173,33 @@ impl Bounded2d for Ellipse {
         let (ux, uy) = (hw * alpha_cos, hw * alpha_sin);
         let (vx, vy) = (hh * beta_cos, hh * beta_sin);
 
-        let half_size = Vec2::new(ux.hypot(vx), uy.hypot(vy));
+        let half_size = Vec2::new(ops::hypot(ux, vx), ops::hypot(uy, vy));
 
         Aabb2d::new(isometry.translation, half_size)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, self.semi_major())
     }
 }
 
 impl Bounded2d for Annulus {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
         Aabb2d::new(isometry.translation, Vec2::splat(self.outer_circle.radius))
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, self.outer_circle.radius)
     }
 }
 
 impl Bounded2d for Rhombus {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
+
         let [rotated_x_half_diagonal, rotated_y_half_diagonal] = [
             isometry.rotation * Vec2::new(self.half_diagonals.x, 0.0),
             isometry.rotation * Vec2::new(0.0, self.half_diagonals.y),
@@ -190,13 +214,16 @@ impl Bounded2d for Rhombus {
         }
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, self.circumradius())
     }
 }
 
 impl Bounded2d for Plane2d {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
+
         let normal = isometry.rotation * *self.normal;
         let facing_x = normal == Vec2::X || normal == Vec2::NEG_X;
         let facing_y = normal == Vec2::Y || normal == Vec2::NEG_Y;
@@ -210,13 +237,16 @@ impl Bounded2d for Plane2d {
         Aabb2d::new(isometry.translation, half_size)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, f32::MAX / 2.0)
     }
 }
 
 impl Bounded2d for Line2d {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
+
         let direction = isometry.rotation * *self.direction;
 
         // Dividing `f32::MAX` by 2.0 is helpful so that we can do operations
@@ -229,47 +259,50 @@ impl Bounded2d for Line2d {
         Aabb2d::new(isometry.translation, half_size)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, f32::MAX / 2.0)
     }
 }
 
 impl Bounded2d for Segment2d {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
-        // Rotate the segment by `rotation`
-        let direction = isometry.rotation * *self.direction;
-        let half_size = (self.half_length * direction).abs();
-
-        Aabb2d::new(isometry.translation, half_size)
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        Aabb2d::from_point_cloud(isometry, &[self.point1(), self.point2()])
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
-        BoundingCircle::new(isometry.translation, self.half_length)
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry: Isometry2d = isometry.into();
+        let local_center = self.center();
+        let radius = local_center.distance(self.point1());
+        let local_circle = BoundingCircle::new(local_center, radius);
+        local_circle.transformed_by(isometry.translation, isometry.rotation)
     }
 }
 
 impl<const N: usize> Bounded2d for Polyline2d<N> {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         BoundingCircle::from_point_cloud(isometry, &self.vertices)
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Bounded2d for BoxedPolyline2d {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         BoundingCircle::from_point_cloud(isometry, &self.vertices)
     }
 }
 
 impl Bounded2d for Triangle2d {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
         let [a, b, c] = self.vertices.map(|vtx| isometry.rotation * vtx);
 
         let min = Vec2::new(a.x.min(b.x).min(c.x), a.y.min(b.y).min(c.y));
@@ -281,7 +314,8 @@ impl Bounded2d for Triangle2d {
         }
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         let [a, b, c] = self.vertices;
 
         // The points of the segment opposite to the obtuse or right angle if one exists
@@ -301,8 +335,8 @@ impl Bounded2d for Triangle2d {
         if let Some((point1, point2)) = side_opposite_to_non_acute {
             // The triangle is obtuse or right, so the minimum bounding circle's diameter is equal to the longest side.
             // We can compute the minimum bounding circle from the line segment of the longest side.
-            let (segment, center) = Segment2d::from_points(point1, point2);
-            segment.bounding_circle(isometry * Isometry2d::from_translation(center))
+            let segment = Segment2d::new(point1, point2);
+            segment.bounding_circle(isometry)
         } else {
             // The triangle is acute, so the smallest bounding circle is the circumcircle.
             let (Circle { radius }, circumcenter) = self.circumcircle();
@@ -312,44 +346,61 @@ impl Bounded2d for Triangle2d {
 }
 
 impl Bounded2d for Rectangle {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
+
         // Compute the AABB of the rotated rectangle by transforming the half-extents
         // by an absolute rotation matrix.
         let (sin, cos) = isometry.rotation.sin_cos();
-        let abs_rot_mat = Mat2::from_cols_array(&[cos.abs(), sin.abs(), sin.abs(), cos.abs()]);
+        let abs_rot_mat =
+            Mat2::from_cols_array(&[ops::abs(cos), ops::abs(sin), ops::abs(sin), ops::abs(cos)]);
         let half_size = abs_rot_mat * self.half_size;
 
         Aabb2d::new(isometry.translation, half_size)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         let radius = self.half_size.length();
         BoundingCircle::new(isometry.translation, radius)
     }
 }
 
 impl<const N: usize> Bounded2d for Polygon<N> {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         BoundingCircle::from_point_cloud(isometry, &self.vertices)
     }
 }
 
+impl<const N: usize> Bounded2d for ConvexPolygon<N> {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        Aabb2d::from_point_cloud(isometry, self.vertices().as_slice())
+    }
+
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        BoundingCircle::from_point_cloud(isometry, self.vertices().as_slice())
+    }
+}
+
+#[cfg(feature = "alloc")]
 impl Bounded2d for BoxedPolygon {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         BoundingCircle::from_point_cloud(isometry, &self.vertices)
     }
 }
 
 impl Bounded2d for RegularPolygon {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
+
         let mut min = Vec2::ZERO;
         let mut max = Vec2::ZERO;
 
@@ -364,19 +415,21 @@ impl Bounded2d for RegularPolygon {
         }
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, self.circumcircle.radius)
     }
 }
 
 impl Bounded2d for Capsule2d {
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
-        // Get the line segment between the hemicircles of the rotated capsule
-        let segment = Segment2d {
-            // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
-            direction: isometry.rotation * Dir2::Y,
-            half_length: self.half_length,
-        };
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        let isometry = isometry.into();
+
+        // Get the line segment between the semicircles of the rotated capsule
+        let segment = Segment2d::from_direction_and_length(
+            isometry.rotation * Dir2::Y,
+            self.half_length * 2.,
+        );
         let (a, b) = (segment.point1(), segment.point2());
 
         // Expand the line segment by the capsule radius to get the capsule half-extents
@@ -389,20 +442,24 @@ impl Bounded2d for Capsule2d {
         }
     }
 
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, self.radius + self.half_length)
     }
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
+    use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
+    use std::println;
 
     use approx::assert_abs_diff_eq;
     use glam::Vec2;
 
     use crate::{
         bounding::Bounded2d,
+        ops::{self, FloatPow},
         primitives::{
             Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
             Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
@@ -447,7 +504,7 @@ mod tests {
         }
 
         // The apothem of an arc covering 1/6th of a circle.
-        let apothem = f32::sqrt(3.0) / 2.0;
+        let apothem = ops::sqrt(3.0) / 2.0;
         let tests = [
             // Test case: a basic minor arc
             TestCase {
@@ -505,7 +562,7 @@ mod tests {
                 // The exact coordinates here are not obvious, but can be computed by constructing
                 // an altitude from the midpoint of the chord to the y-axis and using the right triangle
                 // similarity theorem.
-                bounding_circle_center: Vec2::new(-apothem / 2.0, apothem.powi(2)),
+                bounding_circle_center: Vec2::new(-apothem / 2.0, apothem.squared()),
                 bounding_circle_radius: 0.5,
             },
             // Test case: handling of axis-aligned extrema
@@ -518,7 +575,7 @@ mod tests {
                 aabb_min: Vec2::ZERO,
                 aabb_max: Vec2::splat(1.0),
                 bounding_circle_center: Vec2::splat(0.5),
-                bounding_circle_radius: f32::sqrt(2.0) / 2.0,
+                bounding_circle_radius: ops::sqrt(2.0) / 2.0,
             },
             // Test case: a basic major arc
             TestCase {
@@ -557,6 +614,7 @@ mod tests {
         ];
 
         for test in tests {
+            #[cfg(feature = "std")]
             println!("subtest case: {}", test.name);
             let segment: CircularSegment = test.arc.into();
 
@@ -599,10 +657,10 @@ mod tests {
         }
 
         // The apothem of an arc covering 1/6th of a circle.
-        let apothem = f32::sqrt(3.0) / 2.0;
-        let inv_sqrt_3 = f32::sqrt(3.0).recip();
+        let apothem = ops::sqrt(3.0) / 2.0;
+        let inv_sqrt_3 = ops::sqrt(3.0).recip();
         let tests = [
-            // Test case: An sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
+            // Test case: A sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
             TestCase {
                 name: "1/3rd circle",
                 arc: Arc2d::from_radians(1.0, TAU / 3.0),
@@ -677,7 +735,7 @@ mod tests {
                 aabb_min: Vec2::ZERO,
                 aabb_max: Vec2::splat(1.0),
                 bounding_circle_center: Vec2::splat(0.5),
-                bounding_circle_radius: f32::sqrt(2.0) / 2.0,
+                bounding_circle_radius: ops::sqrt(2.0) / 2.0,
             },
             TestCase {
                 name: "5/6th circle untransformed",
@@ -713,6 +771,7 @@ mod tests {
         ];
 
         for test in tests {
+            #[cfg(feature = "std")]
             println!("subtest case: {}", test.name);
             let sector: CircularSector = test.arc.into();
 
@@ -761,7 +820,7 @@ mod tests {
     fn rhombus() {
         let rhombus = Rhombus::new(2.0, 1.0);
         let translation = Vec2::new(2.0, 1.0);
-        let rotation = Rot2::radians(std::f32::consts::FRAC_PI_4);
+        let rotation = Rot2::radians(FRAC_PI_4);
         let isometry = Isometry2d::new(translation, rotation);
 
         let aabb = rhombus.aabb_2d(isometry);
@@ -834,9 +893,9 @@ mod tests {
 
     #[test]
     fn segment() {
+        let segment = Segment2d::new(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5));
         let translation = Vec2::new(2.0, 1.0);
         let isometry = Isometry2d::from_translation(translation);
-        let segment = Segment2d::from_points(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5)).0;
 
         let aabb = segment.aabb_2d(isometry);
         assert_eq!(aabb.min, Vec2::new(1.0, 0.5));
@@ -844,7 +903,7 @@ mod tests {
 
         let bounding_circle = segment.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), 1.0_f32.hypot(0.5));
+        assert_eq!(bounding_circle.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]
@@ -864,7 +923,7 @@ mod tests {
 
         let bounding_circle = polyline.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), std::f32::consts::SQRT_2);
+        assert_eq!(bounding_circle.radius(), core::f32::consts::SQRT_2);
     }
 
     #[test]
@@ -910,17 +969,14 @@ mod tests {
         let rectangle = Rectangle::new(2.0, 1.0);
         let translation = Vec2::new(2.0, 1.0);
 
-        let aabb = rectangle.aabb_2d(Isometry2d::new(
-            translation,
-            Rot2::radians(std::f32::consts::FRAC_PI_4),
-        ));
+        let aabb = rectangle.aabb_2d(Isometry2d::new(translation, Rot2::radians(FRAC_PI_4)));
         let expected_half_size = Vec2::splat(1.0606601);
         assert_eq!(aabb.min, translation - expected_half_size);
         assert_eq!(aabb.max, translation + expected_half_size);
 
         let bounding_circle = rectangle.bounding_circle(Isometry2d::from_translation(translation));
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), 1.0_f32.hypot(0.5));
+        assert_eq!(bounding_circle.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]
@@ -940,7 +996,7 @@ mod tests {
 
         let bounding_circle = polygon.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), std::f32::consts::SQRT_2);
+        assert_eq!(bounding_circle.radius(), core::f32::consts::SQRT_2);
     }
 
     #[test]

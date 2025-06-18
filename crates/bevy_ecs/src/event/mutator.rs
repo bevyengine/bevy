@@ -1,8 +1,7 @@
-use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::event::EventMutParIter;
 use bevy_ecs::{
-    event::{Event, EventCursor, EventMutIterator, EventMutIteratorWithId, Events},
+    event::{BufferedEvent, EventCursor, EventMutIterator, EventMutIteratorWithId, Events},
     system::{Local, ResMut, SystemParam},
 };
 
@@ -16,7 +15,7 @@ use bevy_ecs::{
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
-/// #[derive(Event, Debug)]
+/// #[derive(Event, BufferedEvent, Debug)]
 /// pub struct MyEvent(pub u32); // Custom event type.
 /// fn my_system(mut reader: EventMutator<MyEvent>) {
 ///     for event in reader.read() {
@@ -43,12 +42,13 @@ use bevy_ecs::{
 /// [`EventReader`]: super::EventReader
 /// [`EventWriter`]: super::EventWriter
 #[derive(SystemParam, Debug)]
-pub struct EventMutator<'w, 's, E: Event> {
+pub struct EventMutator<'w, 's, E: BufferedEvent> {
     pub(super) reader: Local<'s, EventCursor<E>>,
+    #[system_param(validation_message = "BufferedEvent not initialized")]
     events: ResMut<'w, Events<E>>,
 }
 
-impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
+impl<'w, 's, E: BufferedEvent> EventMutator<'w, 's, E> {
     /// Iterates over the events this [`EventMutator`] has not seen yet. This updates the
     /// [`EventMutator`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
@@ -69,7 +69,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// # use bevy_ecs::prelude::*;
     /// # use std::sync::atomic::{AtomicUsize, Ordering};
     ///
-    /// #[derive(Event)]
+    /// #[derive(Event, BufferedEvent)]
     /// struct MyEvent {
     ///     value: usize,
     /// }
@@ -96,7 +96,6 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// // all events were processed
     /// assert_eq!(counter.into_inner(), 4950);
     /// ```
-    ///
     #[cfg(feature = "multi_threaded")]
     pub fn par_read(&mut self) -> EventMutParIter<'_, E> {
         self.reader.par_read_mut(&mut self.events)
@@ -117,7 +116,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// #[derive(Event)]
+    /// #[derive(Event, BufferedEvent)]
     /// struct CollisionEvent;
     ///
     /// fn play_collision_sound(mut events: EventMutator<CollisionEvent>) {

@@ -5,17 +5,15 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
-use bevy_render::render_graph::{ViewNode, ViewNodeRunner};
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_resource::*,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    Render, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
-use bevy_render::{render_resource::*, RenderApp};
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
 /// using [`bevy_render::camera::Camera::msaa_writeback`]. See the docs on that field for more information.
@@ -28,7 +26,7 @@ impl Plugin for MsaaWritebackPlugin {
         };
         render_app.add_systems(
             Render,
-            prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),
+            prepare_msaa_writeback_pipelines.in_set(RenderSystems::Prepare),
         );
         {
             render_app
@@ -63,7 +61,7 @@ impl ViewNode for MsaaWritebackNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (target, blit_pipeline_id, msaa): QueryItem<'w, Self::ViewQuery>,
+        (target, blit_pipeline_id, msaa): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         if *msaa == Msaa::Off {

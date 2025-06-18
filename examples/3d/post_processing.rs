@@ -6,6 +6,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::post_process::ChromaticAberration, pbr::CascadeShadowConfigBuilder, prelude::*,
+    render::view::Hdr,
 };
 
 /// The number of units per frame to add to or subtract from intensity when the
@@ -59,16 +60,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 /// Spawns the camera, including the [`ChromaticAberration`] component.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            ..default()
-        },
-        FogSettings {
+        Camera3d::default(),
+        Hdr,
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -93,59 +88,47 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 /// variety of colors.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+    )));
 
     // Spawn the flight helmet.
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        transform: Transform::from_xyz(0.5, 0.0, -0.5)
-            .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
+    ));
 
     // Spawn the light.
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 15000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 }
 
 /// Spawns the help text at the bottom of the screen.
 fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
-    commands.spawn(
-        TextBundle {
-            text: create_help_text(app_settings),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        create_help_text(app_settings),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 impl Default for AppSettings {
@@ -158,13 +141,11 @@ impl Default for AppSettings {
 
 /// Creates help text at the bottom of the screen.
 fn create_help_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(
-        format!(
-            "Chromatic aberration intensity: {} (Press Left or Right to change)",
-            app_settings.chromatic_aberration_intensity
-        ),
-        TextStyle::default(),
+    format!(
+        "Chromatic aberration intensity: {} (Press Left or Right to change)",
+        app_settings.chromatic_aberration_intensity
     )
+    .into()
 }
 
 /// Handles requests from the user to change the chromatic aberration intensity.
@@ -188,7 +169,7 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
 
 /// Updates the [`ChromaticAberration`] settings per the [`AppSettings`].
 fn update_chromatic_aberration_settings(
-    mut chromatic_aberration_settings: Query<&mut ChromaticAberration>,
+    mut chromatic_aberration: Query<&mut ChromaticAberration>,
     app_settings: Res<AppSettings>,
 ) {
     let intensity = app_settings.chromatic_aberration_intensity;
@@ -202,9 +183,9 @@ fn update_chromatic_aberration_settings(
         .clamp(8.0, 64.0)
         .round() as u32;
 
-    for mut chromatic_aberration_settings in &mut chromatic_aberration_settings {
-        chromatic_aberration_settings.intensity = intensity;
-        chromatic_aberration_settings.max_samples = max_samples;
+    for mut chromatic_aberration in &mut chromatic_aberration {
+        chromatic_aberration.intensity = intensity;
+        chromatic_aberration.max_samples = max_samples;
     }
 }
 

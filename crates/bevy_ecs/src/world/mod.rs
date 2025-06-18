@@ -1,10 +1,11 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
-mod component_constants;
 mod deferred_world;
+mod entity_fetch;
 mod entity_ref;
 pub mod error;
+mod filtered_resource;
 mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
@@ -16,92 +17,66 @@ pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
-pub use component_constants::*;
-pub use deferred_world::DeferredWorld;
-pub use entity_ref::{
-    EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
-    OccupiedEntry, VacantEntry,
+use crate::{
+    error::{DefaultErrorHandler, ErrorHandler},
+    event::BufferedEvent,
+    lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
+    prelude::{Add, Despawn, Insert, Remove, Replace},
 };
+pub use bevy_ecs_macros::FromWorld;
+pub use deferred_world::DeferredWorld;
+pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
+pub use entity_ref::{
+    ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
+    EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
+    TryFromFilteredError, VacantComponentEntry,
+};
+pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
-    bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles},
-    change_detection::{MutUntyped, TicksMut},
-    component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, Tick,
+    archetype::{ArchetypeId, Archetypes},
+    bundle::{
+        Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
+        NoBundleEffect,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
+    change_detection::{MaybeLocation, MutUntyped, TicksMut},
+    component::{
+        CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
+        ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
+        RequiredComponents, RequiredComponentsError, Tick,
+    },
+    entity::{Entities, Entity, EntityDoesNotExistError},
+    entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
+    lifecycle::RemovedComponentEvents,
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
-    removal_detection::RemovedComponentEvents,
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
+    relationship::RelationshipHookMode,
+    resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Commands, Res, Resource},
-    world::command_queue::RawCommandQueue,
-    world::error::TryRunScheduleError,
+    system::Commands,
+    world::{
+        command_queue::RawCommandQueue,
+        error::{
+            EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
+        },
+    },
 };
-use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::tracing::warn;
-use std::{
-    any::TypeId,
-    fmt,
-    mem::MaybeUninit,
-    sync::atomic::{AtomicU32, Ordering},
-};
-
-#[cfg(feature = "track_change_detection")]
-use bevy_ptr::UnsafeCellDeref;
-
-use core::panic::Location;
-
+use alloc::{boxed::Box, vec::Vec};
+use bevy_platform::sync::atomic::{AtomicU32, Ordering};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use core::{any::TypeId, fmt};
+use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
-
-/// A [`World`] mutation.
-///
-/// Should be used with [`Commands::add`].
-///
-/// # Usage
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::world::Command;
-/// // Our world resource
-/// #[derive(Resource, Default)]
-/// struct Counter(u64);
-///
-/// // Our custom command
-/// struct AddToCounter(u64);
-///
-/// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) {
-///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-///         counter.0 += self.0;
-///     }
-/// }
-///
-/// fn some_system(mut commands: Commands) {
-///     commands.add(AddToCounter(42));
-/// }
-/// ```
-pub trait Command: Send + 'static {
-    /// Applies this command, causing it to mutate the provided `world`.
-    ///
-    /// This method is used to define what a command "does" when it is ultimately applied.
-    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
-    /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World);
-}
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
 ///
-/// Each [`Entity`] has a set of components. Each component can have up to one instance of each
-/// component type. Entity components can be created, updated, removed, and queried using a given
-/// [`World`].
+/// Each [`Entity`] has a set of unique components, based on their type.
+/// Entity components can be created, updated, removed, and queried using a given
 ///
 /// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
 /// consider using [`SystemState`](crate::system::SystemState).
@@ -119,6 +94,7 @@ pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
     pub(crate) components: Components,
+    pub(crate) component_ids: ComponentIds,
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
@@ -149,6 +125,7 @@ impl Default for World {
             last_check_tick: Tick::new(0),
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
+            component_ids: ComponentIds::default(),
         };
         world.bootstrap();
         world
@@ -163,6 +140,8 @@ impl Drop for World {
         drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
         // SAFETY: Pointers in internal command queue are only invalidated here
         drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
+        // SAFETY: Pointers in internal command queue are only invalidated here
+        drop(unsafe { Box::from_raw(self.command_queue.panic_recovery.as_ptr()) });
     }
 }
 
@@ -171,10 +150,24 @@ impl World {
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
     fn bootstrap(&mut self) {
-        assert_eq!(ON_ADD, self.init_component::<OnAdd>());
-        assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
-        assert_eq!(ON_REPLACE, self.init_component::<OnReplace>());
-        assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
+        // The order that we register these events is vital to ensure that the constants are correct!
+        let on_add = Add::register_component_id(self);
+        assert_eq!(ADD, on_add);
+
+        let on_insert = Insert::register_component_id(self);
+        assert_eq!(INSERT, on_insert);
+
+        let on_replace = Replace::register_component_id(self);
+        assert_eq!(REPLACE, on_replace);
+
+        let on_remove = Remove::register_component_id(self);
+        assert_eq!(REMOVE, on_remove);
+
+        let on_despawn = Despawn::register_component_id(self);
+        assert_eq!(DESPAWN, on_despawn);
+
+        // This sets up `Disabled` as a disabling component, via the FromWorld impl
+        self.init_resource::<DefaultQueryFilters>();
     }
     /// Creates a new empty [`World`].
     ///
@@ -234,6 +227,22 @@ impl World {
         &self.components
     }
 
+    /// Prepares a [`ComponentsQueuedRegistrator`] for the world.
+    /// **NOTE:** [`ComponentsQueuedRegistrator`] is easily misused.
+    /// See its docs for important notes on when and how it should be used.
+    #[inline]
+    pub fn components_queue(&self) -> ComponentsQueuedRegistrator {
+        // SAFETY: These are from the same world.
+        unsafe { ComponentsQueuedRegistrator::new(&self.components, &self.component_ids) }
+    }
+
+    /// Prepares a [`ComponentsRegistrator`] for the world.
+    #[inline]
+    pub fn components_registrator(&mut self) -> ComponentsRegistrator {
+        // SAFETY: These are from the same world.
+        unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) }
+    }
+
     /// Retrieves this world's [`Storages`] collection.
     #[inline]
     pub fn storages(&self) -> &Storages {
@@ -252,6 +261,12 @@ impl World {
         &self.removed_components
     }
 
+    /// Retrieves this world's [`Observers`] list
+    #[inline]
+    pub fn observers(&self) -> &Observers {
+        &self.observers
+    }
+
     /// Creates a new [`Commands`] instance that writes to the world's command queue
     /// Use [`World::flush`] to apply all queued commands
     #[inline]
@@ -260,17 +275,29 @@ impl World {
         unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
     }
 
-    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
-    pub fn init_component<T: Component>(&mut self) -> ComponentId {
-        self.components.init_component::<T>(&mut self.storages)
+    /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// # Usage Notes
+    /// In most cases, you don't need to call this method directly since component registration
+    /// happens automatically during system initialization.
+    pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        self.components_registrator().register_component::<T>()
+    }
+
+    /// Registers a component type as "disabling",
+    /// using [default query filters](DefaultQueryFilters) to exclude entities with the component from queries.
+    pub fn register_disabling_component<C: Component>(&mut self) {
+        let component_id = self.register_component::<C>();
+        let mut dqf = self.resource_mut::<DefaultQueryFilters>();
+        dqf.register_disabling_component(component_id);
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
     ///
     /// Will panic if `T` exists in any archetypes.
     pub fn register_component_hooks<T: Component>(&mut self) -> &mut ComponentHooks {
-        let index = self.init_component::<T>();
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if {} may already be in use", std::any::type_name::<T>());
+        let index = self.register_component::<T>();
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if {} may already be in use", core::any::type_name::<T>());
         // SAFETY: We just created this component
         unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
     }
@@ -282,25 +309,264 @@ impl World {
         &mut self,
         id: ComponentId,
     ) -> Option<&mut ComponentHooks> {
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if the component with id {:?} may already be in use", id);
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {id:?} may already be in use");
         self.components.get_hooks_mut(id)
     }
 
-    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
+    /// Registers the given component `R` as a [required component] for `T`.
     ///
-    /// This method differs from [`World::init_component`] in that it uses a [`ComponentDescriptor`]
-    /// to initialize the new component type instead of statically available type information. This
-    /// enables the dynamic initialization of new component definitions at runtime for advanced use cases.
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
+    /// If a custom constructor is desired, use [`World::register_required_components_with`] instead.
     ///
-    /// While the option to initialize a component from a descriptor is useful in type-erased
-    /// contexts, the standard `World::init_component` function should always be used instead
+    /// For the non-panicking version, see [`World::try_register_required_components`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B as required by A and C as required by B.
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components::<B, C>();
+    ///
+    /// // This will implicitly also insert B and C with their Default constructors.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
+    /// ```
+    pub fn register_required_components<T: Component, R: Component + Default>(&mut self) {
+        self.try_register_required_components::<T, R>().unwrap();
+    }
+
+    /// Registers the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
+    /// If a [`Default`] constructor is desired, use [`World::register_required_components`] instead.
+    ///
+    /// For the non-panicking version, see [`World::try_register_required_components_with`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B and C as required by A and C as required by B.
+    /// // A requiring C directly will overwrite the indirect requirement through B.
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components_with::<B, C>(|| C(1));
+    /// world.register_required_components_with::<A, C>(|| C(2));
+    ///
+    /// // This will implicitly also insert B with its Default constructor and C
+    /// // with the custom constructor defined by A.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
+    /// ```
+    pub fn register_required_components_with<T: Component, R: Component>(
+        &mut self,
+        constructor: fn() -> R,
+    ) {
+        self.try_register_required_components_with::<T, R>(constructor)
+            .unwrap();
+    }
+
+    /// Tries to register the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
+    /// If a custom constructor is desired, use [`World::register_required_components_with`] instead.
+    ///
+    /// For the panicking version, see [`World::register_required_components`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B as required by A and C as required by B.
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components::<B, C>();
+    ///
+    /// // Duplicate registration! This will fail.
+    /// assert!(world.try_register_required_components::<A, B>().is_err());
+    ///
+    /// // This will implicitly also insert B and C with their Default constructors.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
+    /// ```
+    pub fn try_register_required_components<T: Component, R: Component + Default>(
+        &mut self,
+    ) -> Result<(), RequiredComponentsError> {
+        self.try_register_required_components_with::<T, R>(R::default)
+    }
+
+    /// Tries to register the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
+    /// If a [`Default`] constructor is desired, use [`World::register_required_components`] instead.
+    ///
+    /// For the panicking version, see [`World::register_required_components_with`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B and C as required by A and C as required by B.
+    /// // A requiring C directly will overwrite the indirect requirement through B.
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components_with::<B, C>(|| C(1));
+    /// world.register_required_components_with::<A, C>(|| C(2));
+    ///
+    /// // Duplicate registration! Even if the constructors were different, this would fail.
+    /// assert!(world.try_register_required_components_with::<B, C>(|| C(1)).is_err());
+    ///
+    /// // This will implicitly also insert B with its Default constructor and C
+    /// // with the custom constructor defined by A.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
+    /// ```
+    pub fn try_register_required_components_with<T: Component, R: Component>(
+        &mut self,
+        constructor: fn() -> R,
+    ) -> Result<(), RequiredComponentsError> {
+        let requiree = self.register_component::<T>();
+
+        // TODO: Remove this panic and update archetype edges accordingly when required components are added
+        if self.archetypes().component_index().contains_key(&requiree) {
+            return Err(RequiredComponentsError::ArchetypeExists(requiree));
+        }
+
+        let required = self.register_component::<R>();
+
+        // SAFETY: We just created the `required` and `requiree` components.
+        unsafe {
+            self.components
+                .register_required_components::<R>(requiree, required, constructor)
+        }
+    }
+
+    /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
+    pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
+        let id = self.components().valid_component_id::<C>()?;
+        let component_info = self.components().get_info(id)?;
+        Some(component_info.required_components())
+    }
+
+    /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
+    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RequiredComponents> {
+        let component_info = self.components().get_info(id)?;
+        Some(component_info.required_components())
+    }
+
+    /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// This method differs from [`World::register_component`] in that it uses a [`ComponentDescriptor`]
+    /// to register the new component type instead of statically available type information. This
+    /// enables the dynamic registration of new component definitions at runtime for advanced use cases.
+    ///
+    /// While the option to register a component from a descriptor is useful in type-erased
+    /// contexts, the standard [`World::register_component`] function should always be used instead
     /// when type information is available at compile time.
-    pub fn init_component_with_descriptor(
+    pub fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        self.components
-            .init_component_with_descriptor(&mut self.storages, descriptor)
+        self.components_registrator()
+            .register_component_with_descriptor(descriptor)
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -309,7 +575,7 @@ impl World {
     /// it was retrieved from and should not be used with another `World` instance.
     ///
     /// Returns [`None`] if the `Component` type has not yet been initialized within
-    /// the `World` using [`World::init_component`].
+    /// the `World` using [`World::register_component`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -319,7 +585,7 @@ impl World {
     /// #[derive(Component)]
     /// struct ComponentA;
     ///
-    /// let component_a_id = world.init_component::<ComponentA>();
+    /// let component_a_id = world.register_component::<ComponentA>();
     ///
     /// assert_eq!(component_a_id, world.component_id::<ComponentA>().unwrap())
     /// ```
@@ -333,13 +599,46 @@ impl World {
         self.components.component_id::<T>()
     }
 
-    /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
-    /// This will panic if the `entity` does not exist. Use [`World::get_entity`] if you want
-    /// to check for entity existence instead of implicitly panic-ing.
+    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// The [`Resource`] doesn't have a value in the [`World`], it's only registered. If you want
+    /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
+    /// [`World::insert_resource`] instead.
+    pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
+        self.components_registrator().register_resource::<R>()
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
+    ///
+    /// The returned [`ComponentId`] is specific to the [`World`] instance it was retrieved from
+    /// and should not be used with another [`World`] instance.
+    ///
+    /// Returns [`None`] if the [`Resource`] type has not yet been initialized within the
+    /// [`World`] using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
+    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
+        self.components.get_resource_id(TypeId::of::<T>())
+    }
+
+    /// Returns [`EntityRef`]s that expose read-only operations for the given
+    /// `entities`. This will panic if any of the given entities do not exist. Use
+    /// [`World::get_entity`] if you want to check for entity existence instead
+    /// of implicitly panicking.
+    ///
+    /// This function supports fetching a single entity or multiple entities:
+    /// - Pass an [`Entity`] to receive a single [`EntityRef`].
+    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
+    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
+    ///
+    /// # Panics
+    ///
+    /// If any of the given `entities` do not exist in the world.
+    ///
+    /// # Examples
+    ///
+    /// ## Single [`Entity`]
     ///
     /// ```
-    /// use bevy_ecs::{component::Component, world::World};
-    ///
+    /// # use bevy_ecs::prelude::*;
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -348,32 +647,124 @@ impl World {
     ///
     /// let mut world = World::new();
     /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
+    ///
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
+    ///
+    /// ## Array of [`Entity`]s
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(Position { x: 0.0, y: 0.0 }).id();
+    /// let e2 = world.spawn(Position { x: 1.0, y: 1.0 }).id();
+    ///
+    /// let [e1_ref, e2_ref] = world.entity([e1, e2]);
+    /// let e1_position = e1_ref.get::<Position>().unwrap();
+    /// assert_eq!(e1_position.x, 0.0);
+    /// let e2_position = e2_ref.get::<Position>().unwrap();
+    /// assert_eq!(e2_position.x, 1.0);
+    /// ```
+    ///
+    /// ## Slice of [`Entity`]s
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// let e2 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    ///
+    /// let ids = vec![e1, e2, e3];
+    /// for eref in world.entity(&ids[..]) {
+    ///     assert_eq!(eref.get::<Position>().unwrap().y, 1.0);
+    /// }
+    /// ```
+    ///
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// let e2 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    ///
+    /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
+    /// for (_id, eref) in world.entity(&ids) {
+    ///     assert_eq!(eref.get::<Position>().unwrap().y, 1.0);
+    /// }
+    /// ```
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
-    pub fn entity(&self, entity: Entity) -> EntityRef {
+    pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
         #[inline(never)]
         #[cold]
         #[track_caller]
-        fn panic_no_entity(entity: Entity) -> ! {
-            panic!("Entity {entity:?} does not exist");
+        fn panic_no_entity(world: &World, entity: Entity) -> ! {
+            panic!(
+                "Entity {entity} {}",
+                world.entities.entity_does_not_exist_error_details(entity)
+            );
         }
 
-        match self.get_entity(entity) {
-            Some(entity) => entity,
-            None => panic_no_entity(entity),
+        match self.get_entity(entities) {
+            Ok(fetched) => fetched,
+            Err(error) => panic_no_entity(self, error.entity),
         }
     }
 
-    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given `entity`.
-    /// This will panic if the `entity` does not exist. Use [`World::get_entity_mut`] if you want
-    /// to check for entity existence instead of implicitly panic-ing.
+    /// Returns [`EntityMut`]s that expose read and write operations for the
+    /// given `entities`. This will panic if any of the given entities do not
+    /// exist. Use [`World::get_entity_mut`] if you want to check for entity
+    /// existence instead of implicitly panicking.
+    ///
+    /// This function supports fetching a single entity or multiple entities:
+    /// - Pass an [`Entity`] to receive a single [`EntityWorldMut`].
+    ///    - This reference type allows for structural changes to the entity,
+    ///      such as adding or removing components, or despawning the entity.
+    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
+    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
+    ///
+    /// In order to perform structural changes on the returned entity reference,
+    /// such as adding or removing components, or despawning the entity, only a
+    /// single [`Entity`] can be passed to this function. Allowing multiple
+    /// entities at the same time with structural access would lead to undefined
+    /// behavior, so [`EntityMut`] is returned when requesting multiple entities.
+    ///
+    /// # Panics
+    ///
+    /// If any of the given `entities` do not exist in the world.
+    ///
+    /// # Examples
+    ///
+    /// ## Single [`Entity`]
     ///
     /// ```
-    /// use bevy_ecs::{component::Component, world::World};
-    ///
+    /// # use bevy_ecs::prelude::*;
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -382,255 +773,194 @@ impl World {
     ///
     /// let mut world = World::new();
     /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
+    ///
     /// let mut entity_mut = world.entity_mut(entity);
     /// let mut position = entity_mut.get_mut::<Position>().unwrap();
-    /// position.x = 1.0;
+    /// position.y = 1.0;
+    /// assert_eq!(position.x, 0.0);
+    /// entity_mut.despawn();
+    /// # assert!(world.get_entity_mut(entity).is_err());
     /// ```
+    ///
+    /// ## Array of [`Entity`]s
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(Position { x: 0.0, y: 0.0 }).id();
+    /// let e2 = world.spawn(Position { x: 1.0, y: 1.0 }).id();
+    ///
+    /// let [mut e1_ref, mut e2_ref] = world.entity_mut([e1, e2]);
+    /// let mut e1_position = e1_ref.get_mut::<Position>().unwrap();
+    /// e1_position.x = 1.0;
+    /// assert_eq!(e1_position.x, 1.0);
+    /// let mut e2_position = e2_ref.get_mut::<Position>().unwrap();
+    /// e2_position.x = 2.0;
+    /// assert_eq!(e2_position.x, 2.0);
+    /// ```
+    ///
+    /// ## Slice of [`Entity`]s
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// let e2 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    ///
+    /// let ids = vec![e1, e2, e3];
+    /// for mut eref in world.entity_mut(&ids[..]) {
+    ///     let mut pos = eref.get_mut::<Position>().unwrap();
+    ///     pos.y = 2.0;
+    ///     assert_eq!(pos.y, 2.0);
+    /// }
+    /// ```
+    ///
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// let e2 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    ///
+    /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
+    /// for (_id, mut eref) in world.entity_mut(&ids) {
+    ///     let mut pos = eref.get_mut::<Position>().unwrap();
+    ///     pos.y = 2.0;
+    ///     assert_eq!(pos.y, 2.0);
+    /// }
+    /// ```
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
-    pub fn entity_mut(&mut self, entity: Entity) -> EntityWorldMut {
+    pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::Mut<'_> {
         #[inline(never)]
         #[cold]
         #[track_caller]
-        fn panic_no_entity(entity: Entity) -> ! {
-            panic!("Entity {entity:?} does not exist");
-        }
-
-        match self.get_entity_mut(entity) {
-            Some(entity) => entity,
-            None => panic_no_entity(entity),
-        }
-    }
-
-    /// Gets an [`EntityRef`] for multiple entities at once.
-    ///
-    /// # Panics
-    ///
-    /// If any entity does not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Getting multiple entities.
-    /// let [entity1, entity2] = world.many_entities([id1, id2]);
-    /// ```
-    ///
-    /// ```should_panic
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Trying to get a despawned entity will fail.
-    /// world.despawn(id2);
-    /// world.many_entities([id1, id2]);
-    /// ```
-    pub fn many_entities<const N: usize>(&mut self, entities: [Entity; N]) -> [EntityRef<'_>; N] {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_no_entity(entity: Entity) -> ! {
-            panic!("Entity {entity:?} does not exist");
-        }
-
-        match self.get_many_entities(entities) {
-            Ok(refs) => refs,
-            Err(entity) => panic_no_entity(entity),
-        }
-    }
-
-    /// Gets mutable access to multiple entities at once.
-    ///
-    /// # Panics
-    ///
-    /// If any entities do not exist in the world,
-    /// or if the same entity is specified multiple times.
-    ///
-    /// # Examples
-    ///
-    /// Disjoint mutable access.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Disjoint mutable access.
-    /// let [entity1, entity2] = world.many_entities_mut([id1, id2]);
-    /// ```
-    ///
-    /// Trying to access the same entity multiple times will fail.
-    ///
-    /// ```should_panic
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id = world.spawn_empty().id();
-    /// world.many_entities_mut([id, id]);
-    /// ```
-    pub fn many_entities_mut<const N: usize>(
-        &mut self,
-        entities: [Entity; N],
-    ) -> [EntityMut<'_>; N] {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_on_err(e: QueryEntityError) -> ! {
+        fn panic_on_err(e: EntityMutableFetchError) -> ! {
             panic!("{e}");
         }
 
-        match self.get_many_entities_mut(entities) {
-            Ok(borrows) => borrows,
+        match self.get_entity_mut(entities) {
+            Ok(fetched) => fetched,
             Err(e) => panic_on_err(e),
         }
     }
 
     /// Returns the components of an [`Entity`] through [`ComponentInfo`].
     #[inline]
-    pub fn inspect_entity(&self, entity: Entity) -> impl Iterator<Item = &ComponentInfo> {
+    pub fn inspect_entity(
+        &self,
+        entity: Entity,
+    ) -> Result<impl Iterator<Item = &ComponentInfo>, EntityDoesNotExistError> {
         let entity_location = self
             .entities()
             .get(entity)
-            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"));
+            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
 
         let archetype = self
             .archetypes()
             .get(entity_location.archetype_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Archetype {:?} does not exist",
-                    entity_location.archetype_id
-                )
-            });
+            .expect("ArchetypeId was retrieved from an EntityLocation and should correspond to an Archetype");
 
-        archetype
+        Ok(archetype
             .components()
-            .filter_map(|id| self.components().get_info(id))
+            .filter_map(|id| self.components().get_info(id)))
     }
 
-    /// Returns an [`EntityWorldMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
-    /// This will return [`None`] if the `entity` exists with a different generation.
+    /// Returns [`EntityRef`]s that expose read-only operations for the given
+    /// `entities`, returning [`Err`] if any of the given entities do not exist.
+    /// Instead of immediately unwrapping the value returned from this function,
+    /// prefer [`World::entity`].
     ///
-    /// # Note
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`World::spawn`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a
-    /// scheme worked out to share an ID space (which doesn't happen by default).
-    #[inline]
-    pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
-        self.flush();
-        match self.entities.alloc_at_without_replacement(entity) {
-            AllocAtWithoutReplacement::Exists(location) => {
-                // SAFETY: `entity` exists and `location` is that entity's location
-                Some(unsafe { EntityWorldMut::new(self, entity, location) })
-            }
-            AllocAtWithoutReplacement::DidNotExist => {
-                // SAFETY: entity was just allocated
-                Some(unsafe { self.spawn_at_empty_internal(entity) })
-            }
-            AllocAtWithoutReplacement::ExistsWithWrongGeneration => None,
-        }
-    }
-
-    /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
-    /// Returns [`None`] if the `entity` does not exist.
-    /// Instead of unwrapping the value returned from this function, prefer [`World::entity`].
-    ///
-    /// ```
-    /// use bevy_ecs::{component::Component, world::World};
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
-    /// let entity_ref = world.get_entity(entity).unwrap();
-    /// let position = entity_ref.get::<Position>().unwrap();
-    /// assert_eq!(position.x, 0.0);
-    /// ```
-    #[inline]
-    pub fn get_entity(&self, entity: Entity) -> Option<EntityRef> {
-        let location = self.entities.get(entity)?;
-        // SAFETY: if the Entity is invalid, the function returns early.
-        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
-        let entity_cell =
-            UnsafeEntityCell::new(self.as_unsafe_world_cell_readonly(), entity, location);
-        // SAFETY: The UnsafeEntityCell has read access to the entire world.
-        let entity_ref = unsafe { EntityRef::new(entity_cell) };
-        Some(entity_ref)
-    }
-
-    /// Gets an [`EntityRef`] for multiple entities at once.
+    /// This function supports fetching a single entity or multiple entities:
+    /// - Pass an [`Entity`] to receive a single [`EntityRef`].
+    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
+    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
     ///
     /// # Errors
     ///
-    /// If any entity does not exist in the world.
+    /// If any of the given `entities` do not exist in the world, the first
+    /// [`Entity`] found to be missing will return an [`EntityDoesNotExistError`].
     ///
     /// # Examples
     ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Getting multiple entities.
-    /// let [entity1, entity2] = world.get_many_entities([id1, id2]).unwrap();
+    /// For examples, see [`World::entity`].
     ///
-    /// // Trying to get a despawned entity will fail.
-    /// world.despawn(id2);
-    /// assert!(world.get_many_entities([id1, id2]).is_err());
-    /// ```
-    pub fn get_many_entities<const N: usize>(
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    #[inline]
+    pub fn get_entity<F: WorldEntityFetch>(
         &self,
-        entities: [Entity; N],
-    ) -> Result<[EntityRef<'_>; N], Entity> {
-        let mut refs = [MaybeUninit::uninit(); N];
-        for (r, id) in std::iter::zip(&mut refs, entities) {
-            *r = MaybeUninit::new(self.get_entity(id).ok_or(id)?);
-        }
-
-        // SAFETY: Each item was initialized in the above loop.
-        let refs = refs.map(|r| unsafe { MaybeUninit::assume_init(r) });
-
-        Ok(refs)
+        entities: F,
+    ) -> Result<F::Ref<'_>, EntityDoesNotExistError> {
+        let cell = self.as_unsafe_world_cell_readonly();
+        // SAFETY: `&self` gives read access to the entire world, and prevents mutable access.
+        unsafe { entities.fetch_ref(cell) }
     }
 
-    /// Gets an [`EntityRef`] for multiple entities at once, whose number is determined at runtime.
+    /// Returns [`EntityMut`]s that expose read and write operations for the
+    /// given `entities`, returning [`Err`] if any of the given entities do not
+    /// exist. Instead of immediately unwrapping the value returned from this
+    /// function, prefer [`World::entity_mut`].
+    ///
+    /// This function supports fetching a single entity or multiple entities:
+    /// - Pass an [`Entity`] to receive a single [`EntityWorldMut`].
+    ///    - This reference type allows for structural changes to the entity,
+    ///      such as adding or removing components, or despawning the entity.
+    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
+    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
+    ///
+    /// In order to perform structural changes on the returned entity reference,
+    /// such as adding or removing components, or despawning the entity, only a
+    /// single [`Entity`] can be passed to this function. Allowing multiple
+    /// entities at the same time with structural access would lead to undefined
+    /// behavior, so [`EntityMut`] is returned when requesting multiple entities.
     ///
     /// # Errors
     ///
-    /// If any entity does not exist in the world.
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
+    ///     - Only the first entity found to be missing will be returned.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
     ///
     /// # Examples
     ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Getting multiple entities.
-    /// let entities = world.get_many_entities_dynamic(&[id1, id2]).unwrap();
-    /// let entity1 = entities.get(0).unwrap();
-    /// let entity2 = entities.get(1).unwrap();
+    /// For examples, see [`World::entity_mut`].
     ///
-    /// // Trying to get a despawned entity will fail.
-    /// world.despawn(id2);
-    /// assert!(world.get_many_entities_dynamic(&[id1, id2]).is_err());
-    /// ```
-    pub fn get_many_entities_dynamic<'w>(
-        &'w self,
-        entities: &[Entity],
-    ) -> Result<Vec<EntityRef<'w>>, Entity> {
-        let mut borrows = Vec::with_capacity(entities.len());
-        for &id in entities {
-            borrows.push(self.get_entity(id).ok_or(id)?);
-        }
-
-        Ok(borrows)
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    #[inline]
+    pub fn get_entity_mut<F: WorldEntityFetch>(
+        &mut self,
+        entities: F,
+    ) -> Result<F::Mut<'_>, EntityMutableFetchError> {
+        let cell = self.as_unsafe_world_cell();
+        // SAFETY: `&mut self` gives mutable access to the entire world,
+        // and prevents any other access to the world.
+        unsafe { entities.fetch_mut(cell) }
     }
 
     /// Returns an [`Entity`] iterator of current entities.
@@ -640,23 +970,15 @@ impl World {
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
         self.archetypes.iter().flat_map(|archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(|(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(|(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
                     let cell = UnsafeEntityCell::new(
                         self.as_unsafe_world_cell_readonly(),
                         entity,
                         location,
+                        self.last_change_tick,
+                        self.read_change_tick(),
                     );
                     // SAFETY: `&self` gives read access to the entire world.
                     unsafe { EntityRef::new(cell) }
@@ -666,23 +988,21 @@ impl World {
 
     /// Returns a mutable iterator over all entities in the `World`.
     pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
+        let last_change_tick = self.last_change_tick;
+        let change_tick = self.change_tick();
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(move |(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(move |(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(world_cell, entity, location);
+                    let cell = UnsafeEntityCell::new(
+                        world_cell,
+                        entity,
+                        location,
+                        last_change_tick,
+                        change_tick,
+                    );
                     // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
                     // so none will conflict with one another.
                     unsafe { EntityMut::new(cell) }
@@ -690,200 +1010,50 @@ impl World {
         })
     }
 
-    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given `entity`.
-    /// Returns [`None`] if the `entity` does not exist.
-    /// Instead of unwrapping the value returned from this function, prefer [`World::entity_mut`].
+    /// Simultaneously provides access to entity data and a command queue, which
+    /// will be applied when the world is next flushed.
     ///
-    /// ```
-    /// use bevy_ecs::{component::Component, world::World};
+    /// This allows using borrowed entity data to construct commands where the
+    /// borrow checker would otherwise prevent it.
     ///
+    /// See [`DeferredWorld::entities_and_commands`] for the deferred version.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{prelude::*, world::DeferredWorld};
     /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
+    /// struct Targets(Vec<Entity>);
+    /// #[derive(Component)]
+    /// struct TargetedBy(Entity);
+    ///
+    /// let mut world: World = // ...
+    /// #    World::new();
+    /// # let e1 = world.spawn_empty().id();
+    /// # let e2 = world.spawn_empty().id();
+    /// # let eid = world.spawn(Targets(vec![e1, e2])).id();
+    /// let (entities, mut commands) = world.entities_and_commands();
+    ///
+    /// let entity = entities.get(eid).unwrap();
+    /// for &target in entity.get::<Targets>().unwrap().0.iter() {
+    ///     commands.entity(target).insert(TargetedBy(eid));
     /// }
-    ///
-    /// let mut world = World::new();
-    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
-    /// let mut entity_mut = world.get_entity_mut(entity).unwrap();
-    /// let mut position = entity_mut.get_mut::<Position>().unwrap();
-    /// position.x = 1.0;
+    /// # world.flush();
+    /// # assert_eq!(world.get::<TargetedBy>(e1).unwrap().0, eid);
+    /// # assert_eq!(world.get::<TargetedBy>(e2).unwrap().0, eid);
     /// ```
-    #[inline]
-    pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityWorldMut> {
-        let location = self.entities.get(entity)?;
-        // SAFETY: `entity` exists and `location` is that entity's location
-        Some(unsafe { EntityWorldMut::new(self, entity, location) })
-    }
-
-    /// Verify that no duplicate entities are present in the given slice.
-    /// Does NOT check if the entities actually exist in the world.
-    ///
-    /// # Errors
-    ///
-    /// If any entities are duplicated.
-    fn verify_unique_entities(entities: &[Entity]) -> Result<(), QueryEntityError> {
-        for i in 0..entities.len() {
-            for j in 0..i {
-                if entities[i] == entities[j] {
-                    return Err(QueryEntityError::AliasedMutability(entities[i]));
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Gets mutable access to multiple entities.
-    ///
-    /// # Errors
-    ///
-    /// If any entities do not exist in the world,
-    /// or if the same entity is specified multiple times.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Disjoint mutable access.
-    /// let [entity1, entity2] = world.get_many_entities_mut([id1, id2]).unwrap();
-    ///
-    /// // Trying to access the same entity multiple times will fail.
-    /// assert!(world.get_many_entities_mut([id1, id1]).is_err());
-    /// ```
-    pub fn get_many_entities_mut<const N: usize>(
-        &mut self,
-        entities: [Entity; N],
-    ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
-        Self::verify_unique_entities(&entities)?;
-
-        // SAFETY: Each entity is unique.
-        unsafe { self.get_entities_mut_unchecked(entities) }
-    }
-
-    /// # Safety
-    /// `entities` must contain no duplicate [`Entity`] IDs.
-    unsafe fn get_entities_mut_unchecked<const N: usize>(
-        &mut self,
-        entities: [Entity; N],
-    ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
-        let world_cell = self.as_unsafe_world_cell();
-
-        let mut cells = [MaybeUninit::uninit(); N];
-        for (cell, id) in std::iter::zip(&mut cells, entities) {
-            *cell = MaybeUninit::new(
-                world_cell
-                    .get_entity(id)
-                    .ok_or(QueryEntityError::NoSuchEntity(id))?,
-            );
-        }
-        // SAFETY: Each item was initialized in the loop above.
-        let cells = cells.map(|c| unsafe { MaybeUninit::assume_init(c) });
-
+    pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
+        let cell = self.as_unsafe_world_cell();
+        // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        let fetcher = unsafe { EntityFetcher::new(cell) };
         // SAFETY:
-        // - `world_cell` has exclusive access to the entire world.
-        // - The caller ensures that each entity is unique, so none
-        //   of the borrows will conflict with one another.
-        let borrows = cells.map(|c| unsafe { EntityMut::new(c) });
+        // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        // - Command queue access does not conflict with entity access.
+        let raw_queue = unsafe { cell.get_raw_command_queue() };
+        // SAFETY: `&mut self` ensures the commands does not outlive the world.
+        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
 
-        Ok(borrows)
-    }
-
-    /// Gets mutable access to multiple entities, whose number is determined at runtime.
-    ///
-    /// # Errors
-    ///
-    /// If any entities do not exist in the world,
-    /// or if the same entity is specified multiple times.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Disjoint mutable access.
-    /// let mut entities = world.get_many_entities_dynamic_mut(&[id1, id2]).unwrap();
-    /// let entity1 = entities.get_mut(0).unwrap();
-    ///
-    /// // Trying to access the same entity multiple times will fail.
-    /// assert!(world.get_many_entities_dynamic_mut(&[id1, id1]).is_err());
-    /// ```
-    pub fn get_many_entities_dynamic_mut<'w>(
-        &'w mut self,
-        entities: &[Entity],
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
-        Self::verify_unique_entities(entities)?;
-
-        // SAFETY: Each entity is unique.
-        unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
-    }
-
-    /// Gets mutable access to multiple entities, contained in a [`EntityHashSet`].
-    /// The uniqueness of items in a [`EntityHashSet`] allows us to avoid checking for duplicates.
-    ///
-    /// # Errors
-    ///
-    /// If any entities do not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::entity::EntityHash;
-    /// # use bevy_ecs::entity::EntityHashSet;
-    /// # use bevy_utils::hashbrown::HashSet;
-    /// # use bevy_utils::hashbrown::hash_map::DefaultHashBuilder;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// let s = EntityHash::default();
-    /// let mut set = EntityHashSet::with_hasher(s);
-    /// set.insert(id1);
-    /// set.insert(id2);
-    ///
-    /// // Disjoint mutable access.
-    /// let mut entities = world.get_many_entities_from_set_mut(&set).unwrap();
-    /// let entity1 = entities.get_mut(0).unwrap();
-    /// ```
-    pub fn get_many_entities_from_set_mut<'w>(
-        &'w mut self,
-        entities: &EntityHashSet,
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
-        // SAFETY: Each entity is unique.
-        unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
-    }
-
-    /// # Safety
-    /// `entities` must produce no duplicate [`Entity`] IDs.
-    unsafe fn get_entities_dynamic_mut_unchecked(
-        &mut self,
-        entities: impl ExactSizeIterator<Item = Entity>,
-    ) -> Result<Vec<EntityMut<'_>>, QueryEntityError> {
-        let world_cell = self.as_unsafe_world_cell();
-
-        let mut cells = Vec::with_capacity(entities.len());
-        for id in entities {
-            cells.push(
-                world_cell
-                    .get_entity(id)
-                    .ok_or(QueryEntityError::NoSuchEntity(id))?,
-            );
-        }
-
-        let borrows = cells
-            .into_iter()
-            // SAFETY:
-            // - `world_cell` has exclusive access to the entire world.
-            // - The caller ensures that each entity is unique, so none
-            //   of the borrows will conflict with one another.
-            .map(|c| unsafe { EntityMut::new(c) })
-            .collect();
-
-        Ok(borrows)
+        (fetcher, commands)
     }
 
     /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
@@ -911,16 +1081,18 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
+    #[track_caller]
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
-        unsafe { self.spawn_at_empty_internal(entity) }
+        unsafe { self.spawn_at_empty_internal(entity, MaybeLocation::caller()) }
     }
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
     /// a corresponding [`EntityWorldMut`], which can be used to add components to the entity or
-    /// retrieve its id.
+    /// retrieve its id. In case large batches of entities need to be spawned, consider using
+    /// [`World::spawn_batch`] instead.
     ///
     /// ```
     /// use bevy_ecs::{bundle::Bundle, component::Component, world::World};
@@ -950,13 +1122,13 @@ impl World {
     ///
     /// // `spawn` can accept a single component:
     /// world.spawn(Position { x: 0.0, y: 0.0 });
-
+    ///
     /// // It can also accept a tuple of components:
     /// world.spawn((
     ///     Position { x: 0.0, y: 0.0 },
     ///     Velocity { x: 1.0, y: 1.0 },
     /// ));
-
+    ///
     /// // Or it can accept a pre-defined Bundle of components:
     /// world.spawn(PhysicsBundle {
     ///     position: Position { x: 2.0, y: 2.0 },
@@ -979,47 +1151,62 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
+        self.spawn_with_caller(bundle, MaybeLocation::caller())
+    }
+
+    pub(crate) fn spawn_with_caller<B: Bundle>(
+        &mut self,
+        bundle: B,
+        caller: MaybeLocation,
+    ) -> EntityWorldMut {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let entity_location = {
-            let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-            // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe {
-                bundle_spawner.spawn_non_existent(
-                    entity,
-                    bundle,
-                    #[cfg(feature = "track_change_detection")]
-                    Location::caller(),
-                )
-            }
-        };
+        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
+        let (entity_location, after_effect) =
+            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+
+        let mut entity_location = Some(entity_location);
+
+        // SAFETY: command_queue is not referenced anywhere else
+        if !unsafe { self.command_queue.is_empty() } {
+            self.flush();
+            entity_location = self.entities().get(entity);
+        }
 
         // SAFETY: entity and location are valid, as they were just created above
-        unsafe { EntityWorldMut::new(self, entity, entity_location) }
+        let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
+        after_effect.apply(&mut entity);
+        entity
     }
 
     /// # Safety
     /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityWorldMut {
+    unsafe fn spawn_at_empty_internal(
+        &mut self,
+        entity: Entity,
+        caller: MaybeLocation,
+    ) -> EntityWorldMut {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
-        // SAFETY: entity index was just allocated
-        unsafe {
-            self.entities.set(entity.index(), location);
-        }
-        EntityWorldMut::new(self, entity, location)
+        let change_tick = self.change_tick();
+        self.entities.set(entity.index(), Some(location));
+        self.entities
+            .mark_spawn_despawn(entity.index(), caller, change_tick);
+
+        EntityWorldMut::new(self, entity, Some(location))
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
     /// [`Bundle`] iterator and returns a corresponding [`Entity`] iterator.
-    /// This is more efficient than spawning entities and adding components to them individually,
-    /// but it is limited to spawning entities with the same [`Bundle`] type, whereas spawning
-    /// individually is more flexible.
+    /// This is more efficient than spawning entities and adding components to them individually
+    /// using [`World::spawn`], but it is limited to spawning entities with the same [`Bundle`]
+    /// type, whereas spawning individually is more flexible.
     ///
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
@@ -1041,14 +1228,9 @@ impl World {
     pub fn spawn_batch<I>(&mut self, iter: I) -> SpawnBatchIter<'_, I::IntoIter>
     where
         I: IntoIterator,
-        I::Item: Bundle,
+        I::Item: Bundle<Effect: NoBundleEffect>,
     {
-        SpawnBatchIter::new(
-            self,
-            iter.into_iter(),
-            #[cfg(feature = "track_change_detection")]
-            Location::caller(),
-        )
+        SpawnBatchIter::new(self, iter.into_iter(), MaybeLocation::caller())
     }
 
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given type.
@@ -1069,7 +1251,7 @@ impl World {
     /// ```
     #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
-        self.get_entity(entity)?.get()
+        self.get_entity(entity).ok()?.get()
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -1089,22 +1271,97 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
-    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell` is the only thing that is borrowing world
-        // - `as_unsafe_world_cell` provides mutable permission to everything
-        // - `&mut self` ensures no other borrows on world data
-        unsafe { self.as_unsafe_world_cell().get_entity(entity)?.get_mut() }
+    pub fn get_mut<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
+        self.get_entity_mut(entity).ok()?.into_mut()
     }
 
-    /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
-    /// [`Component`]s. Returns `true` if the `entity` is successfully despawned and `false` if
-    /// the `entity` does not exist.
+    /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
+    /// runs the provided closure on it, returning the result if `T` was available.
+    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](World::get_mut).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// #[component(immutable)]
+    /// struct Foo(bool);
+    ///
+    /// # let mut world = World::default();
+    /// # world.register_component::<Foo>();
+    /// #
+    /// # let entity = world.spawn(Foo(false)).id();
+    /// #
+    /// world.modify_component(entity, |foo: &mut Foo| {
+    ///     foo.0 = true;
+    /// });
+    /// #
+    /// # assert_eq!(world.get::<Foo>(entity), Some(&Foo(true)));
+    /// ```
+    #[inline]
+    pub fn modify_component<T: Component, R>(
+        &mut self,
+        entity: Entity,
+        f: impl FnOnce(&mut T) -> R,
+    ) -> Result<Option<R>, EntityMutableFetchError> {
+        let mut world = DeferredWorld::from(&mut *self);
+
+        let result = world.modify_component(entity, f)?;
+
+        self.flush();
+        Ok(result)
+    }
+
+    /// Temporarily removes a [`Component`] identified by the provided
+    /// [`ComponentId`] from the provided [`Entity`] and runs the provided
+    /// closure on it, returning the result if the component was available.
+    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut_by_id`](World::get_mut_by_id).
+    ///
+    /// You should prefer the typed [`modify_component`](World::modify_component)
+    /// whenever possible.
+    #[inline]
+    pub fn modify_component_by_id<R>(
+        &mut self,
+        entity: Entity,
+        component_id: ComponentId,
+        f: impl for<'a> FnOnce(MutUntyped<'a>) -> R,
+    ) -> Result<Option<R>, EntityMutableFetchError> {
+        let mut world = DeferredWorld::from(&mut *self);
+
+        let result = world.modify_component_by_id(entity, component_id, f)?;
+
+        self.flush();
+        Ok(result)
+    }
+
+    /// Despawns the given [`Entity`], if it exists. This will also remove all of the entity's
+    /// [`Components`](Component).
+    ///
+    /// Returns `true` if the entity is successfully despawned and `false` if
+    /// the entity does not exist.
     ///
     /// # Note
     ///
-    /// This won't clean up external references to the entity (such as parent-child relationships
-    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -1118,29 +1375,45 @@ impl World {
     /// let mut world = World::new();
     /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
     /// assert!(world.despawn(entity));
-    /// assert!(world.get_entity(entity).is_none());
+    /// assert!(world.get_entity(entity).is_err());
     /// assert!(world.get::<Position>(entity).is_none());
     /// ```
     #[track_caller]
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        self.despawn_with_caller(entity, Location::caller())
+        if let Err(error) = self.despawn_with_caller(entity, MaybeLocation::caller()) {
+            warn!("{error}");
+            false
+        } else {
+            true
+        }
+    }
+
+    /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
+    /// [`Components`](Component).
+    ///
+    /// Returns an [`EntityDespawnError`] if the entity does not exist.
+    ///
+    /// # Note
+    ///
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
+    #[track_caller]
+    #[inline]
+    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDespawnError> {
+        self.despawn_with_caller(entity, MaybeLocation::caller())
     }
 
     #[inline]
     pub(crate) fn despawn_with_caller(
         &mut self,
         entity: Entity,
-        caller: &'static Location,
-    ) -> bool {
+        caller: MaybeLocation,
+    ) -> Result<(), EntityDespawnError> {
         self.flush();
-        if let Some(entity) = self.get_entity_mut(entity) {
-            entity.despawn();
-            true
-        } else {
-            warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
-            false
-        }
+        let entity = self.get_entity_mut(entity)?;
+        entity.despawn_with_caller(caller);
+        Ok(())
     }
 
     /// Clears the internal component tracker state.
@@ -1181,7 +1454,7 @@ impl World {
     /// assert!(!transform.is_changed());
     /// ```
     ///
-    /// [`RemovedComponents`]: crate::removal_detection::RemovedComponents
+    /// [`RemovedComponents`]: crate::lifecycle::RemovedComponents
     pub fn clear_trackers(&mut self) {
         self.removed_components.update();
         self.last_change_tick = self.increment_change_tick();
@@ -1278,11 +1551,89 @@ impl World {
         QueryState::new(self)
     }
 
+    /// Returns [`QueryState`] for the given [`QueryData`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component, Debug, PartialEq)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// world.spawn_batch(vec![
+    ///     Position { x: 0.0, y: 0.0 },
+    ///     Position { x: 1.0, y: 1.0 },
+    /// ]);
+    ///
+    /// fn get_positions(world: &World) -> Vec<(Entity, &Position)> {
+    ///     let mut query = world.try_query::<(Entity, &Position)>().unwrap();
+    ///     query.iter(world).collect()
+    /// }
+    ///
+    /// let positions = get_positions(&world);
+    ///
+    /// assert_eq!(world.get::<Position>(positions[0].0).unwrap(), positions[0].1);
+    /// assert_eq!(world.get::<Position>(positions[1].0).unwrap(), positions[1].1);
+    /// ```
+    ///
+    /// Requires only an immutable world reference, but may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let none_query = world.try_query::<&A>();
+    /// assert!(none_query.is_none());
+    ///
+    /// world.register_component::<A>();
+    ///
+    /// let some_query = world.try_query::<&A>();
+    /// assert!(some_query.is_some());
+    /// ```
+    #[inline]
+    pub fn try_query<D: QueryData>(&self) -> Option<QueryState<D, ()>> {
+        self.try_query_filtered::<D, ()>()
+    }
+
+    /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    /// #[derive(Component)]
+    /// struct B;
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(A).id();
+    /// let e2 = world.spawn((A, B)).id();
+    ///
+    /// let mut query = world.try_query_filtered::<Entity, With<B>>().unwrap();
+    /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
+    ///
+    /// assert_eq!(matching_entities, vec![e2]);
+    /// ```
+    ///
+    /// Requires only an immutable world reference, but may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    #[inline]
+    pub fn try_query_filtered<D: QueryData, F: QueryFilter>(&self) -> Option<QueryState<D, F>> {
+        QueryState::try_new(self)
+    }
+
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
     pub fn removed<T: Component>(&self) -> impl Iterator<Item = Entity> + '_ {
         self.components
-            .get_id(TypeId::of::<T>())
+            .get_valid_id(TypeId::of::<T>())
             .map(|component_id| self.removed_with_id(component_id))
             .into_iter()
             .flatten()
@@ -1299,6 +1650,23 @@ impl World {
             .map(Into::into)
     }
 
+    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// This enables the dynamic registration of new [`Resource`] definitions at runtime for
+    /// advanced use cases.
+    ///
+    /// # Note
+    ///
+    /// Registering a [`Resource`] does not insert it into [`World`]. For insertion, you could use
+    /// [`World::insert_resource_by_id`].
+    pub fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.components_registrator()
+            .register_resource_with_descriptor(descriptor)
+    }
+
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
@@ -1309,25 +1677,19 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
-        #[cfg(feature = "track_change_detection")]
-        let caller = Location::caller();
-        let component_id = self.components.init_resource::<R>();
+        let caller = MaybeLocation::caller();
+        let component_id = self.components_registrator().register_resource::<R>();
         if self
             .storages
             .resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
-                    self.insert_resource_by_id(
-                        component_id,
-                        ptr,
-                        #[cfg(feature = "track_change_detection")]
-                        caller,
-                    );
+                    self.insert_resource_by_id(component_id, ptr, caller);
                 }
             });
         }
@@ -1342,11 +1704,7 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
-        self.insert_resource_with_caller(
-            value,
-            #[cfg(feature = "track_change_detection")]
-            Location::caller(),
-        );
+        self.insert_resource_with_caller(value, MaybeLocation::caller());
     }
 
     /// Split into a new function so we can pass the calling location into the function when using
@@ -1355,18 +1713,13 @@ impl World {
     pub(crate) fn insert_resource_with_caller<R: Resource>(
         &mut self,
         value: R,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        caller: MaybeLocation,
     ) {
-        let component_id = self.components.init_resource::<R>();
+        let component_id = self.components_registrator().register_resource::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
-                self.insert_resource_by_id(
-                    component_id,
-                    ptr,
-                    #[cfg(feature = "track_change_detection")]
-                    caller,
-                );
+                self.insert_resource_by_id(component_id, ptr, caller);
             }
         });
     }
@@ -1385,25 +1738,19 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
-        #[cfg(feature = "track_change_detection")]
-        let caller = Location::caller();
-        let component_id = self.components.init_non_send::<R>();
+        let caller = MaybeLocation::caller();
+        let component_id = self.components_registrator().register_non_send::<R>();
         if self
             .storages
             .non_send_resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
-                    self.insert_non_send_by_id(
-                        component_id,
-                        ptr,
-                        #[cfg(feature = "track_change_detection")]
-                        caller,
-                    );
+                    self.insert_non_send_by_id(component_id, ptr, caller);
                 }
             });
         }
@@ -1422,18 +1769,12 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
-        #[cfg(feature = "track_change_detection")]
-        let caller = Location::caller();
-        let component_id = self.components.init_non_send::<R>();
+        let caller = MaybeLocation::caller();
+        let component_id = self.components_registrator().register_non_send::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
-                self.insert_non_send_by_id(
-                    component_id,
-                    ptr,
-                    #[cfg(feature = "track_change_detection")]
-                    caller,
-                );
+                self.insert_non_send_by_id(component_id, ptr, caller);
             }
         });
     }
@@ -1441,7 +1782,7 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
@@ -1460,7 +1801,7 @@ impl World {
     /// thread than where the value was inserted from.
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self
             .storages
             .non_send_resources
@@ -1474,20 +1815,36 @@ impl World {
     #[inline]
     pub fn contains_resource<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
+    }
+
+    /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
+    #[inline]
+    pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
+        self.storages
+            .resources
+            .get(component_id)
+            .is_some_and(ResourceData::is_present)
     }
 
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_non_send<R: 'static>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
+    }
+
+    /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
+    #[inline]
+    pub fn contains_non_send_by_id(&self, component_id: ComponentId) -> bool {
+        self.storages
+            .non_send_resources
+            .get(component_id)
+            .is_some_and(ResourceData::is_present)
     }
 
     /// Returns `true` if a resource of type `R` exists and was added since the world's
@@ -1499,9 +1856,8 @@ impl World {
     ///   was called.
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
-            .map(|component_id| self.is_resource_added_by_id(component_id))
-            .unwrap_or(false)
+            .get_valid_resource_id(TypeId::of::<R>())
+            .is_some_and(|component_id| self.is_resource_added_by_id(component_id))
     }
 
     /// Returns `true` if a resource with id `component_id` exists and was added since the world's
@@ -1515,12 +1871,11 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| {
-                resource
-                    .get_ticks()
-                    .map(|ticks| ticks.is_added(self.last_change_tick(), self.read_change_tick()))
+            .is_some_and(|resource| {
+                resource.get_ticks().is_some_and(|ticks| {
+                    ticks.is_added(self.last_change_tick(), self.read_change_tick())
+                })
             })
-            .unwrap_or(false)
     }
 
     /// Returns `true` if a resource of type `R` exists and was modified since the world's
@@ -1532,9 +1887,8 @@ impl World {
     ///   was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
-            .map(|component_id| self.is_resource_changed_by_id(component_id))
-            .unwrap_or(false)
+            .get_valid_resource_id(TypeId::of::<R>())
+            .is_some_and(|component_id| self.is_resource_changed_by_id(component_id))
     }
 
     /// Returns `true` if a resource with id `component_id` exists and was modified since the world's
@@ -1548,18 +1902,17 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| {
-                resource
-                    .get_ticks()
-                    .map(|ticks| ticks.is_changed(self.last_change_tick(), self.read_change_tick()))
+            .is_some_and(|resource| {
+                resource.get_ticks().is_some_and(|ticks| {
+                    ticks.is_changed(self.last_change_tick(), self.read_change_tick())
+                })
             })
-            .unwrap_or(false)
     }
 
     /// Retrieves the change ticks for the given resource.
     pub fn get_resource_change_ticks<R: Resource>(&self) -> Option<ComponentTicks> {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.get_resource_change_ticks_by_id(component_id))
     }
 
@@ -1595,7 +1948,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1611,7 +1964,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_ref<R: Resource>(&self) -> Res<R> {
+    pub fn resource_ref<R: Resource>(&self) -> Ref<R> {
         match self.get_resource_ref() {
             Some(x) => x,
             None => panic!(
@@ -1619,7 +1972,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1643,7 +1996,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1659,7 +2012,7 @@ impl World {
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
-    pub fn get_resource_ref<R: Resource>(&self) -> Option<Res<R>> {
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
         // - `&self` ensures nothing in world is borrowed mutably
@@ -1677,33 +2030,110 @@ impl World {
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyResource(i32);
+    ///
+    /// # let mut world = World::new();
+    /// let my_res = world.get_resource_or_insert_with(|| MyResource(10));
+    /// assert_eq!(my_res.0, 10);
+    /// ```
     #[inline]
     #[track_caller]
     pub fn get_resource_or_insert_with<R: Resource>(
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
-        #[cfg(feature = "track_change_detection")]
-        let caller = Location::caller();
+        let caller = MaybeLocation::caller();
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
 
-        let component_id = self.components.init_resource::<R>();
+        let component_id = self.components_registrator().register_resource::<R>();
         let data = self.initialize_resource_internal(component_id);
         if !data.is_present() {
             OwningPtr::make(func(), |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
-                    data.insert(
-                        ptr,
-                        change_tick,
-                        #[cfg(feature = "track_change_detection")]
-                        caller,
-                    );
+                    data.insert(ptr, change_tick, caller);
                 }
             });
         }
 
+        // SAFETY: The resource must be present, as we would have inserted it if it was empty.
+        let data = unsafe {
+            data.get_mut(last_change_tick, change_tick)
+                .debug_checked_unwrap()
+        };
+        // SAFETY: The underlying type of the resource is `R`.
+        unsafe { data.with_type::<R>() }
+    }
+
+    /// Gets a mutable reference to the resource of type `T` if it exists,
+    /// otherwise initializes the resource by calling its [`FromWorld`]
+    /// implementation.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct Foo(i32);
+    ///
+    /// impl Default for Foo {
+    ///     fn default() -> Self {
+    ///         Self(15)
+    ///     }
+    /// }
+    ///
+    /// #[derive(Resource)]
+    /// struct MyResource(i32);
+    ///
+    /// impl FromWorld for MyResource {
+    ///     fn from_world(world: &mut World) -> Self {
+    ///         let foo = world.get_resource_or_init::<Foo>();
+    ///         Self(foo.0 * 2)
+    ///     }
+    /// }
+    ///
+    /// # let mut world = World::new();
+    /// let my_res = world.get_resource_or_init::<MyResource>();
+    /// assert_eq!(my_res.0, 30);
+    /// ```
+    #[track_caller]
+    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
+        let caller = MaybeLocation::caller();
+        let change_tick = self.change_tick();
+        let last_change_tick = self.last_change_tick();
+
+        let component_id = self.components_registrator().register_resource::<R>();
+        if self
+            .storages
+            .resources
+            .get(component_id)
+            .is_none_or(|data| !data.is_present())
+        {
+            let value = R::from_world(self);
+            OwningPtr::make(value, |ptr| {
+                // SAFETY: component_id was just initialized and corresponds to resource of type R.
+                unsafe {
+                    self.insert_resource_by_id(component_id, ptr, caller);
+                }
+            });
+        }
+
+        // SAFETY: The resource was just initialized if it was empty.
+        let data = unsafe {
+            self.storages
+                .resources
+                .get_mut(component_id)
+                .debug_checked_unwrap()
+        };
         // SAFETY: The resource must be present, as we would have inserted it if it was empty.
         let data = unsafe {
             data.get_mut(last_change_tick, change_tick)
@@ -1730,7 +2160,7 @@ impl World {
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1752,7 +2182,7 @@ impl World {
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1783,182 +2213,301 @@ impl World {
         unsafe { self.as_unsafe_world_cell().get_non_send_resource_mut() }
     }
 
-    // Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
-    #[inline]
-    pub(crate) fn get_resource_archetype_component_id(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<ArchetypeComponentId> {
-        let resource = self.storages.resources.get(component_id)?;
-        Some(resource.id())
-    }
-
-    // Shorthand helper function for getting the [`ArchetypeComponentId`] for a resource.
-    #[inline]
-    pub(crate) fn get_non_send_archetype_component_id(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<ArchetypeComponentId> {
-        let resource = self.storages.non_send_resources.get(component_id)?;
-        Some(resource.id())
-    }
-
-    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, either spawns each [`Entity`] with the given
-    /// bundle (if the entity does not exist), or inserts the [`Bundle`] (if the entity already exists).
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
+    /// adds the `Bundle` of components to each `Entity`.
     /// This is faster than doing equivalent operations one-by-one.
-    /// Returns `Ok` if all entities were successfully inserted into or spawned. Otherwise it returns an `Err`
-    /// with a list of entities that could not be spawned or inserted into. A "spawn or insert" operation can
-    /// only fail if an [`Entity`] is passed in with an "invalid generation" that conflicts with an existing [`Entity`].
     ///
-    /// # Note
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`World::spawn_batch`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an ID space (which doesn't happen by default).
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
     ///
-    /// ```
-    /// use bevy_ecs::{entity::Entity, world::World, component::Component};
-    /// #[derive(Component)]
-    /// struct A(&'static str);
-    /// #[derive(Component, PartialEq, Debug)]
-    /// struct B(f32);
+    /// This will overwrite any previous values of components shared by the `Bundle`.
+    /// See [`World::insert_batch_if_new`] to keep the old values instead.
     ///
-    /// let mut world = World::new();
-    /// let e0 = world.spawn_empty().id();
-    /// let e1 = world.spawn_empty().id();
-    /// world.insert_or_spawn_batch(vec![
-    ///   (e0, (A("a"), B(0.0))), // the first entity
-    ///   (e1, (A("b"), B(1.0))), // the second entity
-    /// ]);
+    /// # Panics
     ///
-    /// assert_eq!(world.get::<B>(e0), Some(&B(0.0)));
-    /// ```
+    /// This function will panic if any of the associated entities do not exist.
+    ///
+    /// For the fallible version, see [`World::try_insert_batch`].
     #[track_caller]
-    pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
+    pub fn insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
-        self.insert_or_spawn_batch_with_caller(
-            iter,
-            #[cfg(feature = "track_change_detection")]
-            Location::caller(),
-        )
+        self.insert_batch_with_caller(batch, InsertMode::Replace, MaybeLocation::caller());
     }
 
-    /// Split into a new function so we can pass the calling location into the function when using
-    /// as a command.
-    #[inline]
-    pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
-        &mut self,
-        iter: I,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
-    ) -> Result<(), Vec<Entity>>
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
+    /// adds the `Bundle` of components to each `Entity` without overwriting.
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// This is the same as [`World::insert_batch`], but in case of duplicate
+    /// components it will leave the old values instead of replacing them with new ones.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any of the associated entities do not exist.
+    ///
+    /// For the fallible version, see [`World::try_insert_batch_if_new`].
+    #[track_caller]
+    pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
+        self.insert_batch_with_caller(batch, InsertMode::Keep, MaybeLocation::caller());
+    }
+
+    /// Split into a new function so we can differentiate the calling location.
+    ///
+    /// This can be called by:
+    /// - [`World::insert_batch`]
+    /// - [`World::insert_batch_if_new`]
+    #[inline]
+    pub(crate) fn insert_batch_with_caller<I, B>(
+        &mut self,
+        batch: I,
+        insert_mode: InsertMode,
+        caller: MaybeLocation,
+    ) where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle<Effect: NoBundleEffect>,
+    {
+        struct InserterArchetypeCache<'w> {
+            inserter: BundleInserter<'w>,
+            archetype_id: ArchetypeId,
+        }
+
         self.flush();
-
         let change_tick = self.change_tick();
-
+        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
             .bundles
-            .init_info::<B>(&mut self.components, &mut self.storages);
-        enum SpawnOrInsert<'w> {
-            Spawn(BundleSpawner<'w>),
-            Insert(BundleInserter<'w>, ArchetypeId),
-        }
+            .register_info::<B>(&mut registrator, &mut self.storages);
 
-        impl<'w> SpawnOrInsert<'w> {
-            fn entities(&mut self) -> &mut Entities {
-                match self {
-                    SpawnOrInsert::Spawn(spawner) => spawner.entities(),
-                    SpawnOrInsert::Insert(inserter, _) => inserter.entities(),
+        let mut batch_iter = batch.into_iter();
+
+        if let Some((first_entity, first_bundle)) = batch_iter.next() {
+            if let Some(first_location) = self.entities().get(first_entity) {
+                let mut cache = InserterArchetypeCache {
+                    // SAFETY: we initialized this bundle_id in `register_info`
+                    inserter: unsafe {
+                        BundleInserter::new_with_id(
+                            self,
+                            first_location.archetype_id,
+                            bundle_id,
+                            change_tick,
+                        )
+                    },
+                    archetype_id: first_location.archetype_id,
+                };
+                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                unsafe {
+                    cache.inserter.insert(
+                        first_entity,
+                        first_location,
+                        first_bundle,
+                        insert_mode,
+                        caller,
+                        RelationshipHookMode::Run,
+                    )
+                };
+
+                for (entity, bundle) in batch_iter {
+                    if let Some(location) = cache.inserter.entities().get(entity) {
+                        if location.archetype_id != cache.archetype_id {
+                            cache = InserterArchetypeCache {
+                                // SAFETY: we initialized this bundle_id in `register_info`
+                                inserter: unsafe {
+                                    BundleInserter::new_with_id(
+                                        self,
+                                        location.archetype_id,
+                                        bundle_id,
+                                        change_tick,
+                                    )
+                                },
+                                archetype_id: location.archetype_id,
+                            }
+                        }
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe {
+                            cache.inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                caller,
+                                RelationshipHookMode::Run,
+                            )
+                        };
+                    } else {
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevy.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
+                    }
                 }
+            } else {
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevy.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
             }
         }
-        // SAFETY: we initialized this bundle_id in `init_info`
-        let mut spawn_or_insert = SpawnOrInsert::Spawn(unsafe {
-            BundleSpawner::new_with_id(self, bundle_id, change_tick)
-        });
+    }
 
-        let mut invalid_entities = Vec::new();
-        for (entity, bundle) in iter {
-            match spawn_or_insert
-                .entities()
-                .alloc_at_without_replacement(entity)
-            {
-                AllocAtWithoutReplacement::Exists(location) => {
-                    match spawn_or_insert {
-                        SpawnOrInsert::Insert(ref mut inserter, archetype)
-                            if location.archetype_id == archetype =>
-                        {
-                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe {
-                                inserter.insert(
-                                    entity,
-                                    location,
-                                    bundle,
-                                    #[cfg(feature = "track_change_detection")]
-                                    caller,
-                                )
-                            };
-                        }
-                        _ => {
-                            // SAFETY: we initialized this bundle_id in `init_info`
-                            let mut inserter = unsafe {
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
+    /// adds the `Bundle` of components to each `Entity`.
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// This will overwrite any previous values of components shared by the `Bundle`.
+    /// See [`World::try_insert_batch_if_new`] to keep the old values instead.
+    ///
+    /// Returns a [`TryInsertBatchError`] if any of the provided entities do not exist.
+    ///
+    /// For the panicking version, see [`World::insert_batch`].
+    #[track_caller]
+    pub fn try_insert_batch<I, B>(&mut self, batch: I) -> Result<(), TryInsertBatchError>
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle<Effect: NoBundleEffect>,
+    {
+        self.try_insert_batch_with_caller(batch, InsertMode::Replace, MaybeLocation::caller())
+    }
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
+    /// adds the `Bundle` of components to each `Entity` without overwriting.
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// This is the same as [`World::try_insert_batch`], but in case of duplicate
+    /// components it will leave the old values instead of replacing them with new ones.
+    ///
+    /// Returns a [`TryInsertBatchError`] if any of the provided entities do not exist.
+    ///
+    /// For the panicking version, see [`World::insert_batch_if_new`].
+    #[track_caller]
+    pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I) -> Result<(), TryInsertBatchError>
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle<Effect: NoBundleEffect>,
+    {
+        self.try_insert_batch_with_caller(batch, InsertMode::Keep, MaybeLocation::caller())
+    }
+
+    /// Split into a new function so we can differentiate the calling location.
+    ///
+    /// This can be called by:
+    /// - [`World::try_insert_batch`]
+    /// - [`World::try_insert_batch_if_new`]
+    /// - [`Commands::insert_batch`]
+    /// - [`Commands::insert_batch_if_new`]
+    /// - [`Commands::try_insert_batch`]
+    /// - [`Commands::try_insert_batch_if_new`]
+    #[inline]
+    pub(crate) fn try_insert_batch_with_caller<I, B>(
+        &mut self,
+        batch: I,
+        insert_mode: InsertMode,
+        caller: MaybeLocation,
+    ) -> Result<(), TryInsertBatchError>
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle<Effect: NoBundleEffect>,
+    {
+        struct InserterArchetypeCache<'w> {
+            inserter: BundleInserter<'w>,
+            archetype_id: ArchetypeId,
+        }
+
+        self.flush();
+        let change_tick = self.change_tick();
+        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
+        let bundle_id = self
+            .bundles
+            .register_info::<B>(&mut registrator, &mut self.storages);
+
+        let mut invalid_entities = Vec::<Entity>::new();
+        let mut batch_iter = batch.into_iter();
+
+        // We need to find the first valid entity so we can initialize the bundle inserter.
+        // This differs from `insert_batch_with_caller` because that method can just panic
+        // if the first entity is invalid, whereas this method needs to keep going.
+        let cache = loop {
+            if let Some((first_entity, first_bundle)) = batch_iter.next() {
+                if let Some(first_location) = self.entities().get(first_entity) {
+                    let mut cache = InserterArchetypeCache {
+                        // SAFETY: we initialized this bundle_id in `register_info`
+                        inserter: unsafe {
+                            BundleInserter::new_with_id(
+                                self,
+                                first_location.archetype_id,
+                                bundle_id,
+                                change_tick,
+                            )
+                        },
+                        archetype_id: first_location.archetype_id,
+                    };
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    unsafe {
+                        cache.inserter.insert(
+                            first_entity,
+                            first_location,
+                            first_bundle,
+                            insert_mode,
+                            caller,
+                            RelationshipHookMode::Run,
+                        )
+                    };
+                    break Some(cache);
+                }
+                invalid_entities.push(first_entity);
+            } else {
+                // We reached the end of the entities the caller provided and none were valid.
+                break None;
+            }
+        };
+
+        if let Some(mut cache) = cache {
+            for (entity, bundle) in batch_iter {
+                if let Some(location) = cache.inserter.entities().get(entity) {
+                    if location.archetype_id != cache.archetype_id {
+                        cache = InserterArchetypeCache {
+                            // SAFETY: we initialized this bundle_id in `register_info`
+                            inserter: unsafe {
                                 BundleInserter::new_with_id(
                                     self,
                                     location.archetype_id,
                                     bundle_id,
                                     change_tick,
                                 )
-                            };
-                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe {
-                                inserter.insert(
-                                    entity,
-                                    location,
-                                    bundle,
-                                    #[cfg(feature = "track_change_detection")]
-                                    caller,
-                                )
-                            };
-                            spawn_or_insert =
-                                SpawnOrInsert::Insert(inserter, location.archetype_id);
+                            },
+                            archetype_id: location.archetype_id,
                         }
-                    };
-                }
-                AllocAtWithoutReplacement::DidNotExist => {
-                    if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
-                        // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
-                        unsafe {
-                            spawner.spawn_non_existent(
-                                entity,
-                                bundle,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            )
-                        };
-                    } else {
-                        // SAFETY: we initialized this bundle_id in `init_info`
-                        let mut spawner =
-                            unsafe { BundleSpawner::new_with_id(self, bundle_id, change_tick) };
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe {
-                            spawner.spawn_non_existent(
-                                entity,
-                                bundle,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            )
-                        };
-                        spawn_or_insert = SpawnOrInsert::Spawn(spawner);
                     }
-                }
-                AllocAtWithoutReplacement::ExistsWithWrongGeneration => {
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    unsafe {
+                        cache.inserter.insert(
+                            entity,
+                            location,
+                            bundle,
+                            insert_mode,
+                            caller,
+                            RelationshipHookMode::Run,
+                        )
+                    };
+                } else {
                     invalid_entities.push(entity);
                 }
             }
@@ -1967,7 +2516,10 @@ impl World {
         if invalid_entities.is_empty() {
             Ok(())
         } else {
-            Err(invalid_entities)
+            Err(TryInsertBatchError {
+                bundle_type: core::any::type_name::<B>(),
+                entities: invalid_entities,
+            })
         }
     }
 
@@ -1994,21 +2546,34 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
+    ///
+    /// See also [`try_resource_scope`](Self::try_resource_scope).
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+        self.try_resource_scope(f)
+            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()))
+    }
+
+    /// Temporarily removes the requested resource from this [`World`] if it exists, runs custom user code,
+    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in this [`World`].
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    ///
+    /// See also [`resource_scope`](Self::resource_scope).
+    pub fn try_resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut World, Mut<R>) -> U,
+    ) -> Option<U> {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
-        let component_id = self
-            .components
-            .get_resource_id(TypeId::of::<R>())
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        let (ptr, mut ticks, mut _caller) = self
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
+        let (ptr, mut ticks, mut caller) = self
             .storages
             .resources
             .get_mut(component_id)
-            .and_then(ResourceData::remove)
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
+            .and_then(ResourceData::remove)?;
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
@@ -2020,69 +2585,54 @@ impl World {
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
-            #[cfg(feature = "track_change_detection")]
-            changed_by: &mut _caller,
+            changed_by: caller.as_mut(),
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
-            std::any::type_name::<R>());
+            core::any::type_name::<R>());
 
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
             unsafe {
-                self.storages
-                    .resources
-                    .get_mut(component_id)
-                    .map(|info| {
-                        info.insert_with_ticks(
-                            ptr,
-                            ticks,
-                            #[cfg(feature = "track_change_detection")]
-                            _caller,
-                        );
-                    })
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No resource of type {} exists in the World.",
-                            std::any::type_name::<R>()
-                        )
-                    });
+                self.storages.resources.get_mut(component_id).map(|info| {
+                    info.insert_with_ticks(ptr, ticks, caller);
+                })
             }
-        });
+        })?;
 
-        result
+        Some(result)
     }
 
-    /// Sends an [`Event`].
+    /// Sends a [`BufferedEvent`].
     /// This method returns the [ID](`EventId`) of the sent `event`,
     /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event<E: Event>(&mut self, event: E) -> Option<EventId<E>> {
-        self.send_event_batch(std::iter::once(event))?.next()
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
+        self.send_event_batch(core::iter::once(event))?.next()
     }
 
-    /// Sends the default value of the [`Event`] of type `E`.
+    /// Sends the default value of the [`BufferedEvent`] of type `E`.
     /// This method returns the [ID](`EventId`) of the sent `event`,
     /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event_default<E: Event + Default>(&mut self) -> Option<EventId<E>> {
+    pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
         self.send_event(E::default())
     }
 
-    /// Sends a batch of [`Event`]s from an iterator.
+    /// Sends a batch of [`BufferedEvent`]s from an iterator.
     /// This method returns the [IDs](`EventId`) of the sent `events`,
     /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event_batch<E: Event>(
+    pub fn send_event_batch<E: BufferedEvent>(
         &mut self,
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
-            bevy_utils::tracing::error!(
+            log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                std::any::type_name::<E>()
+                core::any::type_name::<E>()
             );
             return None;
         };
@@ -2102,19 +2652,14 @@ impl World {
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        caller: MaybeLocation,
     ) {
         let change_tick = self.change_tick();
 
         let resource = self.initialize_resource_internal(component_id);
         // SAFETY: `value` is valid for `component_id`, ensured by caller
         unsafe {
-            resource.insert(
-                value,
-                change_tick,
-                #[cfg(feature = "track_change_detection")]
-                caller,
-            );
+            resource.insert(value, change_tick, caller);
         }
     }
 
@@ -2136,19 +2681,14 @@ impl World {
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        caller: MaybeLocation,
     ) {
         let change_tick = self.change_tick();
 
         let resource = self.initialize_non_send_internal(component_id);
         // SAFETY: `value` is valid for `component_id`, ensured by caller
         unsafe {
-            resource.insert(
-                value,
-                change_tick,
-                #[cfg(feature = "track_change_detection")]
-                caller,
-            );
+            resource.insert(value, change_tick, caller);
         }
     }
 
@@ -2159,12 +2699,10 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
-        let archetypes = &mut self.archetypes;
+        self.flush_components();
         self.storages
             .resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// # Panics
@@ -2174,41 +2712,43 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
-        let archetypes = &mut self.archetypes;
+        self.flush_components();
         self.storages
             .non_send_resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [`Component`].
+    #[track_caller]
     pub(crate) fn flush_entities(&mut self) {
+        let by = MaybeLocation::caller();
+        let at = self.change_tick();
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
         // PERF: consider pre-allocating space for flushed entities
         // SAFETY: entity is set to a valid location
         unsafe {
-            self.entities.flush(|entity, location| {
-                // SAFETY: no components are allocated by archetype.allocate() because the archetype
-                // is empty
-                *location = empty_archetype.allocate(entity, table.allocate(entity));
-            });
+            self.entities.flush(
+                |entity, location| {
+                    // SAFETY: no components are allocated by archetype.allocate() because the archetype
+                    // is empty
+                    *location = Some(empty_archetype.allocate(entity, table.allocate(entity)));
+                },
+                by,
+                at,
+            );
         }
-    }
-
-    /// Flushes queued entities and calls [`World::flush_commands`].
-    #[inline]
-    pub fn flush(&mut self) {
-        self.flush_entities();
-        self.flush_commands();
     }
 
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
-    pub fn flush_commands(&mut self) {
+    ///
+    /// # Panics
+    /// This will panic if any of the queued commands are [`spawn`](Commands::spawn).
+    /// If this is possible, you should instead use [`flush`](Self::flush).
+    pub(crate) fn flush_commands(&mut self) {
         // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
         if !unsafe { self.command_queue.is_empty() } {
             // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
@@ -2218,6 +2758,26 @@ impl World {
                     .apply_or_drop_queued(Some(self.into()));
             };
         }
+    }
+
+    /// Applies any queued component registration.
+    /// For spawning vanilla rust component types and resources, this is not strictly necessary.
+    /// However, flushing components can make information available more quickly, and can have performance benefits.
+    /// Additionally, for components and resources registered dynamically through a raw descriptor or similar,
+    /// this is the only way to complete their registration.
+    pub(crate) fn flush_components(&mut self) {
+        self.components_registrator().apply_queued_registrations();
+    }
+
+    /// Flushes queued entities and commands.
+    ///
+    /// Queued entities will be spawned, and then commands will be applied.
+    #[inline]
+    #[track_caller]
+    pub fn flush(&mut self) {
+        self.flush_entities();
+        self.flush_components();
+        self.flush_commands();
     }
 
     /// Increments the world's current change tick and returns the old value.
@@ -2367,7 +2927,7 @@ impl World {
 
         // By setting the change tick in the drop impl, we ensure that
         // the change tick gets reset even if a panic occurs during the scope.
-        impl std::ops::Drop for LastTickGuard<'_> {
+        impl Drop for LastTickGuard<'_> {
             fn drop(&mut self) {
                 self.world.last_change_tick = self.last_tick;
             }
@@ -2384,16 +2944,20 @@ impl World {
     }
 
     /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
-    /// This prevents overflow and thus prevents false positives.
+    /// This also triggers [`CheckChangeTicks`] observers and returns the same event here.
     ///
-    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
+    /// Calling this method prevents [`Tick`]s overflowing and thus prevents false positives when comparing them.
+    ///
+    /// **Note:** Does nothing and returns `None` if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
     /// times since the previous pass.
     // TODO: benchmark and optimize
-    pub fn check_change_ticks(&mut self) {
+    pub fn check_change_ticks(&mut self) -> Option<CheckChangeTicks> {
         let change_tick = self.change_tick();
         if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD {
-            return;
+            return None;
         }
+
+        let check = CheckChangeTicks(change_tick);
 
         let Storages {
             ref mut tables,
@@ -2403,21 +2967,27 @@ impl World {
         } = self.storages;
 
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
-        tables.check_change_ticks(change_tick);
-        sparse_sets.check_change_ticks(change_tick);
-        resources.check_change_ticks(change_tick);
-        non_send_resources.check_change_ticks(change_tick);
+        let _span = tracing::info_span!("check component ticks").entered();
+        tables.check_change_ticks(check);
+        sparse_sets.check_change_ticks(check);
+        resources.check_change_ticks(check);
+        non_send_resources.check_change_ticks(check);
+        self.entities.check_change_ticks(check);
 
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
-            schedules.check_change_ticks(change_tick);
+            schedules.check_change_ticks(check);
         }
 
+        self.trigger(check);
+        self.flush();
+
         self.last_check_tick = change_tick;
+
+        Some(check)
     }
 
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
-    /// invalidating all [`Entity`] and resource fetches such as [`Res`], [`ResMut`](crate::system::ResMut)
+    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
         self.clear_resources();
@@ -2443,18 +3013,50 @@ impl World {
         self.storages.non_send_resources.clear();
     }
 
-    /// Initializes all of the components in the given [`Bundle`] and returns both the component
+    /// Registers all of the components in the given [`Bundle`] and returns both the component
     /// ids and the bundle id.
     ///
-    /// This is largely equivalent to calling [`init_component`](Self::init_component) on each
+    /// This is largely equivalent to calling [`register_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
-    pub fn init_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+    pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let id = self
             .bundles
-            .init_info::<B>(&mut self.components, &mut self.storages);
-        // SAFETY: We just initialised the bundle so its id should definitely be valid.
+            .register_info::<B>(&mut registrator, &mut self.storages);
+        // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+
+    /// Registers the given [`ComponentId`]s as a dynamic bundle and returns both the required component ids and the bundle id.
+    ///
+    /// Note that the components need to be registered first, this function only creates a bundle combining them. Components
+    /// can be registered with [`World::register_component`]/[`_with_descriptor`](World::register_component_with_descriptor).
+    ///
+    /// **You should prefer to use the typed API [`World::register_bundle`] where possible and only use this in cases where
+    /// not all of the actual types are known at compile time.**
+    ///
+    /// # Panics
+    /// This function will panic if any of the provided component ids do not belong to a component known to this [`World`].
+    #[inline]
+    pub fn register_dynamic_bundle(&mut self, component_ids: &[ComponentId]) -> &BundleInfo {
+        let id =
+            self.bundles
+                .init_dynamic_info(&mut self.storages, &self.components, component_ids);
+        // SAFETY: We just initialized the bundle so its id should definitely be valid.
+        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+
+    /// Convenience method for accessing the world's default error handler,
+    /// which can be overwritten with [`DefaultErrorHandler`].
+    #[inline]
+    pub fn default_error_handler(&self) -> ErrorHandler {
+        self.get_resource::<DefaultErrorHandler>()
+            .copied()
+            .unwrap_or_default()
+            .0
     }
 }
 
@@ -2510,6 +3112,7 @@ impl World {
     /// # struct B(u32);
     /// #
     /// # let mut world = World::new();
+    /// # world.remove_resource::<bevy_ecs::entity_disabling::DefaultQueryFilters>();
     /// # world.insert_resource(A(1));
     /// # world.insert_resource(B(2));
     /// let mut total = 0;
@@ -2519,7 +3122,7 @@ impl World {
     ///    total += info.layout().size();
     /// }
     /// println!("Total size: {} bytes", total);
-    /// # assert_eq!(total, std::mem::size_of::<A>() + std::mem::size_of::<B>());
+    /// # assert_eq!(total, size_of::<A>() + size_of::<B>());
     /// ```
     ///
     /// ## Dynamically running closures for resources matching specific `TypeId`s
@@ -2543,7 +3146,7 @@ impl World {
     /// // probably use something like `ReflectFromPtr` in a real-world scenario.
     ///
     /// // Create the hash map that will store the closures for each resource type
-    /// let mut closures: HashMap<TypeId, Box<dyn Fn(&Ptr<'_>)>> = HashMap::new();
+    /// let mut closures: HashMap<TypeId, Box<dyn Fn(&Ptr<'_>)>> = HashMap::default();
     ///
     /// // Add closure for `A`
     /// closures.insert(TypeId::of::<A>(), Box::new(|ptr| {
@@ -2620,7 +3223,7 @@ impl World {
     /// // probably use something like `ReflectFromPtr` in a real-world scenario.
     ///
     /// // Create the hash map that will store the mutator closures for each resource type
-    /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'_>)>> = HashMap::new();
+    /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'_>)>> = HashMap::default();
     ///
     /// // Add mutator closure for `A`
     /// mutators.insert(TypeId::of::<A>(), Box::new(|mut_untyped| {
@@ -2671,7 +3274,7 @@ impl World {
                         .get_info(component_id)
                         .debug_checked_unwrap()
                 };
-                let (ptr, ticks, _caller) = data.get_with_ticks()?;
+                let (ptr, ticks, caller) = data.get_with_ticks()?;
 
                 // SAFETY:
                 // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
@@ -2690,11 +3293,10 @@ impl World {
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                     value: unsafe { ptr.assert_unique() },
                     ticks,
-                    #[cfg(feature = "track_change_detection")]
                     // SAFETY:
                     // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
-                    changed_by: unsafe { _caller.deref_mut() },
+                    changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
                 };
 
                 Some((component_info, mut_untyped))
@@ -2778,14 +3380,7 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
-        // SAFETY:
-        // - `&self` ensures that all accessed data is not mutably aliased
-        // - `as_unsafe_world_cell_readonly` provides shared/readonly permission to the whole world
-        unsafe {
-            self.as_unsafe_world_cell_readonly()
-                .get_entity(entity)?
-                .get_by_id(component_id)
-        }
+        self.get_entity(entity).ok()?.get_by_id(component_id).ok()
     }
 
     /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
@@ -2799,26 +3394,29 @@ impl World {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        // SAFETY:
-        // - `&mut self` ensures that all accessed data is unaliased
-        // - `as_unsafe_world_cell` provides mutable permission to the whole world
-        unsafe {
-            self.as_unsafe_world_cell()
-                .get_entity(entity)?
-                .get_mut_by_id(component_id)
-        }
+        self.get_entity_mut(entity)
+            .ok()?
+            .into_mut_by_id(component_id)
+            .ok()
     }
 }
 
 // Schedule-related methods
 impl World {
-    /// Adds the specified [`Schedule`] to the world. The schedule can later be run
+    /// Adds the specified [`Schedule`] to the world.
+    /// If a schedule already exists with the same [label](Schedule::label), it will be replaced.
+    ///
+    /// The schedule can later be run
     /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
     /// accessing the [`Schedules`] resource.
     ///
     /// The `Schedules` resource will be initialized if it does not already exist.
+    ///
+    /// An alternative to this is to call [`Schedules::add_systems()`] with some
+    /// [`ScheduleLabel`] and let the schedule for that label be created if it
+    /// does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule) {
-        let mut schedules = self.get_resource_or_insert_with(Schedules::default);
+        let mut schedules = self.get_resource_or_init::<Schedules>();
         schedules.insert(schedule);
     }
 
@@ -2922,6 +3520,7 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    /// This avoids the need to create a unique [`ScheduleLabel`].
     ///
     /// # Panics
     ///
@@ -2968,39 +3567,78 @@ unsafe impl Sync for World {}
 /// using data from the supplied [`World`].
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
+///
+/// [`FromWorld`] is automatically implemented for any type implementing [`Default`]
+/// and may also be derived for:
+/// - any struct whose fields all implement `FromWorld`
+/// - any enum where one variant has the attribute `#[from_world]`
+///
+/// ```rs
+///
+/// #[derive(Default)]
+/// struct A;
+///
+/// #[derive(Default)]
+/// struct B(Option<u32>)
+///
+/// struct C;
+///
+/// impl FromWorld for C {
+///     fn from_world(_world: &mut World) -> Self {
+///         Self
+///     }
+/// }
+///
+/// #[derive(FromWorld)]
+/// struct D(A, B, C);
+///
+/// #[derive(FromWorld)]
+/// enum E {
+///     #[from_world]
+///     F,
+///     G
+/// }
+/// ```
 pub trait FromWorld {
     /// Creates `Self` using data from the given [`World`].
     fn from_world(world: &mut World) -> Self;
 }
 
 impl<T: Default> FromWorld for T {
+    /// Creates `Self` using [`default()`](`Default::default`).
     fn from_world(_world: &mut World) -> Self {
         T::default()
     }
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use super::{FromWorld, World};
     use crate::{
-        change_detection::DetectChangesMut,
-        component::{ComponentDescriptor, ComponentInfo, StorageType},
+        change_detection::{DetectChangesMut, MaybeLocation},
+        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
+        entity::EntityHashSet,
+        entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
-        system::Resource,
+        resource::Resource,
+        world::{error::EntityMutableFetchError, DeferredWorld},
+    };
+    use alloc::{
+        borrow::ToOwned,
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
     };
     use bevy_ecs_macros::Component;
-    use bevy_utils::{HashMap, HashSet};
-    use std::{
+    use bevy_platform::collections::{HashMap, HashSet};
+    use core::{
         any::TypeId,
         panic,
-        sync::{
-            atomic::{AtomicBool, AtomicU32, Ordering},
-            Arc, Mutex,
-        },
+        sync::atomic::{AtomicBool, AtomicU32, Ordering},
     };
-
-    // For bevy_ecs_macros
-    use crate as bevy_ecs;
+    use std::{println, sync::Mutex};
 
     type ID = u8;
 
@@ -3081,7 +3719,7 @@ mod tests {
             if !expected_panic_flag {
                 match panic_res {
                     Ok(()) => panic!("Expected a panic but it didn't happen"),
-                    Err(e) => panic::resume_unwind(e),
+                    Err(e) => std::panic::resume_unwind(e),
                 }
             }
 
@@ -3093,7 +3731,7 @@ mod tests {
     fn panic_while_overwriting_component() {
         let helper = DropTestHelper::new();
 
-        let res = panic::catch_unwind(|| {
+        let res = std::panic::catch_unwind(|| {
             let mut world = World::new();
             world
                 .spawn_empty()
@@ -3131,7 +3769,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(TypeId::of::<TestResource>())
+            .get_valid_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -3147,7 +3785,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(TypeId::of::<TestResource>())
+            .get_valid_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         {
@@ -3168,6 +3806,8 @@ mod tests {
     #[test]
     fn iter_resources() {
         let mut world = World::new();
+        // Remove DefaultQueryFilters so it doesn't show up in the iterator
+        world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -3176,12 +3816,12 @@ mod tests {
         let mut iter = world.iter_resources();
 
         let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), std::any::type_name::<TestResource>());
+        assert_eq!(info.name(), core::any::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
 
         let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), std::any::type_name::<TestResource2>());
+        assert_eq!(info.name(), core::any::type_name::<TestResource2>());
         assert_eq!(
             // SAFETY: We know that the resource is of type `TestResource2`
             unsafe { &ptr.deref::<TestResource2>().0 },
@@ -3194,6 +3834,8 @@ mod tests {
     #[test]
     fn iter_resources_mut() {
         let mut world = World::new();
+        // Remove DefaultQueryFilters so it doesn't show up in the iterator
+        world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -3202,27 +3844,55 @@ mod tests {
         let mut iter = world.iter_resources_mut();
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), std::any::type_name::<TestResource>());
+        assert_eq!(info.name(), core::any::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
         };
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), std::any::type_name::<TestResource2>());
+        assert_eq!(info.name(), core::any::type_name::<TestResource2>());
         // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
         };
 
         assert!(iter.next().is_none());
-        std::mem::drop(iter);
+        drop(iter);
 
         assert_eq!(world.resource::<TestResource>().0, 43);
         assert_eq!(
             world.resource::<TestResource2>().0,
             "Hello, world?".to_string()
         );
+    }
+
+    #[test]
+    fn dynamic_resource() {
+        let mut world = World::new();
+
+        let descriptor = ComponentDescriptor::new_resource::<TestResource>();
+
+        let component_id = world.register_resource_with_descriptor(descriptor);
+
+        let value = 0;
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: value is valid for the layout of `TestResource`
+            unsafe {
+                world.insert_resource_by_id(component_id, ptr, MaybeLocation::caller());
+            }
+        });
+
+        // SAFETY: We know that the resource is of type `TestResource`
+        let resource = unsafe {
+            world
+                .get_resource_by_id(component_id)
+                .unwrap()
+                .deref::<TestResource>()
+        };
+        assert_eq!(resource.0, 0);
+
+        assert!(world.remove_resource_by_id(component_id).is_some());
     }
 
     #[test]
@@ -3236,27 +3906,24 @@ mod tests {
             ComponentDescriptor::new_with_layout(
                 "Custom Test Component".to_string(),
                 StorageType::Table,
-                std::alloc::Layout::new::<[u8; 8]>(),
+                core::alloc::Layout::new::<[u8; 8]>(),
                 Some(|ptr| {
                     let data = ptr.read::<[u8; 8]>();
                     assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
+                true,
+                ComponentCloneBehavior::Default,
             )
         };
 
-        let component_id = world.init_component_with_descriptor(descriptor);
+        let component_id = world.register_resource_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {
             // SAFETY: value is valid for the component layout
             unsafe {
-                world.insert_resource_by_id(
-                    component_id,
-                    ptr,
-                    #[cfg(feature = "track_change_detection")]
-                    core::panic::Location::caller(),
-                );
+                world.insert_resource_by_id(component_id, ptr, MaybeLocation::caller());
             }
         });
 
@@ -3340,39 +4007,47 @@ mod tests {
         let bar_id = TypeId::of::<Bar>();
         let baz_id = TypeId::of::<Baz>();
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent0).collect()),
-            [Some(foo_id), Some(bar_id), Some(baz_id)].into()
+            to_type_ids(world.inspect_entity(ent0).unwrap().collect()),
+            [Some(foo_id), Some(bar_id), Some(baz_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent1).collect()),
-            [Some(foo_id), Some(bar_id)].into()
+            to_type_ids(world.inspect_entity(ent1).unwrap().collect()),
+            [Some(foo_id), Some(bar_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent2).collect()),
-            [Some(bar_id), Some(baz_id)].into()
+            to_type_ids(world.inspect_entity(ent2).unwrap().collect()),
+            [Some(bar_id), Some(baz_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent3).collect()),
-            [Some(foo_id), Some(baz_id)].into()
+            to_type_ids(world.inspect_entity(ent3).unwrap().collect()),
+            [Some(foo_id), Some(baz_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent4).collect()),
-            [Some(foo_id)].into()
+            to_type_ids(world.inspect_entity(ent4).unwrap().collect()),
+            [Some(foo_id)].into_iter().collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent5).collect()),
-            [Some(bar_id)].into()
+            to_type_ids(world.inspect_entity(ent5).unwrap().collect()),
+            [Some(bar_id)].into_iter().collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent6).collect()),
-            [Some(baz_id)].into()
+            to_type_ids(world.inspect_entity(ent6).unwrap().collect()),
+            [Some(baz_id)].into_iter().collect::<HashSet<_>>()
         );
     }
 
     #[test]
     fn iterate_entities() {
         let mut world = World::new();
-        let mut entity_counters = HashMap::new();
+        let mut entity_counters = <HashMap<_, _>>::default();
 
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
@@ -3476,7 +4151,7 @@ mod tests {
         let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
         entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);
-        std::mem::swap(
+        core::mem::swap(
             &mut a[1].get_mut::<A>().unwrap().0,
             &mut b[0].get_mut::<B>().unwrap().0,
         );
@@ -3493,21 +4168,210 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_unique_entities() {
+    fn get_entity() {
         let mut world = World::new();
-        let entity1 = world.spawn(()).id();
-        let entity2 = world.spawn(()).id();
-        let entity3 = world.spawn(()).id();
-        let entity4 = world.spawn(()).id();
-        let entity5 = world.spawn(()).id();
 
-        assert!(
-            World::verify_unique_entities(&[entity1, entity2, entity3, entity4, entity5]).is_ok()
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+
+        assert!(world.get_entity(e1).is_ok());
+        assert!(world.get_entity([e1, e2]).is_ok());
+        assert!(world
+            .get_entity(&[e1, e2] /* this is an array not a slice */)
+            .is_ok());
+        assert!(world.get_entity(&vec![e1, e2][..]).is_ok());
+        assert!(world
+            .get_entity(&EntityHashSet::from_iter([e1, e2]))
+            .is_ok());
+
+        world.entity_mut(e1).despawn();
+
+        assert_eq!(
+            Err(e1),
+            world.get_entity(e1).map(|_| {}).map_err(|e| e.entity)
         );
-        assert!(World::verify_unique_entities(&[entity1, entity1, entity2, entity5]).is_err());
-        assert!(World::verify_unique_entities(&[
-            entity1, entity2, entity3, entity4, entity5, entity1
-        ])
-        .is_err());
+        assert_eq!(
+            Err(e1),
+            world.get_entity([e1, e2]).map(|_| {}).map_err(|e| e.entity)
+        );
+        assert_eq!(
+            Err(e1),
+            world
+                .get_entity(&[e1, e2] /* this is an array not a slice */)
+                .map(|_| {})
+                .map_err(|e| e.entity)
+        );
+        assert_eq!(
+            Err(e1),
+            world
+                .get_entity(&vec![e1, e2][..])
+                .map(|_| {})
+                .map_err(|e| e.entity)
+        );
+        assert_eq!(
+            Err(e1),
+            world
+                .get_entity(&EntityHashSet::from_iter([e1, e2]))
+                .map(|_| {})
+                .map_err(|e| e.entity)
+        );
+    }
+
+    #[test]
+    fn get_entity_mut() {
+        let mut world = World::new();
+
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+
+        assert!(world.get_entity_mut(e1).is_ok());
+        assert!(world.get_entity_mut([e1, e2]).is_ok());
+        assert!(world
+            .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
+            .is_ok());
+        assert!(world.get_entity_mut(&vec![e1, e2][..]).is_ok());
+        assert!(world
+            .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
+            .is_ok());
+
+        assert_eq!(
+            Err(EntityMutableFetchError::AliasedMutability(e1)),
+            world.get_entity_mut([e1, e2, e1]).map(|_| {})
+        );
+        assert_eq!(
+            Err(EntityMutableFetchError::AliasedMutability(e1)),
+            world
+                .get_entity_mut(&[e1, e2, e1] /* this is an array not a slice */)
+                .map(|_| {})
+        );
+        assert_eq!(
+            Err(EntityMutableFetchError::AliasedMutability(e1)),
+            world.get_entity_mut(&vec![e1, e2, e1][..]).map(|_| {})
+        );
+        // Aliased mutability isn't allowed by HashSets
+        assert!(world
+            .get_entity_mut(&EntityHashSet::from_iter([e1, e2, e1]))
+            .is_ok());
+
+        world.entity_mut(e1).despawn();
+
+        assert!(matches!(
+            world.get_entity_mut(e1).map(|_| {}),
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1
+        ));
+        assert!(matches!(
+            world.get_entity_mut([e1, e2]).map(|_| {}),
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
+        assert!(matches!(
+            world
+                .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
+                .map(|_| {}),
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
+        assert!(matches!(
+            world.get_entity_mut(&vec![e1, e2][..]).map(|_| {}),
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1,
+        ));
+        assert!(matches!(
+            world
+                .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
+                .map(|_| {}),
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
+    }
+
+    #[test]
+    #[track_caller]
+    fn entity_spawn_despawn_tracking() {
+        use core::panic::Location;
+
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            MaybeLocation::new(Some(Location::caller()))
+        );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            Some(world.change_tick())
+        );
+        world.despawn(entity);
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            MaybeLocation::new(Some(Location::caller()))
+        );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            Some(world.change_tick())
+        );
+        let new = world.spawn_empty().id();
+        assert_eq!(entity.index(), new.index());
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            MaybeLocation::new(None)
+        );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            None
+        );
+        world.despawn(new);
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            MaybeLocation::new(None)
+        );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            None
+        );
+    }
+
+    #[test]
+    fn new_world_has_disabling() {
+        let mut world = World::new();
+        world.spawn(Foo);
+        world.spawn((Foo, Disabled));
+        assert_eq!(1, world.query::<&Foo>().iter(&world).count());
+
+        // If we explicitly remove the resource, no entities should be filtered anymore
+        world.remove_resource::<DefaultQueryFilters>();
+        assert_eq!(2, world.query::<&Foo>().iter(&world).count());
+    }
+
+    #[test]
+    fn entities_and_commands() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Foo(u32);
+
+        let mut world = World::new();
+
+        let eid = world.spawn(Foo(35)).id();
+
+        let (mut fetcher, mut commands) = world.entities_and_commands();
+        let emut = fetcher.get_mut(eid).unwrap();
+        commands.entity(eid).despawn();
+        assert_eq!(emut.get::<Foo>().unwrap(), &Foo(35));
+
+        world.flush();
+
+        assert!(world.get_entity(eid).is_err());
+    }
+
+    #[test]
+    fn entities_and_commands_deferred() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Foo(u32);
+
+        let mut world = World::new();
+
+        let eid = world.spawn(Foo(1)).id();
+
+        let mut dworld = DeferredWorld::from(&mut world);
+
+        let (mut fetcher, mut commands) = dworld.entities_and_commands();
+        let emut = fetcher.get_mut(eid).unwrap();
+        commands.entity(eid).despawn();
+        assert_eq!(emut.get::<Foo>().unwrap(), &Foo(1));
+
+        world.flush();
+
+        assert!(world.get_entity(eid).is_err());
     }
 }

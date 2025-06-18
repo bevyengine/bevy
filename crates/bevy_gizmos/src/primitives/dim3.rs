@@ -1,23 +1,23 @@
-//! A module for rendering each of the 3D [`bevy_math::primitives`] with [`Gizmos`].
+//! A module for rendering each of the 3D [`bevy_math::primitives`] with [`GizmoBuffer`].
 
 use super::helpers::*;
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use bevy_color::Color;
-use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
+use bevy_math::{
+    primitives::{
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+        Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
+    },
+    Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3,
 };
-use bevy_math::{Dir3, Quat, Vec3};
 
-use crate::circles::SphereBuilder;
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{circles::SphereBuilder, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
 const DEFAULT_RESOLUTION: u32 = 5;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 10_000.0;
 
-/// A trait for rendering 3D geometric primitives (`P`) with [`Gizmos`].
+/// A trait for rendering 3D geometric primitives (`P`) with [`GizmoBuffer`].
 pub trait GizmoPrimitive3d<P: Primitive3d> {
     /// The output of `primitive_3d`. This is a builder to set non-default values.
     type Output<'a>
@@ -28,132 +28,127 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
     fn primitive_3d(
         &mut self,
         primitive: &P,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_>;
 }
 
 // direction 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Dir3> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Dir3> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Dir3,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        self.arrow(position, position + (rotation * **primitive), color);
+        let isometry = isometry.into();
+        let start = Vec3::ZERO;
+        let end = primitive.as_vec3();
+        self.arrow(isometry * start, isometry * end, color);
     }
 }
 
 // sphere
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Sphere> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = SphereBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = SphereBuilder<'a, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Sphere,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        self.sphere(position, rotation, primitive.radius, color)
+        self.sphere(isometry, primitive.radius, color)
     }
 }
 
 // plane 3d
 
 /// Builder for configuring the drawing options of [`Plane3d`].
-pub struct Plane3dBuilder<'a, 'w, 's, Config, Clear>
+pub struct Plane3dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
-    // direction of the normal orthogonal to the plane
+    // Direction of the normal orthogonal to the plane
     normal: Dir3,
 
-    // Rotation of the plane around the origin in 3D space
-    rotation: Quat,
-    // Center position of the plane in 3D space
-    position: Vec3,
+    isometry: Isometry3d,
     // Color of the plane
     color: Color,
 
-    // Number of axis to hint the plane
-    axis_count: u32,
-    // Number of segments used to hint the plane
-    segment_count: u32,
-    // Length of segments used to hint the plane
-    segment_length: f32,
+    // Defines the amount of cells in the x and y axes
+    cell_count: UVec2,
+    // Defines the distance between cells along the x and y axes
+    spacing: Vec2,
 }
 
-impl<Config, Clear> Plane3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Plane3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of segments used to hint the plane.
-    pub fn segment_count(mut self, count: u32) -> Self {
-        self.segment_count = count;
+    /// Set the number of cells in the x and y axes direction.
+    pub fn cell_count(mut self, cell_count: UVec2) -> Self {
+        self.cell_count = cell_count;
         self
     }
 
-    /// Set the length of segments used to hint the plane.
-    pub fn segment_length(mut self, length: f32) -> Self {
-        self.segment_length = length;
-        self
-    }
-
-    /// Set the number of axis used to hint the plane.
-    pub fn axis_count(mut self, count: u32) -> Self {
-        self.axis_count = count;
+    /// Set the distance between cells along the x and y axes.
+    pub fn spacing(mut self, spacing: Vec2) -> Self {
+        self.spacing = spacing;
         self
     }
 }
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Plane3d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Plane3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Plane3dBuilder<'a, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Plane3d,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Plane3dBuilder {
             gizmos: self,
             normal: primitive.normal,
-            rotation,
-            position,
+            isometry: isometry.into(),
             color: color.into(),
-            axis_count: 4,
-            segment_count: 3,
-            segment_length: 0.25,
+            cell_count: UVec2::splat(3),
+            spacing: Vec2::splat(1.0),
         }
     }
 }
 
-impl<Config, Clear> Drop for Plane3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Plane3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -163,157 +158,137 @@ where
             return;
         }
 
-        // draws the normal
-        let normal = self.rotation * *self.normal;
         self.gizmos
-            .primitive_3d(&self.normal, self.position, self.rotation, self.color);
-        let normals_normal = self.rotation * self.normal.any_orthonormal_vector();
-
-        // draws the axes
-        // get rotation for each direction
-        (0..self.axis_count)
-            .map(|i| i as f32 * (1.0 / self.axis_count as f32) * TAU)
-            .map(|angle| Quat::from_axis_angle(normal, angle))
-            .for_each(|quat| {
-                let axis_direction = quat * normals_normal;
-                let direction = Dir3::new_unchecked(axis_direction);
-
-                // for each axis draw dotted line
-                (0..)
-                    .filter(|i| i % 2 != 0)
-                    .map(|percent| (percent as f32 + 0.5) * self.segment_length * axis_direction)
-                    .map(|position| position + self.position)
-                    .take(self.segment_count as usize)
-                    .for_each(|position| {
-                        self.gizmos.primitive_3d(
-                            &Segment3d {
-                                direction,
-                                half_length: self.segment_length * 0.5,
-                            },
-                            position,
-                            Quat::IDENTITY,
-                            self.color,
-                        );
-                    });
-            });
+            .primitive_3d(&self.normal, self.isometry, self.color);
+        // the default orientation of the grid is Z-up
+        let rot = Quat::from_rotation_arc(Vec3::Z, self.normal.as_vec3());
+        self.gizmos.grid(
+            Isometry3d::new(self.isometry.translation, self.isometry.rotation * rot),
+            self.cell_count,
+            self.spacing,
+            self.color,
+        );
     }
 }
 
 // line 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Line3d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Line3d,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         let color = color.into();
-        let direction = rotation * *primitive.direction;
-        self.arrow(position, position + direction, color);
+        let direction = primitive.direction.as_vec3();
+        self.arrow(isometry * Vec3::ZERO, isometry * direction, color);
 
         let [start, end] = [1.0, -1.0]
             .map(|sign| sign * INFINITE_LEN)
-            .map(|length| direction * length)
-            .map(|offset| position + offset);
+            .map(|length| primitive.direction * length)
+            .map(|offset| isometry * offset);
         self.line(start, end, color);
     }
 }
 
 // segment 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Segment3d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Segment3d,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
-        let direction = rotation * *primitive.direction;
-        let start = position - direction * primitive.half_length;
-        let end = position + direction * primitive.half_length;
-        self.line(start, end, color);
+        let transformed = primitive.transformed(isometry);
+        self.line(transformed.point1(), transformed.point2(), color);
     }
 }
 
 // polyline 3d
 
-impl<'w, 's, const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>>
-    for Gizmos<'w, 's, Config, Clear>
+impl<const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Polyline3d<N>,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
-        self.linestrip(
-            primitive
-                .vertices
-                .map(rotate_then_translate_3d(rotation, position)),
-            color,
-        );
+        let isometry = isometry.into();
+        self.linestrip(primitive.vertices.map(|vec3| isometry * vec3), color);
     }
 }
 
 // boxed polyline 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &BoxedPolyline3d,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         self.linestrip(
             primitive
                 .vertices
                 .iter()
                 .copied()
-                .map(rotate_then_translate_3d(rotation, position)),
+                .map(|vec3| isometry * vec3),
             color,
         );
     }
@@ -321,53 +296,55 @@ where
 
 // triangle 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Triangle3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Triangle3d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Triangle3d,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         let [a, b, c] = primitive.vertices;
-        self.linestrip(
-            [a, b, c, a].map(rotate_then_translate_3d(rotation, position)),
-            color,
-        );
+        self.linestrip([a, b, c, a].map(|vec3| isometry * vec3), color);
     }
 }
 
 // cuboid
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Cuboid> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Cuboid,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
-        let [half_extend_x, half_extend_y, half_extend_z] = primitive.half_size.to_array();
+        let isometry = isometry.into();
 
         // transform the points from the reference unit cube to the cuboid coords
         let vertices @ [a, b, c, d, e, f, g, h] = [
@@ -380,8 +357,9 @@ where
             [-1.0, -1.0, -1.0],
             [1.0, -1.0, -1.0],
         ]
-        .map(|[sx, sy, sz]| Vec3::new(sx * half_extend_x, sy * half_extend_y, sz * half_extend_z))
-        .map(rotate_then_translate_3d(rotation, position));
+        .map(Vec3::from)
+        .map(|vec3| vec3 * primitive.half_size)
+        .map(|vec3| isometry * vec3);
 
         // lines for the upper rectangle of the cuboid
         let upper = [a, b, c, d]
@@ -409,24 +387,19 @@ where
 // cylinder 3d
 
 /// Builder for configuring the drawing options of [`Cylinder`].
-pub struct Cylinder3dBuilder<'a, 'w, 's, Config, Clear>
+pub struct Cylinder3dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
     // Radius of the cylinder
     radius: f32,
     // Half height of the cylinder
     half_height: f32,
 
-    // Center position of the cylinder
-    position: Vec3,
-    // Rotation of the cylinder
-    //
-    // default orientation is: the cylinder is aligned with `Vec3::Y` axis
-    rotation: Quat,
+    isometry: Isometry3d,
     // Color of the cylinder
     color: Color,
 
@@ -434,45 +407,46 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> Cylinder3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Cylinder3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of lines used to approximate the top an bottom of the cylinder geometry.
+    /// Set the number of lines used to approximate the top and bottom of the cylinder geometry.
     pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
 }
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Cylinder> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Cylinder> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Cylinder3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Cylinder3dBuilder<'a, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Cylinder,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Cylinder3dBuilder {
             gizmos: self,
             radius: primitive.radius,
             half_height: primitive.half_height,
-            position,
-            rotation,
+            isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_RESOLUTION,
         }
     }
 }
 
-impl<Config, Clear> Drop for Cylinder3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Cylinder3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -482,61 +456,36 @@ where
             return;
         }
 
-        let Cylinder3dBuilder {
-            gizmos,
-            radius,
-            half_height,
-            position,
-            rotation,
-            color,
-            resolution,
-        } = self;
-
-        let normal = Dir3::new_unchecked(*rotation * Vec3::Y);
-        let up = normal.as_vec3() * *half_height;
-
-        // draw upper and lower circle of the cylinder
-        [-1.0, 1.0].into_iter().for_each(|sign| {
-            gizmos
-                .circle(*position + sign * up, normal, *radius, *color)
-                .resolution(*resolution);
-        });
-
-        // draw lines connecting the two cylinder circles
-        [Vec3::NEG_X, Vec3::NEG_Z, Vec3::X, Vec3::Z]
-            .into_iter()
-            .for_each(|axis| {
-                let axis = *rotation * axis;
-                gizmos.line(
-                    *position + up + axis * *radius,
-                    *position - up + axis * *radius,
-                    *color,
-                );
-            });
+        self.gizmos
+            .primitive_3d(
+                &ConicalFrustum {
+                    radius_top: self.radius,
+                    radius_bottom: self.radius,
+                    height: self.half_height * 2.0,
+                },
+                self.isometry,
+                self.color,
+            )
+            .resolution(self.resolution);
     }
 }
 
 // capsule 3d
 
 /// Builder for configuring the drawing options of [`Capsule3d`].
-pub struct Capsule3dBuilder<'a, 'w, 's, Config, Clear>
+pub struct Capsule3dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
     // Radius of the capsule
     radius: f32,
     // Half length of the capsule
     half_length: f32,
 
-    // Center position of the capsule
-    position: Vec3,
-    // Rotation of the capsule
-    //
-    // default orientation is: the capsule is aligned with `Vec3::Y` axis
-    rotation: Quat,
+    isometry: Isometry3d,
     // Color of the capsule
     color: Color,
 
@@ -544,7 +493,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> Capsule3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Capsule3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -556,33 +505,34 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Capsule3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Capsule3d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Capsule3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Capsule3dBuilder<'a, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Capsule3d,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Capsule3dBuilder {
             gizmos: self,
             radius: primitive.radius,
             half_length: primitive.half_length,
-            position,
-            rotation,
+            isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_RESOLUTION,
         }
     }
 }
 
-impl<Config, Clear> Drop for Capsule3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Capsule3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -592,66 +542,48 @@ where
             return;
         }
 
-        let Capsule3dBuilder {
-            gizmos,
-            radius,
-            half_length,
-            position,
-            rotation,
-            color,
-            resolution,
-        } = self;
+        let [upper_apex, lower_apex] = [-1.0, 1.0]
+            .map(|sign| Vec3::Y * sign * (self.half_length + self.radius))
+            .map(|vec3| self.isometry * vec3);
+        let [upper_center, lower_center] = [-1.0, 1.0]
+            .map(|sign| Vec3::Y * sign * self.half_length)
+            .map(|vec3| self.isometry * vec3);
+        let [upper_points, lower_points] = [-1.0, 1.0]
+            .map(|sign| Vec3::Y * sign * self.half_length)
+            .map(|vec3| {
+                circle_coordinates_closed(self.radius, self.resolution)
+                    .map(|vec2| Vec3::new(vec2.x, 0.0, vec2.y) + vec3)
+                    .map(|vec3| self.isometry * vec3)
+                    .collect::<Vec<_>>()
+            });
 
-        // Draw the circles at the top and bottom of the cylinder
-        let y_offset = *rotation * Vec3::Y;
-        gizmos
-            .circle(
-                *position + y_offset * *half_length,
-                Dir3::new_unchecked(y_offset),
-                *radius,
-                *color,
-            )
-            .resolution(*resolution);
-        gizmos
-            .circle(
-                *position - y_offset * *half_length,
-                Dir3::new_unchecked(y_offset),
-                *radius,
-                *color,
-            )
-            .resolution(*resolution);
-        let y_offset = y_offset * *half_length;
+        upper_points.iter().skip(1).copied().for_each(|start| {
+            self.gizmos
+                .short_arc_3d_between(upper_center, start, upper_apex, self.color);
+        });
+        lower_points.iter().skip(1).copied().for_each(|start| {
+            self.gizmos
+                .short_arc_3d_between(lower_center, start, lower_apex, self.color);
+        });
 
-        // Draw the vertical lines and the cap semicircles
-        [Vec3::X, Vec3::Z].into_iter().for_each(|axis| {
-            let normal = *rotation * axis;
+        let circle_rotation = self
+            .isometry
+            .rotation
+            .mul_quat(Quat::from_rotation_x(core::f32::consts::FRAC_PI_2));
+        self.gizmos.circle(
+            Isometry3d::new(upper_center, circle_rotation),
+            self.radius,
+            self.color,
+        );
+        self.gizmos.circle(
+            Isometry3d::new(lower_center, circle_rotation),
+            self.radius,
+            self.color,
+        );
 
-            gizmos.line(
-                *position + normal * *radius + y_offset,
-                *position + normal * *radius - y_offset,
-                *color,
-            );
-            gizmos.line(
-                *position - normal * *radius + y_offset,
-                *position - normal * *radius - y_offset,
-                *color,
-            );
-
-            let rotation = *rotation
-                * Quat::from_euler(bevy_math::EulerRot::ZYX, 0., axis.z * FRAC_PI_2, FRAC_PI_2);
-
-            gizmos
-                .arc_3d(PI, *radius, *position + y_offset, rotation, *color)
-                .resolution(*resolution / 2);
-            gizmos
-                .arc_3d(
-                    PI,
-                    *radius,
-                    *position - y_offset,
-                    rotation * Quat::from_rotation_y(PI),
-                    *color,
-                )
-                .resolution(*resolution / 2);
+        let connection_lines = upper_points.into_iter().zip(lower_points).skip(1);
+        connection_lines.for_each(|(start, end)| {
+            self.gizmos.line(start, end, self.color);
         });
     }
 }
@@ -659,24 +591,19 @@ where
 // cone 3d
 
 /// Builder for configuring the drawing options of [`Cone`].
-pub struct Cone3dBuilder<'a, 'w, 's, Config, Clear>
+pub struct Cone3dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
     // Radius of the cone
     radius: f32,
     // Height of the cone
     height: f32,
 
-    // Center of the cone, half-way between the tip and the base
-    position: Vec3,
-    // Rotation of the cone
-    //
-    // default orientation is: cone base normal is aligned with the `Vec3::Y` axis
-    rotation: Quat,
+    isometry: Isometry3d,
     // Color of the cone
     color: Color,
 
@@ -687,7 +614,7 @@ where
     height_resolution: u32,
 }
 
-impl<Config, Clear> Cone3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Cone3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -718,26 +645,27 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Cone> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Cone> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Cone3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Cone3dBuilder<'a, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Cone,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Cone3dBuilder {
             gizmos: self,
             radius: primitive.radius,
             height: primitive.height,
-            position,
-            rotation,
+            isometry: isometry.into(),
             color: color.into(),
             base_resolution: DEFAULT_RESOLUTION,
             height_resolution: DEFAULT_RESOLUTION,
@@ -745,7 +673,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Cone3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Cone3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -755,37 +683,29 @@ where
             return;
         }
 
-        let Cone3dBuilder {
-            gizmos,
-            radius,
-            height,
-            position,
-            rotation,
-            color,
-            base_resolution,
-            height_resolution,
-        } = self;
+        let half_height = self.height * 0.5;
+        let apex = self.isometry * (Vec3::Y * half_height);
+        let circle_center = half_height * Vec3::NEG_Y;
+        let circle_coords = circle_coordinates_closed(self.radius, self.height_resolution)
+            .map(|vec2| Vec3::new(vec2.x, 0.0, vec2.y) + circle_center)
+            .map(|vec3| self.isometry * vec3)
+            .collect::<Vec<_>>();
 
-        let half_height = *height * 0.5;
+        // connections to apex
+        circle_coords
+            .iter()
+            .skip(1)
+            .map(|vec3| (*vec3, apex))
+            .for_each(|(start, end)| {
+                self.gizmos.line(start, end, self.color);
+            });
 
-        // draw the base circle of the cone
-        draw_circle_3d(
-            gizmos,
-            *radius,
-            *base_resolution,
-            *rotation,
-            *position - *rotation * Vec3::Y * half_height,
-            *color,
-        );
-
-        // connect the base circle with the tip of the cone
-        let end = Vec3::Y * half_height;
-        circle_coordinates(*radius, *height_resolution)
-            .map(|p| Vec3::new(p.x, -half_height, p.y))
-            .map(move |p| [p, end])
-            .map(|ps| ps.map(rotate_then_translate_3d(*rotation, *position)))
-            .for_each(|[start, end]| {
-                gizmos.line(start, end, *color);
+        // base circle
+        circle_coords
+            .windows(2)
+            .map(|win| (win[0], win[1]))
+            .for_each(|(start, end)| {
+                self.gizmos.line(start, end, self.color);
             });
     }
 }
@@ -793,12 +713,12 @@ where
 // conical frustum 3d
 
 /// Builder for configuring the drawing options of [`ConicalFrustum`].
-pub struct ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear>
+pub struct ConicalFrustum3dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
     // Radius of the top circle
     radius_top: f32,
@@ -807,12 +727,7 @@ where
     // Height of the conical frustum
     height: f32,
 
-    // Center of conical frustum, half-way between the top and the bottom
-    position: Vec3,
-    // Rotation of the conical frustum
-    //
-    // default orientation is: conical frustum base shape normals are aligned with `Vec3::Y` axis
-    rotation: Quat,
+    isometry: Isometry3d,
     // Color of the conical frustum
     color: Color,
 
@@ -820,7 +735,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> ConicalFrustum3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -832,18 +747,20 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<ConicalFrustum> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = ConicalFrustum3dBuilder<'a, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &ConicalFrustum,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         ConicalFrustum3dBuilder {
@@ -851,15 +768,14 @@ where
             radius_top: primitive.radius_top,
             radius_bottom: primitive.radius_bottom,
             height: primitive.height,
-            position,
-            rotation,
+            isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_RESOLUTION,
         }
     }
 }
 
-impl<Config, Clear> Drop for ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for ConicalFrustum3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -869,70 +785,45 @@ where
             return;
         }
 
-        let ConicalFrustum3dBuilder {
-            gizmos,
-            radius_top,
-            radius_bottom,
-            height,
-            position,
-            rotation,
-            color,
-            resolution,
-        } = self;
-
-        let half_height = *height * 0.5;
-        let normal = *rotation * Vec3::Y;
-
-        // draw the two circles of the conical frustum
-        [(*radius_top, half_height), (*radius_bottom, -half_height)]
-            .into_iter()
-            .for_each(|(radius, height)| {
-                draw_circle_3d(
-                    gizmos,
-                    radius,
-                    *resolution,
-                    *rotation,
-                    *position + height * normal,
-                    *color,
-                );
+        let half_height = self.height * 0.5;
+        let [upper_points, lower_points] = [(-1.0, self.radius_bottom), (1.0, self.radius_top)]
+            .map(|(sign, radius)| {
+                let translation = Vec3::Y * sign * half_height;
+                circle_coordinates_closed(radius, self.resolution)
+                    .map(|vec2| Vec3::new(vec2.x, 0.0, vec2.y) + translation)
+                    .map(|vec3| self.isometry * vec3)
+                    .collect::<Vec<_>>()
             });
 
-        // connect the two circles of the conical frustum
-        circle_coordinates(*radius_top, *resolution)
-            .map(move |p| Vec3::new(p.x, half_height, p.y))
-            .zip(
-                circle_coordinates(*radius_bottom, *resolution)
-                    .map(|p| Vec3::new(p.x, -half_height, p.y)),
-            )
-            .map(|(start, end)| [start, end])
-            .map(|ps| ps.map(rotate_then_translate_3d(*rotation, *position)))
-            .for_each(|[start, end]| {
-                gizmos.line(start, end, *color);
-            });
+        let upper_lines = upper_points.windows(2).map(|win| (win[0], win[1]));
+        let lower_lines = lower_points.windows(2).map(|win| (win[0], win[1]));
+        upper_lines.chain(lower_lines).for_each(|(start, end)| {
+            self.gizmos.line(start, end, self.color);
+        });
+
+        let connection_lines = upper_points.into_iter().zip(lower_points).skip(1);
+        connection_lines.for_each(|(start, end)| {
+            self.gizmos.line(start, end, self.color);
+        });
     }
 }
 
 // torus 3d
 
 /// Builder for configuring the drawing options of [`Torus`].
-pub struct Torus3dBuilder<'a, 'w, 's, Config, Clear>
+pub struct Torus3dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
     // Radius of the minor circle (tube)
     minor_radius: f32,
     // Radius of the major circle (ring)
     major_radius: f32,
 
-    // Center of the torus
-    position: Vec3,
-    // Rotation of the conical frustum
-    //
-    // default orientation is: major circle normal is aligned with `Vec3::Y` axis
-    rotation: Quat,
+    isometry: Isometry3d,
     // Color of the torus
     color: Color,
 
@@ -942,7 +833,7 @@ where
     major_resolution: u32,
 }
 
-impl<Config, Clear> Torus3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Torus3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -960,26 +851,27 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Torus> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Torus> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Torus3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Torus3dBuilder<'a, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Torus,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Torus3dBuilder {
             gizmos: self,
             minor_radius: primitive.minor_radius,
             major_radius: primitive.major_radius,
-            position,
-            rotation,
+            isometry: isometry.into(),
             color: color.into(),
             minor_resolution: DEFAULT_RESOLUTION,
             major_resolution: DEFAULT_RESOLUTION,
@@ -987,7 +879,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Torus3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Torus3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -997,91 +889,77 @@ where
             return;
         }
 
-        let Torus3dBuilder {
-            gizmos,
-            minor_radius,
-            major_radius,
-            position,
-            rotation,
-            color,
-            minor_resolution,
-            major_resolution,
-        } = self;
-
-        let normal = *rotation * Vec3::Y;
-
         // draw 4 circles with major_radius
-        [
-            (*major_radius - *minor_radius, 0.0),
-            (*major_radius + *minor_radius, 0.0),
-            (*major_radius, *minor_radius),
-            (*major_radius, -*minor_radius),
+        let [inner, outer, top, bottom] = [
+            (self.major_radius - self.minor_radius, 0.0),
+            (self.major_radius + self.minor_radius, 0.0),
+            (self.major_radius, self.minor_radius),
+            (self.major_radius, -self.minor_radius),
         ]
-        .into_iter()
-        .for_each(|(radius, height)| {
-            draw_circle_3d(
-                gizmos,
-                radius,
-                *major_resolution,
-                *rotation,
-                *position + height * normal,
-                *color,
-            );
+        .map(|(radius, height)| {
+            let translation = height * Vec3::Y;
+            circle_coordinates_closed(radius, self.major_resolution)
+                .map(|vec2| Vec3::new(vec2.x, 0.0, vec2.y) + translation)
+                .map(|vec3| self.isometry * vec3)
+                .collect::<Vec<_>>()
         });
 
-        // along the major circle draw orthogonal minor circles
-        let affine = rotate_then_translate_3d(*rotation, *position);
-        circle_coordinates(*major_radius, *major_resolution)
-            .map(|p| Vec3::new(p.x, 0.0, p.y))
-            .flat_map(|major_circle_point| {
-                let minor_center = affine(major_circle_point);
+        [&inner, &outer, &top, &bottom]
+            .iter()
+            .flat_map(|points| points.windows(2).map(|win| (win[0], win[1])))
+            .for_each(|(start, end)| {
+                self.gizmos.line(start, end, self.color);
+            });
 
-                // direction facing from the center of the torus towards the minor circles center
-                let dir_to_translation = (minor_center - *position).normalize();
-
-                // the minor circle is draw with 4 arcs this is done to make the minor circle
-                // connect properly with each of the major circles
-                let circle_points = [dir_to_translation, normal, -dir_to_translation, -normal]
-                    .map(|offset| minor_center + offset.normalize() * *minor_radius);
-                circle_points
-                    .into_iter()
-                    .zip(circle_points.into_iter().cycle().skip(1))
-                    .map(move |(from, to)| (minor_center, from, to))
-                    .collect::<Vec<_>>()
+        inner
+            .into_iter()
+            .zip(top)
+            .zip(outer)
+            .zip(bottom)
+            .flat_map(|(((inner, top), outer), bottom)| {
+                let center = (inner + top + outer + bottom) * 0.25;
+                [(inner, top), (top, outer), (outer, bottom), (bottom, inner)]
+                    .map(|(start, end)| (start, end, center))
             })
-            .for_each(|(center, from, to)| {
-                gizmos
-                    .short_arc_3d_between(center, from, to, *color)
-                    .resolution(*minor_resolution);
+            .for_each(|(from, to, center)| {
+                self.gizmos
+                    .short_arc_3d_between(center, from, to, self.color)
+                    .resolution(self.minor_resolution);
             });
     }
 }
 
 // tetrahedron
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, 's, T> {
-    type Output<'a> = () where Self: 'a;
+impl<Config, Clear> GizmoPrimitive3d<Tetrahedron> for GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Tetrahedron,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
-        let [a, b, c, d] = primitive
-            .vertices
-            .map(rotate_then_translate_3d(rotation, position));
+        let isometry = isometry.into();
+
+        let [a, b, c, d] = primitive.vertices.map(|vec3| isometry * vec3);
 
         let lines = [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)];
 
         let color = color.into();
-        for (a, b) in lines.into_iter() {
-            self.line(a, b, color);
-        }
+        lines.into_iter().for_each(|(start, end)| {
+            self.line(start, end, color);
+        });
     }
 }

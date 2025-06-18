@@ -66,14 +66,20 @@
 // --------- END OF W3C SHORT NOTICE ---------------------------------------------------------------
 
 use crate::{ButtonInput, ButtonState};
-use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    event::{Event, EventReader},
+    entity::Entity,
+    event::{BufferedEvent, Event, EventReader},
     system::ResMut,
 };
+
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+
+#[cfg(not(feature = "smol_str"))]
+use alloc::string::String as SmolStr;
+
+#[cfg(feature = "smol_str")]
 use smol_str::SmolStr;
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -88,11 +94,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
 /// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
-#[derive(Event, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Hash)
+    reflect(Debug, PartialEq, Hash, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -106,6 +112,19 @@ pub struct KeyboardInput {
     pub logical_key: Key,
     /// The press state of the key.
     pub state: ButtonState,
+    /// Contains the text produced by this keypress.
+    ///
+    /// In most cases this is identical to the content
+    /// of the `Character` variant of `logical_key`.
+    /// However, on Windows when a dead key was pressed earlier
+    /// but cannot be combined with the character from this
+    /// keypress, the produced text will consist of two characters:
+    /// the dead-key-character followed by the character resulting
+    /// from this keypress.
+    ///
+    /// This is `None` if the current keypress cannot
+    /// be interpreted as text.
+    pub text: Option<SmolStr>,
     /// On some systems, holding down a key for some period of time causes that key to be repeated
     /// as though it were being pressed and released repeatedly. This field is [`true`] if this
     /// event is the result of one of those repeats.
@@ -120,8 +139,8 @@ pub struct KeyboardInput {
 /// when, for example, switching between windows with 'Alt-Tab' or using any other
 /// OS specific key combination that leads to Bevy window losing focus and not receiving any
 /// input events
-#[derive(Event, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -134,7 +153,7 @@ pub struct KeyboardFocusLost;
 /// ## Differences
 ///
 /// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] resources is that
-/// the latter have convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
+/// the latter has convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`] and is window id agnostic.
 pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
@@ -171,7 +190,11 @@ pub fn keyboard_input_system(
 /// - Correctly match key press and release events.
 /// - On non-web platforms, support assigning keybinds to virtually any key through a UI.
 #[derive(Debug, Clone, Ord, PartialOrd, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Hash)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -212,14 +235,17 @@ pub enum NativeKeyCode {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
+#[expect(
+    clippy::doc_markdown,
+    reason = "We use camel-case words inside `<kbd>` tags to represent keyboard keys, which are not identifiers that we should be putting inside backticks."
+)]
 #[repr(u32)]
 pub enum KeyCode {
     /// This variant is used when the key cannot be translated to any other variant.
@@ -395,7 +421,7 @@ pub enum KeyCode {
     /// Japanese: <kbd>無変換</kbd> (muhenkan)
     NonConvert,
     /// <kbd>⌦</kbd>. The forward delete key.
-    /// Note that on Apple keyboards, the key labelled <kbd>Delete</kbd> on the main part of
+    /// Note that on Apple keyboards, the key labeled <kbd>Delete</kbd> on the main part of
     /// the keyboard is encoded as [`Backspace`].
     ///
     /// [`Backspace`]: Self::Backspace
@@ -532,9 +558,9 @@ pub enum KeyCode {
     /// <kbd>Eject</kbd> or <kbd>⏏</kbd>. This key is placed in the function section on some Apple
     /// keyboards.
     Eject,
-    /// Sometimes labelled <kbd>My Computer</kbd> on the keyboard
+    /// Sometimes labeled <kbd>My Computer</kbd> on the keyboard
     LaunchApp1,
-    /// Sometimes labelled <kbd>Calculator</kbd> on the keyboard
+    /// Sometimes labeled <kbd>Calculator</kbd> on the keyboard
     LaunchApp2,
     /// LaunchMail
     LaunchMail,
@@ -705,7 +731,7 @@ pub enum KeyCode {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -738,18 +764,24 @@ pub enum NativeKey {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
+#[expect(
+    clippy::doc_markdown,
+    reason = "We use camel-case words inside `<kbd>` tags to represent keyboard keys, which are not identifiers that we should be putting inside backticks."
+)]
 pub enum Key {
     /// A key string that corresponds to the character typed by the user, taking into account the
     /// user’s current locale setting, and any system-level keyboard mapping overrides that are in
     /// effect.
+    ///
+    /// Note that behavior may vary across platforms and keyboard layouts.
+    /// See the `text` field of [`KeyboardInput`] for more information.
     Character(SmolStr),
 
     /// This variant is used when the key cannot be translated to any other variant.
@@ -927,7 +959,7 @@ pub enum Key {
     /// be restored. The computer will then shutdown.
     Hibernate,
     /// The Standby key. This key turns off the display and places the computer into a low-power
-    /// mode without completely shutting down. It is sometimes labelled `Suspend` or `Sleep` key.
+    /// mode without completely shutting down. It is sometimes labeled `Suspend` or `Sleep` key.
     /// (`KEYCODE_SLEEP`)
     Standby,
     /// The WakeUp key. (`KEYCODE_WAKEUP`)

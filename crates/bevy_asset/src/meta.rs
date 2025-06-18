@@ -1,9 +1,17 @@
-use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
-use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
-use bevy_utils::tracing::error;
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
+
+use crate::{
+    loader::AssetLoader, processor::Process, Asset, AssetPath, DeserializeMetaError,
+    VisitAssetDependencies,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 pub const META_FORMAT_VERSION: &str = "1.0";
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
@@ -171,11 +179,11 @@ impl Process for () {
     type Settings = ();
     type OutputLoader = ();
 
-    async fn process<'a>(
-        &'a self,
-        _context: &'a mut bevy_asset::processor::ProcessContext<'_>,
+    async fn process(
+        &self,
+        _context: &mut bevy_asset::processor::ProcessContext<'_>,
         _meta: AssetMeta<(), Self>,
-        _writer: &'a mut bevy_asset::io::Writer,
+        _writer: &mut bevy_asset::io::Writer,
     ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
     }
@@ -194,11 +202,11 @@ impl AssetLoader for () {
     type Asset = ();
     type Settings = ();
     type Error = std::io::Error;
-    async fn load<'a>(
-        &'a self,
-        _reader: &'a mut dyn crate::io::Reader,
-        _settings: &'a Self::Settings,
-        _load_context: &'a mut crate::LoadContext<'_>,
+    async fn load(
+        &self,
+        _reader: &mut dyn crate::io::Reader,
+        _settings: &Self::Settings,
+        _load_context: &mut crate::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         unreachable!();
     }
@@ -218,7 +226,7 @@ pub(crate) fn meta_transform_settings<S: Settings>(
         } else {
             error!(
                 "Configured settings type {} does not match AssetLoader settings type",
-                std::any::type_name::<S>(),
+                core::any::type_name::<S>(),
             );
         }
     }

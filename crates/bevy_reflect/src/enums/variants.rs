@@ -1,9 +1,11 @@
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::{NamedField, UnnamedField};
-use bevy_utils::HashMap;
-use std::slice::Iter;
-
-use std::sync::Arc;
+use crate::{
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    NamedField, UnnamedField,
+};
+use alloc::boxed::Box;
+use bevy_platform::collections::HashMap;
+use bevy_platform::sync::Arc;
+use core::slice::Iter;
 use thiserror::Error;
 
 /// Describes the form of an enum variant.
@@ -45,7 +47,9 @@ pub enum VariantInfoError {
     /// [type]: VariantType
     #[error("variant type mismatch: expected {expected:?}, received {received:?}")]
     TypeMismatch {
+        /// Expected variant type.
         expected: VariantType,
+        /// Received variant type.
         received: VariantType,
     },
 }
@@ -82,6 +86,7 @@ pub enum VariantInfo {
 }
 
 impl VariantInfo {
+    /// The name of the enum variant.
     pub fn name(&self) -> &'static str {
         match self {
             Self::Struct(info) => info.name(),
@@ -357,7 +362,6 @@ impl UnitVariantInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{Reflect, Typed};
 
     #[test]

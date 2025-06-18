@@ -1,12 +1,14 @@
-use crate::{utility::reflect_hasher, Enum, Reflect, ReflectRef, VariantType};
-use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
+use crate::{utility::reflect_hasher, Enum, PartialReflect, ReflectRef, VariantType};
+use core::{
+    fmt::Debug,
+    hash::{Hash, Hasher},
+};
 
 /// Returns the `u64` hash of the given [enum](Enum).
 #[inline]
 pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(value).hash(&mut hasher);
+    core::any::Any::type_id(value).hash(&mut hasher);
     value.variant_name().hash(&mut hasher);
     value.variant_type().hash(&mut hasher);
     for field in value.iter_fields() {
@@ -15,16 +17,16 @@ pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
     Some(hasher.finish())
 }
 
-/// Compares an [`Enum`] with a [`Reflect`] value.
+/// Compares an [`Enum`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is an enum;
 /// - `b` is the same variant as `a`;
 /// - For each field in `a`, `b` contains a field with the same name and
-///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
+///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
 #[inline]
-pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> {
+pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) -> Option<bool> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return Some(false);
@@ -98,7 +100,7 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> 
 /// // )
 /// ```
 #[inline]
-pub fn enum_debug(dyn_enum: &dyn Enum, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn enum_debug(dyn_enum: &dyn Enum, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match dyn_enum.variant_type() {
         VariantType::Unit => f.write_str(dyn_enum.variant_name()),
         VariantType::Tuple => {

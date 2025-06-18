@@ -1,29 +1,31 @@
 [package]
 name = "bevy_utils"
-version = "0.15.0-dev"
-edition = "2021"
+version = "0.16.0-dev"
+edition = "2024"
 description = "A collection of utils for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-detailed_trace = []
+default = ["parallel"]
+
+wgpu_wrapper = ["dep:send_wrapper"]
+
+# Provides access to the `Parallel` type.
+parallel = ["bevy_platform/std", "dep:thread_local"]
 
 [dependencies]
-ahash = "0.8.7"
-tracing = { version = "0.1", default-features = false, features = ["std"] }
-web-time = { version = "1.1" }
-hashbrown = { version = "0.14", features = ["serde"] }
-bevy_utils_proc_macros = { version = "0.15.0-dev", path = "macros" }
-thread_local = "1.0"
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
+
+thread_local = { version = "1.0", optional = true }
+
+[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
+send_wrapper = { version = "0.6.0", optional = true }
 
 [dev-dependencies]
 static_assertions = "1.1.0"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2.0", features = ["js"] }
 
 [lints]
 workspace = true

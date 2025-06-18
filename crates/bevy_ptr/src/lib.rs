@@ -1,23 +1,27 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![allow(unsafe_code)]
+#![expect(unsafe_code, reason = "Raw pointers are inherently unsafe.")]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-use core::fmt::{self, Formatter, Pointer};
 use core::{
-    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
+    cell::UnsafeCell,
+    fmt::{self, Debug, Formatter, Pointer},
+    marker::PhantomData,
+    mem::ManuallyDrop,
+    num::NonZeroUsize,
+    ptr::{self, NonNull},
 };
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Aligned;
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not aligned.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Unaligned;
 
 /// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
@@ -49,7 +53,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// let x = 0u32;
     /// let ptr = ConstNonNull::<u32>::new(&x as *const _).expect("ptr is null!");
     ///
-    /// if let Some(ptr) = ConstNonNull::<u32>::new(std::ptr::null()) {
+    /// if let Some(ptr) = ConstNonNull::<u32>::new(core::ptr::null()) {
     ///     unreachable!();
     /// }
     /// ```
@@ -78,7 +82,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// use bevy_ptr::ConstNonNull;
     ///
     /// // NEVER DO THAT!!! This is undefined behavior. ⚠️
-    /// let ptr = unsafe { ConstNonNull::<u32>::new_unchecked(std::ptr::null()) };
+    /// let ptr = unsafe { ConstNonNull::<u32>::new_unchecked(core::ptr::null()) };
     /// ```
     pub const unsafe fn new_unchecked(ptr: *const T) -> Self {
         // SAFETY: This function's safety invariants are identical to `NonNull::new_unchecked`
@@ -155,7 +159,7 @@ impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
 ///
 /// It may be helpful to think of this type as similar to `&'a dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>);
 
@@ -170,11 +174,11 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 ///
 /// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
 /// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
+///
 /// Conceptually represents ownership of whatever data is being pointed to and so is
 /// responsible for calling its `Drop` impl. This pointer is _not_ responsible for freeing
 /// the memory pointed to by this pointer as it may be pointing to an element in a `Vec` or
@@ -189,7 +193,6 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 ///
 /// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
 /// without the metadata and able to point to data that does not correspond to a Rust type.
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
@@ -260,6 +263,19 @@ macro_rules! impl_ptr {
                 Pointer::fmt(&self.0, f)
             }
         }
+
+        impl Debug for $ptr<'_, Aligned> {
+            #[inline]
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                write!(f, "{}<Aligned>({:?})", stringify!($ptr), self.0)
+            }
+        }
+        impl Debug for $ptr<'_, Unaligned> {
+            #[inline]
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                write!(f, "{}<Unaligned>({:?})", stringify!($ptr), self.0)
+            }
+        }
     };
 }
 
@@ -284,7 +300,9 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
     /// # Safety
-    /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
+    /// * The data pointed to by this `Ptr` must be valid for writes.
+    /// * There must be no active references (mutable or otherwise) to the data underlying this `Ptr`.
+    /// * Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     #[inline]
     pub unsafe fn assert_unique(self) -> PtrMut<'a, A> {
         PtrMut(self.0, PhantomData)
@@ -308,7 +326,6 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
     /// as it retains the lifetime.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -364,7 +381,6 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref_mut`](Self::deref_mut) over
     /// this function, as it retains the lifetime.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -394,13 +410,24 @@ impl<'a, T: ?Sized> From<&'a mut T> for PtrMut<'a> {
 }
 
 impl<'a> OwningPtr<'a> {
+    /// This exists mostly to reduce compile times;
+    /// code is only duplicated per type, rather than per function called.
+    ///
+    /// # Safety
+    ///
+    /// Safety constraints of [`PtrMut::promote`] must be upheld.
+    unsafe fn make_internal<T>(temp: &mut ManuallyDrop<T>) -> OwningPtr<'_> {
+        // SAFETY: The constraints of `promote` are upheld by caller.
+        unsafe { PtrMut::from(&mut *temp).promote() }
+    }
+
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
-        let mut temp = ManuallyDrop::new(val);
+        let mut val = ManuallyDrop::new(val);
         // SAFETY: The value behind the pointer will not get dropped or observed later,
         // so it's safe to promote it to an owning pointer.
-        f(unsafe { PtrMut::from(&mut *temp).promote() })
+        f(unsafe { Self::make_internal(&mut val) })
     }
 }
 
@@ -451,7 +478,6 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// If possible, it is strongly encouraged to use the other more type-safe functions
     /// over this function.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -531,11 +557,12 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 
 /// Creates a dangling pointer with specified alignment.
 /// See [`NonNull::dangling`].
-pub fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
+pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
-    // from the address of a `NonZeroUsize`.
-    unsafe { NonNull::new_unchecked(align.get() as *mut u8) }
+    // from the address of a `NonZero<usize>`.
+    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilized
+    unsafe { NonNull::new_unchecked(ptr::null_mut::<u8>().wrapping_add(align.get())) }
 }
 
 mod private {
@@ -599,7 +626,7 @@ trait DebugEnsureAligned {
 impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
-        let align = core::mem::align_of::<T>();
+        let align = align_of::<T>();
         // Implementation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
         //

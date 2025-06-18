@@ -4,7 +4,7 @@ macro_rules! assert_approx_eq {
         if ($x - $y).abs() >= $d {
             panic!(
                 "assertion failed: `(left !== right)` \
-                 (left: `{:?}`, right: `{:?}`, tolerance: `{:?}`)",
+                 (left: `{}`, right: `{}`, tolerance: `{}`)",
                 $x, $y, $d
             );
         }

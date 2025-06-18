@@ -3,7 +3,15 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+  # paste was announced as unmaintained with no explanation or replacement
+  # See: https://rustsec.org/advisories/RUSTSEC-2024-0436
+  # Bevy relies on this in multiple indirect ways, so ignoring it is the only feasible current solution
+  "RUSTSEC-2024-0436",
+  # unmaintained: postcard -> heapless -> atomic-polyfill
+  # See https://github.com/jamesmunns/postcard/issues/223
+  "RUSTSEC-2023-0089",
+]
 
 [licenses]
 version = 2
@@ -25,6 +33,7 @@ allow = [
 exceptions = [
   { name = "unicode-ident", allow = [
     "Unicode-DFS-2016",
+    "Unicode-3.0",
   ] },
   { name = "symphonia", allow = [
     "MPL-2.0",
@@ -74,9 +83,17 @@ deny = [
   { name = "glam", deny-multiple-versions = true },
   { name = "raw-window-handle", deny-multiple-versions = true },
 ]
+skip = [
+  { name = "bevy_math", reason = "bevy_math has a path dev dependency on itself without a version" },
+]
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
+
+# thiserror is the preferred way to derive error types
+[[bans.features]]
+crate = "derive_more"
+deny = ["error"]

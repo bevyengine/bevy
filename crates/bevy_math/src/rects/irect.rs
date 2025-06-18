@@ -19,7 +19,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Hash, Default)
+    reflect(Debug, PartialEq, Hash, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -83,7 +83,7 @@ impl IRect {
 
     /// Create a new rectangle from its center and size.
     ///
-    /// # Rounding Behaviour
+    /// # Rounding Behavior
     ///
     /// If the size contains odd numbers they will be rounded down to the nearest whole number.
     ///
@@ -190,7 +190,7 @@ impl IRect {
 
     /// Rectangle half-size.
     ///
-    /// # Rounding Behaviour
+    /// # Rounding Behavior
     ///
     /// If the full size contains odd numbers they will be rounded down to the nearest whole number when calculating the half size.
     ///
@@ -208,7 +208,7 @@ impl IRect {
 
     /// The center point of the rectangle.
     ///
-    /// # Rounding Behaviour
+    /// # Rounding Behavior
     ///
     /// If the (min + max) contains odd numbers they will be rounded down to the nearest whole number when calculating the center.
     ///

@@ -1,16 +1,16 @@
 use super::compensation_curve::{
     AutoExposureCompensationCurve, AutoExposureCompensationCurveUniform,
 };
-use bevy_asset::prelude::*;
+use bevy_asset::{load_embedded_asset, prelude::*};
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
-    texture::Image,
     view::ViewUniform,
 };
-use std::num::NonZeroU64;
+use core::num::NonZero;
 
 #[derive(Resource)]
 pub struct AutoExposurePipeline {
@@ -27,7 +27,7 @@ pub struct ViewAutoExposurePipeline {
 }
 
 #[derive(ShaderType, Clone, Copy)]
-pub struct AutoExposureSettingsUniform {
+pub struct AutoExposureUniform {
     pub(super) min_log_lum: f32,
     pub(super) inv_log_lum_range: f32,
     pub(super) log_lum_range: f32,
@@ -44,8 +44,6 @@ pub enum AutoExposurePass {
     Average,
 }
 
-pub const METERING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(12987620402995522466);
-
 pub const HISTOGRAM_BIN_COUNT: u64 = 64;
 
 impl FromWorld for AutoExposurePipeline {
@@ -59,18 +57,18 @@ impl FromWorld for AutoExposurePipeline {
                     ShaderStages::COMPUTE,
                     (
                         uniform_buffer::<GlobalsUniform>(false),
-                        uniform_buffer::<AutoExposureSettingsUniform>(false),
+                        uniform_buffer::<AutoExposureUniform>(false),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         texture_1d(TextureSampleType::Float { filterable: false }),
                         uniform_buffer::<AutoExposureCompensationCurveUniform>(false),
-                        storage_buffer_sized(false, NonZeroU64::new(HISTOGRAM_BIN_COUNT * 4)),
-                        storage_buffer_sized(false, NonZeroU64::new(4)),
+                        storage_buffer_sized(false, NonZero::<u64>::new(HISTOGRAM_BIN_COUNT * 4)),
+                        storage_buffer_sized(false, NonZero::<u64>::new(4)),
                         storage_buffer::<ViewUniform>(true),
                     ),
                 ),
             ),
-            histogram_shader: METERING_SHADER_HANDLE.clone(),
+            histogram_shader: load_embedded_asset!(world, "auto_exposure.wgsl"),
         }
     }
 }
@@ -89,6 +87,7 @@ impl SpecializedComputePipeline for AutoExposurePipeline {
                 AutoExposurePass::Average => "compute_average".into(),
             },
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

@@ -15,7 +15,9 @@ struct Vertex {
 #endif
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
+#ifdef VERTEX_NORMALS
     @location(3) normal: vec3<f32>,
+#endif
 #ifdef VERTEX_TANGENTS
     @location(4) tangent: vec4<f32>,
 #endif
@@ -60,9 +62,9 @@ struct VertexOutput {
     @location(5) previous_world_position: vec4<f32>,
 #endif
 
-#ifdef DEPTH_CLAMP_ORTHO
-    @location(6) clip_position_unclamped: vec4<f32>,
-#endif // DEPTH_CLAMP_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
+    @location(6) unclipped_depth: f32,
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     @location(7) instance_index: u32,
 #endif
@@ -70,6 +72,10 @@ struct VertexOutput {
 #ifdef VERTEX_COLORS
     @location(8) color: vec4<f32>,
 #endif
+
+#ifdef VISIBILITY_RANGE_DITHER
+    @location(9) @interpolate(flat) visibility_range_dither: i32,
+#endif  // VISIBILITY_RANGE_DITHER
 }
 
 #ifdef PREPASS_FRAGMENT
@@ -87,8 +93,8 @@ struct FragmentOutput {
     @location(3) deferred_lighting_pass_id: u32,
 #endif
 
-#ifdef DEPTH_CLAMP_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
     @builtin(frag_depth) frag_depth: f32,
-#endif // DEPTH_CLAMP_ORTHO
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 }
 #endif //PREPASS_FRAGMENT

@@ -1,15 +1,20 @@
 //! Tool to run all examples or generate a showcase page for the Bevy website.
 
+#![expect(clippy::print_stdout, reason = "Allowed in tools.")]
+
+use core::{
+    fmt::Display,
+    hash::{Hash, Hasher},
+    time::Duration,
+};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
-    fmt::Display,
     fs::{self, File},
-    hash::{Hash, Hasher},
     io::Write,
     path::{Path, PathBuf},
     process::exit,
     thread,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
@@ -119,7 +124,7 @@ enum WebApi {
 }
 
 impl Display for WebApi {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             WebApi::Webgl2 => write!(f, "webgl2"),
             WebApi::Webgpu => write!(f, "webgpu"),
@@ -270,6 +275,7 @@ fn main() {
                 examples_to_run
                     .iter()
                     .filter(|example| example.category != "Stress Tests" || !ignore_stress_tests)
+                    .filter(|example| example.example_type == ExampleType::Bin)
                     .filter(|example| {
                         example_list.is_none() || example_filter.contains(&example.technical_name)
                     })
@@ -284,7 +290,7 @@ fn main() {
 
             let reports_path = "example-showcase-reports";
             if report_details {
-                std::fs::create_dir(reports_path)
+                fs::create_dir(reports_path)
                     .expect("Failed to create example-showcase-reports directory");
             }
 
@@ -350,7 +356,7 @@ fn main() {
                                 .join(format!("{}.png", to_run.technical_name)),
                         );
                         if let Err(err) = renamed_screenshot {
-                            println!("Failed to rename screenshot: {:?}", err);
+                            println!("Failed to rename screenshot: {err}");
                             no_screenshot_examples.push((to_run, duration));
                         } else {
                             successful_examples.push((to_run, duration));
@@ -367,12 +373,12 @@ fn main() {
                     let stdout = String::from_utf8_lossy(&result.stdout);
                     let stderr = String::from_utf8_lossy(&result.stderr);
                     if show_logs {
-                        println!("{}", stdout);
-                        println!("{}", stderr);
+                        println!("{stdout}");
+                        println!("{stderr}");
                     }
                     if report_details {
                         let mut file =
-                            File::create(format!("{reports_path}/{}.log", example)).unwrap();
+                            File::create(format!("{reports_path}/{example}.log")).unwrap();
                         file.write_all(b"==== stdout ====\n").unwrap();
                         file.write_all(stdout.as_bytes()).unwrap();
                         file.write_all(b"\n==== stderr ====\n").unwrap();
@@ -498,11 +504,15 @@ header_message = \"Examples (WebGL2)\"
 
             let mut categories = HashMap::new();
             for to_show in examples_to_run {
+                if to_show.example_type != ExampleType::Bin {
+                    continue;
+                }
+
                 if !to_show.wasm {
                     continue;
                 }
 
-                // This beautifys the category name
+                // This beautifies the category name
                 // to make it a good looking URL
                 // rather than having weird whitespace
                 // and other characters that don't
@@ -538,7 +548,9 @@ weight = {}
                 let _ = fs::create_dir_all(&example_path);
 
                 let code_path = example_path.join(Path::new(&to_show.path).file_name().unwrap());
-                let _ = fs::copy(&to_show.path, &code_path);
+                let code = fs::read_to_string(&to_show.path).unwrap();
+                let (docblock, code) = split_docblock_and_code(&code);
+                let _ = fs::write(&code_path, code);
 
                 let mut example_index = File::create(example_path.join("index.md")).unwrap();
                 example_index
@@ -562,7 +574,10 @@ code_path = \"content/examples{}/{}\"
 shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
-+++",
++++
+
+{}
+",
                             to_show.name,
                             match api {
                                 WebApi::Webgpu => "-webgpu",
@@ -600,6 +615,7 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "WebGPU",
                                 WebApi::Webgl2 => "WebGL2",
                             },
+                            docblock,
                         )
                         .as_bytes(),
                     )
@@ -612,7 +628,7 @@ header_message = \"Examples ({})\"
             optimize_size,
             api,
         } => {
-            let api = format!("{}", api);
+            let api = format!("{api}");
             let examples_to_build = parse_examples();
 
             let root_path = Path::new(&content_folder);
@@ -654,6 +670,7 @@ header_message = \"Examples ({})\"
                 examples_to_build
                     .iter()
                     .filter(|to_build| to_build.wasm)
+                    .filter(|to_build| to_build.example_type == ExampleType::Bin)
                     .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
                     .take(cli.per_page.unwrap_or(usize::MAX))
             };
@@ -720,6 +737,23 @@ header_message = \"Examples ({})\"
     }
 }
 
+fn split_docblock_and_code(code: &str) -> (String, &str) {
+    let mut docblock_lines = Vec::new();
+    let mut code_byte_start = 0;
+
+    for line in code.lines() {
+        if line.starts_with("//!") {
+            docblock_lines.push(line.trim_start_matches("//!").trim());
+        } else if !line.trim().is_empty() {
+            break;
+        }
+
+        code_byte_start += line.len() + 1;
+    }
+
+    (docblock_lines.join("\n"), &code[code_byte_start..])
+}
+
 fn parse_examples() -> Vec<Example> {
     let manifest_file = fs::read_to_string("Cargo.toml").unwrap();
     let manifest = manifest_file.parse::<DocumentMut>().unwrap();
@@ -739,9 +773,7 @@ fn parse_examples() -> Vec<Example> {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
 
             let source_code = fs::read_to_string(val["path"].as_str().unwrap()).unwrap();
-            let shader_regex =
-                Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
-                    .unwrap();
+            let shader_regex = Regex::new(r"shaders\/\w+\.(wgsl|frag|vert|wesl)").unwrap();
 
             // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
             let mut shader_paths = vec![];
@@ -799,6 +831,22 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
+                example_type: match val.get("crate-type") {
+                    Some(crate_type) => {
+                        match crate_type
+                            .as_array()
+                            .unwrap()
+                            .get(0)
+                            .unwrap()
+                            .as_str()
+                            .unwrap()
+                        {
+                            "lib" => ExampleType::Lib,
+                            _ => ExampleType::Bin,
+                        }
+                    }
+                    None => ExampleType::Bin,
+                },
             })
         })
         .collect()
@@ -828,4 +876,12 @@ struct Example {
     wasm: bool,
     /// List of commands to run before the example. Can be used for example to specify data to download
     setup: Vec<Vec<String>>,
+    /// Type of example
+    example_type: ExampleType,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+enum ExampleType {
+    Lib,
+    Bin,
 }

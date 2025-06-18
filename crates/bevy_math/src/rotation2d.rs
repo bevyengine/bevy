@@ -1,6 +1,11 @@
+use core::f32::consts::TAU;
+
 use glam::FloatExt;
 
-use crate::prelude::{Mat2, Vec2};
+use crate::{
+    ops,
+    prelude::{Mat2, Vec2},
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -25,9 +30,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// assert_eq!(rotation2.as_radians(), PI / 4.0);
 ///
 /// // "Add" rotations together using `*`
+/// #[cfg(feature = "approx")]
 /// assert_relative_eq!(rotation1 * rotation2, Rot2::degrees(135.0));
 ///
 /// // Rotate vectors
+/// #[cfg(feature = "approx")]
 /// assert_relative_eq!(rotation1 * Vec2::X, Vec2::Y);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -35,7 +42,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -97,23 +104,83 @@ impl Rot2 {
     };
 
     /// Creates a [`Rot2`] from a counterclockwise angle in radians.
+    ///
+    /// # Note
+    ///
+    /// The input rotation will always be clamped to the range `(-π, π]` by design.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Rot2;
+    /// # use approx::assert_relative_eq;
+    /// # use std::f32::consts::{FRAC_PI_2, PI};
+    ///
+    /// let rot1 = Rot2::radians(3.0 * FRAC_PI_2);
+    /// let rot2 = Rot2::radians(-FRAC_PI_2);
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(rot1, rot2);
+    ///
+    /// let rot3 = Rot2::radians(PI);
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(rot1 * rot1, rot3);
+    /// ```
     #[inline]
     pub fn radians(radians: f32) -> Self {
-        #[cfg(feature = "libm")]
-        let (sin, cos) = (
-            libm::sin(radians as f64) as f32,
-            libm::cos(radians as f64) as f32,
-        );
-        #[cfg(not(feature = "libm"))]
-        let (sin, cos) = radians.sin_cos();
-
+        let (sin, cos) = ops::sin_cos(radians);
         Self::from_sin_cos(sin, cos)
     }
 
     /// Creates a [`Rot2`] from a counterclockwise angle in degrees.
+    ///
+    /// # Note
+    ///
+    /// The input rotation will always be clamped to the range `(-180°, 180°]` by design.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Rot2;
+    /// # use approx::assert_relative_eq;
+    ///
+    /// let rot1 = Rot2::degrees(270.0);
+    /// let rot2 = Rot2::degrees(-90.0);
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(rot1, rot2);
+    ///
+    /// let rot3 = Rot2::degrees(180.0);
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(rot1 * rot1, rot3);
+    /// ```
     #[inline]
     pub fn degrees(degrees: f32) -> Self {
         Self::radians(degrees.to_radians())
+    }
+
+    /// Creates a [`Rot2`] from a counterclockwise fraction of a full turn of 360 degrees.
+    ///
+    /// # Note
+    ///
+    /// The input rotation will always be clamped to the range `(-50%, 50%]` by design.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Rot2;
+    /// # use approx::assert_relative_eq;
+    ///
+    /// let rot1 = Rot2::turn_fraction(0.75);
+    /// let rot2 = Rot2::turn_fraction(-0.25);
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(rot1, rot2);
+    ///
+    /// let rot3 = Rot2::turn_fraction(0.5);
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(rot1 * rot1, rot3);
+    /// ```
+    #[inline]
+    pub fn turn_fraction(fraction: f32) -> Self {
+        Self::radians(TAU * fraction)
     }
 
     /// Creates a [`Rot2`] from the sine and cosine of an angle in radians.
@@ -136,20 +203,19 @@ impl Rot2 {
     /// Returns the rotation in radians in the `(-pi, pi]` range.
     #[inline]
     pub fn as_radians(self) -> f32 {
-        #[cfg(feature = "libm")]
-        {
-            libm::atan2(self.sin as f64, self.cos as f64) as f32
-        }
-        #[cfg(not(feature = "libm"))]
-        {
-            f32::atan2(self.sin, self.cos)
-        }
+        ops::atan2(self.sin, self.cos)
     }
 
     /// Returns the rotation in degrees in the `(-180, 180]` range.
     #[inline]
     pub fn as_degrees(self) -> f32 {
         self.as_radians().to_degrees()
+    }
+
+    /// Returns the rotation as a fraction of a full 360 degree turn.
+    #[inline]
+    pub fn as_turn_fraction(self) -> f32 {
+        self.as_radians() / TAU
     }
 
     /// Returns the sine and cosine of the rotation angle in radians.
@@ -260,7 +326,7 @@ impl Rot2 {
         // The allowed length is 1 +/- 1e-4, so the largest allowed
         // squared length is (1 + 1e-4)^2 = 1.00020001, which makes
         // the threshold for the squared length approximately 2e-4.
-        (self.length_squared() - 1.0).abs() <= 2e-4
+        ops::abs(self.length_squared() - 1.0) <= 2e-4
     }
 
     /// Returns `true` if the rotation is near [`Rot2::IDENTITY`].
@@ -268,12 +334,12 @@ impl Rot2 {
     pub fn is_near_identity(self) -> bool {
         // Same as `Quat::is_near_identity`, but using sine and cosine
         let threshold_angle_sin = 0.000_049_692_047; // let threshold_angle = 0.002_847_144_6;
-        self.cos > 0.0 && self.sin.abs() < threshold_angle_sin
+        self.cos > 0.0 && ops::abs(self.sin) < threshold_angle_sin
     }
 
     /// Returns the angle in radians needed to make `self` and `other` coincide.
     #[inline]
-    pub fn angle_between(self, other: Self) -> f32 {
+    pub fn angle_to(self, other: Self) -> f32 {
         (other * self.inverse()).as_radians()
     }
 
@@ -282,7 +348,7 @@ impl Rot2 {
     #[inline]
     #[must_use]
     #[doc(alias = "conjugate")]
-    pub fn inverse(self) -> Self {
+    pub const fn inverse(self) -> Self {
         Self {
             cos: self.cos,
             sin: -self.sin,
@@ -366,7 +432,7 @@ impl Rot2 {
     /// ```
     #[inline]
     pub fn slerp(self, end: Self, s: f32) -> Self {
-        self * Self::radians(self.angle_between(end) * s)
+        self * Self::radians(self.angle_to(end) * s)
     }
 }
 
@@ -384,7 +450,7 @@ impl From<Rot2> for Mat2 {
     }
 }
 
-impl std::ops::Mul for Rot2 {
+impl core::ops::Mul for Rot2 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -395,13 +461,13 @@ impl std::ops::Mul for Rot2 {
     }
 }
 
-impl std::ops::MulAssign for Rot2 {
+impl core::ops::MulAssign for Rot2 {
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl std::ops::Mul<Vec2> for Rot2 {
+impl core::ops::Mul<Vec2> for Rot2 {
     type Output = Vec2;
 
     /// Rotates a [`Vec2`] by a [`Rot2`].
@@ -448,25 +514,31 @@ impl approx::UlpsEq for Rot2 {
 
 #[cfg(test)]
 mod tests {
+    use core::f32::consts::FRAC_PI_2;
+
     use approx::assert_relative_eq;
 
-    use crate::{Dir2, Rot2, Vec2};
+    use crate::{ops, Dir2, Rot2, Vec2};
 
     #[test]
     fn creation() {
-        let rotation1 = Rot2::radians(std::f32::consts::FRAC_PI_2);
+        let rotation1 = Rot2::radians(FRAC_PI_2);
         let rotation2 = Rot2::degrees(90.0);
         let rotation3 = Rot2::from_sin_cos(1.0, 0.0);
+        let rotation4 = Rot2::turn_fraction(0.25);
 
         // All three rotations should be equal
         assert_relative_eq!(rotation1.sin, rotation2.sin);
         assert_relative_eq!(rotation1.cos, rotation2.cos);
         assert_relative_eq!(rotation1.sin, rotation3.sin);
         assert_relative_eq!(rotation1.cos, rotation3.cos);
+        assert_relative_eq!(rotation1.sin, rotation4.sin);
+        assert_relative_eq!(rotation1.cos, rotation4.cos);
 
         // The rotation should be 90 degrees
-        assert_relative_eq!(rotation1.as_radians(), std::f32::consts::FRAC_PI_2);
+        assert_relative_eq!(rotation1.as_radians(), FRAC_PI_2);
         assert_relative_eq!(rotation1.as_degrees(), 90.0);
+        assert_relative_eq!(rotation1.as_turn_fraction(), 0.25);
     }
 
     #[test]
@@ -478,11 +550,20 @@ mod tests {
     }
 
     #[test]
+    fn rotation_range() {
+        // the rotation range is `(-180, 180]` and the constructors
+        // normalize the rotations to that range
+        assert_relative_eq!(Rot2::radians(3.0 * FRAC_PI_2), Rot2::radians(-FRAC_PI_2));
+        assert_relative_eq!(Rot2::degrees(270.0), Rot2::degrees(-90.0));
+        assert_relative_eq!(Rot2::turn_fraction(0.75), Rot2::turn_fraction(-0.25));
+    }
+
+    #[test]
     fn add() {
         let rotation1 = Rot2::degrees(90.0);
         let rotation2 = Rot2::degrees(180.0);
 
-        // 90 deg + 180 deg becomes -90 deg after it wraps around to be within the ]-180, 180] range
+        // 90 deg + 180 deg becomes -90 deg after it wraps around to be within the `(-180, 180]` range
         assert_eq!((rotation1 * rotation2).as_degrees(), -90.0);
     }
 
@@ -494,10 +575,7 @@ mod tests {
         assert_relative_eq!((rotation1 * rotation2.inverse()).as_degrees(), 45.0);
 
         // This should be equivalent to the above
-        assert_relative_eq!(
-            rotation2.angle_between(rotation1),
-            std::f32::consts::FRAC_PI_4
-        );
+        assert_relative_eq!(rotation2.angle_to(rotation1), core::f32::consts::FRAC_PI_4);
     }
 
     #[test]
@@ -509,7 +587,7 @@ mod tests {
 
         assert_eq!(rotation.length_squared(), 125.0);
         assert_eq!(rotation.length(), 11.18034);
-        assert!((rotation.normalize().length() - 1.0).abs() < 10e-7);
+        assert!(ops::abs(rotation.normalize().length() - 1.0) < 10e-7);
     }
 
     #[test]
@@ -622,7 +700,7 @@ mod tests {
         assert!(rot1.nlerp(rot2, 0.0).is_near_identity());
         // At 0.5, there is no valid rotation, so the fallback is the original angle.
         assert_eq!(rot1.nlerp(rot2, 0.5).as_degrees(), 0.0);
-        assert_eq!(rot1.nlerp(rot2, 1.0).as_degrees().abs(), 180.0);
+        assert_eq!(ops::abs(rot1.nlerp(rot2, 1.0).as_degrees()), 180.0);
     }
 
     #[test]
@@ -638,9 +716,9 @@ mod tests {
         let rot1 = Rot2::IDENTITY;
         let rot2 = Rot2::from_sin_cos(0.0, -1.0);
 
-        assert!((rot1.slerp(rot2, 1.0 / 3.0).as_degrees() - 60.0).abs() < 10e-6);
+        assert!(ops::abs(rot1.slerp(rot2, 1.0 / 3.0).as_degrees() - 60.0) < 10e-6);
         assert!(rot1.slerp(rot2, 0.0).is_near_identity());
         assert_eq!(rot1.slerp(rot2, 0.5).as_degrees(), 90.0);
-        assert_eq!(rot1.slerp(rot2, 1.0).as_degrees().abs(), 180.0);
+        assert_eq!(ops::abs(rot1.slerp(rot2, 1.0).as_degrees()), 180.0);
     }
 }

@@ -1,13 +1,12 @@
-#![warn(missing_docs)]
-
 //! Adds motion vector support to skyboxes. See [`SkyboxPrepassPipeline`] for details.
 
-use bevy_asset::Handle;
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, With},
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_render::{
@@ -31,8 +30,6 @@ use crate::{
     Skybox,
 };
 
-pub const SKYBOX_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(376510055324461154);
-
 /// This pipeline writes motion vectors to the prepass for all [`Skybox`]es.
 ///
 /// This allows features like motion blur and TAA to work correctly on the skybox. Without this, for
@@ -41,6 +38,7 @@ pub const SKYBOX_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(
 #[derive(Resource)]
 pub struct SkyboxPrepassPipeline {
     bind_group_layout: BindGroupLayout,
+    shader: Handle<Shader>,
 }
 
 /// Used to specialize the [`SkyboxPrepassPipeline`].
@@ -75,6 +73,7 @@ impl FromWorld for SkyboxPrepassPipeline {
                     ),
                 ),
             ),
+            shader: load_embedded_asset!(world, "skybox_prepass.wgsl"),
         }
     }
 }
@@ -102,11 +101,12 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: Some(FragmentState {
-                shader: SKYBOX_PREPASS_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

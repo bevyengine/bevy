@@ -2,16 +2,14 @@
 //! camera using the [`MotionBlur`] component.z
 
 use bevy::{
-    core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
+    core_pipeline::motion_blur::MotionBlur,
+    image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
+    math::ops,
     prelude::*,
 };
 
 fn main() {
     let mut app = App::new();
-
-    // MSAA and Motion Blur together are not compatible on WebGL
-    #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-    app.insert_resource(Msaa::Off);
 
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
@@ -21,19 +19,17 @@ fn main() {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
-        Camera3dBundle::default(),
-        // Add the MotionBlurBundle to a camera to enable motion blur.
+        Camera3d::default(),
+        // Add the `MotionBlur` component to a camera to enable motion blur.
         // Motion blur requires the depth and motion vector prepass, which this bundle adds.
         // Configure the amount and quality of motion blur per-camera using this component.
-        MotionBlurBundle {
-            motion_blur: MotionBlur {
-                shutter_angle: 1.0,
-                samples: 2,
-                #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-                _webgl2_padding: Default::default(),
-            },
-            ..default()
+        MotionBlur {
+            shutter_angle: 1.0,
+            samples: 2,
         },
+        // MSAA and Motion Blur together are not compatible on WebGL
+        #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+        Msaa::Off,
     ));
 }
 
@@ -64,44 +60,42 @@ fn setup_scene(
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 300.0,
+        ..default()
     });
     commands.insert_resource(CameraMode::Chase);
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 3_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
-        ..default()
-    });
+        Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
+    ));
     // Sky
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Sphere::default()),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::default())),
+        MeshMaterial3d(materials.add(StandardMaterial {
             unlit: true,
             base_color: Color::linear_rgb(0.1, 0.6, 1.0),
             ..default()
-        }),
-        transform: Transform::default().with_scale(Vec3::splat(-4000.0)),
-        ..default()
-    });
+        })),
+        Transform::default().with_scale(Vec3::splat(-4000.0)),
+    ));
     // Ground
     let mut plane: Mesh = Plane3d::default().into();
     let uv_size = 4000.0;
     let uvs = vec![[uv_size, 0.0], [0.0, 0.0], [0.0, uv_size], [uv_size; 2]];
     plane.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(plane),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(plane)),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             base_color_texture: Some(images.add(uv_debug_texture())),
             ..default()
-        }),
-        transform: Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
+    ));
 
     spawn_cars(&asset_server, &mut meshes, &mut materials, &mut commands);
     spawn_trees(&mut meshes, &mut materials, &mut commands);
@@ -144,44 +138,35 @@ fn spawn_cars(
 
     for i in 0..N_CARS {
         let color = colors[i % colors.len()].clone();
-        let mut entity = commands.spawn((
-            PbrBundle {
-                mesh: box_mesh.clone(),
-                material: color.clone(),
-                transform: Transform::from_scale(Vec3::splat(0.5)),
-                ..default()
-            },
-            Moves(i as f32 * 2.0),
-        ));
-        if i == 0 {
-            entity.insert(CameraTracked);
-        }
-        entity.with_children(|parent| {
-            parent.spawn(PbrBundle {
-                mesh: box_mesh.clone(),
-                material: color,
-                transform: Transform::from_xyz(0.0, 0.08, 0.03)
-                    .with_scale(Vec3::new(1.0, 1.0, 0.5)),
-                ..default()
-            });
-            let mut spawn_wheel = |x: f32, z: f32| {
+        commands
+            .spawn((
+                Mesh3d(box_mesh.clone()),
+                MeshMaterial3d(color.clone()),
+                Transform::from_scale(Vec3::splat(0.5)),
+                Moves(i as f32 * 2.0),
+            ))
+            .insert_if(CameraTracked, || i == 0)
+            .with_children(|parent| {
                 parent.spawn((
-                    PbrBundle {
-                        mesh: cylinder.clone(),
-                        material: wheel_matl.clone(),
-                        transform: Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
+                    Mesh3d(box_mesh.clone()),
+                    MeshMaterial3d(color),
+                    Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
+                ));
+                let mut spawn_wheel = |x: f32, z: f32| {
+                    parent.spawn((
+                        Mesh3d(cylinder.clone()),
+                        MeshMaterial3d(wheel_matl.clone()),
+                        Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
                             .with_scale(Vec3::new(0.15, 0.04, 0.15))
                             .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
-                        ..default()
-                    },
-                    Rotates,
-                ));
-            };
-            spawn_wheel(1.0, 1.0);
-            spawn_wheel(1.0, -1.0);
-            spawn_wheel(-1.0, 1.0);
-            spawn_wheel(-1.0, -1.0);
-        });
+                        Rotates,
+                    ));
+                };
+                spawn_wheel(1.0, 1.0);
+                spawn_wheel(1.0, -1.0);
+                spawn_wheel(-1.0, 1.0);
+                spawn_wheel(-1.0, -1.0);
+            });
     }
 }
 
@@ -203,12 +188,11 @@ fn spawn_barriers(
                 offset,
                 (i as f32) / (N_CONES as f32) * std::f32::consts::PI * 2.0,
             );
-            commands.spawn(PbrBundle {
-                mesh: capsule.clone(),
-                material: matl.clone(),
-                transform: Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
-                ..default()
-            });
+            commands.spawn((
+                Mesh3d(capsule.clone()),
+                MeshMaterial3d(matl.clone()),
+                Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
+            ));
         }
     };
     spawn_with_offset(0.04);
@@ -233,18 +217,16 @@ fn spawn_trees(
                 (i as f32) / (N_TREES as f32) * std::f32::consts::PI * 2.0,
             );
             let [x, z] = pos.into();
-            commands.spawn(PbrBundle {
-                mesh: sphere.clone(),
-                material: leaves.clone(),
-                transform: Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
-                ..default()
-            });
-            commands.spawn(PbrBundle {
-                mesh: capsule.clone(),
-                material: trunk.clone(),
-                transform: Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
-                ..default()
-            });
+            commands.spawn((
+                Mesh3d(sphere.clone()),
+                MeshMaterial3d(leaves.clone()),
+                Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
+            ));
+            commands.spawn((
+                Mesh3d(capsule.clone()),
+                MeshMaterial3d(trunk.clone()),
+                Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
+            ));
         }
     };
     spawn_with_offset(0.07);
@@ -252,51 +234,51 @@ fn spawn_trees(
 }
 
 fn setup_ui(mut commands: Commands) {
-    let style = TextStyle::default();
-
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new("1/2: -/+ shutter angle (blur amount)\n", style.clone()),
-            TextSection::new("3/4: -/+ sample count (blur quality)\n", style.clone()),
-            TextSection::new("Spacebar: cycle camera\n", style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+    commands
+        .spawn((
+            Text::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::default());
+            p.spawn(TextSpan::default());
+            p.spawn(TextSpan::new("1/2: -/+ shutter angle (blur amount)\n"));
+            p.spawn(TextSpan::new("3/4: -/+ sample count (blur quality)\n"));
+            p.spawn(TextSpan::new("Spacebar: cycle camera\n"));
+        });
 }
 
 fn keyboard_inputs(
-    mut settings: Query<&mut MotionBlur>,
+    mut motion_blur: Single<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
-    mut text: Query<&mut Text>,
+    text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
     mut camera: ResMut<CameraMode>,
 ) {
-    let mut settings = settings.single_mut();
     if presses.just_pressed(KeyCode::Digit1) {
-        settings.shutter_angle -= 0.25;
+        motion_blur.shutter_angle -= 0.25;
     } else if presses.just_pressed(KeyCode::Digit2) {
-        settings.shutter_angle += 0.25;
+        motion_blur.shutter_angle += 0.25;
     } else if presses.just_pressed(KeyCode::Digit3) {
-        settings.samples = settings.samples.saturating_sub(1);
+        motion_blur.samples = motion_blur.samples.saturating_sub(1);
     } else if presses.just_pressed(KeyCode::Digit4) {
-        settings.samples += 1;
+        motion_blur.samples += 1;
     } else if presses.just_pressed(KeyCode::Space) {
         *camera = match *camera {
             CameraMode::Track => CameraMode::Chase,
             CameraMode::Chase => CameraMode::Track,
         };
     }
-    settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
-    settings.samples = settings.samples.clamp(0, 64);
-    let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
-    text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
+    motion_blur.shutter_angle = motion_blur.shutter_angle.clamp(0.0, 1.0);
+    motion_blur.samples = motion_blur.samples.clamp(0, 64);
+    let entity = *text;
+    *writer.text(entity, 1) = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
+    *writer.text(entity, 2) = format!("Samples: {:.5}\n", motion_blur.samples);
 }
 
 /// Parametric function for a looping race track. `offset` will return the point offset
@@ -305,12 +287,13 @@ fn race_track_pos(offset: f32, t: f32) -> Vec2 {
     let x_tweak = 2.0;
     let y_tweak = 3.0;
     let scale = 8.0;
-    let x0 = (x_tweak * t).sin();
-    let y0 = (y_tweak * t).cos();
-    let dx = x_tweak * (x_tweak * t).cos();
-    let dy = y_tweak * -(y_tweak * t).sin();
-    let x = x0 + offset * dy / (dx.powi(2) + dy.powi(2)).sqrt();
-    let y = y0 - offset * dx / (dx.powi(2) + dy.powi(2)).sqrt();
+    let x0 = ops::sin(x_tweak * t);
+    let y0 = ops::cos(y_tweak * t);
+    let dx = x_tweak * ops::cos(x_tweak * t);
+    let dy = y_tweak * -ops::sin(y_tweak * t);
+    let dl = ops::hypot(dx, dy);
+    let x = x0 + offset * dy / dl;
+    let y = y0 - offset * dx / dl;
     Vec2::new(x, y) * scale
 }
 
@@ -320,10 +303,10 @@ fn move_cars(
     mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
 ) {
     for (mut transform, moves, children) in &mut movables {
-        let time = time.elapsed_seconds() * 0.25;
+        let time = time.elapsed_secs() * 0.25;
         let t = time + 0.5 * moves.0;
-        let dx = t.cos();
-        let dz = -(3.0 * t).sin();
+        let dx = ops::cos(t);
+        let dz = -ops::sin(3.0 * t);
         let speed_variation = (dx * dx + dz * dz).sqrt() * 0.15;
         let t = t + speed_variation;
         let prev = transform.translation;
@@ -333,7 +316,7 @@ fn move_cars(
         let delta = transform.translation - prev;
         transform.look_to(delta, Vec3::Y);
         for child in children.iter() {
-            let Ok(mut wheel) = spins.get_mut(*child) else {
+            let Ok(mut wheel) = spins.get_mut(child) else {
                 continue;
             };
             let radius = wheel.scale.x;
@@ -345,12 +328,11 @@ fn move_cars(
 }
 
 fn move_camera(
-    mut camera: Query<(&mut Transform, &mut Projection), Without<CameraTracked>>,
-    tracked: Query<&Transform, With<CameraTracked>>,
+    camera: Single<(&mut Transform, &mut Projection), Without<CameraTracked>>,
+    tracked: Single<&Transform, With<CameraTracked>>,
     mode: Res<CameraMode>,
 ) {
-    let tracked = tracked.single();
-    let (mut transform, mut projection) = camera.single_mut();
+    let (mut transform, mut projection) = camera.into_inner();
     match *mode {
         CameraMode::Track => {
             transform.look_at(tracked.translation, Vec3::Y);
@@ -362,7 +344,7 @@ fn move_camera(
         CameraMode::Chase => {
             transform.translation =
                 tracked.translation + Vec3::new(0.0, 0.15, 0.0) + tracked.back() * 0.6;
-            transform.look_to(*tracked.forward(), Vec3::Y);
+            transform.look_to(tracked.forward(), Vec3::Y);
             if let Projection::Perspective(perspective) = &mut *projection {
                 perspective.fov = 1.0;
             }
@@ -371,7 +353,7 @@ fn move_camera(
 }
 
 fn uv_debug_texture() -> Image {
-    use bevy::render::{render_asset::RenderAssetUsages, render_resource::*, texture::*};
+    use bevy::render::{render_asset::RenderAssetUsages, render_resource::*};
     const TEXTURE_SIZE: usize = 7;
 
     let mut palette = [

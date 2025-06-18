@@ -1,7 +1,7 @@
 (
     meta_format_version: "1.0",
     asset: Load(
-        loader: "bevy_render::texture::image_loader::ImageLoader",
+        loader: "bevy_image::image_loader::ImageLoader",
         settings: (
             format: FromExtension,
             is_srgb: true,

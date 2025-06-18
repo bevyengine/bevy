@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 
-#[derive(Event)]
+#[derive(Event, BufferedEvent)]
 struct BenchEvent<const SIZE: usize>([u8; SIZE]);
 
 impl<const SIZE: usize> Default for BenchEvent<SIZE> {
@@ -32,7 +32,7 @@ impl<const SIZE: usize> Benchmark<SIZE> {
     pub fn run(&mut self) {
         for _ in 0..self.count {
             self.events
-                .send(std::hint::black_box(BenchEvent([0u8; SIZE])));
+                .send(core::hint::black_box(BenchEvent([0u8; SIZE])));
         }
         self.events.update();
     }

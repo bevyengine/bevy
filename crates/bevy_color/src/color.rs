@@ -1,9 +1,10 @@
 use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
-    Luminance, Mix, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
+    Luminance, Mix, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
+use derive_more::derive::From;
 
 /// An enumerated type that can represent any of the color types in this crate.
 ///
@@ -40,8 +41,12 @@ use bevy_reflect::prelude::*;
 /// due to its perceptual uniformity and broad support for Bevy's color operations.
 /// To avoid the cost of repeated conversion, and ensure consistent results where that is desired,
 /// first convert this [`Color`] into your desired color space.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[derive(Debug, Clone, Copy, PartialEq, From)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -83,13 +88,14 @@ impl Color {
         (*self).into()
     }
 
-    #[deprecated = "Use `Color::srgba` instead"]
     /// Creates a new [`Color`] object storing a [`Srgba`] color.
-    pub const fn rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
-        Self::srgba(red, green, blue, alpha)
-    }
-
-    /// Creates a new [`Color`] object storing a [`Srgba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0.0, 1.0]
+    /// * `green` - Green channel. [0.0, 1.0]
+    /// * `blue` - Blue channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn srgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self::Srgba(Srgba {
             red,
@@ -99,13 +105,13 @@ impl Color {
         })
     }
 
-    #[deprecated = "Use `Color::srgb` instead"]
     /// Creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
-    pub const fn rgb(red: f32, green: f32, blue: f32) -> Self {
-        Self::srgb(red, green, blue)
-    }
-
-    /// Creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0.0, 1.0]
+    /// * `green` - Green channel. [0.0, 1.0]
+    /// * `blue` - Blue channel. [0.0, 1.0]
     pub const fn srgb(red: f32, green: f32, blue: f32) -> Self {
         Self::Srgba(Srgba {
             red,
@@ -115,14 +121,11 @@ impl Color {
         })
     }
 
-    #[deprecated = "Use `Color::srgb_from_array` instead"]
     /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
-    pub fn rgb_from_array([r, g, b]: [f32; 3]) -> Self {
-        Self::Srgba(Srgba::rgb(r, g, b))
-    }
-
-    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
-    pub fn srgb_from_array(array: [f32; 3]) -> Self {
+    ///
+    /// # Arguments
+    /// * `array` - Red, Green and Blue channels. Each channel is in the range [0.0, 1.0]
+    pub const fn srgb_from_array(array: [f32; 3]) -> Self {
         Self::Srgba(Srgba {
             red: array[0],
             green: array[1],
@@ -131,18 +134,15 @@ impl Color {
         })
     }
 
-    #[deprecated = "Use `Color::srgba_u8` instead"]
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values.
     ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
-    pub fn rgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
-        Self::srgba_u8(red, green, blue, alpha)
-    }
-
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values.
+    /// # Arguments
     ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
-    pub fn srgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    /// * `alpha` - Alpha channel. [0, 255]
+    pub const fn srgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
         Self::Srgba(Srgba {
             red: red as f32 / 255.0,
             green: green as f32 / 255.0,
@@ -151,18 +151,14 @@ impl Color {
         })
     }
 
-    #[deprecated = "Use `Color::srgb_u8` instead"]
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
     ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
-    pub fn rgb_u8(red: u8, green: u8, blue: u8) -> Self {
-        Self::srgb_u8(red, green, blue)
-    }
-
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
+    /// # Arguments
     ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
-    pub fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    pub const fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {
         Self::Srgba(Srgba {
             red: red as f32 / 255.0,
             green: green as f32 / 255.0,
@@ -171,13 +167,14 @@ impl Color {
         })
     }
 
-    #[deprecated = "Use Color::linear_rgba instead."]
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
-    pub const fn rbga_linear(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
-        Self::linear_rgba(red, green, blue, alpha)
-    }
-
-    /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0.0, 1.0]
+    /// * `green` - Green channel. [0.0, 1.0]
+    /// * `blue` - Blue channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn linear_rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self::LinearRgba(LinearRgba {
             red,
@@ -187,13 +184,13 @@ impl Color {
         })
     }
 
-    #[deprecated = "Use Color::linear_rgb instead."]
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color with an alpha of 1.0.
-    pub const fn rgb_linear(red: f32, green: f32, blue: f32) -> Self {
-        Self::linear_rgb(red, green, blue)
-    }
-
-    /// Creates a new [`Color`] object storing a [`LinearRgba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0.0, 1.0]
+    /// * `green` - Green channel. [0.0, 1.0]
+    /// * `blue` - Blue channel. [0.0, 1.0]
     pub const fn linear_rgb(red: f32, green: f32, blue: f32) -> Self {
         Self::LinearRgba(LinearRgba {
             red,
@@ -204,6 +201,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hsla`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Self {
         Self::Hsla(Hsla {
             hue,
@@ -214,6 +218,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hsla`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
         Self::Hsla(Hsla {
             hue,
@@ -224,6 +234,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hsva`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `value` - Value channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn hsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
         Self::Hsva(Hsva {
             hue,
@@ -234,6 +251,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hsva`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `value` - Value channel. [0.0, 1.0]
     pub const fn hsv(hue: f32, saturation: f32, value: f32) -> Self {
         Self::Hsva(Hsva {
             hue,
@@ -244,6 +267,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hwba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `whiteness` - Whiteness channel. [0.0, 1.0]
+    /// * `blackness` - Blackness channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn hwba(hue: f32, whiteness: f32, blackness: f32, alpha: f32) -> Self {
         Self::Hwba(Hwba {
             hue,
@@ -254,6 +284,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hwba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `whiteness` - Whiteness channel. [0.0, 1.0]
+    /// * `blackness` - Blackness channel. [0.0, 1.0]
     pub const fn hwb(hue: f32, whiteness: f32, blackness: f32) -> Self {
         Self::Hwba(Hwba {
             hue,
@@ -264,6 +300,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Laba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `a` - a axis. [-1.5, 1.5]
+    /// * `b` - b axis. [-1.5, 1.5]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn laba(lightness: f32, a: f32, b: f32, alpha: f32) -> Self {
         Self::Laba(Laba {
             lightness,
@@ -274,6 +317,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Laba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `a` - a axis. [-1.5, 1.5]
+    /// * `b` - b axis. [-1.5, 1.5]
     pub const fn lab(lightness: f32, a: f32, b: f32) -> Self {
         Self::Laba(Laba {
             lightness,
@@ -284,6 +333,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Lcha`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn lcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Self {
         Self::Lcha(Lcha {
             lightness,
@@ -294,6 +350,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Lcha`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
     pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Self {
         Self::Lcha(Lcha {
             lightness,
@@ -304,6 +366,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklaba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `a` - Green-red channel. [-1.0, 1.0]
+    /// * `b` - Blue-yellow channel. [-1.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn oklaba(lightness: f32, a: f32, b: f32, alpha: f32) -> Self {
         Self::Oklaba(Oklaba {
             lightness,
@@ -314,6 +383,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklaba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `a` - Green-red channel. [-1.0, 1.0]
+    /// * `b` - Blue-yellow channel. [-1.0, 1.0]
     pub const fn oklab(lightness: f32, a: f32, b: f32) -> Self {
         Self::Oklaba(Oklaba {
             lightness,
@@ -324,6 +399,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklcha`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `chroma` - Chroma channel. [0.0, 1.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn oklcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Self {
         Self::Oklcha(Oklcha {
             lightness,
@@ -334,6 +416,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklcha`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `chroma` - Chroma channel. [0.0, 1.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
     pub const fn oklch(lightness: f32, chroma: f32, hue: f32) -> Self {
         Self::Oklcha(Oklcha {
             lightness,
@@ -344,11 +432,24 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Xyza`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - x-axis. [0.0, 1.0]
+    /// * `y` - y-axis. [0.0, 1.0]
+    /// * `z` - z-axis. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn xyza(x: f32, y: f32, z: f32, alpha: f32) -> Self {
         Self::Xyza(Xyza { x, y, z, alpha })
     }
 
     /// Creates a new [`Color`] object storing a [`Xyza`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - x-axis. [0.0, 1.0]
+    /// * `y` - y-axis. [0.0, 1.0]
+    /// * `z` - z-axis. [0.0, 1.0]
     pub const fn xyz(x: f32, y: f32, z: f32) -> Self {
         Self::Xyza(Xyza {
             x,
@@ -423,66 +524,6 @@ impl Alpha for Color {
             Color::Oklcha(x) => x.set_alpha(alpha),
             Color::Xyza(x) => x.set_alpha(alpha),
         }
-    }
-}
-
-impl From<Srgba> for Color {
-    fn from(value: Srgba) -> Self {
-        Self::Srgba(value)
-    }
-}
-
-impl From<LinearRgba> for Color {
-    fn from(value: LinearRgba) -> Self {
-        Self::LinearRgba(value)
-    }
-}
-
-impl From<Hsla> for Color {
-    fn from(value: Hsla) -> Self {
-        Self::Hsla(value)
-    }
-}
-
-impl From<Hsva> for Color {
-    fn from(value: Hsva) -> Self {
-        Self::Hsva(value)
-    }
-}
-
-impl From<Hwba> for Color {
-    fn from(value: Hwba) -> Self {
-        Self::Hwba(value)
-    }
-}
-
-impl From<Oklaba> for Color {
-    fn from(value: Oklaba) -> Self {
-        Self::Oklaba(value)
-    }
-}
-
-impl From<Oklcha> for Color {
-    fn from(value: Oklcha) -> Self {
-        Self::Oklcha(value)
-    }
-}
-
-impl From<Lcha> for Color {
-    fn from(value: Lcha) -> Self {
-        Self::Lcha(value)
-    }
-}
-
-impl From<Laba> for Color {
-    fn from(value: Laba) -> Self {
-        Self::Laba(value)
-    }
-}
-
-impl From<Xyza> for Color {
-    fn from(value: Xyza) -> Self {
-        Self::Xyza(value)
     }
 }
 
@@ -770,6 +811,44 @@ impl Hue for Color {
 
     fn set_hue(&mut self, hue: f32) {
         *self = self.with_hue(hue);
+    }
+}
+
+impl Saturation for Color {
+    fn with_saturation(&self, saturation: f32) -> Self {
+        let mut new = *self;
+
+        match &mut new {
+            Color::Srgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::LinearRgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Hsla(x) => x.with_saturation(saturation).into(),
+            Color::Hsva(x) => x.with_saturation(saturation).into(),
+            Color::Hwba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Laba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Lcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklaba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Xyza(x) => Hsla::from(*x).with_saturation(saturation).into(),
+        }
+    }
+
+    fn saturation(&self) -> f32 {
+        match self {
+            Color::Srgba(x) => Hsla::from(*x).saturation(),
+            Color::LinearRgba(x) => Hsla::from(*x).saturation(),
+            Color::Hsla(x) => x.saturation(),
+            Color::Hsva(x) => x.saturation(),
+            Color::Hwba(x) => Hsla::from(*x).saturation(),
+            Color::Laba(x) => Hsla::from(*x).saturation(),
+            Color::Lcha(x) => Hsla::from(*x).saturation(),
+            Color::Oklaba(x) => Hsla::from(*x).saturation(),
+            Color::Oklcha(x) => Hsla::from(*x).saturation(),
+            Color::Xyza(x) => Hsla::from(*x).saturation(),
+        }
+    }
+
+    fn set_saturation(&mut self, saturation: f32) {
+        *self = self.with_saturation(saturation);
     }
 }
 

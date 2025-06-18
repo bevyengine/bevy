@@ -52,7 +52,7 @@ struct DepthOfFieldParams {
     max_circle_of_confusion_diameter: f32,
 
     /// The depth value that we clamp distant objects to. See the comment in
-    /// [`DepthOfFieldSettings`] for more information.
+    /// [`DepthOfField`] for more information.
     max_depth: f32,
 
     /// Padding.

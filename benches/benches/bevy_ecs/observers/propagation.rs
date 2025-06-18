@@ -1,14 +1,8 @@
-use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    event::{Event, EventWriter},
-    observer::Trigger,
-    world::World,
-};
-use bevy_hierarchy::{BuildChildren, Children, Parent};
+use core::hint::black_box;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand::{prelude::SliceRandom, SeedableRng};
+use bevy_ecs::prelude::*;
+use criterion::Criterion;
+use rand::SeedableRng;
 use rand::{seq::IteratorRandom, Rng};
 use rand_chacha::ChaCha8Rng;
 
@@ -22,8 +16,8 @@ fn deterministic_rand() -> ChaCha8Rng {
 
 pub fn event_propagation(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("event_propagation");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     group.bench_function("single_event_type", |bencher| {
         let mut world = World::new();
@@ -67,15 +61,11 @@ pub fn event_propagation(criterion: &mut Criterion) {
     group.finish();
 }
 
-#[derive(Clone, Component)]
+#[derive(Event, EntityEvent, Clone, Component)]
+#[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct TestEvent<const N: usize> {}
 
-impl<const N: usize> Event for TestEvent<N> {
-    type Traversal = Parent;
-    const AUTO_PROPAGATE: bool = true;
-}
-
-fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &Vec<Entity>) {
+fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &[Entity]) {
     let target = leaves.iter().choose(&mut rand::thread_rng()).unwrap();
 
     (0..N_EVENTS).for_each(|_| {
@@ -104,9 +94,9 @@ fn spawn_listener_hierarchy(world: &mut World) -> (Vec<Entity>, Vec<Entity>, Vec
 }
 
 fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
-    roots: &Vec<Entity>,
-    leaves: &Vec<Entity>,
-    nodes: &Vec<Entity>,
+    roots: &[Entity],
+    leaves: &[Entity],
+    nodes: &[Entity],
     world: &mut World,
 ) {
     for e in roots.iter() {
@@ -123,6 +113,6 @@ fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
     }
 }
 
-fn empty_listener<const N: usize>(trigger: Trigger<TestEvent<N>>) {
+fn empty_listener<const N: usize>(trigger: On<TestEvent<N>>) {
     black_box(trigger);
 }

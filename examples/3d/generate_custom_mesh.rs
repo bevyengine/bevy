@@ -2,11 +2,13 @@
 //! assign a custom UV mapping for a custom texture,
 //! and how to change the UV mapping at run-time.
 
-use bevy::prelude::*;
-use bevy::render::{
-    mesh::{Indices, VertexAttributeValues},
-    render_asset::RenderAssetUsages,
-    render_resource::PrimitiveTopology,
+use bevy::{
+    prelude::*,
+    render::{
+        mesh::{Indices, VertexAttributeValues},
+        render_asset::RenderAssetUsages,
+        render_resource::PrimitiveTopology,
+    },
 };
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
@@ -34,16 +36,13 @@ fn setup(
     // Create and save a handle to the mesh.
     let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
 
-    // Render the mesh with the custom texture using a PbrBundle, add the marker.
+    // Render the mesh with the custom texture, and add the marker.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh_handle,
-            material: materials.add(StandardMaterial {
-                base_color_texture: Some(custom_texture_handle),
-                ..default()
-            }),
+        Mesh3d(cube_mesh_handle),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: Some(custom_texture_handle),
             ..default()
-        },
+        })),
         CustomUV,
     ));
 
@@ -52,59 +51,50 @@ fn setup(
         Transform::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
-    commands.spawn(Camera3dBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    });
+    commands.spawn((Camera3d::default(), camera_and_light_transform));
 
     // Light up the scene.
-    commands.spawn(PointLightBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    });
+    commands.spawn((PointLight::default(), camera_and_light_transform));
 
     // Text to describe the controls.
-    commands.spawn(
-        TextBundle::from_section(
-            "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation"),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // System to receive input from the user,
 // check out examples/input/ for more examples about user input.
 fn input_handler(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
+    mesh_query: Query<&Mesh3d, With<CustomUV>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut query: Query<&mut Transform, With<CustomUV>>,
     time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        let mesh_handle = mesh_query.get_single().expect("Query not successful");
+        let mesh_handle = mesh_query.single().expect("Query not successful");
         let mesh = meshes.get_mut(mesh_handle).unwrap();
         toggle_texture(mesh);
     }
     if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
-            transform.rotate_x(time.delta_seconds() / 1.2);
+            transform.rotate_x(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyY) {
         for mut transform in &mut query {
-            transform.rotate_y(time.delta_seconds() / 1.2);
+            transform.rotate_y(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyZ) {
         for mut transform in &mut query {
-            transform.rotate_z(time.delta_seconds() / 1.2);
+            transform.rotate_z(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyR) {
@@ -224,6 +214,34 @@ fn create_cube_mesh() -> Mesh {
     // should appear counter-clockwise from the front of the triangle, in this case from outside the cube).
     // Read more about how to correctly build a mesh manually in the Bevy documentation of a Mesh,
     // further examples and the implementation of the built-in shapes.
+    //
+    // The first two defined triangles look like this (marked with the vertex indices,
+    // and the axis), when looking down at the top (+y) of the cube:
+    //   -Z
+    //   ^
+    // 0---1
+    // |  /|
+    // | / | -> +X
+    // |/  |
+    // 3---2
+    //
+    // The right face's (+x) triangles look like this, seen from the outside of the cube.
+    //   +Y
+    //   ^
+    // 10--11
+    // |  /|
+    // | / | -> -Z
+    // |/  |
+    // 9---8
+    //
+    // The back face's (+z) triangles look like this, seen from the outside of the cube.
+    //   +Y
+    //   ^
+    // 17--18
+    // |\  |
+    // | \ | -> +X
+    // |  \|
+    // 16--19
     .with_inserted_indices(Indices::U32(vec![
         0,3,1 , 1,3,2, // triangles making up the top (+y) facing side.
         4,5,7 , 5,6,7, // bottom (-y)

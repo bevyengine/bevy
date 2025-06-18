@@ -1,12 +1,12 @@
 use crate::ButtonInput;
 use bevy_ecs::system::Res;
-use std::hash::Hash;
+use core::hash::Hash;
 
-/// Stateful run condition that can be toggled via a input press using [`ButtonInput::just_pressed`].
+/// Stateful run condition that can be toggled via an input press using [`ButtonInput::just_pressed`].
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::prelude::IntoSystemConfigs;
+/// # use bevy_ecs::prelude::IntoScheduleConfigs;
 /// # use bevy_input::{common_conditions::input_toggle_active, prelude::KeyCode};
 ///
 /// fn main() {
@@ -25,7 +25,7 @@ use std::hash::Hash;
 /// you should use a custom resource or a state for that:
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::prelude::{IntoSystemConfigs, Res, ResMut, Resource};
+/// # use bevy_ecs::prelude::{IntoScheduleConfigs, Res, ResMut, Resource};
 /// # use bevy_input::{common_conditions::input_just_pressed, prelude::KeyCode};
 ///
 /// #[derive(Resource, Default)]
@@ -47,7 +47,6 @@ use std::hash::Hash;
 /// fn pause_menu() {
 ///     println!("in pause menu");
 /// }
-///
 /// ```
 pub fn input_toggle_active<T>(
     default: bool,
@@ -75,7 +74,7 @@ where
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::prelude::IntoSystemConfigs;
+/// # use bevy_ecs::prelude::IntoScheduleConfigs;
 /// # use bevy_input::{common_conditions::input_just_pressed, prelude::KeyCode};
 /// fn main() {
 ///     App::new()
@@ -105,7 +104,7 @@ where
 mod tests {
     use super::*;
     use crate::prelude::KeyCode;
-    use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
+    use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule};
 
     fn test_system() {}
 

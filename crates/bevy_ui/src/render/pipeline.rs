@@ -1,11 +1,12 @@
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::prelude::*;
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ViewTarget, ViewUniform},
 };
 
@@ -13,6 +14,7 @@ use bevy_render::{
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
 }
 
 impl FromWorld for UiPipeline {
@@ -41,6 +43,7 @@ impl FromWorld for UiPipeline {
         UiPipeline {
             view_layout,
             image_layout,
+            shader: load_embedded_asset!(world, "ui.wgsl"),
         }
     }
 }
@@ -48,6 +51,7 @@ impl FromWorld for UiPipeline {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub hdr: bool,
+    pub anti_alias: bool,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -71,19 +75,25 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
                 // border size
                 VertexFormat::Float32x2,
+                // position relative to the center
+                VertexFormat::Float32x2,
             ],
         );
-        let shader_defs = Vec::new();
+        let shader_defs = if key.anti_alias {
+            vec!["ANTI_ALIAS".into()]
+        } else {
+            Vec::new()
+        };
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: super::UI_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: super::UI_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -114,6 +124,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

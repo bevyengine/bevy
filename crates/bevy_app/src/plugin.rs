@@ -1,7 +1,6 @@
-use downcast_rs::{impl_downcast, Downcast};
-
 use crate::App;
-use std::any::Any;
+use core::any::Any;
+use downcast_rs::{impl_downcast, Downcast};
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -82,7 +81,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures a name for the [`Plugin`] which is primarily used for checking plugin
     /// uniqueness and debugging.
     fn name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     /// If the plugin can be meaningfully instantiated several times in an [`App`],
@@ -129,7 +128,8 @@ pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
 impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}
 
 mod sealed {
-    use bevy_utils::all_tuples;
+    use alloc::boxed::Box;
+    use variadics_please::all_tuples;
 
     use crate::{App, AppError, Plugin, PluginGroup};
 
@@ -162,12 +162,18 @@ mod sealed {
     }
 
     macro_rules! impl_plugins_tuples {
-        ($(($param: ident, $plugins: ident)),*) => {
+        ($(#[$meta:meta])* $(($param: ident, $plugins: ident)),*) => {
+            $(#[$meta])*
             impl<$($param, $plugins),*> Plugins<(PluginsTupleMarker, $($param,)*)> for ($($plugins,)*)
             where
                 $($plugins: Plugins<$param>),*
             {
-                #[allow(non_snake_case, unused_variables)]
+                #[expect(
+                    clippy::allow_attributes,
+                    reason = "This is inside a macro, and as such, may not trigger in all cases."
+                )]
+                #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+                #[allow(unused_variables, reason = "`app` is unused when implemented for the unit type `()`.")]
                 #[track_caller]
                 fn add_to_app(self, app: &mut App) {
                     let ($($plugins,)*) = self;
@@ -177,5 +183,12 @@ mod sealed {
         }
     }
 
-    all_tuples!(impl_plugins_tuples, 0, 15, P, S);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_plugins_tuples,
+        0,
+        15,
+        P,
+        S
+    );
 }

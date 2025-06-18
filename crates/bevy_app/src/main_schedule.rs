@@ -1,7 +1,12 @@
 use crate::{App, Plugin};
+use alloc::{vec, vec::Vec};
 use bevy_ecs::{
-    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel},
-    system::{Local, Resource},
+    resource::Resource,
+    schedule::{
+        ExecutorKind, InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel,
+        SystemSet,
+    },
+    system::Local,
     world::{Mut, World},
 };
 
@@ -10,6 +15,13 @@ use bevy_ecs::{
 /// By default, it will run the following schedules in the given order:
 ///
 /// On the first run of the schedule (and only on the first run), it will run:
+/// * [`StateTransition`] [^1]
+///      * This means that [`OnEnter(MyState::Foo)`] will be called *before* [`PreStartup`]
+///        if `MyState` was added to the app with `MyState::Foo` as the initial state,
+///        as well as [`OnEnter(MyComputedState)`] if it `compute`s to `Some(Self)` in `MyState::Foo`.
+///      * If you want to run systems before any state transitions, regardless of which state is the starting state,
+///        for example, for registering required components, you can add your own custom startup schedule
+///        before [`StateTransition`]. See [`MainScheduleOrder::insert_startup_before`] for more details.
 /// * [`PreStartup`]
 /// * [`Startup`]
 /// * [`PostStartup`]
@@ -17,7 +29,7 @@ use bevy_ecs::{
 /// Then it will run:
 /// * [`First`]
 /// * [`PreUpdate`]
-/// * [`StateTransition`]
+/// * [`StateTransition`] [^1]
 /// * [`RunFixedMainLoop`]
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
@@ -32,35 +44,39 @@ use bevy_ecs::{
 ///
 /// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
 ///
+/// [^1]: [`StateTransition`] is inserted only if you have `bevy_state` feature enabled. It is enabled in `default` features.
+///
 /// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
+/// [`OnEnter(MyState::Foo)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
+/// [`OnEnter(MyComputedState)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
 /// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
 /// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`SubApp`]: crate::SubApp
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Main;
 
 /// The schedule that runs before [`Startup`].
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PreStartup;
 
 /// The schedule that runs once when the app starts.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Startup;
 
 /// The schedule that runs once after [`Startup`].
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PostStartup;
 
 /// Runs first in the schedule.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct First;
 
 /// The schedule that contains logic that must run before [`Update`]. For example, a system that reads raw keyboard
@@ -71,34 +87,48 @@ pub struct First;
 /// [`PreUpdate`] abstracts out "pre work implementation details".
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PreUpdate;
 
 /// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
 ///
+/// If you need to order your variable timestep systems before or after
+/// the fixed update logic, use the [`RunFixedMainLoopSystems`] system set.
+///
+/// Note that in contrast to most other Bevy schedules, systems added directly to
+/// [`RunFixedMainLoop`] will *not* be parallelized between each other.
+///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct RunFixedMainLoop;
 
 /// Runs first in the [`FixedMain`] schedule.
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedFirst;
 
 /// The schedule that contains logic that must run before [`FixedUpdate`].
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedPreUpdate;
 
-/// The schedule that contains most gameplay logic.
+/// The schedule that contains most gameplay logic, which runs at a fixed rate rather than every render frame.
+/// For logic that should run once per render frame, use the [`Update`] schedule instead.
 ///
+/// Examples of systems that should run at a fixed rate include (but are not limited to):
+/// - Physics
+/// - AI
+/// - Networking
+/// - Game rules
+///
+/// See the [`Update`] schedule for examples of systems that *should not* use this schedule.
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedUpdate;
 
 /// The schedule that runs after the [`FixedUpdate`] schedule, for reacting
@@ -106,39 +136,45 @@ pub struct FixedUpdate;
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedPostUpdate;
 
 /// The schedule that runs last in [`FixedMain`]
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedLast;
 
 /// The schedule that contains systems which only run after a fixed period of time has elapsed.
 ///
-/// The exclusive `run_fixed_main_schedule` system runs this schedule.
-/// This is run by the [`RunFixedMainLoop`] schedule.
+/// This is run by the [`RunFixedMainLoop`] schedule. If you need to order your variable timestep systems
+/// before or after the fixed update logic, use the [`RunFixedMainLoopSystems`] system set.
 ///
 /// Frequency of execution is configured by inserting `Time<Fixed>` resource, 64 Hz by default.
 /// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedMain;
 
-/// The schedule that contains app logic. Ideally containing anything that must run once per
-/// render frame, such as UI.
+/// The schedule that contains any app logic that must run once per render frame.
+/// For most gameplay logic, consider using [`FixedUpdate`] instead.
 ///
+/// Examples of systems that should run once per render frame include (but are not limited to):
+/// - UI
+/// - Input handling
+/// - Audio control
+///
+/// See the [`FixedUpdate`] schedule for examples of systems that *should not* use this schedule.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Update;
 
 /// The schedule that contains scene spawning.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SpawnScene;
 
 /// The schedule that contains logic that must run after [`Update`]. For example, synchronizing "local transforms" in a hierarchy
@@ -149,14 +185,22 @@ pub struct SpawnScene;
 /// [`PostUpdate`] abstracts out "implementation details" from users defining systems in [`Update`].
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PostUpdate;
 
 /// Runs last in the schedule.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Last;
+
+/// Animation system set. This exists in [`PostUpdate`].
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct AnimationSystems;
+
+/// Deprecated alias for [`AnimationSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AnimationSystems`.")]
+pub type Animation = AnimationSystems;
 
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
@@ -274,11 +318,20 @@ impl Plugin for MainSchedulePlugin {
             .init_resource::<MainScheduleOrder>()
             .init_resource::<FixedMainScheduleOrder>()
             .add_systems(Main, Main::run_main)
-            .add_systems(FixedMain, FixedMain::run_fixed_main);
+            .add_systems(FixedMain, FixedMain::run_fixed_main)
+            .configure_sets(
+                RunFixedMainLoop,
+                (
+                    RunFixedMainLoopSystems::BeforeFixedMainLoop,
+                    RunFixedMainLoopSystems::FixedMainLoop,
+                    RunFixedMainLoopSystems::AfterFixedMainLoop,
+                )
+                    .chain(),
+            );
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
-            use bevy_ecs::schedule::{IntoSystemConfigs, Stepping};
+            use bevy_ecs::schedule::{IntoScheduleConfigs, Stepping};
             app.add_systems(Main, Stepping::begin_frame.before(Main::run_main));
         }
     }
@@ -338,3 +391,100 @@ impl FixedMain {
         });
     }
 }
+
+/// Set enum for the systems that want to run inside [`RunFixedMainLoop`],
+/// but before or after the fixed update logic. Systems in this set
+/// will run exactly once per frame, regardless of the number of fixed updates.
+/// They will also run under a variable timestep.
+///
+/// This is useful for handling things that need to run every frame, but
+/// also need to be read by the fixed update logic. See the individual variants
+/// for examples of what kind of systems should be placed in each.
+///
+/// Note that in contrast to most other Bevy schedules, systems added directly to
+/// [`RunFixedMainLoop`] will *not* be parallelized between each other.
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone, SystemSet)]
+pub enum RunFixedMainLoopSystems {
+    /// Runs before the fixed update logic.
+    ///
+    /// A good example of a system that fits here
+    /// is camera movement, which needs to be updated in a variable timestep,
+    /// as you want the camera to move with as much precision and updates as
+    /// the frame rate allows. A physics system that needs to read the camera
+    /// position and orientation, however, should run in the fixed update logic,
+    /// as it needs to be deterministic and run at a fixed rate for better stability.
+    /// Note that we are not placing the camera movement system in `Update`, as that
+    /// would mean that the physics system already ran at that point.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// App::new()
+    ///   .add_systems(
+    ///     RunFixedMainLoop,
+    ///     update_camera_rotation.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop))
+    ///   .add_systems(FixedUpdate, update_physics);
+    ///
+    /// # fn update_camera_rotation() {}
+    /// # fn update_physics() {}
+    /// ```
+    BeforeFixedMainLoop,
+    /// Contains the fixed update logic.
+    /// Runs [`FixedMain`] zero or more times based on delta of
+    /// [`Time<Virtual>`] and [`Time::overstep`].
+    ///
+    /// Don't place systems here, use [`FixedUpdate`] and friends instead.
+    /// Use this system instead to order your systems to run specifically inbetween the fixed update logic and all
+    /// other systems that run in [`RunFixedMainLoopSystems::BeforeFixedMainLoop`] or [`RunFixedMainLoopSystems::AfterFixedMainLoop`].
+    ///
+    /// [`Time<Virtual>`]: https://docs.rs/bevy/latest/bevy/prelude/struct.Virtual.html
+    /// [`Time::overstep`]: https://docs.rs/bevy/latest/bevy/time/struct.Time.html#method.overstep
+    /// # Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// App::new()
+    ///   .add_systems(FixedUpdate, update_physics)
+    ///   .add_systems(
+    ///     RunFixedMainLoop,
+    ///     (
+    ///       // This system will be called before all interpolation systems
+    ///       // that third-party plugins might add.
+    ///       prepare_for_interpolation
+    ///         .after(RunFixedMainLoopSystems::FixedMainLoop)
+    ///         .before(RunFixedMainLoopSystems::AfterFixedMainLoop),
+    ///     )
+    ///   );
+    ///
+    /// # fn prepare_for_interpolation() {}
+    /// # fn update_physics() {}
+    /// ```
+    FixedMainLoop,
+    /// Runs after the fixed update logic.
+    ///
+    /// A good example of a system that fits here
+    /// is a system that interpolates the transform of an entity between the last and current fixed update.
+    /// See the [fixed timestep example] for more details.
+    ///
+    /// [fixed timestep example]: https://github.com/bevyengine/bevy/blob/main/examples/movement/physics_in_fixed_timestep.rs
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// App::new()
+    ///   .add_systems(FixedUpdate, update_physics)
+    ///   .add_systems(
+    ///     RunFixedMainLoop,
+    ///     interpolate_transforms.in_set(RunFixedMainLoopSystems::AfterFixedMainLoop));
+    ///
+    /// # fn interpolate_transforms() {}
+    /// # fn update_physics() {}
+    /// ```
+    AfterFixedMainLoop,
+}
+
+/// Deprecated alias for [`RunFixedMainLoopSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RunFixedMainLoopSystems`.")]
+pub type RunFixedMainLoopSystem = RunFixedMainLoopSystems;

@@ -1,9 +1,13 @@
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::{DynamicEnum, Reflect, TypePath, TypePathTable, VariantInfo, VariantType};
-use bevy_utils::HashMap;
-use std::any::{Any, TypeId};
-use std::slice::Iter;
-use std::sync::Arc;
+use crate::generics::impl_generic_info_methods;
+use crate::{
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    type_info::impl_type_methods,
+    DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
+};
+use alloc::{boxed::Box, format, string::String};
+use bevy_platform::collections::HashMap;
+use bevy_platform::sync::Arc;
+use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].
 ///
@@ -89,19 +93,19 @@ use std::sync::Arc;
 /// [`None`]: Option<T>::None
 /// [`Some`]: Option<T>::Some
 /// [`Reflect`]: bevy_reflect_derive::Reflect
-pub trait Enum: Reflect {
+pub trait Enum: PartialReflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field(&self, name: &str) -> Option<&dyn Reflect>;
+    fn field(&self, name: &str) -> Option<&dyn PartialReflect>;
     /// Returns a reference to the value of the field (in the current variant) at the given index.
-    fn field_at(&self, index: usize) -> Option<&dyn Reflect>;
+    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect>;
     /// Returns a mutable reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
+    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect>;
     /// Returns a mutable reference to the value of the field (in the current variant) at the given index.
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
     /// Returns the index of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
@@ -120,8 +124,10 @@ pub trait Enum: Reflect {
     fn variant_index(&self) -> usize;
     /// The type of the current variant.
     fn variant_type(&self) -> VariantType;
-    // Clones the enum into a [`DynamicEnum`].
-    fn clone_dynamic(&self) -> DynamicEnum;
+    /// Creates a new [`DynamicEnum`] from this enum.
+    fn to_dynamic_enum(&self) -> DynamicEnum {
+        DynamicEnum::from_ref(self)
+    }
     /// Returns true if the current variant's type matches the given one.
     fn is_variant(&self, variant_type: VariantType) -> bool {
         self.variant_type() == variant_type
@@ -130,13 +136,20 @@ pub trait Enum: Reflect {
     fn variant_path(&self) -> String {
         format!("{}::{}", self.reflect_type_path(), self.variant_name())
     }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    ///
+    /// [`TypeInfo`]: crate::TypeInfo
+    fn get_represented_enum_info(&self) -> Option<&'static EnumInfo> {
+        self.get_represented_type_info()?.as_enum().ok()
+    }
 }
 
 /// A container for compile-time enum info, used by [`TypeInfo`](crate::TypeInfo).
 #[derive(Clone, Debug)]
 pub struct EnumInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
+    generics: Generics,
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
@@ -151,7 +164,6 @@ impl EnumInfo {
     /// # Arguments
     ///
     /// * `variants`: The variants of this enum in the order they are defined
-    ///
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
         let variant_indices = variants
             .iter()
@@ -162,8 +174,8 @@ impl EnumInfo {
         let variant_names = variants.iter().map(VariantInfo::name).collect();
 
         Self {
-            type_path: TypePathTable::of::<TEnum>(),
-            type_id: TypeId::of::<TEnum>(),
+            ty: Type::of::<TEnum>(),
+            generics: Generics::new(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
@@ -231,32 +243,7 @@ impl EnumInfo {
         self.variants.len()
     }
 
-    /// A representation of the type path of the value.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the value.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the enum.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the enum type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The docstring of this enum, if any.
     #[cfg(feature = "documentation")]
@@ -265,6 +252,8 @@ impl EnumInfo {
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "enum");
+
+    impl_generic_info_methods!(generics);
 }
 
 /// An iterator over the fields in the current enum variant.
@@ -274,6 +263,7 @@ pub struct VariantFieldIter<'a> {
 }
 
 impl<'a> VariantFieldIter<'a> {
+    /// Creates a new [`VariantFieldIter`].
     pub fn new(container: &'a dyn Enum) -> Self {
         Self {
             container,
@@ -306,12 +296,16 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 
+/// A field in the current enum variant.
 pub enum VariantField<'a> {
-    Struct(&'a str, &'a dyn Reflect),
-    Tuple(&'a dyn Reflect),
+    /// The name and value of a field in a struct variant.
+    Struct(&'a str, &'a dyn PartialReflect),
+    /// The value of a field in a tuple variant.
+    Tuple(&'a dyn PartialReflect),
 }
 
 impl<'a> VariantField<'a> {
+    /// Returns the name of a struct variant field, or [`None`] for a tuple variant field.
     pub fn name(&self) -> Option<&'a str> {
         if let Self::Struct(name, ..) = self {
             Some(*name)
@@ -320,7 +314,8 @@ impl<'a> VariantField<'a> {
         }
     }
 
-    pub fn value(&self) -> &'a dyn Reflect {
+    /// Gets a reference to the value of this field.
+    pub fn value(&self) -> &'a dyn PartialReflect {
         match *self {
             Self::Struct(_, value) | Self::Tuple(value) => value,
         }
@@ -330,7 +325,6 @@ impl<'a> VariantField<'a> {
 // Tests that need access to internal fields have to go here rather than in mod.rs
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
 
     #[derive(Reflect, Debug, PartialEq)]

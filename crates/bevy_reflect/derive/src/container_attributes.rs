@@ -3,19 +3,19 @@
 //! A container attribute is an attribute which applies to an entire struct or enum
 //! as opposed to a particular field or variant. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like:
-//! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
+//! `#[reflect(PartialEq, Default, ...)]`.
 
-use crate::custom_attributes::CustomAttributes;
-use crate::derive_data::ReflectTraitToImpl;
-use crate::utility;
-use crate::utility::terminated_parser;
-use bevy_macro_utils::fq_std::{FQAny, FQOption};
+use crate::{
+    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
+    derive_data::ReflectTraitToImpl,
+};
+use bevy_macro_utils::fq_std::{FQAny, FQClone, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
-use syn::ext::IdentExt;
-use syn::parse::ParseStream;
-use syn::spanned::Spanned;
-use syn::{parenthesized, token, Expr, LitBool, MetaList, MetaNameValue, Path, Token, WhereClause};
+use syn::{
+    ext::IdentExt, parenthesized, parse::ParseStream, spanned::Spanned, token, Expr, LitBool,
+    MetaList, MetaNameValue, Path, Token, WhereClause,
+};
 
 mod kw {
     syn::custom_keyword!(from_reflect);
@@ -23,7 +23,9 @@ mod kw {
     syn::custom_keyword!(Debug);
     syn::custom_keyword!(PartialEq);
     syn::custom_keyword!(Hash);
+    syn::custom_keyword!(Clone);
     syn::custom_keyword!(no_field_bounds);
+    syn::custom_keyword!(opaque);
 }
 
 // The "special" trait idents that are used internally for reflection.
@@ -88,10 +90,7 @@ pub(crate) struct FromReflectAttrs {
 impl FromReflectAttrs {
     /// Returns true if `FromReflect` should be automatically derived as part of the `Reflect` derive.
     pub fn should_auto_derive(&self) -> bool {
-        self.auto_derive
-            .as_ref()
-            .map(LitBool::value)
-            .unwrap_or(true)
+        self.auto_derive.as_ref().is_none_or(LitBool::value)
     }
 }
 
@@ -111,10 +110,7 @@ pub(crate) struct TypePathAttrs {
 impl TypePathAttrs {
     /// Returns true if `TypePath` should be automatically derived as part of the `Reflect` derive.
     pub fn should_auto_derive(&self) -> bool {
-        self.auto_derive
-            .as_ref()
-            .map(LitBool::value)
-            .unwrap_or(true)
+        self.auto_derive.as_ref().is_none_or(LitBool::value)
     }
 }
 
@@ -178,9 +174,9 @@ impl TypePathAttrs {
 /// ```
 ///
 /// > __Note:__ Registering a custom function only works for special traits.
-///
 #[derive(Default, Clone)]
 pub(crate) struct ContainerAttributes {
+    clone: TraitImpl,
     debug: TraitImpl,
     hash: TraitImpl,
     partial_eq: TraitImpl,
@@ -189,6 +185,7 @@ pub(crate) struct ContainerAttributes {
     custom_where: Option<WhereClause>,
     no_field_bounds: bool,
     custom_attributes: CustomAttributes,
+    is_opaque: bool,
     idents: Vec<Ident>,
 }
 
@@ -237,14 +234,18 @@ impl ContainerAttributes {
             self.parse_from_reflect(input, trait_)
         } else if lookahead.peek(kw::type_path) {
             self.parse_type_path(input, trait_)
+        } else if lookahead.peek(kw::opaque) {
+            self.parse_opaque(input)
         } else if lookahead.peek(kw::no_field_bounds) {
             self.parse_no_field_bounds(input)
+        } else if lookahead.peek(kw::Clone) {
+            self.parse_clone(input)
         } else if lookahead.peek(kw::Debug) {
             self.parse_debug(input)
-        } else if lookahead.peek(kw::PartialEq) {
-            self.parse_partial_eq(input)
         } else if lookahead.peek(kw::Hash) {
             self.parse_hash(input)
+        } else if lookahead.peek(kw::PartialEq) {
+            self.parse_partial_eq(input)
         } else if lookahead.peek(Ident::peek_any) {
             self.parse_ident(input)
         } else {
@@ -268,11 +269,31 @@ impl ContainerAttributes {
         let ident_name = ident.to_string();
 
         // Create the reflect ident
-        let mut reflect_ident = utility::get_reflect_ident(&ident_name);
+        let mut reflect_ident = crate::ident::get_reflect_ident(&ident_name);
         // We set the span to the old ident so any compile errors point to that ident instead
         reflect_ident.set_span(ident.span());
 
         add_unique_ident(&mut self.idents, reflect_ident)?;
+
+        Ok(())
+    }
+
+    /// Parse `clone` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(Clone)]`
+    /// - `#[reflect(Clone(custom_clone_fn))]`
+    fn parse_clone(&mut self, input: ParseStream) -> syn::Result<()> {
+        let ident = input.parse::<kw::Clone>()?;
+
+        if input.peek(token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            let path = content.parse::<Path>()?;
+            self.clone.merge(TraitImpl::Custom(path, ident.span))?;
+        } else {
+            self.clone = TraitImpl::Implemented(ident.span);
+        }
 
         Ok(())
     }
@@ -337,6 +358,16 @@ impl ContainerAttributes {
         Ok(())
     }
 
+    /// Parse `opaque` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(opaque)]`
+    fn parse_opaque(&mut self, input: ParseStream) -> syn::Result<()> {
+        input.parse::<kw::opaque>()?;
+        self.is_opaque = true;
+        Ok(())
+    }
+
     /// Parse `no_field_bounds` attribute.
     ///
     /// Examples:
@@ -370,9 +401,11 @@ impl ContainerAttributes {
             // Override `lit` if this is a `FromReflect` derive.
             // This typically means a user is opting out of the default implementation
             // from the `Reflect` derive and using the `FromReflect` derive directly instead.
-            (trait_ == ReflectTraitToImpl::FromReflect)
-                .then(|| LitBool::new(true, Span::call_site()))
-                .unwrap_or_else(|| lit.clone())
+            if trait_ == ReflectTraitToImpl::FromReflect {
+                LitBool::new(true, Span::call_site())
+            } else {
+                lit.clone()
+            }
         })?;
 
         if let Some(existing) = &self.from_reflect_attrs.auto_derive {
@@ -403,9 +436,11 @@ impl ContainerAttributes {
             // Override `lit` if this is a `FromReflect` derive.
             // This typically means a user is opting out of the default implementation
             // from the `Reflect` derive and using the `FromReflect` derive directly instead.
-            (trait_ == ReflectTraitToImpl::TypePath)
-                .then(|| LitBool::new(true, Span::call_site()))
-                .unwrap_or_else(|| lit.clone())
+            if trait_ == ReflectTraitToImpl::TypePath {
+                LitBool::new(true, Span::call_site())
+            } else {
+                lit.clone()
+            }
         })?;
 
         if let Some(existing) = &self.type_path_attrs.auto_derive {
@@ -434,7 +469,10 @@ impl ContainerAttributes {
     }
 
     /// The `FromReflect` configuration found within `#[reflect(...)]` attributes on this type.
-    #[allow(clippy::wrong_self_convention)]
+    #[expect(
+        clippy::wrong_self_convention,
+        reason = "Method returns `FromReflectAttrs`, does not actually convert data."
+    )]
     pub fn from_reflect_attrs(&self) -> &FromReflectAttrs {
         &self.from_reflect_attrs
     }
@@ -444,7 +482,7 @@ impl ContainerAttributes {
         &self.type_path_attrs
     }
 
-    /// Returns the implementation of `Reflect::reflect_hash` as a `TokenStream`.
+    /// Returns the implementation of `PartialReflect::reflect_hash` as a `TokenStream`.
     ///
     /// If `Hash` was not registered, returns `None`.
     pub fn get_hash_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
@@ -467,7 +505,7 @@ impl ContainerAttributes {
         }
     }
 
-    /// Returns the implementation of `Reflect::reflect_partial_eq` as a `TokenStream`.
+    /// Returns the implementation of `PartialReflect::reflect_partial_eq` as a `TokenStream`.
     ///
     /// If `PartialEq` was not registered, returns `None`.
     pub fn get_partial_eq_impl(
@@ -476,9 +514,9 @@ impl ContainerAttributes {
     ) -> Option<proc_macro2::TokenStream> {
         match &self.partial_eq {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
-                    let value = <dyn #bevy_reflect_path::Reflect>::as_any(value);
-                    if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(value) {
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
+                    let value = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value);
+                    if let #FQOption::Some(value) = value {
                         #FQOption::Some(::core::cmp::PartialEq::eq(self, value))
                     } else {
                         #FQOption::Some(false)
@@ -486,7 +524,7 @@ impl ContainerAttributes {
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
                     #FQOption::Some(#impl_fn(self, value))
                 }
             }),
@@ -494,7 +532,7 @@ impl ContainerAttributes {
         }
     }
 
-    /// Returns the implementation of `Reflect::debug` as a `TokenStream`.
+    /// Returns the implementation of `PartialReflect::debug` as a `TokenStream`.
     ///
     /// If `Debug` was not registered, returns `None`.
     pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {
@@ -513,6 +551,24 @@ impl ContainerAttributes {
         }
     }
 
+    pub fn get_clone_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
+        match &self.clone {
+            &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
+                #[inline]
+                fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                    #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#FQClone::clone(self)))
+                }
+            }),
+            &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
+                #[inline]
+                fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                    #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#impl_fn(self)))
+                }
+            }),
+            TraitImpl::NotImplemented => None,
+        }
+    }
+
     pub fn custom_attributes(&self) -> &CustomAttributes {
         &self.custom_attributes
     }
@@ -525,6 +581,11 @@ impl ContainerAttributes {
     /// Returns true if the `no_field_bounds` attribute was found on this type.
     pub fn no_field_bounds(&self) -> bool {
         self.no_field_bounds
+    }
+
+    /// Returns true if the `opaque` attribute was found on this type.
+    pub fn is_opaque(&self) -> bool {
+        self.is_opaque
     }
 }
 

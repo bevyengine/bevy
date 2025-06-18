@@ -1,13 +1,18 @@
-use crate as bevy_ecs;
+use alloc::vec::Vec;
 use bevy_ecs::{
-    event::{Event, EventCursor, EventId, EventInstance},
-    system::Resource,
+    change_detection::MaybeLocation,
+    event::{BufferedEvent, EventCursor, EventId, EventInstance},
+    resource::Resource,
+};
+use core::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
 };
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
-use bevy_utils::detailed_trace;
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
+use {
+    bevy_ecs::reflect::ReflectResource,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 /// An event collection that represents the events that occurred within the last two
 /// [`Events::update`] calls.
@@ -33,17 +38,18 @@ use std::ops::{Deref, DerefMut};
 /// dropped silently.
 ///
 /// # Example
-/// ```
-/// use bevy_ecs::event::{Event, Events};
 ///
-/// #[derive(Event)]
+/// ```
+/// use bevy_ecs::event::{BufferedEvent, Event, Events};
+///
+/// #[derive(Event, BufferedEvent)]
 /// struct MyEvent {
 ///     value: usize
 /// }
 ///
 /// // setup
 /// let mut events = Events::<MyEvent>::default();
-/// let mut reader = events.get_reader();
+/// let mut cursor = events.get_cursor();
 ///
 /// // run this once per update/frame
 /// events.update();
@@ -52,12 +58,12 @@ use std::ops::{Deref, DerefMut};
 /// events.send(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
-/// for event in reader.read(&events) {
+/// for event in cursor.read(&events) {
 ///     assert_eq!(event.value, 1)
 /// }
 ///
 /// // events are only processed once per reader
-/// assert_eq!(reader.read(&events).count(), 0);
+/// assert_eq!(cursor.read(&events).count(), 0);
 /// ```
 ///
 /// # Details
@@ -68,7 +74,7 @@ use std::ops::{Deref, DerefMut};
 /// - [`EventReader`]s that read at least once per update will never drop events.
 /// - [`EventReader`]s that read once within two updates might still receive some events
 /// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
-///     before those updates.
+///   before those updates.
 ///
 /// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
@@ -85,8 +91,8 @@ use std::ops::{Deref, DerefMut};
 /// [`EventWriter`]: super::EventWriter
 /// [`event_update_system`]: super::event_update_system
 #[derive(Debug, Resource)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct Events<E: Event> {
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
+pub struct Events<E: BufferedEvent> {
     /// Holds the oldest still active events.
     /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
     pub(crate) events_a: EventSequence<E>,
@@ -96,7 +102,7 @@ pub struct Events<E: Event> {
 }
 
 // Derived Default impl would incorrectly require E: Default
-impl<E: Event> Default for Events<E> {
+impl<E: BufferedEvent> Default for Events<E> {
     fn default() -> Self {
         Self {
             events_a: Default::default(),
@@ -106,23 +112,28 @@ impl<E: Event> Default for Events<E> {
     }
 }
 
-impl<E: Event> Events<E> {
+impl<E: BufferedEvent> Events<E> {
     /// Returns the index of the oldest event stored in the event buffer.
     pub fn oldest_event_count(&self) -> usize {
-        self.events_a
-            .start_event_count
-            .min(self.events_b.start_event_count)
+        self.events_a.start_event_count
     }
 
     /// "Sends" an `event` by writing it to the current event buffer.
     /// [`EventReader`](super::EventReader)s can then read the event.
     /// This method returns the [ID](`EventId`) of the sent `event`.
+    #[track_caller]
     pub fn send(&mut self, event: E) -> EventId<E> {
+        self.send_with_caller(event, MaybeLocation::caller())
+    }
+
+    pub(crate) fn send_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
+            caller,
             _marker: PhantomData,
         };
-        detailed_trace!("Events::send() -> id: {}", event_id);
+        #[cfg(feature = "detailed_trace")]
+        tracing::trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -135,6 +146,7 @@ impl<E: Event> Events<E> {
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
     /// This is more efficient than sending each event individually.
     /// This method returns the [IDs](`EventId`) of the sent `events`.
+    #[track_caller]
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
         let last_count = self.event_count;
 
@@ -149,6 +161,7 @@ impl<E: Event> Events<E> {
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
     /// This method returns the [ID](`EventId`) of the sent `event`.
+    #[track_caller]
     pub fn send_default(&mut self) -> EventId<E>
     where
         E: Default,
@@ -170,34 +183,12 @@ impl<E: Event> Events<E> {
         }
     }
 
-    #[deprecated(
-        since = "0.14.0",
-        note = "`get_reader` has been deprecated. Please use `get_cursor` instead."
-    )]
-    /// Gets a new [`EventCursor`]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> EventCursor<E> {
-        EventCursor::default()
-    }
-
-    #[deprecated(
-        since = "0.14.0",
-        note = "`get_reader_current` has been replaced. Please use `get_cursor_current` instead."
-    )]
-    /// Gets a new [`EventCursor`]. This will ignore all events already in the event buffers.
-    /// It will read all future events.
-    pub fn get_reader_current(&self) -> EventCursor<E> {
-        EventCursor {
-            last_event_count: self.event_count,
-            ..Default::default()
-        }
-    }
-
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
     ///
     /// If you need access to the events that were removed, consider using [`Events::update_drain`].
     pub fn update(&mut self) {
-        std::mem::swap(&mut self.events_a, &mut self.events_b);
+        core::mem::swap(&mut self.events_a, &mut self.events_b);
         self.events_b.clear();
         self.events_b.start_event_count = self.event_count;
         debug_assert_eq!(
@@ -212,7 +203,7 @@ impl<E: Event> Events<E> {
     /// If you do not need to take ownership of the removed events, use [`Events::update`] instead.
     #[must_use = "If you do not need the returned events, call .update() instead."]
     pub fn update_drain(&mut self) -> impl Iterator<Item = E> + '_ {
-        std::mem::swap(&mut self.events_a, &mut self.events_b);
+        core::mem::swap(&mut self.events_a, &mut self.events_b);
         let iter = self.events_b.events.drain(..);
         self.events_b.start_event_count = self.event_count;
         debug_assert_eq!(
@@ -274,7 +265,7 @@ impl<E: Event> Events<E> {
 
     /// Get a specific event by id if it still exists in the events buffer.
     pub fn get_event(&self, id: usize) -> Option<(&E, EventId<E>)> {
-        if id < self.oldest_id() {
+        if id < self.oldest_event_count() {
             return None;
         }
 
@@ -284,11 +275,6 @@ impl<E: Event> Events<E> {
         sequence
             .get(index)
             .map(|instance| (&instance.event, instance.event_id))
-    }
-
-    /// Oldest id still in the events buffer.
-    pub fn oldest_id(&self) -> usize {
-        self.events_a.start_event_count
     }
 
     /// Which event buffer is this event id a part of.
@@ -301,7 +287,8 @@ impl<E: Event> Events<E> {
     }
 }
 
-impl<E: Event> Extend<E> for Events<E> {
+impl<E: BufferedEvent> Extend<E> for Events<E> {
+    #[track_caller]
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = E>,
@@ -311,6 +298,7 @@ impl<E: Event> Extend<E> for Events<E> {
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
                 id: event_count,
+                caller: MaybeLocation::caller(),
                 _marker: PhantomData,
             };
             event_count += 1;
@@ -320,7 +308,8 @@ impl<E: Event> Extend<E> for Events<E> {
         self.events_b.extend(events);
 
         if old_count != event_count {
-            detailed_trace!(
+            #[cfg(feature = "detailed_trace")]
+            tracing::trace!(
                 "Events::extend() -> ids: ({}..{})",
                 self.event_count,
                 event_count
@@ -332,14 +321,14 @@ impl<E: Event> Extend<E> for Events<E> {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub(crate) struct EventSequence<E: Event> {
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+pub(crate) struct EventSequence<E: BufferedEvent> {
     pub(crate) events: Vec<EventInstance<E>>,
     pub(crate) start_event_count: usize,
 }
 
 // Derived Default impl would incorrectly require E: Default
-impl<E: Event> Default for EventSequence<E> {
+impl<E: BufferedEvent> Default for EventSequence<E> {
     fn default() -> Self {
         Self {
             events: Default::default(),
@@ -348,7 +337,7 @@ impl<E: Event> Default for EventSequence<E> {
     }
 }
 
-impl<E: Event> Deref for EventSequence<E> {
+impl<E: BufferedEvent> Deref for EventSequence<E> {
     type Target = Vec<EventInstance<E>>;
 
     fn deref(&self) -> &Self::Target {
@@ -356,7 +345,7 @@ impl<E: Event> Deref for EventSequence<E> {
     }
 }
 
-impl<E: Event> DerefMut for EventSequence<E> {
+impl<E: BufferedEvent> DerefMut for EventSequence<E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.events
     }
@@ -369,7 +358,7 @@ pub struct SendBatchIds<E> {
     _marker: PhantomData<E>,
 }
 
-impl<E: Event> Iterator for SendBatchIds<E> {
+impl<E: BufferedEvent> Iterator for SendBatchIds<E> {
     type Item = EventId<E>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -379,6 +368,7 @@ impl<E: Event> Iterator for SendBatchIds<E> {
 
         let result = Some(EventId {
             id: self.last_count,
+            caller: MaybeLocation::caller(),
             _marker: PhantomData,
         });
 
@@ -388,7 +378,7 @@ impl<E: Event> Iterator for SendBatchIds<E> {
     }
 }
 
-impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
+impl<E: BufferedEvent> ExactSizeIterator for SendBatchIds<E> {
     fn len(&self) -> usize {
         self.event_count.saturating_sub(self.last_count)
     }
@@ -396,12 +386,11 @@ impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_ecs, event::Events};
-    use bevy_ecs_macros::Event;
+    use crate::event::{BufferedEvent, Event, Events};
 
     #[test]
     fn iter_current_update_events_iterates_over_current_events() {
-        #[derive(Event, Clone)]
+        #[derive(Event, BufferedEvent, Clone)]
         struct TestEvent;
 
         let mut test_events = Events::<TestEvent>::default();

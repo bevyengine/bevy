@@ -2,8 +2,7 @@
 //! to spawn, poll, and complete tasks across systems and system ticks.
 
 use bevy::{
-    ecs::system::SystemState,
-    ecs::world::CommandQueue,
+    ecs::{system::SystemState, world::CommandQueue},
     prelude::*,
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
@@ -69,7 +68,7 @@ fn spawn_tasks(mut commands: Commands) {
                     let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
                     let mut command_queue = CommandQueue::default();
 
-                    // we use a raw command queue to pass a FnOne(&mut World) back to be
+                    // we use a raw command queue to pass a FnOnce(&mut World) back to be
                     // applied in a deferred manner.
                     command_queue.push(move |world: &mut World| {
                         let (box_mesh_handle, box_material_handle) = {
@@ -85,13 +84,12 @@ fn spawn_tasks(mut commands: Commands) {
 
                         world
                             .entity_mut(entity)
-                            // Add our new PbrBundle of components to our tagged entity
-                            .insert(PbrBundle {
-                                mesh: box_mesh_handle,
-                                material: box_material_handle,
+                            // Add our new `Mesh3d` and `MeshMaterial3d` to our tagged entity
+                            .insert((
+                                Mesh3d(box_mesh_handle),
+                                MeshMaterial3d(box_material_handle),
                                 transform,
-                                ..default()
-                            })
+                            ))
                             // Task is complete, so remove task component from entity
                             .remove::<ComputeTransform>();
                     });
@@ -108,7 +106,7 @@ fn spawn_tasks(mut commands: Commands) {
 
 /// This system queries for entities that have our Task<Transform> component. It polls the
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
-/// new [`PbrBundle`] of components to the entity using the result from the task's work, and
+/// new [`Mesh3d`] and [`MeshMaterial3d`] to the entity using the result from the task's work, and
 /// removes the task component from the entity.
 fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
     for mut task in &mut transform_tasks {
@@ -129,15 +127,12 @@ fn setup_env(mut commands: Commands) {
     };
 
     // lights
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 12.0, 15.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 12.0, 15.0)));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(offset, offset, 15.0)
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
-        ..default()
-    });
+    ));
 }

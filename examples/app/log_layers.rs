@@ -1,20 +1,26 @@
 //! This example illustrates how to add custom log layers in bevy.
 
-use bevy::log::BoxedLayer;
-use bevy::{log::tracing_subscriber::Layer, prelude::*, utils::tracing::Subscriber};
+use bevy::{
+    log::{
+        tracing::{self, Subscriber},
+        tracing_subscriber::Layer,
+        BoxedFmtLayer, BoxedLayer,
+    },
+    prelude::*,
+};
 
 struct CustomLayer;
 
 impl<S: Subscriber> Layer<S> for CustomLayer {
     fn on_event(
         &self,
-        event: &bevy::utils::tracing::Event<'_>,
+        event: &tracing::Event<'_>,
         _ctx: bevy::log::tracing_subscriber::layer::Context<'_, S>,
     ) {
         println!("Got event!");
-        println!("  level={:?}", event.metadata().level());
-        println!("  target={:?}", event.metadata().target());
-        println!("  name={:?}", event.metadata().name());
+        println!("  level={}", event.metadata().level());
+        println!("  target={}", event.metadata().target());
+        println!("  name={}", event.metadata().name());
     }
 }
 
@@ -30,10 +36,24 @@ fn custom_layer(_app: &mut App) -> Option<BoxedLayer> {
     ]))
 }
 
+// While `custom_layer` allows you to add _additional_ layers, it won't allow you to override the
+// default `tracing_subscriber::fmt::Layer` added by `LogPlugin`. To do that, you can use the
+// `fmt_layer` option.
+//
+// In this example, we're disabling the timestamp in the log output.
+fn fmt_layer(_app: &mut App) -> Option<BoxedFmtLayer> {
+    Some(Box::new(
+        bevy::log::tracing_subscriber::fmt::Layer::default()
+            .without_time()
+            .with_writer(std::io::stderr),
+    ))
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             custom_layer,
+            fmt_layer,
 
             ..default()
         }))

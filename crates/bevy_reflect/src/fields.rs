@@ -1,15 +1,18 @@
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::{MaybeTyped, Reflect, TypeInfo, TypePath, TypePathTable};
-use std::any::{Any, TypeId};
-use std::sync::Arc;
+use crate::{
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    type_info::impl_type_methods,
+    MaybeTyped, PartialReflect, Type, TypeInfo, TypePath,
+};
+use alloc::borrow::Cow;
+use bevy_platform::sync::Arc;
+use core::fmt::{Display, Formatter};
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
 pub struct NamedField {
     name: &'static str,
     type_info: fn() -> Option<&'static TypeInfo>,
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -17,12 +20,11 @@ pub struct NamedField {
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect + MaybeTyped + TypePath>(name: &'static str) -> Self {
+    pub fn new<T: PartialReflect + MaybeTyped + TypePath>(name: &'static str) -> Self {
         Self {
             name,
             type_info: T::maybe_type_info,
-            type_path: TypePathTable::of::<T>(),
-            type_id: TypeId::of::<T>(),
+            ty: Type::of::<T>(),
             custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -57,32 +59,7 @@ impl NamedField {
         (self.type_info)()
     }
 
-    /// A representation of the type path of the field.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the field.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the field.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the field type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The docstring of this field, if any.
     #[cfg(feature = "documentation")]
@@ -98,20 +75,19 @@ impl NamedField {
 pub struct UnnamedField {
     index: usize,
     type_info: fn() -> Option<&'static TypeInfo>,
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
 
 impl UnnamedField {
-    pub fn new<T: Reflect + MaybeTyped + TypePath>(index: usize) -> Self {
+    /// Create a new [`UnnamedField`].
+    pub fn new<T: PartialReflect + MaybeTyped + TypePath>(index: usize) -> Self {
         Self {
             index,
             type_info: T::maybe_type_info,
-            type_path: TypePathTable::of::<T>(),
-            type_id: TypeId::of::<T>(),
+            ty: Type::of::<T>(),
             custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -146,32 +122,7 @@ impl UnnamedField {
         (self.type_info)()
     }
 
-    /// A representation of the type path of the field.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the field.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the field.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the field type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The docstring of this field, if any.
     #[cfg(feature = "documentation")]
@@ -180,4 +131,22 @@ impl UnnamedField {
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "field");
+}
+
+/// A representation of a field's accessor.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FieldId {
+    /// Access a field by name.
+    Named(Cow<'static, str>),
+    /// Access a field by index.
+    Unnamed(usize),
+}
+
+impl Display for FieldId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Named(name) => Display::fmt(name, f),
+            Self::Unnamed(index) => Display::fmt(index, f),
+        }
+    }
 }

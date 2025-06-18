@@ -1,17 +1,17 @@
+use alloc::sync::Arc;
 use bevy_asset::{
     io::{Reader, Writer},
     saver::{AssetSaver, SavedAsset},
     Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
 };
-use bevy_math::Vec3;
+use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
+use half::f16;
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
-use std::{
-    io::{Read, Write},
-    sync::Arc,
-};
+use std::io::{Read, Write};
+use thiserror::Error;
 
 /// Unique identifier for the [`MeshletMesh`] asset format.
 const MESHLET_MESH_ASSET_MAGIC: u64 = 1717551717668;
@@ -28,49 +28,76 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
+/// * Do not use normal maps baked from higher-poly geometry. Use the high-poly geometry directly and skip the normal map.
+///   * If additional detail is needed, a smaller tiling normal map not baked from a mesh is ok.
+/// * Material shaders must not use builtin functions that automatically calculate derivatives <https://gpuweb.github.io/gpuweb/wgsl/#derivatives>.
+///   * Performing manual arithmetic on texture coordinates (UVs) is forbidden. Use the chain-rule version of arithmetic functions instead (TODO: not yet implemented).
+/// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
 /// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
 ///   which requires certain shader patterns that differ from the regular material shaders.
-/// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
 ///
-/// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
+/// See also [`super::MeshletMesh3d`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
-    /// The total amount of triangles summed across all LOD 0 meshlets in the mesh.
-    pub(crate) worst_case_meshlet_triangles: u64,
-    /// Raw vertex data bytes for the overall mesh.
-    pub(crate) vertex_data: Arc<[u8]>,
-    /// Indices into `vertex_data`.
-    pub(crate) vertex_ids: Arc<[u32]>,
-    /// Indices into `vertex_ids`.
+    /// Quantized and bitstream-packed vertex positions for meshlet vertices.
+    pub(crate) vertex_positions: Arc<[u32]>,
+    /// Octahedral-encoded and 2x16snorm packed normals for meshlet vertices.
+    pub(crate) vertex_normals: Arc<[u32]>,
+    /// Uncompressed vertex texture coordinates for meshlet vertices.
+    pub(crate) vertex_uvs: Arc<[Vec2]>,
+    /// Triangle indices for meshlets.
     pub(crate) indices: Arc<[u8]>,
     /// The list of meshlets making up this mesh.
     pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
-    pub(crate) bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    pub(crate) meshlet_bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    /// Meshlet group and parent group simplification errors.
+    pub(crate) meshlet_simplification_errors: Arc<[MeshletSimplificationError]>,
 }
 
 /// A single meshlet within a [`MeshletMesh`].
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct Meshlet {
-    /// The offset within the parent mesh's [`MeshletMesh::vertex_ids`] buffer where the indices for this meshlet begin.
-    pub start_vertex_id: u32,
+    /// The bit offset within the parent mesh's [`MeshletMesh::vertex_positions`] buffer where the vertex positions for this meshlet begin.
+    pub start_vertex_position_bit: u32,
+    /// The offset within the parent mesh's [`MeshletMesh::vertex_normals`] and [`MeshletMesh::vertex_uvs`] buffers
+    /// where non-position vertex attributes for this meshlet begin.
+    pub start_vertex_attribute_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
     pub start_index_id: u32,
+    /// The amount of vertices in this meshlet.
+    pub vertex_count: u8,
     /// The amount of triangles in this meshlet.
-    pub triangle_count: u32,
+    pub triangle_count: u8,
+    /// Unused.
+    pub padding: u16,
+    /// Number of bits used to store the X channel of vertex positions within this meshlet.
+    pub bits_per_vertex_position_channel_x: u8,
+    /// Number of bits used to store the Y channel of vertex positions within this meshlet.
+    pub bits_per_vertex_position_channel_y: u8,
+    /// Number of bits used to store the Z channel of vertex positions within this meshlet.
+    pub bits_per_vertex_position_channel_z: u8,
+    /// Power of 2 factor used to quantize vertex positions within this meshlet.
+    pub vertex_position_quantization_factor: u8,
+    /// Minimum quantized X channel value of vertex positions within this meshlet.
+    pub min_vertex_position_channel_x: f32,
+    /// Minimum quantized Y channel value of vertex positions within this meshlet.
+    pub min_vertex_position_channel_y: f32,
+    /// Minimum quantized Z channel value of vertex positions within this meshlet.
+    pub min_vertex_position_channel_z: f32,
 }
 
 /// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletBoundingSpheres {
-    /// The bounding sphere used for frustum and occlusion culling for this meshlet.
-    pub self_culling: MeshletBoundingSphere,
-    /// The bounding sphere used for determining if this meshlet is at the correct level of detail for a given view.
-    pub self_lod: MeshletBoundingSphere,
-    /// The bounding sphere used for determining if this meshlet's parent is at the correct level of detail for a given view.
-    pub parent_lod: MeshletBoundingSphere,
+    /// Bounding sphere used for frustum and occlusion culling for this meshlet.
+    pub culling_sphere: MeshletBoundingSphere,
+    /// Bounding sphere used for determining if this meshlet's group is at the correct level of detail for a given view.
+    pub lod_group_sphere: MeshletBoundingSphere,
+    /// Bounding sphere used for determining if this meshlet's parent group is at the correct level of detail for a given view.
+    pub lod_parent_group_sphere: MeshletBoundingSphere,
 }
 
 /// A spherical bounding volume used for a [`Meshlet`].
@@ -81,20 +108,30 @@ pub struct MeshletBoundingSphere {
     pub radius: f32,
 }
 
-/// An [`AssetLoader`] and [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
-pub struct MeshletMeshSaverLoader;
+/// Simplification error used for choosing level of detail for a [`Meshlet`].
+#[derive(Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
+pub struct MeshletSimplificationError {
+    /// Simplification error used for determining if this meshlet's group is at the correct level of detail for a given view.
+    pub group_error: f16,
+    /// Simplification error used for determining if this meshlet's parent group is at the correct level of detail for a given view.
+    pub parent_group_error: f16,
+}
 
-impl AssetSaver for MeshletMeshSaverLoader {
+/// An [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+pub struct MeshletMeshSaver;
+
+impl AssetSaver for MeshletMeshSaver {
     type Asset = MeshletMesh;
     type Settings = ();
-    type OutputLoader = Self;
+    type OutputLoader = MeshletMeshLoader;
     type Error = MeshletMeshSaveOrLoadError;
 
-    async fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, MeshletMesh>,
-        _settings: &'a (),
+    async fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<'_, MeshletMesh>,
+        _settings: &(),
     ) -> Result<(), MeshletMeshSaveOrLoadError> {
         // Write asset magic number
         writer
@@ -107,31 +144,33 @@ impl AssetSaver for MeshletMeshSaverLoader {
             .await?;
 
         // Compress and write asset data
-        writer
-            .write_all(&asset.worst_case_meshlet_triangles.to_le_bytes())
-            .await?;
         let mut writer = FrameEncoder::new(AsyncWriteSyncAdapter(writer));
-        write_slice(&asset.vertex_data, &mut writer)?;
-        write_slice(&asset.vertex_ids, &mut writer)?;
+        write_slice(&asset.vertex_positions, &mut writer)?;
+        write_slice(&asset.vertex_normals, &mut writer)?;
+        write_slice(&asset.vertex_uvs, &mut writer)?;
         write_slice(&asset.indices, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
-        write_slice(&asset.bounding_spheres, &mut writer)?;
+        write_slice(&asset.meshlet_bounding_spheres, &mut writer)?;
+        write_slice(&asset.meshlet_simplification_errors, &mut writer)?;
         writer.finish()?;
 
         Ok(())
     }
 }
 
-impl AssetLoader for MeshletMeshSaverLoader {
+/// An [`AssetLoader`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+pub struct MeshletMeshLoader;
+
+impl AssetLoader for MeshletMeshLoader {
     type Asset = MeshletMesh;
     type Settings = ();
     type Error = MeshletMeshSaveOrLoadError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<MeshletMesh, MeshletMeshSaveOrLoadError> {
         // Load and check magic number
         let magic = async_read_u64(reader).await?;
@@ -146,21 +185,23 @@ impl AssetLoader for MeshletMeshSaverLoader {
         }
 
         // Load and decompress asset data
-        let worst_case_meshlet_triangles = async_read_u64(reader).await?;
         let reader = &mut FrameDecoder::new(AsyncReadSyncAdapter(reader));
-        let vertex_data = read_slice(reader)?;
-        let vertex_ids = read_slice(reader)?;
+        let vertex_positions = read_slice(reader)?;
+        let vertex_normals = read_slice(reader)?;
+        let vertex_uvs = read_slice(reader)?;
         let indices = read_slice(reader)?;
         let meshlets = read_slice(reader)?;
-        let bounding_spheres = read_slice(reader)?;
+        let meshlet_bounding_spheres = read_slice(reader)?;
+        let meshlet_simplification_errors = read_slice(reader)?;
 
         Ok(MeshletMesh {
-            worst_case_meshlet_triangles,
-            vertex_data,
-            vertex_ids,
+            vertex_positions,
+            vertex_normals,
+            vertex_uvs,
             indices,
             meshlets,
-            bounding_spheres,
+            meshlet_bounding_spheres,
+            meshlet_simplification_errors,
         })
     }
 
@@ -169,7 +210,7 @@ impl AssetLoader for MeshletMeshSaverLoader {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Error, Debug)]
 pub enum MeshletMeshSaveOrLoadError {
     #[error("file was not a MeshletMesh asset")]
     WrongFileType,
@@ -205,7 +246,7 @@ fn write_slice<T: Pod>(
 fn read_slice<T: Pod>(reader: &mut dyn Read) -> Result<Arc<[T]>, std::io::Error> {
     let len = read_u64(reader)? as usize;
 
-    let mut data: Arc<[T]> = std::iter::repeat_with(T::zeroed).take(len).collect();
+    let mut data: Arc<[T]> = core::iter::repeat_with(T::zeroed).take(len).collect();
     let slice = Arc::get_mut(&mut data).unwrap();
     reader.read_exact(bytemuck::cast_slice_mut(slice))?;
 

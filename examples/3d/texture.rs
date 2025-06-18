@@ -53,31 +53,26 @@ fn setup(
     });
 
     // textured quad - normal
-    commands.spawn(PbrBundle {
-        mesh: quad_handle.clone(),
-        material: material_handle,
-        transform: Transform::from_xyz(0.0, 0.0, 1.5)
-            .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(material_handle),
+        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
+    ));
     // textured quad - modulated
-    commands.spawn(PbrBundle {
-        mesh: quad_handle.clone(),
-        material: red_material_handle,
-        transform: Transform::from_rotation(Quat::from_rotation_x(-PI / 5.0)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(red_material_handle),
+        Transform::from_rotation(Quat::from_rotation_x(-PI / 5.0)),
+    ));
     // textured quad - modulated
-    commands.spawn(PbrBundle {
-        mesh: quad_handle,
-        material: blue_material_handle,
-        transform: Transform::from_xyz(0.0, 0.0, -1.5)
-            .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(quad_handle),
+        MeshMaterial3d(blue_material_handle),
+        Transform::from_xyz(0.0, 0.0, -1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
+    ));
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }

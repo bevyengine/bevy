@@ -70,33 +70,27 @@ struct LevelData {
 
 fn setup(mut commands: Commands) {
     let level_data = LevelData {
-        unload_level_id: commands.register_one_shot_system(unload_current_level),
-        level_1_id: commands.register_one_shot_system(load_level_1),
-        level_2_id: commands.register_one_shot_system(load_level_2),
+        unload_level_id: commands.register_system(unload_current_level),
+        level_1_id: commands.register_system(load_level_1),
+        level_2_id: commands.register_system(load_level_2),
     };
     commands.insert_resource(level_data);
 
     // Spawns the UI that will show the user prompts.
-    let text_style = TextStyle {
-        font_size: 50.0,
+    let text_style = TextFont {
+        font_size: 42.0,
         ..default()
     };
     commands
-        .spawn(NodeBundle {
-            background_color: BackgroundColor(Color::NONE),
-            style: Style {
+        .spawn((
+            Node {
                 justify_self: JustifySelf::Center,
                 align_self: AlignSelf::FlexEnd,
                 ..default()
             },
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Press 1 or 2 to load a new scene.",
-                text_style,
-            ));
-        });
+            BackgroundColor(Color::NONE),
+        ))
+        .with_child((Text::new("Press 1 or 2 to load a new scene."), text_style));
 }
 
 // Selects the level you want to load.
@@ -130,7 +124,7 @@ fn unload_current_level(
 ) {
     *loading_state = LoadingState::LevelLoading;
     for entity in entities.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -141,11 +135,8 @@ fn load_level_1(
 ) {
     // Spawn the camera.
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(155.0, 155.0, 155.0)
-                .looking_at(Vec3::new(0.0, 40.0, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(155.0, 155.0, 155.0).looking_at(Vec3::new(0.0, 40.0, 0.0), Vec3::Y),
         LevelComponents,
     ));
 
@@ -154,24 +145,18 @@ fn load_level_1(
     loading_data.loading_assets.push(fox.clone().into());
     // Spawn the fox.
     commands.spawn((
-        SceneBundle {
-            scene: fox.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
+        SceneRoot(fox.clone()),
+        Transform::from_xyz(0.0, 0.0, 0.0),
         LevelComponents,
     ));
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));
 }
@@ -183,11 +168,8 @@ fn load_level_2(
 ) {
     // Spawn the camera.
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(1.0, 1.0, 1.0)
-                .looking_at(Vec3::new(0.0, 0.2, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::new(0.0, 0.2, 0.0), Vec3::Y),
         LevelComponents,
     ));
 
@@ -197,24 +179,15 @@ fn load_level_2(
     loading_data
         .loading_assets
         .push(helmet_scene.clone().into());
-    commands.spawn((
-        SceneBundle {
-            scene: helmet_scene.clone(),
-            ..default()
-        },
-        LevelComponents,
-    ));
+    commands.spawn((SceneRoot(helmet_scene.clone()), LevelComponents));
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));
 }
@@ -231,21 +204,11 @@ fn update_loading_data(
         // we reset the confirmation frame count.
         loading_data.confirmation_frames_count = 0;
 
-        // Go through each asset and verify their load states.
-        // Any assets that are loaded are then added to the pop list for later removal.
-        let mut pop_list: Vec<usize> = Vec::new();
-        for (index, asset) in loading_data.loading_assets.iter().enumerate() {
-            if let Some(state) = asset_server.get_load_states(asset) {
-                if let bevy::asset::RecursiveDependencyLoadState::Loaded = state.2 {
-                    pop_list.push(index);
-                }
-            }
-        }
-
-        // Remove all loaded assets from the loading_assets list.
-        for i in pop_list.iter() {
-            loading_data.loading_assets.remove(*i);
-        }
+        loading_data.loading_assets.retain(|asset| {
+            asset_server
+                .get_recursive_dependency_load_state(asset)
+                .is_none_or(|state| !state.is_loaded())
+        });
 
         // If there are no more assets being monitored, and pipelines
         // are compiled, then start counting confirmation frames.
@@ -265,18 +228,16 @@ struct LoadingScreen;
 
 // Spawns the necessary components for the loading screen.
 fn load_loading_screen(mut commands: Commands) {
-    let text_style = TextStyle {
-        font_size: 80.0,
+    let text_style = TextFont {
+        font_size: 67.0,
         ..default()
     };
 
     // Spawn the UI and Loading screen camera.
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                order: 1,
-                ..default()
-            },
+        Camera2d,
+        Camera {
+            order: 1,
             ..default()
         },
         LoadingScreen,
@@ -285,42 +246,37 @@ fn load_loading_screen(mut commands: Commands) {
     // Spawn the UI that will make up the loading screen.
     commands
         .spawn((
-            NodeBundle {
-                background_color: BackgroundColor(Color::BLACK),
-                style: Style {
-                    height: Val::Percent(100.0),
-                    width: Val::Percent(100.0),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
+            Node {
+                height: Val::Percent(100.0),
+                width: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
+            BackgroundColor(Color::BLACK),
             LoadingScreen,
         ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_sections([TextSection::new(
-                "Loading...",
-                text_style.clone(),
-            )]));
-        });
+        .with_child((Text::new("Loading..."), text_style.clone()));
 }
 
 // Determines when to show the loading screen
 fn display_loading_screen(
-    mut loading_screen: Query<&mut Visibility, With<LoadingScreen>>,
+    mut loading_screen: Single<&mut Visibility, (With<LoadingScreen>, With<Node>)>,
     loading_state: Res<LoadingState>,
 ) {
-    match loading_state.as_ref() {
-        LoadingState::LevelLoading => {
-            *loading_screen.get_single_mut().unwrap() = Visibility::Visible;
-        }
-        LoadingState::LevelReady => *loading_screen.get_single_mut().unwrap() = Visibility::Hidden,
+    let visibility = match loading_state.as_ref() {
+        LoadingState::LevelLoading => Visibility::Visible,
+        LoadingState::LevelReady => Visibility::Hidden,
     };
+
+    **loading_screen = visibility;
 }
 
 mod pipelines_ready {
-    use bevy::{prelude::*, render::render_resource::*, render::*};
+    use bevy::{
+        prelude::*,
+        render::{render_resource::*, *},
+    };
 
     pub struct PipelinesReadyPlugin;
     impl Plugin for PipelinesReadyPlugin {
@@ -332,7 +288,7 @@ mod pipelines_ready {
             // and then update the pipelines status from there.
             // Writing between these Apps can only be done through the
             // `ExtractSchedule`.
-            app.sub_app_mut(bevy::render::RenderApp)
+            app.sub_app_mut(RenderApp)
                 .add_systems(ExtractSchedule, update_pipelines_ready);
         }
     }

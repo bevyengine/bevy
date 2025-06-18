@@ -1,9 +1,9 @@
-use crate as bevy_ecs;
+use alloc::vec::Vec;
 use bevy_ecs::{
     change_detection::{DetectChangesMut, MutUntyped},
     component::{ComponentId, Tick},
-    event::{Event, Events},
-    system::Resource,
+    event::{BufferedEvent, Events},
+    resource::Resource,
     world::World,
 };
 
@@ -45,11 +45,11 @@ impl EventRegistry {
     ///
     /// If no instance of the [`EventRegistry`] exists in the world, this will add one - otherwise it will use
     /// the existing instance.
-    pub fn register_event<T: Event>(world: &mut World) {
+    pub fn register_event<T: BufferedEvent>(world: &mut World) {
         // By initializing the resource here, we can be sure that it is present,
         // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
         let component_id = world.init_resource::<Events<T>>();
-        let mut registry = world.get_resource_or_insert_with(Self::default);
+        let mut registry = world.get_resource_or_init::<Self>();
         registry.event_updates.push(RegisteredEvent {
             component_id,
             previously_updated: false,
@@ -81,10 +81,10 @@ impl EventRegistry {
         }
     }
 
-    /// Removes an event from the world and it's associated [`EventRegistry`].
-    pub fn deregister_events<T: Event>(world: &mut World) {
+    /// Removes an event from the world and its associated [`EventRegistry`].
+    pub fn deregister_events<T: BufferedEvent>(world: &mut World) {
         let component_id = world.init_resource::<Events<T>>();
-        let mut registry = world.get_resource_or_insert_with(Self::default);
+        let mut registry = world.get_resource_or_init::<Self>();
         registry
             .event_updates
             .retain(|e| e.component_id != component_id);

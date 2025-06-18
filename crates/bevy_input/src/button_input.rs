@@ -1,10 +1,13 @@
 //! The generic input type.
 
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
+use bevy_platform::collections::HashSet;
+use core::hash::Hash;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::HashSet;
-use std::hash::Hash;
+use {
+    bevy_ecs::reflect::ReflectResource,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 /// A "press-able" input of type `T`.
 ///
@@ -59,8 +62,7 @@ use std::hash::Hash;
 ///
 /// `ButtonInput<KeyCode>` is tied to window focus. For example, if the user holds a button
 /// while the window loses focus, [`ButtonInput::just_released`] will be triggered. Similarly if the window
-/// regains focus, [`ButtonInput::just_pressed`] will be triggered. Currently this happens even if the
-/// focus switches from one Bevy window to another (for example because a new window was just spawned).
+/// regains focus, [`ButtonInput::just_pressed`] will be triggered.
 ///
 /// `ButtonInput<GamepadButton>` is independent of window focus.
 ///
@@ -69,16 +71,12 @@ use std::hash::Hash;
 /// Reading and checking against the current set of pressed buttons:
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::{prelude::{IntoSystemConfigs, Res, Resource, resource_changed}, schedule::Condition};
-/// # use bevy_input::{ButtonInput, prelude::{GamepadButton, KeyCode, MouseButton}};
+/// # use bevy_ecs::{prelude::{IntoScheduleConfigs, Res, Resource, resource_changed}, schedule::SystemCondition};
+/// # use bevy_input::{ButtonInput, prelude::{KeyCode, MouseButton}};
 ///
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             print_gamepad.run_if(resource_changed::<ButtonInput<GamepadButton>>),
-///         )
 ///         .add_systems(
 ///             Update,
 ///             print_mouse.run_if(resource_changed::<ButtonInput<MouseButton>>),
@@ -88,10 +86,6 @@ use std::hash::Hash;
 ///             print_keyboard.run_if(resource_changed::<ButtonInput<KeyCode>>),
 ///         )
 ///         .run();
-/// }
-///
-/// fn print_gamepad(gamepad: Res<ButtonInput<GamepadButton>>) {
-///     println!("Gamepad: {:?}", gamepad.get_pressed().collect::<Vec<_>>());
 /// }
 ///
 /// fn print_mouse(mouse: Res<ButtonInput<MouseButton>>) {
@@ -112,33 +106,6 @@ use std::hash::Hash;
 /// }
 /// ```
 ///
-/// Accepting input from multiple devices:
-/// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::{prelude::IntoSystemConfigs, schedule::Condition};
-/// # use bevy_input::{ButtonInput, common_conditions::{input_just_pressed}, prelude::{GamepadButton, Gamepad, GamepadButtonType, KeyCode}};
-///
-/// fn main() {
-///     App::new()
-///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             something_used.run_if(
-///                 input_just_pressed(KeyCode::KeyE)
-///                     .or_else(input_just_pressed(GamepadButton::new(
-///                         Gamepad::new(0),
-///                         GamepadButtonType::West,
-///                     ))),
-///             ),
-///         )
-///         .run();
-/// }
-///
-/// fn something_used() {
-///     println!("Generic use-ish button pressed.");
-/// }
-/// ```
-///
 /// ## Note
 ///
 /// When adding this resource for a new input type, you should:
@@ -151,10 +118,10 @@ use std::hash::Hash;
 /// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
 /// to avoid causing the resource to always be marked as changed.
 ///
-///[`ResMut`]: bevy_ecs::system::ResMut
-///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
+/// [`ResMut`]: bevy_ecs::system::ResMut
+/// [`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
 pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
@@ -243,7 +210,17 @@ where
 
     /// Returns `true` if any item in `inputs` has just been released.
     pub fn any_just_released(&self, inputs: impl IntoIterator<Item = T>) -> bool {
-        inputs.into_iter().any(|it| self.just_released(it))
+        inputs.into_iter().any(|input| self.just_released(input))
+    }
+
+    /// Returns `true` if all items in `inputs` have just been released.
+    pub fn all_just_released(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+        inputs.into_iter().all(|input| self.just_released(input))
+    }
+
+    /// Returns `true` if all items in `inputs` have been just pressed.
+    pub fn all_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+        inputs.into_iter().all(|input| self.just_pressed(input))
     }
 
     /// Clears the `just_released` state of the `input` and returns `true` if the `input` has just been released.

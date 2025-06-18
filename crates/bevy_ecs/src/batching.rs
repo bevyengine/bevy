@@ -1,6 +1,6 @@
 //! Types for controlling batching behavior during parallel processing.
 
-use std::ops::Range;
+use core::ops::Range;
 
 /// Dictates how a parallel operation chunks up large quantities
 /// during iteration.
@@ -22,7 +22,7 @@ use std::ops::Range;
 /// [`EventReader::par_read`]: crate::event::EventReader::par_read
 #[derive(Clone, Debug)]
 pub struct BatchingStrategy {
-    /// The upper and lower limits for a batch of entities.
+    /// The upper and lower limits for a batch of items.
     ///
     /// Setting the bounds to the same value will result in a fixed
     /// batch size.
@@ -90,7 +90,6 @@ impl BatchingStrategy {
     /// # Panics
     ///
     /// Panics if `thread_count` is 0.
-    ///
     #[inline]
     pub fn calc_batch_size(&self, max_items: impl FnOnce() -> usize, thread_count: usize) -> usize {
         if self.batch_size_limits.is_empty() {
@@ -102,7 +101,7 @@ impl BatchingStrategy {
         );
         let batches = thread_count * self.batches_per_thread;
         // Round up to the nearest batch size.
-        let batch_size = (max_items() + batches - 1) / batches;
+        let batch_size = max_items().div_ceil(batches);
         batch_size.clamp(self.batch_size_limits.start, self.batch_size_limits.end)
     }
 }

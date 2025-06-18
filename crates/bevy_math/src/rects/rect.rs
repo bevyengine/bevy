@@ -19,7 +19,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -371,6 +371,8 @@ impl Rect {
 
 #[cfg(test)]
 mod tests {
+    use crate::ops;
+
     use super::*;
 
     #[test]
@@ -382,8 +384,8 @@ mod tests {
 
         assert!(r.center().abs_diff_eq(Vec2::new(3., -5.), 1e-5));
 
-        assert!((r.width() - 8.).abs() <= 1e-5);
-        assert!((r.height() - 11.).abs() <= 1e-5);
+        assert!(ops::abs(r.width() - 8.) <= 1e-5);
+        assert!(ops::abs(r.height() - 11.) <= 1e-5);
         assert!(r.size().abs_diff_eq(Vec2::new(8., 11.), 1e-5));
         assert!(r.half_size().abs_diff_eq(Vec2::new(4., 5.5), 1e-5));
 

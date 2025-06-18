@@ -13,7 +13,7 @@
 
 use bevy::{
     core_pipeline::{
-        auto_exposure::{AutoExposureCompensationCurve, AutoExposurePlugin, AutoExposureSettings},
+        auto_exposure::{AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin},
         Skybox,
     },
     math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
@@ -39,21 +39,15 @@ fn setup(
     let metering_mask = asset_server.load("textures/basic_metering_mask.png");
 
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        AutoExposureSettings {
+        Camera3d::default(),
+        Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        AutoExposure {
             metering_mask: metering_mask.clone(),
             ..default()
         },
         Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            brightness: bevy::pbr::light_consts::lux::DIRECT_SUNLIGHT,
+            brightness: light_consts::lux::DIRECT_SUNLIGHT,
             ..default()
         },
     ));
@@ -88,72 +82,67 @@ fn setup(
 
             let height = Vec3::Y * level as f32;
 
-            commands.spawn(PbrBundle {
-                mesh: plane.clone(),
-                material: materials.add(StandardMaterial {
+            commands.spawn((
+                Mesh3d(plane.clone()),
+                MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::srgb(
                         0.5 + side.x * 0.5,
                         0.75 - level as f32 * 0.25,
                         0.5 + side.z * 0.5,
                     ),
                     ..default()
-                }),
-                transform: Transform::from_translation(side * 2.0 + height)
-                    .looking_at(height, Vec3::Y),
-                ..default()
-            });
+                })),
+                Transform::from_translation(side * 2.0 + height).looking_at(height, Vec3::Y),
+            ));
         }
     }
 
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 0.0,
-    });
-
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 2000.0,
-            ..default()
-        },
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..default()
     });
 
-    commands.spawn(ImageBundle {
-        image: UiImage {
-            texture: metering_mask,
+    commands.spawn((
+        PointLight {
+            intensity: 2000.0,
             ..default()
         },
-        style: Style {
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
+
+    commands.spawn((
+        ImageNode {
+            image: metering_mask,
+            ..default()
+        },
+        Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 
-    let text_style = TextStyle::default();
+    let text_font = TextFont::default();
 
-    commands.spawn(
-        TextBundle::from_section(
-            "Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask",
-            text_style.clone(),
-        )
-        .with_style(Style {
+    commands.spawn((Text::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
+            text_font.clone(), Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        })
     );
 
     commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+        Text::default(),
+        text_font,
+        Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
+            top: Val::Px(12.0),
+            right: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 }
@@ -168,19 +157,19 @@ struct ExampleResources {
 }
 
 fn example_control_system(
-    mut camera: Query<(&mut Transform, &mut AutoExposureSettings), With<Camera3d>>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
-    mut mask_image: Query<&mut Style, With<UiImage>>,
+    camera: Single<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
+    mut display: Single<&mut Text, With<ExampleDisplay>>,
+    mut mask_image: Single<&mut Node, With<ImageNode>>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     resources: Res<ExampleResources>,
 ) {
-    let (mut camera_transform, mut auto_exposure) = camera.single_mut();
+    let (mut camera_transform, mut auto_exposure) = camera.into_inner();
 
     let rotation = if input.pressed(KeyCode::ArrowLeft) {
-        time.delta_seconds()
+        time.delta_secs()
     } else if input.pressed(KeyCode::ArrowRight) {
-        -time.delta_seconds()
+        -time.delta_secs()
     } else {
         0.0
     };
@@ -205,14 +194,13 @@ fn example_control_system(
             };
     }
 
-    mask_image.single_mut().display = if input.pressed(KeyCode::KeyV) {
+    mask_image.display = if input.pressed(KeyCode::KeyV) {
         Display::Flex
     } else {
         Display::None
     };
 
-    let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    display.0 = format!(
         "Compensation Curve: {}\nMetering Mask: {}",
         if auto_exposure.compensation_curve == resources.basic_compensation_curve {
             "Enabled"

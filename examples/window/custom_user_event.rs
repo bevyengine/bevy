@@ -1,10 +1,12 @@
 //! Shows how to create a custom event that can be handled by `winit`'s event loop.
 
-use bevy::prelude::*;
-use bevy::winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin};
+use bevy::{
+    prelude::*,
+    winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin},
+};
 use std::fmt::Formatter;
 
-#[derive(Default, Debug, Event)]
+#[derive(Default, Debug, Event, BufferedEvent)]
 enum CustomEvent {
     #[default]
     WakeUp,
@@ -45,7 +47,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 fn send_event(
@@ -81,8 +83,7 @@ fn handle_event(mut events: EventReader<CustomEvent>) {
 pub(crate) mod wasm {
     use super::*;
     use bevy::winit::EventLoopProxy;
-    use wasm_bindgen::prelude::*;
-    use wasm_bindgen::JsCast;
+    use wasm_bindgen::{prelude::*, JsCast};
     use web_sys::KeyboardEvent;
 
     pub(crate) fn setup_js_closure(event_loop: Res<EventLoopProxyWrapper<CustomEvent>>) {

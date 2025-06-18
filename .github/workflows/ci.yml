@@ -5,13 +5,17 @@ on:
   pull_request:
   push:
     branches:
-      - main
       - release-*
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
+  RUSTFLAGS: "-D warnings"
+  BINSTALL_VERSION: "v1.12.3"
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
@@ -42,7 +46,6 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- test
         env:
-          CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   ci:
@@ -72,8 +75,7 @@ jobs:
         run: cargo run -p ci -- lints
 
   miri:
-    # Explicity use macOS 14 to take advantage of M1 chip.
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -92,16 +94,15 @@ jobs:
           components: miri
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
-        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
+        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
         run: cargo miri test -p bevy_ecs
         env:
           # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
           RUSTFLAGS: -Zrandomize-layout
           # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
           # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
-          # -Zmiri-permissive-provenance disables warnings against int2ptr casts (since those are used by once_cell)
           # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
-          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance
+          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation
 
   check-compiles:
     runs-on: ubuntu-latest
@@ -128,6 +129,79 @@ jobs:
       - name: Check Compile
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
+  check-compiles-no-std:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-no-std-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-none
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cargo check -p bevy --no-default-features --features default_no_std --target x86_64-unknown-none
+  check-compiles-no-std-portable-atomic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-no-std-portable-atomic-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv6m-none-eabi
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cargo check -p bevy --no-default-features --features default_no_std --target thumbv6m-none-eabi
+
+  check-compiles-no-std-examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-no-std-examples-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-none
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cd examples/no_std/library && cargo check --no-default-features --features libm,critical-section --target x86_64-unknown-none
 
   build-wasm:
     runs-on: ubuntu-latest
@@ -186,7 +260,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
       - name: Run Markdown Lint
-        uses: docker://ghcr.io/github/super-linter:slim-v4
+        uses: super-linter/super-linter/slim@v7.3.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
@@ -198,19 +272,19 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: cargo-bins/cargo-binstall@v1.12.3
       - name: Install taplo
-        run: cargo install taplo-cli --locked
+        run: cargo binstall taplo-cli@0.9.3 --locked
       - name: Run Taplo
         id: taplo
         run: taplo fmt --check --diff
       - name: Taplo info
         if: failure()
         run: |
-          echo 'To fix toml fmt, please run `taplo fmt`'
-          echo 'To check for a diff, run `taplo fmt --check --diff'
+          echo 'To fix toml fmt, please run `taplo fmt`.'
+          echo 'To check for a diff, run `taplo fmt --check --diff`.'
           echo 'You can find taplo here: https://taplo.tamasfe.dev/'
-          echo 'Or if you use VSCode, use the `Even Better Toml` extension with 2 spaces'
+          echo 'Or if you use VSCode, use the `Even Better Toml` extension.'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml'
 
   typos:
@@ -219,7 +293,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.23.5
+        uses: crate-ci/typos@v1.33.1
       - name: Typos info
         if: failure()
         run: |
@@ -228,52 +302,6 @@ jobs:
           echo 'You can find typos here: https://crates.io/crates/typos'
           echo 'if you use VSCode, you can also install `Typos Spell Checker'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
-
-
-  run-examples-macos-metal:
-    # Explicity use macOS 14 to take advantage of M1 chip.
-    runs-on: macos-14
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Disable audio
-        # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
-        run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
-      - name: Build bevy
-        # this uses the same command as when running the example to ensure build is reused
-        run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
-      - name: Run examples
-        run: |
-          for example in .github/example-run/*.ron; do
-            example_name=`basename $example .ron`
-            echo -n $example_name > last_example_run
-            echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
-            sleep 10
-            if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
-              mkdir screenshots-$example_name
-              mv screenshot-*.png screenshots-$example_name/
-            fi
-          done
-          mkdir traces && mv trace*.json traces/
-          mkdir screenshots && mv screenshots-* screenshots/
-      - name: save traces
-        uses: actions/upload-artifact@v4
-        with:
-          name: example-traces-macos
-          path: traces
-      - name: save screenshots
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots-macos
-          path: screenshots
-      - uses: actions/upload-artifact@v4
-        if: ${{ failure() && github.event_name == 'pull_request' }}
-        with:
-          name: example-run-macos
-          path: example-run/
 
   check-doc:
     runs-on: ubuntu-latest
@@ -299,8 +327,7 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- doc
         env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-C debuginfo=0"
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
       # This currently report a lot of false positives
       # Enable it again once it's fixed - https://github.com/bevyengine/bevy/issues/1983
       # - name: Installs cargo-deadlinks
@@ -314,6 +341,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -348,6 +376,7 @@ jobs:
     needs: check-missing-examples-in-docs
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -391,6 +420,7 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: get MSRV
         id: msrv
         run: |
@@ -420,19 +450,19 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Check for bevy_internal imports
+      - name: Check for internal Bevy imports
         shell: bash
         run: |
           errors=""
-          for file in $(find examples tests -name '*.rs'); do
-              if grep -q "use bevy_internal" "$file"; then
-                  errors+="ERROR: Detected 'use bevy_internal' in $file\n"
+          for file in $(find examples tests -name '*.rs' -not -path 'examples/mobile/*'); do
+              if grep -q "use bevy_" "$file"; then
+                  errors+="ERROR: Detected internal Bevy import in $file\n"
               fi
           done
           if [ -n "$errors" ]; then
               echo -e "$errors"
-              echo " Avoid importing bevy_internal, it should not be used directly"
-              echo " Fix the issue by replacing 'bevy_internal' with 'bevy'"
-              echo " Example: 'use bevy::sprite::MaterialMesh2dBundle;' instead of 'bevy_internal::sprite::MaterialMesh2dBundle;'"
+              echo " Avoid importing internal Bevy crates, they should not be used directly"
+              echo " Fix the issue by replacing 'bevy_*' with 'bevy'"
+              echo " Example: 'use bevy::sprite::Mesh2d;' instead of 'bevy_internal::sprite::Mesh2d;'"
               exit 1
           fi

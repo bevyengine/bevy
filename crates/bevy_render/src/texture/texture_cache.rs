@@ -2,8 +2,8 @@ use crate::{
     render_resource::{Texture, TextureView},
     renderer::RenderDevice,
 };
-use bevy_ecs::{prelude::ResMut, system::Resource};
-use bevy_utils::{Entry, HashMap};
+use bevy_ecs::{prelude::ResMut, resource::Resource};
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
 
 /// The internal representation of a [`CachedTexture`] used to track whether it was recently used
@@ -16,6 +16,7 @@ struct CachedTextureMeta {
 }
 
 /// A cached GPU [`Texture`] with corresponding [`TextureView`].
+///
 /// This is useful for textures that are created repeatedly (each frame) in the rendering process
 /// to reduce the amount of GPU memory allocations.
 #[derive(Clone)]

@@ -1,6 +1,7 @@
+use bevy_platform::time::Instant;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
-use bevy_utils::{Duration, Instant};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use core::time::Duration;
 
 use crate::time::Time;
 
@@ -11,12 +12,18 @@ use crate::time::Time;
 ///
 /// It is automatically inserted as a resource by
 /// [`TimePlugin`](crate::TimePlugin) and updated with time instants according
-/// to [`TimeUpdateStrategy`](crate::TimeUpdateStrategy).
+/// to [`TimeUpdateStrategy`](crate::TimeUpdateStrategy).[^disclaimer]
+///
+/// Note:
+/// Using [`TimeUpdateStrategy::ManualDuration`](crate::TimeUpdateStrategy::ManualDuration)
+/// allows for mocking the wall clock for testing purposes.
+/// Besides this use case, it is not recommended to do this, as it will no longer
+/// represent "wall clock" time as intended.
 ///
 /// The [`delta()`](Time::delta) and [`elapsed()`](Time::elapsed) values of this
 /// clock should be used for anything which deals specifically with real time
 /// (wall clock time). It will not be affected by relative game speed
-/// adjustments, pausing or other adjustments.
+/// adjustments, pausing or other adjustments.[^disclaimer]
 ///
 /// The clock does not count time from [`startup()`](Time::startup) to
 /// [`first_update()`](Time::first_update()) into elapsed, but instead will
@@ -29,8 +36,12 @@ use crate::time::Time;
 /// [`Instant`]s for [`startup()`](Time::startup),
 /// [`first_update()`](Time::first_update) and
 /// [`last_update()`](Time::last_update) are recorded and accessible.
+///
+/// [^disclaimer]: When using [`TimeUpdateStrategy::ManualDuration`](crate::TimeUpdateStrategy::ManualDuration),
+///     [`Time<Real>#impl-Time<Real>`] is only a *mock* of wall clock time.
+///
 #[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone, Default))]
 pub struct Real {
     startup: Instant,
     first_update: Option<Instant>,
@@ -128,6 +139,18 @@ impl Time<Real> {
 mod test {
     use super::*;
 
+    // Waits until Instant::now() has increased.
+    //
+    // ```
+    // let previous = Instant::now();
+    // wait();
+    // assert!(Instant::now() > previous);
+    // ```
+    fn wait() {
+        let start = Instant::now();
+        while Instant::now() <= start {}
+    }
+
     #[test]
     fn test_update() {
         let startup = Instant::now();
@@ -139,6 +162,7 @@ mod test {
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
 
+        wait();
         time.update();
 
         assert_ne!(time.first_update(), None);
@@ -146,6 +170,7 @@ mod test {
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
 
+        wait();
         time.update();
 
         assert_ne!(time.first_update(), None);
@@ -154,6 +179,7 @@ mod test {
         assert_ne!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), time.delta());
 
+        wait();
         let prev_elapsed = time.elapsed();
         time.update();
 
@@ -166,6 +192,7 @@ mod test {
         let startup = Instant::now();
         let mut time = Time::<Real>::new(startup);
 
+        wait();
         let first_update = Instant::now();
         time.update_with_instant(first_update);
 
@@ -175,6 +202,7 @@ mod test {
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
 
+        wait();
         let second_update = Instant::now();
         time.update_with_instant(second_update);
 
@@ -183,6 +211,7 @@ mod test {
         assert_eq!(time.delta(), second_update - first_update);
         assert_eq!(time.elapsed(), second_update - first_update);
 
+        wait();
         let third_update = Instant::now();
         time.update_with_instant(third_update);
 

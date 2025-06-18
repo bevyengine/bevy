@@ -1,9 +1,13 @@
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
-use crate::func::args::FromArg;
-use crate::func::macros::count_tokens;
-use crate::func::{ArgList, FunctionError, FunctionResult, IntoReturn, ReflectFnMut};
-use crate::{Reflect, TypePath};
+use crate::{
+    func::{
+        args::{ArgCount, FromArg},
+        macros::count_tokens,
+        ArgList, FunctionError, FunctionResult, IntoReturn, ReflectFnMut,
+    },
+    Reflect, TypePath,
+};
 
 /// A reflection-based version of the [`Fn`] trait.
 ///
@@ -13,7 +17,8 @@ use crate::{Reflect, TypePath};
 ///
 /// This trait has a blanket implementation that covers:
 /// - Functions and methods defined with the `fn` keyword
-/// - Closures that do not capture their environment
+/// - Anonymous functions
+/// - Function pointers
 /// - Closures that capture immutable references to their environment
 /// - Closures that take ownership of captured variables
 ///
@@ -24,7 +29,7 @@ use crate::{Reflect, TypePath};
 ///
 /// See the [module-level documentation] for more information on valid signatures.
 ///
-/// To handle closures that capture mutable references to their environment,
+/// To handle functions that capture mutable references to their environment,
 /// see the [`ReflectFnMut`] trait instead.
 ///
 /// Arguments are expected to implement [`FromArg`], and the return type is expected to implement [`IntoReturn`].
@@ -39,10 +44,10 @@ use crate::{Reflect, TypePath};
 ///   a + b
 /// }
 ///
-/// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+/// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
 ///
 /// let value = add.reflect_call(args).unwrap().unwrap_owned();
-/// assert_eq!(value.take::<i32>().unwrap(), 100);
+/// assert_eq!(value.try_take::<i32>().unwrap(), 100);
 /// ```
 ///
 /// # Trait Parameters
@@ -52,7 +57,7 @@ use crate::{Reflect, TypePath};
 /// This `Marker` can be any type, provided it doesn't conflict with other implementations.
 ///
 /// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the function.
-/// For most functions, this will end up just being `'static`,
+/// For named functions and some closures, this will end up just being `'static`,
 /// however, closures that borrow from their environment will have a lifetime bound to that environment.
 ///
 /// [reflection]: crate
@@ -64,7 +69,7 @@ pub trait ReflectFn<'env, Marker>: ReflectFnMut<'env, Marker> {
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a>;
 }
 
-/// Helper macro for implementing [`ReflectFn`] on Rust closures.
+/// Helper macro for implementing [`ReflectFn`] on Rust functions.
 ///
 /// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
 /// - `Fn(arg0, arg1, ..., argN) -> R`
@@ -83,13 +88,20 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::This` is the same type as `Arg`
             Function: for<'a> Fn($($Arg::This<'a>),*) -> ReturnType + 'env,
         {
-            #[allow(unused_mut)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This lint is part of a macro, which may not always trigger the `unused_mut` lint."
+            )]
+            #[allow(
+                unused_mut,
+                reason = "Some invocations of this macro may trigger the `unused_mut` lint, where others won't."
+            )]
             fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!($($Arg)*);
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }
@@ -118,7 +130,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }
@@ -148,7 +160,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }
@@ -178,7 +190,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }

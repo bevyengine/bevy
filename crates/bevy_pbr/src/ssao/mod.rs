@@ -1,24 +1,26 @@
 use crate::NodePbr;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{Bundle, Component, Entity},
+    prelude::{Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
+    load_shader_library,
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -28,47 +30,30 @@ use bevy_render::{
         *,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    sync_component::SyncComponentPlugin,
+    sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_utils::{
-    prelude::default,
-    tracing::{error, warn},
-};
-use std::mem;
-
-const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
-const GTAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
-const SPATIAL_DENOISE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(466162052558226);
-const GTAO_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(366465052568786);
+use bevy_utils::prelude::default;
+use core::mem;
+use tracing::{error, warn};
 
 /// Plugin for screen space ambient occlusion.
 pub struct ScreenSpaceAmbientOcclusionPlugin;
 
 impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            PREPROCESS_DEPTH_SHADER_HANDLE,
-            "preprocess_depth.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, GTAO_SHADER_HANDLE, "gtao.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            SPATIAL_DENOISE_SHADER_HANDLE,
-            "spatial_denoise.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            GTAO_UTILS_SHADER_HANDLE,
-            "gtao_utils.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "ssao_utils.wgsl");
 
-        app.register_type::<ScreenSpaceAmbientOcclusionSettings>();
+        embedded_asset!(app, "preprocess_depth.wgsl");
+        embedded_asset!(app, "ssao.wgsl");
+        embedded_asset!(app, "spatial_denoise.wgsl");
+
+        app.register_type::<ScreenSpaceAmbientOcclusion>();
+
+        app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }
 
     fn finish(&self, app: &mut App) {
@@ -105,9 +90,9 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_ssao_pipelines.in_set(RenderSet::Prepare),
-                    prepare_ssao_textures.in_set(RenderSet::PrepareResources),
-                    prepare_ssao_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_ssao_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_ssao_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_ssao_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
@@ -126,14 +111,6 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     }
 }
 
-/// Bundle to apply screen space ambient occlusion.
-#[derive(Bundle, Default, Clone)]
-pub struct ScreenSpaceAmbientOcclusionBundle {
-    pub settings: ScreenSpaceAmbientOcclusionSettings,
-    pub depth_prepass: DepthPrepass,
-    pub normal_prepass: NormalPrepass,
-}
-
 /// Component to apply screen space ambient occlusion to a 3d camera.
 ///
 /// Screen space ambient occlusion (SSAO) approximates small-scale,
@@ -145,21 +122,38 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 ///
 /// # Usage Notes
 ///
-/// Requires that you add [`ScreenSpaceAmbientOcclusionPlugin`] to your app,
-/// and add the [`DepthPrepass`] and [`NormalPrepass`] components to your camera.
+/// Requires that you add [`ScreenSpaceAmbientOcclusionPlugin`] to your app.
 ///
 /// It strongly recommended that you use SSAO in conjunction with
-/// TAA ([`bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings`]).
+/// TAA (`TemporalAntiAliasing`).
 /// Doing so greatly reduces SSAO noise.
 ///
-/// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU` or `DirectX12`.
-#[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default, Debug)]
-#[reflect(Component)]
-pub struct ScreenSpaceAmbientOcclusionSettings {
+/// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU`.
+#[derive(Component, ExtractComponent, Reflect, PartialEq, Clone, Debug)]
+#[reflect(Component, Debug, Default, PartialEq, Clone)]
+#[require(DepthPrepass, NormalPrepass)]
+#[doc(alias = "Ssao")]
+pub struct ScreenSpaceAmbientOcclusion {
+    /// Quality of the SSAO effect.
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
+    /// A constant estimated thickness of objects.
+    ///
+    /// This value is used to decide how far behind an object a ray of light needs to be in order
+    /// to pass behind it. Any ray closer than that will be occluded.
+    pub constant_object_thickness: f32,
+}
+
+impl Default for ScreenSpaceAmbientOcclusion {
+    fn default() -> Self {
+        Self {
+            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::default(),
+            constant_object_thickness: 0.25,
+        }
+    }
 }
 
 #[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
+#[reflect(PartialEq, Hash, Clone, Default)]
 pub enum ScreenSpaceAmbientOcclusionQualityLevel {
     Low,
     Medium,
@@ -213,7 +207,7 @@ impl ViewNode for SsaoNode {
             Some(camera_size),
             Some(preprocess_depth_pipeline),
             Some(spatial_denoise_pipeline),
-            Some(gtao_pipeline),
+            Some(ssao_pipeline),
         ) = (
             camera.physical_viewport_size,
             pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
@@ -242,32 +236,28 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             preprocess_depth_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 16),
-                div_ceil(camera_size.y, 16),
+                camera_size.x.div_ceil(16),
+                camera_size.y.div_ceil(16),
                 1,
             );
         }
 
         {
-            let mut gtao_pass =
+            let mut ssao_pass =
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("ssao_gtao_pass"),
+                        label: Some("ssao_ssao_pass"),
                         timestamp_writes: None,
                     });
-            gtao_pass.set_pipeline(gtao_pipeline);
-            gtao_pass.set_bind_group(0, &bind_groups.gtao_bind_group, &[]);
-            gtao_pass.set_bind_group(
+            ssao_pass.set_pipeline(ssao_pipeline);
+            ssao_pass.set_bind_group(0, &bind_groups.ssao_bind_group, &[]);
+            ssao_pass.set_bind_group(
                 1,
                 &bind_groups.common_bind_group,
                 &[view_uniform_offset.offset],
             );
-            gtao_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 8),
-                div_ceil(camera_size.y, 8),
-                1,
-            );
+            ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
         }
 
         {
@@ -286,8 +276,8 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             spatial_denoise_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 8),
-                div_ceil(camera_size.y, 8),
+                camera_size.x.div_ceil(8),
+                camera_size.y.div_ceil(8),
                 1,
             );
         }
@@ -304,11 +294,14 @@ struct SsaoPipelines {
 
     common_bind_group_layout: BindGroupLayout,
     preprocess_depth_bind_group_layout: BindGroupLayout,
-    gtao_bind_group_layout: BindGroupLayout,
+    ssao_bind_group_layout: BindGroupLayout,
     spatial_denoise_bind_group_layout: BindGroupLayout,
 
     hilbert_index_lut: TextureView,
     point_clamp_sampler: Sampler,
+    linear_clamp_sampler: Sampler,
+
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for SsaoPipelines {
@@ -347,6 +340,14 @@ impl FromWorld for SsaoPipelines {
             address_mode_v: AddressMode::ClampToEdge,
             ..Default::default()
         });
+        let linear_clamp_sampler = render_device.create_sampler(&SamplerDescriptor {
+            min_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Nearest,
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            ..Default::default()
+        });
 
         let common_bind_group_layout = render_device.create_bind_group_layout(
             "ssao_common_bind_group_layout",
@@ -354,6 +355,7 @@ impl FromWorld for SsaoPipelines {
                 ShaderStages::COMPUTE,
                 (
                     sampler(SamplerBindingType::NonFiltering),
+                    sampler(SamplerBindingType::Filtering),
                     uniform_buffer::<ViewUniform>(true),
                 ),
             ),
@@ -374,17 +376,18 @@ impl FromWorld for SsaoPipelines {
             ),
         );
 
-        let gtao_bind_group_layout = render_device.create_bind_group_layout(
-            "ssao_gtao_bind_group_layout",
+        let ssao_bind_group_layout = render_device.create_bind_group_layout(
+            "ssao_ssao_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
                 (
-                    texture_2d(TextureSampleType::Float { filterable: false }),
+                    texture_2d(TextureSampleType::Float { filterable: true }),
                     texture_2d(TextureSampleType::Float { filterable: false }),
                     texture_2d(TextureSampleType::Uint),
                     texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
                     uniform_buffer::<GlobalsUniform>(false),
+                    uniform_buffer::<f32>(false),
                 ),
             ),
         );
@@ -409,9 +412,10 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-                shader: PREPROCESS_DEPTH_SHADER_HANDLE,
+                shader: load_embedded_asset!(world, "preprocess_depth.wgsl"),
                 shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
+                zero_initialize_workgroup_memory: false,
             });
 
         let spatial_denoise_pipeline =
@@ -422,9 +426,10 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-                shader: SPATIAL_DENOISE_SHADER_HANDLE,
+                shader: load_embedded_asset!(world, "spatial_denoise.wgsl"),
                 shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
+                zero_initialize_workgroup_memory: false,
             });
 
         Self {
@@ -433,18 +438,21 @@ impl FromWorld for SsaoPipelines {
 
             common_bind_group_layout,
             preprocess_depth_bind_group_layout,
-            gtao_bind_group_layout,
+            ssao_bind_group_layout,
             spatial_denoise_bind_group_layout,
 
             hilbert_index_lut,
             point_clamp_sampler,
+            linear_clamp_sampler,
+
+            shader: load_embedded_asset!(world, "ssao.wgsl"),
         }
     }
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct SsaoPipelineKey {
-    ssao_settings: ScreenSpaceAmbientOcclusionSettings,
+    quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
     temporal_jitter: bool,
 }
 
@@ -452,7 +460,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
     type Key = SsaoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
-        let (slice_count, samples_per_slice_side) = key.ssao_settings.quality_level.sample_counts();
+        let (slice_count, samples_per_slice_side) = key.quality_level.sample_counts();
 
         let mut shader_defs = vec![
             ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
@@ -467,15 +475,16 @@ impl SpecializedComputePipeline for SsaoPipelines {
         }
 
         ComputePipelineDescriptor {
-            label: Some("ssao_gtao_pipeline".into()),
+            label: Some("ssao_ssao_pipeline".into()),
             layout: vec![
-                self.gtao_bind_group_layout.clone(),
+                self.ssao_bind_group_layout.clone(),
                 self.common_bind_group_layout.clone(),
             ],
             push_constant_ranges: vec![],
-            shader: GTAO_SHADER_HANDLE,
+            shader: self.shader.clone(),
             shader_defs,
-            entry_point: "gtao".into(),
+            entry_point: "ssao".into(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -484,7 +493,7 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (Entity, &Camera, &ScreenSpaceAmbientOcclusionSettings, &Msaa),
+            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
@@ -497,28 +506,33 @@ fn extract_ssao_settings(
             );
             return;
         }
-
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("SSAO entity wasn't synced.");
         if camera.is_active {
-            commands.get_or_spawn(entity).insert(ssao_settings.clone());
+            entity_commands.insert(ssao_settings.clone());
+        } else {
+            entity_commands.remove::<ScreenSpaceAmbientOcclusion>();
         }
     }
 }
 
 #[derive(Component)]
-pub struct ScreenSpaceAmbientOcclusionTextures {
+pub struct ScreenSpaceAmbientOcclusionResources {
     preprocessed_depth_texture: CachedTexture,
     ssao_noisy_texture: CachedTexture, // Pre-spatially denoised texture
     pub screen_space_ambient_occlusion_texture: CachedTexture, // Spatially denoised texture
     depth_differences_texture: CachedTexture,
+    thickness_buffer: Buffer,
 }
 
 fn prepare_ssao_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<ScreenSpaceAmbientOcclusionSettings>>,
+    views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
 ) {
-    for (entity, camera) in &views {
+    for (entity, camera, ssao_settings) in &views {
         let Some(physical_viewport_size) = camera.physical_viewport_size else {
             continue;
         };
@@ -584,13 +598,20 @@ fn prepare_ssao_textures(
             },
         );
 
+        let thickness_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: Some("thickness_buffer"),
+            contents: &ssao_settings.constant_object_thickness.to_le_bytes(),
+            usage: BufferUsages::UNIFORM,
+        });
+
         commands
             .entity(entity)
-            .insert(ScreenSpaceAmbientOcclusionTextures {
+            .insert(ScreenSpaceAmbientOcclusionResources {
                 preprocessed_depth_texture,
                 ssao_noisy_texture,
                 screen_space_ambient_occlusion_texture: ssao_texture,
                 depth_differences_texture,
+                thickness_buffer,
             });
     }
 }
@@ -603,18 +624,14 @@ fn prepare_ssao_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedComputePipelines<SsaoPipelines>>,
     pipeline: Res<SsaoPipelines>,
-    views: Query<(
-        Entity,
-        &ScreenSpaceAmbientOcclusionSettings,
-        Has<TemporalJitter>,
-    )>,
+    views: Query<(Entity, &ScreenSpaceAmbientOcclusion, Has<TemporalJitter>)>,
 ) {
     for (entity, ssao_settings, temporal_jitter) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             SsaoPipelineKey {
-                ssao_settings: ssao_settings.clone(),
+                quality_level: ssao_settings.quality_level,
                 temporal_jitter,
             },
         );
@@ -627,7 +644,7 @@ fn prepare_ssao_pipelines(
 struct SsaoBindGroups {
     common_bind_group: BindGroup,
     preprocess_depth_bind_group: BindGroup,
-    gtao_bind_group: BindGroup,
+    ssao_bind_group: BindGroup,
     spatial_denoise_bind_group: BindGroup,
 }
 
@@ -639,7 +656,7 @@ fn prepare_ssao_bind_groups(
     global_uniforms: Res<GlobalsBuffer>,
     views: Query<(
         Entity,
-        &ScreenSpaceAmbientOcclusionTextures,
+        &ScreenSpaceAmbientOcclusionResources,
         &ViewPrepassTextures,
     )>,
 ) {
@@ -650,15 +667,19 @@ fn prepare_ssao_bind_groups(
         return;
     };
 
-    for (entity, ssao_textures, prepass_textures) in &views {
+    for (entity, ssao_resources, prepass_textures) in &views {
         let common_bind_group = render_device.create_bind_group(
             "ssao_common_bind_group",
             &pipelines.common_bind_group_layout,
-            &BindGroupEntries::sequential((&pipelines.point_clamp_sampler, view_uniforms.clone())),
+            &BindGroupEntries::sequential((
+                &pipelines.point_clamp_sampler,
+                &pipelines.linear_clamp_sampler,
+                view_uniforms.clone(),
+            )),
         );
 
         let create_depth_view = |mip_level| {
-            ssao_textures
+            ssao_resources
                 .preprocessed_depth_texture
                 .texture
                 .create_view(&TextureViewDescriptor {
@@ -684,16 +705,17 @@ fn prepare_ssao_bind_groups(
             )),
         );
 
-        let gtao_bind_group = render_device.create_bind_group(
-            "ssao_gtao_bind_group",
-            &pipelines.gtao_bind_group_layout,
+        let ssao_bind_group = render_device.create_bind_group(
+            "ssao_ssao_bind_group",
+            &pipelines.ssao_bind_group_layout,
             &BindGroupEntries::sequential((
-                &ssao_textures.preprocessed_depth_texture.default_view,
+                &ssao_resources.preprocessed_depth_texture.default_view,
                 prepass_textures.normal_view().unwrap(),
                 &pipelines.hilbert_index_lut,
-                &ssao_textures.ssao_noisy_texture.default_view,
-                &ssao_textures.depth_differences_texture.default_view,
+                &ssao_resources.ssao_noisy_texture.default_view,
+                &ssao_resources.depth_differences_texture.default_view,
                 globals_uniforms.clone(),
+                ssao_resources.thickness_buffer.as_entire_binding(),
             )),
         );
 
@@ -701,9 +723,9 @@ fn prepare_ssao_bind_groups(
             "ssao_spatial_denoise_bind_group",
             &pipelines.spatial_denoise_bind_group_layout,
             &BindGroupEntries::sequential((
-                &ssao_textures.ssao_noisy_texture.default_view,
-                &ssao_textures.depth_differences_texture.default_view,
-                &ssao_textures
+                &ssao_resources.ssao_noisy_texture.default_view,
+                &ssao_resources.depth_differences_texture.default_view,
+                &ssao_resources
                     .screen_space_ambient_occlusion_texture
                     .default_view,
             )),
@@ -712,23 +734,15 @@ fn prepare_ssao_bind_groups(
         commands.entity(entity).insert(SsaoBindGroups {
             common_bind_group,
             preprocess_depth_bind_group,
-            gtao_bind_group,
+            ssao_bind_group,
             spatial_denoise_bind_group,
         });
     }
 }
 
-#[allow(clippy::needless_range_loop)]
 fn generate_hilbert_index_lut() -> [[u16; 64]; 64] {
-    let mut t = [[0; 64]; 64];
-
-    for x in 0..64 {
-        for y in 0..64 {
-            t[x][y] = hilbert_index(x as u16, y as u16);
-        }
-    }
-
-    t
+    use core::array::from_fn;
+    from_fn(|x| from_fn(|y| hilbert_index(x as u16, y as u16)))
 }
 
 // https://www.shadertoy.com/view/3tB3z3
@@ -755,9 +769,4 @@ fn hilbert_index(mut x: u16, mut y: u16) -> u16 {
     }
 
     index
-}
-
-/// Divide `numerator` by `denominator`, rounded up to the nearest multiple of `denominator`.
-fn div_ceil(numerator: u32, denominator: u32) -> u32 {
-    (numerator + denominator - 1) / denominator
 }

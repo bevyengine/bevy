@@ -1,8 +1,8 @@
-use std::{marker::PhantomData, mem};
+use core::{marker::PhantomData, mem};
 
 use bevy_ecs::{
-    event::{Event, EventReader, EventWriter},
-    schedule::{IntoSystemSetConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
+    event::{BufferedEvent, Event, EventReader, EventWriter},
+    schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
     system::{Commands, In, ResMut},
     world::World,
 };
@@ -12,13 +12,13 @@ use super::{resources::State, states::States};
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] enters the provided state.
 ///
 /// This schedule ignores identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnEnter<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] exits the provided state.
 ///
 /// This schedule ignores identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnExit<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`]
@@ -27,7 +27,7 @@ pub struct OnExit<S: States>(pub S);
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
 ///
 /// This schedule will run on identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnTransition<S: States> {
     /// The state being exited.
     pub exited: S,
@@ -37,7 +37,7 @@ pub struct OnTransition<S: States> {
 
 /// Runs [state transitions](States).
 ///
-/// By default, it will be triggered after `PreUpdate`, but
+/// By default, it will be triggered once before [`PreStartup`] and then each frame after [`PreUpdate`], but
 /// you can manually trigger it at arbitrary times by creating an exclusive
 /// system to run the schedule.
 ///
@@ -49,14 +49,17 @@ pub struct OnTransition<S: States> {
 ///     let _ = world.try_run_schedule(StateTransition);
 /// }
 /// ```
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+///
+/// [`PreStartup`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreStartup.html
+/// [`PreUpdate`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreUpdate.html
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct StateTransition;
 
-/// Event sent when any state transition of `S` happens.
+/// A [`BufferedEvent`] sent when any state transition of `S` happens.
 /// This includes identity transitions, where `exited` and `entered` have the same value.
 ///
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Event, BufferedEvent)]
 pub struct StateTransitionEvent<S: States> {
     /// The state being exited.
     pub exited: Option<S>,
@@ -68,7 +71,7 @@ pub struct StateTransitionEvent<S: States> {
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum StateTransitionSteps {
+pub enum StateTransitionSystems {
     /// States apply their transitions from [`NextState`](super::NextState)
     /// and compute functions based on their parent states.
     DependentTransitions,
@@ -79,6 +82,10 @@ pub(crate) enum StateTransitionSteps {
     /// Enter schedules are executed in root to leaf order.
     EnterSchedules,
 }
+
+/// Deprecated alias for [`StateTransitionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `StateTransitionSystems`.")]
+pub type StateTransitionSteps = StateTransitionSystems;
 
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 /// System set that runs exit schedule(s) for state `S`.
@@ -135,7 +142,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
         Some(entered) => {
             match current_state {
                 // If the [`State<S>`] resource exists, and the state is not the one we are
-                // entering - we need to set the new value, compute dependant states, send transition events
+                // entering - we need to set the new value, compute dependent states, send transition events
                 // and register transition schedules.
                 Some(mut state_resource) => {
                     let exited = match *state_resource == entered {
@@ -145,16 +152,16 @@ pub(crate) fn internal_apply_state_transition<S: States>(
 
                     // Transition events are sent even for same state transitions
                     // Although enter and exit schedules are not run by default.
-                    event.send(StateTransitionEvent {
+                    event.write(StateTransitionEvent {
                         exited: Some(exited.clone()),
                         entered: Some(entered.clone()),
                     });
                 }
                 None => {
-                    // If the [`State<S>`] resource does not exist, we create it, compute dependant states, send a transition event and register the `OnEnter` schedule.
+                    // If the [`State<S>`] resource does not exist, we create it, compute dependent states, send a transition event and register the `OnEnter` schedule.
                     commands.insert_resource(State(entered.clone()));
 
-                    event.send(StateTransitionEvent {
+                    event.write(StateTransitionEvent {
                         exited: None,
                         entered: Some(entered.clone()),
                     });
@@ -162,11 +169,11 @@ pub(crate) fn internal_apply_state_transition<S: States>(
             };
         }
         None => {
-            // We first remove the [`State<S>`] resource, and if one existed we compute dependant states, send a transition event and run the `OnExit` schedule.
+            // We first remove the [`State<S>`] resource, and if one existed we compute dependent states, send a transition event and run the `OnExit` schedule.
             if let Some(resource) = current_state {
                 commands.remove_resource::<State<S>>();
 
-                event.send(StateTransitionEvent {
+                event.write(StateTransitionEvent {
                     exited: Some(resource.get().clone()),
                     entered: None,
                 });
@@ -181,17 +188,17 @@ pub(crate) fn internal_apply_state_transition<S: States>(
 /// Runs automatically when using `App` to insert states, but needs to
 /// be added manually in other situations.
 pub fn setup_state_transitions_in_world(world: &mut World) {
-    let mut schedules = world.get_resource_or_insert_with(Schedules::default);
+    let mut schedules = world.get_resource_or_init::<Schedules>();
     if schedules.contains(StateTransition) {
         return;
     }
     let mut schedule = Schedule::new(StateTransition);
     schedule.configure_sets(
         (
-            StateTransitionSteps::DependentTransitions,
-            StateTransitionSteps::ExitSchedules,
-            StateTransitionSteps::TransitionSchedules,
-            StateTransitionSteps::EnterSchedules,
+            StateTransitionSystems::DependentTransitions,
+            StateTransitionSystems::ExitSchedules,
+            StateTransitionSystems::TransitionSchedules,
+            StateTransitionSystems::EnterSchedules,
         )
             .chain(),
     );

@@ -1,4 +1,4 @@
-use std::{
+use core::{
     cmp::Ordering,
     hash::{Hash, Hasher},
     ops::Neg,
@@ -20,7 +20,7 @@ use bevy_reflect::Reflect;
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Hash)
+    reflect(Debug, PartialEq, Hash, Clone)
 )]
 pub struct FloatOrd(pub f32);
 
@@ -47,7 +47,10 @@ impl PartialOrd for FloatOrd {
 }
 
 impl Ord for FloatOrd {
-    #[allow(clippy::comparison_chain)]
+    #[expect(
+        clippy::comparison_chain,
+        reason = "This can't be rewritten with `match` and `cmp`, as this is `cmp` itself."
+    )]
     fn cmp(&self, other: &Self) -> Ordering {
         if self > other {
             Ordering::Greater
@@ -95,8 +98,6 @@ impl Neg for FloatOrd {
 
 #[cfg(test)]
 mod tests {
-    use std::hash::DefaultHasher;
-
     use super::*;
 
     const NAN: FloatOrd = FloatOrd(f32::NAN);
@@ -126,7 +127,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::nonminimal_bool)]
+    #[expect(
+        clippy::nonminimal_bool,
+        reason = "This tests that all operators work as they should, and in the process requires some non-simplified boolean expressions."
+    )]
     fn float_ord_cmp_operators() {
         assert!(!(NAN < NAN));
         assert!(NAN < ZERO);
@@ -157,10 +161,11 @@ mod tests {
         assert!(ONE >= ZERO);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn float_ord_hash() {
         let hash = |num| {
-            let mut h = DefaultHasher::new();
+            let mut h = std::hash::DefaultHasher::new();
             FloatOrd(num).hash(&mut h);
             h.finish()
         };

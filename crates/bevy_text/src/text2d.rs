@@ -1,134 +1,248 @@
+use crate::pipeline::CosmicFontSystem;
 use crate::{
-    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextBounds, TextError,
-    TextLayoutInfo, TextPipeline, YAxisOrientation,
+    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
-    bundle::Bundle,
     change_detection::{DetectChanges, Ref},
+    component::Component,
     entity::Entity,
-    event::EventReader,
-    prelude::With,
+    prelude::{ReflectComponent, With},
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
+use bevy_image::prelude::*;
 use bevy_math::Vec2;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
-    texture::Image,
-    view::{InheritedVisibility, NoFrustumCulling, ViewVisibility, Visibility},
+    view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
-use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_utils::HashSet;
-use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
+use bevy_sprite::{
+    Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
+};
+use bevy_transform::components::Transform;
+use bevy_transform::prelude::GlobalTransform;
+use bevy_window::{PrimaryWindow, Window};
 
-/// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
+/// The top-level 2D text component.
+///
+/// Adding `Text2d` to an entity will pull in required components for setting up 2d text.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
-#[derive(Bundle, Clone, Debug, Default)]
-pub struct Text2dBundle {
-    /// Contains the text.
-    ///
-    /// With `Text2dBundle` the alignment field of `Text` only affects the internal alignment of a block of text and not its
-    /// relative position which is controlled by the `Anchor` component.
-    /// This means that for a block of text consisting of only one line that doesn't wrap, the `alignment` field will have no effect.
-    pub text: Text,
-    /// Cached buffer for layout with cosmic-text
-    pub buffer: CosmicBuffer,
-    /// How the text is positioned relative to its transform.
-    ///
-    /// `text_anchor` does not affect the internal alignment of the block of text, only
-    /// its position.
-    pub text_anchor: Anchor,
-    /// The maximum width and height of the text.
-    pub text_2d_bounds: TextBounds,
-    /// The transform of the text.
-    pub transform: Transform,
-    /// The global transform of the text.
-    pub global_transform: GlobalTransform,
-    /// The visibility properties of the text.
-    pub visibility: Visibility,
-    /// Inherited visibility of an entity.
-    pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub view_visibility: ViewVisibility,
-    /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
-    pub text_layout_info: TextLayoutInfo,
-    /// Marks that this is a [`SpriteSource`].
-    ///
-    /// This is needed for visibility computation to work properly.
-    pub sprite_source: SpriteSource,
+///
+/// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
+/// a [`ComputedTextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
+///
+/// With `Text2d` the `justify` field of [`TextLayout`] only affects the internal alignment of a block of text and not its
+/// relative position, which is controlled by the [`Anchor`] component.
+/// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
+///
+///
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::BLUE;
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::{Font, Justify, Text2d, TextLayout, TextFont, TextColor, TextSpan};
+/// #
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// // Basic usage.
+/// world.spawn(Text2d::new("hello world!"));
+///
+/// // With non-default style.
+/// world.spawn((
+///     Text2d::new("hello world!"),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(BLUE.into()),
+/// ));
+///
+/// // With text justification.
+/// world.spawn((
+///     Text2d::new("hello world\nand bevy!"),
+///     TextLayout::new_with_justify(Justify::Center)
+/// ));
+///
+/// // With spans
+/// world.spawn(Text2d::new("hello ")).with_children(|parent| {
+///     parent.spawn(TextSpan::new("world"));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+/// });
+/// ```
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Debug, Clone)]
+#[require(
+    TextLayout,
+    TextFont,
+    TextColor,
+    TextBounds,
+    Anchor,
+    Visibility,
+    VisibilityClass,
+    Transform
+)]
+#[component(on_add = view::add_visibility_class::<Sprite>)]
+pub struct Text2d(pub String);
+
+impl Text2d {
+    /// Makes a new 2d text component.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
 }
+
+impl TextRoot for Text2d {}
+
+impl TextSpanAccess for Text2d {
+    fn read_span(&self) -> &str {
+        self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
+    }
+}
+
+impl From<&str> for Text2d {
+    fn from(value: &str) -> Self {
+        Self(String::from(value))
+    }
+}
+
+impl From<String> for Text2d {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+/// 2d alias for [`TextReader`].
+pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
+
+/// 2d alias for [`TextWriter`].
+pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
 pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
         Query<(
             Entity,
             &ViewVisibility,
-            &Text,
+            &ComputedTextBlock,
             &TextLayoutInfo,
+            &TextBounds,
             &Anchor,
             &GlobalTransform,
         )>,
     >,
+    text_colors: Extract<Query<&TextColor>>,
 ) {
+    let mut start = extracted_slices.slices.len();
+    let mut end = start + 1;
+
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
-        .get_single()
+        .single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
-    for (original_entity, view_visibility, text, text_layout_info, anchor, global_transform) in
-        text2d_query.iter()
+    for (
+        main_entity,
+        view_visibility,
+        computed_block,
+        text_layout_info,
+        text_bounds,
+        anchor,
+        global_transform,
+    ) in text2d_query.iter()
     {
         if !view_visibility.get() {
             continue;
         }
 
-        let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_translation = text_layout_info.size * text_anchor;
-        let transform = *global_transform
-            * GlobalTransform::from_translation(alignment_translation.extend(0.))
-            * scaling;
-        let mut color = LinearRgba::WHITE;
-        let mut current_section = usize::MAX;
-        for PositionedGlyph {
-            position,
-            atlas_info,
-            section_index,
-            ..
-        } in &text_layout_info.glyphs
-        {
-            if *section_index != current_section {
-                color = LinearRgba::from(text.sections[*section_index].style.color);
-                current_section = *section_index;
-            }
-            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+        let size = Vec2::new(
+            text_bounds.width.unwrap_or(text_layout_info.size.x),
+            text_bounds.height.unwrap_or(text_layout_info.size.y),
+        );
 
-            let entity = commands.spawn_empty().id();
-            extracted_sprites.sprites.insert(
-                entity,
-                ExtractedSprite {
-                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+        let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
+        let transform =
+            *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
+        let mut color = LinearRgba::WHITE;
+        let mut current_span = usize::MAX;
+
+        for (
+            i,
+            PositionedGlyph {
+                position,
+                atlas_info,
+                span_index,
+                ..
+            },
+        ) in text_layout_info.glyphs.iter().enumerate()
+        {
+            if *span_index != current_span {
+                color = text_colors
+                    .get(
+                        computed_block
+                            .entities()
+                            .get(*span_index)
+                            .map(|t| t.entity)
+                            .unwrap_or(Entity::PLACEHOLDER),
+                    )
+                    .map(|text_color| LinearRgba::from(text_color.0))
+                    .unwrap_or_default();
+                current_span = *span_index;
+            }
+            let rect = texture_atlases
+                .get(&atlas_info.texture_atlas)
+                .unwrap()
+                .textures[atlas_info.location.glyph_index]
+                .as_rect();
+            extracted_slices.slices.push(ExtractedSlice {
+                offset: Vec2::new(position.x, -position.y),
+                rect,
+                size: rect.size(),
+            });
+
+            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+            }) {
+                let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                extracted_sprites.sprites.push(ExtractedSprite {
+                    main_entity,
+                    render_entity,
+                    transform,
                     color,
-                    rect: Some(atlas.textures[atlas_info.location.glyph_index].as_rect()),
-                    custom_size: None,
                     image_handle_id: atlas_info.texture.id(),
                     flip_x: false,
                     flip_y: false,
-                    anchor: Anchor::Center.as_vec(),
-                    original_entity: Some(original_entity),
-                },
-            );
+                    kind: bevy_sprite::ExtractedSpriteKind::Slices {
+                        indices: start..end,
+                    },
+                });
+                start = end;
+            }
+
+            end += 1;
         }
     }
 }
@@ -140,40 +254,48 @@ pub fn extract_text2d_sprite(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
-#[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
+    mut last_scale_factor: Local<Option<f32>>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<HashSet<Entity>>,
+    mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Ref<Text>,
+        Ref<TextLayout>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
-        &mut CosmicBuffer,
+        &mut ComputedTextBlock,
     )>,
+    mut text_reader: Text2dReader,
+    mut font_system: ResMut<CosmicFontSystem>,
+    mut swash_cache: ResMut<SwashCache>,
 ) {
-    // We need to consume the entire iterator, hence `last`
-    let factor_changed = scale_factor_changed.read().last().is_some();
-
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
-        .get_single()
+        .single()
+        .ok()
         .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
+        .or(*last_scale_factor)
+        .unwrap_or(1.);
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (entity, text, bounds, mut text_layout_info, mut buffer) in &mut text_query {
-        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
+    let factor_changed = *last_scale_factor != Some(scale_factor);
+    *last_scale_factor = Some(scale_factor);
+
+    for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
+        if factor_changed
+            || computed.needs_rerender()
+            || bounds.is_changed()
+            || (!queue.is_empty() && queue.remove(&entity))
+        {
             let text_bounds = TextBounds {
-                width: if text.linebreak_behavior == BreakLineOn::NoWrap {
+                width: if block.linebreak == LineBreak::NoWrap {
                     None
                 } else {
                     bounds.width.map(|width| scale_value(width, scale_factor))
@@ -183,18 +305,20 @@ pub fn update_text2d_layout(
                     .map(|height| scale_value(height, scale_factor)),
             };
 
+            let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
+                text_layout_info,
                 &fonts,
-                &text.sections,
+                text_reader.iter(entity),
                 scale_factor.into(),
-                text.justify,
-                text.linebreak_behavior,
+                &block,
                 text_bounds,
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                YAxisOrientation::BottomToTop,
-                buffer.as_mut(),
+                computed.as_mut(),
+                &mut font_system,
+                &mut swash_cache,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
@@ -204,10 +328,11 @@ pub fn update_text2d_layout(
                 Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(mut info) => {
-                    info.size.x = scale_value(info.size.x, inverse_scale_factor);
-                    info.size.y = scale_value(info.size.y, inverse_scale_factor);
-                    *text_layout_info = info;
+                Ok(()) => {
+                    text_layout_info.size.x =
+                        scale_value(text_layout_info.size.x, inverse_scale_factor);
+                    text_layout_info.size.y =
+                        scale_value(text_layout_info.size.y, inverse_scale_factor);
                 }
             }
         }
@@ -226,16 +351,27 @@ pub fn scale_value(value: f32, factor: f32) -> f32 {
 pub fn calculate_bounds_text2d(
     mut commands: Commands,
     mut text_to_update_aabb: Query<
-        (Entity, &TextLayoutInfo, &Anchor, Option<&mut Aabb>),
+        (
+            Entity,
+            &TextLayoutInfo,
+            &Anchor,
+            &TextBounds,
+            Option<&mut Aabb>,
+        ),
         (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
     >,
 ) {
-    for (entity, layout_info, anchor, aabb) in &mut text_to_update_aabb {
-        // `Anchor::as_vec` gives us an offset relative to the text2d bounds, by negating it and scaling
-        // by the logical size we compensate the transform offset in local space to get the center.
-        let center = (-anchor.as_vec() * layout_info.size).extend(0.0).into();
-        // Distance in local space from the center to the x and y limits of the text2d bounds.
-        let half_extents = (layout_info.size / 2.0).extend(0.0).into();
+    for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
+        let size = Vec2::new(
+            text_bounds.width.unwrap_or(layout_info.size.x),
+            text_bounds.height.unwrap_or(layout_info.size.y),
+        );
+        let center = (-anchor.as_vec() * size + (size.y - layout_info.size.y) * Vec2::Y)
+            .extend(0.)
+            .into();
+
+        let half_extents = (0.5 * layout_info.size).extend(0.0).into();
+
         if let Some(mut aabb) = aabb {
             *aabb = Aabb {
                 center,
@@ -255,8 +391,9 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
-    use bevy_utils::default;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
+
+    use crate::{detect_text_needs_rerender, TextIterScratch};
 
     use super::*;
 
@@ -269,14 +406,18 @@ mod tests {
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSets>()
-            .init_resource::<Events<WindowScaleFactorChanged>>()
-            .insert_resource(TextPipeline::default())
+            .init_resource::<TextPipeline>()
+            .init_resource::<CosmicFontSystem>()
+            .init_resource::<SwashCache>()
+            .init_resource::<TextIterScratch>()
             .add_systems(
                 Update,
                 (
+                    detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout,
-                    calculate_bounds_text2d.after(update_text2d_layout),
-                ),
+                    calculate_bounds_text2d,
+                )
+                    .chain(),
             );
 
         // A font is needed to ensure the text is laid out with an actual size.
@@ -287,13 +428,7 @@ mod tests {
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 
-        let entity = app
-            .world_mut()
-            .spawn((Text2dBundle {
-                text: Text::from_section(FIRST_TEXT, default()),
-                ..default()
-            },))
-            .id();
+        let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
 
         (app, entity)
     }
@@ -345,8 +480,8 @@ mod tests {
             .get_entity_mut(entity)
             .expect("Could not find entity");
         *entity_ref
-            .get_mut::<Text>()
-            .expect("Missing Text on entity") = Text::from_section(SECOND_TEXT, default());
+            .get_mut::<Text2d>()
+            .expect("Missing Text2d on entity") = Text2d::new(SECOND_TEXT);
 
         // Recomputes the AABB.
         app.update();

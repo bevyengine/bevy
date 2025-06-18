@@ -1,7 +1,7 @@
 //! From time to time, you may find that you want to both send and receive an event of the same type in a single system.
 //!
 //! Of course, this results in an error: the borrows of [`EventWriter`] and [`EventReader`] overlap,
-//! if and only if the [`Event`] type is the same.
+//! if and only if the [`BufferedEvent`] type is the same.
 //! One system parameter borrows the [`Events`] resource mutably, and another system parameter borrows the [`Events`] resource immutably.
 //! If Bevy allowed this, this would violate Rust's rules against aliased mutability.
 //! In other words, this would be Undefined Behavior (UB)!
@@ -19,9 +19,7 @@
 //!
 //! Let's look at an example of each.
 
-use bevy::core::FrameCount;
-use bevy::ecs::event::EventCursor;
-use bevy::prelude::*;
+use bevy::{diagnostic::FrameCount, ecs::event::EventCursor, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -48,10 +46,10 @@ fn main() {
     app.update();
 }
 
-#[derive(Event)]
+#[derive(Event, BufferedEvent)]
 struct A;
 
-#[derive(Event)]
+#[derive(Event, BufferedEvent)]
 struct B;
 
 // This works fine, because the types are different,
@@ -60,11 +58,11 @@ struct B;
 // not at compile time, as Bevy uses internal unsafe code to split the `World` into disjoint pieces.
 fn read_and_write_different_event_types(mut a: EventWriter<A>, mut b: EventReader<B>) {
     for _ in b.read() {}
-    a.send(A);
+    a.write(A);
 }
 
 /// A dummy event type.
-#[derive(Debug, Clone, Event)]
+#[derive(Debug, Clone, Event, BufferedEvent)]
 struct DebugEvent {
     resend_from_param_set: bool,
     resend_from_local_event_reader: bool,
@@ -73,24 +71,24 @@ struct DebugEvent {
 
 /// A system that sends all combinations of events.
 fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>) {
-    println!("Sending events for frame {:?}", frame_count.0);
+    println!("Sending events for frame {}", frame_count.0);
 
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: false,
         resend_from_local_event_reader: false,
         times_sent: 1,
     });
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: true,
         resend_from_local_event_reader: false,
         times_sent: 1,
     });
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: false,
         resend_from_local_event_reader: true,
         times_sent: 1,
     });
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: true,
         resend_from_local_event_reader: true,
         times_sent: 1,
@@ -102,7 +100,7 @@ fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>
 /// Note that some events will be printed twice, because they were sent twice.
 fn debug_events(mut events: EventReader<DebugEvent>) {
     for event in events.read() {
-        println!("{:?}", event);
+        println!("{event:?}");
     }
 }
 
@@ -129,7 +127,7 @@ fn send_and_receive_param_set(
     // This is p1, as the second parameter in the `ParamSet` is the writer.
     for mut event in events_to_resend {
         event.times_sent += 1;
-        param_set.p1().send(event);
+        param_set.p1().write(event);
     }
 }
 

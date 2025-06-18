@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
     math::vec3,
     pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
@@ -26,10 +27,12 @@ const MIN_ZOOM_DISTANCE: f32 = 0.5;
 static NORMAL_VISIBILITY_RANGE_HIGH_POLY: VisibilityRange = VisibilityRange {
     start_margin: 0.0..0.0,
     end_margin: 3.0..4.0,
+    use_aabb: false,
 };
 static NORMAL_VISIBILITY_RANGE_LOW_POLY: VisibilityRange = VisibilityRange {
     start_margin: 3.0..4.0,
     end_margin: 8.0..9.0,
+    use_aabb: false,
 };
 
 // A visibility model that we use to always show a model (until the camera is so
@@ -37,12 +40,14 @@ static NORMAL_VISIBILITY_RANGE_LOW_POLY: VisibilityRange = VisibilityRange {
 static SINGLE_MODEL_VISIBILITY_RANGE: VisibilityRange = VisibilityRange {
     start_margin: 0.0..0.0,
     end_margin: 8.0..9.0,
+    use_aabb: false,
 };
 
 // A visibility range that we use to completely hide a model.
 static INVISIBLE_VISIBILITY_RANGE: VisibilityRange = VisibilityRange {
     start_margin: 0.0..0.0,
     end_margin: 0.0..0.0,
+    use_aabb: false,
 };
 
 // Allows us to identify the main model.
@@ -59,6 +64,8 @@ enum MainModel {
 struct AppStatus {
     // Whether to show only one model.
     show_one_model_only: Option<MainModel>,
+    // Whether to enable the prepass.
+    prepass: bool,
 }
 
 // Sets up the app.
@@ -80,6 +87,7 @@ fn main() {
                 set_visibility_ranges,
                 update_help_text,
                 update_mode,
+                toggle_prepass,
             ),
         )
         .run();
@@ -94,60 +102,53 @@ fn setup(
     app_status: Res<AppStatus>,
 ) {
     // Spawn a plane.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+    ));
 
     // Spawn the two HLODs.
 
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server
+    commands.spawn((
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-            ..default()
-        })
-        .insert(MainModel::HighPoly);
+        ),
+        MainModel::HighPoly,
+    ));
 
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server.load(
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(
                 GltfAssetLabel::Scene(0)
                     .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
             ),
-            ..default()
-        })
-        .insert(MainModel::LowPoly);
+        ),
+        MainModel::LowPoly,
+    ));
 
     // Spawn a light.
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
             maximum_distance: 30.0,
             first_cascade_far_bound: 0.9,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // Spawn a camera.
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(CAMERA_FOCAL_POINT, Vec3::Y),
-            ..default()
-        })
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(0.7, 0.7, 1.0).looking_at(CAMERA_FOCAL_POINT, Vec3::Y),
+        ))
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -156,18 +157,15 @@ fn setup(
         });
 
     // Create the text.
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        app_status.create_text(),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // We need to add the `VisibilityRange` components manually, as glTF currently
@@ -176,20 +174,20 @@ fn setup(
 // component as appropriate.
 fn set_visibility_ranges(
     mut commands: Commands,
-    mut new_meshes: Query<Entity, Added<Handle<Mesh>>>,
-    parents: Query<(Option<&Parent>, Option<&MainModel>)>,
+    mut new_meshes: Query<Entity, Added<Mesh3d>>,
+    children: Query<(Option<&ChildOf>, Option<&MainModel>)>,
 ) {
     // Loop over each newly-added mesh.
     for new_mesh in new_meshes.iter_mut() {
         // Search for the nearest ancestor `MainModel` component.
         let (mut current, mut main_model) = (new_mesh, None);
-        while let Ok((parent, maybe_main_model)) = parents.get(current) {
+        while let Ok((child_of, maybe_main_model)) = children.get(current) {
             if let Some(model) = maybe_main_model {
                 main_model = Some(model);
                 break;
             }
-            match parent {
-                Some(parent) => current = **parent,
+            match child_of {
+                Some(child_of) => current = child_of.parent(),
                 None => break,
             }
         }
@@ -294,6 +292,34 @@ fn update_mode(
     }
 }
 
+// Toggles the prepass if the user requests.
+fn toggle_prepass(
+    mut commands: Commands,
+    cameras: Query<Entity, With<Camera3d>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut app_status: ResMut<AppStatus>,
+) {
+    if !keyboard_input.just_pressed(KeyCode::Space) {
+        return;
+    }
+
+    app_status.prepass = !app_status.prepass;
+
+    for camera in cameras.iter() {
+        if app_status.prepass {
+            commands
+                .entity(camera)
+                .insert(DepthPrepass)
+                .insert(NormalPrepass);
+        } else {
+            commands
+                .entity(camera)
+                .remove::<DepthPrepass>()
+                .remove::<NormalPrepass>();
+        }
+    }
+}
+
 // A system that updates the help text.
 fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
@@ -304,31 +330,31 @@ fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>
 impl AppStatus {
     // Creates and returns help text reflecting the app status.
     fn create_text(&self) -> Text {
-        Text::from_section(
-            format!(
-                "\
+        format!(
+            "\
 {} (1) Switch from high-poly to low-poly based on camera distance
 {} (2) Show only the high-poly model
 {} (3) Show only the low-poly model
 Press 1, 2, or 3 to switch which model is shown
-Press WASD or use the mouse wheel to move the camera",
-                if self.show_one_model_only.is_none() {
-                    '>'
-                } else {
-                    ' '
-                },
-                if self.show_one_model_only == Some(MainModel::HighPoly) {
-                    '>'
-                } else {
-                    ' '
-                },
-                if self.show_one_model_only == Some(MainModel::LowPoly) {
-                    '>'
-                } else {
-                    ' '
-                },
-            ),
-            TextStyle::default(),
+Press WASD or use the mouse wheel to move the camera
+Press Space to {} the prepass",
+            if self.show_one_model_only.is_none() {
+                '>'
+            } else {
+                ' '
+            },
+            if self.show_one_model_only == Some(MainModel::HighPoly) {
+                '>'
+            } else {
+                ' '
+            },
+            if self.show_one_model_only == Some(MainModel::LowPoly) {
+                '>'
+            } else {
+                ' '
+            },
+            if self.prepass { "disable" } else { "enable" }
         )
+        .into()
     }
 }

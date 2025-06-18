@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
-use bevy_utils::Duration;
+use core::time::Duration;
 
 use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 
@@ -18,7 +18,7 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// between animations.
 ///
 /// To use this component, place it on the same entity as the
-/// [`AnimationPlayer`] and [`bevy_asset::Handle<AnimationGraph>`]. It'll take
+/// [`AnimationPlayer`] and [`AnimationGraphHandle`](crate::AnimationGraphHandle). It'll take
 /// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
 /// to fade out animations smoothly.
 ///
@@ -29,7 +29,7 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// component to get confused about which animation is the "main" animation, and
 /// transitions will usually be incorrect as a result.
 #[derive(Component, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct AnimationTransitions {
     main_animation: Option<AnimationNodeIndex>,
     transitions: Vec<AnimationTransition>,
@@ -52,6 +52,7 @@ impl Clone for AnimationTransitions {
 
 /// An animation that is being faded out as part of a transition
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub struct AnimationTransition {
     /// The current weight. Starts at 1.0 and goes to 0.0 during the fade-out.
     current_weight: f32,
@@ -117,12 +118,13 @@ pub fn advance_transitions(
     // is divided between all the other layers, eventually culminating in the
     // currently-playing animation receiving whatever's left. This results in a
     // nicely normalized weight.
-    let mut remaining_weight = 1.0;
     for (mut animation_transitions, mut player) in query.iter_mut() {
+        let mut remaining_weight = 1.0;
+
         for transition in &mut animation_transitions.transitions.iter_mut().rev() {
             // Decrease weight.
             transition.current_weight = (transition.current_weight
-                - transition.weight_decline_per_sec * time.delta_seconds())
+                - transition.weight_decline_per_sec * time.delta_secs())
             .max(0.0);
 
             // Update weight.

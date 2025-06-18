@@ -1,29 +1,28 @@
 //! Manages mesh vertex and index buffers.
 
-use std::{
-    borrow::Cow,
+use alloc::vec::Vec;
+use core::{
     fmt::{self, Display, Formatter},
-    iter,
     ops::Range,
-    vec::Vec,
 };
+use nonmax::NonMaxU32;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    schedule::IntoSystemConfigs as _,
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    schedule::IntoScheduleConfigs as _,
+    system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_utils::{
-    hashbrown::{HashMap, HashSet},
-    tracing::error,
-};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
+use tracing::error;
 use wgpu::{
-    util::BufferInitDescriptor, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
-    DownlevelFlags, COPY_BUFFER_ALIGNMENT,
+    BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
+    COPY_BUFFER_ALIGNMENT,
 };
 
 use crate::{
@@ -31,7 +30,7 @@ use crate::{
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 /// A plugin that manages GPU memory for mesh data.
@@ -79,6 +78,9 @@ pub struct MeshAllocator {
     /// WebGL 2. On this platform, we must give each vertex array its own
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
+
+    /// Additional buffer usages to add to any vertex or index buffers created.
+    pub extra_buffer_usages: BufferUsages,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -154,12 +156,15 @@ pub struct MeshBufferSlice<'a> {
 }
 
 /// The index of a single slab.
-#[derive(Clone, Copy, Default, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
-struct SlabId(u32);
+pub struct SlabId(pub NonMaxU32);
 
 /// Data for a single slab.
-#[allow(clippy::large_enum_variant)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 enum Slab {
     /// A slab that can contain multiple objects.
     General(GeneralSlab),
@@ -198,7 +203,7 @@ struct GeneralSlab {
     element_layout: ElementLayout,
 
     /// The size of this slab in slots.
-    slot_capacity: u32,
+    current_slot_capacity: u32,
 }
 
 /// A slab that contains a single object.
@@ -224,6 +229,18 @@ enum ElementClass {
     Vertex,
     /// A vertex index.
     Index,
+}
+
+/// The results of [`GeneralSlab::grow_if_necessary`].
+enum SlabGrowthResult {
+    /// The mesh data already fits in the slab; the slab doesn't need to grow.
+    NoGrowthNeeded,
+    /// The slab needed to grow.
+    ///
+    /// The [`SlabToReallocate`] contains the old capacity of the slab.
+    NeededGrowth(SlabToReallocate),
+    /// The slab wanted to grow but couldn't because it hit its maximum size.
+    CantGrow,
 }
 
 /// Information about the size of individual elements (vertices or indices)
@@ -280,9 +297,8 @@ struct SlabsToReallocate(HashMap<SlabId, SlabToReallocate>);
 /// reallocated.
 #[derive(Default)]
 struct SlabToReallocate {
-    /// Maps all allocations that need to be relocated to their positions within
-    /// the *new* slab.
-    allocations_to_copy: HashMap<AssetId<Mesh>, SlabAllocation>,
+    /// The capacity of the slab before we decided to grow it.
+    old_slot_capacity: u32,
 }
 
 impl Display for SlabId {
@@ -302,7 +318,7 @@ impl Plugin for MeshAllocatorPlugin {
             .add_systems(
                 Render,
                 allocate_and_free_meshes
-                    .in_set(RenderSet::PrepareAssets)
+                    .in_set(RenderSystems::PrepareAssets)
                     .before(prepare_assets::<RenderMesh>),
             );
     }
@@ -329,12 +345,13 @@ impl FromWorld for MeshAllocator {
             .contains(DownlevelFlags::BASE_VERTEX);
 
         Self {
-            slabs: HashMap::new(),
-            slab_layouts: HashMap::new(),
-            mesh_id_to_vertex_slab: HashMap::new(),
-            mesh_id_to_index_slab: HashMap::new(),
-            next_slab_id: SlabId(0),
+            slabs: HashMap::default(),
+            slab_layouts: HashMap::default(),
+            mesh_id_to_vertex_slab: HashMap::default(),
+            mesh_id_to_index_slab: HashMap::default(),
+            next_slab_id: default(),
             general_vertex_slabs_supported,
+            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
@@ -349,7 +366,10 @@ pub fn allocate_and_free_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    // Process newly-added meshes.
+    // Process removed or modified meshes.
+    mesh_allocator.free_meshes(&extracted_meshes);
+
+    // Process newly-added or modified meshes.
     mesh_allocator.allocate_meshes(
         &mesh_allocator_settings,
         &extracted_meshes,
@@ -357,9 +377,6 @@ pub fn allocate_and_free_meshes(
         &render_device,
         &render_queue,
     );
-
-    // Process removed meshes.
-    mesh_allocator.free_meshes(&extracted_meshes);
 }
 
 impl MeshAllocator {
@@ -379,6 +396,19 @@ impl MeshAllocator {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_index_slab.get(mesh_id)?)
     }
 
+    /// Returns the IDs of the vertex buffer and index buffer respectively for
+    /// the mesh with the given ID.
+    ///
+    /// If the mesh wasn't allocated, or has no index data in the case of the
+    /// index buffer, the corresponding element in the returned tuple will be
+    /// None.
+    pub fn mesh_slabs(&self, mesh_id: &AssetId<Mesh>) -> (Option<SlabId>, Option<SlabId>) {
+        (
+            self.mesh_id_to_vertex_slab.get(mesh_id).cloned(),
+            self.mesh_id_to_index_slab.get(mesh_id).cloned(),
+        )
+    }
+
     /// Given a slab and a mesh with data located with it, returns the buffer
     /// and range of that mesh data within the slab.
     fn mesh_slice_in_slab(
@@ -387,7 +417,7 @@ impl MeshAllocator {
         slab_id: SlabId,
     ) -> Option<MeshBufferSlice> {
         match self.slabs.get(&slab_id)? {
-            Slab::General(ref general_slab) => {
+            Slab::General(general_slab) => {
                 let slab_allocation = general_slab.resident_allocations.get(mesh_id)?;
                 Some(MeshBufferSlice {
                     buffer: general_slab.buffer.as_ref()?,
@@ -398,7 +428,7 @@ impl MeshAllocator {
                 })
             }
 
-            Slab::LargeObject(ref large_object_slab) => {
+            Slab::LargeObject(large_object_slab) => {
                 let buffer = large_object_slab.buffer.as_ref()?;
                 Some(MeshBufferSlice {
                     buffer,
@@ -428,7 +458,7 @@ impl MeshAllocator {
             if self.general_vertex_slabs_supported {
                 self.allocate(
                     mesh_id,
-                    mesh.get_vertex_buffer_data().len() as u64,
+                    mesh.get_vertex_buffer_size() as u64,
                     vertex_element_layout,
                     &mut slabs_to_grow,
                     mesh_allocator_settings,
@@ -475,13 +505,12 @@ impl MeshAllocator {
         let Some(&slab_id) = self.mesh_id_to_vertex_slab.get(mesh_id) else {
             return;
         };
-        let vertex_data = mesh.get_vertex_buffer_data();
 
         // Call the generic function.
         self.copy_element_data(
             mesh_id,
-            mesh,
-            &vertex_data,
+            mesh.get_vertex_buffer_size(),
+            |slice| mesh.write_packed_vertex_buffer_data(slice),
             BufferUsages::VERTEX,
             slab_id,
             render_device,
@@ -508,8 +537,8 @@ impl MeshAllocator {
         // Call the generic function.
         self.copy_element_data(
             mesh_id,
-            mesh,
-            index_data,
+            index_data.len(),
+            |slice| slice.copy_from_slice(index_data),
             BufferUsages::INDEX,
             slab_id,
             render_device,
@@ -518,12 +547,11 @@ impl MeshAllocator {
     }
 
     /// A generic function that copies either vertex or index data into a slab.
-    #[allow(clippy::too_many_arguments)]
     fn copy_element_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,
-        mesh: &Mesh,
-        data: &[u8],
+        len: usize,
+        fill_data: impl Fn(&mut [u8]),
         buffer_usages: BufferUsages,
         slab_id: SlabId,
         render_device: &RenderDevice,
@@ -535,7 +563,7 @@ impl MeshAllocator {
 
         match *slab {
             Slab::General(ref mut general_slab) => {
-                let (Some(ref buffer), Some(allocated_range)) = (
+                let (Some(buffer), Some(allocated_range)) = (
                     &general_slab.buffer,
                     general_slab.pending_allocations.remove(mesh_id),
                 ) else {
@@ -544,12 +572,18 @@ impl MeshAllocator {
 
                 let slot_size = general_slab.element_layout.slot_size();
 
-                // Write the data in.
-                render_queue.write_buffer(
-                    buffer,
-                    allocated_range.allocation.offset as u64 * slot_size,
-                    &pad_to_alignment(data, slot_size as usize),
-                );
+                // round up size to a multiple of the slot size to satisfy wgpu alignment requirements
+                if let Some(size) = BufferSize::new((len as u64).next_multiple_of(slot_size)) {
+                    // Write the data in.
+                    if let Some(mut buffer) = render_queue.write_buffer_with(
+                        buffer,
+                        allocated_range.allocation.offset as u64 * slot_size,
+                        size,
+                    ) {
+                        let slice = &mut buffer.as_mut()[..len];
+                        fill_data(slice);
+                    }
+                }
 
                 // Mark the allocation as resident.
                 general_slab
@@ -561,24 +595,37 @@ impl MeshAllocator {
                 debug_assert!(large_object_slab.buffer.is_none());
 
                 // Create the buffer and its data in one go.
-                large_object_slab.buffer = Some(render_device.create_buffer_with_data(
-                    &BufferInitDescriptor {
-                        label: Some(&format!(
-                            "large mesh slab {} ({}buffer)",
-                            slab_id,
-                            buffer_usages_to_str(buffer_usages)
-                        )),
-                        contents: &mesh.get_vertex_buffer_data(),
-                        usage: buffer_usages | BufferUsages::COPY_DST,
-                    },
-                ));
+                let buffer = render_device.create_buffer(&BufferDescriptor {
+                    label: Some(&format!(
+                        "large mesh slab {} ({}buffer)",
+                        slab_id,
+                        buffer_usages_to_str(buffer_usages)
+                    )),
+                    size: len as u64,
+                    usage: buffer_usages | BufferUsages::COPY_DST | self.extra_buffer_usages,
+                    mapped_at_creation: true,
+                });
+                {
+                    let slice = &mut buffer.slice(..).get_mapped_range_mut()[..len];
+                    fill_data(slice);
+                }
+                buffer.unmap();
+                large_object_slab.buffer = Some(buffer);
             }
         }
     }
 
+    /// Frees allocations for meshes that were removed or modified this frame.
     fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
-        let mut empty_slabs = HashSet::new();
-        for mesh_id in &extracted_meshes.removed {
+        let mut empty_slabs = <HashSet<_>>::default();
+
+        // TODO: Consider explicitly reusing allocations for changed meshes of the same size
+        let meshes_to_free = extracted_meshes
+            .removed
+            .iter()
+            .chain(extracted_meshes.modified.iter());
+
+        for mesh_id in meshes_to_free {
             if let Some(slab_id) = self.mesh_id_to_vertex_slab.remove(mesh_id) {
                 self.free_allocation_in_slab(mesh_id, slab_id, &mut empty_slabs);
             }
@@ -588,6 +635,12 @@ impl MeshAllocator {
         }
 
         for empty_slab in empty_slabs {
+            self.slab_layouts.values_mut().for_each(|slab_ids| {
+                let idx = slab_ids.iter().position(|&slab_id| slab_id == empty_slab);
+                if let Some(idx) = idx {
+                    slab_ids.remove(idx);
+                }
+            });
             self.slabs.remove(&empty_slab);
         }
     }
@@ -668,38 +721,45 @@ impl MeshAllocator {
         // and try to allocate the mesh inside them. We go with the first one
         // that succeeds.
         let mut mesh_allocation = None;
-        'slab: for &slab_id in &*candidate_slabs {
-            loop {
-                let Some(Slab::General(ref mut slab)) = self.slabs.get_mut(&slab_id) else {
-                    unreachable!("Slab not found")
-                };
+        for &slab_id in &*candidate_slabs {
+            let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
+                unreachable!("Slab not found")
+            };
 
-                if let Some(allocation) = slab.allocator.allocate(data_slot_count) {
-                    mesh_allocation = Some(MeshAllocation {
-                        slab_id,
-                        slab_allocation: SlabAllocation {
-                            allocation,
-                            slot_count: data_slot_count,
-                        },
-                    });
-                    break 'slab;
-                }
+            let Some(allocation) = slab.allocator.allocate(data_slot_count) else {
+                continue;
+            };
 
-                // Try to grow the slab. If this fails, the slab is full; go on
-                // to the next slab.
-                match slab.try_grow(settings) {
-                    Ok(new_mesh_allocation_records) => {
-                        slabs_to_grow.insert(slab_id, new_mesh_allocation_records);
+            // Try to fit the object in the slab, growing if necessary.
+            match slab.grow_if_necessary(allocation.offset + data_slot_count, settings) {
+                SlabGrowthResult::NoGrowthNeeded => {}
+                SlabGrowthResult::NeededGrowth(slab_to_reallocate) => {
+                    // If we already grew the slab this frame, don't replace the
+                    // `SlabToReallocate` entry. We want to keep the entry
+                    // corresponding to the size that the slab had at the start
+                    // of the frame, so that we can copy only the used portion
+                    // of the initial buffer to the new one.
+                    if let Entry::Vacant(vacant_entry) = slabs_to_grow.entry(slab_id) {
+                        vacant_entry.insert(slab_to_reallocate);
                     }
-                    Err(()) => continue 'slab,
                 }
+                SlabGrowthResult::CantGrow => continue,
             }
+
+            mesh_allocation = Some(MeshAllocation {
+                slab_id,
+                slab_allocation: SlabAllocation {
+                    allocation,
+                    slot_count: data_slot_count,
+                },
+            });
+            break;
         }
 
         // If we still have no allocation, make a new slab.
         if mesh_allocation.is_none() {
             let new_slab_id = self.next_slab_id;
-            self.next_slab_id.0 += 1;
+            self.next_slab_id.0 = NonMaxU32::new(self.next_slab_id.0.get() + 1).unwrap_or_default();
 
             let new_slab = GeneralSlab::new(
                 new_slab_id,
@@ -719,9 +779,7 @@ impl MeshAllocator {
         // Mark the allocation as pending. Don't copy it in just yet; further
         // meshes loaded this frame may result in its final allocation location
         // changing.
-        if let Some(Slab::General(ref mut general_slab)) =
-            self.slabs.get_mut(&mesh_allocation.slab_id)
-        {
+        if let Some(Slab::General(general_slab)) = self.slabs.get_mut(&mesh_allocation.slab_id) {
             general_slab
                 .pending_allocations
                 .insert(*mesh_id, mesh_allocation.slab_allocation);
@@ -733,7 +791,7 @@ impl MeshAllocator {
     /// Allocates an object into its own dedicated slab.
     fn allocate_large(&mut self, mesh_id: &AssetId<Mesh>, layout: ElementLayout) {
         let new_slab_id = self.next_slab_id;
-        self.next_slab_id.0 += 1;
+        self.next_slab_id.0 = NonMaxU32::new(self.next_slab_id.0.get() + 1).unwrap_or_default();
 
         self.record_allocation(mesh_id, new_slab_id, layout.class);
 
@@ -748,10 +806,11 @@ impl MeshAllocator {
 
     /// Reallocates a slab that needs to be resized, or allocates a new slab.
     ///
-    /// This performs the actual growth operation that [`GeneralSlab::try_grow`]
-    /// scheduled. We do the growth in two phases so that, if a slab grows
-    /// multiple times in the same frame, only one new buffer is reallocated,
-    /// rather than reallocating the buffer multiple times.
+    /// This performs the actual growth operation that
+    /// [`GeneralSlab::grow_if_necessary`] scheduled. We do the growth in two
+    /// phases so that, if a slab grows multiple times in the same frame, only
+    /// one new buffer is reallocated, rather than reallocating the buffer
+    /// multiple times.
     fn reallocate_slab(
         &mut self,
         render_device: &RenderDevice,
@@ -760,7 +819,7 @@ impl MeshAllocator {
         slab_to_grow: SlabToReallocate,
     ) {
         let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
-            error!("Couldn't find slab {:?} to grow", slab_id);
+            error!("Couldn't find slab {} to grow", slab_id);
             return;
         };
 
@@ -779,38 +838,28 @@ impl MeshAllocator {
                 slab_id,
                 buffer_usages_to_str(buffer_usages)
             )),
-            size: slab.slot_capacity as u64 * slab.element_layout.slot_size(),
-            usage: buffer_usages,
+            size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
+            usage: buffer_usages | self.extra_buffer_usages,
             mapped_at_creation: false,
         });
 
         slab.buffer = Some(new_buffer.clone());
+
+        let Some(old_buffer) = old_buffer else { return };
 
         // In order to do buffer copies, we need a command encoder.
         let mut encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("slab resize encoder"),
         });
 
-        // If we have no objects to copy over, we're done.
-        let Some(old_buffer) = old_buffer else {
-            return;
-        };
-
-        for (mesh_id, src_slab_allocation) in &mut slab.resident_allocations {
-            let Some(dest_slab_allocation) = slab_to_grow.allocations_to_copy.get(mesh_id) else {
-                continue;
-            };
-
-            encoder.copy_buffer_to_buffer(
-                &old_buffer,
-                src_slab_allocation.allocation.offset as u64 * slab.element_layout.slot_size(),
-                &new_buffer,
-                dest_slab_allocation.allocation.offset as u64 * slab.element_layout.slot_size(),
-                dest_slab_allocation.slot_count as u64 * slab.element_layout.slot_size(),
-            );
-            // Now that we've done the copy, we can update the allocation record.
-            *src_slab_allocation = dest_slab_allocation.clone();
-        }
+        // Copy the data from the old buffer into the new one.
+        encoder.copy_buffer_to_buffer(
+            &old_buffer,
+            0,
+            &new_buffer,
+            0,
+            slab_to_grow.old_slot_capacity as u64 * slab.element_layout.slot_size(),
+        );
 
         let command_buffer = encoder.finish();
         render_queue.submit([command_buffer]);
@@ -837,7 +886,7 @@ impl MeshAllocator {
 }
 
 impl GeneralSlab {
-    /// Creates a new growable slab big enough to hold an single element of
+    /// Creates a new growable slab big enough to hold a single element of
     /// `data_slot_count` size with the given `layout`.
     fn new(
         new_slab_id: SlabId,
@@ -846,16 +895,19 @@ impl GeneralSlab {
         layout: ElementLayout,
         data_slot_count: u32,
     ) -> GeneralSlab {
-        let slab_slot_capacity = (settings.min_slab_size.div_ceil(layout.slot_size()) as u32)
+        let initial_slab_slot_capacity = (settings.min_slab_size.div_ceil(layout.slot_size())
+            as u32)
+            .max(offset_allocator::ext::min_allocator_size(data_slot_count));
+        let max_slab_slot_capacity = (settings.max_slab_size.div_ceil(layout.slot_size()) as u32)
             .max(offset_allocator::ext::min_allocator_size(data_slot_count));
 
         let mut new_slab = GeneralSlab {
-            allocator: Allocator::new(slab_slot_capacity),
+            allocator: Allocator::new(max_slab_slot_capacity),
             buffer: None,
-            resident_allocations: HashMap::new(),
-            pending_allocations: HashMap::new(),
+            resident_allocations: HashMap::default(),
+            pending_allocations: HashMap::default(),
             element_layout: layout,
-            slot_capacity: slab_slot_capacity,
+            current_slot_capacity: initial_slab_slot_capacity,
         };
 
         // This should never fail.
@@ -872,68 +924,40 @@ impl GeneralSlab {
         new_slab
     }
 
-    /// Attempts to grow a slab that's just run out of space.
+    /// Checks to see if the size of this slab is at least `new_size_in_slots`
+    /// and grows the slab if it isn't.
     ///
-    /// Returns a structure the allocations that need to be relocated if the
-    /// growth succeeded. If the slab is full, returns `Err`.
-    fn try_grow(&mut self, settings: &MeshAllocatorSettings) -> Result<SlabToReallocate, ()> {
-        // In extremely rare cases due to allocator fragmentation, it may happen
-        // that we fail to re-insert every object that was in the slab after
-        // growing it. Even though this will likely never happen, we use this
-        // loop to handle this unlikely event properly if it does.
-        'grow: loop {
-            let new_slab_slot_capacity = ((self.slot_capacity as f64 * settings.growth_factor)
-                .ceil() as u32)
-                .min((settings.max_slab_size / self.element_layout.slot_size()) as u32);
-            if new_slab_slot_capacity == self.slot_capacity {
-                // The slab is full.
-                return Err(());
-            }
-
-            // Grow the slab.
-            self.allocator = Allocator::new(new_slab_slot_capacity);
-            self.slot_capacity = new_slab_slot_capacity;
-
-            let mut slab_to_grow = SlabToReallocate::default();
-
-            // Place every resident allocation that was in the old slab in the
-            // new slab.
-            for (allocated_mesh_id, old_allocation_range) in &self.resident_allocations {
-                let allocation_size = old_allocation_range.slot_count;
-                match self.allocator.allocate(allocation_size) {
-                    Some(allocation) => {
-                        slab_to_grow.allocations_to_copy.insert(
-                            *allocated_mesh_id,
-                            SlabAllocation {
-                                allocation,
-                                slot_count: allocation_size,
-                            },
-                        );
-                    }
-                    None => {
-                        // We failed to insert one of the allocations that we
-                        // had before.
-                        continue 'grow;
-                    }
-                }
-            }
-
-            // Move every allocation that was pending in the old slab to the new
-            // slab.
-            for slab_allocation in self.pending_allocations.values_mut() {
-                let allocation_size = slab_allocation.slot_count;
-                match self.allocator.allocate(allocation_size) {
-                    Some(allocation) => slab_allocation.allocation = allocation,
-                    None => {
-                        // We failed to insert one of the allocations that we
-                        // had before.
-                        continue 'grow;
-                    }
-                }
-            }
-
-            return Ok(slab_to_grow);
+    /// The returned [`SlabGrowthResult`] describes whether the slab needed to
+    /// grow and whether, if so, it was successful in doing so.
+    fn grow_if_necessary(
+        &mut self,
+        new_size_in_slots: u32,
+        settings: &MeshAllocatorSettings,
+    ) -> SlabGrowthResult {
+        // Is the slab big enough already?
+        let initial_slot_capacity = self.current_slot_capacity;
+        if self.current_slot_capacity >= new_size_in_slots {
+            return SlabGrowthResult::NoGrowthNeeded;
         }
+
+        // Try to grow in increments of `MeshAllocatorSettings::growth_factor`
+        // until we're big enough.
+        while self.current_slot_capacity < new_size_in_slots {
+            let new_slab_slot_capacity =
+                ((self.current_slot_capacity as f64 * settings.growth_factor).ceil() as u32)
+                    .min((settings.max_slab_size / self.element_layout.slot_size()) as u32);
+            if new_slab_slot_capacity == self.current_slot_capacity {
+                // The slab is full.
+                return SlabGrowthResult::CantGrow;
+            }
+
+            self.current_slot_capacity = new_slab_slot_capacity;
+        }
+
+        // Tell our caller what we did.
+        SlabGrowthResult::NeededGrowth(SlabToReallocate {
+            old_slot_capacity: initial_slot_capacity,
+        })
     }
 }
 
@@ -941,12 +965,18 @@ impl ElementLayout {
     /// Creates an [`ElementLayout`] for mesh data of the given class (vertex or
     /// index) with the given byte size.
     fn new(class: ElementClass, size: u64) -> ElementLayout {
+        const {
+            assert!(4 == COPY_BUFFER_ALIGNMENT);
+        }
+        // this is equivalent to `4 / gcd(4,size)` but lets us not implement gcd.
+        // ping @atlv if above assert ever fails (likely never)
+        let elements_per_slot = [1, 4, 2, 4][size as usize & 3];
         ElementLayout {
             class,
             size,
             // Make sure that slot boundaries begin and end on
             // `COPY_BUFFER_ALIGNMENT`-byte (4-byte) boundaries.
-            elements_per_slot: (COPY_BUFFER_ALIGNMENT / gcd(size, COPY_BUFFER_ALIGNMENT)) as u32,
+            elements_per_slot,
         }
     }
 
@@ -984,33 +1014,6 @@ impl GeneralSlab {
     fn is_empty(&self) -> bool {
         self.resident_allocations.is_empty() && self.pending_allocations.is_empty()
     }
-}
-
-/// Returns the greatest common divisor of the two numbers.
-///
-/// <https://en.wikipedia.org/wiki/Euclidean_algorithm#Implementations>
-fn gcd(mut a: u64, mut b: u64) -> u64 {
-    while b != 0 {
-        let t = b;
-        b = a % b;
-        a = t;
-    }
-    a
-}
-
-/// Ensures that the size of a buffer is a multiple of the given alignment by
-/// padding it with zeroes if necessary.
-///
-/// If the buffer already has the required size, then this function doesn't
-/// allocate. Otherwise, it copies the buffer into a new one and writes the
-/// appropriate number of zeroes to the end.
-fn pad_to_alignment(buffer: &[u8], align: usize) -> Cow<[u8]> {
-    if buffer.len() % align == 0 {
-        return Cow::Borrowed(buffer);
-    }
-    let mut buffer = buffer.to_vec();
-    buffer.extend(iter::repeat(0).take(align - buffer.len() % align));
-    Cow::Owned(buffer)
 }
 
 /// Returns a string describing the given buffer usages.

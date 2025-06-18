@@ -1,4 +1,4 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::{args::Args, Prepare, PreparedCommand};
 use argh::FromArgs;
 use xshell::cmd;
 
@@ -8,9 +8,14 @@ use xshell::cmd;
 pub struct BenchCheckCommand {}
 
 impl Prepare for BenchCheckCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
+        let jobs = args.build_jobs();
+
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo check --benches --target-dir ../target"),
+            cmd!(
+                sh,
+                "cargo check --benches {jobs...} --target-dir ../target --manifest-path ./benches/Cargo.toml"
+            ),
             "Failed to check the benches.",
         )]
     }

@@ -1,10 +1,7 @@
 //! Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D scene.
 //! Adds a texture and colored vertices, giving per-vertex tinting.
 
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -33,26 +30,21 @@ fn setup(
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
 
-    let mesh_handle: Mesh2dHandle = meshes.add(mesh).into();
+    let mesh_handle = meshes.add(mesh);
 
-    // Spawn camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Spawn the quad with vertex colors
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: mesh_handle.clone(),
-        transform: Transform::from_translation(Vec3::new(-96., 0., 0.))
-            .with_scale(Vec3::splat(128.)),
-        material: materials.add(ColorMaterial::default()),
-        ..default()
-    });
+    commands.spawn((
+        Mesh2d(mesh_handle.clone()),
+        MeshMaterial2d(materials.add(ColorMaterial::default())),
+        Transform::from_translation(Vec3::new(-96., 0., 0.)).with_scale(Vec3::splat(128.)),
+    ));
 
     // Spawning the quad with vertex colors and a texture results in tinting
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: mesh_handle,
-        transform: Transform::from_translation(Vec3::new(96., 0., 0.))
-            .with_scale(Vec3::splat(128.)),
-        material: materials.add(texture_handle),
-        ..default()
-    });
+    commands.spawn((
+        Mesh2d(mesh_handle),
+        MeshMaterial2d(materials.add(texture_handle)),
+        Transform::from_translation(Vec3::new(96., 0., 0.)).with_scale(Vec3::splat(128.)),
+    ));
 }

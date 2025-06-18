@@ -1,16 +1,16 @@
 use bevy_ecs::{
     event::{EventReader, EventWriter},
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule},
+    schedule::{IntoScheduleConfigs, Schedule},
     system::{Commands, IntoSystem, Res, ResMut},
 };
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 use self::sealed::StateSetSealed;
 
 use super::{
     computed_states::ComputedStates, internal_apply_state_transition, last_transition, run_enter,
     run_exit, run_transition, sub_states::SubStates, take_next_state, ApplyStateTransition,
-    EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent, StateTransitionSteps,
+    EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent, StateTransitionSystems,
     States, TransitionSchedules,
 };
 
@@ -27,7 +27,7 @@ mod sealed {
 ///
 /// It is sealed, and auto implemented for all [`States`] types and
 /// tuples containing them.
-pub trait StateSet: sealed::StateSetSealed {
+pub trait StateSet: StateSetSealed {
     /// The total [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
     /// the states that are part of this [`StateSet`], added together.
     ///
@@ -56,7 +56,7 @@ pub trait StateSet: sealed::StateSetSealed {
 ///
 /// The isolation works because it is implemented for both S & [`Option<S>`], and has the `RawState` associated type
 /// that allows it to know what the resource in the world should be. We can then essentially "unwrap" it in our
-/// `StateSet` implementation - and the behaviour of that unwrapping will depend on the arguments expected by the
+/// `StateSet` implementation - and the behavior of that unwrapping will depend on the arguments expected by the
 /// the [`ComputedStates`] & [`SubStates]`.
 trait InnerStateSet: Sized {
     type RawState: States;
@@ -117,14 +117,14 @@ impl<S: InnerStateSet> StateSet for S {
 
         schedule.configure_sets((
             ApplyStateTransition::<T>::default()
-                .in_set(StateTransitionSteps::DependentTransitions)
+                .in_set(StateTransitionSystems::DependentTransitions)
                 .after(ApplyStateTransition::<S::RawState>::default()),
             ExitSchedules::<T>::default()
-                .in_set(StateTransitionSteps::ExitSchedules)
+                .in_set(StateTransitionSystems::ExitSchedules)
                 .before(ExitSchedules::<S::RawState>::default()),
-            TransitionSchedules::<T>::default().in_set(StateTransitionSteps::TransitionSchedules),
+            TransitionSchedules::<T>::default().in_set(StateTransitionSystems::TransitionSchedules),
             EnterSchedules::<T>::default()
-                .in_set(StateTransitionSteps::EnterSchedules)
+                .in_set(StateTransitionSystems::EnterSchedules)
                 .after(EnterSchedules::<S::RawState>::default()),
         ));
 
@@ -197,14 +197,14 @@ impl<S: InnerStateSet> StateSet for S {
 
         schedule.configure_sets((
             ApplyStateTransition::<T>::default()
-                .in_set(StateTransitionSteps::DependentTransitions)
+                .in_set(StateTransitionSystems::DependentTransitions)
                 .after(ApplyStateTransition::<S::RawState>::default()),
             ExitSchedules::<T>::default()
-                .in_set(StateTransitionSteps::ExitSchedules)
+                .in_set(StateTransitionSystems::ExitSchedules)
                 .before(ExitSchedules::<S::RawState>::default()),
-            TransitionSchedules::<T>::default().in_set(StateTransitionSteps::TransitionSchedules),
+            TransitionSchedules::<T>::default().in_set(StateTransitionSystems::TransitionSchedules),
             EnterSchedules::<T>::default()
-                .in_set(StateTransitionSteps::EnterSchedules)
+                .in_set(StateTransitionSystems::EnterSchedules)
                 .after(EnterSchedules::<S::RawState>::default()),
         ));
 
@@ -229,10 +229,12 @@ impl<S: InnerStateSet> StateSet for S {
 }
 
 macro_rules! impl_state_set_sealed_tuples {
-    ($(($param: ident, $val: ident, $evt: ident)), *) => {
-        impl<$($param: InnerStateSet),*> StateSetSealed for  ($($param,)*) {}
+    ($(#[$meta:meta])* $(($param: ident, $val: ident, $evt: ident)), *) => {
+        $(#[$meta])*
+        impl<$($param: InnerStateSet),*> StateSetSealed for ($($param,)*) {}
 
-        impl<$($param: InnerStateSet),*> StateSet for  ($($param,)*) {
+        $(#[$meta])*
+        impl<$($param: InnerStateSet),*> StateSet for ($($param,)*) {
 
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
 
@@ -262,15 +264,15 @@ macro_rules! impl_state_set_sealed_tuples {
 
                 schedule.configure_sets((
                     ApplyStateTransition::<T>::default()
-                        .in_set(StateTransitionSteps::DependentTransitions)
+                        .in_set(StateTransitionSystems::DependentTransitions)
                         $(.after(ApplyStateTransition::<$param::RawState>::default()))*,
                     ExitSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::ExitSchedules)
+                        .in_set(StateTransitionSystems::ExitSchedules)
                         $(.before(ExitSchedules::<$param::RawState>::default()))*,
                     TransitionSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::TransitionSchedules),
+                        .in_set(StateTransitionSystems::TransitionSchedules),
                     EnterSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::EnterSchedules)
+                        .in_set(StateTransitionSystems::EnterSchedules)
                         $(.after(EnterSchedules::<$param::RawState>::default()))*,
                 ));
 
@@ -291,7 +293,7 @@ macro_rules! impl_state_set_sealed_tuples {
                      current_state_res: Option<ResMut<State<T>>>,
                      next_state_res: Option<ResMut<NextState<T>>>,
                      ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                        let parent_changed = ($($evt.read().last().is_some())&&*);
+                        let parent_changed = ($($evt.read().last().is_some())||*);
                         let next_state = take_next_state(next_state_res);
 
                         if !parent_changed && next_state.is_none() {
@@ -316,15 +318,15 @@ macro_rules! impl_state_set_sealed_tuples {
 
                 schedule.configure_sets((
                     ApplyStateTransition::<T>::default()
-                        .in_set(StateTransitionSteps::DependentTransitions)
+                        .in_set(StateTransitionSystems::DependentTransitions)
                         $(.after(ApplyStateTransition::<$param::RawState>::default()))*,
                     ExitSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::ExitSchedules)
+                        .in_set(StateTransitionSystems::ExitSchedules)
                         $(.before(ExitSchedules::<$param::RawState>::default()))*,
                     TransitionSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::TransitionSchedules),
+                        .in_set(StateTransitionSystems::TransitionSchedules),
                     EnterSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::EnterSchedules)
+                        .in_set(StateTransitionSystems::EnterSchedules)
                         $(.after(EnterSchedules::<$param::RawState>::default()))*,
                 ));
 
@@ -338,4 +340,12 @@ macro_rules! impl_state_set_sealed_tuples {
     };
 }
 
-all_tuples!(impl_state_set_sealed_tuples, 1, 15, S, s, ereader);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_state_set_sealed_tuples,
+    1,
+    15,
+    S,
+    s,
+    ereader
+);

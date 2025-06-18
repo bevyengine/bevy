@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::basic::*,
-    input::InputSystem,
+    input::InputSystems,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -10,7 +10,7 @@ use bevy::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
     },
-    ui::{CameraCursorPosition, UiSystem},
+    ui::{CameraCursorPosition, UiSystems},
     window::PrimaryWindow,
 };
 
@@ -27,8 +27,8 @@ fn main() {
         .add_systems(
             PreUpdate,
             update_ui_texture_cursor
-                .after(InputSystem) // after mouse input has been processed
-                .before(UiSystem::Focus), // before bevy_ui uses cursor positions to apply `Interaction`s to ui nodes.
+                .after(InputSystems) // after mouse input has been processed
+                .before(UiSystems::Focus), // before bevy_ui uses cursor positions to apply `Interaction`s to ui nodes.
         )
         .run();
 }
@@ -71,18 +71,16 @@ fn setup(
     let image_handle = images.add(image);
 
     // Light
-    commands.spawn(DirectionalLightBundle::default());
+    commands.spawn(DirectionalLight::default());
 
     // UI texture camera
     let texture_camera = commands
         .spawn((
-            Camera2dBundle {
-                camera: Camera {
-                    // render before the "main pass" camera
-                    order: -1,
-                    target: RenderTarget::Image(image_handle.clone()),
-                    ..default()
-                },
+            Camera2d,
+            Camera {
+                // render before the "main pass" camera
+                order: -1,
+                target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
             // add `CameraCursorPosition` which we will update in `update_manual_cursor`
@@ -94,26 +92,24 @@ fn setup(
     // make the button ui
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    // Cover the whole image
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::SpaceAround,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                background_color: NORMAL_BUTTON.into(),
+            Node {
+                // Cover the whole image
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceAround,
+                align_items: AlignItems::Center,
                 ..default()
             },
-            TargetCamera(texture_camera),
+            BackgroundColor(NORMAL_BUTTON),
+            UiTargetCamera(texture_camera),
         ))
         .with_children(|parent| {
             for _ in 0..=1 {
                 parent
-                    .spawn(ButtonBundle {
-                        style: Style {
+                    .spawn((
+                        Button,
+                        Node {
                             width: Val::Px(150.0),
                             height: Val::Px(65.0),
                             border: UiRect::all(Val::Px(5.0)),
@@ -123,18 +119,18 @@ fn setup(
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        border_color: BorderColor(Color::BLACK),
-                        background_color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
+                        BorderColor::all(Color::BLACK),
+                        BackgroundColor(NORMAL_BUTTON),
+                    ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Button",
-                            TextStyle {
+                        parent.spawn((
+                            Text::new("Button"),
+                            TextFont {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
+                                ..Default::default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             }
@@ -151,21 +147,16 @@ fn setup(
 
     // quad with material containing the rendered UI texture.
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Rectangle::new(2.0, 2.0)), // half-size of 1
-            material: material_handle,
-            transform: Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(2.0)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Rectangle::new(2.0, 2.0))), // half-size of 1
+        MeshMaterial3d(material_handle),
+        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(2.0)),
         UiQuad,
     ));
 
     // The main pass camera.
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-1.0, 1.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-1.0, 1.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController {
             mouse_key_cursor_grab: MouseButton::Right,
             ..Default::default()
@@ -192,13 +183,13 @@ fn update_ui_texture_cursor(
     mut position: Query<&mut CameraCursorPosition, With<UiTextureCamera>>,
 ) {
     // clear any previous cursor position
-    position.single_mut().0 = None;
+    position.single_mut().unwrap().0 = None;
 
-    let (camera_position, camera) = main_pass_camera.single();
+    let (camera_position, camera) = main_pass_camera.single().unwrap();
 
     // get cursor position in the window
     let Some(cursor_position) = main_window
-        .get_single()
+        .single()
         .unwrap()
         .cursor_position()
         .or_else(|| touches_input.first_pressed_position())
@@ -217,7 +208,7 @@ fn update_ui_texture_cursor(
         .expect("viewport_to_world failed");
 
     // check if we hit the plane containing the ui texture
-    let quad_transform = quad.single();
+    let quad_transform = quad.single().unwrap();
 
     let Some(intersect) = ray.intersect_plane(
         quad_transform.translation,
@@ -248,16 +239,20 @@ fn update_ui_texture_cursor(
     }
 
     // transform it into texture coords for the in-world ui rect
-    position.single_mut().0 = Some(
+    position.single_mut().unwrap().0 = Some(
         (hit_xy * Vec2::new(0.5, -0.5) / quad_transform.scale.xy() + 0.5) * IMAGE_SIZE.as_vec2(),
+    );
+    println!(
+        "set {}",
+        hit_xy * Vec2::new(0.5, -0.5) / quad_transform.scale.xy() + 0.5
     );
 }
 
 // move the quad around a bit
 fn move_quad_system(mut q: Query<&mut Transform, With<UiQuad>>, time: Res<Time>) {
-    let mut transform = q.single_mut();
-    transform.translation.y = time.elapsed_seconds().sin() * 0.5;
-    transform.rotation = Quat::from_rotation_y((time.elapsed_seconds() * 1.2).sin() * 0.5);
+    let mut transform = q.single_mut().unwrap();
+    transform.translation.y = time.elapsed_secs().sin() * 0.5;
+    transform.rotation = Quat::from_rotation_y((time.elapsed_secs() * 1.2).sin() * 0.5);
 }
 
 // remainder is copied from button.rs example
@@ -281,19 +276,19 @@ fn button_system(
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
-                text.sections[0].value = "Press".to_string();
+                text.0 = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = RED.into();
+                *border_color = BorderColor::all(RED.into());
             }
             Interaction::Hovered => {
-                text.sections[0].value = "Hover".to_string();
+                text.0 = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = WHITE.into();
+                *border_color = BorderColor::all(WHITE.into());
             }
             Interaction::None => {
-                text.sections[0].value = "Button".to_string();
+                text.0 = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = BLACK.into();
+                *border_color = BorderColor::all(BLACK.into());
             }
         }
     }

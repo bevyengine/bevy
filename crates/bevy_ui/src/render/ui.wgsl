@@ -1,9 +1,16 @@
+#define_import_path bevy_ui::ui_node
+
 #import bevy_render::view::View
 
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
 const BOTTOM_VERTEX = 4u;
-const BORDER: u32 = 8u;
+// must align with BORDER_* shader_flags from bevy_ui/render/mod.rs
+const BORDER_LEFT: u32 = 256u;
+const BORDER_TOP: u32 = 512u;
+const BORDER_RIGHT: u32 = 1024u;
+const BORDER_BOTTOM: u32 = 2048u;
+const BORDER_ANY: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
 
 fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
@@ -38,6 +45,7 @@ fn vertex(
     // x: left, y: top, z: right, w: bottom.
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
+    @location(7) point: vec2<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -47,13 +55,6 @@ fn vertex(
     out.radius = radius;
     out.size = size;
     out.border = border;
-    var point = 0.49999 * size;
-    if (flags & RIGHT_VERTEX) == 0u {
-        point.x *= -1.;
-    }
-    if (flags & BOTTOM_VERTEX) == 0u {
-        point.y *= -1.;
-    }
     out.point = point;
 
     return out;
@@ -120,52 +121,92 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
     return sd_rounded_box(inner_point, inner_size, r);
 }
 
+fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f32>, flags: u32) -> bool {
+    if (flags & BORDER_ANY) == BORDER_ANY {
+        return true;
+    }
+ 
+    // get point vs top left
+    let point = clamp(point_vs_mid + size * 0.49999, vec2(0.0), size);
+ 
+    let left = point.x / width.x;
+    let top = point.y / width.y;
+    let right = (size.x - point.x) / width.z;
+    let bottom = (size.y - point.y) / width.w;
+ 
+    let min_dist = min(min(left, top), min(right, bottom));
+ 
+    return (enabled(flags, BORDER_LEFT) && min_dist == left) ||
+        (enabled(flags, BORDER_TOP) && min_dist == top) || 
+        (enabled(flags, BORDER_RIGHT) && min_dist == right) || 
+        (enabled(flags, BORDER_BOTTOM) && min_dist == bottom);
+}
+
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
-    // This antialiases between the distance values of 0.25 and -0.25
-    return clamp(0.0, 1.0, 0.5 - 2.0 * distance);
+    return saturate(0.5 - distance);
 }
 
-fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
-    // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
-    // This allows us to draw both textured and untextured shapes together in the same batch.
-    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
-
+fn draw_uinode_border(
+    color: vec4<f32>,
+    point: vec2<f32>,
+    size: vec2<f32>,
+    radius: vec4<f32>,
+    border: vec4<f32>,
+    flags: u32,
+) -> vec4<f32> {
     // Signed distances. The magnitude is the distance of the point from the edge of the shape.
     // * Negative values indicate that the point is inside the shape.
     // * Zero values indicate the point is on the edge of the shape.
     // * Positive values indicate the point is outside the shape.
 
     // Signed distance from the exterior boundary.
-    let external_distance = sd_rounded_box(in.point, in.size, in.radius);
+    let external_distance = sd_rounded_box(point, size, radius);
 
     // Signed distance from the border's internal edge (the signed distance is negative if the point 
     // is inside the rect but not on the border).
     // If the border size is set to zero, this is the same as the external distance.
-    let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
+    let internal_distance = sd_inset_rounded_box(point, size, radius, border);
 
     // Signed distance from the border (the intersection of the rect with its border).
     // Points inside the border have negative signed distance. Any point outside the border, whether 
     // outside the outside edge, or inside the inner edge have positive signed distance.
     let border_distance = max(external_distance, -internal_distance);
 
+    // check if this node should apply color for the nearest border
+    let nearest_border = select(0.0, 1.0, nearest_border_active(point, size, border, flags));
+
+#ifdef ANTI_ALIAS
     // At external edges with no border, `border_distance` is equal to zero. 
     // This select statement ensures we only perform anti-aliasing where a non-zero width border 
     // is present, otherwise an outline about the external boundary would be drawn even without 
     // a border.
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
+#else
+    let t = 1.0 - step(0.0, border_distance);
+#endif
 
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
-    return vec4(color.rgb, saturate(color.a * t));
+    return vec4(color.rgb, saturate(color.a * t * nearest_border));
 }
 
-fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
-    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
-
+fn draw_uinode_background(
+    color: vec4<f32>,
+    point: vec2<f32>,
+    size: vec2<f32>,
+    radius: vec4<f32>,
+    border: vec4<f32>,
+) -> vec4<f32> {
     // When drawing the background only draw the internal area and not the border.
-    let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
+    let internal_distance = sd_inset_rounded_box(point, size, radius, border);
+
+#ifdef ANTI_ALIAS
     let t = antialias(internal_distance);
+#else
+    let t = 1.0 - step(0.0, internal_distance);
+#endif
+
     return vec4(color.rgb, saturate(color.a * t));
 }
 
@@ -173,9 +214,13 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
-    if enabled(in.flags, BORDER) {
-        return draw(in, texture_color);    
+    // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
+    // This allows us to draw both textured and untextured shapes together in the same batch.
+    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
+
+    if enabled(in.flags, BORDER_ANY) {
+        return draw_uinode_border(color, in.point, in.size, in.radius, in.border, in.flags);
     } else {
-        return draw_background(in, texture_color);
+        return draw_uinode_background(color, in.point, in.size, in.radius, in.border);
     }
 }

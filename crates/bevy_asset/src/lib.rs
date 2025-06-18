@@ -1,10 +1,156 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+//! In the context of game development, an "asset" is a piece of content that is loaded from disk and displayed in the game.
+//! Typically, these are authored by artists and designers (in contrast to code),
+//! are relatively large in size, and include everything from textures and models to sounds and music to levels and scripts.
+//!
+//! This presents two main challenges:
+//! - Assets take up a lot of memory; simply storing a copy for each instance of an asset in the game would be prohibitively expensive.
+//! - Loading assets from disk is slow, and can cause long load times and delays.
+//!
+//! These problems play into each other, for if assets are expensive to store in memory,
+//! then larger game worlds will need to load them from disk as needed, ideally without a loading screen.
+//!
+//! As is common in Rust, non-blocking asset loading is done using `async`, with background tasks used to load assets while the game is running.
+//! Bevy coordinates these tasks using the [`AssetServer`] resource, storing each loaded asset in a strongly-typed [`Assets<T>`] collection (also a resource).
+//! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
+//! and providing a way to initialize objects (generally entities) before the required assets are loaded.
+//! In short: [`Handle`]s are not the assets themselves, they just tell how to look them up!
+//!
+//! ## Loading assets
+//!
+//! The [`AssetServer`] is the main entry point for loading assets.
+//! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
+//! Note that this method does not attempt to reload the asset if it has already been loaded: as long as at least one handle has not been dropped,
+//! calling [`AssetServer::load`] on the same path will return the same handle.
+//! The handle that's returned can be used to instantiate various [`Component`]s that require asset data to function,
+//! which will then be spawned into the world as part of an entity.
+//!
+//! To avoid assets "popping" into existence, you may want to check that all of the required assets are loaded before transitioning to a new scene.
+//! This can be done by checking the [`LoadState`] of the asset handle using [`AssetServer::is_loaded_with_dependencies`],
+//! which will be `true` when the asset is ready to use.
+//!
+//! Keep track of what you're waiting on by using a [`HashSet`] of asset handles or similar data structure,
+//! which iterate over and poll in your update loop, and transition to the new scene once all assets are loaded.
+//! Bevy's built-in states system can be very helpful for this!
+//!
+//! # Modifying entities that use assets
+//!
+//! If we later want to change the asset data a given component uses (such as changing an entity's material), we have three options:
+//!
+//! 1. Change the handle stored on the responsible component to the handle of a different asset
+//! 2. Despawn the entity and spawn a new one with the new asset data.
+//! 3. Use the [`Assets`] collection to directly modify the current handle's asset data
+//!
+//! The first option is the most common: just query for the component that holds the handle, and mutate it, pointing to the new asset.
+//! Check how the handle was passed in to the entity when it was spawned: if a mesh-related component required a handle to a mesh asset,
+//! you'll need to find that component via a query and change the handle to the new mesh asset.
+//! This is so commonly done that you should think about strategies for how to store and swap handles in your game.
+//!
+//! The second option is the simplest, but can be slow if done frequently,
+//! and can lead to frustrating bugs as references to the old entity (such as what is targeting it) and other data on the entity are lost.
+//! Generally, this isn't a great strategy.
+//!
+//! The third option has different semantics: rather than modifying the asset data for a single entity, it modifies the asset data for *all* entities using this handle.
+//! While this might be what you want, it generally isn't!
+//!
+//! # Hot reloading assets
+//!
+//! Bevy supports asset hot reloading, allowing you to change assets on disk and see the changes reflected in your game without restarting.
+//! When enabled, any changes to the underlying asset file will be detected by the [`AssetServer`], which will then reload the asset,
+//! mutating the asset data in the [`Assets`] collection and thus updating all entities that use the asset.
+//! While it has limited uses in published games, it is very useful when developing, as it allows you to iterate quickly.
+//!
+//! To enable asset hot reloading on desktop platforms, enable `bevy`'s `file_watcher` cargo feature.
+//! To toggle it at runtime, you can use the `watch_for_changes_override` field in the [`AssetPlugin`] to enable or disable hot reloading.
+//!
+//! # Procedural asset creation
+//!
+//! Not all assets are loaded from disk: some are generated at runtime, such as procedural materials, sounds or even levels.
+//! After creating an item of a type that implements [`Asset`], you can add it to the [`Assets`] collection using [`Assets::add`].
+//! Once in the asset collection, this data can be operated on like any other asset.
+//!
+//! Note that, unlike assets loaded from a file path, no general mechanism currently exists to deduplicate procedural assets:
+//! calling [`Assets::add`] for every entity that needs the asset will create a new copy of the asset for each entity,
+//! quickly consuming memory.
+//!
+//! ## Handles and reference counting
+//!
+//! [`Handle`] (or their untyped counterpart [`UntypedHandle`]) are used to reference assets in the [`Assets`] collection,
+//! and are the primary way to interact with assets in Bevy.
+//! As a user, you'll be working with handles a lot!
+//!
+//! The most important thing to know about handles is that they are reference counted: when you clone a handle, you're incrementing a reference count.
+//! When the object holding the handle is dropped (generally because an entity was despawned), the reference count is decremented.
+//! When the reference count hits zero, the asset it references is removed from the [`Assets`] collection.
+//!
+//! This reference counting is a simple, largely automatic way to avoid holding onto memory for game objects that are no longer in use.
+//! However, it can lead to surprising behavior if you're not careful!
+//!
+//! There are two categories of problems to watch out for:
+//! - never dropping a handle, causing the asset to never be removed from memory
+//! - dropping a handle too early, causing the asset to be removed from memory while it's still in use
+//!
+//! The first problem is less critical for beginners, as for tiny games, you can often get away with simply storing all of the assets in memory at once,
+//! and loading them all at the start of the game.
+//! As your game grows, you'll need to be more careful about when you load and unload assets,
+//! segmenting them by level or area, and loading them on-demand.
+//! This problem generally arises when handles are stored in a persistent "collection" or "manifest" of possible objects (generally in a resource),
+//! which is convenient for easy access and zero-latency spawning, but can result in high but stable memory usage.
+//!
+//! The second problem is more concerning, and looks like your models or textures suddenly disappearing from the game.
+//! Debugging reveals that the *entities* are still there, but nothing is rendering!
+//! This is because the assets were removed from memory while they were still in use.
+//! You were probably too aggressive with the use of weak handles (which don't increment the reference count of the asset): think through the lifecycle of your assets carefully!
+//! As soon as an asset is loaded, you must ensure that at least one strong handle is held to it until all matching entities are out of sight of the player.
+//!
+//! # Asset dependencies
+//!
+//! Some assets depend on other assets to be loaded before they can be loaded themselves.
+//! For example, a 3D model might require both textures and meshes to be loaded,
+//! or a 2D level might require a tileset to be loaded.
+//!
+//! The assets that are required to load another asset are called "dependencies".
+//! An asset is only considered fully loaded when it and all of its dependencies are loaded.
+//! Asset dependencies can be declared when implementing the [`Asset`] trait by implementing the [`VisitAssetDependencies`] trait,
+//! and the `#[dependency]` attribute can be used to automatically derive this implementation.
+//!
+//! # Custom asset types
+//!
+//! While Bevy comes with implementations for a large number of common game-oriented asset types (often behind off-by-default feature flags!),
+//! implementing a custom asset type can be useful when dealing with unusual, game-specific, or proprietary formats.
+//!
+//! Defining a new asset type is as simple as implementing the [`Asset`] trait.
+//! This requires [`TypePath`] for metadata about the asset type,
+//! and [`VisitAssetDependencies`] to track asset dependencies.
+//! In simple cases, you can derive [`Asset`] and [`Reflect`] and be done with it: the required supertraits will be implemented for you.
+//!
+//! With a new asset type in place, we now need to figure out how to load it.
+//! While [`AssetReader`](io::AssetReader) describes strategies to read asset bytes from various sources,
+//! [`AssetLoader`] is the trait that actually turns those into your desired in-memory format.
+//! Generally, (only) [`AssetLoader`] needs to be implemented for custom assets, as the [`AssetReader`](io::AssetReader) implementations are provided by Bevy.
+//!
+//! However, [`AssetLoader`] shouldn't be implemented for your asset type directly: instead, this is implemented for a "loader" type
+//! that can store settings and any additional data required to load your asset, while your asset type is used as the [`AssetLoader::Asset`] associated type.
+//! As the trait documentation explains, this allows various [`AssetLoader::Settings`] to be used to configure the loader.
+//!
+//! After the loader is implemented, it needs to be registered with the [`AssetServer`] using [`App::register_asset_loader`](AssetApp::register_asset_loader).
+//! Once your asset type is loaded, you can use it in your game like any other asset type!
+//!
+//! If you want to save your assets back to disk, you should implement [`AssetSaver`](saver::AssetSaver) as well.
+//! This trait mirrors [`AssetLoader`] in structure, and works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors [`AssetReader`](io::AssetReader).
+
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
+#![no_std]
+
+extern crate alloc;
+extern crate std;
+
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_asset;
 
 pub mod io;
 pub mod meta;
@@ -12,7 +158,13 @@ pub mod processor;
 pub mod saver;
 pub mod transformer;
 
+/// The asset prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::asset_changed::AssetChanged;
+
     #[doc(hidden)]
     pub use crate::{
         Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
@@ -20,6 +172,7 @@ pub mod prelude {
     };
 }
 
+mod asset_changed;
 mod assets;
 mod direct_access_ext;
 mod event;
@@ -30,6 +183,7 @@ mod loader;
 mod loader_builders;
 mod path;
 mod reflect;
+mod render_asset;
 mod server;
 
 pub use assets::*;
@@ -42,35 +196,37 @@ pub use handle::*;
 pub use id::*;
 pub use loader::*;
 pub use loader_builders::{
-    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+    Deferred, DynamicTyped, Immediate, NestedLoader, StaticTyped, UnknownTyped,
 };
 pub use path::*;
 pub use reflect::*;
+pub use render_asset::*;
 pub use server::*;
 
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;
+pub use uuid;
 
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
-use bevy_app::{App, Last, Plugin, PreUpdate};
+use alloc::{
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
+use bevy_ecs::prelude::Component;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
+    schedule::{IntoScheduleConfigs, SystemSet},
     world::FromWorld,
 };
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::{tracing::error, HashSet};
-use std::{any::TypeId, sync::Arc};
-
-#[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
-compile_error!(
-    "The \"file_watcher\" feature for hot reloading requires the \
-    \"multi_threaded\" feature to be functional.\n\
-    Consider either disabling the \"file_watcher\" feature or enabling \"multi_threaded\""
-);
+use core::any::TypeId;
+use tracing::error;
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
 /// which can be something like a filesystem, a network, etc.
@@ -95,8 +251,41 @@ pub struct AssetPlugin {
     pub mode: AssetMode,
     /// How/If asset meta files should be checked.
     pub meta_check: AssetMetaCheck,
+    /// How to handle load requests of files that are outside the approved directories.
+    ///
+    /// Approved folders are [`AssetPlugin::file_path`] and the folder of each
+    /// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
+    pub unapproved_path_mode: UnapprovedPathMode,
 }
 
+/// Determines how to react to attempts to load assets not inside the approved folders.
+///
+/// Approved folders are [`AssetPlugin::file_path`] and the folder of each
+/// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
+///
+/// It is strongly discouraged to use [`Allow`](UnapprovedPathMode::Allow) if your
+/// app will include scripts or modding support, as it could allow allow arbitrary file
+/// access for malicious code.
+///
+/// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
+#[derive(Clone, Default)]
+pub enum UnapprovedPathMode {
+    /// Unapproved asset loading is allowed. This is strongly discouraged.
+    Allow,
+    /// Fails to load any asset that is is unapproved, unless an override method is used, like
+    /// [`AssetServer::load_override`].
+    Deny,
+    /// Fails to load any asset that is is unapproved.
+    #[default]
+    Forbid,
+}
+
+/// Controls whether or not assets are pre-processed before being loaded.
+///
+/// This setting is controlled by setting [`AssetPlugin::mode`].
+///
+/// When building on web, asset preprocessing can cause problems due to the lack of filesystem access.
+/// See [bevy#10157](https://github.com/bevyengine/bevy/issues/10157) for context.
 #[derive(Debug)]
 pub enum AssetMode {
     /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any "preprocessing".
@@ -142,6 +331,7 @@ impl Default for AssetPlugin {
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
             meta_check: AssetMetaCheck::default(),
+            unapproved_path_mode: UnapprovedPathMode::default(),
         }
     }
 }
@@ -159,7 +349,7 @@ impl Plugin for AssetPlugin {
         {
             let mut sources = app
                 .world_mut()
-                .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
+                .get_resource_or_init::<AssetSourceBuilders>();
             sources.init_default_source(
                 &self.file_path,
                 (!matches!(self.mode, AssetMode::Unprocessed))
@@ -182,6 +372,7 @@ impl Plugin for AssetPlugin {
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
+                        self.unapproved_path_mode.clone(),
                     ));
                 }
                 AssetMode::Processed => {
@@ -198,6 +389,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
+                            self.unapproved_path_mode.clone(),
                         ))
                         .insert_resource(processor)
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
@@ -211,6 +403,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
+                            self.unapproved_path_mode.clone(),
                         ));
                     }
                 }
@@ -221,12 +414,26 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
-            .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
-            .add_systems(PreUpdate, handle_internal_asset_events)
+            .configure_sets(
+                PreUpdate,
+                AssetTrackingSystems.after(handle_internal_asset_events),
+            )
+            // `handle_internal_asset_events` requires the use of `&mut World`,
+            // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
+            // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
+            // needs to be robust to stochastic delays anyways.
+            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
             .register_type::<AssetPath>();
     }
 }
 
+/// Declares that this type is an asset,
+/// which can be loaded and managed by the [`AssetServer`] and stored in [`Assets`] collections.
+///
+/// Generally, assets are large, complex, and/or expensive to load from disk, and are often authored by artists or designers.
+///
+/// [`TypePath`] is largely used for diagnostic purposes, and should almost always be implemented by deriving [`Reflect`] on your type.
+/// [`VisitAssetDependencies`] is used to track asset dependencies, and an implementation is automatically generated when deriving [`Asset`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Asset`",
     label = "invalid `Asset`",
@@ -234,6 +441,19 @@ impl Plugin for AssetPlugin {
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
+/// A trait for components that can be used as asset identifiers, e.g. handle wrappers.
+pub trait AsAssetId: Component {
+    /// The underlying asset type.
+    type Asset: Asset;
+
+    /// Retrieves the asset id from this component.
+    fn as_asset_id(&self) -> AssetId<Self::Asset>;
+}
+
+/// This trait defines how to visit the dependencies of an asset.
+/// For example, a 3D model might require both textures and meshes to be loaded.
+///
+/// Note that this trait is automatically implemented when deriving [`Asset`].
 pub trait VisitAssetDependencies {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
 }
@@ -306,8 +526,8 @@ pub trait AssetApp {
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
     /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
-    ///     mutable access to this resource this causes a conflict, but they rarely actually
-    ///     modify the same underlying asset.
+    ///   mutable access to this resource this causes a conflict, but they rarely actually
+    ///   modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -341,7 +561,7 @@ impl AssetApp for App {
         id: impl Into<AssetSourceId<'static>>,
         source: AssetSourceBuilder,
     ) -> &mut Self {
-        let id = id.into();
+        let id = AssetSourceId::from_static(id);
         if self.world().get_resource::<AssetServer>().is_some() {
             error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
         }
@@ -349,7 +569,7 @@ impl AssetApp for App {
         {
             let mut sources = self
                 .world_mut()
-                .get_resource_or_insert_with(AssetSourceBuilders::default);
+                .get_resource_or_init::<AssetSourceBuilders>();
             sources.insert(id, source);
         }
 
@@ -391,12 +611,15 @@ impl AssetApp for App {
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .add_systems(
-                Last,
+                PostUpdate,
                 Assets::<A>::asset_events
                     .run_if(Assets::<A>::asset_events_condition)
-                    .in_set(AssetEvents),
+                    .in_set(AssetEventSystems),
             )
-            .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
+            .add_systems(
+                PreUpdate,
+                Assets::<A>::track_assets.in_set(AssetTrackingSystems),
+            )
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -426,18 +649,25 @@ impl AssetApp for App {
 
 /// A system set that holds all "track asset" operations.
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-pub struct TrackAssets;
+pub struct AssetTrackingSystems;
+
+/// Deprecated alias for [`AssetTrackingSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetTrackingSystems`.")]
+pub type TrackAssets = AssetTrackingSystems;
 
 /// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
 ///
 /// [`Events`]: bevy_ecs::event::Events
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct AssetEvents;
+pub struct AssetEventSystems;
+
+/// Deprecated alias for [`AssetEventSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetEventSystems`.")]
+pub type AssetEvents = AssetEventSystems;
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_asset,
         folder::LoadedFolder,
         handle::Handle,
         io::{
@@ -447,21 +677,27 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState,
-        RecursiveDependencyLoadState,
+        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
     };
-    use bevy_app::{App, Update};
-    use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::prelude::*;
+    use alloc::{
+        boxed::Box,
+        format,
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
+    use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_ecs::{
         event::EventCursor,
+        prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_log::LogPlugin;
+    use bevy_platform::collections::HashMap;
     use bevy_reflect::TypePath;
-    use bevy_utils::{Duration, HashMap};
+    use core::time::Duration;
     use serde::{Deserialize, Serialize};
-    use std::{path::Path, sync::Arc};
+    use std::path::Path;
     use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug, Default)]
@@ -507,11 +743,11 @@ mod tests {
 
         type Error = CoolTextLoaderError;
 
-        async fn load<'a>(
-            &'a self,
-            reader: &'a mut dyn Reader,
-            _settings: &'a Self::Settings,
-            load_context: &'a mut LoadContext<'_>,
+        async fn load(
+            &self,
+            reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            load_context: &mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -520,7 +756,7 @@ mod tests {
             for dep in ron.embedded_dependencies {
                 let loaded = load_context
                     .loader()
-                    .direct()
+                    .immediate()
                     .load::<CoolText>(&dep)
                     .await
                     .map_err(|_| Self::Error::CannotLoadDependency {
@@ -583,13 +819,10 @@ mod tests {
         async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<impl bevy_asset::io::Reader + 'a, AssetReaderError> {
+        ) -> Result<impl Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
-        async fn read<'a>(
-            &'a self,
-            path: &'a Path,
-        ) -> Result<impl bevy_asset::io::Reader + 'a, bevy_asset::io::AssetReaderError> {
+        async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -628,11 +861,7 @@ mod tests {
             AssetSourceId::Default,
             AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
         )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ));
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
         (app, gate_opener)
     }
 
@@ -732,23 +961,14 @@ mod tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
-        let entity = app.world_mut().spawn(handle).id();
         app.update();
         {
             let a_text = get::<CoolText>(app.world(), a_id);
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert!(a_text.is_none(), "a's asset should not exist yet");
-            assert_eq!(a_load, LoadState::Loading, "a should still be loading");
-            assert_eq!(
-                a_deps,
-                DependencyLoadState::Loading,
-                "a deps should still be loading"
-            );
-            assert_eq!(
-                a_rec_deps,
-                RecursiveDependencyLoadState::Loading,
-                "a recursive deps should still be loading"
-            );
+            assert!(a_load.is_loading());
+            assert!(a_deps.is_loading());
+            assert!(a_rec_deps.is_loading());
         }
 
         // Allow "a" to load ... wait for it to finish loading and validate results
@@ -759,25 +979,25 @@ mod tests {
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.dependencies.len(), 2);
-            assert_eq!(a_load, LoadState::Loaded, "a is loaded");
-            assert_eq!(a_deps, DependencyLoadState::Loading);
-            assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Loading);
+            assert!(a_load.is_loaded());
+            assert!(a_deps.is_loading());
+            assert!(a_rec_deps.is_loading());
 
             let b_id = a_text.dependencies[0].id();
             let b_text = get::<CoolText>(world, b_id);
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert!(b_text.is_none(), "b component should not exist yet");
-            assert_eq!(b_load, LoadState::Loading);
-            assert_eq!(b_deps, DependencyLoadState::Loading);
-            assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loading);
+            assert!(b_load.is_loading());
+            assert!(b_deps.is_loading());
+            assert!(b_rec_deps.is_loading());
 
             let c_id = a_text.dependencies[1].id();
             let c_text = get::<CoolText>(world, c_id);
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
-            assert_eq!(c_load, LoadState::Loading);
-            assert_eq!(c_deps, DependencyLoadState::Loading);
-            assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loading);
+            assert!(c_load.is_loading());
+            assert!(c_deps.is_loading());
+            assert!(c_rec_deps.is_loading());
             Some(())
         });
 
@@ -789,25 +1009,25 @@ mod tests {
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.dependencies.len(), 2);
-            assert_eq!(a_load, LoadState::Loaded);
-            assert_eq!(a_deps, DependencyLoadState::Loading);
-            assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Loading);
+            assert!(a_load.is_loaded());
+            assert!(a_deps.is_loading());
+            assert!(a_rec_deps.is_loading());
 
             let b_id = a_text.dependencies[0].id();
             let b_text = get::<CoolText>(world, b_id)?;
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert_eq!(b_text.text, "b");
-            assert_eq!(b_load, LoadState::Loaded);
-            assert_eq!(b_deps, DependencyLoadState::Loaded);
-            assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loaded);
+            assert!(b_load.is_loaded());
+            assert!(b_deps.is_loaded());
+            assert!(b_rec_deps.is_loaded());
 
             let c_id = a_text.dependencies[1].id();
             let c_text = get::<CoolText>(world, c_id);
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
-            assert_eq!(c_load, LoadState::Loading);
-            assert_eq!(c_deps, DependencyLoadState::Loading);
-            assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loading);
+            assert!(c_load.is_loading());
+            assert!(c_deps.is_loading());
+            assert!(c_rec_deps.is_loading());
             Some(())
         });
 
@@ -824,31 +1044,29 @@ mod tests {
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.embedded, "");
             assert_eq!(a_text.dependencies.len(), 2);
-            assert_eq!(a_load, LoadState::Loaded);
+            assert!(a_load.is_loaded());
 
             let b_id = a_text.dependencies[0].id();
             let b_text = get::<CoolText>(world, b_id)?;
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert_eq!(b_text.text, "b");
             assert_eq!(b_text.embedded, "");
-            assert_eq!(b_load, LoadState::Loaded);
-            assert_eq!(b_deps, DependencyLoadState::Loaded);
-            assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loaded);
+            assert!(b_load.is_loaded());
+            assert!(b_deps.is_loaded());
+            assert!(b_rec_deps.is_loaded());
 
             let c_id = a_text.dependencies[1].id();
             let c_text = get::<CoolText>(world, c_id)?;
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert_eq!(c_text.text, "c");
             assert_eq!(c_text.embedded, "ab");
-            assert_eq!(c_load, LoadState::Loaded);
-            assert_eq!(
-                c_deps,
-                DependencyLoadState::Loading,
+            assert!(c_load.is_loaded());
+            assert!(
+                c_deps.is_loading(),
                 "c deps should not be loaded yet because d has not loaded"
             );
-            assert_eq!(
-                c_rec_deps,
-                RecursiveDependencyLoadState::Loading,
+            assert!(
+                c_rec_deps.is_loading(),
                 "c rec deps should not be loaded yet because d has not loaded"
             );
 
@@ -858,26 +1076,24 @@ mod tests {
             assert_eq!(sub_text.text, "hello");
             let (sub_text_load, sub_text_deps, sub_text_rec_deps) =
                 asset_server.get_load_states(sub_text_id).unwrap();
-            assert_eq!(sub_text_load, LoadState::Loaded);
-            assert_eq!(sub_text_deps, DependencyLoadState::Loaded);
-            assert_eq!(sub_text_rec_deps, RecursiveDependencyLoadState::Loaded);
+            assert!(sub_text_load.is_loaded());
+            assert!(sub_text_deps.is_loaded());
+            assert!(sub_text_rec_deps.is_loaded());
 
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
             assert!(d_text.is_none(), "d component should not exist yet");
-            assert_eq!(d_load, LoadState::Loading);
-            assert_eq!(d_deps, DependencyLoadState::Loading);
-            assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Loading);
+            assert!(d_load.is_loading());
+            assert!(d_deps.is_loading());
+            assert!(d_rec_deps.is_loading());
 
-            assert_eq!(
-                a_deps,
-                DependencyLoadState::Loaded,
+            assert!(
+                a_deps.is_loaded(),
                 "If c has been loaded, the a deps should all be considered loaded"
             );
-            assert_eq!(
-                a_rec_deps,
-                RecursiveDependencyLoadState::Loading,
+            assert!(
+                a_rec_deps.is_loading(),
                 "d is not loaded, so a's recursive deps should still be loading"
             );
             world.insert_resource(IdResults { b_id, c_id, d_id });
@@ -900,17 +1116,16 @@ mod tests {
             assert_eq!(d_text.text, "d");
             assert_eq!(d_text.embedded, "");
 
-            assert_eq!(c_load, LoadState::Loaded);
-            assert_eq!(c_deps, DependencyLoadState::Loaded);
-            assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loaded);
+            assert!(c_load.is_loaded());
+            assert!(c_deps.is_loaded());
+            assert!(c_rec_deps.is_loaded());
 
-            assert_eq!(d_load, LoadState::Loaded);
-            assert_eq!(d_deps, DependencyLoadState::Loaded);
-            assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Loaded);
+            assert!(d_load.is_loaded());
+            assert!(d_deps.is_loaded());
+            assert!(d_rec_deps.is_loaded());
 
-            assert_eq!(
-                a_rec_deps,
-                RecursiveDependencyLoadState::Loaded,
+            assert!(
+                a_rec_deps.is_loaded(),
                 "d is loaded, so a's recursive deps should be loaded"
             );
             Some(())
@@ -922,7 +1137,8 @@ mod tests {
             a.text = "Changed".to_string();
         }
 
-        app.world_mut().despawn(entity);
+        drop(handle);
+
         app.update();
         assert_eq!(
             app.world().resource::<Assets<CoolText>>().len(),
@@ -1057,7 +1273,6 @@ mod tests {
             );
         }
 
-        app.world_mut().spawn(handle);
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);
@@ -1078,31 +1293,139 @@ mod tests {
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
-            if !matches!(d_load, LoadState::Failed(_)) {
+
+            if !d_load.is_failed() {
                 // wait until d has exited the loading state
                 return None;
             }
 
             assert!(d_text.is_none());
-            assert!(matches!(d_load, LoadState::Failed(_)));
-            assert_eq!(d_deps, DependencyLoadState::Failed);
-            assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Failed);
+            assert!(d_load.is_failed());
+            assert!(d_deps.is_failed());
+            assert!(d_rec_deps.is_failed());
 
             assert_eq!(a_text.text, "a");
-            assert_eq!(a_load, LoadState::Loaded);
-            assert_eq!(a_deps, DependencyLoadState::Loaded);
-            assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Failed);
+            assert!(a_load.is_loaded());
+            assert!(a_deps.is_loaded());
+            assert!(a_rec_deps.is_failed());
 
             assert_eq!(b_text.text, "b");
-            assert_eq!(b_load, LoadState::Loaded);
-            assert_eq!(b_deps, DependencyLoadState::Loaded);
-            assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loaded);
+            assert!(b_load.is_loaded());
+            assert!(b_deps.is_loaded());
+            assert!(b_rec_deps.is_loaded());
 
             assert_eq!(c_text.text, "c");
-            assert_eq!(c_load, LoadState::Loaded);
-            assert_eq!(c_deps, DependencyLoadState::Failed);
-            assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Failed);
+            assert!(c_load.is_loaded());
+            assert!(c_deps.is_failed());
+            assert!(c_rec_deps.is_failed());
 
+            assert!(asset_server.load_state(a_id).is_loaded());
+            assert!(asset_server.dependency_load_state(a_id).is_loaded());
+            assert!(asset_server
+                .recursive_dependency_load_state(a_id)
+                .is_failed());
+
+            assert!(asset_server.is_loaded(a_id));
+            assert!(asset_server.is_loaded_with_direct_dependencies(a_id));
+            assert!(!asset_server.is_loaded_with_dependencies(a_id));
+
+            Some(())
+        });
+    }
+
+    #[test]
+    fn dependency_load_states() {
+        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+
+        let a_path = "a.cool.ron";
+        let a_ron = r#"
+(
+    text: "a",
+    dependencies: [
+        "b.cool.ron",
+        "c.cool.ron",
+    ],
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
+        let b_path = "b.cool.ron";
+        let b_ron = r#"
+(
+    text: "b",
+    dependencies: [],
+    MALFORMED
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
+
+        let c_path = "c.cool.ron";
+        let c_ron = r#"
+(
+    text: "c",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
+
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new(a_path), a_ron);
+        dir.insert_asset_text(Path::new(b_path), b_ron);
+        dir.insert_asset_text(Path::new(c_path), c_ron);
+
+        let (mut app, gate_opener) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .register_asset_loader(CoolTextLoader);
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<CoolText> = asset_server.load(a_path);
+        let a_id = handle.id();
+
+        gate_opener.open(a_path);
+        run_app_until(&mut app, |world| {
+            let _a_text = get::<CoolText>(world, a_id)?;
+            let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
+            assert!(a_load.is_loaded());
+            assert!(a_deps.is_loading());
+            assert!(a_rec_deps.is_loading());
+            Some(())
+        });
+
+        gate_opener.open(b_path);
+        run_app_until(&mut app, |world| {
+            let a_text = get::<CoolText>(world, a_id)?;
+            let b_id = a_text.dependencies[0].id();
+
+            let (b_load, _b_deps, _b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
+            if !b_load.is_failed() {
+                // wait until b fails
+                return None;
+            }
+
+            let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
+            assert!(a_load.is_loaded());
+            assert!(a_deps.is_failed());
+            assert!(a_rec_deps.is_failed());
+            Some(())
+        });
+
+        gate_opener.open(c_path);
+        run_app_until(&mut app, |world| {
+            let a_text = get::<CoolText>(world, a_id)?;
+            let c_id = a_text.dependencies[1].id();
+            // wait until c loads
+            let _c_text = get::<CoolText>(world, c_id)?;
+
+            let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
+            assert!(a_load.is_loaded());
+            assert!(
+                a_deps.is_failed(),
+                "Successful dependency load should not overwrite a previous failure"
+            );
+            assert!(
+                a_rec_deps.is_failed(),
+                "Successful dependency load should not overwrite a previous failure"
+            );
             Some(())
         });
     }
@@ -1201,7 +1524,7 @@ mod tests {
         );
         // remove event is emitted
         app.update();
-        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![
             AssetEvent::Added { id },
             AssetEvent::Unused { id },
@@ -1222,14 +1545,14 @@ mod tests {
         // TODO: ideally it doesn't take two updates for the added event to emit
         app.update();
 
-        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added { id: a_handle.id() }];
         assert_eq!(events, expected_events);
 
         gate_opener.open(dep_path);
         loop {
             app.update();
-            let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+            let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
             if events.is_empty() {
                 continue;
             }
@@ -1243,7 +1566,7 @@ mod tests {
             break;
         }
         app.update();
-        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added {
             id: dep_handle.id(),
         }];
@@ -1391,7 +1714,7 @@ mod tests {
             // Check what just failed
             for error in errors.read() {
                 let (load_state, _, _) = server.get_load_states(error.id).unwrap();
-                assert!(matches!(load_state, LoadState::Failed(_)));
+                assert!(load_state.is_failed());
                 assert_eq!(*error.path.source(), AssetSourceId::Name("unstable".into()));
                 match &error.error {
                     AssetLoadError::AssetReaderError(read_error) => match read_error {
@@ -1411,9 +1734,9 @@ mod tests {
                                 );
                             }
                         }
-                        _ => panic!("Unexpected error type {:?}", read_error),
+                        _ => panic!("Unexpected error type {}", read_error),
                     },
-                    _ => panic!("Unexpected error type {:?}", error.error),
+                    _ => panic!("Unexpected error type {}", error.error),
                 }
             }
         }
@@ -1436,11 +1759,7 @@ mod tests {
             "unstable",
             AssetSource::build().with_reader(move || Box::new(unstable_reader.clone())),
         )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ))
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
         .init_asset::<CoolText>()
         .register_asset_loader(CoolTextLoader)
         .init_resource::<ErrorTracker>()
@@ -1453,8 +1772,6 @@ mod tests {
         let a_path = format!("unstable://{a_path}");
         let a_handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = a_handle.id();
-
-        app.world_mut().spawn(a_handle);
 
         run_app_until(&mut app, |world| {
             let tracker = world.resource::<ErrorTracker>();
@@ -1490,12 +1807,88 @@ mod tests {
         app.world_mut().run_schedule(Update);
     }
 
+    // This test is not checking a requirement, but documenting a current limitation. We simply are
+    // not capable of loading subassets when doing nested immediate loads.
+    #[test]
+    fn error_on_nested_immediate_load_of_subasset() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset_text(
+            Path::new("a.cool.ron"),
+            r#"(
+    text: "b",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: ["A"],
+)"#,
+        );
+        dir.insert_asset_text(Path::new("empty.txt"), "");
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+        )
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        struct NestedLoadOfSubassetLoader;
+
+        impl AssetLoader for NestedLoadOfSubassetLoader {
+            type Asset = TestAsset;
+            type Error = crate::loader::LoadDirectError;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                // We expect this load to fail.
+                load_context
+                    .loader()
+                    .immediate()
+                    .load::<SubText>("a.cool.ron#A")
+                    .await?;
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["txt"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(NestedLoadOfSubassetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<TestAsset>("empty.txt");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Failed(err) => {
+                let error_message = format!("{err}");
+                assert!(error_message.contains("Requested to load an asset path (a.cool.ron#A) with a subasset, but this is unsupported"), "what? \"{error_message}\"");
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+    }
+
     // validate the Asset derive macro for various asset types
     #[derive(Asset, TypePath)]
     pub struct TestAsset;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
+    #[expect(
+        dead_code,
+        reason = "This exists to ensure that `#[derive(Asset)]` works on enums. The inner variants are known not to be used."
+    )]
     pub enum EnumTestAsset {
         Unnamed(#[dependency] Handle<TestAsset>),
         Named {
@@ -1510,7 +1903,6 @@ mod tests {
         Empty,
     }
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1519,7 +1911,93 @@ mod tests {
         embedded: TestAsset,
     }
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
+
+    fn unapproved_path_setup(mode: UnapprovedPathMode) -> App {
+        let dir = Dir::default();
+        let a_path = "../a.cool.ron";
+        let a_ron = r#"
+(
+    text: "a",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+
+        dir.insert_asset_text(Path::new(a_path), a_ron);
+
+        let mut app = App::new();
+        let memory_reader = MemoryAssetReader { root: dir };
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build().with_reader(move || Box::new(memory_reader.clone())),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                unapproved_path_mode: mode,
+                ..Default::default()
+            },
+        ));
+        app.init_asset::<CoolText>();
+
+        app
+    }
+
+    fn load_a_asset(assets: Res<AssetServer>) {
+        let a = assets.load::<CoolText>("../a.cool.ron");
+        if a == Handle::default() {
+            panic!()
+        }
+    }
+
+    fn load_a_asset_override(assets: Res<AssetServer>) {
+        let a = assets.load_override::<CoolText>("../a.cool.ron");
+        if a == Handle::default() {
+            panic!()
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn unapproved_path_forbid_should_panic() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Forbid);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, load_a_asset_override));
+
+        app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    #[should_panic]
+    fn unapproved_path_deny_should_panic() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, load_a_asset));
+
+        app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    fn unapproved_path_deny_should_finish() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, load_a_asset_override));
+
+        app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    fn unapproved_path_allow_should_finish() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Allow);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, load_a_asset));
+
+        app.world_mut().run_schedule(Update);
+    }
 }

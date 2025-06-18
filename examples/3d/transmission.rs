@@ -23,27 +23,29 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::*,
     core_pipeline::{
-        bloom::BloomSettings, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
+        bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
+    math::ops,
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
-        view::{ColorGrading, ColorGradingGlobal},
+        view::{ColorGrading, ColorGradingGlobal, Hdr},
     },
 };
 
-#[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-use bevy::core_pipeline::experimental::taa::{
-    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
-};
+// *Note:* TAA is not _required_ for specular transmission, but
+// it _greatly enhances_ the look of the resulting blur effects.
+// Sadly, it's not available under WebGL.
+#[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
+use bevy::anti_aliasing::taa::TemporalAntiAliasing;
+
 use rand::random;
 
 fn main() {
-    let mut app = App::new();
-
-    app.add_plugins(DefaultPlugins)
+    App::new()
+        .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
         .insert_resource(AmbientLight {
@@ -51,15 +53,8 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, (example_control_system, flicker_system));
-
-    // *Note:* TAA is not _required_ for specular transmission, but
-    // it _greatly enhances_ the look of the resulting blur effects.
-    // Sadly, it's not available under WebGL.
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-    app.add_plugins(TemporalAntiAliasPlugin);
-
-    app.run();
+        .add_systems(Update, (example_control_system, flicker_system))
+        .run();
 }
 
 /// set up a simple 3D scene
@@ -76,17 +71,14 @@ fn setup(
 
     // Cube #1
     commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh.clone(),
-            material: materials.add(StandardMaterial::default()),
-            transform: Transform::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
-                EulerRot::XYZ,
-                1.4,
-                3.7,
-                21.3,
-            )),
-            ..default()
-        },
+        Mesh3d(cube_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        Transform::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
+            EulerRot::XYZ,
+            1.4,
+            3.7,
+            21.3,
+        )),
         ExampleControls {
             color: true,
             specular_transmission: false,
@@ -96,17 +88,14 @@ fn setup(
 
     // Cube #2
     commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh,
-            material: materials.add(StandardMaterial::default()),
-            transform: Transform::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
-                EulerRot::XYZ,
-                0.4,
-                2.3,
-                4.7,
-            )),
-            ..default()
-        },
+        Mesh3d(cube_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        Transform::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
+            EulerRot::XYZ,
+            0.4,
+            2.3,
+            4.7,
+        )),
         ExampleControls {
             color: true,
             specular_transmission: false,
@@ -116,18 +105,15 @@ fn setup(
 
     // Candle
     commands.spawn((
-        PbrBundle {
-            mesh: cylinder_mesh,
-            material: materials.add(StandardMaterial {
-                base_color: Color::srgb(0.9, 0.2, 0.3),
-                diffuse_transmission: 0.7,
-                perceptual_roughness: 0.32,
-                thickness: 0.2,
-                ..default()
-            }),
-            transform: Transform::from_xyz(-1.0, 0.0, 0.0),
+        Mesh3d(cylinder_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.9, 0.2, 0.3),
+            diffuse_transmission: 0.7,
+            perceptual_roughness: 0.32,
+            thickness: 0.2,
             ..default()
-        },
+        })),
+        Transform::from_xyz(-1.0, 0.0, 0.0),
         ExampleControls {
             color: true,
             specular_transmission: false,
@@ -146,36 +132,30 @@ fn setup(
     };
 
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone(),
-            material: materials.add(StandardMaterial {
-                emissive,
-                diffuse_transmission: 1.0,
-                ..default()
-            }),
-            transform: Transform::from_xyz(-1.0, 1.15, 0.0).with_scale(Vec3::new(0.1, 0.2, 0.1)),
+        Mesh3d(icosphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            emissive,
+            diffuse_transmission: 1.0,
             ..default()
-        },
+        })),
+        Transform::from_xyz(-1.0, 1.15, 0.0).with_scale(Vec3::new(0.1, 0.2, 0.1)),
         Flicker,
         NotShadowCaster,
     ));
 
     // Glass Sphere
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone(),
-            material: materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                specular_transmission: 0.9,
-                diffuse_transmission: 1.0,
-                thickness: 1.8,
-                ior: 1.5,
-                perceptual_roughness: 0.12,
-                ..default()
-            }),
-            transform: Transform::from_xyz(1.0, 0.0, 0.0),
+        Mesh3d(icosphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            specular_transmission: 0.9,
+            diffuse_transmission: 1.0,
+            thickness: 1.8,
+            ior: 1.5,
+            perceptual_roughness: 0.12,
             ..default()
-        },
+        })),
+        Transform::from_xyz(1.0, 0.0, 0.0),
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -185,20 +165,17 @@ fn setup(
 
     // R Sphere
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone(),
-            material: materials.add(StandardMaterial {
-                base_color: RED.into(),
-                specular_transmission: 0.9,
-                diffuse_transmission: 1.0,
-                thickness: 1.8,
-                ior: 1.5,
-                perceptual_roughness: 0.12,
-                ..default()
-            }),
-            transform: Transform::from_xyz(1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
+        Mesh3d(icosphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.into(),
+            specular_transmission: 0.9,
+            diffuse_transmission: 1.0,
+            thickness: 1.8,
+            ior: 1.5,
+            perceptual_roughness: 0.12,
             ..default()
-        },
+        })),
+        Transform::from_xyz(1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -208,20 +185,17 @@ fn setup(
 
     // G Sphere
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone(),
-            material: materials.add(StandardMaterial {
-                base_color: LIME.into(),
-                specular_transmission: 0.9,
-                diffuse_transmission: 1.0,
-                thickness: 1.8,
-                ior: 1.5,
-                perceptual_roughness: 0.12,
-                ..default()
-            }),
-            transform: Transform::from_xyz(0.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
+        Mesh3d(icosphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: LIME.into(),
+            specular_transmission: 0.9,
+            diffuse_transmission: 1.0,
+            thickness: 1.8,
+            ior: 1.5,
+            perceptual_roughness: 0.12,
             ..default()
-        },
+        })),
+        Transform::from_xyz(0.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -231,20 +205,17 @@ fn setup(
 
     // B Sphere
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh,
-            material: materials.add(StandardMaterial {
-                base_color: BLUE.into(),
-                specular_transmission: 0.9,
-                diffuse_transmission: 1.0,
-                thickness: 1.8,
-                ior: 1.5,
-                perceptual_roughness: 0.12,
-                ..default()
-            }),
-            transform: Transform::from_xyz(-1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
+        Mesh3d(icosphere_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: BLUE.into(),
+            specular_transmission: 0.9,
+            diffuse_transmission: 1.0,
+            thickness: 1.8,
+            ior: 1.5,
+            perceptual_roughness: 0.12,
             ..default()
-        },
+        })),
+        Transform::from_xyz(-1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -270,16 +241,13 @@ fn setup(
     for x in -3..4 {
         for z in -3..4 {
             commands.spawn((
-                PbrBundle {
-                    mesh: plane_mesh.clone(),
-                    material: if (x + z) % 2 == 0 {
-                        black_material.clone()
-                    } else {
-                        white_material.clone()
-                    },
-                    transform: Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
-                    ..default()
-                },
+                Mesh3d(plane_mesh.clone()),
+                MeshMaterial3d(if (x + z) % 2 == 0 {
+                    black_material.clone()
+                } else {
+                    white_material.clone()
+                }),
+                Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
                 ExampleControls {
                     color: true,
                     specular_transmission: false,
@@ -291,22 +259,19 @@ fn setup(
 
     // Paper
     commands.spawn((
-        PbrBundle {
-            mesh: plane_mesh,
-            material: materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                diffuse_transmission: 0.6,
-                perceptual_roughness: 0.8,
-                reflectance: 1.0,
-                double_sided: true,
-                cull_mode: None,
-                ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.5, -3.0)
-                .with_scale(Vec3::new(2.0, 1.0, 1.0))
-                .with_rotation(Quat::from_euler(EulerRot::XYZ, PI / 2.0, 0.0, 0.0)),
+        Mesh3d(plane_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            diffuse_transmission: 0.6,
+            perceptual_roughness: 0.8,
+            reflectance: 1.0,
+            double_sided: true,
+            cull_mode: None,
             ..default()
-        },
+        })),
+        Transform::from_xyz(0.0, 0.5, -3.0)
+            .with_scale(Vec3::new(2.0, 1.0, 1.0))
+            .with_rotation(Quat::from_euler(EulerRot::XYZ, PI / 2.0, 0.0, 0.0)),
         TransmittedShadowReceiver,
         ExampleControls {
             specular_transmission: false,
@@ -317,18 +282,15 @@ fn setup(
 
     // Candle Light
     commands.spawn((
-        PointLightBundle {
-            transform: Transform::from_xyz(-1.0, 1.7, 0.0),
-            point_light: PointLight {
-                color: Color::from(
-                    LinearRgba::from(ANTIQUE_WHITE).mix(&LinearRgba::from(ORANGE_RED), 0.2),
-                ),
-                intensity: 4_000.0,
-                radius: 0.2,
-                range: 5.0,
-                shadows_enabled: true,
-                ..default()
-            },
+        Transform::from_xyz(-1.0, 1.7, 0.0),
+        PointLight {
+            color: Color::from(
+                LinearRgba::from(ANTIQUE_WHITE).mix(&LinearRgba::from(ORANGE_RED), 0.2),
+            ),
+            intensity: 4_000.0,
+            radius: 0.2,
+            range: 5.0,
+            shadows_enabled: true,
             ..default()
         },
         Flicker,
@@ -336,46 +298,39 @@ fn setup(
 
     // Camera
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
+        Camera3d::default(),
+        Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ColorGrading {
+            global: ColorGradingGlobal {
+                post_saturation: 1.2,
                 ..default()
             },
-            transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
-            color_grading: ColorGrading {
-                global: ColorGradingGlobal {
-                    post_saturation: 1.2,
-                    ..default()
-                },
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface,
-            exposure: Exposure { ev100: 6.0 },
-            #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-            msaa: Msaa::Off,
             ..default()
         },
-        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-        TemporalAntiAliasBundle::default(),
+        Tonemapping::TonyMcMapface,
+        Exposure { ev100: 6.0 },
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
+        Msaa::Off,
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
+        TemporalAntiAliasing::default(),
         EnvironmentMapLight {
             intensity: 25.0,
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             ..default()
         },
-        BloomSettings::default(),
+        Bloom::default(),
     ));
 
     // Controls Text
-    let text_style = TextStyle::default();
-
     commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 }
@@ -417,61 +372,60 @@ impl Default for ExampleState {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn example_control_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    controllable: Query<(&Handle<StandardMaterial>, &ExampleControls)>,
-    mut camera: Query<
+    controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
+    camera: Single<
         (
             Entity,
-            &mut Camera,
             &mut Camera3d,
             &mut Transform,
             Option<&DepthPrepass>,
             Option<&TemporalJitter>,
+            Has<Hdr>,
         ),
         With<Camera3d>,
     >,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Single<&mut Text, With<ExampleDisplay>>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::Digit2) {
-        state.diffuse_transmission = (state.diffuse_transmission + time.delta_seconds()).min(1.0);
+        state.diffuse_transmission = (state.diffuse_transmission + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::Digit1) {
-        state.diffuse_transmission = (state.diffuse_transmission - time.delta_seconds()).max(0.0);
+        state.diffuse_transmission = (state.diffuse_transmission - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyW) {
-        state.specular_transmission = (state.specular_transmission + time.delta_seconds()).min(1.0);
+        state.specular_transmission = (state.specular_transmission + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyQ) {
-        state.specular_transmission = (state.specular_transmission - time.delta_seconds()).max(0.0);
+        state.specular_transmission = (state.specular_transmission - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyS) {
-        state.thickness = (state.thickness + time.delta_seconds()).min(5.0);
+        state.thickness = (state.thickness + time.delta_secs()).min(5.0);
     } else if input.pressed(KeyCode::KeyA) {
-        state.thickness = (state.thickness - time.delta_seconds()).max(0.0);
+        state.thickness = (state.thickness - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyX) {
-        state.ior = (state.ior + time.delta_seconds()).min(3.0);
+        state.ior = (state.ior + time.delta_secs()).min(3.0);
     } else if input.pressed(KeyCode::KeyZ) {
-        state.ior = (state.ior - time.delta_seconds()).max(1.0);
+        state.ior = (state.ior - time.delta_secs()).max(1.0);
     }
 
     if input.pressed(KeyCode::KeyI) {
-        state.reflectance = (state.reflectance + time.delta_seconds()).min(1.0);
+        state.reflectance = (state.reflectance + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyU) {
-        state.reflectance = (state.reflectance - time.delta_seconds()).max(0.0);
+        state.reflectance = (state.reflectance - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyR) {
-        state.perceptual_roughness = (state.perceptual_roughness + time.delta_seconds()).min(1.0);
+        state.perceptual_roughness = (state.perceptual_roughness + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyE) {
-        state.perceptual_roughness = (state.perceptual_roughness - time.delta_seconds()).max(0.0);
+        state.perceptual_roughness = (state.perceptual_roughness - time.delta_secs()).max(0.0);
     }
 
     let randomize_colors = input.just_pressed(KeyCode::KeyC);
@@ -496,20 +450,18 @@ fn example_control_system(
         }
     }
 
-    let (
-        camera_entity,
-        mut camera,
-        mut camera_3d,
-        mut camera_transform,
-        depth_prepass,
-        temporal_jitter,
-    ) = camera.single_mut();
+    let (camera_entity, mut camera_3d, mut camera_transform, depth_prepass, temporal_jitter, hdr) =
+        camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
-        camera.hdr = !camera.hdr;
+        if hdr {
+            commands.entity(camera_entity).remove::<Hdr>();
+        } else {
+            commands.entity(camera_entity).insert(Hdr);
+        }
     }
 
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyD) {
         if depth_prepass.is_none() {
             commands.entity(camera_entity).insert(DepthPrepass);
@@ -518,17 +470,16 @@ fn example_control_system(
         }
     }
 
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
-            commands.entity(camera_entity).insert((
-                TemporalJitter::default(),
-                TemporalAntiAliasSettings::default(),
-            ));
+            commands
+                .entity(camera_entity)
+                .insert((TemporalJitter::default(), TemporalAntiAliasing::default()));
         } else {
             commands
                 .entity(camera_entity)
-                .remove::<(TemporalJitter, TemporalAntiAliasSettings)>();
+                .remove::<(TemporalJitter, TemporalAntiAliasing)>();
         }
     }
 
@@ -560,34 +511,33 @@ fn example_control_system(
 
     let rotation = if input.pressed(KeyCode::ArrowRight) {
         state.auto_camera = false;
-        time.delta_seconds()
+        time.delta_secs()
     } else if input.pressed(KeyCode::ArrowLeft) {
         state.auto_camera = false;
-        -time.delta_seconds()
+        -time.delta_secs()
     } else if state.auto_camera {
-        time.delta_seconds() * 0.25
+        time.delta_secs() * 0.25
     } else {
         0.0
     };
 
     let distance_change =
         if input.pressed(KeyCode::ArrowDown) && camera_transform.translation.length() < 25.0 {
-            time.delta_seconds()
+            time.delta_secs()
         } else if input.pressed(KeyCode::ArrowUp) && camera_transform.translation.length() > 2.0 {
-            -time.delta_seconds()
+            -time.delta_secs()
         } else {
             0.0
         };
 
-    camera_transform.translation *= distance_change.exp();
+    camera_transform.translation *= ops::exp(distance_change);
 
     camera_transform.rotate_around(
         Vec3::ZERO,
         Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
     );
 
-    let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    display.0 = format!(
         concat!(
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
             "         O / P  Screen Space Specular Transmissive Steps: {}\n",
@@ -611,8 +561,8 @@ fn example_control_system(
         state.ior,
         state.perceptual_roughness,
         state.reflectance,
-        if camera.hdr { "ON " } else { "OFF" },
-        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+        if hdr { "ON " } else { "OFF" },
+        if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {
                 "ON "
             } else {
@@ -621,7 +571,7 @@ fn example_control_system(
         } else {
             "N/A (WebGL)"
         },
-        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+        if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if temporal_jitter.is_some() {
                 if depth_prepass.is_some() {
                     "ON "
@@ -638,20 +588,19 @@ fn example_control_system(
 }
 
 fn flicker_system(
-    mut flame: Query<&mut Transform, (With<Flicker>, With<Handle<Mesh>>)>,
-    mut light: Query<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Handle<Mesh>>)>,
+    mut flame: Single<&mut Transform, (With<Flicker>, With<Mesh3d>)>,
+    light: Single<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
     time: Res<Time>,
 ) {
-    let s = time.elapsed_seconds();
-    let a = (s * 6.0).cos() * 0.0125 + (s * 4.0).cos() * 0.025;
-    let b = (s * 5.0).cos() * 0.0125 + (s * 3.0).cos() * 0.025;
-    let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
-    let (mut light, mut light_transform) = light.single_mut();
-    let mut flame_transform = flame.single_mut();
+    let s = time.elapsed_secs();
+    let a = ops::cos(s * 6.0) * 0.0125 + ops::cos(s * 4.0) * 0.025;
+    let b = ops::cos(s * 5.0) * 0.0125 + ops::cos(s * 3.0) * 0.025;
+    let c = ops::cos(s * 7.0) * 0.0125 + ops::cos(s * 2.0) * 0.025;
+    let (mut light, mut light_transform) = light.into_inner();
     light.intensity = 4_000.0 + 3000.0 * (a + b + c);
-    flame_transform.translation = Vec3::new(-1.0, 1.23, 0.0);
-    flame_transform.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
-    flame_transform.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));
+    flame.translation = Vec3::new(-1.0, 1.23, 0.0);
+    flame.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
+    flame.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));
     light_transform.translation = Vec3::new(-1.0 - c, 1.7, 0.0 - a);
-    flame_transform.translation = Vec3::new(-1.0 - c, 1.23, 0.0 - a);
+    flame.translation = Vec3::new(-1.0 - c, 1.23, 0.0 - a);
 }

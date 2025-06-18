@@ -1,12 +1,15 @@
 use super::{Aabb2d, BoundingCircle, IntersectsVolume};
-use crate::{Dir2, Ray2d, Vec2};
+use crate::{
+    ops::{self, FloatPow},
+    Dir2, Ray2d, Vec2,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
 /// A raycast intersection test for 2D bounding volumes
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct RayCast2d {
     /// The ray for the test
     pub ray: Ray2d,
@@ -75,12 +78,14 @@ impl RayCast2d {
     pub fn circle_intersection_at(&self, circle: &BoundingCircle) -> Option<f32> {
         let offset = self.ray.origin - circle.center;
         let projected = offset.dot(*self.ray.direction);
-        let closest_point = offset - projected * *self.ray.direction;
-        let distance_squared = circle.radius().powi(2) - closest_point.length_squared();
-        if distance_squared < 0. || projected.powi(2).copysign(-projected) < -distance_squared {
+        let cross = offset.perp_dot(*self.ray.direction);
+        let distance_squared = circle.radius().squared() - cross.squared();
+        if distance_squared < 0.
+            || ops::copysign(projected.squared(), -projected) < -distance_squared
+        {
             None
         } else {
-            let toi = -projected - distance_squared.sqrt();
+            let toi = -projected - ops::sqrt(distance_squared);
             if toi > self.max {
                 None
             } else {
@@ -104,7 +109,7 @@ impl IntersectsVolume<BoundingCircle> for RayCast2d {
 
 /// An intersection test that casts an [`Aabb2d`] along a ray.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct AabbCast2d {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast2d,
@@ -142,7 +147,7 @@ impl IntersectsVolume<Aabb2d> for AabbCast2d {
 
 /// An intersection test that casts a [`BoundingCircle`] along a ray.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct BoundingCircleCast {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast2d,
@@ -224,21 +229,21 @@ mod tests {
                 4.996,
             ),
         ] {
-            let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
-                test, volume, expected_distance
+            assert!(
+                test.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            assert!(test.intersects(volume), "{}", case);
             let actual_distance = test.circle_intersection_at(volume).unwrap();
             assert!(
-                (actual_distance - expected_distance).abs() < EPSILON,
-                "{}\n  Actual distance: {}",
-                case,
-                actual_distance
+                ops::abs(actual_distance - expected_distance) < EPSILON,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
             );
 
             let inverted_ray = RayCast2d::new(test.ray.origin, -test.ray.direction, test.max);
-            assert!(!inverted_ray.intersects(volume), "{}", case);
+            assert!(
+                !inverted_ray.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
+            );
         }
     }
 
@@ -263,9 +268,7 @@ mod tests {
         ] {
             assert!(
                 !test.intersects(volume),
-                "Case:\n  Test: {:?}\n  Volume: {:?}",
-                test,
-                volume,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}",
             );
         }
     }
@@ -278,14 +281,17 @@ mod tests {
                 for max in &[0., 1., 900.] {
                     let test = RayCast2d::new(*origin, *direction, *max);
 
-                    let case = format!(
-                        "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
-                        origin, direction, max,
+                    assert!(
+                        test.intersects(&volume),
+                        "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
-                    assert!(test.intersects(&volume), "{}", case);
 
                     let actual_distance = test.circle_intersection_at(&volume);
-                    assert_eq!(actual_distance, Some(0.), "{}", case);
+                    assert_eq!(
+                        actual_distance,
+                        Some(0.),
+                        "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
+                    );
                 }
             }
         }
@@ -331,21 +337,21 @@ mod tests {
                 1.414,
             ),
         ] {
-            let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
-                test, volume, expected_distance
+            assert!(
+                test.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            assert!(test.intersects(volume), "{}", case);
             let actual_distance = test.aabb_intersection_at(volume).unwrap();
             assert!(
-                (actual_distance - expected_distance).abs() < EPSILON,
-                "{}\n  Actual distance: {}",
-                case,
-                actual_distance
+                ops::abs(actual_distance - expected_distance) < EPSILON,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
             );
 
             let inverted_ray = RayCast2d::new(test.ray.origin, -test.ray.direction, test.max);
-            assert!(!inverted_ray.intersects(volume), "{}", case);
+            assert!(
+                !inverted_ray.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
+            );
         }
     }
 
@@ -370,9 +376,7 @@ mod tests {
         ] {
             assert!(
                 !test.intersects(volume),
-                "Case:\n  Test: {:?}\n  Volume: {:?}",
-                test,
-                volume,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}",
             );
         }
     }
@@ -385,14 +389,17 @@ mod tests {
                 for max in &[0., 1., 900.] {
                     let test = RayCast2d::new(*origin, *direction, *max);
 
-                    let case = format!(
-                        "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
-                        origin, direction, max,
+                    assert!(
+                        test.intersects(&volume),
+                        "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
-                    assert!(test.intersects(&volume), "{}", case);
 
                     let actual_distance = test.aabb_intersection_at(&volume);
-                    assert_eq!(actual_distance, Some(0.), "{}", case,);
+                    assert_eq!(
+                        actual_distance,
+                        Some(0.),
+                        "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
+                    );
                 }
             }
         }
@@ -441,22 +448,22 @@ mod tests {
                 3.,
             ),
         ] {
-            let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
-                test, volume, expected_distance
+            assert!(
+                test.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            assert!(test.intersects(volume), "{}", case);
             let actual_distance = test.aabb_collision_at(*volume).unwrap();
             assert!(
-                (actual_distance - expected_distance).abs() < EPSILON,
-                "{}\n  Actual distance: {}",
-                case,
-                actual_distance
+                ops::abs(actual_distance - expected_distance) < EPSILON,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
             );
 
             let inverted_ray =
                 RayCast2d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
-            assert!(!inverted_ray.intersects(volume), "{}", case);
+            assert!(
+                !inverted_ray.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
+            );
         }
     }
 
@@ -508,22 +515,22 @@ mod tests {
                 3.677,
             ),
         ] {
-            let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
-                test, volume, expected_distance
+            assert!(
+                test.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            assert!(test.intersects(volume), "{}", case);
             let actual_distance = test.circle_collision_at(*volume).unwrap();
             assert!(
-                (actual_distance - expected_distance).abs() < EPSILON,
-                "{}\n  Actual distance: {}",
-                case,
-                actual_distance
+                ops::abs(actual_distance - expected_distance) < EPSILON,
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
             );
 
             let inverted_ray =
                 RayCast2d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
-            assert!(!inverted_ray.intersects(volume), "{}", case);
+            assert!(
+                !inverted_ray.intersects(volume),
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
+            );
         }
     }
 }

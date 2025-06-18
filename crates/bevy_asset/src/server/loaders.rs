@@ -2,17 +2,21 @@ use crate::{
     loader::{AssetLoader, ErasedAssetLoader},
     path::AssetPath,
 };
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
+use bevy_platform::collections::HashMap;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{error, warn};
-#[cfg(feature = "trace")]
-use bevy_utils::{
-    tracing::{info_span, instrument::Instrument},
-    ConditionalSendFuture,
-};
-use bevy_utils::{HashMap, TypeIdMap};
-use std::{any::TypeId, sync::Arc};
+use bevy_utils::TypeIdMap;
+use core::any::TypeId;
 use thiserror::Error;
+use tracing::warn;
+
+#[cfg(feature = "trace")]
+use {
+    alloc::string::ToString,
+    bevy_tasks::ConditionalSendFuture,
+    tracing::{info_span, instrument::Instrument},
+};
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
@@ -31,9 +35,9 @@ impl AssetLoaders {
 
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub(crate) fn push<L: AssetLoader>(&mut self, loader: L) {
-        let type_name = std::any::type_name::<L>();
+        let type_name = core::any::type_name::<L>();
         let loader_asset_type = TypeId::of::<L::Asset>();
-        let loader_asset_type_name = std::any::type_name::<L::Asset>();
+        let loader_asset_type_name = core::any::type_name::<L::Asset>();
 
         #[cfg(feature = "trace")]
         let loader = InstrumentedAssetLoader(loader);
@@ -47,6 +51,7 @@ impl AssetLoaders {
             };
 
         if is_new {
+            let existing_loaders_for_type_id = self.type_id_to_loaders.get(&loader_asset_type);
             let mut duplicate_extensions = Vec::new();
             for extension in AssetLoader::extensions(&*loader) {
                 let list = self
@@ -55,30 +60,33 @@ impl AssetLoaders {
                     .or_default();
 
                 if !list.is_empty() {
-                    duplicate_extensions.push(extension);
+                    if let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id {
+                        if list
+                            .iter()
+                            .any(|index| existing_loaders_for_type_id.contains(index))
+                        {
+                            duplicate_extensions.push(extension);
+                        }
+                    }
                 }
 
                 list.push(loader_index);
             }
-
-            self.type_name_to_loader.insert(type_name, loader_index);
-
-            let list = self
-                .type_id_to_loaders
-                .entry(loader_asset_type)
-                .or_default();
-
-            let duplicate_asset_registration = !list.is_empty();
-            if !duplicate_extensions.is_empty() && duplicate_asset_registration {
+            if !duplicate_extensions.is_empty() {
                 warn!("Duplicate AssetLoader registered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
                 Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
             }
 
-            list.push(loader_index);
+            self.type_name_to_loader.insert(type_name, loader_index);
+
+            self.type_id_to_loaders
+                .entry(loader_asset_type)
+                .or_default()
+                .push(loader_index);
 
             self.loaders.push(MaybeAssetLoader::Ready(loader));
         } else {
-            let maybe_loader = std::mem::replace(
+            let maybe_loader = core::mem::replace(
                 self.loaders.get_mut(loader_index).unwrap(),
                 MaybeAssetLoader::Ready(loader.clone()),
             );
@@ -101,13 +109,15 @@ impl AssetLoaders {
     /// real loader is added.
     pub(crate) fn reserve<L: AssetLoader>(&mut self, extensions: &[&str]) {
         let loader_asset_type = TypeId::of::<L::Asset>();
-        let loader_asset_type_name = std::any::type_name::<L::Asset>();
-        let type_name = std::any::type_name::<L>();
+        let loader_asset_type_name = core::any::type_name::<L::Asset>();
+        let type_name = core::any::type_name::<L>();
 
         let loader_index = self.loaders.len();
 
         self.preregistered_loaders.insert(type_name, loader_index);
         self.type_name_to_loader.insert(type_name, loader_index);
+
+        let existing_loaders_for_type_id = self.type_id_to_loaders.get(&loader_asset_type);
         let mut duplicate_extensions = Vec::new();
         for extension in extensions {
             let list = self
@@ -116,24 +126,27 @@ impl AssetLoaders {
                 .or_default();
 
             if !list.is_empty() {
-                duplicate_extensions.push(extension);
+                if let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id {
+                    if list
+                        .iter()
+                        .any(|index| existing_loaders_for_type_id.contains(index))
+                    {
+                        duplicate_extensions.push(extension);
+                    }
+                }
             }
 
             list.push(loader_index);
         }
-
-        let list = self
-            .type_id_to_loaders
-            .entry(loader_asset_type)
-            .or_default();
-
-        let duplicate_asset_registration = !list.is_empty();
-        if !duplicate_extensions.is_empty() && duplicate_asset_registration {
+        if !duplicate_extensions.is_empty() {
             warn!("Duplicate AssetLoader preregistered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
             Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
         }
 
-        list.push(loader_index);
+        self.type_id_to_loaders
+            .entry(loader_asset_type)
+            .or_default()
+            .push(loader_index);
 
         let (mut sender, receiver) = async_broadcast::broadcast(1);
         sender.set_overflow(true);
@@ -266,7 +279,7 @@ impl AssetLoaders {
     pub(crate) fn get_by_path(&self, path: &AssetPath<'_>) -> Option<MaybeAssetLoader> {
         let extension = path.get_full_extension()?;
 
-        let result = std::iter::once(extension.as_str())
+        let result = core::iter::once(extension.as_str())
             .chain(AssetPath::iter_secondary_extensions(&extension))
             .filter_map(|extension| self.extension_to_loaders.get(extension)?.last().copied())
             .find_map(|index| self.get_by_index(index))?;
@@ -308,15 +321,15 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
     type Settings = T::Settings;
     type Error = T::Error;
 
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn crate::io::Reader,
-        settings: &'a Self::Settings,
-        load_context: &'a mut crate::LoadContext,
+    fn load(
+        &self,
+        reader: &mut dyn crate::io::Reader,
+        settings: &Self::Settings,
+        load_context: &mut crate::LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
         let span = info_span!(
             "asset loading",
-            loader = std::any::type_name::<T>(),
+            loader = core::any::type_name::<T>(),
             asset = load_context.asset_path().to_string(),
         );
         self.0.load(reader, settings, load_context).instrument(span)
@@ -329,8 +342,9 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{format, string::String};
+    use core::marker::PhantomData;
     use std::{
-        marker::PhantomData,
         path::Path,
         sync::mpsc::{channel, Receiver, Sender},
     };
@@ -338,22 +352,18 @@ mod tests {
     use bevy_reflect::TypePath;
     use bevy_tasks::block_on;
 
-    use crate::{self as bevy_asset, Asset};
+    use crate::Asset;
 
     use super::*;
 
-    // The compiler notices these fields are never read and raises a dead_code lint which kill CI.
-    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
-    struct A(usize);
+    struct A;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
-    struct B(usize);
+    struct B;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
-    struct C(usize);
+    struct C;
 
     struct Loader<A: Asset, const N: usize, const E: usize> {
         sender: Sender<()>,
@@ -380,17 +390,17 @@ mod tests {
 
         type Error = String;
 
-        async fn load<'a>(
-            &'a self,
-            _: &'a mut dyn crate::io::Reader,
-            _: &'a Self::Settings,
-            _: &'a mut crate::LoadContext<'_>,
+        async fn load(
+            &self,
+            _: &mut dyn crate::io::Reader,
+            _: &Self::Settings,
+            _: &mut crate::LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
             self.sender.send(()).unwrap();
 
             Err(format!(
                 "Loaded {}:{}",
-                std::any::type_name::<Self::Asset>(),
+                core::any::type_name::<Self::Asset>(),
                 N
             ))
         }
@@ -424,7 +434,7 @@ mod tests {
 
         let loader = block_on(
             loaders
-                .get_by_name(std::any::type_name::<Loader<A, 1, 0>>())
+                .get_by_name(core::any::type_name::<Loader<A, 1, 0>>())
                 .unwrap()
                 .get(),
         )

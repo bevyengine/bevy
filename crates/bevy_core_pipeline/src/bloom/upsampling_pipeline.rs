@@ -1,11 +1,12 @@
 use super::{
-    downsampling_pipeline::BloomUniforms, BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE,
-    BLOOM_TEXTURE_FORMAT,
+    downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT,
 };
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_render::{
@@ -26,6 +27,8 @@ pub struct UpsamplingPipelineIds {
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayout,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -53,7 +56,10 @@ impl FromWorld for BloomUpsamplingPipeline {
             ),
         );
 
-        BloomUpsamplingPipeline { bind_group_layout }
+        BloomUpsamplingPipeline {
+            bind_group_layout,
+            shader: load_embedded_asset!(world, "bloom.wgsl"),
+        }
     }
 }
 
@@ -104,7 +110,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             layout: vec![self.bind_group_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: BLOOM_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs: vec![],
                 entry_point: "upsample".into(),
                 targets: vec![Some(ColorTargetState {
@@ -124,6 +130,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -133,14 +140,14 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &BloomSettings)>,
+    views: Query<(Entity, &Bloom)>,
 ) {
-    for (entity, settings) in &views {
+    for (entity, bloom) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
-                composite_mode: settings.composite_mode,
+                composite_mode: bloom.composite_mode,
                 final_pipeline: false,
             },
         );
@@ -149,7 +156,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
-                composite_mode: settings.composite_mode,
+                composite_mode: bloom.composite_mode,
                 final_pipeline: true,
             },
         );

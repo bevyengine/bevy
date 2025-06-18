@@ -1,29 +1,52 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
+#![no_std]
 
 //! Accessibility for Bevy
+//!
+//! As of Bevy version 0.15 `accesskit` is no longer re-exported from this crate.
+//!
+//! If you need to use `accesskit`, you will need to add it as a separate dependency in your `Cargo.toml`.
+//!
+//! Make sure to use the same version of `accesskit` as Bevy.
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+#[cfg(feature = "std")]
+extern crate std;
 
-pub use accesskit;
-use accesskit::NodeBuilder;
+extern crate alloc;
+
+use alloc::sync::Arc;
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use accesskit::Node;
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Entity, Event},
+    component::Component,
+    event::{BufferedEvent, Event},
+    resource::Resource,
     schedule::SystemSet,
-    system::Resource,
 };
 
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::reflect::ReflectResource, bevy_reflect::std_traits::ReflectDefault,
+    bevy_reflect::Reflect,
+};
+
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
+
+#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
-#[derive(Event, Deref, DerefMut)]
+#[derive(Event, BufferedEvent, Deref, DerefMut)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct ActionRequest(pub accesskit::ActionRequest);
 
 /// Resource that tracks whether an assistive technology has requested
@@ -32,6 +55,11 @@ pub struct ActionRequest(pub accesskit::ActionRequest);
 /// Useful if a third-party plugin needs to conditionally integrate with
 /// `AccessKit`
 #[derive(Resource, Default, Clone, Debug, Deref, DerefMut)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Clone, Resource)
+)]
 pub struct AccessibilityRequested(Arc<AtomicBool>);
 
 impl AccessibilityRequested {
@@ -54,6 +82,16 @@ impl AccessibilityRequested {
 /// accessibility updates instead. Without this, the external library and ECS
 /// will generate conflicting updates.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Resource, Clone, Default)
+)]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct ManageAccessibilityUpdates(bool);
 
 impl Default for ManageAccessibilityUpdates {
@@ -83,24 +121,31 @@ impl ManageAccessibilityUpdates {
 /// If the entity doesn't have a parent, or if the immediate parent doesn't have
 /// an `AccessibilityNode`, its node will be an immediate child of the primary window.
 #[derive(Component, Clone, Deref, DerefMut)]
-pub struct AccessibilityNode(pub NodeBuilder);
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+pub struct AccessibilityNode(pub Node);
 
-impl From<NodeBuilder> for AccessibilityNode {
-    fn from(node: NodeBuilder) -> Self {
+impl From<Node> for AccessibilityNode {
+    fn from(node: Node) -> Self {
         Self(node)
     }
 }
 
-/// Resource representing which entity has keyboard focus, if any.
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct Focus(pub Option<Entity>);
-
 /// Set enum for the systems relating to accessibility
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum AccessibilitySystem {
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize, Clone)
+)]
+pub enum AccessibilitySystems {
     /// Update the accessibility tree
     Update,
 }
+
+/// Deprecated alias for [`AccessibilitySystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AccessibilitySystems`.")]
+pub type AccessibilitySystem = AccessibilitySystems;
 
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
 #[derive(Default)]
@@ -110,7 +155,6 @@ impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<ManageAccessibilityUpdates>()
-            .init_resource::<Focus>()
             .allow_ambiguous_component::<AccessibilityNode>();
     }
 }

@@ -1,19 +1,16 @@
-use crate::{self as bevy_asset};
+use crate::asset_changed::AssetChanges;
 use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use alloc::{sync::Arc, vec::Vec};
 use bevy_ecs::{
     prelude::EventWriter,
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut, SystemChangeTick},
 };
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{Reflect, TypePath};
-use bevy_utils::HashMap;
+use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
-use std::{
-    any::TypeId,
-    iter::Enumerate,
-    marker::PhantomData,
-    sync::{atomic::AtomicU32, Arc},
-};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -81,7 +78,7 @@ impl AssetIndexAllocator {
             AssetIndex {
                 index: self
                     .next_index
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+                    .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
                 generation: 0,
             }
         }
@@ -98,6 +95,7 @@ impl AssetIndexAllocator {
 /// [`AssetPath`]: crate::AssetPath
 #[derive(Asset, TypePath)]
 pub struct LoadedUntypedAsset {
+    /// The handle to the loaded asset.
     #[dependency]
     pub handle: UntypedHandle,
 }
@@ -236,7 +234,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         let new_len = self
             .allocator
             .next_index
-            .load(std::sync::atomic::Ordering::Relaxed);
+            .load(core::sync::atomic::Ordering::Relaxed);
         self.storage.resize_with(new_len as usize, || Entry::Some {
             value: None,
             generation: 0,
@@ -283,6 +281,8 @@ impl<A: Asset> DenseAssetStorage<A> {
 /// at compile time.
 ///
 /// This tracks (and queues) [`AssetEvent`] events whenever changes to the collection occur.
+/// To check whether the asset used by a given component has changed (due to a change in the handle or the underlying asset)
+/// use the [`AssetChanged`](crate::asset_changed::AssetChanged) query filter.
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
@@ -437,6 +437,18 @@ impl<A: Asset> Assets<A> {
         result
     }
 
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
+    ///
+    /// This is the same as [`Assets::get_mut`] except it doesn't emit [`AssetEvent::Modified`].
+    #[inline]
+    pub fn get_mut_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id: AssetId<A> = id.into();
+        match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+        }
+    }
+
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
@@ -450,6 +462,8 @@ impl<A: Asset> Assets<A> {
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists. This skips emitting [`AssetEvent::Removed`].
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    ///
+    /// This is the same as [`Assets::remove`] except it doesn't emit [`AssetEvent::Removed`].
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         self.duplicate_handles.remove(&id);
@@ -462,16 +476,22 @@ impl<A: Asset> Assets<A> {
     /// Removes the [`Asset`] with the given `id`.
     pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
         match self.duplicate_handles.get_mut(&id) {
-            None | Some(0) => {}
+            None => {}
+            Some(0) => {
+                self.duplicate_handles.remove(&id);
+            }
             Some(value) => {
                 *value -= 1;
                 return;
             }
         }
+
         let existed = match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index).is_some(),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).is_some(),
         };
+
+        self.queued_events.push(AssetEvent::Unused { id });
         if existed {
             self.queued_events.push(AssetEvent::Removed { id });
         }
@@ -553,7 +573,6 @@ impl<A: Asset> Assets<A> {
                 }
             }
 
-            assets.queued_events.push(AssetEvent::Unused { id });
             assets.remove_dropped(id);
         }
     }
@@ -561,8 +580,25 @@ impl<A: Asset> Assets<A> {
     /// A system that applies accumulated asset change events to the [`Events`] resource.
     ///
     /// [`Events`]: bevy_ecs::event::Events
-    pub fn asset_events(mut assets: ResMut<Self>, mut events: EventWriter<AssetEvent<A>>) {
-        events.send_batch(assets.queued_events.drain(..));
+    pub(crate) fn asset_events(
+        mut assets: ResMut<Self>,
+        mut events: EventWriter<AssetEvent<A>>,
+        asset_changes: Option<ResMut<AssetChanges<A>>>,
+        ticks: SystemChangeTick,
+    ) {
+        use AssetEvent::{Added, LoadedWithDependencies, Modified, Removed};
+
+        if let Some(mut asset_changes) = asset_changes {
+            for new_event in &assets.queued_events {
+                match new_event {
+                    Removed { id } | AssetEvent::Unused { id } => asset_changes.remove(id),
+                    Added { id } | Modified { id } | LoadedWithDependencies { id } => {
+                        asset_changes.insert(*id, ticks.this_run());
+                    }
+                };
+            }
+        }
+        events.write_batch(assets.queued_events.drain(..));
     }
 
     /// A run condition for [`asset_events`]. The system will not run if there are no events to
@@ -577,8 +613,8 @@ impl<A: Asset> Assets<A> {
 /// A mutable iterator over [`Assets`].
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
-    dense_storage: Enumerate<std::slice::IterMut<'a, Entry<A>>>,
-    hash_map: bevy_utils::hashbrown::hash_map::IterMut<'a, Uuid, A>,
+    dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
+    hash_map: bevy_platform::collections::hash_map::IterMut<'a, Uuid, A>,
 }
 
 impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
@@ -615,6 +651,7 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
     }
 }
 
+/// An error returned when an [`AssetIndex`] has an invalid generation.
 #[derive(Error, Debug)]
 #[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
 pub struct InvalidGenerationError {

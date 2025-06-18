@@ -1,21 +1,21 @@
-use fixedbitset::FixedBitSet;
-use std::any::TypeId;
-use std::collections::HashMap;
-
 use crate::{
+    resource::Resource,
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
+    system::{IntoSystem, ResMut},
 };
-use bevy_utils::{
-    tracing::{error, info, warn},
-    TypeIdMap,
-};
+use alloc::vec::Vec;
+use bevy_platform::collections::HashMap;
+use bevy_utils::TypeIdMap;
+use core::any::TypeId;
+use fixedbitset::FixedBitSet;
+use log::{info, warn};
 use thiserror::Error;
 
-#[cfg(test)]
-use bevy_utils::tracing::debug;
+#[cfg(not(feature = "bevy_debug_stepping"))]
+use log::error;
 
-use crate as bevy_ecs;
+#[cfg(test)]
+use log::debug;
 
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
 enum Action {
@@ -113,8 +113,8 @@ pub struct Stepping {
     updates: Vec<Update>,
 }
 
-impl std::fmt::Debug for Stepping {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Stepping {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "Stepping {{ action: {:?}, schedules: {:?}, order: {:?}",
@@ -125,7 +125,7 @@ impl std::fmt::Debug for Stepping {
         if self.action != Action::RunAll {
             let Cursor { schedule, system } = self.cursor;
             match self.schedule_order.get(schedule) {
-                Some(label) => write!(f, "cursor: {:?}[{}], ", label, system)?,
+                Some(label) => write!(f, "cursor: {label:?}[{system}], ")?,
                 None => write!(f, "cursor: None, ")?,
             };
         }
@@ -168,14 +168,8 @@ impl Stepping {
         if self.action == Action::RunAll {
             return None;
         }
-        let label = match self.schedule_order.get(self.cursor.schedule) {
-            None => return None,
-            Some(label) => label,
-        };
-        let state = match self.schedule_states.get(label) {
-            None => return None,
-            Some(state) => state,
-        };
+        let label = self.schedule_order.get(self.cursor.schedule)?;
+        let state = self.schedule_states.get(label)?;
         state
             .node_ids
             .get(self.cursor.system)
@@ -420,6 +414,10 @@ impl Stepping {
                     // transitions, and add debugging messages for permitted
                     // transitions.  Any action transition that falls through
                     // this match block will be performed.
+                    #[expect(
+                        clippy::match_same_arms,
+                        reason = "Readability would be negatively impacted by combining the `(Waiting, RunAll)` and `(Continue, RunAll)` match arms."
+                    )]
                     match (self.action, action) {
                         // ignore non-transition updates, and prevent a call to
                         // enable() from overwriting a step or continue call
@@ -477,9 +475,8 @@ impl Stepping {
                     Some(state) => state.clear_behaviors(),
                     None => {
                         warn!(
-                            "stepping is not enabled for schedule {:?}; \
-                            use `.add_stepping({:?})` to enable stepping",
-                            label, label
+                            "stepping is not enabled for schedule {label:?}; \
+                            use `.add_stepping({label:?})` to enable stepping"
                         );
                     }
                 },
@@ -488,9 +485,8 @@ impl Stepping {
                         Some(state) => state.set_behavior(system, behavior),
                         None => {
                             warn!(
-                                "stepping is not enabled for schedule {:?}; \
-                                use `.add_stepping({:?})` to enable stepping",
-                                label, label
+                                "stepping is not enabled for schedule {label:?}; \
+                                use `.add_stepping({label:?})` to enable stepping"
                             );
                         }
                     }
@@ -500,9 +496,8 @@ impl Stepping {
                         Some(state) => state.clear_behavior(system),
                         None => {
                             warn!(
-                                "stepping is not enabled for schedule {:?}; \
-                                use `.add_stepping({:?})` to enable stepping",
-                                label, label
+                                "stepping is not enabled for schedule {label:?}; \
+                                use `.add_stepping({label:?})` to enable stepping"
                             );
                         }
                     }
@@ -691,7 +686,7 @@ impl ScheduleState {
         start: usize,
         mut action: Action,
     ) -> (FixedBitSet, Option<usize>) {
-        use std::cmp::Ordering;
+        use core::cmp::Ordering;
 
         // if our NodeId list hasn't been populated, copy it over from the
         // schedule
@@ -825,12 +820,12 @@ impl ScheduleState {
 }
 
 #[cfg(all(test, feature = "bevy_debug_stepping"))]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use super::*;
-    use crate::prelude::*;
-    use crate::schedule::ScheduleLabel;
-
-    pub use crate as bevy_ecs;
+    use crate::{prelude::*, schedule::ScheduleLabel};
+    use alloc::{format, vec};
+    use std::println;
 
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     struct TestSchedule;
@@ -868,7 +863,7 @@ mod tests {
             let systems: &Vec<&str> = $system_names;
 
             if (actual != expected) {
-                use std::fmt::Write as _;
+                use core::fmt::Write as _;
 
                 // mismatch, let's construct a human-readable message of what
                 // was returned
@@ -900,7 +895,7 @@ mod tests {
         ($schedule:expr, $skipped_systems:expr, $($system:expr),*) => {
             // pull an ordered list of systems in the schedule, and save the
             // system TypeId, and name.
-            let systems: Vec<(TypeId, std::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
+            let systems: Vec<(TypeId, alloc::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
                 .map(|(_, system)| {
                     (system.type_id(), system.name())
                 })
@@ -1351,7 +1346,9 @@ mod tests {
         //
         // first system will be configured as `run_if(|| false)`, so it can
         // just panic if called
-        let first_system = move || panic!("first_system should not be run");
+        let first_system: fn() = move || {
+            panic!("first_system should not be run");
+        };
 
         // The second system, we need to know when it has been called, so we'll
         // add a resource for tracking if it has been run.  The system will

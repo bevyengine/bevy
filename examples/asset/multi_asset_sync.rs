@@ -2,6 +2,7 @@
 
 use std::{
     f32::consts::PI,
+    ops::Drop,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc,
@@ -19,6 +20,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
+            ..default()
         })
         .add_systems(Startup, setup_assets)
         .add_systems(Startup, setup_scene)
@@ -58,7 +60,7 @@ pub struct OneHundredThings([Handle<Gltf>; 100]);
 ///
 /// For sync only the easiest implementation is
 /// [`Arc<()>`] and use [`Arc::strong_count`] for completion.
-/// [`Arc<Atomic*>`] is a more robust alternative.
+/// [`Arc<Atomic>`] is a more robust alternative.
 #[derive(Debug, Resource, Deref)]
 pub struct AssetBarrier(Arc<AssetBarrierInner>);
 
@@ -103,7 +105,7 @@ impl AssetBarrier {
     }
 
     /// Wait for all [`AssetBarrierGuard`]s to be dropped asynchronously.
-    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static {
+    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static + use<> {
         let shared = self.0.clone();
         async move {
             loop {
@@ -167,37 +169,17 @@ fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn setup_ui(mut commands: Commands) {
     // Display the result of async loading.
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::End,
 
-                ..default()
-            },
+    commands.spawn((
+        LoadingText,
+        Text::new("Loading...".to_owned()),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(12.0),
+            top: Val::Px(12.0),
             ..default()
-        })
-        .with_children(|b| {
-            b.spawn((
-                TextBundle {
-                    text: Text {
-                        sections: vec![TextSection {
-                            value: "Loading...".to_owned(),
-                            style: TextStyle {
-                                font_size: 64.0,
-                                color: Color::BLACK,
-                                ..Default::default()
-                            },
-                        }],
-                        justify: JustifyText::Right,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-                LoadingText,
-            ));
-        });
+        },
+    ));
 }
 
 fn setup_scene(
@@ -206,29 +188,24 @@ fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(10.0, 10.0, 15.0)
-            .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(10.0, 10.0, 15.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    ));
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+    ));
 
     // Plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
-            material: materials.add(Color::srgb(0.7, 0.2, 0.2)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.7, 0.2, 0.2))),
         Loading,
     ));
 }
@@ -250,12 +227,11 @@ fn wait_on_load(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Change color of plane to green
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_translation(Vec3::Z * -0.01),
-        ..default()
-    },));
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_translation(Vec3::Z * -0.01),
+    ));
 
     // Spawn our scenes.
     for i in 0..10 {
@@ -265,11 +241,7 @@ fn wait_on_load(
             // All gltfs must exist because this is guarded by the `AssetBarrier`.
             let gltf = gltfs.get(&foxes.0[index]).unwrap();
             let scene = gltf.scenes.first().unwrap().clone();
-            commands.spawn(SceneBundle {
-                scene,
-                transform: Transform::from_translation(position),
-                ..Default::default()
-            });
+            commands.spawn((SceneRoot(scene), Transform::from_translation(position)));
         }
     }
 }
@@ -286,8 +258,8 @@ fn get_async_loading_state(
     // If loaded, change the state.
     if is_loaded {
         next_loading_state.set(LoadingState::Loaded);
-        if let Ok(mut text) = text.get_single_mut() {
-            "Loaded!".clone_into(&mut text.sections[0].value);
+        if let Ok(mut text) = text.single_mut() {
+            "Loaded!".clone_into(&mut **text);
         }
     }
 }
@@ -296,7 +268,7 @@ fn get_async_loading_state(
 fn despawn_loading_state_entities(mut commands: Commands, loading: Query<Entity, With<Loading>>) {
     // Despawn entities in the loading phase.
     for entity in loading.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 
     // Despawn resources used in the loading phase.

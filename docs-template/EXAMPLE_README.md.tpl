@@ -45,7 +45,9 @@ git checkout v0.4.0
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
+    - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
+    - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
     - [Setup](#setup-1)
     - [Build & Run](#build--run-1)
@@ -80,6 +82,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing)
 [How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
 
 # Platform-Specific Examples
@@ -89,33 +92,51 @@ Example | Description
 ### Setup
 
 ```sh
-rustup target add aarch64-linux-android armv7-linux-androideabi
-cargo install cargo-apk
+rustup target add aarch64-linux-android
+cargo install cargo-ndk
 ```
 
 The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
+Alternatively, you can install Android Studio.
+
 ### Build & Run
 
-To run on a device setup for Android development, run:
+To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo apk run -p bevy_mobile_example
+cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
 ```
 
-When using Bevy as a library, the following fields must be added to `Cargo.toml`:
+For example, to compile to a 64-bit ARM platform:
 
-```toml
-[package.metadata.android]
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
+```sh
+cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
-Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
+Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
+
+See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
+
+After this you can build it with `gradlew`:
+
+```sh
+./gradlew build
+```
+
+Or build it with Android Studio.
+
+Then you can test it in your Android project.
+
+#### About `libc++_shared.so`
+
+Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
+
+To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
+
+Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
 ### Debugging
 
@@ -135,17 +156,21 @@ adb uninstall org.bevyengine.example
 
 ### Old phones
 
-Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
-[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing.
+In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
+[requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
+Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
-To use a different API, the following fields must be updated in Cargo.toml:
+To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-[package.metadata.android.sdk]
-target_sdk_version = >>API<<
-min_sdk_version = >>API or less<<
+bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
 ```
+
+Then build it as the [Build & Run](#build--run) section stated above.
+
+#### About `cargo-apk`
+
+You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
 Example | File | Description
 --- | --- | ---
@@ -240,10 +265,11 @@ Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
 
-Bevy has an helper to build its examples:
+Bevy has a helper to build its examples:
 
 - Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
 - Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+- Debug: `cargo run -p build-wasm-example -- --debug --api webgl2 load_gltf`
 
 This helper will log the command used to build the examples.
 
@@ -257,7 +283,7 @@ In browsers, audio is not authorized to start without being triggered by an user
 
 On the web, it's useful to reduce the size of the files that are distributed.
 With rust, there are many ways to improve your executable sizes, starting with
-the steps described in [the quick-start guide](https://bevyengine.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
+the steps described in [the quick-start guide](https://bevy.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:
 
@@ -279,14 +305,14 @@ may not be worth keeping due to compilation time increases.
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
 
-|profile                           | wasm-opt | no wasm-opt |
-|----------------------------------|----------|-------------|
-|Default                           | 8.5M     | 13.0M       |
-|opt-level = "z"                   | 6.1M     | 12.7M       |
-|"z" + lto = "thin"                | 5.9M     | 12M         |
-|"z" + lto = "fat"                 | 5.1M     | 9.4M        |
-|"z" + "thin" + codegen-units = 1  | 5.3M     | 11M         |
-|"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M        |
+profile                           | wasm-opt | no wasm-opt
+----------------------------------|----------|-------------
+Default                           | 8.5M     | 13.0M
+opt-level = "z"                   | 6.1M     | 12.7M
+"z" + lto = "thin"                | 5.9M     | 12M
+"z" + lto = "fat"                 | 5.1M     | 9.4M
+"z" + "thin" + codegen-units = 1  | 5.3M     | 11M
+"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M
 
 ### Loading Assets
 

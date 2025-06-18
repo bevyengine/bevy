@@ -1,21 +1,10 @@
-use crate as bevy_ecs;
 use bevy_ecs::event::{
-    Event, EventIterator, EventIteratorWithId, EventMutIterator, EventMutIteratorWithId, Events,
+    BufferedEvent, EventIterator, EventIteratorWithId, EventMutIterator, EventMutIteratorWithId,
+    Events,
 };
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::event::{EventMutParIter, EventParIter};
-use std::marker::PhantomData;
-
-// Deprecated in favor of `EventCursor`, there is no nice way to deprecate this
-// because generic constraints are not allowed in type aliases, so this will always
-// 'dead code'. Hence the `#[allow(dead_code)]`.
-#[deprecated(
-    since = "0.14.0",
-    note = "`ManualEventReader` has been replaced. Please use `EventCursor` instead."
-)]
-#[doc(alias = "EventCursor")]
-#[allow(dead_code)]
-pub type ManualEventReader<E> = EventCursor<E>;
+use core::marker::PhantomData;
 
 /// Stores the state for an [`EventReader`] or [`EventMutator`].
 ///
@@ -31,9 +20,9 @@ pub type ManualEventReader<E> = EventCursor<E>;
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::event::{Event, Events, EventCursor};
+/// use bevy_ecs::event::{BufferedEvent, Events, EventCursor};
 ///
-/// #[derive(Event, Clone, Debug)]
+/// #[derive(Event, BufferedEvent, Clone, Debug)]
 /// struct MyEvent;
 ///
 /// /// A system that both sends and receives events using a [`Local`] [`EventCursor`].
@@ -62,12 +51,12 @@ pub type ManualEventReader<E> = EventCursor<E>;
 /// [`EventReader`]: super::EventReader
 /// [`EventMutator`]: super::EventMutator
 #[derive(Debug)]
-pub struct EventCursor<E: Event> {
+pub struct EventCursor<E: BufferedEvent> {
     pub(super) last_event_count: usize,
     pub(super) _marker: PhantomData<E>,
 }
 
-impl<E: Event> Default for EventCursor<E> {
+impl<E: BufferedEvent> Default for EventCursor<E> {
     fn default() -> Self {
         EventCursor {
             last_event_count: 0,
@@ -76,7 +65,7 @@ impl<E: Event> Default for EventCursor<E> {
     }
 }
 
-impl<E: Event> Clone for EventCursor<E> {
+impl<E: BufferedEvent> Clone for EventCursor<E> {
     fn clone(&self) -> Self {
         EventCursor {
             last_event_count: self.last_event_count,
@@ -85,8 +74,7 @@ impl<E: Event> Clone for EventCursor<E> {
     }
 }
 
-#[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
-impl<E: Event> EventCursor<E> {
+impl<E: BufferedEvent> EventCursor<E> {
     /// See [`EventReader::read`](super::EventReader::read)
     pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
         self.read_with_id(events).without_id()

@@ -7,22 +7,21 @@
 //! into Bevy—render nodes are another, lower-level method—but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
-use std::mem;
-
 use bevy::{
-    core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
+    core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
+        component::Tick,
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
-    math::{vec3, Vec3A},
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         primitives::Aabb,
         render_phase::{
-            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, RenderCommand,
-            RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
+            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
+            RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
+            ViewBinnedRenderPhases,
         },
         render_resource::{
             BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
@@ -32,9 +31,8 @@ use bevy::{
             VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::BevyDefault as _,
-        view::{self, ExtractedView, VisibilitySystems, VisibleEntities},
-        Render, RenderApp, RenderSet,
+        view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},
+        Render, RenderApp, RenderSystems,
     },
 };
 use bytemuck::{Pod, Zeroable};
@@ -42,9 +40,13 @@ use bytemuck::{Pod, Zeroable};
 /// A marker component that represents an entity that is to be rendered using
 /// our custom phase item.
 ///
-/// Note the [`ExtractComponent`] trait implementation. This is necessary to
-/// tell Bevy that this object should be pulled into the render world.
+/// Note the [`ExtractComponent`] trait implementation: this is necessary to
+/// tell Bevy that this object should be pulled into the render world. Also note
+/// the `on_add` hook, which is needed to tell Bevy's `check_visibility` system
+/// that entities with this component need to be examined for visibility.
 #[derive(Clone, Component, ExtractComponent)]
+#[require(VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<CustomRenderedEntity>)]
 struct CustomRenderedEntity;
 
 /// Holds a reference to our shader.
@@ -71,8 +73,8 @@ where
 
     fn render<'w>(
         _: &P,
-        _: ROQueryItem<'w, Self::ViewQuery>,
-        _: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _: ROQueryItem<'w, '_, Self::ViewQuery>,
+        _: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         custom_phase_item_buffers: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -156,10 +158,6 @@ impl Vertex {
 /// the render phase.
 type DrawCustomPhaseItemCommands = (SetItemPipeline, DrawCustomPhaseItem);
 
-/// A query filter that tells [`view::check_visibility`] about our custom
-/// rendered entity.
-type WithCustomRenderedEntity = With<CustomRenderedEntity>;
-
 /// A single triangle's worth of vertices, for demonstration purposes.
 static VERTICES: [Vertex; 3] = [
     Vertex::new(vec3(-0.866, -0.5, 0.5), vec3(1.0, 0.0, 0.0)),
@@ -172,14 +170,7 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default())
-        .add_systems(Startup, setup)
-        // Make sure to tell Bevy to check our entity for visibility. Bevy won't
-        // do this by default, for efficiency reasons.
-        .add_systems(
-            PostUpdate,
-            view::check_visibility::<WithCustomRenderedEntity>
-                .in_set(VisibilitySystems::CheckVisibility),
-        );
+        .add_systems(Startup, setup);
 
     // We make sure to add these to the render app, not the main app.
     app.get_sub_app_mut(RenderApp)
@@ -189,9 +180,9 @@ fn main() {
         .add_render_command::<Opaque3d, DrawCustomPhaseItemCommands>()
         .add_systems(
             Render,
-            prepare_custom_phase_item_buffers.in_set(RenderSet::Prepare),
+            prepare_custom_phase_item_buffers.in_set(RenderSystems::Prepare),
         )
-        .add_systems(Render, queue_custom_phase_item.in_set(RenderSet::Queue));
+        .add_systems(Render, queue_custom_phase_item.in_set(RenderSystems::Queue));
 
     app.run();
 }
@@ -200,24 +191,22 @@ fn main() {
 fn setup(mut commands: Commands) {
     // Spawn a single entity that has custom rendering. It'll be extracted into
     // the render world via [`ExtractComponent`].
-    commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::Visible,
-            transform: Transform::IDENTITY,
-            ..default()
-        })
+    commands.spawn((
+        Visibility::default(),
+        Transform::default(),
         // This `Aabb` is necessary for the visibility checks to work.
-        .insert(Aabb {
+        Aabb {
             center: Vec3A::ZERO,
             half_extents: Vec3A::splat(0.5),
-        })
-        .insert(CustomRenderedEntity);
+        },
+        CustomRenderedEntity,
+    ));
 
     // Spawn the camera.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// Creates the [`CustomPhaseItemBuffers`] resource.
@@ -236,7 +225,8 @@ fn queue_custom_phase_item(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<CustomPhasePipeline>>,
-    views: Query<(Entity, &VisibleEntities, &Msaa), With<ExtractedView>>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut next_tick: Local<Tick>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()
@@ -245,17 +235,14 @@ fn queue_custom_phase_item(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (view_entity, view_visible_entities, msaa) in views.iter() {
-        let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
+    for (view, view_visible_entities, msaa) in views.iter() {
+        let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &entity in view_visible_entities
-            .get::<WithCustomRenderedEntity>()
-            .iter()
-        {
+        for &entity in view_visible_entities.get::<CustomRenderedEntity>().iter() {
             // Ordinarily, the [`SpecializedRenderPipeline::Key`] would contain
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
@@ -266,6 +253,10 @@ fn queue_custom_phase_item(
                 *msaa,
             );
 
+            // Bump the change tick in order to force Bevy to rebuild the bin.
+            let this_tick = next_tick.get() + 1;
+            next_tick.set(this_tick);
+
             // Add the custom render item. We use the
             // [`BinnedRenderPhaseType::NonMesh`] type to skip the special
             // handling that Bevy has for meshes (preprocessing, indirect
@@ -275,15 +266,21 @@ fn queue_custom_phase_item(
             // but you can use anything you like. Note that the asset ID need
             // not be the ID of a [`Mesh`].
             opaque_phase.add(
-                Opaque3dBinKey {
+                Opaque3dBatchSetKey {
                     draw_function: draw_custom_phase_item,
                     pipeline: pipeline_id,
+                    material_bind_group_index: None,
+                    lightmap_slab: None,
+                    vertex_slab: default(),
+                    index_slab: None,
+                },
+                Opaque3dBinKey {
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
-                    material_bind_group_id: None,
-                    lightmap_image: None,
                 },
                 entity,
+                InputUniformIndex::default(),
                 BinnedRenderPhaseType::NonMesh,
+                *next_tick,
             );
         }
     }
@@ -302,7 +299,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 shader_defs: vec![],
                 entry_point: "vertex".into(),
                 buffers: vec![VertexBufferLayout {
-                    array_stride: mem::size_of::<Vertex>() as u64,
+                    array_stride: size_of::<Vertex>() as u64,
                     step_mode: VertexStepMode::Vertex,
                     // This needs to match the layout of [`Vertex`].
                     attributes: vec![
@@ -347,6 +344,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

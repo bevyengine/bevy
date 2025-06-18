@@ -7,9 +7,8 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
+        render_asset::RenderAssetUsages,
+        render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
 };
 
@@ -38,67 +37,54 @@ fn setup(
     };
 
     // This is the texture that will be rendered to.
-    let mut image = Image {
-        texture_descriptor: TextureDescriptor {
-            label: None,
-            size,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
-            mip_level_count: 1,
-            sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        },
-        ..default()
-    };
-
-    // fill image.data with zeroes
-    image.resize(size);
+    let mut image = Image::new_fill(
+        size,
+        TextureDimension::D2,
+        &[0, 0, 0, 0],
+        TextureFormat::Bgra8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    // You need to set these texture usage flags in order to use the image as a render target
+    image.texture_descriptor.usage =
+        TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
 
     let image_handle = images.add(image);
 
     // Light
-    commands.spawn(DirectionalLightBundle::default());
+    commands.spawn(DirectionalLight::default());
 
     let texture_camera = commands
-        .spawn(Camera2dBundle {
-            camera: Camera {
-                // render before the "main pass" camera
-                order: -1,
-                target: RenderTarget::Image(image_handle.clone()),
+        .spawn((
+            Camera2d,
+            Camera {
+                target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .id();
 
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    // Cover the whole image
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                background_color: GOLD.into(),
+            Node {
+                // Cover the whole image
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
-            TargetCamera(texture_camera),
+            BackgroundColor(GOLD.into()),
+            UiTargetCamera(texture_camera),
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "This is a cube",
-                TextStyle {
+            parent.spawn((
+                Text::new("This is a cube"),
+                TextFont {
                     font_size: 40.0,
-                    color: Color::BLACK,
                     ..default()
                 },
+                TextColor::BLACK,
             ));
         });
 
@@ -116,28 +102,24 @@ fn setup(
 
     // Cube with material containing the rendered UI texture.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle,
-            material: material_handle,
-            transform: Transform::from_xyz(0.0, 0.0, 1.5)
-                .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-            ..default()
-        },
+        Mesh3d(cube_handle),
+        MeshMaterial3d(material_handle),
+        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         Cube,
     ));
 
     // The main pass camera.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 const ROTATION_SPEED: f32 = 0.5;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
     for mut transform in &mut query {
-        transform.rotate_x(1.0 * time.delta_seconds() * ROTATION_SPEED);
-        transform.rotate_y(0.7 * time.delta_seconds() * ROTATION_SPEED);
+        transform.rotate_x(1.0 * time.delta_secs() * ROTATION_SPEED);
+        transform.rotate_y(0.7 * time.delta_secs() * ROTATION_SPEED);
     }
 }

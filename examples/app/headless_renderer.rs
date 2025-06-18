@@ -1,29 +1,35 @@
-//! This example illustrates how to make headless renderer
-//! derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
-//! It follows this steps:
+//! This example illustrates how to make a headless renderer.
+//! Derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
+//! It follows these steps:
+//!
 //! 1. Render from camera to gpu-image render target
 //! 2. Copy from gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
-//! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSet::Render`
+//! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSystems::Render`
 //! 4. Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
 //! 5. Exit if `single_image` setting is set
+//!
+//! If your goal is to capture a single “screenshot” as opposed to every single rendered frame
+//! without gaps, it is simpler to use [`bevy::render::view::window::screenshot::Screenshot`]
+//! than this approach.
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     core_pipeline::tonemapping::Tonemapping,
+    image::TextureFormatPixelInfo,
     prelude::*,
     render::{
         camera::RenderTarget,
         render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
-            ImageCopyBuffer, ImageDataLayout, Maintain, MapMode, TextureDimension, TextureFormat,
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
+            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::{BevyDefault, TextureFormatPixelInfo},
-        Extract, Render, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSystems,
     },
+    winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
 use std::{
@@ -81,16 +87,23 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
-                // Do not create a window on startup.
+                // Not strictly necessary, as the inclusion of ScheduleRunnerPlugin below
+                // replaces the bevy_winit app runner and so a window is never created.
                 .set(WindowPlugin {
                     primary_window: None,
+                    // Don’t automatically exit due to having no windows.
+                    // Instead, the code in `update()` will explicitly produce an `AppExit` event.
                     exit_condition: bevy::window::ExitCondition::DontExit,
-                    close_when_requested: false,
-                }),
+                    ..default()
+                })
+                // WinitPlugin will panic in environments without a display server.
+                .disable::<WinitPlugin>(),
         )
         .add_plugins(ImageCopyPlugin)
         // headless frame capture
         .add_plugins(CaptureFramePlugin)
+        // ScheduleRunnerPlugin provides an alternative to the default bevy_winit app runner, which
+        // manages the loop without creating a window.
         .add_plugins(ScheduleRunnerPlugin::run_loop(
             // Run 60 times per second.
             Duration::from_secs_f64(1.0 / 60.0),
@@ -160,39 +173,36 @@ fn setup(
 
     // Scene example for non black box picture
     // circular base
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Circle::new(4.0)),
-        material: materials.add(Color::WHITE),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(Color::srgb_u8(124, 144, 255)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        tonemapping: Tonemapping::None,
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             // render to image
             target: render_target,
             ..default()
         },
-        ..default()
-    });
+        Tonemapping::None,
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// Plugin for Render world part of work
@@ -215,7 +225,10 @@ impl Plugin for ImageCopyPlugin {
             .add_systems(ExtractSchedule, image_copy_extract)
             // Receives image data from buffer to channel
             // so we need to run it after the render graph is done
-            .add_systems(Render, receive_image_from_buffer.after(RenderSet::Render));
+            .add_systems(
+                Render,
+                receive_image_from_buffer.after(RenderSystems::Render),
+            );
     }
 }
 
@@ -266,7 +279,7 @@ fn setup_render_target(
 
     scene_controller.state = SceneState::Render(pre_roll_frames);
     scene_controller.name = scene_name;
-    RenderTarget::Image(render_target_image_handle)
+    RenderTarget::Image(render_target_image_handle.into())
 }
 
 /// Setups image saver
@@ -365,30 +378,24 @@ impl render_graph::Node for ImageCopyDriver {
             // That's why image in buffer can be little bit wider
             // This should be taken into account at copy from buffer stage
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-                (src_image.size.x as usize / block_dimensions.0 as usize) * block_size as usize,
+                (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
             );
-
-            let texture_extent = Extent3d {
-                width: src_image.size.x,
-                height: src_image.size.y,
-                depth_or_array_layers: 1,
-            };
 
             encoder.copy_texture_to_buffer(
                 src_image.texture.as_image_copy(),
-                ImageCopyBuffer {
+                TexelCopyBufferInfo {
                     buffer: &image_copier.buffer,
-                    layout: ImageDataLayout {
+                    layout: TexelCopyBufferLayout {
                         offset: 0,
                         bytes_per_row: Some(
-                            std::num::NonZeroU32::new(padded_bytes_per_row as u32)
+                            std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
                                 .unwrap()
                                 .into(),
                         ),
                         rows_per_image: None,
                     },
                 },
-                texture_extent,
+                src_image.size,
             );
 
             let render_queue = world.get_resource::<RenderQueue>().unwrap();
@@ -503,15 +510,17 @@ fn update(
                         * img_bytes.texture_descriptor.format.pixel_size();
                     let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
                     if row_bytes == aligned_row_bytes {
-                        img_bytes.data.clone_from(&image_data);
+                        img_bytes.data.as_mut().unwrap().clone_from(&image_data);
                     } else {
                         // shrink data to original image size
-                        img_bytes.data = image_data
-                            .chunks(aligned_row_bytes)
-                            .take(img_bytes.height() as usize)
-                            .flat_map(|row| &row[..row_bytes.min(row.len())])
-                            .cloned()
-                            .collect();
+                        img_bytes.data = Some(
+                            image_data
+                                .chunks(aligned_row_bytes)
+                                .take(img_bytes.height() as usize)
+                                .flat_map(|row| &row[..row_bytes.min(row.len())])
+                                .cloned()
+                                .collect(),
+                        );
                     }
 
                     // Create RGBA Image Buffer
@@ -533,11 +542,11 @@ fn update(
                     // Finally saving image to file, this heavy blocking operation is kept here
                     // for example simplicity, but in real app you should move it to a separate task
                     if let Err(e) = img.save(image_path) {
-                        panic!("Failed to save image: {}", e);
+                        panic!("Failed to save image: {e}");
                     };
                 }
                 if scene_controller.single_image {
-                    app_exit_writer.send(AppExit::Success);
+                    app_exit_writer.write(AppExit::Success);
                 }
             }
         } else {

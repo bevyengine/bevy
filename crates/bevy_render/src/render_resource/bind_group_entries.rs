@@ -1,4 +1,4 @@
-use bevy_utils::all_tuples_with_size;
+use variadics_please::all_tuples_with_size;
 use wgpu::{BindGroupEntry, BindingResource};
 
 use super::{Sampler, TextureView};
@@ -92,7 +92,6 @@ use super::{Sampler, TextureView};
 ///     ],
 /// );
 /// ```
-
 pub struct BindGroupEntries<'b, const N: usize = 1> {
     entries: [BindGroupEntry<'b>; N],
 }
@@ -129,7 +128,7 @@ impl<'b> BindGroupEntries<'b, 1> {
     }
 }
 
-impl<'b, const N: usize> std::ops::Deref for BindGroupEntries<'b, N> {
+impl<'b, const N: usize> core::ops::Deref for BindGroupEntries<'b, N> {
     type Target = [BindGroupEntry<'b>];
 
     fn deref(&self) -> &[BindGroupEntry<'b>] {
@@ -142,6 +141,13 @@ pub trait IntoBinding<'a> {
 }
 
 impl<'a> IntoBinding<'a> for &'a TextureView {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::TextureView(self)
+    }
+}
+
+impl<'a> IntoBinding<'a> for &'a wgpu::TextureView {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
         BindingResource::TextureView(self)
@@ -162,6 +168,13 @@ impl<'a> IntoBinding<'a> for &'a Sampler {
     }
 }
 
+impl<'a> IntoBinding<'a> for &'a [&'a wgpu::Sampler] {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::SamplerArray(self)
+    }
+}
+
 impl<'a> IntoBinding<'a> for BindingResource<'a> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
@@ -176,12 +189,20 @@ impl<'a> IntoBinding<'a> for wgpu::BufferBinding<'a> {
     }
 }
 
+impl<'a> IntoBinding<'a> for &'a [wgpu::BufferBinding<'a>] {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::BufferArray(self)
+    }
+}
+
 pub trait IntoBindingArray<'b, const N: usize> {
     fn into_array(self) -> [BindingResource<'b>; N];
 }
 
 macro_rules! impl_to_binding_slice {
-    ($N: expr, $(($T: ident, $I: ident)),*) => {
+    ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
+        $(#[$meta])*
         impl<'b, $($T: IntoBinding<'b>),*> IntoBindingArray<'b, $N> for ($($T,)*) {
             #[inline]
             fn into_array(self) -> [BindingResource<'b>; $N] {
@@ -192,7 +213,14 @@ macro_rules! impl_to_binding_slice {
     }
 }
 
-all_tuples_with_size!(impl_to_binding_slice, 1, 32, T, s);
+all_tuples_with_size!(
+    #[doc(fake_variadic)]
+    impl_to_binding_slice,
+    1,
+    32,
+    T,
+    s
+);
 
 pub trait IntoIndexedBindingArray<'b, const N: usize> {
     fn into_array(self) -> [(u32, BindingResource<'b>); N];
@@ -273,7 +301,7 @@ impl<'b> DynamicBindGroupEntries<'b> {
     }
 }
 
-impl<'b> std::ops::Deref for DynamicBindGroupEntries<'b> {
+impl<'b> core::ops::Deref for DynamicBindGroupEntries<'b> {
     type Target = [BindGroupEntry<'b>];
 
     fn deref(&self) -> &[BindGroupEntry<'b>] {

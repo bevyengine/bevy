@@ -6,9 +6,9 @@
 //! for light beams from directional lights to shine through, creating what is
 //! known as *light shafts* or *god rays*.
 //!
-//! To add volumetric fog to a scene, add [`VolumetricFogSettings`] to the
+//! To add volumetric fog to a scene, add [`VolumetricFog`] to the
 //! camera, and add [`VolumetricLight`] to directional lights that you wish to
-//! be volumetric. [`VolumetricFogSettings`] feature numerous settings that
+//! be volumetric. [`VolumetricFog`] feature numerous settings that
 //! allow you to define the accuracy of the simulation, as well as the look of
 //! the fog. Currently, only interaction with directional lights that have
 //! shadow maps is supported. Note that the overhead of the effect scales
@@ -30,33 +30,32 @@
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle};
+use bevy_asset::{embedded_asset, Assets, Handle};
 use bevy_color::Color;
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
     prepare_core_3d_depth_textures,
 };
 use bevy_ecs::{
-    bundle::Bundle, component::Component, reflect::ReflectComponent,
-    schedule::IntoSystemConfigs as _,
+    component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs as _,
 };
+use bevy_image::Image;
 use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::{Mesh, Meshable},
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, SpecializedRenderPipelines},
-    texture::Image,
-    view::{InheritedVisibility, ViewVisibility, Visibility},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    render_resource::SpecializedRenderPipelines,
+    sync_component::SyncComponentPlugin,
+    view::Visibility,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::Transform;
 use render::{
     VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
-    VOLUMETRIC_FOG_HANDLE,
 };
 
 use crate::graph::NodePbr;
@@ -71,15 +70,15 @@ pub struct VolumetricFogPlugin;
 ///
 /// This allows the light to generate light shafts/god rays.
 #[derive(Clone, Copy, Component, Default, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VolumetricLight;
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
-#[reflect(Component)]
-pub struct VolumetricFogSettings {
+#[reflect(Component, Default, Debug, Clone)]
+pub struct VolumetricFog {
     /// Color of the ambient light.
     ///
     /// This is separate from Bevy's [`AmbientLight`](crate::light::AmbientLight) because an
@@ -115,27 +114,9 @@ pub struct VolumetricFogSettings {
     pub step_count: u32,
 }
 
-/// A convenient [`Bundle`] that contains all components necessary to generate a
-/// fog volume.
-#[derive(Bundle, Clone, Debug, Default)]
-pub struct FogVolumeBundle {
-    /// The actual fog volume.
-    pub fog_volume: FogVolume,
-    /// Visibility.
-    pub visibility: Visibility,
-    /// Inherited visibility.
-    pub inherited_visibility: InheritedVisibility,
-    /// View visibility.
-    pub view_visibility: ViewVisibility,
-    /// The local transform. Set this to change the position, and scale of the
-    /// fog's axis-aligned bounding box (AABB).
-    pub transform: Transform,
-    /// The global transform.
-    pub global_transform: GlobalTransform,
-}
-
 #[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug, Clone)]
+#[require(Transform, Visibility)]
 pub struct FogVolume {
     /// The color of the fog.
     ///
@@ -150,7 +131,19 @@ pub struct FogVolume {
     /// The default value is 0.1.
     pub density_factor: f32,
 
+    /// Optional 3D voxel density texture for the fog.
     pub density_texture: Option<Handle<Image>>,
+
+    /// Configurable offset of the density texture in UVW coordinates.
+    ///
+    /// This can be used to scroll a repeating density texture in a direction over time
+    /// to create effects like fog moving in the wind. Make sure to configure the texture
+    /// to use `ImageAddressMode::Repeat` if this is your intention.
+    ///
+    /// Has no effect when no density texture is present.
+    ///
+    /// The default value is (0, 0, 0).
+    pub density_texture_offset: Vec3,
 
     /// The absorption coefficient, which measures what fraction of light is
     /// absorbed by the fog at each step.
@@ -195,19 +188,16 @@ pub struct FogVolume {
 
 impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            VOLUMETRIC_FOG_HANDLE,
-            "volumetric_fog.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "volumetric_fog.wgsl");
 
         let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
         meshes.insert(&PLANE_MESH, Plane3d::new(Vec3::Z, Vec2::ONE).mesh().into());
         meshes.insert(&CUBE_MESH, Cuboid::new(1.0, 1.0, 1.0).mesh().into());
 
-        app.register_type::<VolumetricFogSettings>()
+        app.register_type::<VolumetricFog>()
             .register_type::<VolumetricLight>();
+
+        app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -220,10 +210,10 @@ impl Plugin for VolumetricFogPlugin {
             .add_systems(
                 Render,
                 (
-                    render::prepare_volumetric_fog_pipelines.in_set(RenderSet::Prepare),
-                    render::prepare_volumetric_fog_uniforms.in_set(RenderSet::Prepare),
+                    render::prepare_volumetric_fog_pipelines.in_set(RenderSystems::Prepare),
+                    render::prepare_volumetric_fog_uniforms.in_set(RenderSystems::Prepare),
                     render::prepare_view_depth_textures_for_volumetric_fog
-                        .in_set(RenderSet::Prepare)
+                        .in_set(RenderSystems::Prepare)
                         .before(prepare_core_3d_depth_textures),
                 ),
             );
@@ -249,7 +239,7 @@ impl Plugin for VolumetricFogPlugin {
     }
 }
 
-impl Default for VolumetricFogSettings {
+impl Default for VolumetricFog {
     fn default() -> Self {
         Self {
             step_count: 64,
@@ -268,6 +258,7 @@ impl Default for FogVolume {
             scattering: 0.3,
             density_factor: 0.1,
             density_texture: None,
+            density_texture_offset: Vec3::ZERO,
             scattering_asymmetry: 0.5,
             fog_color: Color::WHITE,
             light_tint: Color::WHITE,

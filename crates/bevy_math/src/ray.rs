@@ -1,4 +1,5 @@
 use crate::{
+    ops,
     primitives::{InfinitePlane3d, Plane2d},
     Dir2, Dir3, Vec2, Vec3,
 };
@@ -11,7 +12,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// An infinite half-line starting at `origin` and going in `direction` in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
@@ -25,16 +30,9 @@ pub struct Ray2d {
 
 impl Ray2d {
     /// Create a new `Ray2d` from a given origin and direction
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given `direction` is zero (or very close to zero), or non-finite.
     #[inline]
-    pub fn new(origin: Vec2, direction: Vec2) -> Self {
-        Self {
-            origin,
-            direction: Dir2::new(direction).expect("ray direction must be nonzero and finite"),
-        }
+    pub const fn new(origin: Vec2, direction: Dir2) -> Self {
+        Self { origin, direction }
     }
 
     /// Get a point at a given distance along the ray
@@ -47,7 +45,7 @@ impl Ray2d {
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec2, plane: Plane2d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
-        if denominator.abs() > f32::EPSILON {
+        if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
             if distance > f32::EPSILON {
                 return Some(distance);
@@ -60,7 +58,11 @@ impl Ray2d {
 /// An infinite half-line starting at `origin` and going in `direction` in 3D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
@@ -74,16 +76,9 @@ pub struct Ray3d {
 
 impl Ray3d {
     /// Create a new `Ray3d` from a given origin and direction
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given `direction` is zero (or very close to zero), or non-finite.
     #[inline]
-    pub fn new(origin: Vec3, direction: Vec3) -> Self {
-        Self {
-            origin,
-            direction: Dir3::new(direction).expect("ray direction must be nonzero and finite"),
-        }
+    pub const fn new(origin: Vec3, direction: Dir3) -> Self {
+        Self { origin, direction }
     }
 
     /// Get a point at a given distance along the ray
@@ -96,7 +91,7 @@ impl Ray3d {
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
-        if denominator.abs() > f32::EPSILON {
+        if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
             if distance > f32::EPSILON {
                 return Some(distance);
@@ -112,7 +107,7 @@ mod tests {
 
     #[test]
     fn intersect_plane_2d() {
-        let ray = Ray2d::new(Vec2::ZERO, Vec2::Y);
+        let ray = Ray2d::new(Vec2::ZERO, Dir2::Y);
 
         // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(
@@ -152,7 +147,7 @@ mod tests {
 
     #[test]
     fn intersect_plane_3d() {
-        let ray = Ray3d::new(Vec3::ZERO, Vec3::Z);
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
 
         // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(

@@ -2,6 +2,7 @@
 //! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 
 use bevy::{
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -15,7 +16,7 @@ use bevy::{
         RenderApp,
     },
 };
-use std::{num::NonZeroU32, process::exit};
+use std::{num::NonZero, process::exit};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/texture_binding_array.wgsl";
@@ -70,10 +71,10 @@ fn setup(
     mut materials: ResMut<Assets<BindlessMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    ));
 
     // load 16 textures
     let textures: Vec<_> = TILE_ID
@@ -82,11 +83,10 @@ fn setup(
         .collect();
 
     // a cube with multiple textures
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(BindlessMaterial { textures }),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(BindlessMaterial { textures })),
+    ));
 }
 
 #[derive(Asset, TypePath, Debug, Clone)]
@@ -97,12 +97,13 @@ struct BindlessMaterial {
 impl AsBindGroup for BindlessMaterial {
     type Data = ();
 
+    type Param = (SRes<RenderAssets<GpuImage>>, SRes<FallbackImage>);
+
     fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        image_assets: &RenderAssets<GpuImage>,
-        fallback_image: &FallbackImage,
+        (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         // retrieve the render resources from handles
         let mut images = vec![];
@@ -132,7 +133,7 @@ impl AsBindGroup for BindlessMaterial {
         );
 
         Ok(PreparedBindGroup {
-            bindings: vec![],
+            bindings: BindingResources(vec![]),
             bind_group,
             data: (),
         })
@@ -140,17 +141,19 @@ impl AsBindGroup for BindlessMaterial {
 
     fn unprepared_bind_group(
         &self,
-        _: &BindGroupLayout,
-        _: &RenderDevice,
-        _: &RenderAssets<GpuImage>,
-        _: &FallbackImage,
+        _layout: &BindGroupLayout,
+        _render_device: &RenderDevice,
+        _param: &mut SystemParamItem<'_, '_, Self::Param>,
+        _force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
-        // we implement as_bind_group directly because
-        panic!("bindless texture arrays can't be owned")
-        // or rather, they can be owned, but then you can't make a `&'a [&'a TextureView]` from a vec of them in get_binding().
+        // We implement `as_bind_group`` directly because bindless texture
+        // arrays can't be owned.
+        // Or rather, they can be owned, but then you can't make a `&'a [&'a
+        // TextureView]` from a vec of them in `get_binding()`.
+        Err(AsBindGroupError::CreateBindGroupDirectly)
     }
 
-    fn bind_group_layout_entries(_: &RenderDevice) -> Vec<BindGroupLayoutEntry>
+    fn bind_group_layout_entries(_: &RenderDevice, _: bool) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized,
     {
@@ -164,7 +167,7 @@ impl AsBindGroup for BindlessMaterial {
                 (
                     0,
                     texture_2d(TextureSampleType::Float { filterable: true })
-                        .count(NonZeroU32::new(MAX_TEXTURE_COUNT as u32).unwrap()),
+                        .count(NonZero::<u32>::new(MAX_TEXTURE_COUNT as u32).unwrap()),
                 ),
                 // Sampler
                 //
@@ -175,7 +178,7 @@ impl AsBindGroup for BindlessMaterial {
                 //
                 // ```
                 // sampler(SamplerBindingType::Filtering)
-                //     .count(NonZeroU32::new(MAX_TEXTURE_COUNT as u32).unwrap()),
+                //     .count(NonZero::<u32>::new(MAX_TEXTURE_COUNT as u32).unwrap()),
                 // ```
                 //
                 // One may need to pay attention to the limit of sampler binding
