@@ -17,15 +17,19 @@ use bevy_asset::{
 use bevy_ecs::prelude::*;
 use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
-use bevy_pbr::{MeshMaterial3d, StandardMaterial};
+use bevy_pbr::{DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial};
 
 use bevy_platform::collections::HashMap;
+use bevy_utils::default;
 use bevy_reflect::TypePath;
 use bevy_render::mesh::Mesh3d;
 use bevy_render::prelude::Visibility;
 use bevy_scene::Scene;
 
-use bevy_animation::AnimationClip;
+use bevy_animation::{
+    animation_curves::{AnimatableCurve, AnimatableKeyframeCurve},
+    animated_field, prelude::AnimatedField, AnimationClip, AnimationTargetId,
+};
 use bevy_color::Color;
 use bevy_image::Image;
 use tracing::info;
@@ -956,28 +960,287 @@ impl AssetLoader for FbxLoader {
             }
         }
 
-        // Process animations (temporarily disabled)
-        //
-        // Animation support is a key feature of FBX files, but the implementation
-        // is temporarily disabled due to compatibility issues with the current ufbx API.
-        //
-        // The framework is in place to support:
-        // - Animation stacks (multiple animations per file)
-        // - Animation layers (for complex animation blending)
-        // - Transform animations (translation, rotation, scale)
-        // - Keyframe interpolation (linear, cubic, etc.)
-        // - Animation curves with proper timing
-        //
-        // Future implementation will:
-        // 1. Extract animation stacks from the FBX scene
-        // 2. Process animation layers within each stack
-        // 3. Convert ufbx animation curves to Bevy's AnimationClip format
-        // 4. Handle proper keyframe timing and interpolation
-        // 5. Support skeletal animation with joint hierarchies
-        let animations = Vec::new();
-        let named_animations = HashMap::new();
+        // Process lights from the FBX scene
+        let mut lights_processed = 0;
+        for light in scene.lights.as_ref().iter() {
+            let light_type = match light.type_ {
+                ufbx::LightType::Directional => FbxLightType::Directional,
+                ufbx::LightType::Point => FbxLightType::Point,
+                ufbx::LightType::Spot => FbxLightType::Spot,
+                ufbx::LightType::Area => FbxLightType::Area,
+                ufbx::LightType::Volume => FbxLightType::Volume,
+            };
 
-        info!("Animation processing temporarily disabled - framework ready for future implementation");
+            let fbx_light = FbxLight {
+                name: light.element.name.to_string(),
+                light_type,
+                color: Color::srgb(
+                    light.color.x as f32,
+                    light.color.y as f32,
+                    light.color.z as f32,
+                ),
+                intensity: light.intensity as f32,
+                cast_shadows: light.cast_shadows,
+                inner_angle: if light_type == FbxLightType::Spot {
+                    Some(light.inner_angle as f32)
+                } else {
+                    None
+                },
+                outer_angle: if light_type == FbxLightType::Spot {
+                    Some(light.outer_angle as f32)
+                } else {
+                    None
+                },
+            };
+
+            tracing::info!(
+                "FBX Loader: Found {} light '{}' with intensity {}",
+                match light_type {
+                    FbxLightType::Directional => "directional",
+                    FbxLightType::Point => "point",
+                    FbxLightType::Spot => "spot",
+                    FbxLightType::Area => "area",
+                    FbxLightType::Volume => "volume",
+                },
+                fbx_light.name,
+                fbx_light.intensity
+            );
+
+            lights_processed += 1;
+        }
+
+        tracing::info!("FBX Loader: Processed {} lights", lights_processed);
+
+        // Process animations from the FBX scene
+        let mut animations = Vec::new();
+        let mut named_animations = HashMap::new();
+        let mut animations_processed = 0;
+
+        for anim_stack in scene.anim_stacks.as_ref().iter() {
+            tracing::info!(
+                "FBX Loader: Processing animation stack '{}' ({:.2}s - {:.2}s)",
+                anim_stack.element.name,
+                anim_stack.time_begin,
+                anim_stack.time_end
+            );
+
+            // Create a new AnimationClip for this animation stack
+            let mut animation_clip = AnimationClip::default();
+            let duration = (anim_stack.time_end - anim_stack.time_begin) as f32;
+
+            // Process animation layers within the stack
+            for layer in anim_stack.layers.as_ref().iter() {
+                tracing::info!(
+                    "FBX Loader: Processing animation layer '{}' (weight: {})",
+                    layer.element.name,
+                    layer.weight
+                );
+
+                // Process animation values in this layer
+                tracing::info!(
+                    "FBX Loader: Processing animation layer '{}' with {} animation values",
+                    layer.element.name,
+                    layer.anim_values.as_ref().len()
+                );
+
+                // Collect animation data by node and property
+                let mut node_animations: HashMap<u32, HashMap<String, Vec<(f32, f32)>>> = HashMap::new();
+
+                for anim_value in layer.anim_values.as_ref().iter() {
+                    // Find the target node for this animation value
+                    if let Some(target_node) = scene.nodes.as_ref().iter().find(|node| {
+                        node.element.element_id == anim_value.element.element_id
+                    }) {
+                        let target_name = if target_node.element.name.is_empty() {
+                            format!("Node_{}", target_node.element.element_id)
+                        } else {
+                            target_node.element.name.to_string()
+                        };
+
+                        tracing::info!(
+                            "FBX Loader: Found animation value '{}' for node '{}'",
+                            anim_value.element.name,
+                            target_name
+                        );
+
+                        // Process animation curves for this value
+                        for (curve_index, anim_curve_opt) in anim_value.curves.as_ref().iter().enumerate() {
+                            if let Some(anim_curve) = anim_curve_opt.as_ref() {
+                                if anim_curve.keyframes.as_ref().len() >= 2 {
+                                    // Extract keyframes from the curve
+                                    let keyframes: Vec<(f32, f32)> = anim_curve.keyframes.as_ref().iter()
+                                        .map(|keyframe| {
+                                            // Convert time from FBX time units to seconds
+                                            let time_seconds = keyframe.time as f32;
+                                            let value = keyframe.value as f32;
+                                            (time_seconds, value)
+                                        })
+                                        .collect();
+
+                                    tracing::info!(
+                                        "FBX Loader: Animation curve {} for value '{}' has {} keyframes",
+                                        curve_index,
+                                        anim_value.element.name,
+                                        keyframes.len()
+                                    );
+
+                                    // Store keyframes by property and component
+                                    let property_key = format!("{}_{}", anim_value.element.name, curve_index);
+                                    node_animations
+                                        .entry(target_node.element.element_id)
+                                        .or_insert_with(HashMap::new)
+                                        .insert(property_key, keyframes);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Create animation curves for each animated node
+                for (node_id, properties) in node_animations {
+                    if let Some(target_node) = scene.nodes.as_ref().iter().find(|node| {
+                        node.element.element_id == node_id
+                    }) {
+                        let target_name = if target_node.element.name.is_empty() {
+                            format!("Node_{}", target_node.element.element_id)
+                        } else {
+                            target_node.element.name.to_string()
+                        };
+
+                        let node_name = Name::new(target_name.clone());
+                        let animation_target_id = AnimationTargetId::from_name(&node_name);
+
+                        // Try to create translation animation from X, Y, Z components
+                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (
+                            properties.get("Lcl Translation_0"),
+                            properties.get("Lcl Translation_1"),
+                            properties.get("Lcl Translation_2"),
+                        ) {
+                            // Create Vec3 keyframes by combining X, Y, Z
+                            let combined_keyframes: Vec<(f32, Vec3)> = x_keyframes
+                                .iter()
+                                .zip(y_keyframes.iter())
+                                .zip(z_keyframes.iter())
+                                .map(|(((time_x, x), (_, y)), (_, z))| {
+                                    (*time_x, Vec3::new(*x, *y, *z))
+                                })
+                                .collect();
+
+                            if let Ok(translation_curve) = AnimatableKeyframeCurve::new(combined_keyframes) {
+                                let animatable_curve = AnimatableCurve::new(
+                                    animated_field!(Transform::translation),
+                                    translation_curve,
+                                );
+
+                                animation_clip.add_curve_to_target(animation_target_id, animatable_curve);
+
+                                tracing::info!(
+                                    "FBX Loader: Added translation animation for node '{}'",
+                                    target_name
+                                );
+                            }
+                        }
+
+                        // Try to create rotation animation from X, Y, Z Euler angles
+                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (
+                            properties.get("Lcl Rotation_0"),
+                            properties.get("Lcl Rotation_1"),
+                            properties.get("Lcl Rotation_2"),
+                        ) {
+                            // Convert Euler angles (degrees) to quaternions
+                            let combined_keyframes: Vec<(f32, Quat)> = x_keyframes
+                                .iter()
+                                .zip(y_keyframes.iter())
+                                .zip(z_keyframes.iter())
+                                .map(|(((time_x, x), (_, y)), (_, z))| {
+                                    // Convert degrees to radians and create quaternion
+                                    let euler_rad = Vec3::new(
+                                        x.to_radians(),
+                                        y.to_radians(),
+                                        z.to_radians(),
+                                    );
+                                    let quat = Quat::from_euler(bevy_math::EulerRot::XYZ, euler_rad.x, euler_rad.y, euler_rad.z);
+                                    (*time_x, quat)
+                                })
+                                .collect();
+
+                            if let Ok(rotation_curve) = AnimatableKeyframeCurve::new(combined_keyframes) {
+                                let animatable_curve = AnimatableCurve::new(
+                                    animated_field!(Transform::rotation),
+                                    rotation_curve,
+                                );
+
+                                animation_clip.add_curve_to_target(animation_target_id, animatable_curve);
+
+                                tracing::info!(
+                                    "FBX Loader: Added rotation animation for node '{}'",
+                                    target_name
+                                );
+                            }
+                        }
+
+                        // Try to create scale animation from X, Y, Z components
+                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (
+                            properties.get("Lcl Scaling_0"),
+                            properties.get("Lcl Scaling_1"),
+                            properties.get("Lcl Scaling_2"),
+                        ) {
+                            // Create Vec3 keyframes by combining X, Y, Z
+                            let combined_keyframes: Vec<(f32, Vec3)> = x_keyframes
+                                .iter()
+                                .zip(y_keyframes.iter())
+                                .zip(z_keyframes.iter())
+                                .map(|(((time_x, x), (_, y)), (_, z))| {
+                                    (*time_x, Vec3::new(*x, *y, *z))
+                                })
+                                .collect();
+
+                            if let Ok(scale_curve) = AnimatableKeyframeCurve::new(combined_keyframes) {
+                                let animatable_curve = AnimatableCurve::new(
+                                    animated_field!(Transform::scale),
+                                    scale_curve,
+                                );
+
+                                animation_clip.add_curve_to_target(animation_target_id, animatable_curve);
+
+                                tracing::info!(
+                                    "FBX Loader: Added scale animation for node '{}'",
+                                    target_name
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Set the animation duration
+            if duration > 0.0 {
+                // Note: In a full implementation, we would add the actual animation curves here
+                tracing::info!(
+                    "FBX Loader: Animation '{}' duration: {:.2}s",
+                    anim_stack.element.name,
+                    duration
+                );
+
+                let animation_handle = load_context.add_labeled_asset(
+                    FbxAssetLabel::Animation(animations_processed).to_string(),
+                    animation_clip,
+                );
+
+                animations.push(animation_handle.clone());
+
+                if !anim_stack.element.name.is_empty() {
+                    named_animations.insert(
+                        Box::from(anim_stack.element.name.as_ref()),
+                        animation_handle,
+                    );
+                }
+
+                animations_processed += 1;
+            }
+        }
+
+        tracing::info!("FBX Loader: Processed {} animations", animations_processed);
 
         let mut scenes = Vec::new();
         let named_scenes = HashMap::new();
@@ -997,7 +1260,7 @@ impl AssetLoader for FbxLoader {
             scene.nodes.len()
         );
 
-        // For now, spawn all meshes with their original transforms
+        // Spawn all meshes with their original transforms
         for (mesh_index, (mesh_handle, transform_matrix)) in
             meshes.iter().zip(transforms.iter()).enumerate()
         {
@@ -1034,6 +1297,122 @@ impl AssetLoader for FbxLoader {
                 Visibility::default(),
             ));
         }
+
+        // Spawn lights from the FBX scene
+        let mut lights_spawned = 0;
+        for light in scene.lights.as_ref().iter() {
+            // Find the node that contains this light
+            if let Some(light_node) = scene.nodes.as_ref().iter().find(|node| {
+                node.light.is_some() && node.light.as_ref().unwrap().element.element_id == light.element.element_id
+            }) {
+                let transform = Transform::from_matrix(Mat4::from_cols_array(&[
+                    light_node.node_to_world.m00 as f32,
+                    light_node.node_to_world.m10 as f32,
+                    light_node.node_to_world.m20 as f32,
+                    0.0,
+                    light_node.node_to_world.m01 as f32,
+                    light_node.node_to_world.m11 as f32,
+                    light_node.node_to_world.m21 as f32,
+                    0.0,
+                    light_node.node_to_world.m02 as f32,
+                    light_node.node_to_world.m12 as f32,
+                    light_node.node_to_world.m22 as f32,
+                    0.0,
+                    light_node.node_to_world.m03 as f32,
+                    light_node.node_to_world.m13 as f32,
+                    light_node.node_to_world.m23 as f32,
+                    1.0,
+                ]));
+
+                match light.type_ {
+                    ufbx::LightType::Directional => {
+                        tracing::info!(
+                            "FBX Loader: Spawning directional light '{}' with intensity {}",
+                            light.element.name,
+                            light.intensity
+                        );
+
+                        world.spawn((
+                            DirectionalLight {
+                                color: Color::srgb(
+                                    light.color.x as f32,
+                                    light.color.y as f32,
+                                    light.color.z as f32,
+                                ),
+                                illuminance: light.intensity as f32,
+                                shadows_enabled: light.cast_shadows,
+                                ..default()
+                            },
+                            transform,
+                            GlobalTransform::default(),
+                            Visibility::default(),
+                        ));
+                        lights_spawned += 1;
+                    }
+                    ufbx::LightType::Point => {
+                        tracing::info!(
+                            "FBX Loader: Spawning point light '{}' with intensity {}",
+                            light.element.name,
+                            light.intensity
+                        );
+
+                        world.spawn((
+                            PointLight {
+                                color: Color::srgb(
+                                    light.color.x as f32,
+                                    light.color.y as f32,
+                                    light.color.z as f32,
+                                ),
+                                intensity: light.intensity as f32,
+                                shadows_enabled: light.cast_shadows,
+                                ..default()
+                            },
+                            transform,
+                            GlobalTransform::default(),
+                            Visibility::default(),
+                        ));
+                        lights_spawned += 1;
+                    }
+                    ufbx::LightType::Spot => {
+                        tracing::info!(
+                            "FBX Loader: Spawning spot light '{}' with intensity {} (angles: {:.1}° - {:.1}°)",
+                            light.element.name,
+                            light.intensity,
+                            light.inner_angle.to_degrees(),
+                            light.outer_angle.to_degrees()
+                        );
+
+                        world.spawn((
+                            SpotLight {
+                                color: Color::srgb(
+                                    light.color.x as f32,
+                                    light.color.y as f32,
+                                    light.color.z as f32,
+                                ),
+                                intensity: light.intensity as f32,
+                                shadows_enabled: light.cast_shadows,
+                                inner_angle: light.inner_angle as f32,
+                                outer_angle: light.outer_angle as f32,
+                                ..default()
+                            },
+                            transform,
+                            GlobalTransform::default(),
+                            Visibility::default(),
+                        ));
+                        lights_spawned += 1;
+                    }
+                    _ => {
+                        tracing::info!(
+                            "FBX Loader: Skipping unsupported light type {:?} for light '{}'",
+                            light.type_,
+                            light.element.name
+                        );
+                    }
+                }
+            }
+        }
+
+        tracing::info!("FBX Loader: Spawned {} lights in scene", lights_spawned);
 
         let scene_handle =
             load_context.add_labeled_asset(FbxAssetLabel::Scene(0).to_string(), Scene::new(world));
