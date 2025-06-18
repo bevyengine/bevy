@@ -1409,8 +1409,8 @@ mod tests {
         system::Local,
         system::Query,
         world::World,
-    };  
-    use bevy_ecs_macros::Resource;
+    };
+    use bevy_ecs_macros::{BufferedEvent, Event, Resource};
 
     #[derive(Resource, Default)]
     struct Counter(usize);
