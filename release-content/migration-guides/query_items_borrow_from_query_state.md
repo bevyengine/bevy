@@ -3,7 +3,8 @@ title: Query items can borrow from query state
 pull_requests: [15396]
 ---
 
-The `QueryData::Item` and `WorldQuery::Fetch` associated types and the `QueryItem` and `ROQueryItem` type aliases now have an additional lifetime parameter corresponding to the `'s` lifetime in `Query`.
+The `QueryData::Item` associated type and the `QueryItem` and `ROQueryItem` type aliases now have an additional lifetime parameter corresponding to the `'s` lifetime in `Query`.
+The `QueryData::fetch()` and `QueryFilter::filter_fetch()` methods have a new parameter taking a `&'s WorldQuery::State`.
 Manual implementations of `WorldQuery` and `QueryData` will need to update the method signatures to include the new lifetimes.
 Other uses of the types will need to be updated to include a lifetime parameter, although it can usually be passed as `'_`.
 In particular, `ROQueryItem` is used when implementing `RenderCommand`.
