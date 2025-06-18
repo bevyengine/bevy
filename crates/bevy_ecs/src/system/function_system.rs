@@ -728,6 +728,21 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.system_meta.last_run = last_run;
     }
+
+    fn should_react(&self, world: &World, this_run: Tick) -> bool {
+        let last_run = self.get_last_run();
+        if let Some(state) = &self.state {
+            <F::Param as SystemParam>::should_react(
+                &state.param,
+                &self.system_meta,
+                world,
+                last_run,
+                this_run,
+            )
+        } else {
+            false
+        }
+    }
 }
 
 /// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.

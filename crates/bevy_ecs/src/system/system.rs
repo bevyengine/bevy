@@ -193,6 +193,11 @@ pub trait System: Send + Sync + 'static {
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn set_last_run(&mut self, last_run: Tick);
+
+    /// Returns true if this system's input has changed since its last run and should therefore be run again to "react" to those changes.
+    fn should_react(&self, _world: &World, _this_run: Tick) -> bool {
+        false
+    }
 }
 
 /// [`System`] types that do not modify the [`World`] when run.
@@ -483,5 +488,59 @@ mod tests {
         assert!(matches!(result, Err(RunSystemError::InvalidParams { .. })));
         let expected = "System bevy_ecs::system::system::tests::run_system_once_invalid_params::system did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `When<T>` to skip the system when it happens.";
         assert_eq!(expected, result.unwrap_err().to_string());
+    }
+
+    #[test]
+    fn system_should_react() {
+        struct A(usize);
+        impl Resource for A {}
+        struct B(usize);
+        impl Resource for B {}
+        let mut world = World::new();
+        world.insert_resource(A(0));
+        world.insert_resource(B(0));
+
+        let mut system = IntoSystem::into_system(|_a: Res<A>, _b: Res<B>| {});
+        system.initialize(&mut world);
+        let current_tick = world.change_tick();
+        assert!(
+            system.should_react(&world, current_tick),
+            "system should react because the system has not yet seen the initial values of A or B"
+        );
+        // run the system as a "reaction"
+        system.run((), &mut world);
+        let current_tick = world.change_tick();
+        assert!(
+            !system.should_react(&world, current_tick),
+            "system should not react because nothing has changed since the last run",
+        );
+
+        world.resource_mut::<A>().0 += 1;
+        let current_tick = world.change_tick();
+        assert!(
+            system.should_react(&world, current_tick),
+            "system should react because A changed since the last system run"
+        );
+        system.run((), &mut world);
+
+        let current_tick = world.change_tick();
+        assert!(
+            !system.should_react(&world, current_tick),
+            "system should not react because nothing has changed since the last run"
+        );
+
+        world.resource_mut::<B>().0 += 1;
+        let current_tick = world.change_tick();
+        assert!(
+            system.should_react(&world, current_tick),
+            "system should react because B changed since the last system run"
+        );
+        system.run((), &mut world);
+
+        let current_tick = world.change_tick();
+        assert!(
+            !system.should_react(&world, current_tick),
+            "system should not react because nothing has changed since the last run"
+        );
     }
 }

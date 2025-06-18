@@ -308,6 +308,17 @@ pub unsafe trait SystemParam: Sized {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state>;
+
+    /// Returns true if this system param has changed since the system was last run.
+    fn should_react(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: &World,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> bool {
+        false
+    }
 }
 
 /// A [`SystemParam`] that only reads a given [`World`].
@@ -821,6 +832,19 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             changed_by: caller.map(|caller| caller.deref()),
         }
     }
+
+    fn should_react(
+        state: &Self::State,
+        _system_meta: &SystemMeta,
+        world: &World,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> bool {
+        world
+            .get_resource_change_ticks_by_id(*state)
+            .unwrap()
+            .is_changed(last_run, this_run)
+    }
 }
 
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
@@ -898,6 +922,19 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             },
             changed_by: value.changed_by,
         }
+    }
+
+    fn should_react(
+        state: &Self::State,
+        _system_meta: &SystemMeta,
+        world: &World,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> bool {
+        world
+            .get_resource_change_ticks_by_id(*state)
+            .unwrap()
+            .is_changed(last_run, this_run)
     }
 }
 
@@ -2163,6 +2200,12 @@ macro_rules! impl_system_param_tuple {
                 )]
                 ($($param::get_param($param, system_meta, world, change_tick),)*)
             }
+
+            #[inline]
+            fn should_react(state: &Self::State, system_meta: &SystemMeta, _world: &World, _last_run: Tick, _this_run: Tick) -> bool {
+                let ($($param,)*) = &state;
+                false $(|| <$param as SystemParam>::should_react($param, system_meta, _world, _last_run, _this_run))*
+            }
         }
     };
 }
@@ -2326,6 +2369,16 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     ) -> Self::Item<'world, 'state> {
         // SAFETY: Defer to the safety of P::SystemParam
         StaticSystemParam(unsafe { P::get_param(state, system_meta, world, change_tick) })
+    }
+
+    fn should_react(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: &World,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> bool {
+        P::should_react(state, system_meta, world, last_run, this_run)
     }
 }
 
