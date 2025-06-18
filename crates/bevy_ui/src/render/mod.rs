@@ -1049,7 +1049,7 @@ fn extract_text_outlines(
         {
             let rect = texture_atlases
                 .get(&atlas_info.texture_atlas)
-                .unwrap()
+                .expect("Texture atlas missing when trying to draw Outline")
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
 
