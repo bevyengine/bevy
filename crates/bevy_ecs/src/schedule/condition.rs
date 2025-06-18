@@ -1,10 +1,6 @@
 use alloc::{borrow::Cow, boxed::Box, format};
-use core::ops::Not;
 
-use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
-    SystemInput,
-};
+use crate::system::{CombinatorSystem, Combine, ReadOnlySystem, System, SystemIn, SystemInput};
 
 /// A type-erased run condition stored in a [`Box`].
 pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
@@ -29,7 +25,8 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// `SystemCondition` trait has `Marker` type parameter, which has no special meaning,
 /// but exists to work around the limitation of Rust's trait system.
 ///
-/// Type parameter in return type can be set to `<()>` by calling [`IntoSystem::into_system`],
+/// Type parameter in return type can be set to `<()>` by calling
+/// [`crate::system::IntoSystem::into_system`],
 /// but usually have to be specified when passing a condition to a function.
 ///
 /// ```
@@ -150,9 +147,13 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
-    fn and<M, C: SystemCondition<M, In>>(self, and: C) -> And<Self::System, C::System> {
-        let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(and);
+    fn and<M, CIn, COut, C>(self, and: C) -> And<Self::ConditionSystem, C::ConditionSystem>
+    where
+        CIn: SystemInput,
+        C: SystemCondition<M, CIn, COut>,
+    {
+        let a = self.into_condition_system();
+        let b = and.into_condition_system();
         let name = format!("{} && {}", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
@@ -202,9 +203,13 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     ///     ),
     /// );
     /// ```
-    fn nand<M, C: SystemCondition<M, In>>(self, nand: C) -> Nand<Self::System, C::System> {
-        let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(nand);
+    fn nand<M, CIn, COut, C>(self, nand: C) -> Nand<Self::ConditionSystem, C::ConditionSystem>
+    where
+        CIn: SystemInput,
+        C: SystemCondition<M, CIn, COut>,
+    {
+        let a = self.into_condition_system();
+        let b = nand.into_condition_system();
         let name = format!("!({} && {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
@@ -254,9 +259,13 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     ///     ),
     /// );
     /// ```
-    fn nor<M, C: SystemCondition<M, In>>(self, nor: C) -> Nor<Self::System, C::System> {
-        let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(nor);
+    fn nor<M, CIn, COut, C>(self, nor: C) -> Nor<Self::ConditionSystem, C::ConditionSystem>
+    where
+        CIn: SystemInput,
+        C: SystemCondition<M, CIn, COut>,
+    {
+        let a = self.into_condition_system();
+        let b = nor.into_condition_system();
         let name = format!("!({} || {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
@@ -301,9 +310,13 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
-    fn or<M, C: SystemCondition<M, In>>(self, or: C) -> Or<Self::System, C::System> {
-        let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(or);
+    fn or<M, CIn, COut, C>(self, or: C) -> Or<Self::ConditionSystem, C::ConditionSystem>
+    where
+        CIn: SystemInput,
+        C: SystemCondition<M, CIn, COut>,
+    {
+        let a = self.into_condition_system();
+        let b = or.into_condition_system();
         let name = format!("{} || {}", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
@@ -353,9 +366,13 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     ///     ),
     /// );
     /// ```
-    fn xnor<M, C: SystemCondition<M, In>>(self, xnor: C) -> Xnor<Self::System, C::System> {
-        let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(xnor);
+    fn xnor<M, CIn, COut, C>(self, xnor: C) -> Xnor<Self::ConditionSystem, C::ConditionSystem>
+    where
+        CIn: SystemInput,
+        C: SystemCondition<M, CIn, COut>,
+    {
+        let a = self.into_condition_system();
+        let b = xnor.into_condition_system();
         let name = format!("!({} ^ {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
@@ -395,75 +412,128 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     /// );
     /// # app.run(&mut world);
     /// ```
-    fn xor<M, C: SystemCondition<M, In>>(self, xor: C) -> Xor<Self::System, C::System> {
-        let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(xor);
+    fn xor<M, CIn, COut, C>(self, xor: C) -> Xor<Self::ConditionSystem, C::ConditionSystem>
+    where
+        CIn: SystemInput,
+        C: SystemCondition<M, CIn, COut>,
+    {
+        let a = self.into_condition_system();
+        let b = xor.into_condition_system();
         let name = format!("({} ^ {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
 }
 
-impl<Marker, In: SystemInput, Out, F> SystemCondition<Marker, In, Out> for F where
-    F: sealed::SystemCondition<Marker, In, Out>
+impl<Marker, In, Out, F> SystemCondition<Marker, In, Out> for F
+where
+    In: SystemInput,
+    F: sealed::SystemCondition<Marker, In, Out>,
 {
 }
 
 mod sealed {
     use crate::{
         error::BevyError,
-        system::{IntoSystem, ReadOnlySystem, SystemInput},
+        system::{
+            Adapt, AdapterSystem, IntoAdapterSystem, IntoSystem, ReadOnlySystem, System, SystemIn,
+            SystemInput,
+        },
     };
 
     pub trait SystemCondition<Marker, In: SystemInput, Out>:
         IntoSystem<In, Out, Marker, System = Self::ReadOnlySystem>
     {
-        // This associated type is necessary to let the compiler
-        // know that `Self::System` is `ReadOnlySystem`.
+        /// This type informs the compiler that [`Self::System`](IntoSystem::System) is [`ReadOnlySystem`].
         type ReadOnlySystem: ReadOnlySystem<In = In, Out = Out>;
 
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool>;
+        /// The type that `Self` converts into
+        type ConditionSystem: ReadOnlySystem<In = In, Out = bool>;
+
+        fn into_condition_system(self) -> Self::ConditionSystem;
     }
 
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, bool> for F
+    impl<Marker, In, F> SystemCondition<Marker, In, bool> for F
     where
+        In: SystemInput,
         F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
+        type ConditionSystem = F::System;
 
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+        fn into_condition_system(self) -> Self::ConditionSystem {
             IntoSystem::into_system(self)
         }
     }
 
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<(), BevyError>> for F
+    /// Used with [`AdapterSystem`] to transform the `Result<(), BevyError>` returned by the system into a `bool`.
+    #[doc(hidden)]
+    #[derive(Clone, Copy)]
+    pub struct ResultUnitAdapter;
+
+    impl<S: System<Out = Result<(), BevyError>>> Adapt<S> for ResultUnitAdapter {
+        type In = S::In;
+        type Out = bool;
+
+        fn adapt(
+            &mut self,
+            input: <Self::In as SystemInput>::Inner<'_>,
+            run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+        ) -> Self::Out {
+            run_system(input).is_ok()
+        }
+    }
+
+    impl<Marker, In, F> SystemCondition<Marker, In, Result<(), BevyError>> for F
     where
+        In: SystemInput,
         F: IntoSystem<In, Result<(), BevyError>, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
+        type ConditionSystem = AdapterSystem<ResultUnitAdapter, F::System>;
 
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
-            IntoSystem::into_system(self.map(|result| result.is_ok()))
+        fn into_condition_system(self) -> Self::ConditionSystem {
+            IntoSystem::into_system(IntoAdapterSystem::new(ResultUnitAdapter, self))
         }
     }
 
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<bool, BevyError>> for F
+    /// Used with [`AdapterSystem`] to transform the `Result<bool, BevyError>` returned by the system into a `bool`.
+    #[doc(hidden)]
+    #[derive(Clone, Copy)]
+    pub struct ResultBoolAdapter;
+
+    impl<S: System<Out = Result<bool, BevyError>>> Adapt<S> for ResultBoolAdapter {
+        type In = S::In;
+        type Out = bool;
+
+        fn adapt(
+            &mut self,
+            input: <Self::In as SystemInput>::Inner<'_>,
+            run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+        ) -> Self::Out {
+            matches!(run_system(input), Ok(true))
+        }
+    }
+
+    impl<Marker, In, F> SystemCondition<Marker, In, Result<bool, BevyError>> for F
     where
+        In: SystemInput,
         F: IntoSystem<In, Result<bool, BevyError>, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
+        type ConditionSystem = AdapterSystem<ResultBoolAdapter, F::System>;
 
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
-            IntoSystem::into_system(self.map(|result| matches!(result, Ok(true))))
+        fn into_condition_system(self) -> Self::ConditionSystem {
+            IntoSystem::into_system(IntoAdapterSystem::new(ResultBoolAdapter, self))
         }
     }
 }
 
 /// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use super::{NotSystem, SystemCondition};
+    use super::SystemCondition;
     use crate::{
         change_detection::DetectChanges,
         event::{BufferedEvent, EventReader},
@@ -471,9 +541,11 @@ pub mod common_conditions {
         prelude::{Component, Query, With},
         query::QueryFilter,
         resource::Resource,
-        system::{In, IntoSystem, Local, Res, System, SystemInput},
+        system::{
+            Adapt, AdapterSystem, In, IntoAdapterSystem, IntoSystem, Local, Res, System, SystemIn,
+            SystemInput,
+        },
     };
-    use alloc::format;
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// on the first time the condition is run and false every time after.
@@ -1007,7 +1079,25 @@ pub mod common_conditions {
         !query.is_empty()
     }
 
-    /// Generates a [`SystemCondition`] that inverses the result of passed one.
+    /// Used with [`AdapterSystem`] to inverse the `bool` returned by the system.
+    #[doc(hidden)]
+    #[derive(Clone, Copy)]
+    pub struct InverseBoolAdapter;
+
+    impl<S: System<Out = bool>> Adapt<S> for InverseBoolAdapter {
+        type In = S::In;
+        type Out = bool;
+
+        fn adapt(
+            &mut self,
+            input: <Self::In as SystemInput>::Inner<'_>,
+            run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+        ) -> Self::Out {
+            !run_system(input)
+        }
+    }
+
+    /// Generates a [`SystemCondition`] that inverses the result of the passed one.
     ///
     /// # Example
     ///
@@ -1036,14 +1126,17 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn not<Marker, TOut, T>(condition: T) -> NotSystem<T::System>
+    pub fn not<Marker, In, Out, C>(
+        condition: C,
+    ) -> AdapterSystem<InverseBoolAdapter, C::ConditionSystem>
     where
-        TOut: core::ops::Not,
-        T: IntoSystem<(), TOut, Marker>,
+        In: SystemInput,
+        C: SystemCondition<Marker, In, Out>,
     {
-        let condition = IntoSystem::into_system(condition);
-        let name = format!("!{}", condition.name());
-        NotSystem::new(super::NotMarker, condition, name.into())
+        IntoSystem::into_system(IntoAdapterSystem::new(
+            InverseBoolAdapter,
+            condition.into_condition_system(),
+        ))
     }
 
     /// Generates a [`SystemCondition`] that returns true when the passed one changes.
@@ -1084,16 +1177,18 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_changed<Marker, CIn, C>(condition: C) -> impl SystemCondition<(), CIn>
+    pub fn condition_changed<Marker, CIn, COut, C>(condition: C) -> impl SystemCondition<(), CIn>
     where
         CIn: SystemInput,
-        C: SystemCondition<Marker, CIn>,
+        C: SystemCondition<Marker, CIn, COut>,
     {
-        IntoSystem::into_system(condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
-            let changed = *prev != new;
-            *prev = new;
-            changed
-        }))
+        IntoSystem::into_system(condition.into_condition_system().pipe(
+            |In(new): In<bool>, mut prev: Local<bool>| {
+                let changed = *prev != new;
+                *prev = new;
+                changed
+            },
+        ))
     }
 
     /// Generates a [`SystemCondition`] that returns true when the result of
@@ -1140,44 +1235,21 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_changed_to<Marker, CIn, C>(
+    pub fn condition_changed_to<Marker, CIn, COut, C>(
         to: bool,
         condition: C,
     ) -> impl SystemCondition<(), CIn>
     where
         CIn: SystemInput,
-        C: SystemCondition<Marker, CIn>,
+        C: SystemCondition<Marker, CIn, COut>,
     {
-        IntoSystem::into_system(condition.pipe(
+        IntoSystem::into_system(condition.into_condition_system().pipe(
             move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
                 let now_true = *prev != new && new == to;
                 *prev = new;
                 now_true
             },
         ))
-    }
-}
-
-/// Invokes [`Not`] with the output of another system.
-///
-/// See [`common_conditions::not`] for examples.
-pub type NotSystem<S> = AdapterSystem<NotMarker, S>;
-
-/// Used with [`AdapterSystem`] to negate the output of a system via the [`Not`] operator.
-#[doc(hidden)]
-#[derive(Clone, Copy)]
-pub struct NotMarker;
-
-impl<S: System<Out: Not>> Adapt<S> for NotMarker {
-    type In = S::In;
-    type Out = <S::Out as Not>::Output;
-
-    fn adapt(
-        &mut self,
-        input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out {
-        !run_system(input)
     }
 }
 
@@ -1214,7 +1286,7 @@ where
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
         a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, A>) -> B::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         a(input) && b(input)
     }
@@ -1328,19 +1400,26 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
-    use crate::event::{BufferedEvent, Event};
-    use crate::query::With;
     use crate::{
         change_detection::ResMut,
         component::Component,
+        error::BevyError,
+        query::{Has, With},
         schedule::{IntoScheduleConfigs, Schedule},
         system::Local,
+        system::Query,
         world::World,
     };
-    use bevy_ecs_macros::Resource;
+    use bevy_ecs_macros::{BufferedEvent, Event, Resource};
 
     #[derive(Resource, Default)]
     struct Counter(usize);
+
+    #[derive(Component)]
+    struct Player;
+
+    #[derive(Component)]
+    struct Wounded;
 
     fn increment_counter(mut counter: ResMut<Counter>) {
         counter.0 += 1;
@@ -1353,6 +1432,18 @@ mod tests {
     fn every_other_time(mut has_ran: Local<bool>) -> bool {
         *has_ran = !*has_ran;
         *has_ran
+    }
+
+    fn multiply_counter(factor: usize) -> impl FnMut(ResMut<Counter>) {
+        move |mut counter| counter.0 *= factor
+    }
+
+    fn single_player(q_player: Query<(), With<Player>>) -> Result<(), BevyError> {
+        Ok(q_player.single()?)
+    }
+
+    fn wounded_player(q_player: Query<Has<Wounded>, With<Player>>) -> Result<bool, BevyError> {
+        Ok(q_player.single()?)
     }
 
     #[test]
@@ -1406,6 +1497,46 @@ mod tests {
         assert_eq!(world.resource::<Counter>().0, 5);
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 52);
+    }
+
+    #[test]
+    fn mixed_run_conditions_combinators() {
+        let mut world = World::new();
+        let mut counter = 1;
+        world.insert_resource(Counter(counter));
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems((
+            multiply_counter(2).run_if(single_player.and(|| true)),
+            multiply_counter(3).run_if((|| true).nand(wounded_player)),
+            multiply_counter(5).run_if((|| false).or(wounded_player)),
+            multiply_counter(7).run_if(wounded_player.nor(single_player)),
+            multiply_counter(11).run_if(single_player.xor(wounded_player)),
+            multiply_counter(13).run_if(single_player.xnor(|| false)),
+            multiply_counter(17).run_if(condition_changed(wounded_player)),
+            multiply_counter(19).run_if(condition_changed_to(true, single_player)),
+            multiply_counter(23).run_if(not(single_player)),
+            multiply_counter(29).run_if(not(wounded_player)),
+        ));
+
+        schedule.run(&mut world);
+        counter *= 3 * 7 * 13 * 23 * 29;
+        assert_eq!(world.resource::<Counter>().0, counter);
+
+        let player = world.spawn(Player).id();
+        schedule.run(&mut world);
+        counter *= 2 * 3 * 11 * 19 * 29;
+        assert_eq!(world.resource::<Counter>().0, counter);
+
+        world.entity_mut(player).insert(Wounded);
+        schedule.run(&mut world);
+        counter *= 2 * 5 * 17;
+        assert_eq!(world.resource::<Counter>().0, counter);
+
+        world.spawn(Player);
+        schedule.run(&mut world);
+        counter *= 3 * 7 * 13 * 17 * 23 * 29;
+        assert_eq!(world.resource::<Counter>().0, counter);
     }
 
     #[test]
