@@ -31,6 +31,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
 ] }
+bevy_input_focus = { path = "../bevy_input_focus", version = "0.16.0-dev" }
 
 # other
 taffy = { version = "0.7" }

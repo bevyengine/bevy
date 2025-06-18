@@ -5,6 +5,7 @@ use bevy_asset::Handle;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
 use bevy_ecs::query::Changed;
+use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
@@ -62,6 +63,12 @@ pub struct TextInputData {
 #[derive(Component, Default)]
 pub struct TextInputCommands {
     pub commands_queue: VecDeque<TextInputCommand>,
+}
+
+impl TextInputCommands {
+    pub fn queue(&mut self, command: TextInputCommand) {
+        self.commands_queue.push_back(command);
+    }
 }
 
 /// Text input commands
