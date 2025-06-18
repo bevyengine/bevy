@@ -349,7 +349,7 @@ pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 /// I.e.: `Self::fetch(fetch, entity, table_row).entity() == entity` always holds.
 pub unsafe trait EntityEquivalentQueryData: QueryData
 where
-    for<'a> Self: QueryData<Item<'a>: EntityEquivalent>,
+    for<'w, 's> Self: QueryData<Item<'w, 's>: EntityEquivalent>,
 {
 }
 
@@ -752,7 +752,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
             world,
             last_run,
             this_run,
-    }
+        }
     }
 
     const IS_DENSE: bool = true;
@@ -858,7 +858,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
             world,
             last_run,
             this_run,
-    }
+        }
     }
 
     const IS_DENSE: bool = true;
@@ -1215,7 +1215,7 @@ where
             world,
             last_run,
             this_run,
-    }
+        }
     }
 
     const IS_DENSE: bool = true;
@@ -1328,7 +1328,7 @@ where
             world,
             last_run,
             this_run,
-    }
+        }
     }
 
     const IS_DENSE: bool = true;

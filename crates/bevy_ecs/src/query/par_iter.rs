@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
@@ -5,7 +7,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{QueryData, QueryItem, QueryStateDeref, ReadOnlyQueryData};
+use super::{ConsumableQueryState, QueryData, QueryItem, ReadOnlyQueryData};
 
 use alloc::vec::Vec;
 
@@ -13,15 +15,16 @@ use alloc::vec::Vec;
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, S: QueryStateDeref> {
+pub struct QueryParIter<'w, 's, S: ConsumableQueryState<'s>> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: S,
+    pub(crate) marker: PhantomData<&'s ()>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
+impl<'w, 's, D: QueryData, S: ConsumableQueryState<'s, Data = D>> QueryParIter<'w, 's, S> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -39,7 +42,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, '_, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -76,7 +79,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, QueryItem<'w, '_, D>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {
@@ -161,17 +164,23 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, S: QueryStateDeref, E: EntityEquivalent> {
+pub struct QueryParManyIter<'w, 's, S: ConsumableQueryState<'s>, E: EntityEquivalent> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: S,
+    pub(crate) marker: PhantomData<&'s ()>,
     pub(crate) entity_list: Vec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
-    QueryParManyIter<'w, S, E>
+impl<
+        'w,
+        's,
+        D: ReadOnlyQueryData,
+        S: ConsumableQueryState<'s, Data = D>,
+        E: EntityEquivalent + Sync,
+    > QueryParManyIter<'w, 's, S, E>
 {
     /// Changes the batching strategy used when iterating.
     ///
@@ -190,7 +199,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, '_, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -247,7 +256,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, QueryItem<'w, '_, D>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {
@@ -315,17 +324,18 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
-pub struct QueryParManyUniqueIter<'w, S: QueryStateDeref, E: EntityEquivalent + Sync> {
+pub struct QueryParManyUniqueIter<'w, 's, S: ConsumableQueryState<'s>, E: EntityEquivalent + Sync> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: S,
+    pub(crate) marker: PhantomData<&'s ()>,
     pub(crate) entity_list: UniqueEntityEquivalentVec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
-    QueryParManyUniqueIter<'w, S, E>
+impl<'w, 's, D: QueryData, S: ConsumableQueryState<'s, Data = D>, E: EntityEquivalent + Sync>
+    QueryParManyUniqueIter<'w, 's, S, E>
 {
     /// Changes the batching strategy used when iterating.
     ///
@@ -344,7 +354,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, '_, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -401,7 +411,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, QueryItem<'w, '_, D>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {
