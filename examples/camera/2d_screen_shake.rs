@@ -6,17 +6,7 @@
 //! |:-------------|:---------------------|
 //! | Space        | Trigger screen shake |
 
-use bevy::{prelude::*, render::camera::SubCameraView, sprite::MeshMaterial2d};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
-
-const CAMERA_DECAY_RATE: f32 = 0.9; // Adjust this for smoother or snappier decay
-const TRAUMA_DECAY_SPEED: f32 = 0.5; // How fast trauma decays
-const TRAUMA_INCREMENT: f32 = 1.0; // Increment of trauma per frame when holding space
-
-// screen_shake parameters, maximum addition by frame not actual maximum overall values
-const MAX_ANGLE: f32 = 0.5;
-const MAX_OFFSET: f32 = 500.0;
+use bevy::{input::common_conditions::input_just_pressed, prelude::*, sprite::MeshMaterial2d};
 
 #[derive(Component)]
 struct Player;
@@ -25,7 +15,12 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_scene, setup_instructions, setup_camera))
-        .add_systems(Update, (screen_shake, trigger_shake_on_space))
+        .add_systems(PreUpdate, reset_transform)
+        .add_systems(PostUpdate, shake_camera.before(TransformSystems::Propagate))
+        .add_systems(
+            Update,
+            increase_trauma.run_if(input_just_pressed(KeyCode::Space)),
+        )
         .run();
 }
 
@@ -59,12 +54,11 @@ fn setup_scene(
         MeshMaterial2d(materials.add(Color::srgb(0.5, 0.8, 0.2))), // RGB values must be in range 0.0 to 1.0
         Transform::from_xyz(450.0, -150.0, 2.),
     ));
-    commands.init_resource::<ScreenShake>();
 }
 
 fn setup_instructions(mut commands: Commands) {
     commands.spawn((
-        Text::new("Hold space to trigger a screen shake"),
+        Text::new("Press space repeatedly to trigger a progressively stronger screen shake"),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
@@ -75,106 +69,155 @@ fn setup_instructions(mut commands: Commands) {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn((
-        Camera2d,
-        Camera {
-            sub_camera_view: Some(SubCameraView {
-                full_size: UVec2::new(1000, 700),
-                offset: Vec2::new(0.0, 0.0),
-                size: UVec2::new(1000, 700),
-            }),
-            order: 1,
-            ..default()
-        },
-    ));
+    commands.spawn((Camera2d, CameraShakeConfig::default()));
 }
 
-#[derive(Resource, Clone)]
-struct ScreenShake {
+fn increase_trauma(mut camera_shake: Single<&mut CameraShakeState>) {
+    const TRAUMA_INCREASE_PER_PRESS: f32 = 0.2;
+    camera_shake.current_trauma += TRAUMA_INCREASE_PER_PRESS;
+    camera_shake.current_trauma = camera_shake.current_trauma.min(1.0);
+}
+
+fn reset_transform(camera_shake: Single<(&CameraShakeState, &mut Transform)>) {
+    let (camera_shake, mut transform) = camera_shake.into_inner();
+    *transform = camera_shake.original_transform;
+}
+
+fn shake_camera(
+    camera_shake: Single<(&mut CameraShakeState, &CameraShakeConfig, &mut Transform)>,
+    time: Res<Time>,
+) {
+    let (mut camera_shake, config, mut transform) = camera_shake.into_inner();
+
+    camera_shake.original_transform = *transform;
+
+    let shake = camera_shake.current_trauma.powf(config.trauma_exponent);
+
+    let roll_seed = 0.0;
+    let x_seed = 100.0;
+    let y_seed = 200.0;
+
+    let t = time.elapsed_secs() * config.noise_speed;
+
+    let roll_noise = perlin_noise(t + roll_seed);
+    let x_noise = perlin_noise(t + x_seed);
+    let y_noise = perlin_noise(t + y_seed);
+
+    let roll_offset = roll_noise * shake * config.max_angle;
+    let x_offset = x_noise * shake * config.max_translation;
+    let y_offset = y_noise * shake * config.max_translation;
+
+    transform.translation.x += x_offset;
+    transform.translation.y += y_offset;
+    transform.rotate_z(roll_offset);
+
+    camera_shake.current_trauma -= config.trauma_decay_per_second * time.delta_secs();
+    camera_shake.current_trauma = camera_shake.current_trauma.max(0.0);
+}
+
+#[derive(Component, Debug, Default)]
+struct CameraShakeState {
+    current_trauma: f32,
+    original_transform: Transform,
+}
+
+#[derive(Component, Debug)]
+#[require(CameraShakeState)]
+struct CameraShakeConfig {
+    trauma_decay_per_second: f32,
+    trauma_exponent: f32,
     max_angle: f32,
-    max_offset: f32,
-    trauma: f32,
-    latest_position: Option<Vec2>,
+    max_translation: f32,
+    noise_speed: f32,
 }
 
-impl Default for ScreenShake {
+impl Default for CameraShakeConfig {
     fn default() -> Self {
         Self {
-            max_angle: 0.0,
-            max_offset: 0.0,
-            trauma: 0.0,
-            latest_position: Some(Vec2::default()),
+            trauma_decay_per_second: 0.5,
+            max_angle: 10.0_f32.to_radians(),
+            max_translation: 20.0,
+            noise_speed: 20.0,
+            trauma_exponent: 2.0,
         }
     }
 }
 
-impl ScreenShake {
-    fn start_shake(&mut self, max_angle: f32, max_offset: f32, trauma: f32, final_position: Vec2) {
-        self.max_angle = max_angle;
-        self.max_offset = max_offset;
-        self.trauma = trauma.clamp(0.0, 1.0);
-        self.latest_position = Some(final_position);
-    }
+// Tiny 1D Perlin noise implementation:
+
+// Perlin noise permutation table, the second half is a mirror of the first half.
+const PERMUTATION_TABLE: [u8; 512] = [
+    0x97, 0xA0, 0x89, 0x5B, 0x5A, 0x0F, 0x83, 0x0D, 0xC9, 0x5F, 0x60, 0x35, 0xC2, 0xE9, 0x07, 0xE1,
+    0x8C, 0x24, 0x67, 0x1E, 0x45, 0x8E, 0x08, 0x63, 0x25, 0xF0, 0x15, 0x0A, 0x17, 0xBE, 0x06, 0x94,
+    0xF7, 0x78, 0xEA, 0x4B, 0x00, 0x1A, 0xC5, 0x3E, 0x5E, 0xFC, 0xDB, 0xCB, 0x75, 0x23, 0x0B, 0x20,
+    0x39, 0xB1, 0x21, 0x58, 0xED, 0x95, 0x38, 0x57, 0xAE, 0x14, 0x7D, 0x88, 0xAB, 0xA8, 0x44, 0xAF,
+    0x4A, 0xA5, 0x47, 0x86, 0x8B, 0x30, 0x1B, 0xA6, 0x4D, 0x92, 0x9E, 0xE7, 0x53, 0x6F, 0xE5, 0x7A,
+    0x3C, 0xD3, 0x85, 0xE6, 0xDC, 0x69, 0x5C, 0x29, 0x37, 0x2E, 0xF5, 0x28, 0xF4, 0x66, 0x8F, 0x36,
+    0x41, 0x19, 0x3F, 0xA1, 0x01, 0xD8, 0x50, 0x49, 0xD1, 0x4C, 0x84, 0xBB, 0xD0, 0x59, 0x12, 0xA9,
+    0xC8, 0xC4, 0x87, 0x82, 0x74, 0xBC, 0x9F, 0x56, 0xA4, 0x64, 0x6D, 0xC6, 0xAD, 0xBA, 0x03, 0x40,
+    0x34, 0xD9, 0xE2, 0xFA, 0x7C, 0x7B, 0x05, 0xCA, 0x26, 0x93, 0x76, 0x7E, 0xFF, 0x52, 0x55, 0xD4,
+    0xCF, 0xCE, 0x3B, 0xE3, 0x2F, 0x10, 0x3A, 0x11, 0xB6, 0xBD, 0x1C, 0x2A, 0xDF, 0xB7, 0xAA, 0xD5,
+    0x77, 0xF8, 0x98, 0x02, 0x2C, 0x9A, 0xA3, 0x46, 0xDD, 0x99, 0x65, 0x9B, 0xA7, 0x2B, 0xAC, 0x09,
+    0x81, 0x16, 0x27, 0xFD, 0x13, 0x62, 0x6C, 0x6E, 0x4F, 0x71, 0xE0, 0xE8, 0xB2, 0xB9, 0x70, 0x68,
+    0xDA, 0xF6, 0x61, 0xE4, 0xFB, 0x22, 0xF2, 0xC1, 0xEE, 0xD2, 0x90, 0x0C, 0xBF, 0xB3, 0xA2, 0xF1,
+    0x51, 0x33, 0x91, 0xEB, 0xF9, 0x0E, 0xEF, 0x6B, 0x31, 0xC0, 0xD6, 0x1F, 0xB5, 0xC7, 0x6A, 0x9D,
+    0xB8, 0x54, 0xCC, 0xB0, 0x73, 0x79, 0x32, 0x2D, 0x7F, 0x04, 0x96, 0xFE, 0x8A, 0xEC, 0xCD, 0x5D,
+    0xDE, 0x72, 0x43, 0x1D, 0x18, 0x48, 0xF3, 0x8D, 0x80, 0xC3, 0x4E, 0x42, 0xD7, 0x3D, 0x9C, 0xB4,
+    0x97, 0xA0, 0x89, 0x5B, 0x5A, 0x0F, 0x83, 0x0D, 0xC9, 0x5F, 0x60, 0x35, 0xC2, 0xE9, 0x07, 0xE1,
+    0x8C, 0x24, 0x67, 0x1E, 0x45, 0x8E, 0x08, 0x63, 0x25, 0xF0, 0x15, 0x0A, 0x17, 0xBE, 0x06, 0x94,
+    0xF7, 0x78, 0xEA, 0x4B, 0x00, 0x1A, 0xC5, 0x3E, 0x5E, 0xFC, 0xDB, 0xCB, 0x75, 0x23, 0x0B, 0x20,
+    0x39, 0xB1, 0x21, 0x58, 0xED, 0x95, 0x38, 0x57, 0xAE, 0x14, 0x7D, 0x88, 0xAB, 0xA8, 0x44, 0xAF,
+    0x4A, 0xA5, 0x47, 0x86, 0x8B, 0x30, 0x1B, 0xA6, 0x4D, 0x92, 0x9E, 0xE7, 0x53, 0x6F, 0xE5, 0x7A,
+    0x3C, 0xD3, 0x85, 0xE6, 0xDC, 0x69, 0x5C, 0x29, 0x37, 0x2E, 0xF5, 0x28, 0xF4, 0x66, 0x8F, 0x36,
+    0x41, 0x19, 0x3F, 0xA1, 0x01, 0xD8, 0x50, 0x49, 0xD1, 0x4C, 0x84, 0xBB, 0xD0, 0x59, 0x12, 0xA9,
+    0xC8, 0xC4, 0x87, 0x82, 0x74, 0xBC, 0x9F, 0x56, 0xA4, 0x64, 0x6D, 0xC6, 0xAD, 0xBA, 0x03, 0x40,
+    0x34, 0xD9, 0xE2, 0xFA, 0x7C, 0x7B, 0x05, 0xCA, 0x26, 0x93, 0x76, 0x7E, 0xFF, 0x52, 0x55, 0xD4,
+    0xCF, 0xCE, 0x3B, 0xE3, 0x2F, 0x10, 0x3A, 0x11, 0xB6, 0xBD, 0x1C, 0x2A, 0xDF, 0xB7, 0xAA, 0xD5,
+    0x77, 0xF8, 0x98, 0x02, 0x2C, 0x9A, 0xA3, 0x46, 0xDD, 0x99, 0x65, 0x9B, 0xA7, 0x2B, 0xAC, 0x09,
+    0x81, 0x16, 0x27, 0xFD, 0x13, 0x62, 0x6C, 0x6E, 0x4F, 0x71, 0xE0, 0xE8, 0xB2, 0xB9, 0x70, 0x68,
+    0xDA, 0xF6, 0x61, 0xE4, 0xFB, 0x22, 0xF2, 0xC1, 0xEE, 0xD2, 0x90, 0x0C, 0xBF, 0xB3, 0xA2, 0xF1,
+    0x51, 0x33, 0x91, 0xEB, 0xF9, 0x0E, 0xEF, 0x6B, 0x31, 0xC0, 0xD6, 0x1F, 0xB5, 0xC7, 0x6A, 0x9D,
+    0xB8, 0x54, 0xCC, 0xB0, 0x73, 0x79, 0x32, 0x2D, 0x7F, 0x04, 0x96, 0xFE, 0x8A, 0xEC, 0xCD, 0x5D,
+    0xDE, 0x72, 0x43, 0x1D, 0x18, 0x48, 0xF3, 0x8D, 0x80, 0xC3, 0x4E, 0x42, 0xD7, 0x3D, 0x9C, 0xB4,
+];
+
+// A cubic curve that smoothly transitions from 0 to 1 as t goes from 0 to 1
+fn fade(t: f32) -> f32 {
+    assert!(t >= 0.0, "t: {t}");
+    assert!(t <= 1.0, "t: {t}");
+    t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
 }
 
-fn trigger_shake_on_space(
-    time: Res<Time>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut screen_shake: ResMut<ScreenShake>,
-) {
-    if keyboard_input.pressed(KeyCode::Space) {
-        let screen_shake_clone = screen_shake.clone();
-        screen_shake.start_shake(
-            MAX_ANGLE,
-            MAX_OFFSET,
-            screen_shake_clone.trauma + TRAUMA_INCREMENT * time.delta_secs(),
-            Vec2 { x: 0.0, y: 0.0 },
-        ); // final_position should be your current player position
-    }
-}
-
-fn screen_shake(
-    time: Res<Time>,
-    mut screen_shake: ResMut<ScreenShake>,
-    mut query: Query<(&mut Camera, &mut Transform)>,
-) {
-    let mut rng = ChaCha8Rng::from_entropy();
-    let shake = screen_shake.trauma * screen_shake.trauma;
-    let angle = (screen_shake.max_angle * shake).to_radians() * rng.gen_range(-1.0..1.0);
-    let offset_x = screen_shake.max_offset * shake * rng.gen_range(-1.0..1.0);
-    let offset_y = screen_shake.max_offset * shake * rng.gen_range(-1.0..1.0);
-
-    if shake > 0.0 {
-        for (mut camera, mut transform) in query.iter_mut() {
-            // Position
-            let sub_view = camera.sub_camera_view.as_mut().unwrap();
-            let target = sub_view.offset
-                + Vec2 {
-                    x: offset_x,
-                    y: offset_y,
-                };
-            sub_view
-                .offset
-                .smooth_nudge(&target, CAMERA_DECAY_RATE, time.delta_secs());
-
-            // Rotation
-            let rotation = Quat::from_rotation_z(angle);
-            transform.rotation = transform
-                .rotation
-                .interpolate_stable(&(transform.rotation.mul_quat(rotation)), CAMERA_DECAY_RATE);
-        }
+fn dot_grad(hash: u8, xf: f32) -> f32 {
+    // In 1D case, the gradient may be either 1 or -1.
+    // The distance vector is the input offset (relative to the smallest bound).
+    if hash & 0x1 != 0 {
+        xf
     } else {
-        // return camera to the latest position of player (it's fixed in this example case)
-        if let Ok((mut camera, mut transform)) = query.single_mut() {
-            let sub_view = camera.sub_camera_view.as_mut().unwrap();
-            let target = screen_shake.latest_position.unwrap();
-            sub_view
-                .offset
-                .smooth_nudge(&target, 1.0, time.delta_secs());
-            transform.rotation = transform.rotation.interpolate_stable(&Quat::IDENTITY, 0.1);
-        }
+        -xf
     }
-    // Decay the trauma over time
-    screen_shake.trauma -= TRAUMA_DECAY_SPEED * time.delta_secs();
-    screen_shake.trauma = screen_shake.trauma.clamp(0.0, 1.0);
+}
+
+fn perlin_noise(x: f32) -> f32 {
+    // Left coordinate of the unit-line that contains the input.
+    let xi0 = x.floor() as usize;
+
+    // Input location in the unit-line.
+    let xf0 = x - xi0 as f32;
+    let xf1 = xf0 - 1.0;
+
+    // Wrap to range 0-255.
+    let xi = xi0 & 0xFF;
+
+    // Apply the fade function to the location.
+    let t = fade(xf0).clamp(0.0, 1.0);
+
+    // Generate hash values for each point of the unit-line.
+    let h0 = PERMUTATION_TABLE[xi + 0];
+    let h1 = PERMUTATION_TABLE[xi + 1];
+
+    // Linearly interpolate between dot products of each gradient with its distance to the input location.
+    let a = dot_grad(h0, xf0);
+    let b = dot_grad(h1, xf1);
+    a.interpolate_stable(&b, t)
 }
