@@ -14,6 +14,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
+use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     font_styles::InheritableFont,
@@ -65,11 +66,12 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static>(
         },
         props.variant,
         Hovered::default(),
+        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
         // Some(InteractionDisabled),
         TabIndex(0),
         RoundedCorners::All.to_border_radius(4.0),
         ThemeBackgroundColor(theme::tokens::BUTTON_BG),
-        ThemeFontColor(theme::tokens::BUTTON_TXT),
+        ThemeFontColor(theme::tokens::BUTTON_TEXT),
         InheritableFont {
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
             font_size: 16.0,

@@ -5,10 +5,11 @@ use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;
 use bevy_ecs::query::With;
 use bevy_text::{TextColor, TextFont};
+use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     controls::ControlsPlugin,
-    cursor::CursorIconPlugin,
+    cursor::{CursorIconPlugin, DefaultCursorIcon},
     theme::{UiTheme, UseTheme},
 };
 
@@ -44,6 +45,7 @@ impl Plugin for FeathersPlugin {
         embedded_asset!(app, "assets/fonts/FiraSans-BoldItalic.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
+        embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
 
         app.add_plugins((
             ControlsPlugin,
@@ -51,9 +53,14 @@ impl Plugin for FeathersPlugin {
             HierarchyPropagatePlugin::<TextColor, With<UseTheme>>::default(),
             HierarchyPropagatePlugin::<TextFont, With<UseTheme>>::default(),
         ));
-        app.add_systems(PostUpdate, theme::update_theme);
-        app.add_observer(theme::on_changed_background);
-        app.add_observer(theme::on_changed_font_color);
-        app.add_observer(font_styles::on_changed_font);
+
+        app.insert_resource(DefaultCursorIcon(CursorIcon::System(
+            bevy_window::SystemCursorIcon::Default,
+        )));
+
+        app.add_systems(PostUpdate, theme::update_theme)
+            .add_observer(theme::on_changed_background)
+            .add_observer(theme::on_changed_font_color)
+            .add_observer(font_styles::on_changed_font);
     }
 }

@@ -1,26 +1,184 @@
-use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::CoreSlider;
-use bevy_ecs::{component::Component, schedule::IntoScheduleConfigs};
-use bevy_picking::PickingSystems;
+use core::f32::consts::PI;
 
-pub struct SliderProps {}
+use bevy_app::{Plugin, PreUpdate};
+use bevy_color::Color;
+use bevy_core_widgets::{CoreSlider, SliderRange, SliderValue, TrackClick};
+use bevy_ecs::{
+    bundle::Bundle,
+    children,
+    component::Component,
+    entity::Entity,
+    hierarchy::Children,
+    query::{Added, Changed, Has, Or, Spawned, With},
+    schedule::IntoScheduleConfigs,
+    spawn::SpawnRelated,
+    system::{In, Query, Res, SystemId},
+};
+use bevy_input_focus::tab_navigation::TabIndex;
+use bevy_picking::PickingSystems;
+use bevy_ui::{
+    widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
+    InteractionDisabled, JustifyContent, LinearGradient, Node, UiRect, Val,
+};
+use bevy_winit::cursor::CursorIcon;
+
+use crate::{
+    font_styles::InheritableFont,
+    handle_or_path::HandleOrPath,
+    theme::{
+        self,
+        corners::RoundedCorners,
+        fonts,
+        tokens::{SLIDER_BAR, SLIDER_BAR_DISABLED, SLIDER_BG},
+        ThemeFontColor, UiTheme, UseTheme,
+    },
+};
+
+/// Slider template properties.
+// TODO: These should all be replaced with reactive signals.
+#[derive(Default, Clone)]
+pub struct SliderProps {
+    /// Slider current value
+    pub value: f32,
+    /// Slider minimum value
+    pub min: f32,
+    /// Slider maximum value
+    pub max: f32,
+    /// Number of decimal digits of precision to display.
+    pub precision: usize,
+    /// On-change handler
+    pub on_change: Option<SystemId<In<f32>>>,
+}
 
 #[derive(Component, Default, Clone)]
 #[require(CoreSlider)]
-pub struct SliderStyle;
+struct SliderStyle;
+
+/// Marker for the text
+#[derive(Component, Default, Clone)]
+struct SliderValueText;
+
+/// Spawn a new slider widget.
+pub fn slider(props: SliderProps) -> impl Bundle {
+    (
+        Node {
+            height: Val::Px(24.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+            flex_grow: 1.0,
+            ..Default::default()
+        },
+        CoreSlider {
+            on_change: props.on_change,
+            track_click: TrackClick::Drag,
+        },
+        SliderStyle,
+        SliderValue(props.value),
+        SliderRange::new(props.min, props.max),
+        CursorIcon::System(bevy_window::SystemCursorIcon::EwResize),
+        // Some(InteractionDisabled),
+        TabIndex(0),
+        RoundedCorners::All.to_border_radius(4.0),
+        // Use a gradient to draw the moving bar
+        BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+            angle: PI * 0.5,
+            stops: vec![
+                ColorStop::new(Color::NONE, Val::Percent(0.)),
+                ColorStop::new(Color::NONE, Val::Percent(50.)),
+                ColorStop::new(Color::NONE, Val::Percent(50.)),
+                ColorStop::new(Color::NONE, Val::Percent(100.)),
+            ],
+        })]),
+        children![(
+            // TODO: Left arrow
+            // Text container
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..Default::default()
+            },
+            ThemeFontColor(theme::tokens::SLIDER_TEXT),
+            InheritableFont {
+                font: HandleOrPath::Path(fonts::MONO.to_owned()),
+                font_size: 14.0,
+            },
+            children![(Text::new("10.0"), UseTheme, SliderValueText,)],
+            // TODO: Right arrow
+        )],
+    )
+}
+
+fn update_slider_colors(
+    mut q_sliders: Query<
+        (Entity, Has<InteractionDisabled>, &mut BackgroundGradient),
+        (With<SliderStyle>, Or<(Spawned, Added<InteractionDisabled>)>),
+    >,
+    theme: Res<UiTheme>,
+) {
+    for (_slider_ent, disabled, mut gradient) in q_sliders.iter_mut() {
+        let bar_color = theme.color(match disabled {
+            true => SLIDER_BAR_DISABLED,
+            false => SLIDER_BAR,
+        });
+        let bg_color = theme.color(SLIDER_BG);
+        if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
+            linear_gradient.stops[0].color = bar_color;
+            linear_gradient.stops[1].color = bar_color;
+            linear_gradient.stops[2].color = bg_color;
+            linear_gradient.stops[3].color = bg_color;
+        }
+    }
+}
+
+fn update_slider_colors_remove() {}
+
+fn update_slider_pos(
+    mut q_sliders: Query<
+        (Entity, &SliderValue, &SliderRange, &mut BackgroundGradient),
+        (
+            With<SliderStyle>,
+            Or<(
+                Changed<SliderValue>,
+                Changed<SliderRange>,
+                Changed<Children>,
+            )>,
+        ),
+    >,
+    q_children: Query<&Children>,
+    mut q_slider_text: Query<&mut Text, With<SliderValueText>>,
+) {
+    for (slider_ent, value, range, mut gradient) in q_sliders.iter_mut() {
+        if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
+            let percent_value = range.thumb_position(value.0) * 100.0;
+            linear_gradient.stops[1].point = Val::Percent(percent_value);
+            linear_gradient.stops[2].point = Val::Percent(percent_value);
+        }
+
+        // Find slider text child entity and update its text with the formatted value
+        q_children.iter_descendants(slider_ent).for_each(|child| {
+            if let Ok(mut text) = q_slider_text.get_mut(child) {
+                text.0 = format!("{}", value.0);
+            }
+        });
+    }
+}
 
 /// Plugin which registers the systems for updating the slider styles.
 pub struct SliderPlugin;
-
-fn update_slider_styles() {}
-
-fn update_slider_styles_remove() {}
 
 impl Plugin for SliderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_slider_styles, update_slider_styles_remove).in_set(PickingSystems::Last),
+            (
+                update_slider_colors,
+                update_slider_colors_remove,
+                update_slider_pos,
+            )
+                .in_set(PickingSystems::Last),
         );
     }
 }
