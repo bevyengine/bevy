@@ -32,6 +32,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
   "std",
 ] }
 bevy_input_focus = { path = "../bevy_input_focus", version = "0.16.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.16.0-dev" }
 
 # other
 taffy = { version = "0.7" }
