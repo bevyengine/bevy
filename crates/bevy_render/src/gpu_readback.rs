@@ -15,14 +15,14 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
-    event::Event,
+    event::EntityEvent,
     prelude::{Component, Resource, World},
     system::{Query, Res},
 };
+use bevy_ecs::{event::Event, schedule::IntoScheduleConfigs};
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
@@ -96,7 +96,7 @@ impl Readback {
 ///
 /// The event contains the data as a `Vec<u8>`, which can be interpreted as the raw bytes of the
 /// requested buffer or texture.
-#[derive(Event, Deref, DerefMut, Reflect, Debug)]
+#[derive(Event, EntityEvent, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ReadbackComplete(pub Vec<u8>);
 

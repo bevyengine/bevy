@@ -6,7 +6,9 @@ use bevy::winit::cursor::{CustomCursor, CustomCursorImage};
 use bevy::{
     diagnostic::{FrameCount, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme},
+    window::{
+        CursorGrabMode, CursorOptions, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme,
+    },
     winit::cursor::CursorIcon,
 };
 
@@ -128,10 +130,10 @@ fn change_title(mut window: Single<&mut Window>, time: Res<Time>) {
     );
 }
 
-fn toggle_cursor(mut window: Single<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
+fn toggle_cursor(mut cursor_options: Single<&mut CursorOptions>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::Space) {
-        window.cursor_options.visible = !window.cursor_options.visible;
-        window.cursor_options.grab_mode = match window.cursor_options.grab_mode {
+        cursor_options.visible = !cursor_options.visible;
+        cursor_options.grab_mode = match cursor_options.grab_mode {
             CursorGrabMode::None => CursorGrabMode::Locked,
             CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,
         };

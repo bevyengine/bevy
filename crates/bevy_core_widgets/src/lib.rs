@@ -10,11 +10,20 @@
 //! widget. The primary motivation for this is to avoid two-way data binding in scenarios where the
 //! user interface is showing a live view of dynamic data coming from deeper within the game engine.
 
+// Note on naming: the `Core` prefix is used on components that would normally be internal to the
+// styled/opinionated widgets that use them. Components which are directly exposed to users above
+// the widget level, like `SliderValue`, should not have the `Core` prefix.
+
 mod core_button;
+mod core_slider;
 
 use bevy_app::{App, Plugin};
 
 pub use core_button::{CoreButton, CoreButtonPlugin};
+pub use core_slider::{
+    CoreSlider, CoreSliderDragState, CoreSliderPlugin, CoreSliderThumb, SetSliderValue,
+    SliderRange, SliderStep, SliderValue, TrackClick,
+};
 
 /// A plugin that registers the observers for all of the core widgets. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
@@ -22,6 +31,6 @@ pub struct CoreWidgetsPlugin;
 
 impl Plugin for CoreWidgetsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(CoreButtonPlugin);
+        app.add_plugins((CoreButtonPlugin, CoreSliderPlugin));
     }
 }
