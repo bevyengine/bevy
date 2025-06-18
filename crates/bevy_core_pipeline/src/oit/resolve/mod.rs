@@ -1,7 +1,4 @@
-use crate::{
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    oit::OrderIndependentTransparencySettings,
-};
+use crate::{oit::OrderIndependentTransparencySettings, FullscreenShader};
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_derive::Deref;
@@ -156,6 +153,7 @@ pub fn queue_oit_resolve_pipeline(
         ),
         With<OrderIndependentTransparencySettings>,
     >,
+    fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
     // Store the key with the id to make the clean up logic easier.
     // This also means it will always replace the entry if the key changes so nothing to clean up.
@@ -176,7 +174,12 @@ pub fn queue_oit_resolve_pipeline(
             }
         }
 
-        let desc = specialize_oit_resolve_pipeline(key, &resolve_pipeline, &asset_server);
+        let desc = specialize_oit_resolve_pipeline(
+            key,
+            &resolve_pipeline,
+            &fullscreen_shader,
+            &asset_server,
+        );
 
         let pipeline_id = pipeline_cache.queue_render_pipeline(desc);
         commands.entity(e).insert(OitResolvePipelineId(pipeline_id));
@@ -194,6 +197,7 @@ pub fn queue_oit_resolve_pipeline(
 fn specialize_oit_resolve_pipeline(
     key: OitResolvePipelineKey,
     resolve_pipeline: &OitResolvePipeline,
+    fullscreen_shader: &FullscreenShader,
     asset_server: &AssetServer,
 ) -> RenderPipelineDescriptor {
     let format = if key.hdr {
@@ -224,7 +228,7 @@ fn specialize_oit_resolve_pipeline(
                 write_mask: ColorWrites::ALL,
             })],
         }),
-        vertex: fullscreen_shader_vertex_state(),
+        vertex: fullscreen_shader.to_vertex_state(),
         primitive: PrimitiveState::default(),
         depth_stencil: None,
         multisample: MultisampleState::default(),
