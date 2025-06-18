@@ -1913,7 +1913,7 @@ impl<'a> EntityCommands<'a> {
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
-    /// Unlike [`queue_handled`], this will completely ignore any errors that occur.
+    /// Unlike [`EntityCommands::queue_handled`], this will completely ignore any errors that occur.
     pub fn queue_silenced<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
         &mut self,
         command: C,
