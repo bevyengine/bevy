@@ -35,9 +35,10 @@ fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load multiple, individual sprites from a folder
     commands.insert_resource(RpgSpriteFolder(asset_server.load_folder(
         "textures/rpg_with_waste",
-        Some(Arc::new(|path| {
-            info!("{:?}", path);
-            !path.is_dir() && path.extension().unwrap() == "png"
+        Some(Arc::new(|path,is_dir| {
+            let a = is_dir || path.extension().unwrap_or_default() == "png";
+            info!("is_dir:{},path:{:?}   {}",is_dir,path,a);
+            a
         })), 
     )));
 }
@@ -149,7 +150,7 @@ fn setup(
 
     // Get handle to a sprite to render
     let vendor_handle: Handle<Image> = asset_server
-        .get_handle("textures/rpg/chars/vendor/generic-rpg-vendor.png")
+        .get_handle("textures/rpg_with_waste/chars/vendor/generic-rpg-vendor.png")
         .unwrap();
 
     // Configuration array to render sprites through iteration

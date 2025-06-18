@@ -947,7 +947,7 @@ impl AssetServer {
     pub fn load_folder<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        filter: Option<Arc<dyn Fn(&Path) -> bool + Send + Sync + 'static>>,
+        filter: Option<Arc<dyn Fn(&Path, bool) -> bool + Send + Sync + 'static>>,
     ) -> Handle<LoadedFolder> {
         let path = path.into().into_owned();
         let (handle, should_load) = self
@@ -972,7 +972,7 @@ impl AssetServer {
         &self,
         id: UntypedAssetId,
         path: AssetPath,
-        filter: Option<Arc<dyn Fn(&Path) -> bool + Send + Sync + 'static>>,
+        filter: Option<Arc<dyn Fn(&Path, bool) -> bool + Send + Sync + 'static>>,
     ) {
         async fn load_folder<'a>(
             source: AssetSourceId<'static>,
@@ -980,18 +980,19 @@ impl AssetServer {
             reader: &'a dyn ErasedAssetReader,
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
-            filter: Option<Arc<dyn Fn(&Path) -> bool + Send + Sync + 'static>>,
+            filter: Option<Arc<dyn Fn(&Path, bool) -> bool + Send + Sync + 'static>>,
         ) -> Result<(), AssetLoadError> {
             let is_dir = reader.is_directory(path).await?;
             if is_dir {
                 let mut path_stream = reader.read_directory(path.as_ref()).await?;
                 while let Some(child_path) = path_stream.next().await {
+                    let child_is_dir = reader.is_directory(&child_path).await?;
                     if let Some(ref filter_fn) = filter {
-                        if !filter_fn(path) {
+                        if !filter_fn(&child_path, child_is_dir) {
                             continue;
                         }
                     }
-                    if reader.is_directory(&child_path).await? {
+                    if child_is_dir {
                         Box::pin(load_folder(
                             source.clone(),
                             &child_path,
@@ -1003,6 +1004,11 @@ impl AssetServer {
                         .await?;
                     } else {
                         let path = child_path.to_str().expect("Path should be a valid string.");
+                        if let Some(ref filter_fn) = filter {
+                            if !filter_fn(&child_path, false) {
+                                continue;
+                            }
+                        }
                         let asset_path = AssetPath::parse(path).with_source(source.clone());
                         match server.load_untyped_async(asset_path).await {
                             Ok(handle) => handles.push(handle),
@@ -1637,6 +1643,13 @@ impl AssetServer {
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
 pub fn handle_internal_asset_events(world: &mut World) {
     world.resource_scope(|world, server: Mut<AssetServer>| {
+        let mut folder_filters: HashMap<
+            AssetPath<'_>,
+            Option<Arc<dyn Fn(&Path, bool) -> bool + Send + Sync + 'static>>,
+        > = HashMap::new();
+        for (id, loaded_folder) in world.get_resource::<Assets<LoadedFolder>>().unwrap().iter() {
+            folder_filters.insert(server.get_path(id).unwrap(), loaded_folder.filter.clone());
+        }
         let mut infos = server.data.infos.write();
         let var_name = vec![];
         let mut untyped_failures = var_name;
@@ -1710,7 +1723,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     server.load_folder_internal(
                         folder_handle.id(),
                         parent_asset_path.clone(),
-                        None,
+                        folder_filters.get(&parent_asset_path).unwrap().clone(),
                     );
                 }
             }
