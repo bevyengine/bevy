@@ -442,74 +442,6 @@ impl Default for EntityClonerConfig {
     }
 }
 
-impl EntityCloner {
-    /// Returns a new [`EntityClonerBuilder`] using the given `world` with the [`AllowAll`] configuration.
-    ///
-    /// This builder tries to clone every component from the source entity except for components that were
-    /// explicitly denied, for example by using the [`deny`](EntityClonerBuilder<AllowAll>::deny) method.
-    ///
-    /// Required components are not considered by denied components and must be explicitly denied as well if desired.
-    pub fn build_allow_all(world: &mut World) -> EntityClonerBuilder<AllowAll> {
-        EntityClonerBuilder {
-            world,
-            filter: Default::default(),
-            entity_cloner: Default::default(),
-        }
-    }
-
-    /// Returns a new [`EntityClonerBuilder`] using the given `world` with the [`DenyAll`] configuration.
-    ///
-    /// This builder tries to clone every component that was explicitly allowed from the source entity,
-    /// for example by using the [`allow`](EntityClonerBuilder<DenyAll>::allow) method.
-    ///
-    /// Required components are also cloned when the target entity does not contain them.
-    pub fn build_deny_all(world: &mut World) -> EntityClonerBuilder<DenyAll> {
-        EntityClonerBuilder {
-            world,
-            filter: Default::default(),
-            entity_cloner: Default::default(),
-        }
-    }
-
-    /// Returns `true` if this cloner is configured to clone entities referenced in cloned components via [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN).
-    /// This will produce "deep" / recursive clones of relationship trees that have "linked spawn".
-    #[inline]
-    pub fn linked_cloning(&self) -> bool {
-        self.other.linked_cloning
-    }
-
-    /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
-    /// If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it will recursively spawn entities as defined
-    /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
-    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
-    #[track_caller]
-    pub fn clone_entity(&mut self, world: &mut World, source: Entity, target: Entity) {
-        self.other
-            .clone_entity(&mut self.filter, world, source, target);
-    }
-
-    /// Clones and inserts components from the `source` entity into a newly spawned entity using the stored configuration.
-    /// If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it will recursively spawn entities as defined
-    /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
-    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
-    #[track_caller]
-    pub fn spawn_clone(&mut self, world: &mut World, source: Entity) -> Entity {
-        self.other.spawn_clone(&mut self.filter, world, source)
-    }
-
-    /// Clones the entity into whatever entity `mapper` chooses for it.
-    #[track_caller]
-    pub fn clone_entity_mapped(
-        &mut self,
-        world: &mut World,
-        source: Entity,
-        mapper: &mut dyn EntityMapper,
-    ) -> Entity {
-        self.other
-            .clone_entity_mapped(&mut self.filter, world, source, mapper)
-    }
-}
-
 impl EntityClonerConfig {
     /// See [`EntityCloner::spawn_clone`] for more information.
     #[track_caller]
@@ -668,6 +600,74 @@ impl EntityClonerConfig {
         // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe { bundle_scratch.write(world, target, relationship_hook_insert_mode) };
         target
+    }
+}
+
+impl EntityCloner {
+    /// Returns a new [`EntityClonerBuilder`] using the given `world` with the [`AllowAll`] configuration.
+    ///
+    /// This builder tries to clone every component from the source entity except for components that were
+    /// explicitly denied, for example by using the [`deny`](EntityClonerBuilder<AllowAll>::deny) method.
+    ///
+    /// Required components are not considered by denied components and must be explicitly denied as well if desired.
+    pub fn build_allow_all(world: &mut World) -> EntityClonerBuilder<AllowAll> {
+        EntityClonerBuilder {
+            world,
+            filter: Default::default(),
+            entity_cloner: Default::default(),
+        }
+    }
+
+    /// Returns a new [`EntityClonerBuilder`] using the given `world` with the [`DenyAll`] configuration.
+    ///
+    /// This builder tries to clone every component that was explicitly allowed from the source entity,
+    /// for example by using the [`allow`](EntityClonerBuilder<DenyAll>::allow) method.
+    ///
+    /// Required components are also cloned when the target entity does not contain them.
+    pub fn build_deny_all(world: &mut World) -> EntityClonerBuilder<DenyAll> {
+        EntityClonerBuilder {
+            world,
+            filter: Default::default(),
+            entity_cloner: Default::default(),
+        }
+    }
+
+    /// Returns `true` if this cloner is configured to clone entities referenced in cloned components via [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN).
+    /// This will produce "deep" / recursive clones of relationship trees that have "linked spawn".
+    #[inline]
+    pub fn linked_cloning(&self) -> bool {
+        self.other.linked_cloning
+    }
+
+    /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
+    /// If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it will recursively spawn entities as defined
+    /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
+    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
+    #[track_caller]
+    pub fn clone_entity(&mut self, world: &mut World, source: Entity, target: Entity) {
+        self.other
+            .clone_entity(&mut self.filter, world, source, target);
+    }
+
+    /// Clones and inserts components from the `source` entity into a newly spawned entity using the stored configuration.
+    /// If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it will recursively spawn entities as defined
+    /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
+    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
+    #[track_caller]
+    pub fn spawn_clone(&mut self, world: &mut World, source: Entity) -> Entity {
+        self.other.spawn_clone(&mut self.filter, world, source)
+    }
+
+    /// Clones the entity into whatever entity `mapper` chooses for it.
+    #[track_caller]
+    pub fn clone_entity_mapped(
+        &mut self,
+        world: &mut World,
+        source: Entity,
+        mapper: &mut dyn EntityMapper,
+    ) -> Entity {
+        self.other
+            .clone_entity_mapped(&mut self.filter, world, source, mapper)
     }
 }
 
