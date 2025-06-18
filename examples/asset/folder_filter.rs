@@ -1,5 +1,6 @@
 //! In this example we generate four texture atlases (sprite sheets) from a folder containing
-//! individual sprites.
+//! individual sprites.But the folder containing waste files called "waste.txt"
+//! So we use filter to ingrone the waste files
 //!
 //! The texture atlases are generated with different padding and sampling to demonstrate the
 //! effect of these settings, and how bleeding issues can be resolved by padding the sprites.
@@ -35,11 +36,11 @@ fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load multiple, individual sprites from a folder
     commands.insert_resource(RpgSpriteFolder(asset_server.load_folder(
         "textures/rpg_with_waste",
-        Some(Arc::new(|path,is_dir| {
-            let a = is_dir || path.extension().unwrap_or_default() == "png";
-            info!("is_dir:{},path:{:?}   {}",is_dir,path,a);
-            a
-        })), 
+        Some(Arc::new(|path, is_dir| {
+            let need = is_dir || path.extension().unwrap_or_default() == "png";
+            info!("is_dir:{}    path:{:?}   need:{}", is_dir, path, need);
+            need
+        })),
     )));
 }
 

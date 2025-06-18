@@ -1618,7 +1618,7 @@ mod tests {
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle: Handle<LoadedFolder> = asset_server.load_folder("text",None);
+        let handle: Handle<LoadedFolder> = asset_server.load_folder("text", None);
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);

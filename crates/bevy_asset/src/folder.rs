@@ -15,5 +15,5 @@ pub struct LoadedFolder {
     /// The handles of all assets stored in the folder.
     #[dependency]
     pub handles: Vec<UntypedHandle>,
-    pub filter: Option<Arc<dyn Fn(&Path,bool) -> bool + Send + Sync + 'static>>
+    pub filter: Option<Arc<dyn Fn(&Path, bool) -> bool + Send + Sync + 'static>>,
 }

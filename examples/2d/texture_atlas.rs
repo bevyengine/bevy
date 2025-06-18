@@ -31,7 +31,9 @@ struct RpgSpriteFolder(Handle<LoadedFolder>);
 
 fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load multiple, individual sprites from a folder
-    commands.insert_resource(RpgSpriteFolder(asset_server.load_folder("textures/rpg",None)));
+    commands.insert_resource(RpgSpriteFolder(
+        asset_server.load_folder("textures/rpg", None),
+    ));
 }
 
 fn check_textures(
