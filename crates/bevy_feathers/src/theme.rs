@@ -94,9 +94,9 @@ pub mod tokens {
     /// Regular button background (pressed)
     pub const BUTTON_BG_PRESSED: &str = "button.bg.pressed";
     /// Regular button text
-    pub const BUTTON_TXT: &str = "button.txt";
+    pub const BUTTON_TEXT: &str = "button.txt";
     /// Regular button text (disabled)
-    pub const BUTTON_TXT_DISABLED: &str = "button.txt.disabled";
+    pub const BUTTON_TEXT_DISABLED: &str = "button.txt.disabled";
 
     // Primary ("default") buttons
 
@@ -109,9 +109,9 @@ pub mod tokens {
     /// Primary button background (pressed)
     pub const BUTTON_PRIMARY_BG_PRESSED: &str = "button.primary.bg.pressed";
     /// Primary button text
-    pub const BUTTON_PRIMARY_TXT: &str = "button.primary.txt";
+    pub const BUTTON_PRIMARY_TEXT: &str = "button.primary.txt";
     /// Primary button text (disabled)
-    pub const BUTTON_PRIMARY_TXT_DISABLED: &str = "button.primary.txt.disabled";
+    pub const BUTTON_PRIMARY_TEXT_DISABLED: &str = "button.primary.txt.disabled";
 
     // Slider
 
@@ -196,6 +196,8 @@ pub mod fonts {
     pub const BOLD: &str = "embedded://bevy_feathers/assets/fonts/FiraSans-Bold.ttf";
     /// Bold italic font path
     pub const BOLD_ITALIC: &str = "embedded://bevy_feathers/assets/fonts/FiraSans-BoldItalic.ttf";
+    /// Monospace font path
+    pub const MONO: &str = "embedded://bevy_feathers/assets/fonts/FiraMono-Medium.ttf";
 }
 
 /// Constants for specifying which corners of a widget are rounded, used for segmented buttons

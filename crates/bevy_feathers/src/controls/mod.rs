@@ -4,7 +4,7 @@ mod button;
 mod slider;
 
 pub use button::{button, ButtonPlugin, ButtonProps, ButtonVariant};
-pub use slider::SliderPlugin;
+pub use slider::{slider, SliderPlugin, SliderProps};
 
 /// Plugin which registers all feathers controls.
 pub struct ControlsPlugin;
