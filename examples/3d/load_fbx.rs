@@ -50,21 +50,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Load the FBX file and spawn its first scene
+    commands.spawn(SceneRoot(
+        asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/cube/cube.fbx")),
+    ));
     // commands.spawn(SceneRoot(
-    //     asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/cube/cube.fbx")),
+    //     asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/nurbs_saddle.fbx")),
     // ));
     // commands.spawn(SceneRoot(
     //     asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/cube_anim.fbx")),
     // ));
-    // commands.spawn(SceneRoot(asset_server.load(
-    //     FbxAssetLabel::Scene(0).from_asset("models/instanced_materials.fbx"),
-    // )));
-    // commands.spawn(SceneRoot(
-    //     asset_server.load(FbxAssetLabel::Scene(0).from_asset("models/nurbs_saddle.fbx")),
-    // ));
-    commands.spawn(SceneRoot(asset_server.load(
-        FbxAssetLabel::Scene(0).from_asset("models/max2009_blob_6100_binary.fbx"),
-    )));
 }
 
 fn animate_light_direction(

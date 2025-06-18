@@ -230,7 +230,7 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
 # [glTF](https://www.khronos.org/gltf/) support
 bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
-# [FBX](https://www.autodesk.com/products/fbx)
+# [FBX](https://en.wikipedia.org/wiki/FBX)
 fbx = [
   "bevy_internal/bevy_fbx",
   "bevy_asset",
@@ -3230,6 +3230,18 @@ name = "Scene Viewer"
 description = "A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory"
 category = "Tools"
 wasm = true
+
+[[example]]
+name = "scene_viewer_fbx"
+path = "examples/tools/scene_viewer_fbx/main.rs"
+required-features = ["fbx"]
+doc-scrape-examples = true
+
+[package.metadata.example.scene_viewer_fbx]
+name = "FBX Scene Viewer"
+description = "A simple way to view FBX models with Bevy. Just run `cargo run --release --example scene_viewer_fbx --features=fbx /path/to/model.fbx`, replacing the path as appropriate. Provides enhanced controls for FBX-specific features like material inspection and texture debugging"
+category = "Tools"
+wasm = false
 
 [[example]]
 name = "gamepad_viewer"
