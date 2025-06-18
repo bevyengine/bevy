@@ -4,7 +4,9 @@ use bevy_ecs::prelude::*;
 use bevy_platform::collections::HashSet;
 use bevy_render::camera::Camera;
 
-use crate::{experimental::{UiChildren, UiRootNodes}, ComputedNode, ComputedNodeTarget, DefaultUiCamera, GlobalZIndex, ZIndex
+use crate::{
+    experimental::{UiChildren, UiRootNodes},
+    ComputedNode, ComputedNodeTarget, DefaultUiCamera, GlobalZIndex, ZIndex,
 };
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
@@ -44,10 +46,18 @@ pub fn ui_stack_system(
     mut visited_root_nodes: Local<HashSet<Entity>>,
     mut ui_stack: ResMut<UiStack>,
     ui_root_nodes: UiRootNodes,
-    root_node_query: Query<(Entity, &ComputedNodeTarget, Option<&GlobalZIndex>, Option<&ZIndex>)>,
+    root_node_query: Query<(
+        Entity,
+        &ComputedNodeTarget,
+        Option<&GlobalZIndex>,
+        Option<&ZIndex>,
+    )>,
     cameras: Query<&Camera>,
     default_ui_camera: DefaultUiCamera,
-    zindex_global_node_query: Query<(Entity, &ComputedNodeTarget, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
+    zindex_global_node_query: Query<
+        (Entity, &ComputedNodeTarget, &GlobalZIndex, Option<&ZIndex>),
+        With<ComputedNode>,
+    >,
     ui_children: UiChildren,
     zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedNode>,
@@ -55,13 +65,23 @@ pub fn ui_stack_system(
     ui_stack.uinodes.clear();
     visited_root_nodes.clear();
 
-    let default_camera_order = default_ui_camera.get().and_then(|cam_entity| cameras.get(cam_entity).ok()).map(|cam| cam.order).unwrap_or(isize::MAX);
+    let default_camera_order = default_ui_camera
+        .get()
+        .and_then(|cam_entity| cameras.get(cam_entity).ok())
+        .map(|cam| cam.order)
+        .unwrap_or(isize::MAX);
 
-    for (id, target, maybe_global_zindex, maybe_zindex) in root_node_query.iter_many(ui_root_nodes.iter()) {
+    for (id, target, maybe_global_zindex, maybe_zindex) in
+        root_node_query.iter_many(ui_root_nodes.iter())
+    {
         root_nodes.push((
             id,
             (
-                target.camera().and_then(|cam_entity| cameras.get(cam_entity).ok()).map(|cam| cam.order).unwrap_or(default_camera_order),
+                target
+                    .camera()
+                    .and_then(|cam_entity| cameras.get(cam_entity).ok())
+                    .map(|cam| cam.order)
+                    .unwrap_or(default_camera_order),
                 maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
                 maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
             ),
@@ -77,7 +97,11 @@ pub fn ui_stack_system(
         root_nodes.push((
             id,
             (
-                target.camera().and_then(|cam_entity| cameras.get(cam_entity).ok()).map(|cam| cam.order).unwrap_or(default_camera_order),
+                target
+                    .camera()
+                    .and_then(|cam_entity| cameras.get(cam_entity).ok())
+                    .map(|cam| cam.order)
+                    .unwrap_or(default_camera_order),
                 global_zindex.0,
                 maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
             ),

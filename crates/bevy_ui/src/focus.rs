@@ -1,5 +1,6 @@
 use crate::{
-    picking_backend::clip_check_recursive, ui_transform::UiGlobalTransform, ComputedNode, ComputedNodeTarget, Node, UiScale, UiStack
+    picking_backend::clip_check_recursive, ui_transform::UiGlobalTransform, ComputedNode,
+    ComputedNodeTarget, Node, UiScale, UiStack,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
