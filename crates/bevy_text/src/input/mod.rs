@@ -248,10 +248,6 @@ pub fn update_text_input_layout(
                             let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
                             let y = line_y.round() + physical_glyph.y as f32 - top
                                 + glyph_size.y as f32 / 2.0;
-                            let y = match y_axis_orientation {
-                                YAxisOrientation::TopToBottom => y,
-                                YAxisOrientation::BottomToTop => box_size.y - y,
-                            };
 
                             let position = Vec2::new(x, y);
 
