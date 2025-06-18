@@ -1,7 +1,7 @@
 use alloc::{borrow::Cow, vec::Vec};
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     error::Result,
     query::FilteredAccessSet,
     system::{input::SystemIn, BoxedSystem, System, SystemInput},
@@ -31,11 +31,6 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
 
     fn type_id(&self) -> core::any::TypeId {
         self.0.type_id()
-    }
-
-    #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.0.component_access_set()
     }
 
     #[inline]
@@ -78,13 +73,13 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
-        self.0.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.0.initialize(world)
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.0.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.0.check_change_tick(check);
     }
 
     #[inline]
@@ -142,15 +137,10 @@ where
     T: Send + Sync + 'static,
 {
     type In = ();
-
     type Out = S::Out;
 
     fn name(&self) -> Cow<'static, str> {
         self.system.name()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
     }
 
     #[inline]
@@ -187,12 +177,12 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn get_last_run(&self) -> Tick {
@@ -240,15 +230,10 @@ where
     T: FromWorld + Send + Sync + 'static,
 {
     type In = ();
-
     type Out = S::Out;
 
     fn name(&self) -> Cow<'static, str> {
         self.system.name()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
     }
 
     #[inline]
@@ -289,15 +274,15 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
+        self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn get_last_run(&self) -> Tick {

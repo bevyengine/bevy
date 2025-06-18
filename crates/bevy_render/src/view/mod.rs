@@ -316,7 +316,7 @@ pub struct ExtractedView {
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_world_from_view(&self.world_from_view.compute_matrix())
+        ViewRangefinder3d::from_world_from_view(&self.world_from_view.to_matrix())
     }
 }
 
@@ -934,7 +934,7 @@ pub fn prepare_view_uniforms(
         }
 
         let view_from_clip = clip_from_view.inverse();
-        let world_from_view = extracted_view.world_from_view.compute_matrix();
+        let world_from_view = extracted_view.world_from_view.to_matrix();
         let view_from_world = world_from_view.inverse();
 
         let clip_from_world = if temporal_jitter.is_some() {

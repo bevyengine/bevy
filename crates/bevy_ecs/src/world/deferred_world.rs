@@ -5,7 +5,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{Event, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EntityEvent, Event, EventId, Events, SendBatchIds},
     lifecycle::{HookContext, INSERT, REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
@@ -496,27 +496,27 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_non_send_resource_mut() }
     }
 
-    /// Sends an [`Event`].
+    /// Sends a [`BufferedEvent`].
     /// This method returns the [ID](`EventId`) of the sent `event`,
     /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event<E: Event>(&mut self, event: E) -> Option<EventId<E>> {
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
         self.send_event_batch(core::iter::once(event))?.next()
     }
 
-    /// Sends the default value of the [`Event`] of type `E`.
+    /// Sends the default value of the [`BufferedEvent`] of type `E`.
     /// This method returns the [ID](`EventId`) of the sent `event`,
     /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event_default<E: Event + Default>(&mut self) -> Option<EventId<E>> {
+    pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
         self.send_event(E::default())
     }
 
-    /// Sends a batch of [`Event`]s from an iterator.
+    /// Sends a batch of [`BufferedEvent`]s from an iterator.
     /// This method returns the [IDs](`EventId`) of the sent `events`,
     /// or [`None`] if the `event` could not be sent.
     #[inline]
-    pub fn send_event_batch<E: Event>(
+    pub fn send_event_batch<E: BufferedEvent>(
         &mut self,
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
@@ -747,6 +747,7 @@ impl<'w> DeferredWorld<'w> {
             self.reborrow(),
             event,
             target,
+            target,
             components,
             &mut (),
             &mut false,
@@ -762,7 +763,8 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
         event: ComponentId,
-        target: Option<Entity>,
+        current_target: Option<Entity>,
+        original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
@@ -773,32 +775,36 @@ impl<'w> DeferredWorld<'w> {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
-            target,
+            current_target,
+            original_target,
             components.clone(),
             data,
             &mut propagate,
             caller,
         );
-        let Some(mut target) = target else { return };
+        let Some(mut current_target) = current_target else {
+            return;
+        };
 
         loop {
             if !propagate {
                 return;
             }
             if let Some(traverse_to) = self
-                .get_entity(target)
+                .get_entity(current_target)
                 .ok()
                 .and_then(|entity| entity.get_components::<T>())
                 .and_then(|item| T::traverse(item, data))
             {
-                target = traverse_to;
+                current_target = traverse_to;
             } else {
                 break;
             }
             Observers::invoke::<_>(
                 self.reborrow(),
                 event,
-                Some(target),
+                Some(current_target),
+                original_target,
                 components.clone(),
                 data,
                 &mut propagate,
@@ -807,15 +813,23 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Sends a "global" [observer](crate::observer::Observer) [`Event`] without any targets.
+    /// Sends a global [`Event`] without any targets.
+    ///
+    /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
+    ///
+    /// [`Observer`]: crate::observer::Observer
     pub fn trigger(&mut self, trigger: impl Event) {
         self.commands().trigger(trigger);
     }
 
-    /// Sends an [observer](crate::observer::Observer) [`Event`] with the given `targets`.
+    /// Sends an [`EntityEvent`] with the given `targets`
+    ///
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
+    ///
+    /// [`Observer`]: crate::observer::Observer
     pub fn trigger_targets(
         &mut self,
-        trigger: impl Event,
+        trigger: impl EntityEvent,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
         self.commands().trigger_targets(trigger, targets);

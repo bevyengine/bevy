@@ -9,7 +9,8 @@ use core::{
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
-    component::Tick,
+    component::{ComponentId, Tick},
+    query::FilteredAccessSet,
     resource::Resource,
     system::{
         Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
@@ -199,10 +200,24 @@ where
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World) -> Self::State {
         GizmosFetchState {
-            state: GizmosState::<Config, Clear>::init_state(world, system_meta),
+            state: GizmosState::<Config, Clear>::init_state(world),
         }
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet<ComponentId>,
+        world: &mut World,
+    ) {
+        GizmosState::<Config, Clear>::init_access(
+            &state.state,
+            system_meta,
+            component_access_set,
+            world,
+        );
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {

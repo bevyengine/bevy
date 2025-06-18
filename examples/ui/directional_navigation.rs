@@ -70,7 +70,7 @@ fn universal_button_click_behavior(
     mut trigger: On<Pointer<Click>>,
     mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
 ) {
-    let button_entity = trigger.target().unwrap();
+    let button_entity = trigger.target();
     if let Ok((mut color, mut reset_timer)) = button_query.get_mut(button_entity) {
         // This would be a great place to play a little sound effect too!
         color.0 = PRESSED_BUTTON.into();
@@ -382,7 +382,6 @@ fn interact_with_focused_button(
         if let Some(focused_entity) = input_focus.0 {
             commands.trigger_targets(
                 Pointer::<Click> {
-                    target: focused_entity,
                     // We're pretending that we're a mouse
                     pointer_id: PointerId::Mouse,
                     // This field isn't used, so we're just setting it to a placeholder value
