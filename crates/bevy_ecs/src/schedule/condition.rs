@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, boxed::Box, format};
+use alloc::{boxed::Box, format};
+use bevy_utils::prelude::DebugName;
 use core::ops::Not;
 
 use crate::system::{
@@ -154,7 +155,7 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and);
         let name = format!("{} && {}", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `false`
@@ -206,7 +207,7 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nand);
         let name = format!("!({} && {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -258,7 +259,7 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nor);
         let name = format!("!({} || {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that returns `true`
@@ -305,7 +306,7 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or);
         let name = format!("{} || {}", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -357,7 +358,7 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xnor);
         let name = format!("!({} ^ {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -399,7 +400,7 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xor);
         let name = format!("({} ^ {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 }
 

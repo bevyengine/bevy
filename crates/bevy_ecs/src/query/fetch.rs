@@ -12,6 +12,7 @@ use crate::{
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
 use smallvec::SmallVec;
 use variadics_please::all_tuples;
@@ -1232,7 +1233,7 @@ where
         assert!(
             access.is_compatible(&my_access),
             "`EntityRefExcept<{}>` conflicts with a previous access in this query.",
-            core::any::type_name::<B>(),
+            DebugName::type_name::<B>(),
         );
         access.extend(&my_access);
     }
@@ -1343,7 +1344,7 @@ where
         assert!(
             access.is_compatible(&my_access),
             "`EntityMutExcept<{}>` conflicts with a previous access in this query.",
-            core::any::type_name::<B>()
+            DebugName::type_name::<B>()
         );
         access.extend(&my_access);
     }
@@ -1589,7 +1590,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         assert!(
             !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            core::any::type_name::<T>(),
+            DebugName::type_name::<T>(),
         );
         access.add_component_read(component_id);
     }
@@ -1775,7 +1776,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         assert!(
             !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            core::any::type_name::<T>(),
+            DebugName::type_name::<T>(),
         );
         access.add_component_read(component_id);
     }
@@ -1984,7 +1985,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         assert!(
             !access.access().has_component_read(component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-            core::any::type_name::<T>(),
+            DebugName::type_name::<T>(),
         );
         access.add_component_write(component_id);
     }
@@ -2134,7 +2135,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         assert!(
             !access.access().has_component_read(component_id),
             "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.",
-            core::any::type_name::<T>(),
+            DebugName::type_name::<T>(),
         );
         access.add_component_write(component_id);
     }
@@ -2401,7 +2402,7 @@ pub struct Has<T>(PhantomData<T>);
 
 impl<T> core::fmt::Debug for Has<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        write!(f, "Has<{}>", core::any::type_name::<T>())
+        write!(f, "Has<{}>", DebugName::type_name::<T>())
     }
 }
 
