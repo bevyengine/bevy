@@ -2604,7 +2604,6 @@ mod tests {
     use crate::component::Component;
     use crate::entity::Entity;
     use crate::prelude::World;
-    use crate::resource::IsResource;
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
     struct A(f32);
@@ -2615,9 +2614,6 @@ mod tests {
     #[test]
     fn query_iter_sorts() {
         let mut world = World::new();
-        // We don't want to query resources for this test.
-        world.register_disabling_component::<IsResource>();
-
         for i in 0..100 {
             world.spawn(A(i as f32));
             world.spawn((A(i as f32), Sparse(i)));

@@ -54,7 +54,7 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{Resource, ResourceEntity},
+    resource::{IsResource, Resource, ResourceEntity},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Commands,
@@ -168,6 +168,8 @@ impl World {
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
+        // We also disable resources, they are meant to be queried via Res and ResMut
+        self.register_disabling_component::<IsResource>();
     }
     /// Creates a new empty [`World`].
     ///

@@ -1827,7 +1827,7 @@ impl Components {
 
     /// Return the number of registered resources.
     pub fn num_resources(&self) -> usize {
-        return self.resource_entities.len();
+        self.resource_entities.len()
     }
 
     /// Returns the number of components registered or queued with this instance.
