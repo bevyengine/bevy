@@ -475,8 +475,8 @@ pub fn validate_parent_has_component<C: Component>(
     }
 }
 
-/// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a [`SpawnableList`] of entities with given bundles that
-/// relate to the [`Children`] entity via the [`ChildOf`] component, and reserve space in the [`Children`] for each spawned entity.
+/// Returns a [`SpawnRelatedBundle`] that will spawn a [`SpawnableList`] of entities with given bundles that
+/// relate to the [`Children`] entity via the [`ChildOf`] component.
 ///
 /// Any additional arguments will be interpreted as bundles to be spawned.
 ///
