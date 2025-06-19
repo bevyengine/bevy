@@ -18,7 +18,7 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
-    entity::{AllowAll, DenyAll, Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
+    entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::{BufferedEvent, EntityEvent, Event},
     observer::{Observer, TriggerTargets},
@@ -1986,7 +1986,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Example
     ///
-    /// Configure through [`EntityClonerBuilder<AllowAll>`] as follows:
+    /// Configure through [`EntityClonerBuilder<OptOut>`] as follows:
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Component, Clone)]
@@ -2002,7 +2002,7 @@ impl<'a> EntityCommands<'a> {
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Clone ComponentA but not ComponentB onto the target.
-    ///     entity.clone_with_allow_all(target, |builder| {
+    ///     entity.clone_with_opt_out(target, |builder| {
     ///         builder.deny::<ComponentB>();
     ///     });
     /// }
@@ -2010,12 +2010,12 @@ impl<'a> EntityCommands<'a> {
     /// ```
     ///
     /// See [`EntityClonerBuilder`] for more options.
-    pub fn clone_with_allow_all(
+    pub fn clone_with_opt_out(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityClonerBuilder<AllowAll>) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
     ) -> &mut Self {
-        self.queue(entity_command::clone_with_allow_all(target, config))
+        self.queue(entity_command::clone_with_opt_out(target, config))
     }
 
     /// Clones parts of an entity (components, observers, etc.) onto another entity,
@@ -2031,7 +2031,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Example
     ///
-    /// Configure through [`EntityClonerBuilder<DenyAll>`] as follows:
+    /// Configure through [`EntityClonerBuilder<OptIn>`] as follows:
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Component, Clone)]
@@ -2047,7 +2047,7 @@ impl<'a> EntityCommands<'a> {
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Clone ComponentA but not ComponentB onto the target.
-    ///     entity.clone_with_deny_all(target, |builder| {
+    ///     entity.clone_with_opt_in(target, |builder| {
     ///         builder.allow::<ComponentA>();
     ///     });
     /// }
@@ -2055,12 +2055,12 @@ impl<'a> EntityCommands<'a> {
     /// ```
     ///
     /// See [`EntityClonerBuilder`] for more options.
-    pub fn clone_with_deny_all(
+    pub fn clone_with_opt_in(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityClonerBuilder<DenyAll>) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
     ) -> &mut Self {
-        self.queue(entity_command::clone_with_deny_all(target, config))
+        self.queue(entity_command::clone_with_opt_in(target, config))
     }
 
     /// Spawns a clone of this entity and returns the [`EntityCommands`] of the clone.
@@ -2069,8 +2069,8 @@ impl<'a> EntityCommands<'a> {
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
     /// To configure cloning behavior (such as only cloning certain components),
-    /// use [`EntityCommands::clone_and_spawn_with_allow_all`]/
-    /// [`deny_all`](EntityCommands::clone_and_spawn_with_deny_all).
+    /// use [`EntityCommands::clone_and_spawn_with_opt_out`]/
+    /// [`opt_out`](EntityCommands::clone_and_spawn_with_opt_out).
     ///
     /// # Note
     ///
@@ -2095,7 +2095,7 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     pub fn clone_and_spawn(&mut self) -> EntityCommands<'_> {
-        self.clone_and_spawn_with_allow_all(|_| {})
+        self.clone_and_spawn_with_opt_out(|_| {})
     }
 
     /// Spawns a clone of this entity and allows configuring cloning behavior
@@ -2105,7 +2105,7 @@ impl<'a> EntityCommands<'a> {
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) except those that are
     /// [denied](EntityClonerBuilder::deny) in the `config`.
     ///
-    /// See the methods on [`EntityClonerBuilder<AllowAll>`] for more options.
+    /// See the methods on [`EntityClonerBuilder<OptOut>`] for more options.
     ///
     /// # Note
     ///
@@ -2126,17 +2126,17 @@ impl<'a> EntityCommands<'a> {
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Create a clone of the entity with ComponentA but without ComponentB.
-    ///     let mut entity_clone = entity.clone_and_spawn_with_allow_all(|builder| {
+    ///     let mut entity_clone = entity.clone_and_spawn_with_opt_out(|builder| {
     ///         builder.deny::<ComponentB>();
     ///     });
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone_and_spawn_with_allow_all(
+    pub fn clone_and_spawn_with_opt_out(
         &mut self,
-        config: impl FnOnce(&mut EntityClonerBuilder<AllowAll>) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
         let entity_clone = self.commands().spawn_empty().id();
-        self.clone_with_allow_all(entity_clone, config);
+        self.clone_with_opt_out(entity_clone, config);
         EntityCommands {
             commands: self.commands_mut().reborrow(),
             entity: entity_clone,
@@ -2150,7 +2150,7 @@ impl<'a> EntityCommands<'a> {
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) and are
     /// [allowed](EntityClonerBuilder::allow) in the `config`.
     ///
-    /// See the methods on [`EntityClonerBuilder<DenyAll>`] for more options.
+    /// See the methods on [`EntityClonerBuilder<OptIn>`] for more options.
     ///
     /// # Note
     ///
@@ -2171,17 +2171,17 @@ impl<'a> EntityCommands<'a> {
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Create a clone of the entity with ComponentA but without ComponentB.
-    ///     let mut entity_clone = entity.clone_and_spawn_with_deny_all(|builder| {
+    ///     let mut entity_clone = entity.clone_and_spawn_with_opt_in(|builder| {
     ///         builder.allow::<ComponentA>();
     ///     });
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone_and_spawn_with_deny_all(
+    pub fn clone_and_spawn_with_opt_in(
         &mut self,
-        config: impl FnOnce(&mut EntityClonerBuilder<DenyAll>) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
         let entity_clone = self.commands().spawn_empty().id();
-        self.clone_with_deny_all(entity_clone, config);
+        self.clone_with_opt_in(entity_clone, config);
         EntityCommands {
             commands: self.commands_mut().reborrow(),
             entity: entity_clone,

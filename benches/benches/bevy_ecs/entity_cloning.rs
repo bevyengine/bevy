@@ -1,9 +1,9 @@
 use core::hint::black_box;
 
 use benches::bench;
-use bevy_ecs::bundle::Bundle;
+use bevy_ecs::bundle::{Bundle, InsertMode};
 use bevy_ecs::component::ComponentCloneBehavior;
-use bevy_ecs::entity::{EntityCloner, EntityClonerBuilder};
+use bevy_ecs::entity::EntityCloner;
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, world::World};
@@ -17,66 +17,20 @@ criterion_group!(
     hierarchy_tall,
     hierarchy_wide,
     hierarchy_many,
+    filter
 );
 
 #[derive(Component, Reflect, Default, Clone)]
-#[require(C1)]
-struct E1(Mat4);
+struct C<const N: usize>(Mat4);
 
-#[derive(Component, Reflect, Default, Clone)]
-struct C1(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[require(C2)]
-struct E2(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-struct C2(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[require(C3)]
-struct E3(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-struct C3(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[require(C4)]
-struct E4(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-struct C4(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[require(C5)]
-struct E5(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-struct C5(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-struct C6(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-struct C7(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-struct C8(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-struct C9(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-struct C10(Mat4);
-
-type ComplexBundle = (C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+type ComplexBundle = (C<1>, C<2>, C<3>, C<4>, C<5>, C<6>, C<7>, C<8>, C<9>, C<10>);
 
 /// Sets the [`ComponentCloneBehavior`] for all explicit and required components in a bundle `B` to
 /// use the [`Reflect`] trait instead of [`Clone`].
-fn reflection_cloner<B: Bundle + GetTypeRegistration, Filter>(
+fn reflection_cloner<B: Bundle + GetTypeRegistration>(
     world: &mut World,
     linked_cloning: bool,
-) -> impl FnOnce(&mut EntityClonerBuilder<Filter>) + 'static {
+) -> EntityCloner {
     // Get mutable access to the type registry, creating it if it does not exist yet.
     let registry = world.get_resource_or_init::<AppTypeRegistry>();
 
@@ -91,13 +45,15 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration, Filter>(
     // this bundle are saved.
     let component_ids: Vec<_> = world.register_bundle::<B>().contributed_components().into();
 
-    move |builder| {
-        // Overwrite the clone handler for all components in the bundle to use `Reflect`, not `Clone`.
-        for component in component_ids {
-            builder.override_clone_behavior_with_id(component, ComponentCloneBehavior::reflect());
-        }
-        builder.linked_cloning(linked_cloning);
+    let mut builder = EntityCloner::build_opt_out(world);
+
+    // Overwrite the clone handler for all components in the bundle to use `Reflect`, not `Clone`.
+    for component in component_ids {
+        builder.override_clone_behavior_with_id(component, ComponentCloneBehavior::reflect());
     }
+    builder.linked_cloning(linked_cloning);
+
+    builder.finish()
 }
 
 /// A helper function that benchmarks running [`EntityCloner::spawn_clone`] with a bundle `B`.
@@ -109,17 +65,14 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration, Filter>(
 /// components (which is usually [`ComponentCloneBehavior::clone()`]). If `clone_via_reflect`
 /// is true, it will overwrite the handler for all components in the bundle to be
 /// [`ComponentCloneBehavior::reflect()`].
-fn bench_single<B: Bundle + Default + GetTypeRegistration>(
+fn bench_clone<B: Bundle + Default + GetTypeRegistration>(
     b: &mut Bencher,
     clone_via_reflect: bool,
 ) {
     let mut world = World::default();
 
     let mut cloner = if clone_via_reflect {
-        let cfg = reflection_cloner::<B, _>(&mut world, false);
-        let mut builder = EntityCloner::build_allow_all(&mut world);
-        cfg(&mut builder);
-        builder.finish()
+        reflection_cloner::<B>(&mut world, false)
     } else {
         EntityCloner::default()
     };
@@ -134,41 +87,11 @@ fn bench_single<B: Bundle + Default + GetTypeRegistration>(
     });
 }
 
-/// A helper function that benchmarks running [`EntityCloner::clone_entity`] with[`bevy_ecs::entity::DenyAll`]
-/// filter and allowing 5 components which each have one required component.
-fn bench_single_actively_filtered<B: Bundle + Default + GetTypeRegistration>(
-    b: &mut Bencher,
-    clone_via_reflect: bool,
-) {
-    let mut world = World::default();
-
-    let mut cloner = if clone_via_reflect {
-        let cfg = reflection_cloner::<B, _>(&mut world, false);
-        let mut builder = EntityCloner::build_deny_all(&mut world);
-        cfg(&mut builder);
-        builder.allow::<B>();
-        builder.finish()
-    } else {
-        let mut builder = EntityCloner::build_deny_all(&mut world);
-        builder.allow::<B>();
-        builder.finish()
-    };
-
-    let source = world.spawn(B::default()).id();
-    let target = world.spawn_empty().id();
-
-    b.iter(|| {
-        // clones the given entity's components to the target
-        cloner.clone_entity(&mut world, black_box(source), black_box(target));
-        world.flush();
-    });
-}
-
 /// A helper function that benchmarks running [`EntityCloner::spawn_clone`] with a bundle `B`.
 ///
-/// As compared to [`bench_clone_single_unfiltered_all()`], this benchmarks recursively cloning an
-/// entity with several children. It does so by setting up an entity tree with a given `height`
-/// where each entity has a specified number of `children`.
+/// As compared to [`bench_clone()`], this benchmarks recursively cloning an entity with several
+/// children. It does so by setting up an entity tree with a given `height` where each entity has a
+/// specified number of `children`.
 ///
 /// For example, setting `height` to 5 and `children` to 1 creates a single chain of entities with
 /// no siblings. Alternatively, setting `height` to 1 and `children` to 5 will spawn 5 direct
@@ -182,12 +105,9 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
     let mut world = World::default();
 
     let mut cloner = if clone_via_reflect {
-        let cfg = reflection_cloner::<B, _>(&mut world, true);
-        let mut builder = EntityCloner::build_allow_all(&mut world);
-        cfg(&mut builder);
-        builder.finish()
+        reflection_cloner::<B>(&mut world, true)
     } else {
-        let mut builder = EntityCloner::build_allow_all(&mut world);
+        let mut builder = EntityCloner::build_opt_out(&mut world);
         builder.linked_cloning(true);
         builder.finish()
     };
@@ -221,7 +141,7 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
 
 // Each benchmark runs twice: using either the `Clone` or `Reflect` traits to clone entities. This
 // constant represents this as an easy array that can be used in a `for` loop.
-const SCENARIOS: [(&str, bool); 2] = [("clone", false), ("reflect", true)];
+const CLONE_SCENARIOS: [(&str, bool); 2] = [("clone", false), ("reflect", true)];
 
 /// Benchmarks cloning a single entity with 10 components and no children.
 fn single(c: &mut Criterion) {
@@ -230,25 +150,9 @@ fn single(c: &mut Criterion) {
     // We're cloning 1 entity.
     group.throughput(Throughput::Elements(1));
 
-    for (id, clone_via_reflect) in SCENARIOS {
+    for (id, clone_via_reflect) in CLONE_SCENARIOS {
         group.bench_function(id, |b| {
-            bench_single::<ComplexBundle>(b, clone_via_reflect);
-        });
-    }
-
-    group.finish();
-}
-
-/// Benchmarks cloning a single entity with 10 components where each needs to be evaluated
-fn single_actively_filtered(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("single_actively_filtered"));
-
-    // We're cloning 1 entity.
-    group.throughput(Throughput::Elements(1));
-
-    for (id, clone_via_reflect) in SCENARIOS {
-        group.bench_function(id, |b| {
-            bench_single_actively_filtered::<(E1, E2, E3, E4, E5)>(b, clone_via_reflect);
+            bench_clone::<ComplexBundle>(b, clone_via_reflect);
         });
     }
 
@@ -262,9 +166,9 @@ fn hierarchy_tall(c: &mut Criterion) {
     // We're cloning both the root entity and its 50 descendents.
     group.throughput(Throughput::Elements(51));
 
-    for (id, clone_via_reflect) in SCENARIOS {
+    for (id, clone_via_reflect) in CLONE_SCENARIOS {
         group.bench_function(id, |b| {
-            bench_clone_hierarchy::<C1>(b, 50, 1, clone_via_reflect);
+            bench_clone_hierarchy::<C<1>>(b, 50, 1, clone_via_reflect);
         });
     }
 
@@ -278,9 +182,9 @@ fn hierarchy_wide(c: &mut Criterion) {
     // We're cloning both the root entity and its 50 direct children.
     group.throughput(Throughput::Elements(51));
 
-    for (id, clone_via_reflect) in SCENARIOS {
+    for (id, clone_via_reflect) in CLONE_SCENARIOS {
         group.bench_function(id, |b| {
-            bench_clone_hierarchy::<C1>(b, 1, 50, clone_via_reflect);
+            bench_clone_hierarchy::<C<1>>(b, 1, 50, clone_via_reflect);
         });
     }
 
@@ -296,9 +200,114 @@ fn hierarchy_many(c: &mut Criterion) {
     // of entities spawned in `bench_clone_hierarchy()` with a `println!()` statement. :)
     group.throughput(Throughput::Elements(364));
 
-    for (id, clone_via_reflect) in SCENARIOS {
+    for (id, clone_via_reflect) in CLONE_SCENARIOS {
         group.bench_function(id, |b| {
             bench_clone_hierarchy::<ComplexBundle>(b, 5, 3, clone_via_reflect);
+        });
+    }
+
+    group.finish();
+}
+
+/// Filter scenario variant for bot opt-in and opt-out filters
+#[derive(Clone, Copy)]
+enum FilterScenario {
+    NoOptOut,
+    NoOptOutNew(bool),
+    OptIn,
+    OptInNew(bool),
+}
+
+impl Into<String> for FilterScenario {
+    fn into(self) -> String {
+        match self {
+            Self::NoOptOut => "no_opt_out",
+            Self::NoOptOutNew(true) => "no_opt_out_new",
+            Self::NoOptOutNew(false) => "no_opt_out_none_new",
+            Self::OptIn => "opt_in",
+            Self::OptInNew(true) => "opt_in_new",
+            Self::OptInNew(false) => "opt_in_none_new",
+        }
+        .into()
+    }
+}
+
+/// Common scenarios for different filter to be benchmarked.
+const FILTER_SCENARIOS: [FilterScenario; 6] = [
+    FilterScenario::NoOptOut,
+    FilterScenario::NoOptOutNew(true),
+    FilterScenario::NoOptOutNew(false),
+    FilterScenario::OptIn,
+    FilterScenario::OptInNew(true),
+    FilterScenario::OptInNew(false),
+];
+
+/// A helper function that benchmarks running [`EntityCloner::clone_entity`] with a bundle `B`.
+///
+/// The bundle must implement [`Default`], which is used to create the first entity that gets its components cloned
+/// in the benchmark. It may also be used to populate the target entity depending on the scenario.
+fn bench_filter<B: Bundle + Default>(b: &mut Bencher, scenario: FilterScenario) {
+    let mut world = World::default();
+    let mut spawn = |empty| match empty {
+        false => world.spawn(B::default()).id(),
+        true => world.spawn_empty().id(),
+    };
+    let source = spawn(false);
+    let (target, mut cloner);
+
+    match scenario {
+        FilterScenario::NoOptOut => {
+            target = spawn(true);
+            cloner = EntityCloner::default();
+        }
+        FilterScenario::NoOptOutNew(is_new) => {
+            target = spawn(is_new);
+            let mut builder = EntityCloner::build_opt_out(&mut world);
+            builder.insert_mode(InsertMode::Keep);
+            cloner = builder.finish();
+        }
+        FilterScenario::OptIn => {
+            target = spawn(true);
+            let mut builder = EntityCloner::build_opt_in(&mut world);
+            builder.allow::<B>();
+            cloner = builder.finish();
+        }
+        FilterScenario::OptInNew(is_new) => {
+            target = spawn(is_new);
+            let mut builder = EntityCloner::build_opt_in(&mut world);
+            builder.allow_if_new::<B>();
+            cloner = builder.finish();
+        }
+    }
+
+    b.iter(|| {
+        // clones the given entity into the target
+        cloner.clone_entity(&mut world, black_box(source), black_box(target));
+        world.flush();
+    });
+}
+
+/// Benchmarks filtering of cloning a single entity with 5 unclonable components (each requiring 1 unclonable component) into a target.
+fn filter(c: &mut Criterion) {
+    #[derive(Component, Default)]
+    #[component(clone_behavior = Ignore)]
+    struct C<const N: usize>;
+
+    #[derive(Component, Default)]
+    #[component(clone_behavior = Ignore)]
+    #[require(C::<N>)]
+    struct R<const N: usize>;
+
+    type RequiringBundle = (R<1>, R<2>, R<3>, R<4>, R<5>);
+
+    let mut group = c.benchmark_group(bench!("filter"));
+
+    // We're cloning 1 entity into a target.
+    group.throughput(Throughput::Elements(1));
+
+    for scenario in FILTER_SCENARIOS {
+        group.bench_function(scenario, |b| {
+            bench_filter::<RequiringBundle>(b, scenario);
         });
     }
 

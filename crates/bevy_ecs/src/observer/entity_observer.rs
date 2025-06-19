@@ -149,7 +149,7 @@ mod tests {
         world.trigger_targets(E, e);
 
         let e_clone = world.spawn_empty().id();
-        EntityCloner::build_allow_all(&mut world)
+        EntityCloner::build_opt_out(&mut world)
             .add_observers(true)
             .clone_entity(e, e_clone);
 

@@ -10,8 +10,8 @@ use crate::{
         StorageType, Tick,
     },
     entity::{
-        AllowAll, ContainsEntity, DenyAll, Entity, EntityCloner, EntityClonerBuilder,
-        EntityEquivalent, EntityIdLocation, EntityLocation,
+        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
+        EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
     event::EntityEvent,
     lifecycle::{DESPAWN, REMOVE, REPLACE},
@@ -2682,7 +2682,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # let entity = world.spawn((ComponentA, ComponentB)).id();
     /// # let target = world.spawn_empty().id();
     /// // Clone all components except ComponentA onto the target.
-    /// world.entity_mut(entity).clone_with_allow_all(target, |builder| {
+    /// world.entity_mut(entity).clone_with_opt_out(target, |builder| {
     ///     builder.deny::<ComponentA>();
     /// });
     /// # assert_eq!(world.get::<ComponentA>(target), None);
@@ -2695,14 +2695,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the target entity does not exist.
-    pub fn clone_with_allow_all(
+    pub fn clone_with_opt_out(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityClonerBuilder<AllowAll>) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
     ) -> &mut Self {
         self.assert_not_despawned();
 
-        let mut builder = EntityCloner::build_allow_all(self.world);
+        let mut builder = EntityCloner::build_opt_out(self.world);
         config(&mut builder);
         builder.clone_entity(self.entity, target);
 
@@ -2730,7 +2730,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # let entity = world.spawn((ComponentA, ComponentB)).id();
     /// # let target = world.spawn_empty().id();
     /// // Clone only ComponentA onto the target.
-    /// world.entity_mut(entity).clone_with_deny_all(target, |builder| {
+    /// world.entity_mut(entity).clone_with_opt_in(target, |builder| {
     ///     builder.allow::<ComponentA>();
     /// });
     /// # assert_eq!(world.get::<ComponentA>(target), Some(&ComponentA));
@@ -2743,14 +2743,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the target entity does not exist.
-    pub fn clone_with_deny_all(
+    pub fn clone_with_opt_in(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityClonerBuilder<DenyAll>) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
     ) -> &mut Self {
         self.assert_not_despawned();
 
-        let mut builder = EntityCloner::build_deny_all(self.world);
+        let mut builder = EntityCloner::build_opt_in(self.world);
         config(&mut builder);
         builder.clone_entity(self.entity, target);
 
@@ -2772,7 +2772,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If this entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn clone_and_spawn(&mut self) -> Entity {
-        self.clone_and_spawn_with_allow_all(|_| {})
+        self.clone_and_spawn_with_opt_out(|_| {})
     }
 
     /// Spawns a clone of this entity and allows configuring cloning behavior
@@ -2793,7 +2793,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # #[derive(Component, Clone, PartialEq, Debug)]
     /// # struct ComponentB;
     /// // Create a clone of an entity but without ComponentA.
-    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with_allow_all(|builder| {
+    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with_opt_out(|builder| {
     ///     builder.deny::<ComponentA>();
     /// });
     /// # assert_eq!(world.get::<ComponentA>(entity_clone), None);
@@ -2805,16 +2805,16 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If this entity has been despawned while this `EntityWorldMut` is still alive.
-    pub fn clone_and_spawn_with_allow_all(
+    pub fn clone_and_spawn_with_opt_out(
         &mut self,
-        config: impl FnOnce(&mut EntityClonerBuilder<AllowAll>) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
     ) -> Entity {
         self.assert_not_despawned();
 
         let entity_clone = self.world.entities.reserve_entity();
         self.world.flush();
 
-        let mut builder = EntityCloner::build_allow_all(self.world);
+        let mut builder = EntityCloner::build_opt_out(self.world);
         config(&mut builder);
         builder.clone_entity(self.entity, entity_clone);
 
@@ -2841,7 +2841,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # #[derive(Component, Clone, PartialEq, Debug)]
     /// # struct ComponentB;
     /// // Create a clone of an entity but only with ComponentA.
-    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with_deny_all(|builder| {
+    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with_opt_in(|builder| {
     ///     builder.allow::<ComponentA>();
     /// });
     /// # assert_eq!(world.get::<ComponentA>(entity_clone), Some(&ComponentA));
@@ -2853,16 +2853,16 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If this entity has been despawned while this `EntityWorldMut` is still alive.
-    pub fn clone_and_spawn_with_deny_all(
+    pub fn clone_and_spawn_with_opt_in(
         &mut self,
-        config: impl FnOnce(&mut EntityClonerBuilder<DenyAll>) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
     ) -> Entity {
         self.assert_not_despawned();
 
         let entity_clone = self.world.entities.reserve_entity();
         self.world.flush();
 
-        let mut builder = EntityCloner::build_deny_all(self.world);
+        let mut builder = EntityCloner::build_opt_in(self.world);
         config(&mut builder);
         builder.clone_entity(self.entity, entity_clone);
 
@@ -2883,7 +2883,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
-        EntityCloner::build_deny_all(self.world)
+        EntityCloner::build_opt_in(self.world)
             .allow::<B>()
             .clone_entity(self.entity, target);
 
@@ -2905,7 +2905,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
-        EntityCloner::build_deny_all(self.world)
+        EntityCloner::build_opt_in(self.world)
             .allow::<B>()
             .move_components(true)
             .clone_entity(self.entity, target);
@@ -6113,7 +6113,7 @@ mod tests {
 
         world
             .entity_mut(entity_a)
-            .clone_with_deny_all(entity_b, |builder| {
+            .clone_with_opt_in(entity_b, |builder| {
                 builder
                     .move_components(true)
                     .allow::<C>()
