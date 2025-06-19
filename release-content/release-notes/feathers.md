@@ -16,5 +16,9 @@ pleased to introduce "Feathers" - a comprehensive widget set that offers:
 - Accessibility features with built-in screen reader and assistive technology support
 - Interactive cursor behavior that changes appropriately when hovering over widgets
 
-Feathers aims to provide developers with a polished, accessible, and cohesive toolkit for all UI
-development needs within the Bevy ecosystem.
+Feathers isn't meant as a toolkit for building exciting and cool game UIs: it has a somewhat plain
+and utilitarian look and feel suitable for editors and graphical utilities. That being said, using
+the themeing framework, you can spice up the colors quite a bit.
+
+Feathers is still in development, and is currently hidden behind an experimental feature flag,
+`experimental_bevy_feathers`.
