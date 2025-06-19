@@ -1259,14 +1259,6 @@ impl core::ops::Mul<Mesh> for Transform {
 }
 
 /// A version of [`Mesh`] suitable for serializing as an asset.
-///
-/// Animation nodes can refer to external animation clips, and the [`AssetId`]
-/// is typically not sufficient to identify the clips, since the
-/// [`bevy_asset::AssetServer`] assigns IDs in unpredictable ways. That fact
-/// motivates this type, which replaces the `Handle<AnimationClip>` with an
-/// asset path.  Loading an animation graph via the [`bevy_asset::AssetServer`]
-/// actually loads a serialized instance of this type, as does serializing an
-/// [`AnimationGraph`] through `serde`.
 #[cfg(feature = "serialize")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedMesh {
