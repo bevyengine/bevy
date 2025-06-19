@@ -2490,6 +2490,9 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
     }
 }
 
+// gate `DeferredMut` behind support for Parallel<T>
+bevy_utils::cfg::parallel! {
+
 /// Provides "fake" mutable access to the component `T`
 ///
 /// `DeferredMut` only accesses `&T` from the world, but when mutably
@@ -2715,6 +2718,8 @@ unsafe impl<'__w, '__s, T: Component + Clone> QueryData for DeferredMut<'__w, '_
 // SAFETY: Tracked<T> only accesses &T from the world. Though it provides mutable access, it only
 // applies those changes through commands.
 unsafe impl<'__w, '__s, T: Component + Clone> ReadOnlyQueryData for DeferredMut<'__w, '__s, T> {}
+
+}
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
