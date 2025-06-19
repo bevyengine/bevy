@@ -2509,6 +2509,7 @@ bevy_utils::cfg::parallel! {
 /// ```
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::query::DeferredMut;
+    # use bevy_ecs::query::Has;
 /// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::system::Query;
 /// #
