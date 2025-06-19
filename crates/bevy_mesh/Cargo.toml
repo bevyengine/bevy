@@ -35,6 +35,9 @@ hexasphere = "15.0"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
+[dev-dependencies]
+serde_json = "1.0.140"
+
 [features]
 default = []
 ## Adds serialization support through `serde`.

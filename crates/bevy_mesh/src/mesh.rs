@@ -1722,7 +1722,9 @@ mod tests {
         mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
 
         let serialized_mesh = SerializedMesh::from_mesh(mesh.clone());
-        let deserialized_mesh = serialized_mesh.deserialize().into_mesh();
+        let serialized_string = serde_json::to_string(&serialized_mesh).unwrap();
+        let serialized_mesh_from_string: SerializedMesh = serde_json::from_str(&serialized_string).unwrap();
+        let deserialized_mesh = serialized_mesh_from_string.into_mesh();
         assert_eq!(mesh, deserialized_mesh);
     }
 }
