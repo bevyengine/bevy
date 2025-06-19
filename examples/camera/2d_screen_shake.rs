@@ -15,36 +15,39 @@
 //! |:---------------------------------|:---------------------------|
 //! | Space (pressed repeatedly)       | Increase camera trauma     |
 
-use bevy::{input::common_conditions::input_just_pressed, prelude::*, sprite::MeshMaterial2d};
+use bevy::{
+    input::common_conditions::input_just_pressed, math::ops::powf, prelude::*,
+    sprite::MeshMaterial2d,
+};
 
 // Before we implement the code, let's quickly introduce the underlying constants.
 // They are later encoded in a `CameraShakeConfig` component, but introduced here so we can easily tweak them.
 // Try playing around with them and see how the shake behaves!
 
-// The trauma decay rate controls how quickly the trauma decays.
-// 0.5 means that a full trauma of 1.0 will decay to 0.0 in 2 seconds.
+/// The trauma decay rate controls how quickly the trauma decays.
+/// 0.5 means that a full trauma of 1.0 will decay to 0.0 in 2 seconds.
 const TRAUMA_DECAY_PER_SECOND: f32 = 0.5;
 
-// The trauma exponent controls how the trauma affects the shake.
-// Camera shakes don't feel punchy when they go up linearly, so we use an exponent of 2.0.
-// The higher the exponent, the more sudden the shake kicks in.
+/// The trauma exponent controls how the trauma affects the shake.
+/// Camera shakes don't feel punchy when they go up linearly, so we use an exponent of 2.0.
+/// The higher the exponent, the more sudden the shake kicks in.
 const TRAUMA_EXPONENT: f32 = 2.0;
 
-// The maximum angle the camera can rotate on full trauma.
-// 10.0 degrees is a somewhat high but still reasonable shake. Try bigger values for something more silly and wiggly.
+/// The maximum angle the camera can rotate on full trauma.
+/// 10.0 degrees is a somewhat high but still reasonable shake. Try bigger values for something more silly and wiggly.
 const MAX_ANGLE: f32 = 10.0_f32.to_radians();
 
-// The maximum translation the camera will move on full trauma in both the x and y directions.
-// 20.0 px is a low enough displacement to not be distracting. Try higher values for an effect that looks like the camera is wandering around.
+/// The maximum translation the camera will move on full trauma in both the x and y directions.
+/// 20.0 px is a low enough displacement to not be distracting. Try higher values for an effect that looks like the camera is wandering around.
 const MAX_TRANSLATION: f32 = 20.0;
 
-// How much we are traversing the noise function in arbitrary units per second.
-// This dictates how fast the camera shakes.
-// 20.0 is a fairly fast shake. Try lower values for a more dreamy effect.
+/// How much we are traversing the noise function in arbitrary units per second.
+/// This dictates how fast the camera shakes.
+/// 20.0 is a fairly fast shake. Try lower values for a more dreamy effect.
 const NOISE_SPEED: f32 = 20.0;
 
-// How much trauma we add per press of the space key.
-// A value of 1.0 would mean that a single press would result in a maximum trauma, i.e. 1.0.
+/// How much trauma we add per press of the space key.
+/// A value of 1.0 would mean that a single press would result in a maximum trauma, i.e. 1.0.
 const TRAUMA_PER_PRESS: f32 = 0.4;
 
 fn main() {
@@ -53,18 +56,18 @@ fn main() {
         .add_systems(Startup, (setup_scene, setup_instructions, setup_camera))
         // At the start of the frame, restore the camera's transform to its unshaken state.
         .add_systems(PreUpdate, reset_transform)
-        // Just before the end of the frame, apply the shake.
-        .add_systems(PostUpdate, shake_camera.before(TransformSystems::Propagate))
         .add_systems(
             Update,
             // Increase trauma when the space key is pressed.
             increase_trauma.run_if(input_just_pressed(KeyCode::Space)),
         )
+        // Just before the end of the frame, apply the shake.
+        .add_systems(PostUpdate, shake_camera.before(TransformSystems::Propagate))
         .run();
 }
 
-// Let's start with the core mechanic: how do we shake the camera?
-// This system runs right at the end of the frame, so that we can sneak in the shake effect before rendering kicks in.
+/// Let's start with the core mechanic: how do we shake the camera?
+/// This system runs right at the end of the frame, so that we can sneak in the shake effect before rendering kicks in.
 fn shake_camera(
     camera_shake: Single<(&mut CameraShakeState, &CameraShakeConfig, &mut Transform)>,
     time: Res<Time>,
@@ -79,7 +82,7 @@ fn shake_camera(
     // Let's start with a visual intuition: <https://assets-global.website-files.com/64b6d182aee713bd0401f4b9/64b95974ec292aabac45fc8e_image.png>
     // The image on the left is made from pure randomness, the image on the right is made from a kind of noise called Perlin noise.
     // Notice how the noise has much more "structure" than the randomness? How it looks like it has peaks and valleys?
-    // This property makes noise very desireable for a variety of visual effects. In our case, what we want is that the
+    // This property makes noise very desirable for a variety of visual effects. In our case, what we want is that the
     // camera does not wildly teleport around the world, but instead *moves* through the world frame by frame.
     // We can use 1D Perlin noise for this, which takes one input and outputs a value between -1.0 and 1.0. If we increase the input by a little bit,
     // like by the time since the last frame, we get a different output that is still "close" to the previous one.
@@ -102,7 +105,7 @@ fn shake_camera(
     // So, we make sure that the `shake` value we use is an exponential function of the trauma.
     // But doesn't this make the value explode? Fortunately not: since `trauma` is between 0.0 and 1.0, exponentiating it will actually make it smaller!
     // See <https://www.wolframalpha.com/input?i=plot+x+and+x%5E2+and+x%5E3+for+x+in+%5B0%2C+1%5D> for a graph.
-    let shake = camera_shake.trauma.powf(config.exponent);
+    let shake = powf(camera_shake.trauma, config.exponent);
 
     // Not, to get the final offset, we multiply this noise value by the shake value and the maximum value.
     // The noise value is in [-1, 1], so by multiplying it with a maximum value, we get a value in [-max_value, +max_value].
@@ -122,31 +125,31 @@ fn shake_camera(
     camera_shake.trauma = camera_shake.trauma.clamp(0.0, 1.0);
 }
 
-// Increase the trauma when the space key is pressed.
+/// Increase the trauma when the space key is pressed.
 fn increase_trauma(mut camera_shake: Single<&mut CameraShakeState>) {
     camera_shake.trauma += TRAUMA_PER_PRESS;
     camera_shake.trauma = camera_shake.trauma.clamp(0.0, 1.0);
 }
 
-// Restore the camera's transform to its unshaken state.
-// Runs at the start of the frame, so that gameplay logic doesn't need to care about camera shake.
+/// Restore the camera's transform to its unshaken state.
+/// Runs at the start of the frame, so that gameplay logic doesn't need to care about camera shake.
 fn reset_transform(camera_shake: Single<(&CameraShakeState, &mut Transform)>) {
     let (camera_shake, mut transform) = camera_shake.into_inner();
     *transform = camera_shake.original_transform;
 }
 
-// The current state of the camera shake that is updated every frame.
+/// The current state of the camera shake that is updated every frame.
 #[derive(Component, Debug, Default)]
 struct CameraShakeState {
-    // The current trauma level in [0.0, 1.0].
+    /// The current trauma level in [0.0, 1.0].
     trauma: f32,
-    // The original transform of the camera before applying the shake.
-    // We store this so that we can restore the camera's transform to its original state at the start of the next frame.
+    /// The original transform of the camera before applying the shake.
+    /// We store this so that we can restore the camera's transform to its original state at the start of the next frame.
     original_transform: Transform,
 }
 
-// Configuration for the camera shake.
-// See the constants at the top of the file for some good default values and detailed explanations.
+/// Configuration for the camera shake.
+/// See the constants at the top of the file for some good default values and detailed explanations.
 #[derive(Component, Debug)]
 #[require(CameraShakeState)]
 struct CameraShakeConfig {
@@ -157,7 +160,7 @@ struct CameraShakeConfig {
     noise_speed: f32,
 }
 
-// Spawn a scene so we have something to look at.
+/// Spawn a scene so we have something to look at.
 fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -216,9 +219,50 @@ fn setup_camera(mut commands: Commands) {
     ));
 }
 
-// Tiny 1D Perlin noise implementation. The mathematical details are not important here.
+/// Tiny 1D Perlin noise implementation. The mathematical details are not important here.
 mod perlin_noise {
     use super::*;
+
+    pub fn generate(x: f32) -> f32 {
+        // Left coordinate of the unit-line that contains the input.
+        let xi0 = x.floor() as usize;
+
+        // Input location in the unit-line.
+        let xf0 = x - xi0 as f32;
+        let xf1 = xf0 - 1.0;
+
+        // Wrap to range 0-255.
+        let xi = xi0 & 0xFF;
+
+        // Apply the fade function to the location.
+        let t = fade(xf0).clamp(0.0, 1.0);
+
+        // Generate hash values for each point of the unit-line.
+        let h0 = PERMUTATION_TABLE[xi];
+        let h1 = PERMUTATION_TABLE[xi + 1];
+
+        // Linearly interpolate between dot products of each gradient with its distance to the input location.
+        let a = dot_grad(h0, xf0);
+        let b = dot_grad(h1, xf1);
+        a.interpolate_stable(&b, t)
+    }
+
+    // A cubic curve that smoothly transitions from 0 to 1 as t goes from 0 to 1
+    fn fade(t: f32) -> f32 {
+        assert!(t >= 0.0, "t: {t}");
+        assert!(t <= 1.0, "t: {t}");
+        t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+    }
+
+    fn dot_grad(hash: u8, xf: f32) -> f32 {
+        // In 1D case, the gradient may be either 1 or -1.
+        // The distance vector is the input offset (relative to the smallest bound).
+        if hash & 0x1 != 0 {
+            xf
+        } else {
+            -xf
+        }
+    }
 
     // Perlin noise permutation table, the second half is a mirror of the first half.
     const PERMUTATION_TABLE: [u8; 512] = [
@@ -258,45 +302,4 @@ mod perlin_noise {
         0x5D, 0xDE, 0x72, 0x43, 0x1D, 0x18, 0x48, 0xF3, 0x8D, 0x80, 0xC3, 0x4E, 0x42, 0xD7, 0x3D,
         0x9C, 0xB4,
     ];
-
-    // A cubic curve that smoothly transitions from 0 to 1 as t goes from 0 to 1
-    fn fade(t: f32) -> f32 {
-        assert!(t >= 0.0, "t: {t}");
-        assert!(t <= 1.0, "t: {t}");
-        t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
-    }
-
-    fn dot_grad(hash: u8, xf: f32) -> f32 {
-        // In 1D case, the gradient may be either 1 or -1.
-        // The distance vector is the input offset (relative to the smallest bound).
-        if hash & 0x1 != 0 {
-            xf
-        } else {
-            -xf
-        }
-    }
-
-    pub fn generate(x: f32) -> f32 {
-        // Left coordinate of the unit-line that contains the input.
-        let xi0 = x.floor() as usize;
-
-        // Input location in the unit-line.
-        let xf0 = x - xi0 as f32;
-        let xf1 = xf0 - 1.0;
-
-        // Wrap to range 0-255.
-        let xi = xi0 & 0xFF;
-
-        // Apply the fade function to the location.
-        let t = fade(xf0).clamp(0.0, 1.0);
-
-        // Generate hash values for each point of the unit-line.
-        let h0 = PERMUTATION_TABLE[xi + 0];
-        let h1 = PERMUTATION_TABLE[xi + 1];
-
-        // Linearly interpolate between dot products of each gradient with its distance to the input location.
-        let a = dot_grad(h0, xf0);
-        let b = dot_grad(h1, xf1);
-        a.interpolate_stable(&b, t)
-    }
 }
