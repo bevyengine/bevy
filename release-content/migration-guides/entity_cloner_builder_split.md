@@ -64,8 +64,8 @@ All other methods `EntityClonerBuilder` had in 0.16 are still available for both
 
 | 0.16 | 0.17 |
 | - | - |
-| `EntityWorldMut::clone_with` | `EntityWorldMut::clone_with_opt_out` <br></br> `EntityWorldMut::clone_with_opt_in` |
-| `EntityWorldMut::clone_and_spawn_with` | `EntityWorldMut::clone_and_spawn_with_opt_out` <br></br> `EntityWorldMut::clone_and_spawn_with_opt_in` |
-| `EntityCommands::clone_with` | `EntityCommands::clone_with_opt_out` <br></br> `EntityCommands::clone_with_opt_in` |
-| `EntityCommands::clone_and_spawn_with` | `EntityCommands::clone_and_spawn_with_opt_out` <br></br> `EntityCommands::clone_and_spawn_with_opt_in` |
-| `entity_command::clone_with` | `entity_command::clone_with_opt_out` <br></br> `entity_command::clone_with_opt_in` |
+| `EntityWorldMut::clone_with` | `EntityWorldMut::clone_with_opt_out` \\ `EntityWorldMut::clone_with_opt_in` |
+| `EntityWorldMut::clone_and_spawn_with` | `EntityWorldMut::clone_and_spawn_with_opt_out` \\ `EntityWorldMut::clone_and_spawn_with_opt_in` |
+| `EntityCommands::clone_with` | `EntityCommands::clone_with_opt_out` \\ `EntityCommands::clone_with_opt_in` |
+| `EntityCommands::clone_and_spawn_with` | `EntityCommands::clone_and_spawn_with_opt_out` \\ `EntityCommands::clone_and_spawn_with_opt_in` |
+| `entity_command::clone_with` | `entity_command::clone_with_opt_out` \\ `entity_command::clone_with_opt_in` |
