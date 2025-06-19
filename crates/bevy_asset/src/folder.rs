@@ -1,4 +1,4 @@
-use std::{sync::Arc, vec::Vec};
+use alloc::{sync::Arc, vec::Vec};
 
 use crate::{Asset, UntypedHandle};
 use bevy_reflect::TypePath;
