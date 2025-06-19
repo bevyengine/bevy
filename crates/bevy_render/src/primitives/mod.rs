@@ -1,7 +1,9 @@
 use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_math::{
+    Affine3A, CompassOctant, Mat3A, Mat4, URect, UVec2, Vec2, Vec3, Vec3A, Vec4, Vec4Swizzles,
+};
 use bevy_reflect::prelude::*;
 
 /// An axis-aligned bounding box, defined by:
@@ -135,6 +137,221 @@ impl Sphere {
         let d = v.length();
         let relative_radius = aabb.relative_radius(&(v / d), &world_from_local.matrix3);
         d < self.radius + relative_radius
+    }
+}
+
+/// A proportionally-sized "sub-rectangle".
+///
+/// When [`Camera::crop`](crate::camera::Camera::crop) is `Some`, only the sub-section of the
+/// image defined by `size` and `offset` (relative to the `full_size` of the
+/// whole image) is projected to the cameras viewport.
+///
+/// Take the example of the following multi-monitor setup:
+/// ```css
+/// ┌───┬───┐
+/// │ A │ B │
+/// ├───┼───┤
+/// │ C │ D │
+/// └───┴───┘
+/// ```
+/// If each monitor is 1920x1080, the whole image will have a resolution of
+/// 3840x2160. For each monitor we can use a single camera with a viewport of
+/// the same size as the monitor it corresponds to. To ensure that the image is
+/// cohesive, we can set a different crop rectangle on each camera:
+/// - Camera A: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,0
+/// - Camera B: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 1920,0
+/// - Camera C: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,1080
+/// - Camera D: `full_size` = 3840x2160, `size` = 1920x1080, `offset` =
+///   1920,1080
+///
+/// However since only the ratio between the values is important, they could all
+/// be divided by 120 and still produce the same image--[`SubRect::reduced`]
+/// does this. Camera D would for example have the following values:
+/// `full_size` = 32x18, `size` = 16x9, `offset` = 16,9
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+pub struct SubRect {
+    /// Size of the whole rectantle
+    pub full_size: UVec2,
+    /// Size of the sub-rectangle.
+    pub size: UVec2,
+    /// Offset of the sub-rectangle from the top-left.
+    pub offset: Vec2,
+}
+
+impl Default for SubRect {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            full_size: UVec2::ONE,
+            size: UVec2::ONE,
+            offset: Vec2::ZERO,
+        }
+    }
+}
+
+impl SubRect {
+    /// Returns a `SubRect` representing either a quadrant or half of the full view,
+    /// depending on the value of `oct`. For each of the cardinal directions, this
+    /// will return the corresponding half, while for each of the intercardinal (NE, NW, SE, SW)
+    /// directions, this will return the corresponding quadrant.
+    pub fn octant(oct: CompassOctant) -> Self {
+        let size = match oct {
+            CompassOctant::NorthEast
+            | CompassOctant::NorthWest
+            | CompassOctant::SouthEast
+            | CompassOctant::SouthWest => UVec2::splat(1),
+            CompassOctant::North | CompassOctant::South => UVec2::new(2, 1),
+            CompassOctant::East | CompassOctant::West => UVec2::new(1, 2),
+        };
+
+        let offset = match oct {
+            CompassOctant::NorthWest | CompassOctant::North | CompassOctant::West => {
+                Vec2::splat(0.)
+            }
+            CompassOctant::NorthEast | CompassOctant::East => Vec2::new(1., 0.),
+            CompassOctant::SouthWest | CompassOctant::South => Vec2::new(0., 1.),
+            CompassOctant::SouthEast => Vec2::splat(1.),
+        };
+
+        Self {
+            full_size: UVec2::splat(2),
+            size,
+            offset,
+        }
+    }
+
+    /// Returns this [`SubRect`] with a new value for `full_size`
+    #[inline]
+    pub fn with_full_size(mut self, full_size: UVec2) -> Self {
+        self.full_size = full_size;
+        self
+    }
+
+    /// Returns this [`SubRect`] with a new value for `size`
+    #[inline]
+    pub fn with_size(mut self, size: UVec2) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Returns this [`SubRect`] with a new value for `offset`
+    #[inline]
+    pub fn with_offset(mut self, offset: Vec2) -> Self {
+        self.offset = offset;
+        self
+    }
+
+    /// Returns this [`SubRect`] but with all extraneous factors removed
+    pub fn reduced(mut self) -> Self {
+        let size_gcd = UVec2 {
+            x: ops::gcd(self.full_size.x, self.size.x),
+            y: ops::gcd(self.full_size.y, self.size.y),
+        };
+
+        self.full_size /= size_gcd;
+        self.offset /= size_gcd.as_vec2();
+        self.size /= size_gcd;
+        self
+    }
+
+    /// Returns this [`SubRect`] scaled to a new full size.
+    ///
+    /// Returns Ok if the conversion is lossless (i.e. doesn't cause a change
+    /// to the relative `size`), and returns Err otherwise with the closest
+    /// possible approximation
+    pub fn scaled_to(self, full_size: UVec2) -> Result<Self, Self> {
+        let rough = self.scaled_roughly_to(full_size);
+
+        let num = full_size;
+        let denom = self.full_size;
+        if ((self.size * num) % denom).cmpeq(UVec2::ZERO).all() {
+            Ok(rough)
+        } else {
+            Err(rough)
+        }
+    }
+
+    /// Returns this [`SubRect`] scaled to a new full size.
+    ///
+    /// Unlike [`Self::scaled_to`], this method does not check if the
+    /// result is lossless, so there might be a change to the relative
+    /// `size`
+    pub fn scaled_roughly_to(self, full_size: UVec2) -> Self {
+        let num = full_size;
+        let denom = self.full_size;
+
+        Self {
+            full_size,
+            size: self.size * num / denom,
+            offset: self.offset * num.as_vec2() / denom.as_vec2(),
+        }
+    }
+
+    /// Returns this [`SubRect`] centered in the full rectangle
+    #[inline]
+    pub fn centered(self) -> Self {
+        self.with_offset((self.full_size - self.size).as_vec2() / 2.)
+    }
+
+    // Returns the inverse of this [`SubRect`].
+    #[inline]
+    pub fn inverted(self) -> Self {
+        Self {
+            full_size: self.size,
+            offset: -self.offset,
+            size: self.full_size,
+        }
+    }
+
+    #[inline]
+    pub fn as_urect(self) -> URect {
+        let offset = self.offset.as_uvec2();
+        URect {
+            min: offset,
+            max: self.size + offset,
+        }
+    }
+
+    #[inline]
+    pub fn from_urect(full_size: UVec2, rect: URect) -> Self {
+        Self {
+            full_size,
+            offset: rect.min.as_vec2(),
+            size: rect.max - rect.min,
+        }
+    }
+}
+
+mod ops {
+    // implementations copied from `num` crate, though since they're standard algorithms (and
+    // fairly small snippets) do we still need to credit?
+
+    /// Calculates the Greatest Common Divisor (GCD) of the number and `other`
+    #[inline]
+    pub fn gcd(mut a: u32, mut b: u32) -> u32 {
+        // Use Stein's algorithm
+        if a == 0 || b == 0 {
+            return 0;
+        }
+
+        // find common factors of 2
+        let shift = (a | b).trailing_zeros();
+
+        // divide n and m by 2 until odd
+        a >>= a.trailing_zeros();
+        b >>= b.trailing_zeros();
+
+        while a != b {
+            if a > b {
+                a -= b;
+                a >>= a.trailing_zeros();
+            } else {
+                b -= a;
+                b >>= b.trailing_zeros();
+            }
+        }
+
+        a << shift
     }
 }
 
@@ -622,5 +839,130 @@ mod tests {
             Vec3::new(0.0, 0.0, -50.5),
         );
         assert!(!frustum.contains_aabb(&aabb, &model));
+    }
+
+    #[test]
+    fn sub_rect_centered() {
+        let top_left = SubRect::octant(CompassOctant::NorthWest);
+        let right = SubRect::octant(CompassOctant::East);
+
+        assert_eq!(
+            top_left.centered(),
+            SubRect {
+                offset: Vec2::splat(0.5),
+                ..top_left
+            }
+        );
+
+        assert_eq!(
+            right.centered(),
+            SubRect {
+                offset: Vec2::new(0.5, 0.0),
+                ..right
+            }
+        );
+    }
+
+    #[test]
+    fn sub_rect_reduced() {
+        let reducible_same_factor = SubRect {
+            full_size: UVec2::new(200, 160),
+            size: UVec2::new(50, 40),
+            offset: Vec2::ZERO,
+        };
+
+        let reducible_diff_factor = SubRect {
+            full_size: UVec2::new(80, 160),
+            size: UVec2::new(30, 40),
+            offset: Vec2::ZERO,
+        };
+
+        let irreducible = SubRect {
+            full_size: UVec2::new(17, 5),
+            size: UVec2::new(4, 3),
+            offset: Vec2::ZERO,
+        };
+
+        assert_eq!(
+            reducible_same_factor.reduced(),
+            SubRect {
+                full_size: UVec2::splat(4),
+                size: UVec2::splat(1),
+                offset: Vec2::ZERO
+            }
+        );
+
+        assert_eq!(
+            reducible_diff_factor.reduced(),
+            SubRect {
+                full_size: UVec2::new(8, 4),
+                size: UVec2::new(3, 1),
+                offset: Vec2::ZERO
+            }
+        );
+
+        assert_eq!(irreducible.reduced(), irreducible);
+    }
+
+    #[test]
+    fn sub_rect_scaled_to() {
+        let top_left = SubRect::octant(CompassOctant::NorthWest);
+
+        assert_eq!(
+            top_left.scaled_to(UVec2::splat(200)),
+            Ok(SubRect {
+                full_size: UVec2::splat(200),
+                size: UVec2::splat(100),
+                offset: Vec2::ZERO,
+            }),
+        );
+
+        assert_eq!(
+            top_left.scaled_to(UVec2::new(1920, 1080)),
+            Ok(SubRect {
+                full_size: UVec2::new(1920, 1080),
+                size: UVec2::new(960, 540),
+                offset: Vec2::ZERO,
+            }),
+        );
+
+        // Don't need to guarantee exact error values, as long as they're approximately correct
+        assert!(top_left.scaled_to(UVec2::new(100, 99)).is_err());
+        assert!(top_left.scaled_to(UVec2::new(11, 11)).is_err());
+    }
+
+    #[test]
+    fn sub_rect_inverse() {
+        let rects = [
+            SubRect::default(),
+            SubRect::octant(CompassOctant::SouthEast),
+            SubRect::octant(CompassOctant::SouthEast)
+                .scaled_to(UVec2::new(184, 240))
+                .unwrap(),
+            SubRect {
+                full_size: UVec2::new(1740, 1800),
+                size: UVec2::splat(200),
+                offset: Vec2::splat(100.),
+            },
+            SubRect {
+                full_size: UVec2::new(203, 160),
+                size: UVec2::new(1, 28),
+                offset: Vec2::new(170., 100.),
+            },
+            SubRect {
+                full_size: UVec2::new(10, 8202742),
+                size: UVec2::new(10, 10000),
+                offset: Vec2::splat(0.),
+            },
+            SubRect {
+                full_size: UVec2::splat(180),
+                size: UVec2::splat(179),
+                offset: Vec2::splat(1.),
+            },
+        ];
+
+        for r in rects {
+            assert_eq!(r.inverted().inverted(), r);
+        }
     }
 }
