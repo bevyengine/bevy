@@ -1,6 +1,6 @@
 //! In this example we generate four texture atlases (sprite sheets) from a folder containing
 //! individual sprites.But the folder containing waste files called "waste.txt"
-//! So we use `load_folder_with_filter` to ingrone the waste files and textures/rpg_with_waste/tiles/*
+//! So we use `load_folder_with_filter` to ingrone the waste files and `textures/rpg_with_waste/tiles`/*
 //!
 //! The texture atlases are generated with different padding and sampling to demonstrate the
 //! effect of these settings, and how bleeding issues can be resolved by padding the sprites.
