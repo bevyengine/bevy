@@ -139,6 +139,37 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
+    let static_bundle_impl = quote! {
+        // SAFETY:
+        // - all the active fields must implement `StaticBundle` for the function bodies to compile, and hence
+        //   this bundle also represents a static set of components;
+        // - `component_ids` and `get_component_ids` delegate to the underlying implementation in the same order
+        //   and hence are coherent;
+        #[allow(deprecated)]
+        unsafe impl #impl_generics #ecs_path::bundle::StaticBundle for #struct_name #ty_generics #where_clause {
+            fn component_ids(
+                components: &mut #ecs_path::component::ComponentsRegistrator,
+                ids: &mut impl FnMut(#ecs_path::component::ComponentId)
+            ){
+                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::component_ids(components, &mut *ids);)*
+            }
+
+            fn get_component_ids(
+                components: &#ecs_path::component::Components,
+                ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
+            ){
+                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::get_component_ids(components, &mut *ids);)*
+            }
+
+            fn register_required_components(
+                components: &mut #ecs_path::component::ComponentsRegistrator,
+                required_components: &mut #ecs_path::component::RequiredComponents
+            ){
+                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::register_required_components(components, &mut *required_components);)*
+            }
+        }
+    };
+
     let bundle_impl = quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
@@ -206,6 +237,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         #(#attribute_errors)*
+        #static_bundle_impl
         #bundle_impl
         #from_components_impl
         #dynamic_bundle_impl
