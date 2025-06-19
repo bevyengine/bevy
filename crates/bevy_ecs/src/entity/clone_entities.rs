@@ -764,7 +764,7 @@ impl<'w> EntityClonerBuilder<'w, OptOut> {
         self
     }
 
-    /// Sets wether components are always cloned ([`InsertMode::Replace`], the default) or only if it is missing
+    /// Sets whether components are always cloned ([`InsertMode::Replace`], the default) or only if it is missing
     /// ([`InsertMode::Keep`]) at the target entity.
     ///
     /// This makes no difference if the target is spawned by the cloner.
