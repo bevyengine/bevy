@@ -214,7 +214,7 @@ impl Mesh {
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
     /// The first index that can be used for custom vertex attributes.
-    /// Only the attributes with an index below this are reserved by Bevy.
+    /// Only the attributes with an index below this are used by Bevy.
     pub const FIRST_AVAILABLE_CUSTOM_ATTRIBUTE: u64 = 8;
 
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
