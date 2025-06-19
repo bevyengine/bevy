@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::vec::Vec;
+use bevy_utils::prelude::DebugName;
 
 use crate::{
     component::{CheckChangeTicks, ComponentId, Tick},
@@ -25,7 +26,7 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     type Out = Result;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.0.name()
     }
 
@@ -139,7 +140,7 @@ where
     type In = ();
     type Out = S::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system.name()
     }
 
@@ -232,7 +233,7 @@ where
     type In = ();
     type Out = S::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system.name()
     }
 
