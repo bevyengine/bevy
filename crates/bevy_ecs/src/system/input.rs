@@ -2,7 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 use variadics_please::all_tuples;
 
-use crate::{bundle::Bundle, prelude::On, system::System};
+use crate::{bundle::StaticBundle, prelude::On, system::System};
 
 /// Trait for types that can be used as input to [`System`]s.
 ///
@@ -222,7 +222,7 @@ impl<'i, T: ?Sized> DerefMut for InMut<'i, T> {
 /// Used for [`ObserverSystem`]s.
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
-impl<E: 'static, B: Bundle> SystemInput for On<'_, E, B> {
+impl<E: 'static, B: StaticBundle> SystemInput for On<'_, E, B> {
     type Param<'i> = On<'i, E, B>;
     type Inner<'i> = On<'i, E, B>;
 

@@ -5,6 +5,7 @@
 
 use criterion::criterion_main;
 
+mod bundles;
 mod change_detection;
 mod components;
 mod empty_archetypes;
@@ -18,6 +19,7 @@ mod scheduling;
 mod world;
 
 criterion_main!(
+    bundles::benches,
     change_detection::benches,
     components::benches,
     empty_archetypes::benches,

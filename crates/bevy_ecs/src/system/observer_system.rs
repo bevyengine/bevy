@@ -3,10 +3,11 @@ use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 
 use crate::{
+    bundle::StaticBundle,
     component::{CheckChangeTicks, ComponentId, Tick},
     error::Result,
     never::Never,
-    prelude::{Bundle, On},
+    prelude::On,
     query::FilteredAccessSet,
     schedule::{Fallible, Infallible},
     system::{input::SystemIn, System},
@@ -16,12 +17,12 @@ use crate::{
 use super::{IntoSystem, SystemParamValidationError};
 
 /// Implemented for [`System`]s that have [`On`] as the first argument.
-pub trait ObserverSystem<E: 'static, B: Bundle, Out = Result>:
+pub trait ObserverSystem<E: 'static, B: StaticBundle, Out = Result>:
     System<In = On<'static, E, B>, Out = Out> + Send + 'static
 {
 }
 
-impl<E: 'static, B: Bundle, Out, T> ObserverSystem<E, B, Out> for T where
+impl<E: 'static, B: StaticBundle, Out, T> ObserverSystem<E, B, Out> for T where
     T: System<In = On<'static, E, B>, Out = Out> + Send + 'static
 {
 }
@@ -38,7 +39,7 @@ impl<E: 'static, B: Bundle, Out, T> ObserverSystem<E, B, Out> for T where
     label = "the trait `IntoObserverSystem` is not implemented",
     note = "for function `ObserverSystem`s, ensure the first argument is `On<T>` and any subsequent ones are `SystemParam`"
 )]
-pub trait IntoObserverSystem<E: 'static, B: Bundle, M, Out = Result>: Send + 'static {
+pub trait IntoObserverSystem<E: 'static, B: StaticBundle, M, Out = Result>: Send + 'static {
     /// The type of [`System`] that this instance converts into.
     type System: ObserverSystem<E, B, Out>;
 
@@ -51,7 +52,7 @@ where
     S: IntoSystem<On<'static, E, B>, Out, M> + Send + 'static,
     S::System: ObserverSystem<E, B, Out>,
     E: 'static,
-    B: Bundle,
+    B: StaticBundle,
 {
     type System = S::System;
 
@@ -65,7 +66,7 @@ where
     S: IntoSystem<On<'static, E, B>, (), M> + Send + 'static,
     S::System: ObserverSystem<E, B, ()>,
     E: Send + Sync + 'static,
-    B: Bundle,
+    B: StaticBundle,
 {
     type System = InfallibleObserverWrapper<E, B, S::System, ()>;
 
@@ -77,7 +78,7 @@ impl<E, B, M, S> IntoObserverSystem<E, B, (Never, M), Result> for S
 where
     S: IntoSystem<On<'static, E, B>, Never, M> + Send + 'static,
     E: Send + Sync + 'static,
-    B: Bundle,
+    B: StaticBundle,
 {
     type System = InfallibleObserverWrapper<E, B, S::System, Never>;
 
@@ -106,7 +107,7 @@ impl<E, B, S, Out> System for InfallibleObserverWrapper<E, B, S, Out>
 where
     S: ObserverSystem<E, B, Out>,
     E: Send + Sync + 'static,
-    B: Bundle,
+    B: StaticBundle,
     Out: Send + Sync + 'static,
 {
     type In = On<'static, E, B>;

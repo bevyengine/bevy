@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 use log::info;
 
 use crate::{
-    bundle::{Bundle, InsertMode},
+    bundle::{Bundle, InsertMode, StaticBundle},
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
@@ -154,7 +154,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
 
 /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity.
 #[track_caller]
-pub fn remove<T: Bundle>() -> impl EntityCommand {
+pub fn remove<T: StaticBundle>() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.remove_with_caller::<T>(caller);
@@ -164,7 +164,7 @@ pub fn remove<T: Bundle>() -> impl EntityCommand {
 /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity,
 /// as well as the required components for each component removed.
 #[track_caller]
-pub fn remove_with_requires<T: Bundle>() -> impl EntityCommand {
+pub fn remove_with_requires<T: StaticBundle>() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.remove_with_requires_with_caller::<T>(caller);
@@ -190,9 +190,9 @@ pub fn clear() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that removes all components from an entity,
-/// except for those in the given [`Bundle`].
+/// except for those in the given [`StaticBundle`].
 #[track_caller]
-pub fn retain<T: Bundle>() -> impl EntityCommand {
+pub fn retain<T: StaticBundle>() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.retain_with_caller::<T>(caller);
@@ -218,7 +218,7 @@ pub fn despawn() -> impl EntityCommand {
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
 /// listening for events of type `E` targeting an entity
 #[track_caller]
-pub fn observe<E: EntityEvent, B: Bundle, M>(
+pub fn observe<E: EntityEvent, B: StaticBundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
@@ -254,7 +254,7 @@ pub fn clone_with(
 
 /// An [`EntityCommand`] that clones the specified components of an entity
 /// and inserts them into another entity.
-pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand {
+pub fn clone_components<B: StaticBundle>(target: Entity) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         entity.clone_components::<B>(target);
     }
@@ -262,7 +262,7 @@ pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 
 /// An [`EntityCommand`] that clones the specified components of an entity
 /// and inserts them into another entity, then removes them from the original entity.
-pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
+pub fn move_components<B: StaticBundle>(target: Entity) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         entity.move_components::<B>(target);
     }

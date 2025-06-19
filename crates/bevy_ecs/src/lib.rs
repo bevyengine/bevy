@@ -145,7 +145,7 @@ pub struct HotPatched;
 #[cfg(test)]
 mod tests {
     use crate::{
-        bundle::Bundle,
+        bundle::{Bundle, StaticBundle},
         change_detection::Ref,
         component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::{Entity, EntityMapper},
@@ -242,9 +242,12 @@ mod tests {
             y: SparseStored,
         }
         let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        <FooBundle as StaticBundle>::component_ids(
+            &mut world.components_registrator(),
+            &mut |id| {
+                ids.push(id);
+            },
+        );
 
         assert_eq!(
             ids,
@@ -292,9 +295,12 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        <NestedBundle as StaticBundle>::component_ids(
+            &mut world.components_registrator(),
+            &mut |id| {
+                ids.push(id);
+            },
+        );
 
         assert_eq!(
             ids,
@@ -344,7 +350,7 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
+        <BundleWithIgnored as StaticBundle>::component_ids(
             &mut world.components_registrator(),
             &mut |id| {
                 ids.push(id);
@@ -2732,6 +2738,13 @@ mod tests {
         field0: Simple,
         field1: ComponentB,
     }
+
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
+    #[derive(Bundle)]
+    struct IgnoredFields(#[bundle(ignore)] i32, #[bundle(ignore)] i32);
 
     #[derive(Component)]
     struct MyEntities {

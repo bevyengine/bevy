@@ -81,11 +81,12 @@ use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};
 use variadics_please::all_tuples;
 
-/// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
+/// The `Bundle` trait enables insertion of [`Component`]s to an entity.
+/// For the removal of [`Component`]s from an entity see the [`StaticBundle`]`trait`.
 ///
 /// Implementers of the `Bundle` trait are called 'bundles'.
 ///
-/// Each bundle represents a static set of [`Component`] types.
+/// Each bundle represents a possibly dynamic set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
 /// panic once initialized if this is not met.
 ///
@@ -115,15 +116,6 @@ use variadics_please::all_tuples;
 /// contains the components of a bundle.
 /// Queries should instead only select the components they logically operate on.
 ///
-/// ## Removal
-///
-/// Bundles are also used when removing components from an entity.
-///
-/// Removing a bundle from an entity will remove any of its components attached
-/// to the entity from the entity.
-/// That is, if the entity does not have all the components of the bundle, those
-/// which are present will be removed.
-///
 /// # Implementers
 ///
 /// Every type which implements [`Component`] also implements `Bundle`, since
@@ -146,7 +138,23 @@ use variadics_please::all_tuples;
 /// implement `Bundle`.
 /// As explained above, this includes any [`Component`] type, and other derived bundles.
 ///
+/// [`Option`]s containing bundles also implement `Bundle`, and will insert the contained value if they
+/// are `Some`, otherwise they will insert nothing.
+///
+/// Fully ynamic bundles (`Box<dyn Bundle>`) are also supported, and will insert the components held
+/// by the underlying concrete bundle type.
+///
+/// # Deriving `Bundle`
+///
+/// The `Bundle`, [`StaticBundle`] and [`BundleFromComponents`] traits can be automatically implemented
+/// for structs holding other bundles by using the [`derive@Bundle`] derive macro.
+///
+/// In case some of your contained bundles are dynamic, like `Option` bundles and `Box<dyn Bundle>`,
+/// you can use the `#[bundle(dynamic)]` attribute to opt out of deriving [`StaticBundle`] and
+/// [`BundleFromComponents`].
+///
 /// If you want to add `PhantomData` to your `Bundle` you have to mark it with `#[bundle(ignore)]`.
+///
 /// ```
 /// # use std::marker::PhantomData;
 /// use bevy_ecs::{component::Component, bundle::Bundle};
@@ -159,6 +167,18 @@ use variadics_please::all_tuples;
 /// #[derive(Bundle)]
 /// struct PositionBundle {
 ///     // A bundle can contain components
+///     x: XPosition,
+///     y: YPosition,
+/// }
+///
+/// #[derive(Bundle)]
+/// #[bundle(dynamic)]
+/// struct DynamicBundle {
+///     // A bundle needs to use #[bundle(dynamic)]
+///     name: Option<PointName>,
+///     // or if it contains fully dynamic bundles
+///     extra: Box<dyn Bundle>,
+///
 ///     x: XPosition,
 ///     y: YPosition,
 /// }
@@ -191,45 +211,119 @@ use variadics_please::all_tuples;
 ///
 /// [`Query`]: crate::system::Query
 // Some safety points:
+// - [`Bundle::is_static`] must be pure and return `true` only if the set of components contained
+//   in this bundle type is fixed and always the same for every instance;
+// - [`Bundle::is_bounded`] must be pure and return `true` only if the set of components contained
+//   in this bundle type's instances is a subset of a statically known set of components;
+// - if this bundle is bounded then [`Bundle::cache_key`] must be pure and return an unique key for
+//   each combination of components contained in this bundle's instance;
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
-// bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
-// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
+// bundle, in the _exact_ order that [`ComponentsFromBundle::get_components`] is called.
+// - [`ComponentsFromBundle::get_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Bundle`",
     label = "invalid `Bundle`",
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
-pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
-    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
+pub unsafe trait Bundle: BundleDyn + ComponentsFromBundle + Send + Sync + 'static {
+    /// Whether this is a static bundle or not. In case this is a static bundle the associated
+    /// [`BundleId`] and [`BundleInfo`] are known to be unique and can be cached by this type's [`TypeId`].
+    ///
+    /// This is a hack to work around the lack of specialization.
+    #[doc(hidden)]
+    fn is_static() -> bool
+    where
+        Self: Sized;
+
+    /// Whether the set of components this bundle includes is bounded or not. In case it is bounded we
+    /// can produce an additional cache key based on which components from the bounded set are included in
+    /// `self` or not, and use that to reuse an existing [`BundleId`] and [`BundleInfo`] associated with the
+    /// dynamic component set of `self`.
+    ///
+    /// This is a hack to work around the lack of specialization.
+    #[doc(hidden)]
+    fn is_bounded() -> bool
+    where
+        Self: Sized;
+
+    /// Computes the cache key associated with `self` and its size. The key is limited to 64 bits, and if the
+    /// size exceeds that it should be ignored.
+    #[doc(hidden)]
+    fn cache_key(&self) -> BoundedBundleKey;
+
+    /// Gets `self`'s component ids, in the order of this bundle's [`Component`]s
+    #[doc(hidden)]
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) where
+        Self: Sized;
+
+    /// Registers components that are required by the components in this [`Bundle`].
+    #[doc(hidden)]
+    fn register_required_components(
+        &self,
+        _components: &mut ComponentsRegistrator,
+        _required_components: &mut RequiredComponents,
+    );
+}
+
+/// Each bundle represents a static and fixed set of [`Component`] types.
+/// See the [`Bundle`] trait for a possibly dynamic set of [`Component`] types.
+///
+/// Implementers of the `Bundle` trait are called 'static bundles'.
+///
+/// ## Removal
+///
+/// Static bundles are used when removing components from an entity.
+///
+/// Removing a bundle from an entity will remove any of its components attached
+/// to the entity from the entity.
+/// That is, if the entity does not have all the components of the bundle, those
+/// which are present will be removed.
+///
+/// # Safety
+///
+/// Manual implementations of this trait are unsupported.
+/// That is, there is no safe way to implement this trait, and you must not do so.
+/// If you want a type to implement [`StaticBundle`], you must use [`derive@Bundle`](derive@Bundle).
+// Some safety points:
+// - [`StaticBundle::component_ids`] and [`StaticBundle::get_component_ids`] must match the behavior of [`Bundle::component_ids`]
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `StaticBundle`",
+    label = "invalid `StaticBundle`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
+)]
+pub unsafe trait StaticBundle: Send + Sync + 'static {
+    /// Gets this [`StaticBundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
 
-    /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
+    /// Gets this [`StaticBundle`]'s component ids. This will be [`None`] if the component has not been registered.
+    #[doc(hidden)]
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 
-    /// Registers components that are required by the components in this [`Bundle`].
+    /// Registers components that are required by the components in this [`StaticBundle`].
+    #[doc(hidden)]
     fn register_required_components(
         _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
     );
 }
 
-/// Creates a [`Bundle`] by taking it from internal storage.
+/// Creates a bundle by taking it from the internal storage.
 ///
 /// # Safety
 ///
 /// Manual implementations of this trait are unsupported.
 /// That is, there is no safe way to implement this trait, and you must not do so.
 /// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`](derive@Bundle).
-///
-/// [`Query`]: crate::system::Query
 // Some safety points:
-// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
-// bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
-pub unsafe trait BundleFromComponents {
+pub unsafe trait BundleFromComponents: StaticBundle {
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's [`Component`]s
     ///
@@ -245,9 +339,11 @@ pub unsafe trait BundleFromComponents {
 }
 
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
-pub trait DynamicBundle {
+pub trait ComponentsFromBundle {
     /// An operation on the entity that happens _after_ inserting this bundle.
-    type Effect: BundleEffect;
+    type Effect: BundleEffect
+    where
+        Self: Sized;
     // SAFETY:
     // The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
     // component being fetched.
@@ -255,7 +351,88 @@ pub trait DynamicBundle {
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect
+    where
+        Self: Sized;
+}
+
+/// The dyn-compatible version of [`Bundle`]. This is used to support `Box<dyn Bundle>`.
+#[doc(hidden)]
+pub trait BundleDyn {
+    /// This is the dyn-compatible version of [`Bundle::component_ids`].
+    #[doc(hidden)]
+    fn component_ids_dyn(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut dyn FnMut(ComponentId),
+    );
+
+    /// This is the dyn-compatible version of [`ComponentsFromBundle::get_components`].
+    #[doc(hidden)]
+    fn get_components_dyn(
+        self: Box<Self>,
+        func: &mut dyn FnMut(StorageType, OwningPtr<'_>),
+    ) -> Box<dyn BundleEffect>;
+}
+
+impl<B: Bundle> BundleDyn for B {
+    fn component_ids_dyn(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut dyn FnMut(ComponentId),
+    ) {
+        self.component_ids(components, &mut |id| ids(id));
+    }
+
+    fn get_components_dyn(
+        self: Box<Self>,
+        func: &mut dyn FnMut(StorageType, OwningPtr<'_>),
+    ) -> Box<dyn BundleEffect> {
+        Box::new(self.get_components(&mut |storage_type, ptr| func(storage_type, ptr)))
+    }
+}
+
+// Safety:
+// - `is_static` and `is_bounded` are false because `Box<dyn Bundle>` could represent any bundle at runtime;
+// - `cache_key` is irrelevant because `is_bounded` is false;
+// - `component_ids` and `get_components` are implemented coherently because `component_ids_dyn` and
+//   `get_components_dyn` are implemented in terms of the underlying bundle's `component_ids` and `get_components`.
+unsafe impl Bundle for Box<dyn Bundle> {
+    fn is_static() -> bool {
+        false
+    }
+
+    fn is_bounded() -> bool {
+        false
+    }
+
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        (**self).component_ids_dyn(components, ids);
+    }
+
+    fn register_required_components(
+        &self,
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        (**self).register_required_components(components, required_components);
+    }
+}
+
+impl ComponentsFromBundle for Box<dyn Bundle> {
+    type Effect = Box<dyn BundleEffect>;
+
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+        self.get_components_dyn(func)
+    }
 }
 
 /// An operation on an [`Entity`] that occurs _after_ inserting the [`Bundle`] that defined this bundle effect.
@@ -265,18 +442,41 @@ pub trait DynamicBundle {
 /// 2. Relevant Hooks are run for the insert, then Observers
 /// 3. The [`BundleEffect`] is run.
 ///
-/// See [`DynamicBundle::Effect`].
-pub trait BundleEffect {
+/// See [`ComponentsFromBundle::Effect`].
+pub trait BundleEffect: BundleEffectDyn {
     /// Applies this effect to the given `entity`.
     fn apply(self, entity: &mut EntityWorldMut);
 }
 
+/// The dyn-compatible version of [`BundleEffect`]. This is used to support `Box<dyn BundleEffect>`.
+#[doc(hidden)]
+pub trait BundleEffectDyn {
+    #[doc(hidden)]
+    fn apply_dyn(self: Box<Self>, entity: &mut EntityWorldMut);
+}
+
+impl<E: BundleEffect> BundleEffectDyn for E {
+    fn apply_dyn(self: Box<Self>, entity: &mut EntityWorldMut) {
+        self.apply(entity);
+    }
+}
+
+impl BundleEffect for Box<dyn BundleEffect> {
+    fn apply(self, entity: &mut EntityWorldMut) {
+        self.apply_dyn(entity);
+    }
+}
+
 // SAFETY:
-// - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
-// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
-unsafe impl<C: Component> Bundle for C {
+// - `C` always represents the set of components containing just `C`
+// - `component_ids` and `get_component_ids` both call `ids` just once for C's component id (and nothing else).
+unsafe impl<C: Component> StaticBundle for C {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
+    }
+
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+        ids(components.get_id(TypeId::of::<C>()));
     }
 
     fn register_required_components(
@@ -292,9 +492,39 @@ unsafe impl<C: Component> Bundle for C {
             &mut Vec::new(),
         );
     }
+}
 
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
-        ids(components.get_id(TypeId::of::<C>()));
+// SAFETY:
+// - C is a static bundle, hence both `is_static` and `is_bounded` are true;
+// - `cache_key` doesn't matter because `is_static` is true;
+// - `component_ids` calls `ids` for C's component id (and nothing else)
+// - `get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
+unsafe impl<C: Component> Bundle for C {
+    fn is_static() -> bool {
+        true
+    }
+    fn is_bounded() -> bool {
+        true
+    }
+
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        <Self as StaticBundle>::component_ids(components, ids);
+    }
+
+    fn register_required_components(
+        &self,
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        <Self as StaticBundle>::register_required_components(components, required_components);
     }
 }
 
@@ -313,7 +543,7 @@ unsafe impl<C: Component> BundleFromComponents for C {
     }
 }
 
-impl<C: Component> DynamicBundle for C {
+impl<C: Component> ComponentsFromBundle for C {
     type Effect = ();
     #[inline]
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
@@ -334,25 +564,92 @@ macro_rules! tuple_impl {
         )]
         $(#[$meta])*
         // SAFETY:
-        // - `Bundle::component_ids` calls `ids` for each component type in the
-        // bundle, in the exact order that `DynamicBundle::get_components` is called.
-        // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
-        // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
-        //   `StorageType` into the callback.
-        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
+        // - all the sub-bundles are static, and hence their combination is static too;
+        // - `component_ids` and `get_component_ids` both delegate to the sub-bundle's methods
+        //   exactly once per sub-bundle, hence they are coherent.
+        unsafe impl<$($name: StaticBundle),*> StaticBundle for ($($name,)*) {
             fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, ids);)*
+                $(<$name as StaticBundle>::component_ids(components, ids);)*
             }
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
-                $(<$name as Bundle>::get_component_ids(components, ids);)*
+                $(<$name as StaticBundle>::get_component_ids(components, ids);)*
             }
 
             fn register_required_components(
                 components: &mut ComponentsRegistrator,
                 required_components: &mut RequiredComponents,
             ) {
-                $(<$name as Bundle>::register_required_components(components, required_components);)*
+                $(<$name as StaticBundle>::register_required_components(components, required_components);)*
+            }
+        }
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        $(#[$meta])*
+        // SAFETY:
+        // - if all sub-bundles are static then this bundle is static too;
+        // - if all sub-bundles are bounded by some sets then this bundle is bounded by their union;
+        // - `cache_key` ORs together the keys of the sub-bundles in order to compute a combined key; since
+        //   no bits is overlapped and the original keys were associated to unique combinations, this new key
+        //   is also associated with an unique combination;
+        // - `component_ids` calls `ids` for each component type in the bundle, in the exact order that
+        //   `get_components` is called.
+        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
+            fn is_static() -> bool {
+                true $(&& <$name as Bundle>::is_static())*
+            }
+            fn is_bounded() -> bool {
+                true $(&& <$name as Bundle>::is_bounded())*
+            }
+
+            fn cache_key(&self) -> BoundedBundleKey {
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                let mut key = 0;
+                let mut size = 0;
+
+                BoundedBundleKey::empty()
+                    $( .merge($name.cache_key()) )*
+            }
+
+            fn component_ids(
+                &self,
+                components: &mut ComponentsRegistrator,
+                ids: &mut impl FnMut(ComponentId),
+            ) {
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                $($name.component_ids(components, ids);)*
+            }
+
+            fn register_required_components(
+                &self,
+                components: &mut ComponentsRegistrator,
+                required_components: &mut RequiredComponents,
+            ) {
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                $($name.register_required_components(components, required_components);)*
             }
         }
 
@@ -368,7 +665,7 @@ macro_rules! tuple_impl {
         $(#[$meta])*
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
-        // bundle, in the exact order that `DynamicBundle::get_components` is called.
+        // bundle, in the exact order that `ComponentsFromBundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
@@ -401,7 +698,7 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
-        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
+        impl<$($name: Bundle),*> ComponentsFromBundle for ($($name,)*) {
             type Effect = ($($name::Effect,)*);
             #[allow(
                 clippy::unused_unit,
@@ -431,7 +728,7 @@ all_tuples!(
 );
 
 /// A trait implemented for [`BundleEffect`] implementations that do nothing. This is used as a type constraint for
-/// [`Bundle`] APIs that do not / cannot run [`DynamicBundle::Effect`], such as "batch spawn" APIs.
+/// [`Bundle`] APIs that do not / cannot run [`ComponentsFromBundle::Effect`], such as "batch spawn" APIs.
 pub trait NoBundleEffect {}
 
 macro_rules! after_effect_impl {
@@ -460,6 +757,70 @@ macro_rules! after_effect_impl {
 }
 
 all_tuples!(after_effect_impl, 0, 15, P);
+
+#[doc(hidden)]
+#[derive(Clone, Copy)]
+pub struct BoundedBundleKey {
+    key: u64,
+    len_bits: u32,
+}
+
+impl BoundedBundleKey {
+    /// Creates an empty `BoundedBundleKey`. This should be used for static bundles as
+    /// there's only one subset of components it can represent. This can also be used
+    /// as a dummy key in dynamic bundles, since it is not used for them.
+    #[inline]
+    pub const fn empty() -> Self {
+        Self {
+            key: 0,
+            len_bits: 0,
+        }
+    }
+
+    /// Returns whether this bundle key is valid. Currently this is the case if
+    /// it fits in 64 bits.
+    #[inline]
+    pub const fn is_valid(&self) -> bool {
+        self.len_bits <= 64
+    }
+
+    /// Merge two `BoundedBundleKey`s by appending `other` to the right of `self`
+    /// and producing a new `BoundedBundleKey` representing both of them.
+    ///
+    /// Note that for there can be multiple combinations of `self` and `other` that will
+    /// produce the same output, so care should be taken to avoid them.
+    /// A way this can be achieved is by ensuring that there exists a way to compute back
+    /// the length of the key given the key itself and the type it is for.
+    #[inline]
+    pub const fn merge(self, other: Self) -> Self {
+        let len_bits = self.len_bits + other.len_bits;
+        let key = self.key.wrapping_shl(other.len_bits) | other.key;
+        let merged = Self { key, len_bits };
+        if merged.is_valid() {
+            merged
+        } else {
+            // Normalize invalid keys so that `len_bits` never overflows
+            Self {
+                key: 0,
+                len_bits: 65,
+            }
+        }
+    }
+
+    /// Creates a new `BoundedBundleKey` from a literal key and its bits length.
+    /// It's suggested to run this in a `const` block to run the asserts at compile time.
+    ///
+    /// # Panics
+    ///
+    /// This panics if the given key requires more than `len_bits` to be represented
+    /// or if `len_bits` is more than 64.
+    #[inline]
+    pub const fn literal(key: u64, len_bits: u32) -> Self {
+        assert!(len_bits <= 64);
+        assert!(u64::BITS - key.leading_zeros() <= len_bits);
+        Self { key, len_bits }
+    }
+}
 
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
 ///
@@ -524,7 +885,7 @@ impl BundleInfo {
     /// Every ID in `component_ids` must be valid within the World that owns the `BundleInfo`
     /// and must be in the same order as the source bundle type writes its components in.
     unsafe fn new(
-        bundle_type_name: &'static str,
+        bundle_type_name: &str,
         storages: &mut Storages,
         components: &Components,
         mut component_ids: Vec<ComponentId>,
@@ -663,7 +1024,7 @@ impl BundleInfo {
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
-    unsafe fn write_components<'a, T: DynamicBundle, S: BundleComponentStatus>(
+    unsafe fn write_components<'a, T: ComponentsFromBundle, S: BundleComponentStatus>(
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
@@ -1057,6 +1418,7 @@ pub(crate) enum ArchetypeMoveType {
 impl<'w> BundleInserter<'w> {
     #[inline]
     pub(crate) fn new<T: Bundle>(
+        bundle: &T,
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
@@ -1066,7 +1428,7 @@ impl<'w> BundleInserter<'w> {
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+            .register_info(bundle, &mut registrator, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
@@ -1168,7 +1530,7 @@ impl<'w> BundleInserter<'w> {
     /// `entity` must currently exist in the source archetype for this inserter. `location`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub(crate) unsafe fn insert<T: DynamicBundle>(
+    pub(crate) unsafe fn insert<T: ComponentsFromBundle>(
         &mut self,
         entity: Entity,
         location: EntityLocation,
@@ -1449,7 +1811,7 @@ impl<'w> BundleRemover<'w> {
     /// # Safety
     /// Caller must ensure that `archetype_id` is valid
     #[inline]
-    pub(crate) unsafe fn new<T: Bundle>(
+    pub(crate) unsafe fn new<T: StaticBundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         require_all: bool,
@@ -1459,7 +1821,7 @@ impl<'w> BundleRemover<'w> {
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+            .register_static_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
     }
@@ -1721,13 +2083,25 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+    pub fn new<T: Bundle>(bundle: &T, world: &'w mut World, change_tick: Tick) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+            .register_info(bundle, &mut registrator, &mut world.storages);
+        // SAFETY: we initialized this bundle_id in `init_info`
+        unsafe { Self::new_with_id(world, bundle_id, change_tick) }
+    }
+
+    #[inline]
+    pub fn new_static<T: StaticBundle>(world: &'w mut World, change_tick: Tick) -> Self {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+        let bundle_id = world
+            .bundles
+            .register_static_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
@@ -1781,7 +2155,7 @@ impl<'w> BundleSpawner<'w> {
     /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
     #[inline]
     #[track_caller]
-    pub unsafe fn spawn_non_existent<T: DynamicBundle>(
+    pub unsafe fn spawn_non_existent<T: ComponentsFromBundle>(
         &mut self,
         entity: Entity,
         bundle: T,
@@ -1891,13 +2265,18 @@ impl<'w> BundleSpawner<'w> {
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
-    /// Cache static [`BundleId`]
-    bundle_ids: TypeIdMap<BundleId>,
-    /// Cache bundles, which contains both explicit and required components of [`Bundle`]
-    contributed_bundle_ids: TypeIdMap<BundleId>,
-    /// Cache dynamic [`BundleId`] with multiple components
+
+    /// Cache [`BundleId`]s for static bundles
+    static_bundle_ids: TypeIdMap<BundleId>,
+    /// Cache [`BundleId`]s for bounded but non-static bundles
+    bounded_bundle_ids: HashMap<(TypeId, u64), BundleId>,
+    /// Cache [`BundleId`]s for dynamic bundles
     dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
     dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
+
+    /// Cache bundles, which contains both explicit and required components of [`Bundle`]
+    contributed_bundle_ids: TypeIdMap<BundleId>,
+
     /// Cache optimized dynamic [`BundleId`] with single component
     dynamic_component_bundle_ids: HashMap<ComponentId, BundleId>,
     dynamic_component_storages: HashMap<BundleId, StorageType>,
@@ -1931,20 +2310,20 @@ impl Bundles {
     /// or if `type_id` does not correspond to a type of bundle.
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<BundleId> {
-        self.bundle_ids.get(&type_id).cloned()
+        self.static_bundle_ids.get(&type_id).cloned()
     }
 
     /// Registers a new [`BundleInfo`] for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_info<T: Bundle>(
+    pub(crate) fn register_static_info<T: StaticBundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let mut component_ids= Vec::new();
+        *self.static_bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
+            let mut component_ids = Vec::new();
             T::component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
@@ -1958,10 +2337,74 @@ impl Bundles {
         })
     }
 
+    pub(crate) fn register_info<T: Bundle>(
+        &mut self,
+        bundle: &T,
+        components: &mut ComponentsRegistrator,
+        storages: &mut Storages,
+    ) -> BundleId {
+        let bundle_infos = &mut self.bundle_infos;
+
+        // Fastest case, we have a static bundle
+        if T::is_static() {
+            return *self
+                .static_bundle_ids
+                .entry(TypeId::of::<T>())
+                .or_insert_with(|| {
+                    Self::register_new_bundle(bundle, components, storages, bundle_infos)
+                });
+        }
+
+        // Optimized case for bounded bundles, e.g. those with conditional components whose
+        // key fits in 64 bits.
+        if T::is_bounded() {
+            let cache_key = bundle.cache_key();
+            if cache_key.is_valid() {
+                return *self
+                    .bounded_bundle_ids
+                    .entry((TypeId::of::<T>(), cache_key.key))
+                    .or_insert_with(|| {
+                        Self::register_new_bundle(bundle, components, storages, bundle_infos)
+                    });
+            }
+        }
+
+        // Fallback to registering a dynamic bundle
+
+        let mut component_ids = Vec::new();
+        bundle.component_ids(components, &mut |id| component_ids.push(id));
+
+        self.init_dynamic_info(
+            core::any::type_name::<T>(),
+            storages,
+            components,
+            &component_ids,
+        )
+    }
+
+    fn register_new_bundle<T: Bundle>(
+        bundle: &T,
+        components: &mut ComponentsRegistrator,
+        storages: &mut Storages,
+        bundle_infos: &mut Vec<BundleInfo>,
+    ) -> BundleId {
+        let mut component_ids = Vec::new();
+        bundle.component_ids(components, &mut |id| component_ids.push(id));
+        let id = BundleId(bundle_infos.len());
+        let bundle_info =
+            // SAFETY: T::component_ids ensures:
+            // - its info was created
+            // - appropriate storage for it has been initialized.
+            // - it was created in the same order as the components in T
+            unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
+        bundle_infos.push(bundle_info);
+        id
+    }
+
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_contributed_bundle_info<T: Bundle>(
+    pub(crate) fn register_static_contributed_bundle_info<T: StaticBundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
@@ -1969,7 +2412,7 @@ impl Bundles {
         if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
             id
         } else {
-            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            let explicit_bundle_id = self.register_static_info::<T>(components, storages);
             // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {
@@ -1981,7 +2424,12 @@ impl Bundles {
                 };
                 // SAFETY: this is sound because the contributed_components Vec for explicit_bundle_id will not be accessed mutably as
                 // part of init_dynamic_info. No mutable references will be created and the allocation will remain valid.
-                self.init_dynamic_info(storages, components, core::slice::from_raw_parts(ptr, len))
+                self.init_dynamic_info(
+                    "<dynamic bundle>",
+                    storages,
+                    components,
+                    core::slice::from_raw_parts(ptr, len),
+                )
             };
             self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
             id
@@ -2019,6 +2467,7 @@ impl Bundles {
     /// provided [`Components`].
     pub(crate) fn init_dynamic_info(
         &mut self,
+        name: &str,
         storages: &mut Storages,
         components: &Components,
         component_ids: &[ComponentId],
@@ -2032,6 +2481,7 @@ impl Bundles {
             .from_key(component_ids)
             .or_insert_with(|| {
                 let (id, storages) = initialize_dynamic_bundle(
+                    name,
                     bundle_infos,
                     storages,
                     components,
@@ -2064,6 +2514,7 @@ impl Bundles {
             .entry(component_id)
             .or_insert_with(|| {
                 let (id, storage_type) = initialize_dynamic_bundle(
+                    "<dynamic bundle>",
                     bundle_infos,
                     storages,
                     components,
@@ -2079,6 +2530,7 @@ impl Bundles {
 /// Asserts that all components are part of [`Components`]
 /// and initializes a [`BundleInfo`].
 fn initialize_dynamic_bundle(
+    bundle_name: &str,
     bundle_infos: &mut Vec<BundleInfo>,
     storages: &mut Storages,
     components: &Components,
@@ -2096,7 +2548,7 @@ fn initialize_dynamic_bundle(
     let id = BundleId(bundle_infos.len());
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
-        unsafe { BundleInfo::new("<dynamic bundle>", storages, components, component_ids, id) };
+        unsafe { BundleInfo::new(bundle_name, storages, components, component_ids, id) };
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
@@ -2117,12 +2569,137 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
     });
 }
 
+// SAFETY:
+// - `is_static` is false because `Option<T>` could either include all the components in `T`
+//   or none of them
+// - `is_bounded` is the same as the underlying `T`, since `Option<T>` adds the possibility
+//   of having none of the components in the bounding set, but doesn't change the bound.
+// - `cache_key` returns either the key of the underlying bundle with a 0 appended to the right
+//   or a 1, and hence are different for every combination.
+// - `component_ids` either calls `ids` for all components in the underlying bundle or none at all;
+//   if it calls it it means `self` is `Some` and hence `get_components` will also call `func` for
+//   all of them in the same order.
+unsafe impl<T: Bundle> Bundle for Option<T> {
+    fn is_static() -> bool {
+        false
+    }
+    fn is_bounded() -> bool {
+        T::is_bounded()
+    }
+
+    fn cache_key(&self) -> BoundedBundleKey {
+        if let Some(this) = self {
+            this.cache_key()
+                .merge(const { BoundedBundleKey::literal(1, 1) })
+        } else {
+            const { BoundedBundleKey::literal(0, 1) }
+        }
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        if let Some(this) = self {
+            this.component_ids(components, ids);
+        }
+    }
+
+    fn register_required_components(
+        &self,
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        if let Some(this) = self {
+            this.register_required_components(components, required_components);
+        }
+    }
+}
+
+impl<T: ComponentsFromBundle> ComponentsFromBundle for Option<T> {
+    type Effect = Option<T::Effect>;
+
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+        self.map(|this| this.get_components(func))
+    }
+}
+
+impl<T: BundleEffect> BundleEffect for Option<T> {
+    fn apply(self, entity: &mut EntityWorldMut) {
+        if let Some(this) = self {
+            this.apply(entity);
+        }
+    }
+}
+
+impl<T: NoBundleEffect> NoBundleEffect for Option<T> {}
+
+// SAFETY:
+// - `is_static` and `is_bounded` ares false because a `Vec<Box<dyn Bundle>>` could contain
+//   any bundle at runtime;
+// - `cache_key` is irrelevant because this bundle is not bounded;
+// - `component_ids` calls `component_ids` for all bundles in self, and `get_components` calls
+//   `get_components` for the bundle in the same order. Each bundle individually guarantees it
+//   will call `component_ids` and `get_components` in a matching way.
+unsafe impl Bundle for Vec<Box<dyn Bundle>> {
+    fn is_static() -> bool {
+        false
+    }
+
+    fn is_bounded() -> bool {
+        false
+    }
+
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        for bundle in self {
+            bundle.component_ids(components, ids);
+        }
+    }
+
+    fn register_required_components(
+        &self,
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        for bundle in self {
+            bundle.register_required_components(components, required_components);
+        }
+    }
+}
+
+impl ComponentsFromBundle for Vec<Box<dyn Bundle>> {
+    type Effect = Vec<Box<dyn BundleEffect>>;
+
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+        self.into_iter()
+            .map(|bundle| bundle.get_components(func))
+            .collect()
+    }
+}
+
+impl<E: BundleEffect> BundleEffect for Vec<E> {
+    fn apply(self, entity: &mut EntityWorldMut) {
+        for effect in self {
+            effect.apply(entity);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*, world::DeferredWorld,
     };
-    use alloc::vec;
+    use alloc::{boxed::Box, vec};
 
     #[derive(Component)]
     struct A;
@@ -2396,5 +2973,112 @@ mod tests {
         e.insert(A);
 
         assert_eq!(world.resource::<Count>().0, 3);
+    }
+
+    #[derive(Bundle)]
+    #[bundle(dynamic)]
+    struct WithOptionalField {
+        a: A,
+        b: Option<B>,
+        v: Option<V>,
+    }
+
+    #[test]
+    fn optional_bundle() {
+        let mut w = World::new();
+
+        let e = w.spawn(None::<A>);
+        assert!(!e.contains::<A>());
+
+        let e = w.spawn(Some(A));
+        assert!(e.contains::<A>());
+
+        let e = w.spawn((None::<B>, Some(V("Some"))));
+        assert!(!e.contains::<B>());
+        assert!(e.contains::<V>());
+        assert!(e.get::<V>() == Some(&V("Some")));
+
+        let e = w.spawn((Some(B), Some(V("Some2"))));
+        assert!(e.contains::<B>());
+        assert!(e.contains::<V>());
+        assert!(e.get::<V>() == Some(&V("Some2")));
+
+        let e = w.spawn((Some(B), None::<V>));
+        assert!(e.contains::<B>());
+        assert!(!e.contains::<V>());
+
+        let e = w.spawn(WithOptionalField {
+            a: A,
+            b: None,
+            v: Some(V("V")),
+        });
+        assert!(e.contains::<A>());
+        assert!(!e.contains::<B>());
+        assert!(e.get::<V>() == Some(&V("V")));
+    }
+
+    #[derive(Bundle)]
+    #[bundle(dynamic)]
+    struct WithBoxDynBundleField {
+        a: A,
+        b: Box<dyn Bundle>,
+        c: Box<dyn Bundle>,
+    }
+
+    #[test]
+    fn dyn_bundle() {
+        let mut w = World::new();
+
+        let e = w.spawn(Box::new(A) as Box<dyn Bundle>);
+        assert!(e.contains::<A>());
+
+        let e = w.spawn(Box::new((A, B)) as Box<dyn Bundle>);
+        assert!(e.contains::<A>());
+        assert!(e.contains::<B>());
+
+        let e = w.spawn((
+            Box::new(A) as Box<dyn Bundle>,
+            Box::new(B) as Box<dyn Bundle>,
+        ));
+        assert!(e.contains::<A>());
+        assert!(e.contains::<B>());
+
+        let e = w.spawn(WithBoxDynBundleField {
+            a: A,
+            b: Box::new(B),
+            c: Box::new((C, D)),
+        });
+        assert!(e.contains::<A>());
+        assert!(e.contains::<B>());
+        assert!(e.contains::<C>());
+        assert!(e.contains::<D>());
+    }
+
+    #[test]
+    fn vec_dyn_bundle() {
+        let mut w = World::new();
+
+        let e = w.spawn(vec![Box::new(A) as Box<dyn Bundle>]);
+        assert!(e.contains::<A>());
+
+        let e = w.spawn(vec![Box::new(A) as Box<dyn Bundle>, Box::new(B)]);
+        assert!(e.contains::<A>());
+        assert!(e.contains::<B>());
+    }
+
+    #[test]
+    fn mixed_dynamic_bundles() {
+        let mut w = World::new();
+
+        let e = w.spawn(Some(vec![
+            Box::new(A) as Box<dyn Bundle>,
+            Box::new(None::<B>),
+            Box::new(vec![Box::new(C) as Box<dyn Bundle>, Box::new(Some(D))]),
+        ]));
+
+        assert!(e.contains::<A>());
+        assert!(!e.contains::<B>());
+        assert!(e.contains::<C>());
+        assert!(e.contains::<D>());
     }
 }
