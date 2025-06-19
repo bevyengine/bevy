@@ -81,11 +81,12 @@ use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};
 use variadics_please::all_tuples;
 
-/// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
+/// The `Bundle` trait enables insertion of [`Component`]s to an entity.
+/// For the removal of [`Component`]s from an entity see the [`StaticBundle`]`trait`.
 ///
 /// Implementers of the `Bundle` trait are called 'bundles'.
 ///
-/// Each bundle represents a static set of [`Component`] types.
+/// Each bundle represents a possibly dynamic set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
 /// panic once initialized if this is not met.
 ///
@@ -114,15 +115,6 @@ use variadics_please::all_tuples;
 /// For this reason, there is intentionally no [`Query`] to match whether an entity
 /// contains the components of a bundle.
 /// Queries should instead only select the components they logically operate on.
-///
-/// ## Removal
-///
-/// Bundles are also used when removing components from an entity.
-///
-/// Removing a bundle from an entity will remove any of its components attached
-/// to the entity from the entity.
-/// That is, if the entity does not have all the components of the bundle, those
-/// which are present will be removed.
 ///
 /// # Implementers
 ///
@@ -215,7 +207,50 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     );
 }
 
-/// Creates a [`Bundle`] by taking it from internal storage.
+/// Each bundle represents a static and fixed set of [`Component`] types.
+/// See the [`Bundle`] trait for a possibly dynamic set of [`Component`] types.
+///
+/// Implementers of the `Bundle` trait are called 'static bundles'.
+///
+/// ## Removal
+///
+/// Static bundles are used when removing components from an entity.
+///
+/// Removing a bundle from an entity will remove any of its components attached
+/// to the entity from the entity.
+/// That is, if the entity does not have all the components of the bundle, those
+/// which are present will be removed.
+///
+/// # Safety
+///
+/// Manual implementations of this trait are unsupported.
+/// That is, there is no safe way to implement this trait, and you must not do so.
+/// If you want a type to implement [`StaticBundle`], you must use [`derive@Bundle`](derive@Bundle).
+// Some safety points:
+// - [`StaticBundle::component_ids`] and [`StaticBundle::get_component_ids`] must match the behavior of [`Bundle::component_ids`]
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `StaticBundle`",
+    label = "invalid `StaticBundle`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
+)]
+pub unsafe trait StaticBundle: Send + Sync + 'static {
+    /// Gets this [`StaticBundle`]'s component ids, in the order of this bundle's [`Component`]s
+    #[doc(hidden)]
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
+
+    /// Gets this [`StaticBundle`]'s component ids. This will be [`None`] if the component has not been registered.
+    #[doc(hidden)]
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
+
+    /// Registers components that are required by the components in this [`StaticBundle`].
+    #[doc(hidden)]
+    fn register_required_components(
+        _components: &mut ComponentsRegistrator,
+        _required_components: &mut RequiredComponents,
+    );
+}
+
+/// Creates a bundle by taking it from the internal storage.
 ///
 /// # Safety
 ///
