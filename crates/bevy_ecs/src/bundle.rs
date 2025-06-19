@@ -307,11 +307,15 @@ pub trait BundleEffect {
 }
 
 // SAFETY:
-// - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
-// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
-unsafe impl<C: Component> Bundle for C {
+// - `C` always represents the set of components containing just `C`
+// - `component_ids` and `get_component_ids` both call `ids` just once for C's component id (and nothing else).
+unsafe impl<C: Component> StaticBundle for C {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
+    }
+
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+        ids(components.get_id(TypeId::of::<C>()));
     }
 
     fn register_required_components(
@@ -327,9 +331,25 @@ unsafe impl<C: Component> Bundle for C {
             &mut Vec::new(),
         );
     }
+}
+
+// SAFETY:
+// - `component_ids` calls `ids` for C's component id (and nothing else)
+// - `get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
+unsafe impl<C: Component> Bundle for C {
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
+        <Self as StaticBundle>::component_ids(components, ids);
+    }
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
-        ids(components.get_id(TypeId::of::<C>()));
+        <Self as StaticBundle>::get_component_ids(components, ids);
+    }
+
+    fn register_required_components(
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        <Self as StaticBundle>::register_required_components(components, required_components);
     }
 }
 
