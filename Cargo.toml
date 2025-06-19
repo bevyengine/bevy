@@ -1287,7 +1287,7 @@ required-features = ["bevy_solari"]
 name = "Solari"
 description = "Demonstrates realtime dynamic raytraced lighting using Bevy Solari."
 category = "3D Rendering"
-wasm = false
+wasm = false # Raytracing is not supported on the web
 
 [[example]]
 name = "spherical_area_lights"
