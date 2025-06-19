@@ -143,7 +143,7 @@ pub struct InputFocusVisible(pub bool);
 pub struct FocusedInput<E: BufferedEvent + Clone> {
     /// The underlying input event.
     pub input: E,
-    /// The window entity from which the inpu.
+    /// The primary window entity.
     window: Entity,
 }
 
