@@ -1,7 +1,7 @@
 ---
 title: Bevy Feathers
 authors: ["@viridia"]
-pull_requests: []
+pull_requests: [19730]
 ---
 
 As part of our commitment to enhance the developer experience for UI creation in Bevy, we are
