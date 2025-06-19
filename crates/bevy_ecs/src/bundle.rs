@@ -378,6 +378,37 @@ impl<C: Component> DynamicBundle for C {
 
 macro_rules! tuple_impl {
     ($(#[$meta:meta])* $($name: ident),*) => {
+       #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        $(#[$meta])*
+        // SAFETY:
+        // - all the sub-bundles are static, and hence their combination is static too;
+        // - `component_ids` and `get_component_ids` both delegate to the sub-bundle's methods
+        //   exactly once per sub-bundle, hence they are coherent.
+        unsafe impl<$($name: StaticBundle),*> StaticBundle for ($($name,)*) {
+            fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
+                $(<$name as StaticBundle>::component_ids(components, ids);)*
+            }
+
+            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
+                $(<$name as StaticBundle>::get_component_ids(components, ids);)*
+            }
+
+            fn register_required_components(
+                components: &mut ComponentsRegistrator,
+                required_components: &mut RequiredComponents,
+            ) {
+                $(<$name as StaticBundle>::register_required_components(components, required_components);)*
+            }
+        }
+
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
