@@ -1258,7 +1258,21 @@ impl core::ops::Mul<Mesh> for Transform {
     }
 }
 
-/// A version of [`Mesh`] suitable for serializing as an asset.
+/// A version of [`Mesh`] suitable for serializing for short-term transfer.
+///
+/// [`Mesh`] does not implement [`Serialize`] / [`Deserialize`] because it is made with the renderer in mind.
+/// It is not a general-purpose mesh implementation, and its internals are subject to frequent change.
+/// As such, storing a [`Mesh`] on disk is highly discouraged.
+///
+/// But there are still some valid use cases for serializing a [`Mesh`], namely transferring meshes between processes.
+/// To support this, you can create a [`SerializedMesh`] from a [`Mesh`] with [`SerializedMesh::from_mesh`],
+/// and then deserialize it with [`SerializedMesh::deserialize`]. The caveats are:
+/// - The mesh representation is not valid across different versions of Bevy.
+/// - This conversion is lossy. Only the following information is preserved:
+///   - Primitive topology
+///   - Vertex attributes
+///   - Indices
+/// - Custom attributes that were not specified with [`MeshDeserializer::add_custom_vertex_attribute`] will be ignored while deserializing.
 #[cfg(feature = "serialize")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedMesh {
@@ -1269,6 +1283,7 @@ pub struct SerializedMesh {
 
 #[cfg(feature = "serialize")]
 impl SerializedMesh {
+    /// Create a [`SerializedMesh`] from a [`Mesh`]. See the documentation for [`SerializedMesh`] for caveats.
     pub fn from_mesh(mesh: Mesh) -> Self {
         Self {
             primitive_topology: mesh.primitive_topology,
@@ -1286,21 +1301,22 @@ impl SerializedMesh {
         }
     }
 
+    /// Create a [`MeshDeserializer`] from a [`SerializedMesh`]. See the documentation for [`SerializedMesh`] for caveats.
     pub fn deserialize(self) -> MeshDeserializer {
         MeshDeserializer::new(self)
     }
 }
 
+/// An intermediate structure used when deserializing a [`SerializedMesh`] into a [`Mesh`].
 #[cfg(feature = "serialize")]
-#[non_exhaustive]
 pub struct MeshDeserializer {
-    pub serialized_mesh: SerializedMesh,
-    pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    serialized_mesh: SerializedMesh,
+    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 }
 
 #[cfg(feature = "serialize")]
 impl MeshDeserializer {
-    pub fn new(serialized_mesh: SerializedMesh) -> Self {
+    fn new(serialized_mesh: SerializedMesh) -> Self {
         Self {
             serialized_mesh,
             custom_vertex_attributes: [
@@ -1318,6 +1334,7 @@ impl MeshDeserializer {
         }
     }
 
+    /// Register a custom vertex attribute to the deserializer. Custom vertex attributes that were not added with this method will be ignored while deserializing.
     pub fn add_custom_vertex_attribute(
         mut self,
         name: &str,
@@ -1327,6 +1344,9 @@ impl MeshDeserializer {
         self
     }
 
+    /// Finalize the deserialization process and turn the [`SerializedMesh`] into a [`Mesh`].
+    ///
+    /// See the documentation for [`SerializedMesh`] for caveats.
     pub fn into_mesh(self) -> Mesh {
         Mesh {
             attributes: self
