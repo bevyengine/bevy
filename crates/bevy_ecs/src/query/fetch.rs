@@ -14,7 +14,9 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use bevy_utils::Parallel;
+bevy_utils::cfg::parallel! {
+    use bevy_utils::Parallel;
+}
 use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
 use smallvec::SmallVec;
 use variadics_please::all_tuples;
