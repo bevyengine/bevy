@@ -35,7 +35,7 @@ builder.clone_entity(source_entity, target_entity);
 Still, using `EntityClonerBuilder::finish` will return a non-generic `EntityCloner`.
 This change is done because the behavior of the two is too different to share the same struct and same methods and mixing them caused bugs.
 
-The methods of the two builder types are diffent to 0.16 and to each other now:
+The methods of the two builder types are different to 0.16 and to each other now:
 
 ## Opt-Out variant
 
