@@ -1306,7 +1306,7 @@ impl SerializedMesh {
     }
 
     /// Create a [`Mesh`] from a [`SerializedMesh`]. See the documentation for [`SerializedMesh`] for caveats.
-    /// 
+    ///
     /// Use [`MeshDeserializer`] if you need to pass extra options to the deserialization process, such as specifying custom vertex attributes.
     pub fn into_mesh(self) -> Mesh {
         MeshDeserializer::default().deserialize(self)
@@ -1365,7 +1365,7 @@ impl MeshDeserializer {
     /// See the documentation for [`SerializedMesh`] for caveats.
     pub fn deserialize(&self, serialized_mesh: SerializedMesh) -> Mesh {
         Mesh {
-            attributes: 
+            attributes:
                 serialized_mesh
                 .attributes
                 .into_iter()
@@ -1723,7 +1723,8 @@ mod tests {
 
         let serialized_mesh = SerializedMesh::from_mesh(mesh.clone());
         let serialized_string = serde_json::to_string(&serialized_mesh).unwrap();
-        let serialized_mesh_from_string: SerializedMesh = serde_json::from_str(&serialized_string).unwrap();
+        let serialized_mesh_from_string: SerializedMesh =
+            serde_json::from_str(&serialized_string).unwrap();
         let deserialized_mesh = serialized_mesh_from_string.into_mesh();
         assert_eq!(mesh, deserialized_mesh);
     }
