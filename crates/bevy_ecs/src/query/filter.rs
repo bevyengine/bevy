@@ -7,6 +7,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, marker::PhantomData};
 use variadics_please::all_tuples;
 
@@ -103,7 +104,8 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
     unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_, '_>,
+        state: &Self::State,
+        fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool;
@@ -144,13 +146,10 @@ pub struct With<T>(PhantomData<T>);
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
 unsafe impl<T: Component> WorldQuery for With<T> {
-    type Fetch<'w, 's> = ();
+    type Fetch<'w> = ();
     type State = ComponentId;
 
-    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
-        _: Self::Fetch<'wlong, 's>,
-    ) -> Self::Fetch<'wshort, 's> {
-    }
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
     #[inline]
     unsafe fn init_fetch(
@@ -207,7 +206,8 @@ unsafe impl<T: Component> QueryFilter for With<T> {
 
     #[inline(always)]
     unsafe fn filter_fetch(
-        _fetch: &mut Self::Fetch<'_, '_>,
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -247,13 +247,10 @@ pub struct Without<T>(PhantomData<T>);
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
 unsafe impl<T: Component> WorldQuery for Without<T> {
-    type Fetch<'w, 's> = ();
+    type Fetch<'w> = ();
     type State = ComponentId;
 
-    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
-        _: Self::Fetch<'wlong, 's>,
-    ) -> Self::Fetch<'wshort, 's> {
-    }
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
     #[inline]
     unsafe fn init_fetch(
@@ -310,7 +307,8 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 
     #[inline(always)]
     unsafe fn filter_fetch(
-        _fetch: &mut Self::Fetch<'_, '_>,
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -351,12 +349,12 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 pub struct Or<T>(PhantomData<T>);
 
 #[doc(hidden)]
-pub struct OrFetch<'w, 's, T: WorldQuery> {
-    fetch: T::Fetch<'w, 's>,
+pub struct OrFetch<'w, T: WorldQuery> {
+    fetch: T::Fetch<'w>,
     matches: bool,
 }
 
-impl<T: WorldQuery> Clone for OrFetch<'_, '_, T> {
+impl<T: WorldQuery> Clone for OrFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
             fetch: self.fetch.clone(),
@@ -390,10 +388,10 @@ macro_rules! impl_or_query_filter {
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($filter: QueryFilter),*> WorldQuery for Or<($($filter,)*)> {
-            type Fetch<'w, 's> = ($(OrFetch<'w, 's, $filter>,)*);
+            type Fetch<'w> = ($(OrFetch<'w, $filter>,)*);
             type State = ($($filter::State,)*);
 
-            fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(fetch: Self::Fetch<'wlong, 's>) -> Self::Fetch<'wshort, 's> {
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
                 let ($($filter,)*) = fetch;
                 ($(
                     OrFetch {
@@ -406,7 +404,7 @@ macro_rules! impl_or_query_filter {
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
             #[inline]
-            unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w, 's> {
+            unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
                     // SAFETY: The invariants are upheld by the caller.
@@ -416,7 +414,7 @@ macro_rules! impl_or_query_filter {
             }
 
             #[inline]
-            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w, 's>, state: &'s Self::State, table: &'w Table) {
+            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
                 let ($($filter,)*) = fetch;
                 let ($($state,)*) = state;
                 $(
@@ -430,7 +428,7 @@ macro_rules! impl_or_query_filter {
 
             #[inline]
             unsafe fn set_archetype<'w, 's>(
-                fetch: &mut Self::Fetch<'w, 's>,
+                fetch: &mut Self::Fetch<'w>,
                 state: &'s Self::State,
                 archetype: &'w Archetype,
                 table: &'w Table
@@ -501,20 +499,22 @@ macro_rules! impl_or_query_filter {
 
             #[inline(always)]
             unsafe fn filter_fetch(
-                fetch: &mut Self::Fetch<'_, '_>,
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
+                let ($($state,)*) = state;
                 let ($($filter,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, entity, table_row) }))*
+                false $(|| ($filter.matches && unsafe { $filter::filter_fetch($state, &mut $filter.fetch, entity, table_row) }))*
             }
         }
     };
 }
 
 macro_rules! impl_tuple_query_filter {
-    ($(#[$meta:meta])* $($name: ident),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such the lints below may not always apply."
@@ -534,13 +534,15 @@ macro_rules! impl_tuple_query_filter {
 
             #[inline(always)]
             unsafe fn filter_fetch(
-                fetch: &mut Self::Fetch<'_, '_>,
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
+                let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
+                true $(&& unsafe { $name::filter_fetch($state, $name, entity, table_row) })*
             }
         }
 
@@ -552,7 +554,8 @@ all_tuples!(
     impl_tuple_query_filter,
     0,
     15,
-    F
+    F,
+    S
 );
 all_tuples!(
     #[doc(fake_variadic)]
@@ -574,13 +577,10 @@ pub struct Allows<T>(PhantomData<T>);
 /// `update_component_access` adds an archetypal filter for `T`.
 /// This is sound because it doesn't affect the query
 unsafe impl<T: Component> WorldQuery for Allows<T> {
-    type Fetch<'w, 's> = ();
+    type Fetch<'w> = ();
     type State = ComponentId;
 
-    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
-        _: Self::Fetch<'wlong, 's>,
-    ) -> Self::Fetch<'wshort, 's> {
-    }
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
     #[inline]
     unsafe fn init_fetch(_: UnsafeWorldCell, _: &ComponentId, _: Tick, _: Tick) {}
@@ -618,7 +618,12 @@ unsafe impl<T: Component> QueryFilter for Allows<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
-    unsafe fn filter_fetch(_: &mut Self::Fetch<'_, '_>, _: Entity, _: TableRow) -> bool {
+    unsafe fn filter_fetch(
+        _: &Self::State,
+        _: &mut Self::Fetch<'_>,
+        _: Entity,
+        _: TableRow,
+    ) -> bool {
         true
     }
 }
@@ -719,12 +724,10 @@ impl<T: Component> Clone for AddedFetch<'_, T> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Added<T> {
-    type Fetch<'w, 's> = AddedFetch<'w, T>;
+    type Fetch<'w> = AddedFetch<'w, T>;
     type State = ComponentId;
 
-    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
-        fetch: Self::Fetch<'wlong, 's>,
-    ) -> Self::Fetch<'wshort, 's> {
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
     }
 
@@ -734,8 +737,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         &id: &'s ComponentId,
         last_run: Tick,
         this_run: Tick,
-    ) -> Self::Fetch<'w, 's> {
-        Self::Fetch::<'w, 's> {
+    ) -> Self::Fetch<'w> {
+        Self::Fetch::<'w> {
             ticks: StorageSwitch::new(
                 || None,
                 || {
@@ -760,7 +763,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
-        fetch: &mut Self::Fetch<'w, 's>,
+        fetch: &mut Self::Fetch<'w>,
         component_id: &'s ComponentId,
         _archetype: &'w Archetype,
         table: &'w Table,
@@ -775,7 +778,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     #[inline]
     unsafe fn set_table<'w, 's>(
-        fetch: &mut Self::Fetch<'w, 's>,
+        fetch: &mut Self::Fetch<'w>,
         &component_id: &'s ComponentId,
         table: &'w Table,
     ) {
@@ -792,7 +795,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
-            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",core::any::type_name::<T>());
+            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", DebugName::type_name::<T>());
         }
         access.add_component_read(id);
     }
@@ -818,7 +821,8 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
     #[inline(always)]
     unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_, '_>,
+        _state: &Self::State,
+        fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
@@ -947,12 +951,10 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Changed<T> {
-    type Fetch<'w, 's> = ChangedFetch<'w, T>;
+    type Fetch<'w> = ChangedFetch<'w, T>;
     type State = ComponentId;
 
-    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
-        fetch: Self::Fetch<'wlong, 's>,
-    ) -> Self::Fetch<'wshort, 's> {
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
     }
 
@@ -962,8 +964,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         &id: &'s ComponentId,
         last_run: Tick,
         this_run: Tick,
-    ) -> Self::Fetch<'w, 's> {
-        Self::Fetch::<'w, 's> {
+    ) -> Self::Fetch<'w> {
+        Self::Fetch::<'w> {
             ticks: StorageSwitch::new(
                 || None,
                 || {
@@ -988,7 +990,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
-        fetch: &mut Self::Fetch<'w, 's>,
+        fetch: &mut Self::Fetch<'w>,
         component_id: &'s ComponentId,
         _archetype: &'w Archetype,
         table: &'w Table,
@@ -1003,7 +1005,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     #[inline]
     unsafe fn set_table<'w, 's>(
-        fetch: &mut Self::Fetch<'w, 's>,
+        fetch: &mut Self::Fetch<'w>,
         &component_id: &'s ComponentId,
         table: &'w Table,
     ) {
@@ -1020,7 +1022,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
-            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",core::any::type_name::<T>());
+            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", DebugName::type_name::<T>());
         }
         access.add_component_read(id);
     }
@@ -1047,7 +1049,8 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 
     #[inline(always)]
     unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_, '_>,
+        _state: &Self::State,
+        fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
@@ -1146,12 +1149,10 @@ pub struct SpawnedFetch<'w> {
 
 // SAFETY: WorldQuery impl accesses no components or component ticks
 unsafe impl WorldQuery for Spawned {
-    type Fetch<'w, 's> = SpawnedFetch<'w>;
+    type Fetch<'w> = SpawnedFetch<'w>;
     type State = ();
 
-    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
-        fetch: Self::Fetch<'wlong, 's>,
-    ) -> Self::Fetch<'wshort, 's> {
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
     }
 
@@ -1161,7 +1162,7 @@ unsafe impl WorldQuery for Spawned {
         _state: &'s (),
         last_run: Tick,
         this_run: Tick,
-    ) -> Self::Fetch<'w, 's> {
+    ) -> Self::Fetch<'w> {
         SpawnedFetch {
             entities: world.entities(),
             last_run,
@@ -1173,7 +1174,7 @@ unsafe impl WorldQuery for Spawned {
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
-        _fetch: &mut Self::Fetch<'w, 's>,
+        _fetch: &mut Self::Fetch<'w>,
         _state: &'s (),
         _archetype: &'w Archetype,
         _table: &'w Table,
@@ -1181,12 +1182,7 @@ unsafe impl WorldQuery for Spawned {
     }
 
     #[inline]
-    unsafe fn set_table<'w, 's>(
-        _fetch: &mut Self::Fetch<'w, 's>,
-        _state: &'s (),
-        _table: &'w Table,
-    ) {
-    }
+    unsafe fn set_table<'w, 's>(_fetch: &mut Self::Fetch<'w>, _state: &'s (), _table: &'w Table) {}
 
     #[inline]
     fn update_component_access(_state: &(), _access: &mut FilteredAccess<ComponentId>) {}
@@ -1208,7 +1204,8 @@ unsafe impl QueryFilter for Spawned {
 
     #[inline(always)]
     unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_, '_>,
+        _state: &Self::State,
+        fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         _table_row: TableRow,
     ) -> bool {

@@ -2,7 +2,6 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
-use alloc::borrow::Cow;
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -12,12 +11,11 @@ use alloc::{
     vec::Vec,
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, prelude::DebugName, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
 };
-use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
 use pass::ScheduleBuildPassObj;
@@ -1694,14 +1692,14 @@ impl ScheduleGraph {
 
     #[inline]
     fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
-        let name = match id {
+        match id {
             NodeId::System(_) => {
-                let name = self.systems[id.index()]
-                    .get()
-                    .unwrap()
-                    .system
-                    .name()
-                    .to_string();
+                let name = self.systems[id.index()].get().unwrap().system.name();
+                let name = if self.settings.use_shortnames {
+                    name.shortname().to_string()
+                } else {
+                    name.to_string()
+                };
                 if report_sets {
                     let sets = self.names_of_sets_containing_node(id);
                     if sets.is_empty() {
@@ -1723,11 +1721,6 @@ impl ScheduleGraph {
                     set.name()
                 }
             }
-        };
-        if self.settings.use_shortnames {
-            ShortName(&name).to_string()
-        } else {
-            name
         }
     }
 
@@ -2007,7 +2000,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<Cow<'a, str>>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<DebugName>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {

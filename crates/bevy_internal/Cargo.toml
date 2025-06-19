@@ -346,6 +346,8 @@ web = [
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
+debug = ["bevy_utils/debug"]
+
 [dependencies]
 # bevy (no_std)
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [

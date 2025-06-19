@@ -502,38 +502,66 @@ impl AppLifecycle {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 pub enum WindowEvent {
+    /// An application lifecycle event.
     AppLifecycle(AppLifecycle),
+    /// The user's cursor has entered a window.
     CursorEntered(CursorEntered),
+    ///The user's cursor has left a window.
     CursorLeft(CursorLeft),
+    /// The user's cursor has moved inside a window.
     CursorMoved(CursorMoved),
+    /// A file drag and drop event.
     FileDragAndDrop(FileDragAndDrop),
+    /// An Input Method Editor event.
     Ime(Ime),
+    /// A redraw of all of the application's windows has been requested.
     RequestRedraw(RequestRedraw),
+    /// The window's OS-reported scale factor has changed.
     WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
+    /// The OS has requested that a window be closed.
     WindowCloseRequested(WindowCloseRequested),
+    /// A new window has been created.
     WindowCreated(WindowCreated),
+    /// A window has been destroyed by the underlying windowing system.
     WindowDestroyed(WindowDestroyed),
+    /// A window has received or lost focus.
     WindowFocused(WindowFocused),
+    /// A window has been moved.
     WindowMoved(WindowMoved),
+    /// A window has started or stopped being occluded.
     WindowOccluded(WindowOccluded),
+    /// A window's logical size has changed.
     WindowResized(WindowResized),
+    /// A window's scale factor has changed.
     WindowScaleFactorChanged(WindowScaleFactorChanged),
+    /// Sent for windows that are using the system theme when the system theme changes.
     WindowThemeChanged(WindowThemeChanged),
 
+    /// The state of a mouse button has changed.
     MouseButtonInput(MouseButtonInput),
+    /// The physical position of a pointing device has changed.
     MouseMotion(MouseMotion),
+    /// The mouse wheel has moved.
     MouseWheel(MouseWheel),
 
+    /// A two finger pinch gesture.
     PinchGesture(PinchGesture),
+    /// A two finger rotation gesture.
     RotationGesture(RotationGesture),
+    /// A double tap gesture.
     DoubleTapGesture(DoubleTapGesture),
+    /// A pan gesture.
     PanGesture(PanGesture),
 
+    /// A touch input state change.
     TouchInput(TouchInput),
 
+    /// A keyboard input.
     KeyboardInput(KeyboardInput),
+    /// Sent when focus has been lost for all Bevy windows.
+    ///
+    /// Used to clear pressed key state.
     KeyboardFocusLost(KeyboardFocusLost),
 }
 

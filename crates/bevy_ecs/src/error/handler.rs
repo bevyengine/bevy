@@ -1,7 +1,7 @@
 use core::fmt::Display;
 
 use crate::{component::Tick, error::BevyError, prelude::Resource};
-use alloc::borrow::Cow;
+use bevy_utils::prelude::DebugName;
 use derive_more::derive::{Deref, DerefMut};
 
 /// Context for a [`BevyError`] to aid in debugging.
@@ -10,26 +10,26 @@ pub enum ErrorContext {
     /// The error occurred in a system.
     System {
         /// The name of the system that failed.
-        name: Cow<'static, str>,
+        name: DebugName,
         /// The last tick that the system was run.
         last_run: Tick,
     },
     /// The error occurred in a run condition.
     RunCondition {
         /// The name of the run condition that failed.
-        name: Cow<'static, str>,
+        name: DebugName,
         /// The last tick that the run condition was evaluated.
         last_run: Tick,
     },
     /// The error occurred in a command.
     Command {
         /// The name of the command that failed.
-        name: Cow<'static, str>,
+        name: DebugName,
     },
     /// The error occurred in an observer.
     Observer {
         /// The name of the observer that failed.
-        name: Cow<'static, str>,
+        name: DebugName,
         /// The last tick that the observer was run.
         last_run: Tick,
     },
@@ -54,12 +54,12 @@ impl Display for ErrorContext {
 
 impl ErrorContext {
     /// The name of the ECS construct that failed.
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> DebugName {
         match self {
             Self::System { name, .. }
             | Self::Command { name, .. }
             | Self::Observer { name, .. }
-            | Self::RunCondition { name, .. } => name,
+            | Self::RunCondition { name, .. } => name.clone(),
         }
     }
 
