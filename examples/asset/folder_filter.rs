@@ -1,6 +1,6 @@
 //! In this example we generate four texture atlases (sprite sheets) from a folder containing
 //! individual sprites.But the folder containing waste files called "waste.txt"
-//! So we use load_folder_with_batch to ingrone the waste files and textures/rpg_with_waste/tiles/*
+//! So we use load_folder_with_filter to ingrone the waste files and textures/rpg_with_waste/tiles/*
 //!
 //! The texture atlases are generated with different padding and sampling to demonstrate the
 //! effect of these settings, and how bleeding issues can be resolved by padding the sprites.
@@ -9,7 +9,7 @@
 //! An upscaled sprite from each of the four atlases are rendered to the screen.
 
 use bevy::{asset::LoadedFolder, image::ImageSampler, prelude::*};
-use bevy_asset::{LoadBatch, LoadBatchKind};
+use bevy_asset::{LoadFilter, LoadFilterKind};
 
 fn main() {
     App::new()
@@ -33,13 +33,13 @@ struct RpgSpriteFolder(Handle<LoadedFolder>);
 
 fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load multiple, individual sprites from a folder
-    commands.insert_resource(RpgSpriteFolder(asset_server.load_folder_with_batch(
+    commands.insert_resource(RpgSpriteFolder(asset_server.load_folder_with_filter(
         "textures/rpg_with_waste",
-        LoadBatch::new(
+        LoadFilter::new(
             vec!["textures/rpg_with_waste/tiles/*"],
-            LoadBatchKind::Black,
+            LoadFilterKind::Black,
             vec!["png"],
-            LoadBatchKind::White,
+            LoadFilterKind::White,
         ),
     )));
 }

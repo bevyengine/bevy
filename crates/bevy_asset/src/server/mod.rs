@@ -2,7 +2,7 @@ mod info;
 mod loaders;
 
 use crate::{
-    folder::{LoadBatch, LoadedFolder},
+    folder::{LoadFilter, LoadedFolder},
     io::{
         AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
         AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
@@ -15,7 +15,7 @@ use crate::{
     },
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
-    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadBatchKind, LoadedUntypedAsset,
+    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadFilterKind, LoadedUntypedAsset,
     UnapprovedPathMode, UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
@@ -973,10 +973,10 @@ impl AssetServer {
     /// removed, added or moved. This includes files in subdirectories and moving, adding,
     /// or removing complete subdirectories.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
-    pub fn load_folder_with_batch<'a>(
+    pub fn load_folder_with_filter<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        load_batch: LoadBatch,
+        load_filter: LoadFilter,
     ) -> Handle<LoadedFolder> {
         let path = path.into().into_owned();
         let (handle, should_load) = self
@@ -992,14 +992,14 @@ impl AssetServer {
             return handle;
         }
         let id = handle.id().untyped();
-        self.load_folder_internal(id, path, Some(load_batch));
+        self.load_folder_internal(id, path, Some(load_filter));
         handle
     }
     pub(crate) fn load_folder_internal(
         &self,
         id: UntypedAssetId,
         path: AssetPath,
-        load_batch: Option<LoadBatch>,
+        load_filter: Option<LoadFilter>,
     ) {
         async fn load_folder<'a>(
             source: AssetSourceId<'static>,
@@ -1008,9 +1008,9 @@ impl AssetServer {
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
             patterns: &'a Vec<Pattern>,
-            patterns_kind: LoadBatchKind,
+            patterns_kind: LoadFilterKind,
             extensions: &'a Option<Arc<Vec<&str>>>,
-            extensions_kind: LoadBatchKind,
+            extensions_kind: LoadFilterKind,
         ) -> Result<(), AssetLoadError> {
             let is_dir = reader.is_directory(path).await?;
             if is_dir {
@@ -1068,7 +1068,7 @@ impl AssetServer {
         }
 
         let path = path.into_owned();
-        let patterns: Vec<Pattern> = load_batch
+        let patterns: Vec<Pattern> = load_filter
             .as_ref()
             .map(|batch| {
                 batch
@@ -1080,16 +1080,16 @@ impl AssetServer {
                     .collect()
             })
             .unwrap_or(vec![Pattern::new("*/*").unwrap()]);
-        let patterns_kind = load_batch
+        let patterns_kind = load_filter
             .as_ref()
             .map(|batch| batch.paths_kind)
             .unwrap_or_default();
 
-        let extensions = load_batch
+        let extensions = load_filter
             .as_ref()
             .map(|batch| batch.extensions.clone())
             .unwrap_or_default();
-        let extensions_kind = load_batch
+        let extensions_kind = load_filter
             .as_ref()
             .map(|batch| batch.extensions_kind)
             .unwrap_or_default();
@@ -1124,7 +1124,7 @@ impl AssetServer {
                     Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded {
                         id,
                         loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedFolder { handles,load_batch },
+                            LoadedFolder { handles,load_filter },
                         )
                         .into(),
                     }),
@@ -1710,15 +1710,15 @@ impl AssetServer {
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
 pub fn handle_internal_asset_events(world: &mut World) {
     world.resource_scope(|world, server: Mut<AssetServer>| {
-        let mut load_batchs: HashMap<AssetPath<'_>, Option<LoadBatch>> = HashMap::new();
+        let mut load_filters: HashMap<AssetPath<'_>, Option<LoadFilter>> = HashMap::new();
         for (id, loaded_folder) in world
             .get_resource::<Assets<LoadedFolder>>()
             .expect("Could not get LoadedFolder Assets")
             .iter()
         {
-            load_batchs.insert(
+            load_filters.insert(
                 server.get_path(id).expect("Path should be a valid string."),
-                loaded_folder.load_batch.clone(),
+                loaded_folder.load_filter.clone(),
             );
         }
         let mut infos = server.data.infos.write();
@@ -1794,7 +1794,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     server.load_folder_internal(
                         folder_handle.id(),
                         parent_asset_path.clone(),
-                        load_batchs
+                        load_filters
                             .get(&parent_asset_path)
                             .expect("parent folder is doesn't loaded")
                             .clone(),

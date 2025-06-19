@@ -7,35 +7,35 @@ use bevy_reflect::TypePath;
 
 /// This is use for [`AssetServer::load_folderload_folder_with_batch`](crate::prelude::AssetServer::load_folder_with_batch).
 #[derive(Debug, Clone, Copy, Default)]
-pub enum LoadBatchKind {
+pub enum LoadFilterKind {
     #[default]
     White, //Allow loading
     Black, //Disallow loading
 }
 
-impl LoadBatchKind {
+impl LoadFilterKind {
     pub fn apply(&self, expr: bool) -> bool {
         match self {
-            LoadBatchKind::White => expr,
-            LoadBatchKind::Black => !expr,
+            LoadFilterKind::White => expr,
+            LoadFilterKind::Black => !expr,
         }
     }
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct LoadBatch {
+pub struct LoadFilter {
     pub paths: Option<Arc<Vec<&'static str>>>,
-    pub paths_kind: LoadBatchKind,
+    pub paths_kind: LoadFilterKind,
     pub extensions: Option<Arc<Vec<&'static str>>>,
-    pub extensions_kind: LoadBatchKind,
+    pub extensions_kind: LoadFilterKind,
 }
 
-impl LoadBatch {
+impl LoadFilter {
     pub fn new(
         paths: Vec<&'static str>,
-        paths_kind: LoadBatchKind,
+        paths_kind: LoadFilterKind,
         extensions: Vec<&'static str>,
-        extensions_kind: LoadBatchKind,
+        extensions_kind: LoadFilterKind,
     ) -> Self {
         Self {
             paths: Some(Arc::new(paths)),
@@ -44,7 +44,7 @@ impl LoadBatch {
             extensions_kind,
         }
     }
-    pub fn paths(paths: Vec<&'static str>, paths_kind: LoadBatchKind) -> Self {
+    pub fn paths(paths: Vec<&'static str>, paths_kind: LoadFilterKind) -> Self {
         Self {
             paths: Some(Arc::new(paths)),
             paths_kind,
@@ -52,7 +52,7 @@ impl LoadBatch {
             ..Default::default()
         }
     }
-    pub fn extensions(extensions: Vec<&'static str>, extensions_kind: LoadBatchKind) -> Self {
+    pub fn extensions(extensions: Vec<&'static str>, extensions_kind: LoadFilterKind) -> Self {
         Self {
             paths: None,
             extensions: Some(Arc::new(extensions)),
@@ -72,5 +72,5 @@ pub struct LoadedFolder {
     #[dependency]
     pub handles: Vec<UntypedHandle>,
     /// For filtering files that are required or not required.
-    pub load_batch: Option<LoadBatch>,
+    pub load_filter: Option<LoadFilter>,
 }
