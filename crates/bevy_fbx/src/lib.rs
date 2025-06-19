@@ -19,23 +19,27 @@ use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 use bevy_pbr::{DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial};
 
+use bevy_ecs::component::Component;
 use bevy_platform::collections::HashMap;
-use bevy_utils::default;
 use bevy_reflect::TypePath;
 use bevy_render::mesh::Mesh3d;
 use bevy_render::prelude::Visibility;
+use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
+use bevy_utils::default;
 
 use bevy_animation::{
+    animated_field,
     animation_curves::{AnimatableCurve, AnimatableKeyframeCurve},
-    animated_field, prelude::AnimatedField, AnimationClip, AnimationTargetId,
+    prelude::AnimatedField,
+    AnimationClip, AnimationTargetId,
 };
 use bevy_color::Color;
 use bevy_image::Image;
-use tracing::info;
-use bevy_math::{Mat4, Quat, Vec3};
+use bevy_math::{Affine2, Mat4, Quat, Vec2, Vec3, Vec4};
 use bevy_render::alpha::AlphaMode;
 use bevy_transform::prelude::*;
+use tracing::info;
 
 mod label;
 pub use label::FbxAssetLabel;
@@ -149,6 +153,36 @@ pub struct FbxTexture {
     pub wrap_v: FbxWrapMode,
 }
 
+/// Convert ufbx texture UV transform to Bevy Mat4
+fn convert_texture_uv_transform(texture: &ufbx::Texture) -> Mat4 {
+    // Extract UV transformation parameters from ufbx texture
+    let translation = Vec2::new(
+        texture.uv_transform.translation.x as f32,
+        texture.uv_transform.translation.y as f32,
+    );
+
+    let scale = Vec2::new(
+        texture.uv_transform.scale.x as f32,
+        texture.uv_transform.scale.y as f32,
+    );
+
+    // Extract rotation around Z axis for UV coordinates
+    let rotation_z = texture.uv_transform.rotation.z as f32;
+
+    // Create 2D affine transform for UV coordinates
+    // Note: UV coordinates in graphics typically range from 0 to 1
+    let affine = Affine2::from_scale_angle_translation(scale, rotation_z, translation);
+
+    // Convert to 4x4 matrix for UV transform
+    // This matrix will be used to transform UV coordinates in shaders
+    Mat4::from_cols(
+        Vec4::new(affine.matrix2.x_axis.x, affine.matrix2.x_axis.y, 0.0, 0.0),
+        Vec4::new(affine.matrix2.y_axis.x, affine.matrix2.y_axis.y, 0.0, 0.0),
+        Vec4::new(0.0, 0.0, 1.0, 0.0),
+        Vec4::new(affine.translation.x, affine.translation.y, 0.0, 1.0),
+    )
+}
+
 /// Enhanced material representation from FBX.
 #[derive(Debug, Clone)]
 pub struct FbxMaterial {
@@ -166,6 +200,10 @@ pub struct FbxMaterial {
     pub normal_scale: f32,
     /// Alpha value.
     pub alpha: f32,
+    /// Alpha cutoff threshold for alpha testing.
+    pub alpha_cutoff: f32,
+    /// Whether this material should be rendered double-sided.
+    pub double_sided: bool,
     /// Associated textures.
     pub textures: HashMap<FbxTextureType, FbxTexture>,
 }
@@ -429,13 +467,17 @@ impl AssetLoader for FbxLoader {
         .map_err(|e| FbxError::Parse(format!("{:?}", e)))?;
         let scene: &ufbx::Scene = &*root;
 
-        tracing::info!("FBX Scene has {} nodes, {} meshes",
-            scene.nodes.len(), scene.meshes.len());
+        tracing::info!(
+            "FBX Scene has {} nodes, {} meshes",
+            scene.nodes.len(),
+            scene.meshes.len()
+        );
 
         let mut meshes = Vec::new();
         let mut named_meshes = HashMap::new();
         let mut transforms = Vec::new();
-        let mut scratch = Vec::new();
+        let mut scratch: Vec<u32> = Vec::new();
+        let mut mesh_material_info = Vec::new(); // Store material info for each mesh
 
         for (index, node) in scene.nodes.as_ref().iter().enumerate() {
             let Some(mesh_ref) = node.mesh.as_ref() else {
@@ -444,8 +486,12 @@ impl AssetLoader for FbxLoader {
             };
             let mesh = mesh_ref.as_ref();
 
-            tracing::info!("Node {} has mesh with {} vertices and {} faces",
-                index, mesh.num_vertices, mesh.faces.as_ref().len());
+            tracing::info!(
+                "Node {} has mesh with {} vertices and {} faces",
+                index,
+                mesh.num_vertices,
+                mesh.faces.as_ref().len()
+            );
 
             // Basic mesh validation
             if mesh.num_vertices == 0 || mesh.faces.as_ref().is_empty() {
@@ -453,122 +499,279 @@ impl AssetLoader for FbxLoader {
                 continue;
             }
 
-            // Each mesh becomes a Bevy `Mesh` asset.
-            let handle = load_context.labeled_asset_scope::<_, FbxError>(
-                FbxAssetLabel::Mesh(index).to_string(),
-                |_lc| {
-                    let positions: Vec<[f32; 3]> = mesh
-                        .vertex_position
-                        .values
-                        .as_ref()
-                        .iter()
-                        .map(|v| [v.x as f32, v.y as f32, v.z as f32])
-                        .collect();
+            // Log material information for debugging
+            tracing::info!("Mesh {} has {} materials", index, mesh.materials.len());
 
-                    let mut bevy_mesh = Mesh::new(
-                        PrimitiveTopology::TriangleList,
-                        RenderAssetUsages::default(),
+            // Group faces by material to support multi-material meshes
+            let mut material_groups: HashMap<usize, Vec<u32>> = HashMap::new();
+
+            // Safely process faces with material assignment
+            let faces_result = std::panic::catch_unwind(|| {
+                let mut temp_material_groups: HashMap<usize, Vec<u32>> = HashMap::new();
+                let mut temp_scratch: Vec<u32> = Vec::new();
+
+                // Special handling for meshes with 0 materials
+                if mesh.materials.is_empty() {
+                    tracing::info!(
+                        "Mesh {} has 0 materials, creating default material group",
+                        index
                     );
-                    bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-
-                    if mesh.vertex_normal.exists {
-                        let normals: Vec<[f32; 3]> = (0..mesh.num_vertices)
-                            .map(|i| {
-                                let n = mesh.vertex_normal[i];
-                                [n.x as f32, n.y as f32, n.z as f32]
-                            })
-                            .collect();
-                        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+                    // For 0-material meshes, create a simple triangle list
+                    let mut default_indices = Vec::new();
+                    for i in 0..mesh.num_vertices.min(mesh.vertex_indices.len()) {
+                        default_indices.push(mesh.vertex_indices[i]);
                     }
+                    temp_material_groups.insert(0, default_indices);
+                    return temp_material_groups;
+                }
 
-                    if mesh.vertex_uv.exists {
-                        let uvs: Vec<[f32; 2]> = (0..mesh.num_vertices)
-                            .map(|i| {
-                                let uv = mesh.vertex_uv[i];
-                                [uv.x as f32, uv.y as f32]
-                            })
-                            .collect();
-                        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-                    }
+                for (face_idx, &face) in mesh.faces.as_ref().iter().enumerate() {
+                    // Get material index for this face
+                    let material_idx =
+                        if !mesh.face_material.is_empty() && mesh.face_material.len() > face_idx {
+                            mesh.face_material[face_idx] as usize
+                        } else {
+                            0 // Default to first material if no face material info
+                        };
 
-                    // Process skinning data if available
-                    if mesh.skin_deformers.len() > 0 {
-                        let skin_deformer = &mesh.skin_deformers[0];
+                    temp_scratch.clear();
+                    ufbx::triangulate_face_vec(&mut temp_scratch, mesh, face);
 
-                        // Extract joint indices and weights
-                        let mut joint_indices = vec![[0u16; 4]; mesh.num_vertices];
-                        let mut joint_weights = vec![[0.0f32; 4]; mesh.num_vertices];
-
-                        for vertex_index in 0..mesh.num_vertices {
-                            let mut weight_count = 0;
-                            let mut total_weight = 0.0f32;
-
-                            for (cluster_index, cluster) in
-                                skin_deformer.clusters.iter().enumerate()
-                            {
-                                if weight_count >= 4 {
-                                    break;
-                                }
-
-                                // Find weight for this vertex in this cluster
-                                for &weight_vertex in cluster.vertices.iter() {
-                                    if weight_vertex as usize == vertex_index {
-                                        if let Some(weight_index) = cluster
-                                            .vertices
-                                            .iter()
-                                            .position(|&v| v as usize == vertex_index)
-                                        {
-                                            if weight_index < cluster.weights.len() {
-                                                let weight = cluster.weights[weight_index] as f32;
-                                                if weight > 0.0 {
-                                                    joint_indices[vertex_index][weight_count] =
-                                                        cluster_index as u16;
-                                                    joint_weights[vertex_index][weight_count] =
-                                                        weight;
-                                                    total_weight += weight;
-                                                    weight_count += 1;
-                                                }
-                                            }
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Normalize weights to sum to 1.0
-                            if total_weight > 0.0 {
-                                for i in 0..weight_count {
-                                    joint_weights[vertex_index][i] /= total_weight;
-                                }
-                            }
-                        }
-
-                        bevy_mesh.insert_attribute(
-                            Mesh::ATTRIBUTE_JOINT_INDEX,
-                            VertexAttributeValues::Uint16x4(joint_indices),
-                        );
-                        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
-                    }
-
-                    let mut indices = Vec::new();
-                    for &face in mesh.faces.as_ref() {
-                        scratch.clear();
-                        ufbx::triangulate_face_vec(&mut scratch, mesh, face);
-                        for idx in &scratch {
+                    let indices = temp_material_groups
+                        .entry(material_idx)
+                        .or_insert_with(Vec::new);
+                    for idx in &temp_scratch {
+                        if (*idx as usize) < mesh.vertex_indices.len() {
                             let v = mesh.vertex_indices[*idx as usize];
                             indices.push(v);
                         }
                     }
-                    bevy_mesh.insert_indices(Indices::U32(indices));
+                }
+                temp_material_groups
+            });
 
-                    Ok(bevy_mesh)
-                },
-            )?;
-            if !node.element.name.is_empty() {
-                named_meshes.insert(Box::from(node.element.name.as_ref()), handle.clone());
+            if let Ok(groups) = faces_result {
+                material_groups = groups;
+            } else {
+                tracing::warn!(
+                    "Failed to process faces for mesh {}, using default material",
+                    index
+                );
+                // Create a default group with all indices - this will use material index 0 (default)
+                let mut all_indices = Vec::new();
+                for i in 0..mesh.num_vertices {
+                    all_indices.push(i as u32);
+                }
+                material_groups.insert(0, all_indices);
             }
-            meshes.push(handle);
-            transforms.push(node.geometry_to_world);
+
+            tracing::info!(
+                "Mesh {} has {} material groups: {:?}",
+                index,
+                material_groups.len(),
+                material_groups.keys().collect::<Vec<_>>()
+            );
+
+            // Create separate mesh for each material group
+            let mut mesh_handles = Vec::new();
+            let mut material_indices = Vec::new();
+
+            for (material_idx, indices) in material_groups.iter() {
+                tracing::info!(
+                    "Material group {}: {} triangles",
+                    material_idx,
+                    indices.len() / 3
+                );
+
+                let sub_mesh_handle = load_context.labeled_asset_scope::<_, FbxError>(
+                    FbxAssetLabel::Mesh(index * 1000 + material_idx).to_string(),
+                    |_lc| {
+                        let positions: Vec<[f32; 3]> = mesh
+                            .vertex_position
+                            .values
+                            .as_ref()
+                            .iter()
+                            .map(|v| [v.x as f32, v.y as f32, v.z as f32])
+                            .collect();
+
+                        let mut bevy_mesh = Mesh::new(
+                            PrimitiveTopology::TriangleList,
+                            RenderAssetUsages::default(),
+                        );
+                        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
+                        // Log material information for debugging
+                        tracing::info!("Mesh {} has {} materials", index, mesh.materials.len());
+
+                        if mesh.vertex_normal.exists {
+                            let normals: Vec<[f32; 3]> = (0..mesh.num_vertices)
+                                .map(|i| {
+                                    let n = mesh.vertex_normal[i];
+                                    [n.x as f32, n.y as f32, n.z as f32]
+                                })
+                                .collect();
+                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+                        }
+
+                        if mesh.vertex_uv.exists {
+                            let uvs: Vec<[f32; 2]> = (0..mesh.num_vertices)
+                                .map(|i| {
+                                    let uv = mesh.vertex_uv[i];
+                                    [uv.x as f32, uv.y as f32]
+                                })
+                                .collect();
+                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                        }
+
+                        // Process skinning data if available
+                        if mesh.skin_deformers.len() > 0 {
+                            let skin_deformer = &mesh.skin_deformers[0];
+
+                            // Extract joint indices and weights
+                            let mut joint_indices = vec![[0u16; 4]; mesh.num_vertices];
+                            let mut joint_weights = vec![[0.0f32; 4]; mesh.num_vertices];
+
+                            for vertex_index in 0..mesh.num_vertices {
+                                let mut weight_count = 0;
+                                let mut total_weight = 0.0f32;
+
+                                for (cluster_index, cluster) in
+                                    skin_deformer.clusters.iter().enumerate()
+                                {
+                                    if weight_count >= 4 {
+                                        break;
+                                    }
+
+                                    // Find weight for this vertex in this cluster
+                                    for &weight_vertex in cluster.vertices.iter() {
+                                        if weight_vertex as usize == vertex_index {
+                                            if let Some(weight_index) = cluster
+                                                .vertices
+                                                .iter()
+                                                .position(|&v| v as usize == vertex_index)
+                                            {
+                                                if weight_index < cluster.weights.len() {
+                                                    let weight =
+                                                        cluster.weights[weight_index] as f32;
+                                                    if weight > 0.0 {
+                                                        joint_indices[vertex_index][weight_count] =
+                                                            cluster_index as u16;
+                                                        joint_weights[vertex_index][weight_count] =
+                                                            weight;
+                                                        total_weight += weight;
+                                                        weight_count += 1;
+                                                    }
+                                                }
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                // Normalize weights to sum to 1.0
+                                if total_weight > 0.0 {
+                                    for i in 0..weight_count {
+                                        joint_weights[vertex_index][i] /= total_weight;
+                                    }
+                                }
+                            }
+
+                            bevy_mesh.insert_attribute(
+                                Mesh::ATTRIBUTE_JOINT_INDEX,
+                                VertexAttributeValues::Uint16x4(joint_indices),
+                            );
+                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
+                        }
+
+                        // Set indices for this material group
+                        bevy_mesh.insert_indices(Indices::U32(indices.clone()));
+
+                        Ok(bevy_mesh)
+                    },
+                )?;
+
+                mesh_handles.push(sub_mesh_handle);
+                material_indices.push(*material_idx);
+            }
+
+            // Store all mesh handles for multi-material support
+            if !mesh_handles.is_empty() {
+                // Store each material group as a separate mesh entry
+                for (sub_mesh_handle, material_idx) in
+                    mesh_handles.iter().zip(material_indices.iter())
+                {
+                    if !node.element.name.is_empty() && material_idx == &0 {
+                        // Only store the first sub-mesh in named_meshes for backward compatibility
+                        named_meshes.insert(
+                            Box::from(node.element.name.as_ref()),
+                            sub_mesh_handle.clone(),
+                        );
+                    }
+                    meshes.push(sub_mesh_handle.clone());
+                    transforms.push(node.geometry_to_world);
+
+                    // Store material information for this specific sub-mesh
+                    let material_name = if *material_idx < mesh.materials.len() {
+                        mesh.materials[*material_idx].element.name.to_string()
+                    } else {
+                        "default".to_string()
+                    };
+                    mesh_material_info.push(vec![material_name]);
+                }
+            } else {
+                // Fallback: create a simple mesh with no indices if material processing failed
+                tracing::warn!("Creating fallback mesh for mesh {}", index);
+                let fallback_handle = load_context.labeled_asset_scope::<_, FbxError>(
+                    FbxAssetLabel::Mesh(index).to_string(),
+                    |_lc| {
+                        let positions: Vec<[f32; 3]> = mesh
+                            .vertex_position
+                            .values
+                            .as_ref()
+                            .iter()
+                            .map(|v| [v.x as f32, v.y as f32, v.z as f32])
+                            .collect();
+
+                        let mut bevy_mesh = Mesh::new(
+                            PrimitiveTopology::TriangleList,
+                            RenderAssetUsages::default(),
+                        );
+                        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
+                        if mesh.vertex_normal.exists {
+                            let normals: Vec<[f32; 3]> = (0..mesh.num_vertices)
+                                .map(|i| {
+                                    let n = mesh.vertex_normal[i];
+                                    [n.x as f32, n.y as f32, n.z as f32]
+                                })
+                                .collect();
+                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+                        }
+
+                        if mesh.vertex_uv.exists {
+                            let uvs: Vec<[f32; 2]> = (0..mesh.num_vertices)
+                                .map(|i| {
+                                    let uv = mesh.vertex_uv[i];
+                                    [uv.x as f32, uv.y as f32]
+                                })
+                                .collect();
+                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                        }
+
+                        Ok(bevy_mesh)
+                    },
+                )?;
+
+                if !node.element.name.is_empty() {
+                    named_meshes.insert(
+                        Box::from(node.element.name.as_ref()),
+                        fallback_handle.clone(),
+                    );
+                }
+                meshes.push(fallback_handle);
+                transforms.push(node.geometry_to_world);
+                mesh_material_info.push(vec!["default".to_string()]);
+            }
         }
 
         // Process textures and materials
@@ -582,13 +785,15 @@ impl AssetLoader for FbxLoader {
                 filename: texture.filename.to_string(),
                 absolute_filename: texture.absolute_filename.to_string(),
                 uv_set: texture.uv_set.to_string(),
-                uv_transform: Mat4::IDENTITY, // Note: UV transform conversion not implemented yet
+                uv_transform: convert_texture_uv_transform(texture),
                 wrap_u: match texture.wrap_u {
                     ufbx::WrapMode::Repeat => FbxWrapMode::Repeat,
+                    ufbx::WrapMode::Clamp => FbxWrapMode::Clamp,
                     _ => FbxWrapMode::Clamp,
                 },
                 wrap_v: match texture.wrap_v {
                     ufbx::WrapMode::Repeat => FbxWrapMode::Repeat,
+                    ufbx::WrapMode::Clamp => FbxWrapMode::Clamp,
                     _ => FbxWrapMode::Clamp,
                 },
             };
@@ -623,6 +828,11 @@ impl AssetLoader for FbxLoader {
         let mut fbx_materials = Vec::new();
 
         for (index, ufbx_material) in scene.materials.as_ref().iter().enumerate() {
+            // Safety check: ensure material is valid
+            if ufbx_material.element.element_id == 0 {
+                tracing::warn!("Skipping invalid material at index {}", index);
+                continue;
+            }
             // Extract material properties
             let mut base_color = Color::srgb(1.0, 1.0, 1.0);
             let mut metallic = 0.0f32;
@@ -632,32 +842,102 @@ impl AssetLoader for FbxLoader {
             let mut alpha = 1.0f32;
             let mut material_textures = HashMap::new();
 
-            // Extract material properties from ufbx PBR material
-            // These properties are automatically extracted from the FBX file and applied to Bevy's StandardMaterial
+            // Extract material properties from ufbx material
+            // Try both traditional FBX material properties and PBR properties
 
-            // Base color (diffuse color) - RGB values from 0.0 to 1.0
-            let diffuse_color = ufbx_material.pbr.base_color.value_vec4;
-            base_color = Color::srgb(
-                diffuse_color.x as f32,
-                diffuse_color.y as f32,
-                diffuse_color.z as f32,
+            tracing::info!(
+                "Processing material {}: '{}'",
+                index,
+                ufbx_material.element.name
             );
+
+            // Try to get diffuse color from traditional FBX material properties first
+            // Use safe access to avoid ufbx pointer issues
+            if let Ok(diffuse_color) =
+                std::panic::catch_unwind(|| ufbx_material.fbx.diffuse_color.value_vec4)
+            {
+                base_color = Color::srgb(
+                    diffuse_color.x as f32,
+                    diffuse_color.y as f32,
+                    diffuse_color.z as f32,
+                );
+                tracing::info!("Material {} diffuse color: {:?}", index, base_color);
+            } else {
+                tracing::warn!(
+                    "Failed to get diffuse color for material {}, using default",
+                    index
+                );
+            }
+
+            // Get emission color from traditional FBX material properties
+            if let Ok(emission_color) =
+                std::panic::catch_unwind(|| ufbx_material.fbx.emission_color.value_vec4)
+            {
+                emission = Color::srgb(
+                    emission_color.x as f32,
+                    emission_color.y as f32,
+                    emission_color.z as f32,
+                );
+                tracing::info!("Material {} emission color: {:?}", index, emission);
+            } else {
+                tracing::warn!(
+                    "Failed to get emission color for material {}, using default",
+                    index
+                );
+            }
+
+            // Fall back to PBR properties if traditional ones are not available
+            if base_color == Color::srgb(1.0, 1.0, 1.0) {
+                if let Ok(pbr_diffuse) =
+                    std::panic::catch_unwind(|| ufbx_material.pbr.base_color.value_vec4)
+                {
+                    base_color = Color::srgb(
+                        pbr_diffuse.x as f32,
+                        pbr_diffuse.y as f32,
+                        pbr_diffuse.z as f32,
+                    );
+                }
+            }
+
+            if emission == Color::BLACK {
+                if let Ok(pbr_emission) =
+                    std::panic::catch_unwind(|| ufbx_material.pbr.emission_color.value_vec4)
+                {
+                    emission = Color::srgb(
+                        pbr_emission.x as f32,
+                        pbr_emission.y as f32,
+                        pbr_emission.z as f32,
+                    );
+                }
+            }
 
             // Metallic factor - 0.0 = dielectric, 1.0 = metallic
-            let metallic_value = ufbx_material.pbr.metalness.value_vec4;
-            metallic = metallic_value.x as f32;
+            if let Ok(metallic_value) =
+                std::panic::catch_unwind(|| ufbx_material.pbr.metalness.value_vec4)
+            {
+                metallic = metallic_value.x as f32;
+            }
 
             // Roughness factor - 0.0 = mirror-like, 1.0 = completely rough
-            let roughness_value = ufbx_material.pbr.roughness.value_vec4;
-            roughness = roughness_value.x as f32;
+            if let Ok(roughness_value) =
+                std::panic::catch_unwind(|| ufbx_material.pbr.roughness.value_vec4)
+            {
+                roughness = roughness_value.x as f32;
+            }
 
-            // Emission color - for self-illuminating materials
-            let emission_color = ufbx_material.pbr.emission_color.value_vec4;
-            emission = Color::srgb(
-                emission_color.x as f32,
-                emission_color.y as f32,
-                emission_color.z as f32,
-            );
+            // Extract alpha cutoff from material properties
+            let mut alpha_cutoff = 0.5f32;
+            let mut double_sided = false;
+
+            // Check for transparency and double-sided properties
+            if ufbx_material.pbr.opacity.value_vec4.x < 1.0 {
+                alpha = ufbx_material.pbr.opacity.value_vec4.x as f32;
+            }
+
+            // Extract alpha cutoff threshold if available in material properties
+            // This is a common property in many 3D software packages
+            // For now, we'll use default values since ufbx material props access might vary
+            // TODO: Implement proper property extraction when ufbx API is more stable
 
             // Process material textures and map them to appropriate texture types
             // This enables automatic texture application to Bevy's StandardMaterial
@@ -682,7 +962,10 @@ impl AssetLoader for FbxLoader {
 
                     if let Some(tex_type) = texture_type {
                         material_textures.insert(tex_type, image_handle.clone());
-                        info!("Applied {:?} texture to material {}", tex_type, ufbx_material.element.name);
+                        info!(
+                            "Applied {:?} texture to material {}",
+                            tex_type, ufbx_material.element.name
+                        );
                     }
                 }
             }
@@ -695,19 +978,30 @@ impl AssetLoader for FbxLoader {
                 emission,
                 normal_scale,
                 alpha,
+                alpha_cutoff,
+                double_sided,
                 textures: HashMap::new(), // TODO: Convert image handles to FbxTexture
             };
 
-            // Create StandardMaterial with textures
+            // Create StandardMaterial with enhanced properties
             let mut standard_material = StandardMaterial {
                 base_color: fbx_material.base_color,
                 metallic: fbx_material.metallic,
                 perceptual_roughness: fbx_material.roughness,
                 emissive: fbx_material.emission.into(),
                 alpha_mode: if fbx_material.alpha < 1.0 {
-                    AlphaMode::Blend
+                    if fbx_material.alpha_cutoff > 0.0 && fbx_material.alpha_cutoff < 1.0 {
+                        AlphaMode::Mask(fbx_material.alpha_cutoff)
+                    } else {
+                        AlphaMode::Blend
+                    }
                 } else {
                     AlphaMode::Opaque
+                },
+                cull_mode: if fbx_material.double_sided {
+                    None // No culling for double-sided materials
+                } else {
+                    Some(Face::Back) // Default back-face culling
                 },
                 ..Default::default()
             };
@@ -718,13 +1012,19 @@ impl AssetLoader for FbxLoader {
             // Base color texture (diffuse map) - provides the main color information
             if let Some(base_color_texture) = material_textures.get(&FbxTextureType::BaseColor) {
                 standard_material.base_color_texture = Some(base_color_texture.clone());
-                info!("Applied base color texture to material {}", ufbx_material.element.name);
+                info!(
+                    "Applied base color texture to material {}",
+                    ufbx_material.element.name
+                );
             }
 
             // Normal map texture - provides surface detail through normal vectors
             if let Some(normal_texture) = material_textures.get(&FbxTextureType::Normal) {
                 standard_material.normal_map_texture = Some(normal_texture.clone());
-                info!("Applied normal map to material {}", ufbx_material.element.name);
+                info!(
+                    "Applied normal map to material {}",
+                    ufbx_material.element.name
+                );
             }
 
             // Metallic texture - defines which parts of the surface are metallic
@@ -732,7 +1032,10 @@ impl AssetLoader for FbxLoader {
                 // In Bevy, metallic and roughness are combined into a single texture
                 // Red channel = metallic, Green channel = roughness
                 standard_material.metallic_roughness_texture = Some(metallic_texture.clone());
-                info!("Applied metallic texture to material {}", ufbx_material.element.name);
+                info!(
+                    "Applied metallic texture to material {}",
+                    ufbx_material.element.name
+                );
             }
 
             // Roughness texture - defines surface roughness (smoothness)
@@ -741,20 +1044,29 @@ impl AssetLoader for FbxLoader {
                 // This prevents overwriting a combined metallic-roughness texture
                 if standard_material.metallic_roughness_texture.is_none() {
                     standard_material.metallic_roughness_texture = Some(roughness_texture.clone());
-                    info!("Applied roughness texture to material {}", ufbx_material.element.name);
+                    info!(
+                        "Applied roughness texture to material {}",
+                        ufbx_material.element.name
+                    );
                 }
             }
 
             // Emission texture - for self-illuminating surfaces
             if let Some(emission_texture) = material_textures.get(&FbxTextureType::Emission) {
                 standard_material.emissive_texture = Some(emission_texture.clone());
-                info!("Applied emission texture to material {}", ufbx_material.element.name);
+                info!(
+                    "Applied emission texture to material {}",
+                    ufbx_material.element.name
+                );
             }
 
             // Ambient occlusion texture - provides shadowing information
             if let Some(ao_texture) = material_textures.get(&FbxTextureType::AmbientOcclusion) {
                 standard_material.occlusion_texture = Some(ao_texture.clone());
-                info!("Applied ambient occlusion texture to material {}", ufbx_material.element.name);
+                info!(
+                    "Applied ambient occlusion texture to material {}",
+                    ufbx_material.element.name
+                );
             }
 
             let handle = load_context.add_labeled_asset(
@@ -927,8 +1239,9 @@ impl AssetLoader for FbxLoader {
         }
 
         // Second pass: establish parent-child relationships
-        // Note: We skip this for now to avoid ufbx crashes with children access
-        // Note: Parent-child relationships not implemented yet to avoid ufbx crashes
+        // Note: This is disabled due to ufbx pointer safety issues with parent.as_ref()
+        // TODO: Re-implement with safer node hierarchy detection
+        tracing::info!("Skipping node hierarchy processing due to ufbx safety concerns");
 
         // Third pass: Create actual FbxSkin assets now that all nodes are created
         for (_mesh_node_id, (inverse_bindposes_handle, joint_node_ids, skin_name, skin_index)) in
@@ -1044,13 +1357,17 @@ impl AssetLoader for FbxLoader {
                 );
 
                 // Collect animation data by node and property
-                let mut node_animations: HashMap<u32, HashMap<String, Vec<(f32, f32)>>> = HashMap::new();
+                let mut node_animations: HashMap<u32, HashMap<String, Vec<(f32, f32)>>> =
+                    HashMap::new();
 
                 for anim_value in layer.anim_values.as_ref().iter() {
                     // Find the target node for this animation value
-                    if let Some(target_node) = scene.nodes.as_ref().iter().find(|node| {
-                        node.element.element_id == anim_value.element.element_id
-                    }) {
+                    if let Some(target_node) = scene
+                        .nodes
+                        .as_ref()
+                        .iter()
+                        .find(|node| node.element.element_id == anim_value.element.element_id)
+                    {
                         let target_name = if target_node.element.name.is_empty() {
                             format!("Node_{}", target_node.element.element_id)
                         } else {
@@ -1064,11 +1381,16 @@ impl AssetLoader for FbxLoader {
                         );
 
                         // Process animation curves for this value
-                        for (curve_index, anim_curve_opt) in anim_value.curves.as_ref().iter().enumerate() {
+                        for (curve_index, anim_curve_opt) in
+                            anim_value.curves.as_ref().iter().enumerate()
+                        {
                             if let Some(anim_curve) = anim_curve_opt.as_ref() {
                                 if anim_curve.keyframes.as_ref().len() >= 2 {
                                     // Extract keyframes from the curve
-                                    let keyframes: Vec<(f32, f32)> = anim_curve.keyframes.as_ref().iter()
+                                    let keyframes: Vec<(f32, f32)> = anim_curve
+                                        .keyframes
+                                        .as_ref()
+                                        .iter()
                                         .map(|keyframe| {
                                             // Convert time from FBX time units to seconds
                                             let time_seconds = keyframe.time as f32;
@@ -1085,7 +1407,8 @@ impl AssetLoader for FbxLoader {
                                     );
 
                                     // Store keyframes by property and component
-                                    let property_key = format!("{}_{}", anim_value.element.name, curve_index);
+                                    let property_key =
+                                        format!("{}_{}", anim_value.element.name, curve_index);
                                     node_animations
                                         .entry(target_node.element.element_id)
                                         .or_insert_with(HashMap::new)
@@ -1098,9 +1421,12 @@ impl AssetLoader for FbxLoader {
 
                 // Create animation curves for each animated node
                 for (node_id, properties) in node_animations {
-                    if let Some(target_node) = scene.nodes.as_ref().iter().find(|node| {
-                        node.element.element_id == node_id
-                    }) {
+                    if let Some(target_node) = scene
+                        .nodes
+                        .as_ref()
+                        .iter()
+                        .find(|node| node.element.element_id == node_id)
+                    {
                         let target_name = if target_node.element.name.is_empty() {
                             format!("Node_{}", target_node.element.element_id)
                         } else {
@@ -1126,13 +1452,16 @@ impl AssetLoader for FbxLoader {
                                 })
                                 .collect();
 
-                            if let Ok(translation_curve) = AnimatableKeyframeCurve::new(combined_keyframes) {
+                            if let Ok(translation_curve) =
+                                AnimatableKeyframeCurve::new(combined_keyframes)
+                            {
                                 let animatable_curve = AnimatableCurve::new(
                                     animated_field!(Transform::translation),
                                     translation_curve,
                                 );
 
-                                animation_clip.add_curve_to_target(animation_target_id, animatable_curve);
+                                animation_clip
+                                    .add_curve_to_target(animation_target_id, animatable_curve);
 
                                 tracing::info!(
                                     "FBX Loader: Added translation animation for node '{}'",
@@ -1154,23 +1483,28 @@ impl AssetLoader for FbxLoader {
                                 .zip(z_keyframes.iter())
                                 .map(|(((time_x, x), (_, y)), (_, z))| {
                                     // Convert degrees to radians and create quaternion
-                                    let euler_rad = Vec3::new(
-                                        x.to_radians(),
-                                        y.to_radians(),
-                                        z.to_radians(),
+                                    let euler_rad =
+                                        Vec3::new(x.to_radians(), y.to_radians(), z.to_radians());
+                                    let quat = Quat::from_euler(
+                                        bevy_math::EulerRot::XYZ,
+                                        euler_rad.x,
+                                        euler_rad.y,
+                                        euler_rad.z,
                                     );
-                                    let quat = Quat::from_euler(bevy_math::EulerRot::XYZ, euler_rad.x, euler_rad.y, euler_rad.z);
                                     (*time_x, quat)
                                 })
                                 .collect();
 
-                            if let Ok(rotation_curve) = AnimatableKeyframeCurve::new(combined_keyframes) {
+                            if let Ok(rotation_curve) =
+                                AnimatableKeyframeCurve::new(combined_keyframes)
+                            {
                                 let animatable_curve = AnimatableCurve::new(
                                     animated_field!(Transform::rotation),
                                     rotation_curve,
                                 );
 
-                                animation_clip.add_curve_to_target(animation_target_id, animatable_curve);
+                                animation_clip
+                                    .add_curve_to_target(animation_target_id, animatable_curve);
 
                                 tracing::info!(
                                     "FBX Loader: Added rotation animation for node '{}'",
@@ -1195,13 +1529,16 @@ impl AssetLoader for FbxLoader {
                                 })
                                 .collect();
 
-                            if let Ok(scale_curve) = AnimatableKeyframeCurve::new(combined_keyframes) {
+                            if let Ok(scale_curve) =
+                                AnimatableKeyframeCurve::new(combined_keyframes)
+                            {
                                 let animatable_curve = AnimatableCurve::new(
                                     animated_field!(Transform::scale),
                                     scale_curve,
                                 );
 
-                                animation_clip.add_curve_to_target(animation_target_id, animatable_curve);
+                                animation_clip
+                                    .add_curve_to_target(animation_target_id, animatable_curve);
 
                                 tracing::info!(
                                     "FBX Loader: Added scale animation for node '{}'",
@@ -1260,9 +1597,12 @@ impl AssetLoader for FbxLoader {
             scene.nodes.len()
         );
 
-        // Spawn all meshes with their original transforms
-        for (mesh_index, (mesh_handle, transform_matrix)) in
-            meshes.iter().zip(transforms.iter()).enumerate()
+        // Spawn all meshes with their original transforms and correct materials
+        for (mesh_index, ((mesh_handle, transform_matrix), mesh_mat_names)) in meshes
+            .iter()
+            .zip(transforms.iter())
+            .zip(mesh_material_info.iter())
+            .enumerate()
         {
             let transform = Transform::from_matrix(Mat4::from_cols_array(&[
                 transform_matrix.m00 as f32,
@@ -1283,6 +1623,60 @@ impl AssetLoader for FbxLoader {
                 1.0,
             ]));
 
+            // Find the appropriate material for this mesh using stored material info
+            tracing::info!(
+                "Mesh {} uses {} materials: {:?}",
+                mesh_index,
+                mesh_mat_names.len(),
+                mesh_mat_names
+            );
+
+            let material_to_use = if !mesh_mat_names.is_empty() {
+                // Try to find the first material that exists in our processed materials
+                let mut best_material_handle = None;
+
+                for material_name in mesh_mat_names {
+                    if let Some(material_handle) = named_materials.get(material_name as &str) {
+                        tracing::info!(
+                            "Using material '{}' for mesh {}",
+                            material_name,
+                            mesh_index
+                        );
+                        best_material_handle = Some(material_handle.clone());
+                        break;
+                    }
+                }
+
+                // If we found a matching material, use it
+                if let Some(material_handle) = best_material_handle {
+                    material_handle
+                } else {
+                    // Fall back to index-based selection
+                    if materials.len() > 0 {
+                        let material_index = mesh_index.min(materials.len() - 1);
+                        tracing::info!(
+                            "Using fallback material index {} for mesh {} (materials: {:?})",
+                            material_index,
+                            mesh_index,
+                            mesh_mat_names
+                        );
+                        materials[material_index].clone()
+                    } else {
+                        tracing::warn!(
+                            "No materials available for mesh {}, using default",
+                            mesh_index
+                        );
+                        default_material.clone()
+                    }
+                }
+            } else {
+                tracing::info!(
+                    "No materials assigned to mesh {}, using default",
+                    mesh_index
+                );
+                default_material.clone()
+            };
+
             tracing::info!(
                 "FBX Loader: Spawning mesh {} with transform: {:?}",
                 mesh_index,
@@ -1291,7 +1685,7 @@ impl AssetLoader for FbxLoader {
 
             world.spawn((
                 Mesh3d(mesh_handle.clone()),
-                MeshMaterial3d(default_material.clone()),
+                MeshMaterial3d(material_to_use),
                 transform,
                 GlobalTransform::default(),
                 Visibility::default(),
@@ -1303,7 +1697,8 @@ impl AssetLoader for FbxLoader {
         for light in scene.lights.as_ref().iter() {
             // Find the node that contains this light
             if let Some(light_node) = scene.nodes.as_ref().iter().find(|node| {
-                node.light.is_some() && node.light.as_ref().unwrap().element.element_id == light.element.element_id
+                node.light.is_some()
+                    && node.light.as_ref().unwrap().element.element_id == light.element.element_id
             }) {
                 let transform = Transform::from_matrix(Mat4::from_cols_array(&[
                     light_node.node_to_world.m00 as f32,

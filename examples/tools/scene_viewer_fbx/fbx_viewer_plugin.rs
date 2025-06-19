@@ -3,9 +3,7 @@
 //! - Copy the code for the `FbxViewerPlugin` and add the plugin to your App.
 //! - Insert an initialized `FbxSceneHandle` resource into your App's `AssetServer`.
 
-use bevy::{
-    fbx::Fbx, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
-};
+use bevy::{fbx::Fbx, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId};
 
 use std::{f32::consts::*, fmt};
 
@@ -98,14 +96,16 @@ fn print_fbx_info(
         info!("Nodes: {}", fbx.nodes.len());
         info!("Skins: {}", fbx.skins.len());
         info!("Animation clips: {}", fbx.animations.len());
-        
+
         // Print material information
         info!("=== Material Details ===");
         for (i, material_handle) in fbx.materials.iter().enumerate() {
             if let Some(material) = standard_materials.get(material_handle) {
-                info!("Material {}: base_color={:?}, metallic={}, roughness={}", 
-                    i, material.base_color, material.metallic, material.perceptual_roughness);
-                
+                info!(
+                    "Material {}: base_color={:?}, metallic={}, roughness={}",
+                    i, material.base_color, material.metallic, material.perceptual_roughness
+                );
+
                 if material.base_color_texture.is_some() {
                     info!("  - Has base color texture");
                 }
@@ -123,7 +123,7 @@ fn print_fbx_info(
                 }
             }
         }
-        
+
         info!("=== Scene Statistics ===");
         info!("Total mesh entities: {}", meshes.iter().count());
         info!("Total material entities: {}", materials.iter().count());
@@ -146,10 +146,14 @@ fn fbx_load_check(
                 .is_loaded()
             {
                 let fbx = fbx_assets.get(&scene_handle.fbx_handle).unwrap();
-                
+
                 info!("FBX loaded successfully!");
-                info!("Found {} meshes, {} materials, {} nodes", 
-                    fbx.meshes.len(), fbx.materials.len(), fbx.nodes.len());
+                info!(
+                    "Found {} meshes, {} materials, {} nodes",
+                    fbx.meshes.len(),
+                    fbx.materials.len(),
+                    fbx.nodes.len()
+                );
 
                 // Check if the FBX scene has lights
                 if let Some(scene_handle_ref) = fbx.scenes.first() {
@@ -157,12 +161,11 @@ fn fbx_load_check(
                     let mut query = scene
                         .world
                         .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
-                    scene_handle.has_light =
-                        query
-                            .iter(&scene.world)
-                            .any(|(maybe_directional_light, maybe_point_light)| {
-                                maybe_directional_light.is_some() || maybe_point_light.is_some()
-                            });
+                    scene_handle.has_light = query.iter(&scene.world).any(
+                        |(maybe_directional_light, maybe_point_light)| {
+                            maybe_directional_light.is_some() || maybe_point_light.is_some()
+                        },
+                    );
 
                     scene_handle.instance_id =
                         Some(scene_spawner.spawn(scene_handle_ref.clone_weak()));
@@ -192,13 +195,27 @@ fn update_lights(
     for (_, mut light) in &mut query {
         if key_input.just_pressed(KeyCode::KeyU) {
             light.shadows_enabled = !light.shadows_enabled;
-            info!("Shadows {}", if light.shadows_enabled { "enabled" } else { "disabled" });
+            info!(
+                "Shadows {}",
+                if light.shadows_enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                }
+            );
         }
     }
 
     if key_input.just_pressed(KeyCode::KeyL) {
         *animate_directional_light = !*animate_directional_light;
-        info!("Light animation {}", if *animate_directional_light { "enabled" } else { "disabled" });
+        info!(
+            "Light animation {}",
+            if *animate_directional_light {
+                "enabled"
+            } else {
+                "disabled"
+            }
+        );
     }
     if *animate_directional_light {
         for (mut transform, _) in &mut query {
@@ -275,6 +292,9 @@ fn camera_tracker(
                 camera.is_active = true;
             }
         }
-        info!("Switched to camera {}", camera_tracker.active_index.unwrap_or(0));
+        info!(
+            "Switched to camera {}",
+            camera_tracker.active_index.unwrap_or(0)
+        );
     }
 }
