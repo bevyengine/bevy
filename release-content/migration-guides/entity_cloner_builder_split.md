@@ -6,6 +6,7 @@ pull_requests: [19649]
 `EntityClonerBuilder` is now generic and has different methods depending on the generic.
 
 To get the wanted one, `EntityCloner::build` got split too:
+
 - `EntityCloner::build_opt_in` to get `EntityClonerBuilder<OptIn>`
 - `EntityCloner::build_opt_out` to get `EntityClonerBuilder<OptOut>`
 
@@ -55,6 +56,7 @@ The methods of the two builder types are different to 0.16 and to each other now
 ## Common methods
 
 All other methods `EntityClonerBuilder` had in 0.16 are still available for both variants:
+
 - `with_default_clone_fn`
 - `move_components`
 - `clone_behavior` variants
@@ -64,8 +66,8 @@ All other methods `EntityClonerBuilder` had in 0.16 are still available for both
 
 | 0.16 | 0.17 |
 | - | - |
-| `EntityWorldMut::clone_with` | `EntityWorldMut::clone_with_opt_out` \\ `EntityWorldMut::clone_with_opt_in` |
-| `EntityWorldMut::clone_and_spawn_with` | `EntityWorldMut::clone_and_spawn_with_opt_out` \\ `EntityWorldMut::clone_and_spawn_with_opt_in` |
-| `EntityCommands::clone_with` | `EntityCommands::clone_with_opt_out` \\ `EntityCommands::clone_with_opt_in` |
-| `EntityCommands::clone_and_spawn_with` | `EntityCommands::clone_and_spawn_with_opt_out` \\ `EntityCommands::clone_and_spawn_with_opt_in` |
-| `entity_command::clone_with` | `entity_command::clone_with_opt_out` \\ `entity_command::clone_with_opt_in` |
+| `EntityWorldMut::clone_with` | `EntityWorldMut::clone_with_opt_out` `EntityWorldMut::clone_with_opt_in` |
+| `EntityWorldMut::clone_and_spawn_with` | `EntityWorldMut::clone_and_spawn_with_opt_out` `EntityWorldMut::clone_and_spawn_with_opt_in` |
+| `EntityCommands::clone_with` | `EntityCommands::clone_with_opt_out` `EntityCommands::clone_with_opt_in` |
+| `EntityCommands::clone_and_spawn_with` | `EntityCommands::clone_and_spawn_with_opt_out` `EntityCommands::clone_and_spawn_with_opt_in` |
+| `entity_command::clone_with` | `entity_command::clone_with_opt_out` `entity_command::clone_with_opt_in` |
