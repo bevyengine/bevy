@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::vec::Vec;
+use bevy_utils::prelude::DebugName;
 
 use super::{IntoSystem, ReadOnlySystem, System, SystemParamValidationError};
 use crate::{
@@ -101,7 +102,7 @@ where
 pub struct AdapterSystem<Func, S> {
     func: Func,
     system: S,
-    name: Cow<'static, str>,
+    name: DebugName,
 }
 
 impl<Func, S> AdapterSystem<Func, S>
@@ -110,7 +111,7 @@ where
     S: System,
 {
     /// Creates a new [`System`] that uses `func` to adapt `system`, via the [`Adapt`] trait.
-    pub const fn new(func: Func, system: S, name: Cow<'static, str>) -> Self {
+    pub const fn new(func: Func, system: S, name: DebugName) -> Self {
         Self { func, system, name }
     }
 }
@@ -123,7 +124,7 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.name.clone()
     }
 

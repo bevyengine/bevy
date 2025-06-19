@@ -25,6 +25,7 @@ use alloc::{
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
 use bevy_ptr::UnsafeCellDeref;
+use bevy_utils::prelude::DebugName;
 use core::{
     any::Any,
     fmt::{Debug, Display},
@@ -32,7 +33,6 @@ use core::{
     ops::{Deref, DerefMut},
     panic::Location,
 };
-use disqualified::ShortName;
 use thiserror::Error;
 
 use super::Populated;
@@ -343,8 +343,8 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     ) {
         assert_component_access_compatibility(
             &system_meta.name,
-            core::any::type_name::<D>(),
-            core::any::type_name::<F>(),
+            DebugName::type_name::<D>(),
+            DebugName::type_name::<F>(),
             component_access_set,
             &state.component_access,
             world,
@@ -368,9 +368,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
 }
 
 fn assert_component_access_compatibility(
-    system_name: &str,
-    query_type: &'static str,
-    filter_type: &'static str,
+    system_name: &DebugName,
+    query_type: DebugName,
+    filter_type: DebugName,
     system_access: &FilteredAccessSet<ComponentId>,
     current: &FilteredAccess<ComponentId>,
     world: &World,
@@ -384,7 +384,7 @@ fn assert_component_access_compatibility(
     if !accesses.is_empty() {
         accesses.push(' ');
     }
-    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
+    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001", query_type.shortname(), filter_type.shortname());
 }
 
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
@@ -767,9 +767,10 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            core::any::type_name::<T>(),
+            DebugName::type_name::<T>(),
             system_meta.name,
         );
+
         component_access_set.add_unfiltered_resource_read(component_id);
     }
 
@@ -807,8 +808,8 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                     panic!(
                         "Resource requested by {} does not exist: {}",
                         system_meta.name,
-                        core::any::type_name::<T>()
-                    )
+                        DebugName::type_name::<T>()
+                    );
                 });
         Res {
             value: ptr.deref(),
@@ -843,11 +844,11 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         if combined_access.has_resource_write(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+                DebugName::type_name::<T>(), system_meta.name);
         } else if combined_access.has_resource_read(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+                DebugName::type_name::<T>(), system_meta.name);
         }
         component_access_set.add_unfiltered_resource_write(component_id);
     }
@@ -885,8 +886,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 panic!(
                     "Resource requested by {} does not exist: {}",
                     system_meta.name,
-                    core::any::type_name::<T>()
-                )
+                    DebugName::type_name::<T>()
+                );
             });
         ResMut {
             value: value.value.deref_mut::<T>(),
@@ -1435,7 +1436,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            core::any::type_name::<T>(),
+            DebugName::type_name::<T>(),
             system_meta.name,
         );
         component_access_set.add_unfiltered_resource_read(component_id);
@@ -1475,7 +1476,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
                     panic!(
                         "Non-send resource requested by {} does not exist: {}",
                         system_meta.name,
-                        core::any::type_name::<T>()
+                        DebugName::type_name::<T>()
                     )
                 });
 
@@ -1511,11 +1512,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         if combined_access.has_component_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+                DebugName::type_name::<T>(), system_meta.name);
         } else if combined_access.has_component_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+                DebugName::type_name::<T>(), system_meta.name);
         }
         component_access_set.add_unfiltered_resource_write(component_id);
     }
@@ -1554,8 +1555,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
                     panic!(
                         "Non-send resource requested by {} does not exist: {}",
                         system_meta.name,
-                        core::any::type_name::<T>()
-                    )
+                        DebugName::type_name::<T>()
+                    );
                 });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
@@ -2786,7 +2787,7 @@ pub struct SystemParamValidationError {
 
     /// A string identifying the invalid parameter.
     /// This is usually the type name of the parameter.
-    pub param: Cow<'static, str>,
+    pub param: DebugName,
 
     /// A string identifying the field within a parameter using `#[derive(SystemParam)]`.
     /// This will be an empty string for other parameters.
@@ -2818,7 +2819,7 @@ impl SystemParamValidationError {
         Self {
             skipped,
             message: message.into(),
-            param: Cow::Borrowed(core::any::type_name::<T>()),
+            param: DebugName::type_name::<T>(),
             field: field.into(),
         }
     }
@@ -2829,7 +2830,7 @@ impl Display for SystemParamValidationError {
         write!(
             fmt,
             "Parameter `{}{}` failed validation: {}",
-            ShortName(&self.param),
+            self.param.shortname(),
             self.field,
             self.message
         )?;

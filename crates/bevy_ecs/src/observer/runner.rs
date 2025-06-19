@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, boxed::Box, vec};
+use alloc::{boxed::Box, vec};
+use bevy_utils::prelude::DebugName;
 use core::any::Any;
 
 use crate::{
@@ -301,7 +302,7 @@ impl Observer {
     }
 
     /// Returns the name of the [`Observer`]'s system .
-    pub fn system_name(&self) -> Cow<'static, str> {
+    pub fn system_name(&self) -> DebugName {
         self.system.system_name()
     }
 }
@@ -420,11 +421,11 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
 }
 
 trait AnyNamedSystem: Any + Send + Sync + 'static {
-    fn system_name(&self) -> Cow<'static, str>;
+    fn system_name(&self) -> DebugName;
 }
 
 impl<T: Any + System> AnyNamedSystem for T {
-    fn system_name(&self) -> Cow<'static, str> {
+    fn system_name(&self) -> DebugName {
         self.name()
     }
 }
