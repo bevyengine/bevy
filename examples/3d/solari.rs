@@ -113,7 +113,7 @@ fn add_raytracing_meshes_on_scene_load(
         }
     }
 
-    // Increase material emissive intensity
+    // Increase material emissive intensity to make it prettier for the example
     for (_, material) in materials.iter_mut() {
         material.emissive *= 200.0;
     }
