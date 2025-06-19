@@ -30,7 +30,7 @@ const TRAUMA_DECAY_PER_SECOND: f32 = 0.5;
 
 /// The trauma exponent controls how the trauma affects the shake.
 /// Camera shakes don't feel punchy when they go up linearly, so we use an exponent of 2.0.
-/// The higher the exponent, the more sudden the shake kicks in.
+/// The higher the exponent, the more abrupt is the transition between no shake and full shake.
 const TRAUMA_EXPONENT: f32 = 2.0;
 
 /// The maximum angle the camera can rotate on full trauma.
