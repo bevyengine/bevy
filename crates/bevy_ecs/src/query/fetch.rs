@@ -2523,7 +2523,7 @@ bevy_utils::cfg::parallel! {
 ///         health.0 -= 1;
 ///     }
 /// }
-/// # bevy_ecs::system::assert_is_system(tick_counters);
+/// # bevy_ecs::system::assert_is_system(tick_poison);
 /// ```
 ///
 /// # Footguns
