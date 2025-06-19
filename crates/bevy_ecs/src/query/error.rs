@@ -1,5 +1,4 @@
 use bevy_utils::prelude::DebugName;
-use thiserror::Error;
 
 use crate::{
     archetype::ArchetypeId,
