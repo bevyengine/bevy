@@ -8,8 +8,8 @@
 #import bevy_solari::sampling::{generate_random_light_sample, calculate_light_contribution, trace_light_visibility}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, write>;
-@group(1) @binding(1) var<storage, read> previous_reservoirs: array<Reservoir>;
-@group(1) @binding(2) var<storage, read_write> reservoirs: array<Reservoir>;
+@group(1) @binding(1) var<storage, read_write> reservoirs_a: array<Reservoir>;
+@group(1) @binding(2) var<storage, read_write> reservoirs_b: array<Reservoir>;
 @group(1) @binding(3) var gbuffer: texture_2d<u32>;
 @group(1) @binding(4) var depth_buffer: texture_depth_2d;
 @group(1) @binding(5) var motion_vectors: texture_2d<f32>;
@@ -19,10 +19,10 @@ var<push_constant> constants: PushConstants;
 
 const INITIAL_SAMPLES = 32u;
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
-const CONFIDENCE_WEIGHT_CAP = 20.0;
+const CONFIDENCE_WEIGHT_CAP = 20.0 * f32(INITIAL_SAMPLES);
 
 @compute @workgroup_size(8, 8, 1)
-fn initial_samples(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.viewport.z);
@@ -30,7 +30,7 @@ fn initial_samples(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
-        reservoirs[pixel_index] = empty_reservoir();
+        reservoirs_b[pixel_index] = empty_reservoir();
         return;
     }
     let gpixel = textureLoad(gbuffer, global_id.xy, 0);
@@ -39,10 +39,52 @@ fn initial_samples(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let base_color = pow(unpack4x8unorm(gpixel.r).rgb, vec3(2.2));
     let diffuse_brdf = base_color / PI;
 
+    let initial_reservoir = generate_initial_reservoir(world_position, world_normal, diffuse_brdf, &rng);
+
+    reservoirs_b[pixel_index] = initial_reservoir;
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    if any(global_id.xy >= vec2u(view.viewport.zw)) { return; }
+
+    let pixel_index = global_id.x + global_id.y * u32(view.viewport.z);
+    var rng = pixel_index + constants.frame_index;
+
+    let depth = textureLoad(depth_buffer, global_id.xy, 0);
+    if depth == 0.0 {
+        reservoirs_a[pixel_index] = empty_reservoir();
+        textureStore(view_output, global_id.xy, vec4(vec3(0.0), 1.0));
+        return;
+    }
+    let gpixel = textureLoad(gbuffer, global_id.xy, 0);
+    let world_position = reconstruct_world_position(global_id.xy, depth);
+    let world_normal = octahedral_decode(unpack_24bit_normal(gpixel.a));
+    let base_color = pow(unpack4x8unorm(gpixel.r).rgb, vec3(2.2));
+    let diffuse_brdf = base_color / PI;
+    let emissive = rgb9e5_to_vec3_(gpixel.g);
+
+    let input_reservoir = reservoirs_b[pixel_index];
+
+    var radiance = vec3(0.0);
+    if reservoir_valid(input_reservoir) {
+        radiance = calculate_light_contribution(input_reservoir.sample, world_position, world_normal).radiance;
+    }
+
+    reservoirs_a[pixel_index] = input_reservoir;
+
+    var pixel_color = radiance * input_reservoir.unbiased_contribution_weight;
+    pixel_color *= view.exposure;
+    pixel_color *= diffuse_brdf;
+    pixel_color += emissive;
+    textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
+}
+
+fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, rng: ptr<function, u32>) -> Reservoir{
     var reservoir = empty_reservoir();
     var reservoir_target_function = 0.0;
     for (var i = 0u; i < INITIAL_SAMPLES; i++) {
-        let light_sample = generate_random_light_sample(&rng);
+        let light_sample = generate_random_light_sample(rng);
 
         let mis_weight = 1.0 / f32(INITIAL_SAMPLES);
         let light_contribution = calculate_light_contribution(light_sample, world_position, world_normal);
@@ -51,7 +93,7 @@ fn initial_samples(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         reservoir.weight_sum += resampling_weight;
 
-        if rand_f(&rng) < resampling_weight / reservoir.weight_sum {
+        if rand_f(rng) < resampling_weight / reservoir.weight_sum {
             reservoir.sample = light_sample;
             reservoir_target_function = target_function;
         }
@@ -63,40 +105,8 @@ fn initial_samples(@builtin(global_invocation_id) global_id: vec3<u32>) {
         reservoir.unbiased_contribution_weight *= trace_light_visibility(reservoir.sample, world_position);
     }
 
-    reservoir.confidence_weight = 1.0;
-
-    reservoirs[pixel_index] = reservoir;
-}
-
-@compute @workgroup_size(8, 8, 1)
-fn reuse_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if any(global_id.xy >= vec2u(view.viewport.zw)) { return; }
-
-    let pixel_index = global_id.x + global_id.y * u32(view.viewport.z);
-
-    let depth = textureLoad(depth_buffer, global_id.xy, 0);
-    if depth == 0.0 {
-        textureStore(view_output, global_id.xy, vec4(vec3(0.0), 1.0));
-        return;
-    }
-    let gpixel = textureLoad(gbuffer, global_id.xy, 0);
-    let world_position = reconstruct_world_position(global_id.xy, depth);
-    let world_normal = octahedral_decode(unpack_24bit_normal(gpixel.a));
-    let base_color = pow(unpack4x8unorm(gpixel.r).rgb, vec3(2.2));
-    let diffuse_brdf = base_color / PI;
-    let emissive = rgb9e5_to_vec3_(gpixel.g);
-
-    let canonical_reservoir = reservoirs[pixel_index];
-    var radiance = vec3(0.0);
-    if reservoir_valid(canonical_reservoir) {
-        radiance = calculate_light_contribution(canonical_reservoir.sample, world_position, world_normal).radiance;
-    }
-
-    var pixel_color = radiance * canonical_reservoir.unbiased_contribution_weight;
-    pixel_color *= view.exposure;
-    pixel_color *= diffuse_brdf;
-    pixel_color += emissive;
-    textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
+    reservoir.confidence_weight = f32(INITIAL_SAMPLES);
+    return reservoir;
 }
 
 fn reconstruct_world_position(pixel_id: vec2<u32>, depth: f32) -> vec3<f32> {

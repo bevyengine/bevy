@@ -12,8 +12,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         binding_types::{
-            storage_buffer_read_only_sized, storage_buffer_sized, texture_2d, texture_depth_2d,
-            texture_storage_2d, uniform_buffer,
+            storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
         },
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
         ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, PushConstantRange,
@@ -32,8 +31,8 @@ pub mod graph {
 
 pub struct SolariLightingNode {
     bind_group_layout: BindGroupLayout,
-    initial_samples_pipeline: CachedComputePipelineId,
-    reuse_and_shade_pipeline: CachedComputePipelineId,
+    initial_and_temporal_pipeline: CachedComputePipelineId,
+    spatial_and_shade_pipeline: CachedComputePipelineId,
 }
 
 impl ViewNode for SolariLightingNode {
@@ -65,8 +64,8 @@ impl ViewNode for SolariLightingNode {
         let view_uniforms = world.resource::<ViewUniforms>();
         let frame_count = world.resource::<FrameCount>();
         let (
-            Some(initial_samples_pipeline),
-            Some(reuse_and_shade_pipeline),
+            Some(initial_and_temporal_pipeline),
+            Some(spatial_and_shade_pipeline),
             Some(scene_bindings),
             Some(viewport),
             Some(gbuffer),
@@ -74,8 +73,8 @@ impl ViewNode for SolariLightingNode {
             Some(motion_vectors),
             Some(view_uniforms),
         ) = (
-            pipeline_cache.get_compute_pipeline(self.initial_samples_pipeline),
-            pipeline_cache.get_compute_pipeline(self.reuse_and_shade_pipeline),
+            pipeline_cache.get_compute_pipeline(self.initial_and_temporal_pipeline),
+            pipeline_cache.get_compute_pipeline(self.spatial_and_shade_pipeline),
             &scene_bindings.bind_group,
             camera.physical_viewport_size,
             view_prepass_textures.deferred_view(),
@@ -87,25 +86,13 @@ impl ViewNode for SolariLightingNode {
             return Ok(());
         };
 
-        let (reservoirs, previous_reservoirs) = if frame_count.0 % 2 == 0 {
-            (
-                &solari_lighting_resources.reservoirs_a,
-                &solari_lighting_resources.reservoirs_b,
-            )
-        } else {
-            (
-                &solari_lighting_resources.reservoirs_b,
-                &solari_lighting_resources.reservoirs_a,
-            )
-        };
-
         let bind_group = render_context.render_device().create_bind_group(
             "solari_lighting_bind_group",
             &self.bind_group_layout,
             &BindGroupEntries::sequential((
                 view_target.get_unsampled_color_attachment().view,
-                previous_reservoirs.as_entire_binding(),
-                reservoirs.as_entire_binding(),
+                solari_lighting_resources.reservoirs_a.as_entire_binding(),
+                solari_lighting_resources.reservoirs_b.as_entire_binding(),
                 gbuffer,
                 depth_buffer,
                 motion_vectors,
@@ -123,14 +110,14 @@ impl ViewNode for SolariLightingNode {
         pass.set_bind_group(0, scene_bindings, &[]);
         pass.set_bind_group(1, &bind_group, &[view_uniform_offset.offset]);
 
-        pass.set_pipeline(initial_samples_pipeline);
+        pass.set_pipeline(initial_and_temporal_pipeline);
         pass.set_push_constants(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
         pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
 
-        pass.set_pipeline(reuse_and_shade_pipeline);
+        pass.set_pipeline(spatial_and_shade_pipeline);
         pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
 
         Ok(())
@@ -152,7 +139,7 @@ impl FromWorld for SolariLightingNode {
                         ViewTarget::TEXTURE_FORMAT_HDR,
                         StorageTextureAccess::WriteOnly,
                     ),
-                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
                     texture_2d(TextureSampleType::Uint),
                     texture_depth_2d(),
@@ -162,9 +149,9 @@ impl FromWorld for SolariLightingNode {
             ),
         );
 
-        let initial_samples_pipeline =
+        let initial_and_temporal_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                label: Some("solari_lighting_initial_samples_pipeline".into()),
+                label: Some("solari_lighting_initial_and_temporal_pipeline".into()),
                 layout: vec![
                     scene_bindings.bind_group_layout.clone(),
                     bind_group_layout.clone(),
@@ -173,15 +160,15 @@ impl FromWorld for SolariLightingNode {
                     stages: ShaderStages::COMPUTE,
                     range: 0..8,
                 }],
-                shader: load_embedded_asset!(world, "direct.wgsl"),
+                shader: load_embedded_asset!(world, "restir_di.wgsl"),
                 shader_defs: vec![],
-                entry_point: "initial_samples".into(),
+                entry_point: "initial_and_temporal".into(),
                 zero_initialize_workgroup_memory: false,
             });
 
-        let reuse_and_shade_pipeline =
+        let spatial_and_shade_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                label: Some("solari_lighting_reuse_and_shade_pipeline".into()),
+                label: Some("solari_lighting_spatial_and_shade_pipeline".into()),
                 layout: vec![
                     scene_bindings.bind_group_layout.clone(),
                     bind_group_layout.clone(),
@@ -190,16 +177,16 @@ impl FromWorld for SolariLightingNode {
                     stages: ShaderStages::COMPUTE,
                     range: 0..8,
                 }],
-                shader: load_embedded_asset!(world, "direct.wgsl"),
+                shader: load_embedded_asset!(world, "restir_di.wgsl"),
                 shader_defs: vec![],
-                entry_point: "reuse_and_shade".into(),
+                entry_point: "spatial_and_shade".into(),
                 zero_initialize_workgroup_memory: false,
             });
 
         Self {
             bind_group_layout,
-            initial_samples_pipeline,
-            reuse_and_shade_pipeline,
+            initial_and_temporal_pipeline,
+            spatial_and_shade_pipeline,
         }
     }
 }

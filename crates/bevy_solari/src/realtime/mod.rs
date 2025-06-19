@@ -28,7 +28,7 @@ pub struct SolariLightingPlugin;
 
 impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "direct.wgsl");
+        embedded_asset!(app, "restir_di.wgsl");
         load_shader_library!(app, "reservoir.wgsl");
 
         app.register_type::<SolariLighting>()
