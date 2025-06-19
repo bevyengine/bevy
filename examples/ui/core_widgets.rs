@@ -8,7 +8,7 @@ use bevy::{
     },
     ecs::system::SystemId,
     input_focus::{
-        tab_navigation::{TabGroup, TabIndex},
+        tab_navigation::{ClickToFocusPlugin, TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
     },
     picking::hover::Hovered,
@@ -19,7 +19,13 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CoreWidgetsPlugin, InputDispatchPlugin))
+        .add_plugins((
+            DefaultPlugins,
+            CoreWidgetsPlugin,
+            InputDispatchPlugin,
+            TabNavigationPlugin,
+            ClickToFocusPlugin,
+        ))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .insert_resource(DemoWidgetStates { slider_value: 50.0 })
