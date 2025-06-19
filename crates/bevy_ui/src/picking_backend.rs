@@ -140,9 +140,7 @@ pub fn ui_picking(
             let mut pointer_pos =
                 pointer_location.position * camera_data.target_scaling_factor().unwrap_or(1.);
             if let Some(viewport) = camera_data.physical_viewport_rect() {
-                if Vec2::cmplt(pointer_pos, viewport.min.as_vec2()).any()
-                    || Vec2::cmpgt(pointer_pos, viewport.max.as_vec2()).any()
-                {
+                if !viewport.as_rect().contains(pointer_pos) {
                     // The pointer is outside the viewport, skip it
                     continue;
                 }
