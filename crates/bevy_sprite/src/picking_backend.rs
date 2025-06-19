@@ -145,13 +145,15 @@ fn sprite_picking(
             continue;
         };
 
-        let viewport_pos = camera
-            .logical_viewport_rect()
-            .map(|v| v.min)
-            .unwrap_or_default();
-        let pos_in_viewport = location.position - viewport_pos;
+        let viewport_pos = location.position;
+        if let Some(viewport) = camera.logical_viewport_rect() {
+            if !viewport.contains(viewport_pos) {
+                // The pointer is outside the viewport, skip it
+                continue;
+            }
+        }
 
-        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
+        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, viewport_pos) else {
             continue;
         };
         let cursor_ray_len = cam_ortho.far - cam_ortho.near;
