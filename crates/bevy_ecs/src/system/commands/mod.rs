@@ -872,7 +872,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system(&mut self, id: SystemId) {
+    pub fn run_system<O: 'static>(&mut self, id: SystemId<(), O>) {
         self.queue(command::run_system(id).handle_error_with(warn));
     }
 
@@ -965,7 +965,7 @@ impl<'w, 's> Commands<'w, 's> {
     ) -> SystemId<I, O>
     where
         I: SystemInput + Send + 'static,
-        O: Send + 'static,
+        O: 'static,
     {
         let entity = self.spawn_empty().id();
         let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
@@ -990,7 +990,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
     where
         I: SystemInput + Send + 'static,
-        O: Send + 'static,
+        O: 'static,
     {
         self.queue(command::unregister_system(system_id).handle_error_with(warn));
     }
@@ -1039,10 +1039,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// consider passing them in as inputs via [`Commands::run_system_cached_with`].
     ///
     /// If that's not an option, consider [`Commands::register_system`] instead.
-    pub fn run_system_cached<M, S>(&mut self, system: S)
+    pub fn run_system_cached<O, M, S>(&mut self, system: S)
     where
+        O: 'static,
         M: 'static,
-        S: IntoSystem<(), (), M> + Send + 'static,
+        S: IntoSystem<(), O, M> + Send + 'static,
     {
         self.queue(command::run_system_cached(system).handle_error_with(warn));
     }
@@ -1069,11 +1070,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// consider passing them in as inputs.
     ///
     /// If that's not an option, consider [`Commands::register_system`] instead.
-    pub fn run_system_cached_with<I, M, S>(&mut self, system: S, input: I::Inner<'static>)
+    pub fn run_system_cached_with<I, O, M, S>(&mut self, system: S, input: I::Inner<'static>)
     where
         I: SystemInput<Inner<'static>: Send> + Send + 'static,
+        O: 'static,
         M: 'static,
-        S: IntoSystem<I, (), M> + Send + 'static,
+        S: IntoSystem<I, O, M> + Send + 'static,
     {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }

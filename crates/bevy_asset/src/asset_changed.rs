@@ -150,20 +150,22 @@ pub struct AssetChangedState<A: AsAssetId> {
 #[expect(unsafe_code, reason = "WorldQuery is an unsafe trait.")]
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
-    type Fetch<'w> = AssetChangedFetch<'w, A>;
+    type Fetch<'w, 's> = AssetChangedFetch<'w, A>;
 
     type State = AssetChangedState<A>;
 
-    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+        fetch: Self::Fetch<'wlong, 's>,
+    ) -> Self::Fetch<'wshort, 's> {
         fetch
     }
 
-    unsafe fn init_fetch<'w>(
+    unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
-        state: &Self::State,
+        state: &'s Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> Self::Fetch<'w> {
+    ) -> Self::Fetch<'w, 's> {
         // SAFETY:
         // - `AssetChanges` is private and only accessed mutably in the `AssetEventSystems` system set.
         // - `resource_id` was obtained from the type ID of `AssetChanges<A::Asset>`.
@@ -201,9 +203,9 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 
     const IS_DENSE: bool = <&A>::IS_DENSE;
 
-    unsafe fn set_archetype<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &Self::State,
+    unsafe fn set_archetype<'w, 's>(
+        fetch: &mut Self::Fetch<'w, 's>,
+        state: &'s Self::State,
         archetype: &'w Archetype,
         table: &'w Table,
     ) {
@@ -215,7 +217,11 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         }
     }
 
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+    unsafe fn set_table<'w, 's>(
+        fetch: &mut Self::Fetch<'w, 's>,
+        state: &Self::State,
+        table: &'w Table,
+    ) {
         if let Some(inner) = &mut fetch.inner {
             // SAFETY: We delegate to the inner `set_table` for `A`
             unsafe {
@@ -265,7 +271,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 
     #[inline]
     unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_>,
+        fetch: &mut Self::Fetch<'_, '_>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
