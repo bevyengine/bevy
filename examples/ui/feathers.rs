@@ -194,15 +194,15 @@ fn demo_root(on_click: SystemId, on_change_value: SystemId<In<f32>>) -> impl Bun
                     variant: ButtonVariant::Normal,
                     corners: RoundedCorners::All,
                     overrides: (),
-                    // ..Default::default()
+                    // ..default()
                 }),
                 slider(SliderProps {
-                    min: 0.0,
                     max: 100.0,
                     value: 20.0,
                     precision: 1,
-                    on_change: None,
+                    // on_change: None,
                     // on_change: Some(on_change_value)
+                    ..default()
                 }),
             ]
         ),],

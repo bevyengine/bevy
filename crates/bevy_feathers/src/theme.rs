@@ -200,6 +200,14 @@ pub mod fonts {
     pub const MONO: &str = "embedded://bevy_feathers/assets/fonts/FiraMono-Medium.ttf";
 }
 
+/// Size constants
+pub mod size {
+    use bevy_ui::Val;
+
+    /// Common row size for buttons, sliders, spinners, etc.
+    pub const ROW_HEIGHT: Val = Val::Px(22.0);
+}
+
 /// Constants for specifying which corners of a widget are rounded, used for segmented buttons
 /// and control groups.
 pub mod corners {
