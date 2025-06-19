@@ -6,6 +6,7 @@
 
 const NULL_RESERVOIR_SAMPLE = 0xFFFFFFFFu;
 
+// Don't adjust the size of this struct without also adjusting RESERVOIR_STRUCT_SIZE.
 struct Reservoir {
     sample: LightSample,
     weight_sum: f32,
