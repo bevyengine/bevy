@@ -101,6 +101,7 @@ impl<
         S: AssetSaver<Asset = T::AssetOutput>,
     > LoadTransformAndSave<L, T, S>
 {
+    /// TODO
     pub fn new(transformer: T, saver: S) -> Self {
         LoadTransformAndSave {
             transformer,
@@ -113,49 +114,70 @@ impl<
 /// An error that is encountered during [`Process::process`].
 #[derive(Error, Debug)]
 pub enum ProcessError {
+    /// TODO
     #[error(transparent)]
     MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),
+    /// TODO
     #[error(transparent)]
     MissingAssetLoaderForTypeName(#[from] MissingAssetLoaderForTypeNameError),
+    /// TODO
     #[error("The processor '{0}' does not exist")]
     #[from(ignore)]
     MissingProcessor(String),
+    /// TODO
     #[error("Encountered an AssetReader error for '{path}': {err}")]
     #[from(ignore)]
     AssetReaderError {
+        /// TODO
         path: AssetPath<'static>,
+        /// TODO
         err: AssetReaderError,
     },
+    /// TODO
     #[error("Encountered an AssetWriter error for '{path}': {err}")]
     #[from(ignore)]
     AssetWriterError {
+        /// TODO
         path: AssetPath<'static>,
+        /// TODO
         err: AssetWriterError,
     },
+    /// TODO
     #[error(transparent)]
     MissingAssetWriterError(#[from] MissingAssetWriterError),
+    /// TODO
     #[error(transparent)]
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
+    /// TODO
     #[error(transparent)]
     MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
+    /// TODO
     #[error("Failed to read asset metadata for {path}: {err}")]
     #[from(ignore)]
     ReadAssetMetaError {
+        /// TODO
         path: AssetPath<'static>,
+        /// TODO
         err: AssetReaderError,
     },
+    /// TODO
     #[error(transparent)]
     DeserializeMetaError(#[from] DeserializeMetaError),
+    /// TODO
     #[error(transparent)]
     AssetLoadError(#[from] AssetLoadError),
+    /// TODO
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
+    /// TODO
     #[error("Encountered an error while saving the asset: {0}")]
     #[from(ignore)]
     AssetSaveError(Box<dyn core::error::Error + Send + Sync + 'static>),
+    /// TODO
     #[error("Encountered an error while transforming the asset: {0}")]
     #[from(ignore)]
     AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
+    /// TODO
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }

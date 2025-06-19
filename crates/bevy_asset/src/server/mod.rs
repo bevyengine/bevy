@@ -2031,20 +2031,28 @@ pub enum WaitForAssetError {
     DependencyFailed(Arc<AssetLoadError>),
 }
 
+/// TODO
 #[derive(Error, Debug)]
 pub enum WriteDefaultMetaError {
+    /// TODO
     #[error(transparent)]
     MissingAssetLoader(#[from] MissingAssetLoaderForExtensionError),
+    /// TODO
     #[error(transparent)]
     MissingAssetSource(#[from] MissingAssetSourceError),
+    /// TODO
     #[error(transparent)]
     MissingAssetWriter(#[from] MissingAssetWriterError),
+    /// TODO
     #[error("failed to write default asset meta file: {0}")]
     FailedToWriteMeta(#[from] AssetWriterError),
+    /// TODO
     #[error("asset meta file already exists, so avoiding overwrite")]
     MetaAlreadyExists,
+    /// TODO
     #[error("encountered an I/O error while reading the existing meta file: {0}")]
     IoErrorFromExistingMetaCheck(Arc<std::io::Error>),
+    /// TODO
     #[error("encountered HTTP status {0} when reading the existing meta file")]
     HttpErrorFromExistingMetaCheck(u16),
 }

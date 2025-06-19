@@ -1,3 +1,5 @@
+//! TODO
+
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use bevy_platform::collections::HashMap;
@@ -31,14 +33,17 @@ impl Dir {
         })))
     }
 
+    /// TODO
     pub fn insert_asset_text(&self, path: &Path, asset: &str) {
         self.insert_asset(path, asset.as_bytes().to_vec());
     }
 
+    /// TODO
     pub fn insert_meta_text(&self, path: &Path, asset: &str) {
         self.insert_meta(path, asset.as_bytes().to_vec());
     }
 
+    /// TODO
     pub fn insert_asset(&self, path: &Path, value: impl Into<Value>) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
@@ -63,6 +68,7 @@ impl Dir {
         dir.0.write().assets.remove(&key)
     }
 
+    /// TODO
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
@@ -77,6 +83,7 @@ impl Dir {
         );
     }
 
+    /// TODO
     pub fn get_or_insert_dir(&self, path: &Path) -> Dir {
         let mut dir = self.clone();
         let mut full_path = PathBuf::new();
@@ -94,6 +101,7 @@ impl Dir {
         dir
     }
 
+    /// TODO
     pub fn get_dir(&self, path: &Path) -> Option<Dir> {
         let mut dir = self.clone();
         for p in path.components() {
@@ -104,6 +112,7 @@ impl Dir {
         Some(dir)
     }
 
+    /// TODO
     pub fn get_asset(&self, path: &Path) -> Option<Data> {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
@@ -114,6 +123,7 @@ impl Dir {
             .and_then(|f| dir.0.read().assets.get(f.to_str().unwrap()).cloned())
     }
 
+    /// TODO
     pub fn get_metadata(&self, path: &Path) -> Option<Data> {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
@@ -124,11 +134,13 @@ impl Dir {
             .and_then(|f| dir.0.read().metadata.get(f.to_str().unwrap()).cloned())
     }
 
+    /// TODO
     pub fn path(&self) -> PathBuf {
         self.0.read().path.to_owned()
     }
 }
 
+/// TODO
 pub struct DirStream {
     dir: Dir,
     index: usize,
@@ -176,6 +188,7 @@ impl Stream for DirStream {
 /// This is primarily intended for unit tests.
 #[derive(Default, Clone)]
 pub struct MemoryAssetReader {
+    /// TODO
     pub root: Dir,
 }
 
@@ -189,7 +202,9 @@ pub struct Data {
 /// Stores either an allocated vec of bytes or a static array of bytes.
 #[derive(Clone, Debug)]
 pub enum Value {
+    /// TODO
     Vec(Arc<Vec<u8>>),
+    /// TODO
     Static(&'static [u8]),
 }
 

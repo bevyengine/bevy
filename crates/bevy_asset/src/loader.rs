@@ -268,7 +268,9 @@ impl ErasedLoadedAsset {
 
 /// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a [`World`]'s [`Assets`] collection.
 pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
+    /// TODO
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
+    /// TODO
     fn asset_type_name(&self) -> &'static str;
 }
 
@@ -291,11 +293,15 @@ impl<A: Asset> AssetContainer for A {
 /// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
+    /// TODO
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
+    /// TODO
     #[error("Failed to load dependency {dependency:?} {error}")]
     LoadError {
+        /// TODO
         dependency: AssetPath<'static>,
+        /// TODO
         error: AssetLoadError,
     },
 }
@@ -303,8 +309,10 @@ pub enum LoadDirectError {
 /// An error that occurs while deserializing [`AssetMeta`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DeserializeMetaError {
+    /// TODO
     #[error("Failed to deserialize asset meta: {0:?}")]
     DeserializeSettings(#[from] SpannedError),
+    /// TODO
     #[error("Failed to deserialize minimal asset meta: {0:?}")]
     DeserializeMinimal(SpannedError),
 }
@@ -568,20 +576,27 @@ impl<'a> LoadContext<'a> {
 /// An error produced when calling [`LoadContext::read_asset_bytes`]
 #[derive(Error, Debug)]
 pub enum ReadAssetBytesError {
+    /// TODO
     #[error(transparent)]
     DeserializeMetaError(#[from] DeserializeMetaError),
+    /// TODO
     #[error(transparent)]
     AssetReaderError(#[from] AssetReaderError),
+    /// TODO
     #[error(transparent)]
     MissingAssetSourceError(#[from] MissingAssetSourceError),
+    /// TODO
     #[error(transparent)]
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     /// Encountered an I/O error while loading an asset.
     #[error("Encountered an io error while loading asset at `{}`: {source}", path.display())]
     Io {
+        /// TODO
         path: PathBuf,
+        /// TODO
         source: std::io::Error,
     },
+    /// TODO
     #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
 }
