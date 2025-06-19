@@ -161,6 +161,20 @@ struct CameraShakeConfig {
     noise_speed: f32,
 }
 
+fn setup_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera2d,
+        // Enable camera shake for this camera.
+        CameraShakeConfig {
+            trauma_decay_per_second: TRAUMA_DECAY_PER_SECOND,
+            exponent: TRAUMA_EXPONENT,
+            max_angle: MAX_ANGLE,
+            max_translation: MAX_TRANSLATION,
+            noise_speed: NOISE_SPEED,
+        },
+    ));
+}
+
 /// Spawn a scene so we have something to look at.
 fn setup_scene(
     mut commands: Commands,
@@ -202,20 +216,6 @@ fn setup_instructions(mut commands: Commands) {
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        },
-    ));
-}
-
-fn setup_camera(mut commands: Commands) {
-    commands.spawn((
-        Camera2d,
-        // Enable camera shake for this camera.
-        CameraShakeConfig {
-            trauma_decay_per_second: TRAUMA_DECAY_PER_SECOND,
-            exponent: TRAUMA_EXPONENT,
-            max_angle: MAX_ANGLE,
-            max_translation: MAX_TRANSLATION,
-            noise_speed: NOISE_SPEED,
         },
     ));
 }
