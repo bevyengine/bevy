@@ -48,6 +48,7 @@ impl Default for AmbientLight {
         }
     }
 }
+
 impl AmbientLight {
     pub const NONE: AmbientLight = AmbientLight {
         color: Color::WHITE,

@@ -570,131 +570,157 @@ impl From<AppLifecycle> for WindowEvent {
         Self::AppLifecycle(e)
     }
 }
+
 impl From<CursorEntered> for WindowEvent {
     fn from(e: CursorEntered) -> Self {
         Self::CursorEntered(e)
     }
 }
+
 impl From<CursorLeft> for WindowEvent {
     fn from(e: CursorLeft) -> Self {
         Self::CursorLeft(e)
     }
 }
+
 impl From<CursorMoved> for WindowEvent {
     fn from(e: CursorMoved) -> Self {
         Self::CursorMoved(e)
     }
 }
+
 impl From<FileDragAndDrop> for WindowEvent {
     fn from(e: FileDragAndDrop) -> Self {
         Self::FileDragAndDrop(e)
     }
 }
+
 impl From<Ime> for WindowEvent {
     fn from(e: Ime) -> Self {
         Self::Ime(e)
     }
 }
+
 impl From<RequestRedraw> for WindowEvent {
     fn from(e: RequestRedraw) -> Self {
         Self::RequestRedraw(e)
     }
 }
+
 impl From<WindowBackendScaleFactorChanged> for WindowEvent {
     fn from(e: WindowBackendScaleFactorChanged) -> Self {
         Self::WindowBackendScaleFactorChanged(e)
     }
 }
+
 impl From<WindowCloseRequested> for WindowEvent {
     fn from(e: WindowCloseRequested) -> Self {
         Self::WindowCloseRequested(e)
     }
 }
+
 impl From<WindowCreated> for WindowEvent {
     fn from(e: WindowCreated) -> Self {
         Self::WindowCreated(e)
     }
 }
+
 impl From<WindowDestroyed> for WindowEvent {
     fn from(e: WindowDestroyed) -> Self {
         Self::WindowDestroyed(e)
     }
 }
+
 impl From<WindowFocused> for WindowEvent {
     fn from(e: WindowFocused) -> Self {
         Self::WindowFocused(e)
     }
 }
+
 impl From<WindowMoved> for WindowEvent {
     fn from(e: WindowMoved) -> Self {
         Self::WindowMoved(e)
     }
 }
+
 impl From<WindowOccluded> for WindowEvent {
     fn from(e: WindowOccluded) -> Self {
         Self::WindowOccluded(e)
     }
 }
+
 impl From<WindowResized> for WindowEvent {
     fn from(e: WindowResized) -> Self {
         Self::WindowResized(e)
     }
 }
+
 impl From<WindowScaleFactorChanged> for WindowEvent {
     fn from(e: WindowScaleFactorChanged) -> Self {
         Self::WindowScaleFactorChanged(e)
     }
 }
+
 impl From<WindowThemeChanged> for WindowEvent {
     fn from(e: WindowThemeChanged) -> Self {
         Self::WindowThemeChanged(e)
     }
 }
+
 impl From<MouseButtonInput> for WindowEvent {
     fn from(e: MouseButtonInput) -> Self {
         Self::MouseButtonInput(e)
     }
 }
+
 impl From<MouseMotion> for WindowEvent {
     fn from(e: MouseMotion) -> Self {
         Self::MouseMotion(e)
     }
 }
+
 impl From<MouseWheel> for WindowEvent {
     fn from(e: MouseWheel) -> Self {
         Self::MouseWheel(e)
     }
 }
+
 impl From<PinchGesture> for WindowEvent {
     fn from(e: PinchGesture) -> Self {
         Self::PinchGesture(e)
     }
 }
+
 impl From<RotationGesture> for WindowEvent {
     fn from(e: RotationGesture) -> Self {
         Self::RotationGesture(e)
     }
 }
+
 impl From<DoubleTapGesture> for WindowEvent {
     fn from(e: DoubleTapGesture) -> Self {
         Self::DoubleTapGesture(e)
     }
 }
+
 impl From<PanGesture> for WindowEvent {
     fn from(e: PanGesture) -> Self {
         Self::PanGesture(e)
     }
 }
+
 impl From<TouchInput> for WindowEvent {
     fn from(e: TouchInput) -> Self {
         Self::TouchInput(e)
     }
 }
+
 impl From<KeyboardInput> for WindowEvent {
     fn from(e: KeyboardInput) -> Self {
         Self::KeyboardInput(e)
     }
 }
+
 impl From<KeyboardFocusLost> for WindowEvent {
     fn from(e: KeyboardFocusLost) -> Self {
         Self::KeyboardFocusLost(e)

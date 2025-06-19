@@ -20,6 +20,7 @@ pub trait DirectAssetAccessExt {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A>;
 }
+
 impl DirectAssetAccessExt for World {
     /// Insert an asset similarly to [`Assets::add`].
     ///

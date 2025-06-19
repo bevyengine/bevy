@@ -34,6 +34,7 @@ pub struct TextureAtlasSources {
     /// Maps from a specific image handle to the index in `textures` where they can be found.
     pub texture_ids: HashMap<AssetId<Image>, usize>,
 }
+
 impl TextureAtlasSources {
     /// Retrieves the texture *section* index of the given `texture` handle.
     pub fn texture_index(&self, texture: impl Into<AssetId<Image>>) -> Option<usize> {

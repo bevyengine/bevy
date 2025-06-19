@@ -141,16 +141,19 @@ impl EmbeddedAssetRegistry {
 pub trait GetAssetServer {
     fn get_asset_server(&self) -> &AssetServer;
 }
+
 impl GetAssetServer for App {
     fn get_asset_server(&self) -> &AssetServer {
         self.world().get_asset_server()
     }
 }
+
 impl GetAssetServer for World {
     fn get_asset_server(&self) -> &AssetServer {
         self.resource()
     }
 }
+
 impl GetAssetServer for AssetServer {
     fn get_asset_server(&self) -> &AssetServer {
         self

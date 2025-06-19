@@ -128,4 +128,5 @@ fn setup(
 struct MeshletDebugMaterial {
     _dummy: (),
 }
+
 impl Material for MeshletDebugMaterial {}

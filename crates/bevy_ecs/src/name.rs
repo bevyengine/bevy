@@ -159,6 +159,7 @@ impl From<&str> for Name {
         Name::new(name.to_owned())
     }
 }
+
 impl From<String> for Name {
     #[inline(always)]
     fn from(name: String) -> Self {
@@ -174,12 +175,14 @@ impl AsRef<str> for Name {
         &self.name
     }
 }
+
 impl From<&Name> for String {
     #[inline(always)]
     fn from(val: &Name) -> String {
         val.as_str().to_owned()
     }
 }
+
 impl From<Name> for String {
     #[inline(always)]
     fn from(val: Name) -> String {

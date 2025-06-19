@@ -53,6 +53,7 @@ impl Default for CurrentMethod {
         CurrentMethod(ParallaxMappingMethod::Relief { max_steps: 4 })
     }
 }
+
 impl fmt::Display for CurrentMethod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
@@ -63,6 +64,7 @@ impl fmt::Display for CurrentMethod {
         }
     }
 }
+
 impl CurrentMethod {
     fn next_method(&mut self) {
         use ParallaxMappingMethod::*;

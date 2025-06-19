@@ -689,6 +689,7 @@ pub trait TypeData: Downcast + Send + Sync {
     /// Creates a type-erased clone of this value.
     fn clone_type_data(&self) -> Box<dyn TypeData>;
 }
+
 impl_downcast!(TypeData);
 
 impl<T: 'static + Send + Sync> TypeData for T

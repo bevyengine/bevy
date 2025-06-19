@@ -1043,9 +1043,11 @@ pub enum BoxSizing {
     /// Length styles like width and height refer to the "content box" size (size excluding padding and border)
     ContentBox,
 }
+
 impl BoxSizing {
     pub const DEFAULT: Self = Self::BorderBox;
 }
+
 impl Default for BoxSizing {
     fn default() -> Self {
         Self::DEFAULT
