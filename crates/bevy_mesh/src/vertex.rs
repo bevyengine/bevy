@@ -50,7 +50,7 @@ impl SerializedMeshVertexAttribute {
     ) -> Option<MeshVertexAttribute> {
         let attr = possible_attributes.get(self.name.as_str())?;
         if attr.id == self.id {
-            Some(attr.clone())
+            Some(attr)
         } else {
             None
         }
