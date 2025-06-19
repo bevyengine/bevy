@@ -3,7 +3,7 @@ use crate::{
     bundle::Bundle,
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
-    entity::{Entities, Entity, EntityHashMap, EntityLocation},
+    entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
@@ -2489,7 +2489,7 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
 // gate `DeferredMut` behind support for Parallel<T>
 bevy_utils::cfg::parallel! {
     use core::ops::{Deref, DerefMut};
-    use crate::{system::SystemMeta, world::DeferredWorld};
+    use crate::{system::SystemMeta, entity::EntityHashMap, world::DeferredWorld};
     use bevy_utils::Parallel;
 
     /// Provides "fake" mutable access to the component `T`
@@ -2519,7 +2519,7 @@ bevy_utils::cfg::parallel! {
     /// struct Health(u32);
     ///
     /// fn tick_poison(mut health_query: Query<(DeferredMut<Health>, Has<Poisoned>)>) {
-    ///     for (mut health, is_poisoned) in health_query {
+    ///     for (mut health, is_poisoned) in &health_query {
     ///         health.0 -= 1;
     ///     }
     /// }
