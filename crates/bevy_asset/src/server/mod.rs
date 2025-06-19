@@ -2,7 +2,7 @@ mod info;
 mod loaders;
 
 use crate::{
-    folder::LoadedFolder,
+    folder::{LoadBatch, LoadedFolder},
     io::{
         AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
         AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
@@ -15,8 +15,8 @@ use crate::{
     },
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
-    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
-    UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
+    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadBatchKind, LoadedUntypedAsset,
+    UnapprovedPathMode, UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
@@ -32,6 +32,7 @@ use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
 use futures_lite::{FutureExt, StreamExt};
+use glob::Pattern;
 use info::*;
 use loaders::*;
 use parking_lot::{RwLock, RwLockWriteGuard};
@@ -944,10 +945,38 @@ impl AssetServer {
     /// removed, added or moved. This includes files in subdirectories and moving, adding,
     /// or removing complete subdirectories.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
-    pub fn load_folder<'a>(
+    pub fn load_folder<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedFolder> {
+        let path = path.into().into_owned();
+        let (handle, should_load) = self
+            .data
+            .infos
+            .write()
+            .get_or_create_path_handle::<LoadedFolder>(
+                path.clone(),
+                HandleLoadingMode::Request,
+                None,
+            );
+        if !should_load {
+            return handle;
+        }
+        let id = handle.id().untyped();
+        self.load_folder_internal(id, path, None);
+
+        handle
+    }
+    /// Loads all assets from the specified folder recursively with batch. The [`LoadedFolder`] asset (when it loads) will
+    /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedFolder`]'s
+    /// [`RecursiveDependencyLoadState`].
+    ///
+    /// Loading the same folder multiple times will return the same handle. If the `file_watcher`
+    /// feature is enabled, [`LoadedFolder`] handles will reload when a file in the folder is
+    /// removed, added or moved. This includes files in subdirectories and moving, adding,
+    /// or removing complete subdirectories.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
+    pub fn load_folder_with_batch<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        filter: Option<Arc<dyn Fn(&Path, bool) -> bool + Send + Sync + 'static>>,
+        load_batch: LoadBatch,
     ) -> Handle<LoadedFolder> {
         let path = path.into().into_owned();
         let (handle, should_load) = self
@@ -963,16 +992,14 @@ impl AssetServer {
             return handle;
         }
         let id = handle.id().untyped();
-        self.load_folder_internal(id, path, filter);
-
+        self.load_folder_internal(id, path, Some(load_batch));
         handle
     }
-
     pub(crate) fn load_folder_internal(
         &self,
         id: UntypedAssetId,
         path: AssetPath,
-        filter: Option<Arc<dyn Fn(&Path, bool) -> bool + Send + Sync + 'static>>,
+        load_batch: Option<LoadBatch>,
     ) {
         async fn load_folder<'a>(
             source: AssetSourceId<'static>,
@@ -980,36 +1007,51 @@ impl AssetServer {
             reader: &'a dyn ErasedAssetReader,
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
-            filter: Option<Arc<dyn Fn(&Path, bool) -> bool + Send + Sync + 'static>>,
+            patterns: &'a Vec<Pattern>,
+            patterns_kind: LoadBatchKind,
+            extensions: &'a Option<Arc<Vec<&str>>>,
+            extensions_kind: LoadBatchKind,
         ) -> Result<(), AssetLoadError> {
             let is_dir = reader.is_directory(path).await?;
             if is_dir {
                 let mut path_stream = reader.read_directory(path.as_ref()).await?;
                 while let Some(child_path) = path_stream.next().await {
-                    let child_is_dir = reader.is_directory(&child_path).await?;
-                    if let Some(ref filter_fn) = filter {
-                        if !filter_fn(&child_path, child_is_dir) {
-                            continue;
-                        }
-                    }
-                    if child_is_dir {
+                    if reader.is_directory(&child_path).await? {
                         Box::pin(load_folder(
                             source.clone(),
                             &child_path,
                             reader,
                             server,
                             handles,
-                            filter.clone(),
+                            patterns,
+                            patterns_kind,
+                            extensions,
+                            extensions_kind,
                         ))
                         .await?;
                     } else {
                         let path = child_path.to_str().expect("Path should be a valid string.");
-                        if let Some(ref filter_fn) = filter {
-                            if !filter_fn(&child_path, false) {
-                                continue;
-                            }
+
+                        if !patterns_kind
+                            .apply(patterns.iter().any(|pattern| pattern.matches(path)))
+                        {
+                            continue;
+                        }
+
+                        if let Some(extensions) = extensions {
+                            match child_path.extension() {
+                                Some(ext) => {
+                                    if !extensions_kind.apply(extensions.contains(
+                                        &ext.to_str().expect("Path should be a valid string."),
+                                    )) {
+                                        continue;
+                                    }
+                                }
+                                None => break,
+                            };
                         }
                         let asset_path = AssetPath::parse(path).with_source(source.clone());
+
                         match server.load_untyped_async(asset_path).await {
                             Ok(handle) => handles.push(handle),
                             // skip assets that cannot be loaded
@@ -1026,6 +1068,32 @@ impl AssetServer {
         }
 
         let path = path.into_owned();
+        let patterns: Vec<Pattern> = load_batch
+            .as_ref()
+            .map(|batch| {
+                batch
+                    .paths
+                    .clone()
+                    .unwrap_or(Arc::new(vec!["*/*"]))
+                    .iter()
+                    .map(|path| Pattern::new(path).expect("Failed to create pattern from path"))
+                    .collect()
+            })
+            .unwrap_or(vec![Pattern::new("*/*").unwrap()]);
+        let patterns_kind = load_batch
+            .as_ref()
+            .map(|batch| batch.paths_kind)
+            .unwrap_or_default();
+
+        let extensions = load_batch
+            .as_ref()
+            .map(|batch| batch.extensions.clone())
+            .unwrap_or_default();
+        let extensions_kind = load_batch
+            .as_ref()
+            .map(|batch| batch.extensions_kind)
+            .unwrap_or_default();
+
         let server = self.clone();
         IoTaskPool::get()
             .spawn(async move {
@@ -1052,12 +1120,11 @@ impl AssetServer {
                 };
 
                 let mut handles = Vec::new();
-                let filter_clone = filter.clone();
-                match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles,filter).await {
+                match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles,&patterns,patterns_kind,&extensions,extensions_kind).await {
                     Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded {
                         id,
                         loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedFolder { handles,filter:filter_clone },
+                            LoadedFolder { handles,load_batch },
                         )
                         .into(),
                     }),
@@ -1643,12 +1710,16 @@ impl AssetServer {
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
 pub fn handle_internal_asset_events(world: &mut World) {
     world.resource_scope(|world, server: Mut<AssetServer>| {
-        let mut folder_filters: HashMap<
-            AssetPath<'_>,
-            Option<Arc<dyn Fn(&Path, bool) -> bool + Send + Sync + 'static>>,
-        > = HashMap::new();
-        for (id, loaded_folder) in world.get_resource::<Assets<LoadedFolder>>().unwrap().iter() {
-            folder_filters.insert(server.get_path(id).unwrap(), loaded_folder.filter.clone());
+        let mut load_batchs: HashMap<AssetPath<'_>, Option<LoadBatch>> = HashMap::new();
+        for (id, loaded_folder) in world
+            .get_resource::<Assets<LoadedFolder>>()
+            .expect("Could not get LoadedFolder Assets")
+            .iter()
+        {
+            load_batchs.insert(
+                server.get_path(id).expect("Path should be a valid string."),
+                loaded_folder.load_batch.clone(),
+            );
         }
         let mut infos = server.data.infos.write();
         let var_name = vec![];
@@ -1723,7 +1794,10 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     server.load_folder_internal(
                         folder_handle.id(),
                         parent_asset_path.clone(),
-                        folder_filters.get(&parent_asset_path).unwrap().clone(),
+                        load_batchs
+                            .get(&parent_asset_path)
+                            .expect("parent folder is doesn't loaded")
+                            .clone(),
                     );
                 }
             }
