@@ -26,8 +26,8 @@ pub struct MeshVertexAttribute {
     pub format: VertexFormat,
 }
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SerializedMeshVertexAttribute {
     pub(crate) name: String,
     pub(crate) id: MeshVertexAttributeId,
@@ -174,8 +174,8 @@ pub(crate) struct MeshAttributeData {
     pub(crate) values: VertexAttributeValues,
 }
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SerializedMeshAttributeData {
     pub(crate) attribute: SerializedMeshVertexAttribute,
     pub(crate) values: VertexAttributeValues,
