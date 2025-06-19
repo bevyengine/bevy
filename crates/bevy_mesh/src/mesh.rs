@@ -213,6 +213,10 @@ impl Mesh {
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
+    /// The first index that can be used for custom vertex attributes.
+    /// Only the attributes with an index below this are reserved by Bevy.
+    pub const FIRST_AVAILABLE_CUSTOM_ATTRIBUTE: u64 = 8;
+
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
@@ -1317,20 +1321,24 @@ pub struct MeshDeserializer {
 #[cfg(feature = "serialize")]
 impl MeshDeserializer {
     fn new(serialized_mesh: SerializedMesh) -> Self {
+        // Written like this so that the compiler can validate that we use all the built-in attributes.
+        // If you just added a new attribute and got a compile error, please add it to this list :)
+        let builtins: [MeshVertexAttribute; Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE as usize] = [
+            Mesh::ATTRIBUTE_POSITION,
+            Mesh::ATTRIBUTE_NORMAL,
+            Mesh::ATTRIBUTE_UV_0,
+            Mesh::ATTRIBUTE_UV_1,
+            Mesh::ATTRIBUTE_TANGENT,
+            Mesh::ATTRIBUTE_COLOR,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+        ];
         Self {
             serialized_mesh,
-            custom_vertex_attributes: [
-                Mesh::ATTRIBUTE_POSITION,
-                Mesh::ATTRIBUTE_NORMAL,
-                Mesh::ATTRIBUTE_UV_0,
-                Mesh::ATTRIBUTE_TANGENT,
-                Mesh::ATTRIBUTE_COLOR,
-                Mesh::ATTRIBUTE_JOINT_WEIGHT,
-                Mesh::ATTRIBUTE_JOINT_INDEX,
-            ]
-            .into_iter()
-            .map(|attribute| (attribute.name.into(), attribute))
-            .collect(),
+            custom_vertex_attributes: builtins
+                .into_iter()
+                .map(|attribute| (attribute.name.into(), attribute))
+                .collect(),
         }
     }
 
