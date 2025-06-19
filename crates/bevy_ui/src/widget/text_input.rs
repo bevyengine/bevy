@@ -26,6 +26,7 @@ use bevy_text::TextInputBuffer;
 use bevy_text::TextInputCommand;
 use bevy_text::TextInputCommands;
 use bevy_text::TextPipeline;
+use bevy_time::Time;
 
 /// Main text input component
 #[derive(Component, Debug, Default)]
@@ -43,7 +44,9 @@ pub struct TextInputModifiers {
     pub overwrite: bool,
 }
 
-#[derive(Component)]
+const MULTI_CLICK_PERIOD: f32 = 0.5; // seconds
+
+#[derive(Component, Default, Debug)]
 pub struct TextInputMultiClickCounter {
     last_click_time: f32,
     click_count: usize,
@@ -97,7 +100,7 @@ fn on_text_input_pressed(
         / ui_scale.0
         - rect.min;
 
-    edits.queue(TextInputCommand::Click(IVec2::from(position)));
+    edits.queue(TextInputCommand::Click(position.as_ivec2()));
 }
 
 fn on_text_input_dragged(
@@ -159,9 +162,11 @@ fn on_multi_click_set_selection(
         return;
     }
 
-    let entity = click.target();
+    let Some(entity) = click.target() else {
+        return;
+    };
 
-    let Ok((input, mut queue, mut buffer, transform, node)) = text_input_nodes.get_mut(entity)
+    let Ok((input, mut edits, mut buffer, transform, node)) = text_input_nodes.get_mut(entity)
     else {
         return;
     };
@@ -171,30 +176,24 @@ fn on_multi_click_set_selection(
         if now - multi_click_data.last_click_time
             <= MULTI_CLICK_PERIOD * multi_click_data.click_count as f32
         {
-            let rect = Rect::from_center_size(transform.translation().truncate(), node.size());
+            let rect = Rect::from_center_size(transform.translation, node.size());
 
             let position =
                 click.pointer_location.position * node.inverse_scale_factor().recip() - rect.min;
-            let mut editor = buffer
-                .editor
-                .borrow_with(&mut text_input_pipeline.font_system);
-            let scroll = editor.with_buffer(|buffer| buffer.scroll());
+            // let mut editor = buffer
+            //     .editor
+            //     .borrow_with(&mut text_input_pipeline.font_system);
+            // let scroll = editor.with_buffer(|buffer| buffer.scroll());
             match multi_click_data.click_count {
                 1 => {
                     multi_click_data.click_count += 1;
                     multi_click_data.last_click_time = now;
 
-                    queue.add(TextInputAction::Edit(TextInputEdit::DoubleClick {
-                        x: position.x as i32 + scroll.horizontal as i32,
-                        y: position.y as i32,
-                    }));
+                    edits.queue(TextInputCommand::DoubleClick(position.as_ivec2()));
                     return;
                 }
                 2 => {
-                    editor.action(Action::Motion(Motion::ParagraphStart));
-                    let cursor = editor.cursor();
-                    editor.set_selection(Selection::Normal(cursor));
-                    editor.action(Action::Motion(Motion::ParagraphEnd));
+                    edits.queue(TextInputCommand::SelectLine);
                     if let Ok(mut entity) = commands.get_entity(entity) {
                         entity.try_remove::<TextInputMultiClickCounter>();
                     }
