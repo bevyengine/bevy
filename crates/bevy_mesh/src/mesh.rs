@@ -1352,15 +1352,15 @@ impl MeshDeserializer {
 
     /// Register a custom vertex attribute to the deserializer. Custom vertex attributes that were not added with this method will be ignored while deserializing.
     pub fn add_custom_vertex_attribute(
-        mut self,
+        &mut self,
         name: &str,
         attribute: MeshVertexAttribute,
-    ) -> Self {
+    ) -> &mut Self {
         self.custom_vertex_attributes.insert(name.into(), attribute);
         self
     }
 
-    /// Finalize the deserialization process and turn the [`SerializedMesh`] into a [`Mesh`].
+    /// Deserialize a [`SerializedMesh`] into a [`Mesh`].
     ///
     /// See the documentation for [`SerializedMesh`] for caveats.
     pub fn deserialize(&self, serialized_mesh: SerializedMesh) -> Mesh {
