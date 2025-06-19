@@ -8,14 +8,16 @@ use crate::{
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
+use bevy_reflect::prelude::ReflectDefault;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use core::marker::PhantomData;
+use bevy_reflect::Reflect;
+use core::{any::TypeId, marker::PhantomData};
+use disqualified::ShortName;
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-#[require(SystemIdMarker)]
+#[require(SystemIdMarker = SystemIdMarker::typed_system_id_marker::<I, O>())]
 pub(crate) struct RegisteredSystem<I, O> {
     initialized: bool,
     system: BoxedSystem<I, O>,
@@ -30,11 +32,40 @@ impl<I, O> RegisteredSystem<I, O> {
     }
 }
 
-/// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
-#[derive(Component, Default)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
-pub struct SystemIdMarker;
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Default, Clone))]
+struct TypeIdAndName(TypeId, &'static str);
+
+impl TypeIdAndName {
+    fn new<T: 'static>() -> Self {
+        Self(TypeId::of::<T>(), core::any::type_name::<T>())
+    }
+}
+
+impl Default for TypeIdAndName {
+    fn default() -> Self {
+        Self(TypeId::of::<()>(), core::any::type_name::<()>())
+    }
+}
+
+/// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
+#[derive(Debug, Default, Clone, Copy, Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Default, Clone, Component))]
+pub struct SystemIdMarker {
+    input_type_id: TypeIdAndName,
+    output_type_id: TypeIdAndName,
+}
+
+impl SystemIdMarker {
+    fn typed_system_id_marker<I: 'static, O: 'static>() -> Self {
+        Self {
+            input_type_id: TypeIdAndName::new::<I>(),
+            output_type_id: TypeIdAndName::new::<O>(),
+        }
+    }
+}
 
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
@@ -337,6 +368,16 @@ impl World {
             .get_entity_mut(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
+        let Some(system_id_marker) = entity.get::<SystemIdMarker>() else {
+            return Err(RegisteredSystemError::SystemNotCached);
+        };
+
+        if system_id_marker.input_type_id.0 != TypeId::of::<I>()
+            || system_id_marker.output_type_id.0 != TypeId::of::<O>()
+        {
+            return Err(RegisteredSystemError::IncorrectType(id, *system_id_marker));
+        }
+
         // Take ownership of system trait object
         let RegisteredSystem {
             mut initialized,
@@ -345,7 +386,7 @@ impl World {
             .take::<RegisteredSystem<I, O>>()
             .ok_or(RegisteredSystemError::Recursive(id))?;
 
-        // Run the system
+        // Initialize the system
         if !initialized {
             system.initialize(self);
             initialized = true;
@@ -501,6 +542,9 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
         /// The returned parameter validation error.
         err: SystemParamValidationError,
     },
+    /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
+    #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", ShortName::of::<SystemId<I, O>>(), ShortName(.1.input_type_id.1), ShortName(.1.output_type_id.1))]
+    IncorrectType(SystemId<I, O>, SystemIdMarker),
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -517,6 +561,11 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
                 .field("system", system)
                 .field("err", err)
                 .finish(),
+            Self::IncorrectType(arg0, arg1) => f
+                .debug_tuple("MaybeIncorrectType")
+                .field(arg0)
+                .field(arg1)
+                .finish(),
         }
     }
 }
@@ -527,7 +576,10 @@ mod tests {
 
     use bevy_utils::default;
 
-    use crate::{prelude::*, system::SystemId};
+    use crate::{
+        prelude::*,
+        system::{RegisteredSystemError, SystemId},
+    };
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -956,11 +1008,52 @@ mod tests {
     }
 
     #[test]
+    fn world_run_system_recursive() {
+        #[derive(Component)]
+        struct RecursionMarker(u8);
+
+        fn world_recursive(world: &mut World) {
+            let sys_id = world.register_system_cached(world_recursive);
+            if let Some(RecursionMarker(i)) = world.entity_mut(sys_id.entity()).take() {
+                if i == 10 {
+                    return;
+                }
+                world
+                    .entity_mut(sys_id.entity())
+                    .insert(RecursionMarker(i + 1));
+            } else {
+                world.entity_mut(sys_id.entity()).insert(RecursionMarker(0));
+            }
+            world.run_system_cached(world_recursive).unwrap();
+        }
+
+        let mut world = World::new();
+        world.run_system_cached(world_recursive).unwrap();
+    }
+
+    #[test]
     fn run_system_exclusive_adapters() {
         let mut world = World::new();
         fn system(_: &mut World) {}
         world.run_system_cached(system).unwrap();
         world.run_system_cached(system.pipe(system)).unwrap();
         world.run_system_cached(system.map(|()| {})).unwrap();
+    }
+
+    #[test]
+    fn wrong_system_type() {
+        fn test() -> Result<(), u8> {
+            Ok(())
+        }
+
+        let mut world = World::new();
+
+        let entity = world.register_system_cached(test).entity();
+
+        match world.run_system::<u8>(SystemId::from_entity(entity)) {
+            Ok(_) => panic!("Should fail since called `run_system` with wrong SystemId type."),
+            Err(RegisteredSystemError::IncorrectType(_, _)) => (),
+            Err(err) => panic!("Failed with wrong error. `{:?}`", err),
+        }
     }
 }
