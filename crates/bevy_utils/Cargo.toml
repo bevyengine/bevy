@@ -16,9 +16,14 @@ wgpu_wrapper = ["dep:send_wrapper"]
 # Provides access to the `Parallel` type.
 parallel = ["bevy_platform/std", "dep:thread_local"]
 
+std = ["disqualified/alloc"]
+
+debug = []
+
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
 
+disqualified = { version = "1.0", default-features = false }
 thread_local = { version = "1.0", optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]

@@ -550,10 +550,9 @@ impl BundleInfo {
                     // SAFETY: the caller ensures component_id is valid.
                     unsafe { components.get_info_unchecked(id).name() }
                 })
-                .collect::<Vec<_>>()
-                .join(", ");
+                .collect::<Vec<_>>();
 
-            panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+            panic!("Bundle {bundle_type_name} has duplicate components: {names:?}");
         }
 
         // handle explicit components

@@ -1134,7 +1134,7 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
             let Some(component_info) = world.components().get_info(component_id) else {
                 continue;
             };
-            response.push(component_info.name().to_owned());
+            response.push(component_info.name().to_string());
         }
     }
     // If `None`, list all registered components.
@@ -1197,7 +1197,7 @@ pub fn process_remote_list_watching_request(
             let Some(component_info) = world.components().get_info(component_id) else {
                 continue;
             };
-            response.added.push(component_info.name().to_owned());
+            response.added.push(component_info.name().to_string());
         }
     }
 
@@ -1210,7 +1210,7 @@ pub fn process_remote_list_watching_request(
                 let Some(component_info) = world.components().get_info(*component_id) else {
                     continue;
                 };
-                response.removed.push(component_info.name().to_owned());
+                response.removed.push(component_info.name().to_string());
             }
         }
     }
