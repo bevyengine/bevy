@@ -8,7 +8,7 @@ use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
     platform::collections::HashMap,
     prelude::*,
-    render::pipelined_rendering::RenderExtractApp,
+    render::{pipelined_rendering::RenderExtractApp, RenderApp},
 };
 
 fn main() {
@@ -19,12 +19,15 @@ fn main() {
     configure_ambiguity_detection(main_app);
     let render_extract_app = app.sub_app_mut(RenderExtractApp);
     configure_ambiguity_detection(render_extract_app);
-
-    // Ambiguities in the RenderApp are currently allowed.
-    // Eventually, we should forbid these: see https://github.com/bevyengine/bevy/issues/7386
-    // Uncomment the lines below to show the current ambiguities in the RenderApp.
-    // let sub_app = app.sub_app_mut(bevy_render::RenderApp);
-    // configure_ambiguity_detection(sub_app);
+    let sub_app = app.sub_app_mut(RenderApp);
+    configure_ambiguity_detection(sub_app);
+    // TODO: Make the Extract schedule ambiguity friendly.
+    sub_app.edit_schedule(ExtractSchedule, |schedule| {
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: LogLevel::Ignore,
+            ..Default::default()
+        });
+    });
 
     app.finish();
     app.cleanup();
@@ -37,12 +40,18 @@ fn main() {
         "Main app has unexpected ambiguities among the following schedules: \n{main_app_ambiguities:#?}.",
     );
 
-    // RenderApp is not checked here, because it is not within the App at this point.
     let render_extract_ambiguities = count_ambiguities(app.sub_app(RenderExtractApp));
     assert_eq!(
         render_extract_ambiguities.total(),
         0,
         "RenderExtract app has unexpected ambiguities among the following schedules: \n{render_extract_ambiguities:#?}",
+    );
+
+    let render_ambiguities = count_ambiguities(app.sub_app(RenderApp));
+    assert_eq!(
+        render_ambiguities.total(),
+        0,
+        "Render app has unexpected ambiguities among the following schedules: \n{render_ambiguities:#?}",
     );
 }
 
