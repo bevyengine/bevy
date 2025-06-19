@@ -215,31 +215,39 @@ enum FilterScenario {
     NoOptOut,
     NoOptOutNew(bool),
     OptIn,
+    OptInWithoutRequired,
     OptInNew(bool),
+    OptInWithoutRequiredNew(bool),
 }
 
-impl Into<String> for FilterScenario {
-    fn into(self) -> String {
-        match self {
-            Self::NoOptOut => "no_opt_out",
-            Self::NoOptOutNew(true) => "no_opt_out_new",
-            Self::NoOptOutNew(false) => "no_opt_out_none_new",
-            Self::OptIn => "opt_in",
-            Self::OptInNew(true) => "opt_in_new",
-            Self::OptInNew(false) => "opt_in_none_new",
+impl From<FilterScenario> for String {
+    fn from(value: FilterScenario) -> Self {
+        match value {
+            FilterScenario::NoOptOut => "no_opt_out",
+            FilterScenario::NoOptOutNew(true) => "no_opt_out_new",
+            FilterScenario::NoOptOutNew(false) => "no_opt_out_none_new",
+            FilterScenario::OptIn => "opt_in",
+            FilterScenario::OptInWithoutRequired => "opt_in_without_required",
+            FilterScenario::OptInNew(true) => "opt_in_new",
+            FilterScenario::OptInNew(false) => "opt_in_none_new",
+            FilterScenario::OptInWithoutRequiredNew(true) => "opt_in_new_without_required",
+            FilterScenario::OptInWithoutRequiredNew(false) => "opt_in_none_new_without_required",
         }
         .into()
     }
 }
 
 /// Common scenarios for different filter to be benchmarked.
-const FILTER_SCENARIOS: [FilterScenario; 6] = [
+const FILTER_SCENARIOS: [FilterScenario; 9] = [
     FilterScenario::NoOptOut,
     FilterScenario::NoOptOutNew(true),
     FilterScenario::NoOptOutNew(false),
     FilterScenario::OptIn,
+    FilterScenario::OptInWithoutRequired,
     FilterScenario::OptInNew(true),
     FilterScenario::OptInNew(false),
+    FilterScenario::OptInWithoutRequiredNew(true),
+    FilterScenario::OptInWithoutRequiredNew(false),
 ];
 
 /// A helper function that benchmarks running [`EntityCloner::clone_entity`] with a bundle `B`.
@@ -272,10 +280,26 @@ fn bench_filter<B: Bundle + Default>(b: &mut Bencher, scenario: FilterScenario) 
             builder.allow::<B>();
             cloner = builder.finish();
         }
+        FilterScenario::OptInWithoutRequired => {
+            target = spawn(true);
+            let mut builder = EntityCloner::build_opt_in(&mut world);
+            builder.without_required_components(|builder| {
+                builder.allow::<B>();
+            });
+            cloner = builder.finish();
+        }
         FilterScenario::OptInNew(is_new) => {
             target = spawn(is_new);
             let mut builder = EntityCloner::build_opt_in(&mut world);
             builder.allow_if_new::<B>();
+            cloner = builder.finish();
+        }
+        FilterScenario::OptInWithoutRequiredNew(is_new) => {
+            target = spawn(is_new);
+            let mut builder = EntityCloner::build_opt_in(&mut world);
+            builder.without_required_components(|builder| {
+                builder.allow_if_new::<B>();
+            });
             cloner = builder.finish();
         }
     }
