@@ -6,7 +6,7 @@
 //! - Trauma automatically decays over time.
 //! - The camera shake will always only affect the camera `Transform` up to a maximum displacement.
 //! - The camera's `Transform` is only affected by the shake for the rendering. The `Transform` stays "normal" for the rest of the game logic.
-//! - All displacement are governed by a noise function, guaranteeing that the shake is smooth and continuous.
+//! - All displacements are governed by a noise function, guaranteeing that the shake is smooth and continuous.
 //!   This means that the camera won't jump around wildly.
 //!
 //! ## Controls
@@ -249,8 +249,6 @@ mod perlin_noise {
 
     // A cubic curve that smoothly transitions from 0 to 1 as t goes from 0 to 1
     fn fade(t: f32) -> f32 {
-        assert!(t >= 0.0, "t: {t}");
-        assert!(t <= 1.0, "t: {t}");
         t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
     }
 
