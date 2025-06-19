@@ -256,10 +256,10 @@ impl Transform {
         self
     }
 
-    /// Returns the 3d affine transformation matrix from this transforms translation,
+    /// Computes the 3d affine transformation matrix from this transform's translation,
     /// rotation, and scale.
     #[inline]
-    pub fn compute_matrix(&self) -> Mat4 {
+    pub fn to_matrix(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 

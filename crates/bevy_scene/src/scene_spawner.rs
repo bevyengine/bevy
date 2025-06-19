@@ -2,7 +2,7 @@ use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
-    event::{Event, EventCursor, Events},
+    event::{EntityEvent, Event, EventCursor, Events},
     hierarchy::ChildOf,
     reflect::AppTypeRegistry,
     resource::Resource,
@@ -10,6 +10,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
+use bevy_utils::prelude::DebugName;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -25,7 +26,7 @@ use bevy_ecs::{
 /// See also [`On`], [`SceneSpawner::instance_is_ready`].
 ///
 /// [`On`]: bevy_ecs::observer::On
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Event, Reflect)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Event, EntityEvent, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
     /// Instance which has been spawned.
@@ -105,7 +106,7 @@ pub enum SceneSpawnError {
     )]
     UnregisteredType {
         /// The [type name](std::any::type_name) for the unregistered type.
-        std_type_name: String,
+        std_type_name: DebugName,
     },
     /// Scene contains an unregistered type which has a `TypePath`.
     #[error(
@@ -734,7 +735,7 @@ mod tests {
                 );
                 assert_eq!(
                     trigger.target(),
-                    scene_entity,
+                    scene_entity.unwrap_or(Entity::PLACEHOLDER),
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );
                 assert!(

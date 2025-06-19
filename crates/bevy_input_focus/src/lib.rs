@@ -137,19 +137,14 @@ pub struct InputFocusVisible(pub bool);
 ///
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
-#[derive(Clone, Debug, Component)]
+#[derive(Event, EntityEvent, Clone, Debug, Component)]
+#[entity_event(traversal = WindowTraversal, auto_propagate)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
-pub struct FocusedInput<E: Event + Clone> {
+pub struct FocusedInput<E: BufferedEvent + Clone> {
     /// The underlying input event.
     pub input: E,
     /// The primary window entity.
     window: Entity,
-}
-
-impl<E: Event + Clone> Event for FocusedInput<E> {
-    type Traversal = WindowTraversal;
-
-    const AUTO_PROPAGATE: bool = true;
 }
 
 #[derive(QueryData)]
@@ -159,8 +154,8 @@ pub struct WindowTraversal {
     window: Option<&'static Window>,
 }
 
-impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
-    fn traverse(item: Self::Item<'_>, event: &FocusedInput<E>) -> Option<Entity> {
+impl<E: BufferedEvent + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
+    fn traverse(item: Self::Item<'_, '_>, event: &FocusedInput<E>) -> Option<Entity> {
         let WindowTraversalItem { child_of, window } = item;
 
         // Send event to parent, if it has one.
@@ -230,7 +225,7 @@ pub fn set_initial_focus(
 
 /// System which dispatches bubbled input events to the focused entity, or to the primary window
 /// if no entity has focus.
-pub fn dispatch_focused_input<E: Event + Clone>(
+pub fn dispatch_focused_input<E: BufferedEvent + Clone>(
     mut key_events: EventReader<E>,
     focus: Res<InputFocus>,
     windows: Query<Entity, With<PrimaryWindow>>,
@@ -384,7 +379,7 @@ mod tests {
         trigger: On<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(trigger.target().unwrap()) {
+        if let Ok(mut gather) = query.get_mut(trigger.target()) {
             if let Key::Character(c) = &trigger.input.logical_key {
                 gather.0.push_str(c.as_str());
             }

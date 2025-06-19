@@ -824,9 +824,9 @@ mod tests {
 
         fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
-        unsafe fn init_fetch<'w>(
+        unsafe fn init_fetch<'w, 's>(
             _world: UnsafeWorldCell<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _last_run: Tick,
             _this_run: Tick,
         ) -> Self::Fetch<'w> {
@@ -835,18 +835,18 @@ mod tests {
         const IS_DENSE: bool = true;
 
         #[inline]
-        unsafe fn set_archetype<'w>(
+        unsafe fn set_archetype<'w, 's>(
             _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _archetype: &'w Archetype,
             _table: &Table,
         ) {
         }
 
         #[inline]
-        unsafe fn set_table<'w>(
+        unsafe fn set_table<'w, 's>(
             _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _table: &'w Table,
         ) {
         }
@@ -882,16 +882,20 @@ mod tests {
     unsafe impl QueryData for ReadsRData {
         const IS_READ_ONLY: bool = true;
         type ReadOnly = Self;
-        type Item<'w> = ();
+        type Item<'w, 's> = ();
 
-        fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            _item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
+        }
 
         #[inline(always)]
-        unsafe fn fetch<'w>(
+        unsafe fn fetch<'w, 's>(
+            _state: &'s Self::State,
             _fetch: &mut Self::Fetch<'w>,
             _entity: Entity,
             _table_row: TableRow,
-        ) -> Self::Item<'w> {
+        ) -> Self::Item<'w, 's> {
         }
     }
 

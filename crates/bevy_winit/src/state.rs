@@ -46,7 +46,7 @@ use bevy_window::{
     WindowScaleFactorChanged, WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
-use bevy_window::{PrimaryWindow, RawHandleWrapper};
+use bevy_window::{CursorOptions, PrimaryWindow, RawHandleWrapper};
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
@@ -58,7 +58,7 @@ use crate::{
 
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
-struct WinitAppRunnerState<T: Event> {
+struct WinitAppRunnerState<T: BufferedEvent> {
     /// The running app.
     app: App,
     /// Exit value once the loop is finished.
@@ -106,7 +106,7 @@ struct WinitAppRunnerState<T: Event> {
     )>,
 }
 
-impl<T: Event> WinitAppRunnerState<T> {
+impl<T: BufferedEvent> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
         app.add_event::<T>();
         #[cfg(feature = "custom_cursor")]
@@ -198,7 +198,7 @@ pub enum CursorSource {
 #[derive(Component, Debug)]
 pub struct PendingCursor(pub Option<CursorSource>);
 
-impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
+impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if event_loop.exiting() {
             return;
@@ -474,7 +474,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 if let Ok((window_component, mut cache)) = windows.get_mut(self.world_mut(), window)
                 {
                     if window_component.is_changed() {
-                        cache.window = window_component.clone();
+                        **cache = window_component.clone();
                     }
                 }
             });
@@ -549,7 +549,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     }
 }
 
-impl<T: Event> WinitAppRunnerState<T> {
+impl<T: BufferedEvent> WinitAppRunnerState<T> {
     fn redraw_requested(&mut self, event_loop: &ActiveEventLoop) {
         let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
 
@@ -605,10 +605,12 @@ impl<T: Event> WinitAppRunnerState<T> {
             {
                 // Get windows that are cached but without raw handles. Those window were already created, but got their
                 // handle wrapper removed when the app was suspended.
+
                 let mut query = self.world_mut()
-                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.single(&self.world()) {
+                    .query_filtered::<(Entity, &Window, &CursorOptions), (With<CachedWindow>, Without<RawHandleWrapper>)>();
+                if let Ok((entity, window, cursor_options)) = query.single(&self.world()) {
                     let window = window.clone();
+                    let cursor_options = cursor_options.clone();
 
                     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
                         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
@@ -622,6 +624,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                                 event_loop,
                                 entity,
                                 &window,
+                                &cursor_options,
                                 adapters,
                                 &mut handlers,
                                 &accessibility_requested,
@@ -934,7 +937,7 @@ impl<T: Event> WinitAppRunnerState<T> {
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
-pub fn winit_runner<T: Event>(mut app: App, event_loop: EventLoop<T>) -> AppExit {
+pub fn winit_runner<T: BufferedEvent>(mut app: App, event_loop: EventLoop<T>) -> AppExit {
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();

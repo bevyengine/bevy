@@ -1,4 +1,5 @@
 use alloc::{boxed::Box, vec};
+use bevy_utils::prelude::DebugName;
 use core::any::Any;
 
 use crate::{
@@ -21,10 +22,12 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
 ///
-/// Observers listen for a "trigger" of a specific [`Event`]. Events are triggered by calling [`World::trigger`] or [`World::trigger_targets`].
+/// Observers listen for a "trigger" of a specific [`Event`]. An event can be triggered on the [`World`]
+/// by calling [`World::trigger`], or if the event is an [`EntityEvent`], it can also be triggered for specific
+/// entity targets using [`World::trigger_targets`].
 ///
-/// Note that "buffered" events sent using [`EventReader`] and [`EventWriter`] are _not_ automatically triggered. They must be triggered at a specific
-/// point in the schedule.
+/// Note that [`BufferedEvent`]s sent using [`EventReader`] and [`EventWriter`] are _not_ automatically triggered.
+/// They must be triggered at a specific point in the schedule.
 ///
 /// # Usage
 ///
@@ -113,18 +116,19 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// recursively evaluated until there are no commands left, meaning nested triggers all
 /// evaluate at the same time!
 ///
-/// Events can be triggered for entities, which will be passed to the [`Observer`]:
+/// If the event is an [`EntityEvent`], it can be triggered for specific entities,
+/// which will be passed to the [`Observer`]:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
 /// # let entity = world.spawn_empty().id();
-/// #[derive(Event)]
+/// #[derive(Event, EntityEvent)]
 /// struct Explode;
 ///
 /// world.add_observer(|trigger: On<Explode>, mut commands: Commands| {
-///     println!("Entity {} goes BOOM!", trigger.target().unwrap());
-///     commands.entity(trigger.target().unwrap()).despawn();
+///     println!("Entity {} goes BOOM!", trigger.target());
+///     commands.entity(trigger.target()).despawn();
 /// });
 ///
 /// world.flush();
@@ -139,7 +143,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # let mut world = World::default();
 /// # let e1 = world.spawn_empty().id();
 /// # let e2 = world.spawn_empty().id();
-/// # #[derive(Event)]
+/// # #[derive(Event, EntityEvent)]
 /// # struct Explode;
 /// world.trigger_targets(Explode, [e1, e2]);
 /// ```
@@ -153,11 +157,11 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # let mut world = World::default();
 /// # let e1 = world.spawn_empty().id();
 /// # let e2 = world.spawn_empty().id();
-/// # #[derive(Event)]
+/// # #[derive(Event, EntityEvent)]
 /// # struct Explode;
 /// world.entity_mut(e1).observe(|trigger: On<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
-///     commands.entity(trigger.target().unwrap()).despawn();
+///     commands.entity(trigger.target()).despawn();
 /// });
 ///
 /// world.entity_mut(e2).observe(|trigger: On<Explode>, mut commands: Commands| {
@@ -175,7 +179,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
 /// # let entity = world.spawn_empty().id();
-/// # #[derive(Event)]
+/// # #[derive(Event, EntityEvent)]
 /// # struct Explode;
 /// let mut observer = Observer::new(|trigger: On<Explode>| {});
 /// observer.watch_entity(entity);
@@ -191,7 +195,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 pub struct Observer {
     hook_on_add: ComponentHook,
     error_handler: Option<ErrorHandler>,
-    system: Box<dyn Any + Send + Sync + 'static>,
+    system: Box<dyn AnyNamedSystem>,
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) last_trigger_id: u32,
     pub(crate) despawned_watched_entities: u32,
@@ -229,7 +233,7 @@ impl Observer {
     /// Creates a new [`Observer`] with custom runner, this is mostly used for dynamic event observer
     pub fn with_dynamic_runner(runner: ObserverRunner) -> Self {
         Self {
-            system: Box::new(|| {}),
+            system: Box::new(IntoSystem::into_system(|| {})),
             descriptor: Default::default(),
             hook_on_add: |mut world, hook_context| {
                 let default_error_handler = world.default_error_handler();
@@ -296,6 +300,11 @@ impl Observer {
     pub fn descriptor(&self) -> &ObserverDescriptor {
         &self.descriptor
     }
+
+    /// Returns the name of the [`Observer`]'s system .
+    pub fn system_name(&self) -> DebugName {
+        self.system.system_name()
+    }
 }
 
 impl Component for Observer {
@@ -361,7 +370,8 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.
     let system: *mut dyn ObserverSystem<E, B> = unsafe {
-        let system = state.system.downcast_mut::<S>().debug_checked_unwrap();
+        let system: &mut dyn Any = state.system.as_mut();
+        let system = system.downcast_mut::<S>().debug_checked_unwrap();
         &mut *system
     };
 
@@ -410,6 +420,16 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
 }
 
+trait AnyNamedSystem: Any + Send + Sync + 'static {
+    fn system_name(&self) -> DebugName;
+}
+
+impl<T: Any + System> AnyNamedSystem for T {
+    fn system_name(&self) -> DebugName {
+        self.name()
+    }
+}
+
 /// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::lifecycle::ComponentHooks::on_add`).
 ///
 /// This function exists separate from [`Observer`] to allow [`Observer`] to have its type parameters
@@ -428,11 +448,12 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         B::component_ids(&mut world.components_registrator(), &mut |id| {
             components.push(id);
         });
-        if let Some(mut observe) = world.get_mut::<Observer>(entity) {
-            observe.descriptor.events.push(event_id);
-            observe.descriptor.components.extend(components);
+        if let Some(mut observer) = world.get_mut::<Observer>(entity) {
+            observer.descriptor.events.push(event_id);
+            observer.descriptor.components.extend(components);
 
-            let system: *mut dyn ObserverSystem<E, B> = observe.system.downcast_mut::<S>().unwrap();
+            let system: &mut dyn Any = observer.system.as_mut();
+            let system: *mut dyn ObserverSystem<E, B> = system.downcast_mut::<S>().unwrap();
             // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
             unsafe {
                 (*system).initialize(world);
