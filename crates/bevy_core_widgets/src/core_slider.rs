@@ -461,7 +461,7 @@ pub(crate) fn slider_on_insert_step(trigger: On<Insert, SliderStep>, mut world: 
 ///     commands.trigger_targets(SetSliderValue::Relative(-0.25), slider);
 /// }
 /// ```
-#[derive(Event, EntityEvent)]
+#[derive(Event, EntityEvent, Clone)]
 pub enum SetSliderValue {
     /// Set the slider value to a specific value.
     Absolute(f32),

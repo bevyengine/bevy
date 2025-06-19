@@ -11,6 +11,7 @@ use crate::{
 };
 
 use alloc::{borrow::Cow, vec, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -24,7 +25,7 @@ use super::{
 /// The metadata of a [`System`].
 #[derive(Clone)]
 pub struct SystemMeta {
-    pub(crate) name: Cow<'static, str>,
+    pub(crate) name: DebugName,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     flags: SystemStateFlags,
@@ -37,21 +38,21 @@ pub struct SystemMeta {
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
-        let name = core::any::type_name::<T>();
+        let name = DebugName::type_name::<T>();
         Self {
-            name: name.into(),
+            #[cfg(feature = "trace")]
+            system_span: info_span!("system", name = name.clone().as_string()),
+            #[cfg(feature = "trace")]
+            commands_span: info_span!("system_commands", name = name.clone().as_string()),
+            name,
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
-            #[cfg(feature = "trace")]
-            system_span: info_span!("system", name = name),
-            #[cfg(feature = "trace")]
-            commands_span: info_span!("system_commands", name = name),
         }
     }
 
     /// Returns the system's name
     #[inline]
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &DebugName {
         &self.name
     }
 
@@ -67,7 +68,7 @@ impl SystemMeta {
             self.system_span = info_span!("system", name = name);
             self.commands_span = info_span!("system_commands", name = name);
         }
-        self.name = new_name;
+        self.name = new_name.into();
     }
 
     /// Returns true if the system is [`Send`].
@@ -600,7 +601,7 @@ where
     type Out = F::Out;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system_meta.name.clone()
     }
 
@@ -712,7 +713,7 @@ where
         check_system_change_tick(
             &mut self.system_meta.last_run,
             check,
-            self.system_meta.name.as_ref(),
+            self.system_meta.name.clone(),
         );
     }
 

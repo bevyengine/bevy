@@ -165,6 +165,7 @@ default = [
   "vorbis",
   "webgl2",
   "x11",
+  "debug",
 ]
 
 # Recommended defaults for no_std applications
@@ -507,7 +508,10 @@ file_watcher = ["bevy_internal/file_watcher"]
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
 # Enable stepping-based debugging of Bevy systems
-bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
+bevy_debug_stepping = [
+  "bevy_internal/bevy_debug_stepping",
+  "bevy_internal/debug",
+]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
@@ -550,6 +554,9 @@ web = ["bevy_internal/web"]
 
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
+
+# Enable collecting debug information about systems and components to help with diagnostics
+debug = ["bevy_internal/debug"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
@@ -2098,6 +2105,7 @@ wasm = false
 name = "dynamic"
 path = "examples/ecs/dynamic.rs"
 doc-scrape-examples = true
+required-features = ["debug"]
 
 [package.metadata.example.dynamic]
 name = "Dynamic ECS"
