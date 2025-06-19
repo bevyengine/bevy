@@ -1,6 +1,6 @@
 ---
 title: Query items can borrow from query state
-pull_requests: [15396]
+pull_requests: [15396, 19720]
 ---
 
 The `QueryData::Item` associated type and the `QueryItem` and `ROQueryItem` type aliases now have an additional lifetime parameter corresponding to the `'s` lifetime in `Query`.
