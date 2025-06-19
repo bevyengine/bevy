@@ -2514,7 +2514,7 @@ bevy_utils::cfg::parallel! {
 /// #
 //  # #[derive(Component)]
 /// # struct Poisoned;
-/// #[derive(Component)]
+/// #[derive(Component, Clone)]
 /// #[component(immutable)]
 /// struct Health(u32);
 ///
