@@ -35,7 +35,7 @@ use crate::{
     },
 };
 
-/// Slider template properties.
+/// Slider template properties, passed to [`slider`] function.
 // TODO: These should all be replaced with reactive signals.
 #[derive(Clone)]
 pub struct SliderProps {

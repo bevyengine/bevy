@@ -34,7 +34,7 @@ pub enum ButtonVariant {
     Primary,
 }
 
-/// Parameters for the button template.
+/// Parameters for the button template, passed to [`button`] function.
 #[derive(Default, Clone)]
 pub struct ButtonProps {
     /// Color variant for the button.
