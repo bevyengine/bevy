@@ -2397,4 +2397,13 @@ mod tests {
 
         assert_eq!(world.resource::<Count>().0, 3);
     }
+
+    #[derive(Bundle)]
+    #[allow(unused)]
+    struct Ignore {
+        #[bundle(ignore)]
+        foo: i32,
+        #[bundle(ignore)]
+        bar: i32,
+    }
 }
