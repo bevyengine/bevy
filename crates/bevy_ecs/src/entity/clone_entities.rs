@@ -1,6 +1,7 @@
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec::Vec};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
+use bevy_utils::prelude::DebugName;
 use bumpalo::Bump;
 use core::any::TypeId;
 
@@ -171,7 +172,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// - `ComponentId` of component being written does not match expected `ComponentId`.
     pub fn write_target_component<C: Component>(&mut self, mut component: C) {
         C::map_entities(&mut component, &mut self.mapper);
-        let short_name = disqualified::ShortName::of::<C>();
+        let debug_name = DebugName::type_name::<C>();
+        let short_name = debug_name.shortname();
         if self.target_component_written {
             panic!("Trying to write component '{short_name}' multiple times")
         }

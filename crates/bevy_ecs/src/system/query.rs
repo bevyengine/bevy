@@ -1,3 +1,5 @@
+use bevy_utils::prelude::DebugName;
+
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
@@ -1580,8 +1582,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             D::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
             F::set_archetype(&mut filter, &self.state.filter_state, archetype, table);
 
-            if F::filter_fetch(&mut filter, entity, location.table_row) {
-                Ok(D::fetch(&mut fetch, entity, location.table_row))
+            if F::filter_fetch(
+                &self.state.filter_state,
+                &mut filter,
+                entity,
+                location.table_row,
+            ) {
+                Ok(D::fetch(
+                    &self.state.fetch_state,
+                    &mut fetch,
+                    entity,
+                    location.table_row,
+                ))
             } else {
                 Err(QueryEntityError::QueryDoesNotMatch(
                     entity,
@@ -1949,8 +1961,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
         match (first, extra) {
             (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(core::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(core::any::type_name::<
+            (None, _) => Err(QuerySingleError::NoEntities(DebugName::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(DebugName::type_name::<
                 Self,
             >())),
         }
