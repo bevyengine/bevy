@@ -9,6 +9,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::Children,
+    lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, Spawned, With},
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
@@ -48,8 +49,6 @@ pub struct SliderProps {
     pub precision: usize,
     /// On-change handler
     pub on_change: Option<SystemId<In<f32>>>,
-    // Components that are merged into the bundle.
-    // pub overrides: Box<dyn Bundle>,
 }
 
 impl Default for SliderProps {
@@ -60,7 +59,6 @@ impl Default for SliderProps {
             max: 1.0,
             precision: 1,
             on_change: None,
-            // overrides: (),
         }
     }
 }
@@ -74,7 +72,12 @@ struct SliderStyle;
 struct SliderValueText;
 
 /// Spawn a new slider widget.
-pub fn slider(props: SliderProps) -> impl Bundle {
+///
+/// # Arguments
+///
+/// * `props` - construction properties for the slider.
+/// * `overrides` - a bundle of components that are merged in with the normal slider components.
+pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
     (
         Node {
             height: size::ROW_HEIGHT,
@@ -104,7 +107,7 @@ pub fn slider(props: SliderProps) -> impl Bundle {
                 ColorStop::new(Color::NONE, Val::Percent(100.)),
             ],
         })]),
-        // props.overrides,
+        overrides,
         children![(
             // Text container
             Node {
@@ -126,27 +129,41 @@ pub fn slider(props: SliderProps) -> impl Bundle {
 
 fn update_slider_colors(
     mut q_sliders: Query<
-        (Entity, Has<InteractionDisabled>, &mut BackgroundGradient),
+        (Has<InteractionDisabled>, &mut BackgroundGradient),
         (With<SliderStyle>, Or<(Spawned, Added<InteractionDisabled>)>),
     >,
     theme: Res<UiTheme>,
 ) {
-    for (_slider_ent, disabled, mut gradient) in q_sliders.iter_mut() {
-        let bar_color = theme.color(match disabled {
-            true => SLIDER_BAR_DISABLED,
-            false => SLIDER_BAR,
-        });
-        let bg_color = theme.color(SLIDER_BG);
-        if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
-            linear_gradient.stops[0].color = bar_color;
-            linear_gradient.stops[1].color = bar_color;
-            linear_gradient.stops[2].color = bg_color;
-            linear_gradient.stops[3].color = bg_color;
-        }
+    for (disabled, mut gradient) in q_sliders.iter_mut() {
+        set_slider_colors(&theme, disabled, gradient.as_mut());
     }
 }
 
-fn update_slider_colors_remove() {}
+fn update_slider_colors_remove(
+    mut q_sliders: Query<(Has<InteractionDisabled>, &mut BackgroundGradient)>,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
+    theme: Res<UiTheme>,
+) {
+    removed_disabled.read().for_each(|ent| {
+        if let Ok((disabled, mut gradient)) = q_sliders.get_mut(ent) {
+            set_slider_colors(&theme, disabled, gradient.as_mut());
+        }
+    });
+}
+
+fn set_slider_colors(theme: &Res<'_, UiTheme>, disabled: bool, gradient: &mut BackgroundGradient) {
+    let bar_color = theme.color(match disabled {
+        true => SLIDER_BAR_DISABLED,
+        false => SLIDER_BAR,
+    });
+    let bg_color = theme.color(SLIDER_BG);
+    if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
+        linear_gradient.stops[0].color = bar_color;
+        linear_gradient.stops[1].color = bar_color;
+        linear_gradient.stops[2].color = bg_color;
+        linear_gradient.stops[3].color = bg_color;
+    }
+}
 
 fn update_slider_pos(
     mut q_sliders: Query<

@@ -1,15 +1,17 @@
 //! This example shows off the various Bevy Feathers widgets.
 
 use bevy::{
-    core_widgets::CoreWidgetsPlugin,
-    ecs::system::SystemId,
+    core_widgets::{CoreWidgetsPlugin, SliderStep},
     feathers::{
         controls::{button, slider, ButtonProps, ButtonVariant, SliderProps},
         dark::create_dark_theme,
         theme::{self, corners::RoundedCorners, ThemeBackgroundColor, UiTheme, UseTheme},
         FeathersPlugin,
     },
-    input_focus::{tab_navigation::TabGroup, InputDispatchPlugin},
+    input_focus::{
+        tab_navigation::{TabGroup, TabNavigationPlugin},
+        InputDispatchPlugin,
+    },
     prelude::*,
     ui::InteractionDisabled,
     winit::WinitSettings,
@@ -21,6 +23,7 @@ fn main() {
             DefaultPlugins,
             CoreWidgetsPlugin,
             InputDispatchPlugin,
+            TabNavigationPlugin,
             FeathersPlugin,
         ))
         .insert_resource(UiTheme(create_dark_theme()))
@@ -31,17 +34,13 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    // System to print a value when the button is clicked.
-    let on_click = commands.register_system(|| {
-        info!("Button clicked!");
-    });
-
     // ui camera
     commands.spawn(Camera2d);
-    commands.spawn(demo_root(on_click));
+    let root = demo_root(&mut commands);
+    commands.spawn(root);
 }
 
-fn demo_root(on_click: SystemId) -> impl Bundle {
+fn demo_root(commands: &mut Commands) -> impl Bundle {
     (
         Node {
             width: Val::Percent(100.0),
@@ -78,30 +77,37 @@ fn demo_root(on_click: SystemId) -> impl Bundle {
                         ..default()
                     },
                     children![
-                        button(ButtonProps {
-                            on_click: Some(on_click),
-                            children: Spawn((Text::new("Normal"), UseTheme)),
-                            variant: ButtonVariant::Normal,
-                            corners: RoundedCorners::All,
-                            overrides: (),
-                            // ..Default::default()
-                        }),
-                        button(ButtonProps {
-                            on_click: Some(on_click),
-                            children: Spawn((Text::new("Disabled"), UseTheme)),
-                            variant: ButtonVariant::Normal,
-                            corners: RoundedCorners::All,
-                            overrides: (InteractionDisabled),
-                            // ..Default::default()
-                        }),
-                        button(ButtonProps {
-                            on_click: Some(on_click),
-                            children: Spawn((Text::new("Primary"), UseTheme)),
-                            variant: ButtonVariant::Primary,
-                            corners: RoundedCorners::All,
-                            overrides: (),
-                            // ..Default::default()
-                        }),
+                        button(
+                            ButtonProps {
+                                on_click: Some(commands.register_system(|| {
+                                    info!("Normal button clicked!");
+                                })),
+                                ..default()
+                            },
+                            (),
+                            Spawn((Text::new("Normal"), UseTheme))
+                        ),
+                        button(
+                            ButtonProps {
+                                on_click: Some(commands.register_system(|| {
+                                    info!("Disabled button clicked!");
+                                })),
+                                ..default()
+                            },
+                            InteractionDisabled,
+                            Spawn((Text::new("Disabled"), UseTheme))
+                        ),
+                        button(
+                            ButtonProps {
+                                on_click: Some(commands.register_system(|| {
+                                    info!("Primary button clicked!");
+                                })),
+                                variant: ButtonVariant::Primary,
+                                ..default()
+                            },
+                            (),
+                            Spawn((Text::new("Primary"), UseTheme))
+                        ),
                     ]
                 ),
                 (
@@ -114,46 +120,61 @@ fn demo_root(on_click: SystemId) -> impl Bundle {
                         ..default()
                     },
                     children![
-                        button(ButtonProps {
-                            on_click: Some(on_click),
-                            children: Spawn((Text::new("Left"), UseTheme)),
-                            variant: ButtonVariant::Normal,
-                            corners: RoundedCorners::Left,
-                            overrides: (),
-                            // ..Default::default()
-                        }),
-                        button(ButtonProps {
-                            on_click: Some(on_click),
-                            children: Spawn((Text::new("Center"), UseTheme)),
-                            variant: ButtonVariant::Normal,
-                            corners: RoundedCorners::None,
-                            overrides: (),
-                            // ..Default::default()
-                        }),
-                        button(ButtonProps {
-                            on_click: Some(on_click),
-                            children: Spawn((Text::new("Right"), UseTheme)),
-                            variant: ButtonVariant::Primary,
-                            corners: RoundedCorners::Right,
-                            overrides: (),
-                            // ..Default::default()
-                        }),
+                        button(
+                            ButtonProps {
+                                on_click: Some(commands.register_system(|| {
+                                    info!("Left button clicked!");
+                                })),
+                                corners: RoundedCorners::Left,
+                                ..default()
+                            },
+                            (),
+                            Spawn((Text::new("Left"), UseTheme))
+                        ),
+                        button(
+                            ButtonProps {
+                                on_click: Some(commands.register_system(|| {
+                                    info!("Center button clicked!");
+                                })),
+                                corners: RoundedCorners::None,
+                                ..default()
+                            },
+                            (),
+                            Spawn((Text::new("Center"), UseTheme))
+                        ),
+                        button(
+                            ButtonProps {
+                                on_click: Some(commands.register_system(|| {
+                                    info!("Right button clicked!");
+                                })),
+                                variant: ButtonVariant::Primary,
+                                corners: RoundedCorners::Right,
+                                ..default()
+                            },
+                            (),
+                            Spawn((Text::new("Right"), UseTheme))
+                        ),
                     ]
                 ),
-                button(ButtonProps {
-                    on_click: Some(on_click),
-                    children: Spawn((Text::new("Button"), UseTheme)),
-                    variant: ButtonVariant::Normal,
-                    corners: RoundedCorners::All,
-                    overrides: (),
-                    // ..default()
-                }),
-                slider(SliderProps {
-                    max: 100.0,
-                    value: 20.0,
-                    precision: 1,
-                    ..default()
-                }),
+                button(
+                    ButtonProps {
+                        on_click: Some(commands.register_system(|| {
+                            info!("Wide button clicked!");
+                        })),
+                        ..default()
+                    },
+                    (),
+                    Spawn((Text::new("Button"), UseTheme))
+                ),
+                slider(
+                    SliderProps {
+                        max: 100.0,
+                        value: 20.0,
+                        precision: 1,
+                        ..default()
+                    },
+                    SliderStep(10.)
+                ),
             ]
         ),],
     )

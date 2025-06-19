@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// Standard feathers color palette.
-pub mod colors;
+pub mod palette;
 
 /// Entity cursor management.
 pub mod cursor;

@@ -4499,4 +4499,5 @@ required-features = ["experimental_bevy_feathers"]
 name = "Feathers Widgets"
 description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"
-wasm = false
+wasm = true
+hidden = true

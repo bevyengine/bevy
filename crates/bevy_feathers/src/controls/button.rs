@@ -36,25 +36,25 @@ pub enum ButtonVariant {
 
 /// Parameters for the button template.
 #[derive(Default, Clone)]
-pub struct ButtonProps<C: SpawnableList<ChildOf>, B: Bundle> {
+pub struct ButtonProps {
     /// Color variant for the button.
     pub variant: ButtonVariant,
     /// Rounded corners options
     pub corners: RoundedCorners,
     /// Click handler
     pub on_click: Option<SystemId>,
-    /// Components that are merged into the bundle.
-    pub overrides: B,
-    /// Used to specify the label or icond for the button.
-    pub children: C,
 }
 
-/// Q: How to pass in children?
-/// Q: How to pass in theme?
-/// Q: How to get asset handles?
-/// Q: How to customize styles
+/// Template function to spawn a [`Button`].
+///
+/// # Arguments
+/// * `props` - construction properties for the button.
+/// * `overrides` - a bundle of components that are merged in with the normal button components.
+/// * `children` - a [`SpawnableList`] of child elements, such as a label or icon for the button.
 pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
-    props: ButtonProps<C, B>,
+    props: ButtonProps,
+    overrides: B,
+    children: C,
 ) -> impl Bundle {
     (
         Node {
@@ -79,8 +79,8 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
             font_size: 14.0,
         },
-        props.overrides,
-        Children::spawn(props.children),
+        overrides,
+        Children::spawn(children),
     )
 }
 
