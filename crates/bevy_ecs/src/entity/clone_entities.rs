@@ -502,6 +502,7 @@ impl Default for EntityClonerConfig {
 
 impl EntityClonerConfig {
     /// See [`EntityCloner::spawn_clone`] for more information.
+    #[inline]
     #[track_caller]
     fn spawn_clone(
         &mut self,
@@ -515,6 +516,7 @@ impl EntityClonerConfig {
     }
 
     /// See [`EntityCloner::clone_entity`] for more information.
+    #[inline]
     #[track_caller]
     fn clone_entity(
         &mut self,
@@ -529,6 +531,7 @@ impl EntityClonerConfig {
     }
 
     /// See [`EntityCloner::clone_entity_mapped`] for more information.
+    #[inline]
     #[track_caller]
     pub fn clone_entity_mapped(
         &mut self,
@@ -561,6 +564,7 @@ impl EntityClonerConfig {
     }
 
     /// Clones and inserts components from the `source` entity into the entity mapped by `mapper` from `source` using the stored configuration.
+    #[inline]
     fn clone_entity_internal(
         &mut self,
         filter: &mut impl CloneByFilter,
@@ -962,6 +966,7 @@ impl Default for EntityClonerFilter {
 }
 
 impl CloneByFilter for EntityClonerFilter {
+    #[inline]
     fn clone_components<'a>(
         &mut self,
         source_archetype: &Archetype,
@@ -1002,6 +1007,7 @@ impl Default for OptOut {
 }
 
 impl CloneByFilter for OptOut {
+    #[inline]
     fn clone_components<'a>(
         &mut self,
         source_archetype: &Archetype,
@@ -1061,6 +1067,7 @@ impl Default for OptIn {
 }
 
 impl CloneByFilter for OptIn {
+    #[inline]
     fn clone_components<'a>(
         &mut self,
         source_archetype: &Archetype,
@@ -1116,6 +1123,7 @@ impl CloneByFilter for OptIn {
 impl OptIn {
     /// Allows a component through the filter, include required components if
     /// [`Self::attach_required_components`] is true.
+    #[inline]
     fn filter_allow(&mut self, id: ComponentId, world: &World, mut insert_mode: InsertMode) {
         match self.allow.entry(id) {
             Entry::Vacant(explicit) => {
@@ -1151,6 +1159,7 @@ impl OptIn {
     }
 
     // Allow a component through the filter and include required components.
+    #[inline]
     fn filter_allow_with_required(
         &mut self,
         id: ComponentId,
