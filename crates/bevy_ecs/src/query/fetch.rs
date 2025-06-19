@@ -2528,14 +2528,14 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
 /// # Examples
 ///
 ///
-pub struct DeferredMut<'w, 's, T: Component> {
+pub struct DeferredMut<'w, 's, T: Component + Clone> {
     entity: Entity,
     old: &'w T,
     new: Option<T>,
     record: &'s DeferredMutations<T>,
 }
 
-impl<'w, 's, T: Component> Drop for DeferredMut<'w, 's, T> {
+impl<'w, 's, T: Component + Clone> Drop for DeferredMut<'w, 's, T> {
     fn drop(&mut self) {
         if let Some(new) = self.new.take() {
             self.record.insert(self.entity, new);
@@ -2543,7 +2543,7 @@ impl<'w, 's, T: Component> Drop for DeferredMut<'w, 's, T> {
     }
 }
 
-impl<'w, 's, T: Component> Deref for DeferredMut<'w, 's, T> {
+impl<'w, 's, T: Component + Clone> Deref for DeferredMut<'w, 's, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -2558,12 +2558,12 @@ impl<'w, 's, T: Component + Clone> DerefMut for DeferredMut<'w, 's, T> {
 }
 
 /// The [`WorldQuery::Fetch`] type for [`DeferredMut`]
-pub struct DeferredMutFetch<'w, 's, T: Component> {
+pub struct DeferredMutFetch<'w, 's, T: Component + Clone> {
     fetch: ReadFetch<'w, T>,
     record: &'s DeferredMutations<T>,
 }
 
-impl<'w, 's, T: Component> Clone for DeferredMutFetch<'w, 's, T> {
+impl<'w, 's, T: Component + Clone> Clone for DeferredMutFetch<'w, 's, T> {
     fn clone(&self) -> Self {
         Self {
             fetch: self.fetch,
@@ -2573,20 +2573,20 @@ impl<'w, 's, T: Component> Clone for DeferredMutFetch<'w, 's, T> {
 }
 
 /// The [`WorldQuery::State`] type for [`DeferredMut`]
-pub struct DeferredMutState<T: Component> {
+pub struct DeferredMutState<T: Component + Clone> {
     component_id: ComponentId,
     record: DeferredMutations<T>,
 }
 
 struct DeferredMutations<T: Component>(Parallel<EntityHashMap<T>>);
 
-impl<T: Component> Default for DeferredMutations<T> {
+impl<T: Component + Clone> Default for DeferredMutations<T> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<T: Component> DeferredMutations<T> {
+impl<T: Component + Clone> DeferredMutations<T> {
     fn insert(&self, entity: Entity, component: T) {
         self.0.scope(|map| map.insert(entity, component));
     }
@@ -2597,7 +2597,7 @@ impl<T: Component> DeferredMutations<T> {
 }
 
 // SAFETY: impl defers to `<&T as WorldQuery>` for all methods
-unsafe impl<'__w, '__s, T: Component> WorldQuery for DeferredMut<'__w, '__s, T> {
+unsafe impl<'__w, '__s, T: Component + Clone> WorldQuery for DeferredMut<'__w, '__s, T> {
     type Fetch<'w, 's> = DeferredMutFetch<'w, 's, T>;
 
     type State = DeferredMutState<T>;
@@ -2680,7 +2680,7 @@ unsafe impl<'__w, '__s, T: Component> WorldQuery for DeferredMut<'__w, '__s, T> 
 }
 
 // SAFETY: Tracked<T> defers to &T internally, so it must be readonly and Self::ReadOnly = Self.
-unsafe impl<'__w, '__s, T: Component> QueryData for DeferredMut<'__w, '__s, T> {
+unsafe impl<'__w, '__s, T: Component + Clone> QueryData for DeferredMut<'__w, '__s, T> {
     const IS_READ_ONLY: bool = true;
 
     type ReadOnly = Self;
@@ -2714,7 +2714,7 @@ unsafe impl<'__w, '__s, T: Component> QueryData for DeferredMut<'__w, '__s, T> {
 
 // SAFETY: Tracked<T> only accesses &T from the world. Though it provides mutable access, it only
 // applies those changes through commands.
-unsafe impl<'__w, '__s, T: Component> ReadOnlyQueryData for DeferredMut<'__w, '__s, T> {}
+unsafe impl<'__w, '__s, T: Component + Clone> ReadOnlyQueryData for DeferredMut<'__w, '__s, T> {}
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
