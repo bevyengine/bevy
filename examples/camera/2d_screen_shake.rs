@@ -107,7 +107,7 @@ fn shake_camera(
     // See <https://www.wolframalpha.com/input?i=plot+x+and+x%5E2+and+x%5E3+for+x+in+%5B0%2C+1%5D> for a graph.
     let shake = powf(camera_shake.trauma, config.exponent);
 
-    // Not, to get the final offset, we multiply this noise value by the shake value and the maximum value.
+    // Now, to get the final offset, we multiply this noise value by the shake value and the maximum value.
     // The noise value is in [-1, 1], so by multiplying it with a maximum value, we get a value in [-max_value, +max_value].
     // Multiply this by the shake value to get the exponential effect, and we're done!
     let roll_offset = rotation_noise * shake * config.max_angle;
