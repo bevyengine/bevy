@@ -28,10 +28,17 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
 wgpu-types = { version = "24", default-features = false }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", default-features = false, features = [
+  "derive",
+], optional = true }
 hexasphere = "15.0"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[features]
+default = []
+## Adds serialization support through `serde`.
+serialize = ["dep:serde", "wgpu-types/serde"]
 
 [lints]
 workspace = true

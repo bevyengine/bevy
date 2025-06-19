@@ -15,6 +15,7 @@ serialize = [
   "uuid/serde",
   "bevy_ecs/serialize",
   "bevy_platform/serialize",
+  "bevy_render?/serialize",
 ]
 
 [dependencies]

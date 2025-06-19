@@ -100,6 +100,7 @@ serialize = [
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
   "bevy_platform/serialize",
+  "bevy_render/serialize",
 ]
 multi_threaded = [
   "std",
