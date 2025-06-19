@@ -19,7 +19,7 @@ use bevy_winit::cursor::CursorIcon;
 use crate::{
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
-    theme::{self, corners::RoundedCorners, fonts, ThemeBackgroundColor, ThemeFontColor},
+    theme::{self, corners::RoundedCorners, fonts, size, ThemeBackgroundColor, ThemeFontColor},
 };
 
 /// Color variants for buttons. This also functions as a component used by the dynamic styling
@@ -58,7 +58,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
 ) -> impl Bundle {
     (
         Node {
-            height: Val::Px(24.0),
+            height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
@@ -71,14 +71,13 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         props.variant,
         Hovered::default(),
         CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
-        // Some(InteractionDisabled),
         TabIndex(0),
-        props.corners.to_border_radius(4.0),
+        props.corners.to_border_radius(6.0),
         ThemeBackgroundColor(theme::tokens::BUTTON_BG),
         ThemeFontColor(theme::tokens::BUTTON_TEXT),
         InheritableFont {
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
-            font_size: 16.0,
+            font_size: 14.0,
         },
         props.overrides,
         Children::spawn(props.children),

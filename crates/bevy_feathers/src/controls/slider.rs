@@ -28,7 +28,7 @@ use crate::{
     theme::{
         self,
         corners::RoundedCorners,
-        fonts,
+        fonts, size,
         tokens::{SLIDER_BAR, SLIDER_BAR_DISABLED, SLIDER_BG},
         ThemeFontColor, UiTheme, UseTheme,
     },
@@ -36,7 +36,7 @@ use crate::{
 
 /// Slider template properties.
 // TODO: These should all be replaced with reactive signals.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct SliderProps {
     /// Slider current value
     pub value: f32,
@@ -48,6 +48,21 @@ pub struct SliderProps {
     pub precision: usize,
     /// On-change handler
     pub on_change: Option<SystemId<In<f32>>>,
+    // Components that are merged into the bundle.
+    // pub overrides: Box<dyn Bundle>,
+}
+
+impl Default for SliderProps {
+    fn default() -> Self {
+        Self {
+            value: 0.0,
+            min: 0.0,
+            max: 1.0,
+            precision: 1,
+            on_change: None,
+            // overrides: (),
+        }
+    }
 }
 
 #[derive(Component, Default, Clone)]
@@ -62,7 +77,7 @@ struct SliderValueText;
 pub fn slider(props: SliderProps) -> impl Bundle {
     (
         Node {
-            height: Val::Px(24.0),
+            height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
@@ -77,9 +92,8 @@ pub fn slider(props: SliderProps) -> impl Bundle {
         SliderValue(props.value),
         SliderRange::new(props.min, props.max),
         CursorIcon::System(bevy_window::SystemCursorIcon::EwResize),
-        // Some(InteractionDisabled),
         TabIndex(0),
-        RoundedCorners::All.to_border_radius(4.0),
+        RoundedCorners::All.to_border_radius(6.0),
         // Use a gradient to draw the moving bar
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
@@ -90,8 +104,8 @@ pub fn slider(props: SliderProps) -> impl Bundle {
                 ColorStop::new(Color::NONE, Val::Percent(100.)),
             ],
         })]),
+        // props.overrides,
         children![(
-            // TODO: Left arrow
             // Text container
             Node {
                 display: Display::Flex,
@@ -103,10 +117,9 @@ pub fn slider(props: SliderProps) -> impl Bundle {
             ThemeFontColor(theme::tokens::SLIDER_TEXT),
             InheritableFont {
                 font: HandleOrPath::Path(fonts::MONO.to_owned()),
-                font_size: 14.0,
+                font_size: 12.0,
             },
             children![(Text::new("10.0"), UseTheme, SliderValueText,)],
-            // TODO: Right arrow
         )],
     )
 }
