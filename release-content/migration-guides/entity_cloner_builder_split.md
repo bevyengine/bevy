@@ -50,7 +50,7 @@ The methods of the two builder types are different to 0.16 and to each other now
 
 - Still offers variants of the `allow` methods which now also includes one with a `BundleId` argument.
 - No longer offers `deny` methods, you need to be exact with allowing components.
-- Offers now `allow_if_new` method variants that only clone this component if the target does not contain it. If it does, required components of it will also not be cloned, unless it is also required by one that is actually cloned.
+- Offers now `allow_if_new` method variants that only clone this component if the target does not contain it. If it does, required components of it will also not be cloned, except those that are also required by one that is actually cloned.
 - Still offers the `without_required_components` method.
 
 ## Common methods
