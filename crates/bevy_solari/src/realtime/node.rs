@@ -100,6 +100,7 @@ impl ViewNode for SolariLightingNode {
             )),
         );
 
+        // Choice of number here is arbitrary
         let frame_index = frame_count.0.wrapping_mul(5782582);
         let command_encoder = render_context.command_encoder();
 
