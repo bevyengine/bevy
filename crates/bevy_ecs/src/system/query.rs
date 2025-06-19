@@ -1,3 +1,5 @@
+use bevy_utils::prelude::DebugName;
+
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
@@ -2008,8 +2010,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
 
         match (first, extra) {
             (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(core::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(core::any::type_name::<
+            (None, _) => Err(QuerySingleError::NoEntities(DebugName::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(DebugName::type_name::<
                 Self,
             >())),
         }
