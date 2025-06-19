@@ -9,8 +9,8 @@ To get the wanted one, `EntityCloner::build` got split too:
 - `EntityCloner::build_opt_in` to get `EntityClonerBuilder<OptIn>`
 - `EntityCloner::build_opt_out` to get `EntityClonerBuilder<OptOut>`
 
-The first is used to clone all components possible and optionally _opt out_ of some.
-The second is used to only clone components as specified by _opt in_.
+The first is used to clone all components possible and optionally _opting out_ of some.
+The second is used to only clone components as specified by _opting in_ for them.
 
 ```rs
 // 0.16
@@ -33,9 +33,9 @@ builder.clone_entity(source_entity, target_entity);
 ```
 
 Still, using `EntityClonerBuilder::finish` will return a non-generic `EntityCloner`.
-This is done because the behavior of the two is too different to share the same struct and same methods and mixing them caused bugs.
+This change is done because the behavior of the two is too different to share the same struct and same methods and mixing them caused bugs.
 
-As that means there are now two builder types, their API and behavior is different to each other:
+The methods of the two builder types are diffent to 0.16 and to each other now:
 
 ## Opt-Out variant
 
@@ -49,7 +49,7 @@ As that means there are now two builder types, their API and behavior is differe
 
 - Still offers variants of the `allow` methods which now also includes one with a `BundleId` argument.
 - No longer offers `deny` methods, you need to be exact with allowing components.
-- Offers now `allow_if_new` method variants that only clone this component if the target does not contain it. If it does, required components of it will also not be cloned, unless it is also required of one that is actually cloned.
+- Offers now `allow_if_new` method variants that only clone this component if the target does not contain it. If it does, required components of it will also not be cloned, unless it is also required by one that is actually cloned.
 - Still offers the `without_required_components` method.
 
 ## Common methods
