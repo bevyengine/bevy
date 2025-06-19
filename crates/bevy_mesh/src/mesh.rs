@@ -1305,25 +1305,26 @@ impl SerializedMesh {
         }
     }
 
-    /// Create a [`MeshDeserializer`] from a [`SerializedMesh`]. See the documentation for [`SerializedMesh`] for caveats.
-    pub fn deserialize(self) -> MeshDeserializer {
-        MeshDeserializer::new(self)
+    /// Create a [`Mesh`] from a [`SerializedMesh`]. See the documentation for [`SerializedMesh`] for caveats.
+    /// 
+    /// Use [`MeshDeserializer`] if you need to pass extra options to the deserialization process, such as specifying custom vertex attributes.
+    pub fn into_mesh(self) -> Mesh {
+        MeshDeserializer::default().deserialize(self)
     }
 }
 
-/// An intermediate structure used when deserializing a [`SerializedMesh`] into a [`Mesh`].
+/// Use to specify extra options when deserializing a [`SerializedMesh`] into a [`Mesh`].
 #[cfg(feature = "serialize")]
 pub struct MeshDeserializer {
-    serialized_mesh: SerializedMesh,
     custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 }
 
 #[cfg(feature = "serialize")]
-impl MeshDeserializer {
-    fn new(serialized_mesh: SerializedMesh) -> Self {
+impl Default for MeshDeserializer {
+    fn default() -> Self {
         // Written like this so that the compiler can validate that we use all the built-in attributes.
         // If you just added a new attribute and got a compile error, please add it to this list :)
-        let builtins: [MeshVertexAttribute; Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE as usize] = [
+        const BUILTINS: [MeshVertexAttribute; Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE as usize] = [
             Mesh::ATTRIBUTE_POSITION,
             Mesh::ATTRIBUTE_NORMAL,
             Mesh::ATTRIBUTE_UV_0,
@@ -1334,12 +1335,19 @@ impl MeshDeserializer {
             Mesh::ATTRIBUTE_JOINT_INDEX,
         ];
         Self {
-            serialized_mesh,
-            custom_vertex_attributes: builtins
+            custom_vertex_attributes: BUILTINS
                 .into_iter()
                 .map(|attribute| (attribute.name.into(), attribute))
                 .collect(),
         }
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl MeshDeserializer {
+    /// Create a new [`MeshDeserializer`].
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Register a custom vertex attribute to the deserializer. Custom vertex attributes that were not added with this method will be ignored while deserializing.
@@ -1355,10 +1363,10 @@ impl MeshDeserializer {
     /// Finalize the deserialization process and turn the [`SerializedMesh`] into a [`Mesh`].
     ///
     /// See the documentation for [`SerializedMesh`] for caveats.
-    pub fn into_mesh(self) -> Mesh {
+    pub fn deserialize(&self, serialized_mesh: SerializedMesh) -> Mesh {
         Mesh {
-            attributes: self
-                .serialized_mesh
+            attributes: 
+                serialized_mesh
                 .attributes
                 .into_iter()
                 .filter_map(|(id, data)| {
@@ -1375,8 +1383,8 @@ impl MeshDeserializer {
                     Some((id, data))
                 })
                 .collect(),
-            indices: self.serialized_mesh.indices,
-            ..Mesh::new(self.serialized_mesh.primitive_topology, RenderAssetUsages::default())
+            indices: serialized_mesh.indices,
+            ..Mesh::new(serialized_mesh.primitive_topology, RenderAssetUsages::default())
         }
     }
 }
