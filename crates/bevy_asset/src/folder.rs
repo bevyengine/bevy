@@ -3,7 +3,7 @@ use alloc::{sync::Arc, vec::Vec};
 use crate::{Asset, UntypedHandle};
 use bevy_reflect::TypePath;
 
-/// This is use for [`AssetServer::load_folderload_folder_with_batch`](crate::prelude::AssetServer::load_folder_with_batch).
+/// This is use for [`AssetServer::load_folder_with_filter`](crate::prelude::AssetServer::load_folder_with_filter).
 #[derive(Debug, Clone, Copy, Default)]
 pub enum LoadFilterKind {
     #[default]
