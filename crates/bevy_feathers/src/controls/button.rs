@@ -45,7 +45,7 @@ pub struct ButtonProps {
     pub on_click: Option<SystemId>,
 }
 
-/// Template function to spawn a [`Button`].
+/// Template function to spawn a button.
 ///
 /// # Arguments
 /// * `props` - construction properties for the button.

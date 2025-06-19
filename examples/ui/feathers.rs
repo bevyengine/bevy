@@ -149,7 +149,6 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 })),
                                 variant: ButtonVariant::Primary,
                                 corners: RoundedCorners::Right,
-                                ..default()
                             },
                             (),
                             Spawn((Text::new("Right"), UseTheme))
