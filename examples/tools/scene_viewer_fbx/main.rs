@@ -31,10 +31,7 @@ use fbx_viewer_plugin::{FbxSceneHandle, FbxViewerPlugin};
 #[derive(FromArgs, Resource)]
 struct Args {
     /// the path to the FBX scene
-    #[argh(
-        positional,
-        default = "\"assets/models/cube/cube.fbx\".to_string()"
-    )]
+    #[argh(positional, default = "\"assets/models/cube/cube.fbx\".to_string()")]
     scene_path: String,
     /// enable a depth prepass
     #[argh(switch)]
