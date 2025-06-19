@@ -500,63 +500,65 @@ impl AppLifecycle {
     reflect(Serialize, Deserialize)
 )]
 pub enum WindowEvent {
-    /// TODO
+    /// An application lifecycle event.
     AppLifecycle(AppLifecycle),
-    /// TODO
+    /// The user's cursor has entered a window.
     CursorEntered(CursorEntered),
-    /// TODO
+    ///The user's cursor has left a window.
     CursorLeft(CursorLeft),
-    /// TODO
+    /// The user's cursor has moved inside a window.
     CursorMoved(CursorMoved),
-    /// TODO
+    /// A file drag and drop event.
     FileDragAndDrop(FileDragAndDrop),
-    /// TODO
+    /// An Input Method Editor event.
     Ime(Ime),
-    /// TODO
+    /// A redraw of all of the application's windows has been requested.
     RequestRedraw(RequestRedraw),
-    /// TODO
+    /// The window's OS-reported scale factor has changed.
     WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
-    /// TODO
+    /// The OS has requested that a window be closed.
     WindowCloseRequested(WindowCloseRequested),
-    /// TODO
+    /// A new window has been created.
     WindowCreated(WindowCreated),
-    /// TODO
+    /// A window has been destroyed by the underlying windowing system.
     WindowDestroyed(WindowDestroyed),
-    /// TODO
+    /// A window has received or lost focus.
     WindowFocused(WindowFocused),
-    /// TODO
+    /// A window has been moved.
     WindowMoved(WindowMoved),
-    /// TODO
+    /// A window has started or stopped being occluded.
     WindowOccluded(WindowOccluded),
-    /// TODO
+    /// A window's logical size has changed.
     WindowResized(WindowResized),
-    /// TODO
+    /// A window's scale factor has changed.
     WindowScaleFactorChanged(WindowScaleFactorChanged),
-    /// TODO
+    /// Sent for windows that are using the system theme when the system theme changes.
     WindowThemeChanged(WindowThemeChanged),
 
-    /// TODO
+    /// The state of a mouse button has changed.
     MouseButtonInput(MouseButtonInput),
-    /// TODO
+    /// The physical position of a pointing device has changed.
     MouseMotion(MouseMotion),
-    /// TODO
+    /// The mouse wheel has moved.
     MouseWheel(MouseWheel),
 
-    /// TODO
+    /// A two finger pinch gesture.
     PinchGesture(PinchGesture),
-    /// TODO
+    /// A two finger rotation gesture.
     RotationGesture(RotationGesture),
-    /// TODO
+    /// A double tap gesture.
     DoubleTapGesture(DoubleTapGesture),
-    /// TODO
+    /// A pan gesture.
     PanGesture(PanGesture),
 
-    /// TODO
+    /// A touch input state change.
     TouchInput(TouchInput),
 
-    /// TODO
+    /// A keyboard input.
     KeyboardInput(KeyboardInput),
-    /// TODO
+    /// Sent when focus has been lost for all Bevy windows.
+    ///
+    /// Used to clear pressed key state.
     KeyboardFocusLost(KeyboardFocusLost),
 }
 
