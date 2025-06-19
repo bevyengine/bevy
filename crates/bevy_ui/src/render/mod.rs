@@ -81,7 +81,7 @@ pub mod graph {
     }
 }
 
-/// Z offsets of "extracted nodes" for a given entity. These exist to allow rendering multiple "extracted nodes"
+/// Local Z offsets of "extracted nodes" for a given entity. These exist to allow rendering multiple "extracted nodes"
 /// for a given source entity (ex: render both a background color _and_ a custom material for a given node).
 ///
 /// When possible these offsets should be defined in _this_ module to ensure z-index coordination across contexts.
@@ -98,12 +98,12 @@ pub mod graph {
 pub mod stack_z_offsets {
     pub const BOX_SHADOW: f32 = -0.1;
     pub const BACKGROUND_COLOR: f32 = 0.0;
-    pub const GRADIENT: f32 = 0.01;
-    pub const MATERIAL: f32 = 0.02;
-    pub const IMAGE: f32 = 0.03;
-    pub const BORDER: f32 = 0.1;
-    pub const BORDER_GRADIENT: f32 = 0.11;
-    pub const TEXT: f32 = 0.2;
+    pub const BORDER: f32 = 0.01;
+    pub const GRADIENT: f32 = 0.02;
+    pub const BORDER_GRADIENT: f32 = 0.03;
+    pub const IMAGE: f32 = 0.04;
+    pub const MATERIAL: f32 = 0.05;
+    pub const TEXT: f32 = 0.06;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
