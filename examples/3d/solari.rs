@@ -66,9 +66,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
             run_speed: 1500.0,
             ..Default::default()
         },
+        Transform::from_xyz(-278.0, 273.0, 800.0),
+        // Msaa::Off and CameraMainTextureUsages with STORAGE_BINDING are required for Solari
         CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         Msaa::Off,
-        Transform::from_xyz(-278.0, 273.0, 800.0),
     ));
     if args.pathtracer == Some(true) {
         camera.insert(Pathtracer::default());

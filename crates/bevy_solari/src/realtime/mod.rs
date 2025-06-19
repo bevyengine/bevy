@@ -64,10 +64,21 @@ impl Plugin for SolariLightingPlugin {
     }
 }
 
+/// A component for a 3d camera entity to enable the Solari raytraced lighting system.
+///
+/// Must be used with `CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING), and
+/// `Msaa::Off`.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 #[require(Hdr, DeferredPrepass, DepthPrepass, MotionVectorPrepass)]
 pub struct SolariLighting {
+    /// Set to true to delete the saved temporal history (past frames).
+    ///
+    /// Useful for preventing ghosting when the history is no longer
+    /// representative of the current frame, such as in sudden camera cuts.
+    ///
+    /// After setting this to true, it will automatically be toggled
+    /// back to false at the end of the frame.
     pub reset: bool,
 }
 
