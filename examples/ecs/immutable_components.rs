@@ -10,8 +10,7 @@ use bevy::{
     prelude::*,
     ptr::OwningPtr,
 };
-use bevy_ecs::{query::DeferredMut, system::RunSystemOnce};
-use core::{alloc::Layout, iter};
+use core::alloc::Layout;
 
 /// This component is mutable, the default case. This is indicated by components
 /// implementing [`Component`] where [`Component::Mutability`] is [`Mutable`](bevy::ecs::component::Mutable).
@@ -172,7 +171,7 @@ fn demo_3(world: &mut World) {
 
     for (_name, size, component_id) in &my_registered_components {
         // We're just storing some zeroes for the sake of demonstration.
-        let data = iter::repeat_n(0, *size).collect::<Vec<u8>>();
+        let data = core::iter::repeat_n(0, *size).collect::<Vec<u8>>();
 
         OwningPtr::make(data, |ptr| {
             // SAFETY:
