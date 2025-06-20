@@ -7,8 +7,8 @@ pull_requests: [19649]
 
 To get the wanted one, `EntityCloner::build` got split too:
 
-- `EntityCloner::build_opt_in` to get `EntityClonerBuilder<OptIn>`
 - `EntityCloner::build_opt_out` to get `EntityClonerBuilder<OptOut>`
+- `EntityCloner::build_opt_in` to get `EntityClonerBuilder<OptIn>`
 
 The first is used to clone all components possible and optionally _opting out_ of some.
 The second is used to only clone components as specified by _opting in_ for them.
@@ -16,20 +16,20 @@ The second is used to only clone components as specified by _opting in_ for them
 ```rs
 // 0.16
 let mut builder = EntityCloner.build(&mut world);
-builder.allow_all().deny::<DoNotCloneComponent>();
+builder.allow_all().deny::<ComponentThatShouldNotBeCloned>();
 builder.clone_entity(source_entity, target_entity);
 
 let mut builder = EntityCloner.build(&mut world);
-builder.deny_all().allow::<DoCloneComponent>();
+builder.deny_all().allow::<ComponentThatShouldBeCloned>();
 builder.clone_entity(source_entity, target_entity);
 
 // 0.17
 let mut builder = EntityCloner.build_opt_out(&mut world);
-builder.deny::<DoNotCloneComponent>();
+builder.deny::<ComponentThatShouldNotBeCloned>();
 builder.clone_entity(source_entity, target_entity);
 
 let mut builder = EntityCloner.build_opt_in(&mut world);
-builder.allow::<DoCloneComponent>();
+builder.allow::<ComponentThatShouldBeCloned>();
 builder.clone_entity(source_entity, target_entity);
 ```
 
