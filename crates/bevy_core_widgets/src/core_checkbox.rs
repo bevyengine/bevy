@@ -18,7 +18,8 @@ use bevy_ui::{Checkable, Checked, InteractionDisabled};
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
 /// state of the checkbox. The `on_change` field is an optional system id that will be run when the
 /// checkbox is clicked, or when the `Enter` or `Space` key is pressed while the checkbox is
-/// focused. If the `on_change` field is `None`, the checkbox will update its own state.
+/// focused. If the `on_change` field is `None`, then instead of calling a callback, the checkbox
+/// will update its own [`Checked`] state directly.
 ///
 /// # Toggle switches
 ///
