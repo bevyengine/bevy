@@ -2399,7 +2399,7 @@ mod tests {
     }
 
     #[derive(Bundle)]
-    #[allow(unused, reason = "tests the output of the derive macro is valid")]
+    #[expect(unused, reason = "tests the output of the derive macro is valid")]
     struct Ignore {
         #[bundle(ignore)]
         foo: i32,
