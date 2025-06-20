@@ -1776,6 +1776,7 @@ mod tests {
         component::Component,
         entity_disabling::DefaultQueryFilters,
         prelude::*,
+        resource::IsResource,
         system::{QueryLens, RunSystemOnce},
         world::{FilteredEntityMut, FilteredEntityRef},
     };
@@ -2195,6 +2196,8 @@ mod tests {
         let mut df = DefaultQueryFilters::empty();
         df.register_disabling_component(world.register_component::<C>());
         world.insert_resource(df);
+        // We don't care about Resources for this test
+        world.register_disabling_component::<IsResource>();
 
         // Without<C> only matches the first entity
         let mut query = QueryState::<()>::new(&mut world);

@@ -2199,6 +2199,11 @@ impl Components {
         self.get_valid_resource_id(TypeId::of::<T>())
     }
 
+    /// Returns the number of resources registered to a world
+    pub fn num_resources(&self) -> usize {
+        self.resource_indices.len()
+    }
+
     /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
