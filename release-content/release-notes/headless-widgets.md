@@ -1,7 +1,7 @@
 ---
 title: Headless Widgets
 authors: ["@viridia"]
-pull_requests: [19366, 19584]
+pull_requests: [19366, 19584, 19665]
 ---
 
 Bevy's `Button` and `Interaction` components have been around for a long time. Unfortunately
@@ -34,6 +34,7 @@ sliders, checkboxes and radio buttons.
 
 - `CoreButton` is a push button. It emits an activation event when clicked.
 - `CoreSlider` is a standard slider, which lets you edit an `f32` value in a given range.
+- `CoreCheckbox` can be used for checkboxes and toggle switches.
 
 ## Widget Interaction States
 
