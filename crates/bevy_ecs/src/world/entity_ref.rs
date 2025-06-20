@@ -2854,7 +2854,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # assert_eq!(world.get::<ComponentB>(entity_clone), None);
     /// ```
     ///
-    /// See [`EntityClonerBuilder<DenyAll>`] for more options.
+    /// See [`EntityClonerBuilder<OptIn>`] for more options.
     ///
     /// # Panics
     ///
