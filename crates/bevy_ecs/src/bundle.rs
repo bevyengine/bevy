@@ -550,10 +550,9 @@ impl BundleInfo {
                     // SAFETY: the caller ensures component_id is valid.
                     unsafe { components.get_info_unchecked(id).name() }
                 })
-                .collect::<Vec<_>>()
-                .join(", ");
+                .collect::<Vec<_>>();
 
-            panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+            panic!("Bundle {bundle_type_name} has duplicate components: {names:?}");
         }
 
         // handle explicit components
@@ -2397,5 +2396,14 @@ mod tests {
         e.insert(A);
 
         assert_eq!(world.resource::<Count>().0, 3);
+    }
+
+    #[derive(Bundle)]
+    #[expect(unused, reason = "tests the output of the derive macro is valid")]
+    struct Ignore {
+        #[bundle(ignore)]
+        foo: i32,
+        #[bundle(ignore)]
+        bar: i32,
     }
 }

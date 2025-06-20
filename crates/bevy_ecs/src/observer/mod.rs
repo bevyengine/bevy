@@ -515,31 +515,63 @@ impl ObserverTrigger {
     }
 }
 
-// Map between an observer entity and its runner
-type ObserverMap = EntityHashMap<ObserverRunner>;
+/// Map between an observer entity and its [`ObserverRunner`]
+pub type ObserverMap = EntityHashMap<ObserverRunner>;
 
-/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
+/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event targeted at a specific component.
 ///
 /// This is stored inside of [`CachedObservers`].
 #[derive(Default, Debug)]
 pub struct CachedComponentObservers {
-    // Observers listening to triggers targeting this component
-    map: ObserverMap,
-    // Observers listening to triggers targeting this component on a specific entity
-    entity_map: EntityHashMap<ObserverMap>,
+    // Observers listening to events targeting this component, but not a specific entity
+    global_observers: ObserverMap,
+    // Observers listening to events targeting this component on a specific entity
+    entity_component_observers: EntityHashMap<ObserverMap>,
 }
 
-/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger.
+impl CachedComponentObservers {
+    /// Returns the observers listening for this trigger, regardless of target.
+    /// These observers will also respond to events targeting specific entities.
+    pub fn global_observers(&self) -> &ObserverMap {
+        &self.global_observers
+    }
+
+    /// Returns the observers listening for this trigger targeting this component on a specific entity.
+    pub fn entity_component_observers(&self) -> &EntityHashMap<ObserverMap> {
+        &self.entity_component_observers
+    }
+}
+
+/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event.
 ///
 /// This is stored inside of [`Observers`], specialized for each kind of observer.
 #[derive(Default, Debug)]
 pub struct CachedObservers {
-    // Observers listening for any time this trigger is fired
-    map: ObserverMap,
+    // Observers listening for any time this event is fired, regardless of target
+    // This will also respond to events targeting specific components or entities
+    global_observers: ObserverMap,
     // Observers listening for this trigger fired at a specific component
     component_observers: HashMap<ComponentId, CachedComponentObservers>,
     // Observers listening for this trigger fired at a specific entity
     entity_observers: EntityHashMap<ObserverMap>,
+}
+
+impl CachedObservers {
+    /// Returns the observers listening for this trigger, regardless of target.
+    /// These observers will also respond to events targeting specific components or entities.
+    pub fn global_observers(&self) -> &ObserverMap {
+        &self.global_observers
+    }
+
+    /// Returns the observers listening for this trigger targeting components.
+    pub fn get_component_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
+        &self.component_observers
+    }
+
+    /// Returns the observers listening for this trigger targeting entities.
+    pub fn entity_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
+        &self.component_observers
+    }
 }
 
 /// An internal lookup table tracking all of the observers in the world.
@@ -548,7 +580,7 @@ pub struct CachedObservers {
 /// Some observer kinds (like [lifecycle](crate::lifecycle) observers) have a dedicated field,
 /// saving lookups for the most common triggers.
 ///
-/// This is stored as a field of the [`World`].
+/// This can be accessed via [`World::observers`].
 #[derive(Default, Debug)]
 pub struct Observers {
     // Cached ECS observers to save a lookup most common triggers.
@@ -562,7 +594,7 @@ pub struct Observers {
 }
 
 impl Observers {
-    pub(crate) fn get_observers(&mut self, event_type: ComponentId) -> &mut CachedObservers {
+    pub(crate) fn get_observers_mut(&mut self, event_type: ComponentId) -> &mut CachedObservers {
         use crate::lifecycle::*;
 
         match event_type {
@@ -575,7 +607,11 @@ impl Observers {
         }
     }
 
-    pub(crate) fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
+    /// Attempts to get the observers for the given `event_type`.
+    ///
+    /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Replace`], [`Remove`], and [`Despawn`],
+    /// use the [`ComponentId`] constants from the [`lifecycle`](crate::lifecycle) module.
+    pub fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 
         match event_type {
@@ -630,7 +666,10 @@ impl Observers {
             );
         };
         // Trigger observers listening for any kind of this trigger
-        observers.map.iter().for_each(&mut trigger_observer);
+        observers
+            .global_observers
+            .iter()
+            .for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
         if let Some(target_entity) = current_target {
@@ -643,12 +682,15 @@ impl Observers {
         trigger_for_components.for_each(|id| {
             if let Some(component_observers) = observers.component_observers.get(&id) {
                 component_observers
-                    .map
+                    .global_observers
                     .iter()
                     .for_each(&mut trigger_observer);
 
                 if let Some(target_entity) = current_target {
-                    if let Some(map) = component_observers.entity_map.get(&target_entity) {
+                    if let Some(map) = component_observers
+                        .entity_component_observers
+                        .get(&target_entity)
+                    {
                         map.iter().for_each(&mut trigger_observer);
                     }
                 }
@@ -926,10 +968,12 @@ impl World {
         let descriptor = &observer_state.descriptor;
 
         for &event_type in &descriptor.events {
-            let cache = observers.get_observers(event_type);
+            let cache = observers.get_observers_mut(event_type);
 
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
-                cache.map.insert(observer_entity, observer_state.runner);
+                cache
+                    .global_observers
+                    .insert(observer_entity, observer_state.runner);
             } else if descriptor.components.is_empty() {
                 // Observer is not targeting any components so register it as an entity observer
                 for &watched_entity in &observer_state.descriptor.entities {
@@ -951,11 +995,16 @@ impl World {
                             });
                     if descriptor.entities.is_empty() {
                         // Register for all triggers targeting the component
-                        observers.map.insert(observer_entity, observer_state.runner);
+                        observers
+                            .global_observers
+                            .insert(observer_entity, observer_state.runner);
                     } else {
                         // Register for each watched entity
                         for &watched_entity in &descriptor.entities {
-                            let map = observers.entity_map.entry(watched_entity).or_default();
+                            let map = observers
+                                .entity_component_observers
+                                .entry(watched_entity)
+                                .or_default();
                             map.insert(observer_entity, observer_state.runner);
                         }
                     }
@@ -970,9 +1019,9 @@ impl World {
         let observers = &mut self.observers;
 
         for &event_type in &descriptor.events {
-            let cache = observers.get_observers(event_type);
+            let cache = observers.get_observers_mut(event_type);
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
-                cache.map.remove(&entity);
+                cache.global_observers.remove(&entity);
             } else if descriptor.components.is_empty() {
                 for watched_entity in &descriptor.entities {
                     // This check should be unnecessary since this observer hasn't been unregistered yet
@@ -990,20 +1039,24 @@ impl World {
                         continue;
                     };
                     if descriptor.entities.is_empty() {
-                        observers.map.remove(&entity);
+                        observers.global_observers.remove(&entity);
                     } else {
                         for watched_entity in &descriptor.entities {
-                            let Some(map) = observers.entity_map.get_mut(watched_entity) else {
+                            let Some(map) =
+                                observers.entity_component_observers.get_mut(watched_entity)
+                            else {
                                 continue;
                             };
                             map.remove(&entity);
                             if map.is_empty() {
-                                observers.entity_map.remove(watched_entity);
+                                observers.entity_component_observers.remove(watched_entity);
                             }
                         }
                     }
 
-                    if observers.map.is_empty() && observers.entity_map.is_empty() {
+                    if observers.global_observers.is_empty()
+                        && observers.entity_component_observers.is_empty()
+                    {
                         cache.component_observers.remove(component);
                         if let Some(flag) = Observers::is_archetype_cached(event_type) {
                             if let Some(by_component) = archetypes.by_component.get(component) {
@@ -1078,7 +1131,7 @@ mod tests {
     struct ChildOf(Entity);
 
     impl<D> Traversal<D> for &'_ ChildOf {
-        fn traverse(item: Self::Item<'_>, _: &D) -> Option<Entity> {
+        fn traverse(item: Self::Item<'_, '_>, _: &D) -> Option<Entity> {
             Some(item.0)
         }
     }
