@@ -93,9 +93,9 @@ pub struct SliderValue(pub f32);
 #[component(immutable)]
 pub struct SliderRange {
     /// The beginning of the allowed range for the slider value.
-    pub start: f32,
+    start: f32,
     /// The end of the allowed range for the slider value.
-    pub end: f32,
+    end: f32,
 }
 
 impl SliderRange {
