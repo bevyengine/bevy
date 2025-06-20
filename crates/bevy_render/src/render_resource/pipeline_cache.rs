@@ -1233,5 +1233,14 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         Capabilities::TEXTURE_INT64_ATOMIC,
         features.contains(Features::TEXTURE_INT64_ATOMIC),
     );
+    capabilities.set(
+       Capabilities::SHADER_FLOAT16,
+        features.contains(Features::SHADER_F16),
+    );
+    capabilities.set(
+        Capabilities::RAY_HIT_VERTEX_POSITION,
+        features.intersects(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN),
+    );
+
     capabilities
 }
