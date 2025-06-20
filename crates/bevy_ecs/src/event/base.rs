@@ -434,7 +434,7 @@ pub struct EventKey {
 }
 
 impl EventKey {
-    /// Get the id of the underlying [`Event`].
+    /// Returns id of the underlying [`Event`].
     pub(crate) fn component_id(&self) -> ComponentId {
         self.component_id
     }
