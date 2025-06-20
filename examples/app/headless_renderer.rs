@@ -22,8 +22,8 @@ use bevy::{
         render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
-            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
+            TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -31,6 +31,7 @@ use bevy::{
     },
     winit::WinitPlugin,
 };
+use bevy_render::render_resource::PollType;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     ops::{Deref, DerefMut},
@@ -41,7 +42,6 @@ use std::{
     },
     time::Duration,
 };
-
 // To communicate between the main world and the render world we need a channel.
 // Since the main world and render world run in parallel, there will always be a frame of latency
 // between the data sent from the render world and the data received in the main world
@@ -460,7 +460,9 @@ fn receive_image_from_buffer(
         // `Maintain::Wait` will cause the thread to wait on native but not on WebGpu.
 
         // This blocks until the gpu is done executing everything
-        render_device.poll(Maintain::wait()).panic_on_timeout();
+        render_device
+            .poll(PollType::Wait)
+            .expect("Failed to poll device for map async");
 
         // This blocks until the buffer is mapped
         r.recv().expect("Failed to receive the map_async message");

@@ -106,7 +106,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
 
         render_pass.set_bind_group(
             0,
-            &mesh_view_bind_group.value,
+            &mesh_view_bind_group.main,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,

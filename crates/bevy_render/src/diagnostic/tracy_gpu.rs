@@ -1,7 +1,7 @@
 use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue};
 use tracy_client::{Client, GpuContext, GpuContextType};
 use wgpu::{
-    Backend, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Maintain, MapMode,
+    Backend, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, MapMode, PollType,
     QuerySetDescriptor, QueryType, QUERY_SIZE,
 };
 
@@ -14,7 +14,7 @@ pub fn new_tracy_gpu_context(
         Backend::Vulkan => GpuContextType::Vulkan,
         Backend::Dx12 => GpuContextType::Direct3D12,
         Backend::Gl => GpuContextType::OpenGL,
-        Backend::Metal | Backend::BrowserWebGpu | Backend::Empty => GpuContextType::Invalid,
+        Backend::Metal | Backend::BrowserWebGpu | Backend::Noop => GpuContextType::Invalid,
     };
 
     let tracy_client = Client::running().unwrap();
@@ -60,7 +60,9 @@ fn initial_timestamp(device: &RenderDevice, queue: &RenderQueue) -> i64 {
     queue.submit([timestamp_encoder.finish(), copy_encoder.finish()]);
 
     map_buffer.slice(..).map_async(MapMode::Read, |_| ());
-    device.poll(Maintain::Wait);
+    device
+        .poll(PollType::Wait)
+        .expect("Failed to poll device for map async");
 
     let view = map_buffer.slice(..).get_mapped_range();
     i64::from_le_bytes((*view).try_into().unwrap())

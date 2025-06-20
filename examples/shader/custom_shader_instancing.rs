@@ -7,6 +7,7 @@
 //! implementation using bevy's low level rendering api.
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
+use bevy::pbr::SetMeshViewBindingArrayBindGroup;
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::{
@@ -247,7 +248,8 @@ impl SpecializedMeshPipeline for CustomPipeline {
 
 type DrawCustom = (
     SetItemPipeline,
-    SetMeshViewBindGroup<0, 1>,
+    SetMeshViewBindGroup<0>,
+    SetMeshViewBindingArrayBindGroup<1>,
     SetMeshBindGroup<2>,
     DrawMeshInstanced,
 );

@@ -184,9 +184,9 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
-        let bind_group_1 = render_context.render_device().create_bind_group(
-            "deferred_lighting_layout_group_1",
-            &deferred_lighting_layout.bind_group_layout_1,
+        let bind_group_2 = render_context.render_device().create_bind_group(
+            "deferred_lighting_layout_group_2",
+            &deferred_lighting_layout.bind_group_layout_2,
             &BindGroupEntries::single(deferred_lighting_pass_id_binding),
         );
 
@@ -208,7 +208,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(
             0,
-            &mesh_view_bind_group.value,
+            &mesh_view_bind_group.main,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -218,7 +218,8 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 **view_environment_map_offset,
             ],
         );
-        render_pass.set_bind_group(1, &bind_group_1, &[]);
+        render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
+        render_pass.set_bind_group(2, &bind_group_2, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -228,7 +229,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 #[derive(Resource)]
 pub struct DeferredLightingLayout {
     mesh_pipeline: MeshPipeline,
-    bind_group_layout_1: BindGroupLayout,
+    bind_group_layout_2: BindGroupLayout,
     deferred_lighting_shader: Handle<Shader>,
 }
 
@@ -346,12 +347,14 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
-        let mut layout = self.mesh_pipeline.get_view_layout(key.into()).to_vec();
-        layout.push(self.bind_group_layout_1.clone());
-
+        let layout = self.mesh_pipeline.get_view_layout(key.into());
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
-            layout,
+            layout: vec![
+                layout.main_layout.clone(),
+                layout.binding_array_layout.clone(),
+                self.bind_group_layout_2.clone(),
+            ],
             vertex: VertexState {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs: shader_defs.clone(),
@@ -408,7 +411,7 @@ impl FromWorld for DeferredLightingLayout {
         );
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
-            bind_group_layout_1: layout,
+            bind_group_layout_2: layout,
             deferred_lighting_shader: load_embedded_asset!(world, "deferred_lighting.wgsl"),
         }
     }

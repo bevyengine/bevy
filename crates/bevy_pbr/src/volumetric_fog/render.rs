@@ -461,7 +461,7 @@ impl ViewNode for VolumetricFogNode {
             render_pass.set_pipeline(pipeline);
             render_pass.set_bind_group(
                 0,
-                &view_bind_group.value,
+                &view_bind_group.main,
                 &[
                     view_uniform_offset.offset,
                     view_lights_offset.offset,
@@ -511,10 +511,6 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
     type Key = VolumetricFogPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mesh_view_layout = self
-            .mesh_view_layouts
-            .get_view_layout(key.mesh_pipeline_view_key);
-
         // We always use hardware 2x2 filtering for sampling the shadow map; the
         // more accurate versions with percentage-closer filtering aren't worth
         // the overhead.
@@ -559,11 +555,13 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             shader_defs.push("DENSITY_TEXTURE".into());
         }
 
-        let mut layout = self
+        let layout = self
             .mesh_view_layouts
-            .get_view_layout(key.mesh_pipeline_view_key)
-            .to_vec();
-        layout.push(volumetric_view_bind_group_layout.clone());
+            .get_view_layout(key.mesh_pipeline_view_key);
+        let layout = vec![
+            layout.main_layout.clone(),
+            volumetric_view_bind_group_layout.clone(),
+        ];
 
         RenderPipelineDescriptor {
             label: Some("volumetric lighting pipeline".into()),

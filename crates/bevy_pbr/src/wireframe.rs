@@ -1,6 +1,7 @@
 use crate::{
     DrawMesh, MeshPipeline, MeshPipelineKey, RenderMeshInstanceFlags, RenderMeshInstances,
-    SetMeshBindGroup, SetMeshViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
+    SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
+    ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
@@ -317,7 +318,8 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
 
 pub type DrawWireframe3d = (
     SetItemPipeline,
-    SetMeshViewBindGroup<0, 1>,
+    SetMeshViewBindGroup<0>,
+    SetMeshViewBindingArrayBindGroup<1>,
     SetMeshBindGroup<2>,
     SetWireframe3dPushConstants,
     DrawMesh,

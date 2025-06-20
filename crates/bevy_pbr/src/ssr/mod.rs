@@ -23,14 +23,21 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::{ExtractComponent, ExtractComponentPlugin}, render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner}, render_resource::{
-    binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-    CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
-    FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-    RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-    ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-    TextureFormat, TextureSampleType,
-}, renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue}, view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset}, EmptyBindGroup, Render, RenderApp, RenderSystems};
+use bevy_render::{
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_resource::{
+        binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
+        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
+        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        TextureFormat, TextureSampleType,
+    },
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
+    Render, RenderApp, RenderSystems,
+};
 use bevy_render::{load_shader_library, render_graph::RenderGraph};
 use bevy_utils::{once, prelude::default};
 use tracing::info;
@@ -147,7 +154,6 @@ pub struct ScreenSpaceReflectionsPipeline {
     depth_linear_sampler: Sampler,
     depth_nearest_sampler: Sampler,
     bind_group_layout: BindGroupLayout,
-    empty_layout: BindGroupLayout,
     binding_arrays_are_usable: bool,
     shader: Handle<Shader>,
 }
@@ -316,7 +322,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         render_pass.set_render_pipeline(render_pipeline);
         render_pass.set_bind_group(
             0,
-            &view_bind_group.value,
+            &view_bind_group.main,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -326,7 +332,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
                 **view_environment_map_offset,
             ],
         );
-        render_pass.set_bind_group(1, &view_bind_group.value_binding_array, &[]);
+        render_pass.set_bind_group(1, &view_bind_group.binding_array, &[]);
 
         // Perform the SSR render pass.
         render_pass.set_bind_group(2, &ssr_bind_group, &[]);
@@ -339,7 +345,6 @@ impl ViewNode for ScreenSpaceReflectionsNode {
 impl FromWorld for ScreenSpaceReflectionsPipeline {
     fn from_world(world: &mut World) -> Self {
         let mesh_view_layouts = world.resource::<MeshPipelineViewLayouts>().clone();
-        let empty_layout = world.resource::<EmptyBindGroup>().layout.clone();
         let render_device = world.resource::<RenderDevice>();
         let render_adapter = world.resource::<RenderAdapter>();
 
@@ -388,7 +393,6 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
 
         Self {
             mesh_view_layouts,
-            empty_layout,
             color_sampler,
             depth_linear_sampler,
             depth_nearest_sampler,
@@ -512,11 +516,14 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
     type Key = ScreenSpaceReflectionsPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut layout = self
+        let layout = self
             .mesh_view_layouts
-            .get_view_layout(key.mesh_pipeline_view_key)
-            .to_vec();
-        layout.push(self.bind_group_layout.clone());
+            .get_view_layout(key.mesh_pipeline_view_key);
+        let layout = vec![
+            layout.main_layout.clone(),
+            layout.binding_array_layout.clone(),
+            self.bind_group_layout.clone(),
+        ];
 
         let mut shader_defs = vec![
             "DEPTH_PREPASS".into(),

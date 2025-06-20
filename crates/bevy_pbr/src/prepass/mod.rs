@@ -7,7 +7,8 @@ use crate::{
     DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey,
     MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
     RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
-    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, SetMeshViewEmptyBindGroup, ShadowView,
+    StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -1264,10 +1265,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
     }
 }
 
-pub struct SetPrepassViewBindGroup<const I: usize, const J: usize>;
-impl<P: PhaseItem, const I: usize, const J: usize> RenderCommand<P>
-    for SetPrepassViewBindGroup<I, J>
-{
+pub struct SetPrepassViewBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
     type Param = SRes<PrepassViewBindGroup>;
     type ViewQuery = (
         Read<ViewUniformOffset>,
@@ -1309,15 +1308,14 @@ impl<P: PhaseItem, const I: usize, const J: usize> RenderCommand<P>
                 );
             }
         }
-        pass.set_bind_group(J, &prepass_view_bind_group.empty_bind_group, &[]);
-
         RenderCommandResult::Success
     }
 }
 
 pub type DrawPrepass<M> = (
     SetItemPipeline,
-    SetPrepassViewBindGroup<0, 1>,
+    SetPrepassViewBindGroup<0>,
+    SetMeshViewEmptyBindGroup<1>,
     SetMeshBindGroup<2>,
     SetMaterialBindGroup<M, 3>,
     DrawMesh,

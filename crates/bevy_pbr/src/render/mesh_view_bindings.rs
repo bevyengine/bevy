@@ -59,7 +59,9 @@ use {crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, traci
 
 #[derive(Clone)]
 pub struct MeshPipelineViewLayout {
-    pub bind_group_layout: [BindGroupLayout; 2],
+    pub main_layout: BindGroupLayout,
+    pub binding_array_layout: BindGroupLayout,
+    pub empty_layout: BindGroupLayout,
 
     #[cfg(debug_assertions)]
     pub texture_count: usize,
@@ -444,13 +446,14 @@ impl FromWorld for MeshPipelineViewLayouts {
                 .count();
 
             MeshPipelineViewLayout {
-                bind_group_layout: [
-                    render_device.create_bind_group_layout(key.label().as_str(), &entries[0]),
-                    render_device.create_bind_group_layout(
-                        format!("{}_binding_array", key.label()).as_str(),
-                        &entries[1],
-                    ),
-                ],
+                main_layout: render_device
+                    .create_bind_group_layout(key.label().as_str(), &entries[0]),
+                binding_array_layout: render_device.create_bind_group_layout(
+                    format!("{}_binding_array", key.label()).as_str(),
+                    &entries[1],
+                ),
+                empty_layout: render_device
+                    .create_bind_group_layout(format!("{}_empty", key.label()).as_str(), &[]),
                 #[cfg(debug_assertions)]
                 texture_count,
             }
@@ -459,7 +462,10 @@ impl FromWorld for MeshPipelineViewLayouts {
 }
 
 impl MeshPipelineViewLayouts {
-    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &[BindGroupLayout; 2] {
+    pub fn get_view_layout(
+        &self,
+        layout_key: MeshPipelineViewLayoutKey,
+    ) -> &MeshPipelineViewLayout {
         let index = layout_key.bits() as usize;
         let layout = &self[index];
 
@@ -469,7 +475,7 @@ impl MeshPipelineViewLayouts {
             once!(warn!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments."));
         }
 
-        &layout.bind_group_layout
+        layout
     }
 }
 
@@ -495,19 +501,19 @@ pub fn generate_view_layouts(
         let texture_count: usize = entries
             .iter()
             .flat_map(|e| {
-                e.into_iter()
+                e.iter()
                     .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
             })
             .count();
 
         MeshPipelineViewLayout {
-            bind_group_layout: [
-                render_device.create_bind_group_layout(key.label().as_str(), &entries[0]),
-                render_device.create_bind_group_layout(
-                    format!("{}_binding_array", key.label()).as_str(),
-                    &entries[1],
-                ),
-            ],
+            main_layout: render_device.create_bind_group_layout(key.label().as_str(), &entries[0]),
+            binding_array_layout: render_device.create_bind_group_layout(
+                format!("{}_binding_array", key.label()).as_str(),
+                &entries[1],
+            ),
+            empty_layout: render_device
+                .create_bind_group_layout(format!("{}_empty", key.label()).as_str(), &[]),
             #[cfg(debug_assertions)]
             texture_count,
         }
@@ -516,8 +522,9 @@ pub fn generate_view_layouts(
 
 #[derive(Component)]
 pub struct MeshViewBindGroup {
-    pub value: BindGroup,
-    pub value_binding_array: BindGroup,
+    pub main: BindGroup,
+    pub binding_array: BindGroup,
+    pub empty: BindGroup,
 }
 
 pub fn prepare_mesh_view_bind_groups(
@@ -779,15 +786,20 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             commands.entity(entity).insert(MeshViewBindGroup {
-                value: render_device.create_bind_group(
+                main: render_device.create_bind_group(
                     "mesh_view_bind_group",
-                    &layout[0],
+                    &layout.main_layout,
                     &entries,
                 ),
-                value_binding_array: render_device.create_bind_group(
+                binding_array: render_device.create_bind_group(
                     "mesh_view_bind_group_binding_array",
-                    &layout[1],
+                    &layout.binding_array_layout,
                     &entries_binding_array,
+                ),
+                empty: render_device.create_bind_group(
+                    "mesh_view_bind_group_empty",
+                    &layout.empty_layout,
+                    &[],
                 ),
             });
         }

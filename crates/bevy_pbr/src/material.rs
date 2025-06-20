@@ -543,7 +543,8 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
 
 type DrawMaterial<M> = (
     SetItemPipeline,
-    SetMeshViewBindGroup<0, 1>,
+    SetMeshViewBindGroup<0>,
+    SetMeshViewBindingArrayBindGroup<1>,
     SetMeshBindGroup<2>,
     SetMaterialBindGroup<M, 3>,
     DrawMesh,

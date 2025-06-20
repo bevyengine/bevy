@@ -149,15 +149,15 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
-@group(1) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r64uint, read>;
-@group(1) @binding(1) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
-@group(1) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per meshlet
-@group(1) @binding(3) var<storage, read> meshlet_indices: array<u32>; // Many per meshlet
-@group(1) @binding(4) var<storage, read> meshlet_vertex_positions: array<u32>; // Many per meshlet
-@group(1) @binding(5) var<storage, read> meshlet_vertex_normals: array<u32>; // Many per meshlet
-@group(1) @binding(6) var<storage, read> meshlet_vertex_uvs: array<vec2<f32>>; // Many per meshlet
-@group(1) @binding(7) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
-@group(1) @binding(8) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
+@group(2) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r64uint, read>;
+@group(2) @binding(1) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
+@group(2) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per meshlet
+@group(2) @binding(3) var<storage, read> meshlet_indices: array<u32>; // Many per meshlet
+@group(2) @binding(4) var<storage, read> meshlet_vertex_positions: array<u32>; // Many per meshlet
+@group(2) @binding(5) var<storage, read> meshlet_vertex_normals: array<u32>; // Many per meshlet
+@group(2) @binding(6) var<storage, read> meshlet_vertex_uvs: array<vec2<f32>>; // Many per meshlet
+@group(2) @binding(7) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
+@group(2) @binding(8) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 
 // TODO: Load only twice, instead of 3x in cases where you load 3 indices per thread?
 fn get_meshlet_vertex_id(index_id: u32) -> u32 {
