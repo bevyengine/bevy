@@ -1,6 +1,6 @@
 ---
-title: `wgpu` 25 
-pull_requests: [19563]
+title: `wgpu` 25
+pull_requests: [ 19563 ]
 ---
 
 `wgpu` 25 introduces a number of breaking changes, most notably in the way Bevy is required to handle
