@@ -1,5 +1,6 @@
 use crate::change_detection::MaybeLocation;
 use crate::component::ComponentId;
+use crate::lifecycle::{ADD, DESPAWN, INSERT, REMOVE, REPLACE};
 use crate::world::World;
 use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
@@ -426,7 +427,7 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
 /// Should only be instantiated internally to this crate.
 /// </section>
 ///
-/// Used in ['Event`] methods:
+/// Used in [`Event`] methods:
 #[derive(Debug, Clone)]
 pub struct EventKey {
     /// The underlying [`Event`].
@@ -439,3 +440,22 @@ impl EventKey {
         self.component_id
     }
 }
+
+/// [`EventKey`] for [`Add`]
+pub const EVENT_ADD: EventKey = EventKey { component_id: ADD };
+/// [`EventKey`] for [`Insert`]
+pub const EVENT_INSERT: EventKey = EventKey {
+    component_id: INSERT,
+};
+/// [`EventKey`] for [`Remove`]
+pub const EVENT_REMOVE: EventKey = EventKey {
+    component_id: REMOVE,
+};
+/// [`EventKey`] for [`Replace`]
+pub const EVENT_REPLACE: EventKey = EventKey {
+    component_id: REPLACE,
+};
+/// [`EventKey`] for [`Despawn`]
+pub const EVENT_DESPAWN: EventKey = EventKey {
+    component_id: DESPAWN,
+};

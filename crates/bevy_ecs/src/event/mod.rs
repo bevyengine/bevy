@@ -11,7 +11,10 @@ mod update;
 mod writer;
 
 pub(crate) use base::EventInstance;
-pub use base::{BufferedEvent, EntityEvent, Event, EventId, EventKey};
+pub use base::{
+    BufferedEvent, EntityEvent, Event, EventId, EventKey, EVENT_ADD, EVENT_DESPAWN, EVENT_INSERT,
+    EVENT_REMOVE, EVENT_REPLACE,
+};
 pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
 pub use collections::{Events, SendBatchIds};
 pub use event_cursor::EventCursor;
