@@ -7,7 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{BufferedEvent, EntityEvent, Event, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EntityEvent, Event, EventId, EventKey, Events, SendBatchIds},
     lifecycle::{HookContext, INSERT, REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
@@ -159,7 +159,9 @@ impl<'w> DeferredWorld<'w> {
             );
             if archetype.has_replace_observer() {
                 self.trigger_observers(
-                    REPLACE,
+                    EventKey {
+                        component_id: REPLACE,
+                    },
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
@@ -199,7 +201,9 @@ impl<'w> DeferredWorld<'w> {
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(
-                    INSERT,
+                    EventKey {
+                        component_id: INSERT,
+                    },
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
@@ -740,7 +744,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers(
         &mut self,
-        event: ComponentId,
+        event: EventKey,
         target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
@@ -764,7 +768,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
-        event: ComponentId,
+        event: EventKey,
         current_target: Option<Entity>,
         original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
@@ -776,7 +780,7 @@ impl<'w> DeferredWorld<'w> {
     {
         Observers::invoke::<_>(
             self.reborrow(),
-            event,
+            event.clone(),
             current_target,
             original_target,
             components.clone(),
@@ -804,7 +808,7 @@ impl<'w> DeferredWorld<'w> {
             }
             Observers::invoke::<_>(
                 self.reborrow(),
-                event,
+                event.clone(),
                 Some(current_target),
                 original_target,
                 components.clone(),

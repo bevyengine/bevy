@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use bevy_ecs::{
     change_detection::{DetectChangesMut, MutUntyped},
     component::{ComponentId, Tick},
-    event::{BufferedEvent, Events},
+    event::{BufferedEvent, EventKey, Events},
     resource::Resource,
     world::World,
 };
@@ -10,6 +10,7 @@ use bevy_ecs::{
 #[doc(hidden)]
 struct RegisteredEvent {
     component_id: ComponentId,
+    // event_type:
     // Required to flush the secondary buffer and drop events even if left unchanged.
     previously_updated: bool,
     // SAFETY: The component ID and the function must be used to fetch the Events<T> resource
@@ -49,6 +50,7 @@ impl EventRegistry {
         // By initializing the resource here, we can be sure that it is present,
         // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
         let component_id = world.init_resource::<Events<T>>();
+        let event_type = EventKey { component_id };
         let mut registry = world.get_resource_or_init::<Self>();
         registry.event_updates.push(RegisteredEvent {
             component_id,

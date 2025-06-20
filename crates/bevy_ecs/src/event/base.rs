@@ -423,8 +423,14 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
 }
 
 /// Used to identify events in observers.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EventKey {
     /// The underlying [`Event`].
-    component_id: ComponentId,
+    pub(crate) component_id: ComponentId,
+}
+
+impl EventKey {
+    pub fn component_id(&self) -> ComponentId {
+        self.component_id
+    }
 }

@@ -193,7 +193,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
 
     /// Returns the event type of this [`On`] instance.
     pub fn event_type(&self) -> ComponentId {
-        self.trigger.event_type
+        self.trigger.event_type.component_id()
     }
 
     /// Returns a reference to the triggered event.
@@ -492,8 +492,8 @@ pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
     pub observer: Entity,
     /// The [`Event`] the trigger targeted.
-    pub event_type: ComponentId,
-    // pub event_type: EventKey,
+    // pub event_type: ComponentId,
+    pub event_type: EventKey,
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
     /// The entity that the entity-event targeted, if any.
@@ -628,7 +628,7 @@ impl Observers {
     /// This will run the observers of the given `event_type`, targeting the given `entity` and `components`.
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
-        event_type: ComponentId,
+        event_type: EventKey,
         current_target: Option<Entity>,
         original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
@@ -642,7 +642,7 @@ impl Observers {
             // SAFETY: There are no outstanding world references
             world.increment_trigger_id();
             let observers = world.observers();
-            let Some(observers) = observers.try_get_observers(event_type) else {
+            let Some(observers) = observers.try_get_observers(event_type.component_id()) else {
                 return;
             };
             // SAFETY: The only outstanding reference to world is `observers`
@@ -656,7 +656,7 @@ impl Observers {
                 world.reborrow(),
                 ObserverTrigger {
                     observer,
-                    event_type,
+                    event_type: event_type.clone(),
                     components: components.clone().collect(),
                     current_target,
                     original_target,
@@ -814,7 +814,9 @@ impl World {
         // SAFETY: `event_data` is accessible as the type represented by `event_id`
         unsafe {
             world.trigger_observers_with_data::<_, ()>(
-                event_id,
+                EventKey {
+                    component_id: event_id,
+                },
                 None,
                 None,
                 core::iter::empty::<ComponentId>(),
@@ -926,7 +928,9 @@ impl World {
             // SAFETY: `event_data` is accessible as the type represented by `event_id`
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
-                    event_id,
+                    EventKey {
+                        component_id: event_id,
+                    },
                     None,
                     None,
                     targets.components(),
@@ -940,7 +944,9 @@ impl World {
                 // SAFETY: `event_data` is accessible as the type represented by `event_id`
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
-                        event_id,
+                        EventKey {
+                            component_id: event_id,
+                        },
                         Some(target_entity),
                         Some(target_entity),
                         targets.components(),
