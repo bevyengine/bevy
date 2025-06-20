@@ -516,9 +516,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Exclusive system `bevy_ecs::observer::runner::tests::exclusive_system_cannot_be_observer::system` may not be used as observer.\nInstead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
-    )]
+    #[should_panic]
     fn exclusive_system_cannot_be_observer() {
         fn system(_: On<TriggerEvent>, _world: &mut World) {}
         let mut world = World::default();

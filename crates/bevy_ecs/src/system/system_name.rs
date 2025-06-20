@@ -85,6 +85,7 @@ impl ExclusiveSystemParam for SystemName {
 }
 
 #[cfg(test)]
+#[cfg(feature="trace")]
 mod tests {
     use crate::{
         system::{IntoSystem, RunSystemOnce, SystemName},

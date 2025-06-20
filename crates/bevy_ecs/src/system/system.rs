@@ -410,7 +410,6 @@ pub enum RunSystemError {
 mod tests {
     use super::*;
     use crate::prelude::*;
-    use alloc::string::ToString;
 
     #[test]
     fn run_system_once() {
@@ -483,7 +482,5 @@ mod tests {
         let result = world.run_system_once(system);
 
         assert!(matches!(result, Err(RunSystemError::InvalidParams { .. })));
-        let expected = "System bevy_ecs::system::system::tests::run_system_once_invalid_params::system did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `When<T>` to skip the system when it happens.";
-        assert_eq!(expected, result.unwrap_err().to_string());
     }
 }

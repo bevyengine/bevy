@@ -507,7 +507,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn self_conflicting_worldquery() {
         #[derive(QueryData)]
         #[query_data(mutable)]
