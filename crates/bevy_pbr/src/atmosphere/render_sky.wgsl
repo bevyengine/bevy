@@ -19,9 +19,9 @@
 #endif
 
 struct RenderSkyOutput {
-    @location(0) inscattering: vec4<f32>,
+    @location(0) @blend_src(0) inscattering: vec4<f32>,
 #ifdef DUAL_SOURCE_BLENDING
-    @location(0) @second_blend_source transmittance: vec4<f32>,
+    @location(0) @blend_src(1) transmittance: vec4<f32>,
 #endif
 }
 
