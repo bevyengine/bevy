@@ -1,9 +1,6 @@
 //! This example illustrates various ways to load assets.
 
-use bevy::{
-    asset::{LoadBatchRequest, LoadedBatch},
-    prelude::*,
-};
+use bevy::{asset::LoadBatchRequest, prelude::*};
 
 fn main() {
     App::new()

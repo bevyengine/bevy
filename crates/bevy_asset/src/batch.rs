@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::{Asset, AssetPath, UntypedHandle};
+use crate::{Asset, UntypedHandle};
 use bevy_reflect::TypePath;
 
 pub struct LoadBatchRequest {

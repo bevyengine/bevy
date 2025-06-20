@@ -35,7 +35,7 @@ use futures_lite::FutureExt;
 use info::*;
 use loaders::*;
 use parking_lot::{RwLock, RwLockWriteGuard};
-use std::path::{self, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{error, info};
 
@@ -935,12 +935,12 @@ impl AssetServer {
         handle.typed_debug_checked()
     }
 
-    /// Loads all assets from the specified folder recursively with batch. The [`LoadedFolder`] asset (when it loads) will
-    /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedFolder`]'s
+    /// Loads all assets from the specified folder recursively with batch. The [`LoadedBatch`] asset (when it loads) will
+    /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedBatch`]'s
     /// [`RecursiveDependencyLoadState`].
     ///
     /// Loading the same folder multiple times will return the same handle. If the `file_watcher`
-    /// feature is enabled, [`LoadedFolder`] handles will reload when a file in the folder is
+    /// feature is enabled, [`LoadedBatch`] handles will reload when a file in the folder is
     /// removed, added or moved. This includes files in subdirectories and moving, adding,
     /// or removing complete subdirectories.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
