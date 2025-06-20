@@ -437,10 +437,10 @@ all_tuples!(
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
     /// The events the observer is watching.
-    events: Vec<ComponentId>,
+    events: Vec<EventKey>,
 
     /// The components the observer is watching.
-    components: Vec<ComponentId>,
+    components: Vec<EventKey>,
 
     /// The entities the observer is watching.
     entities: Vec<Entity>,
@@ -451,13 +451,13 @@ impl ObserverDescriptor {
     /// # Safety
     /// The type of each [`ComponentId`] in `events` _must_ match the actual value
     /// of the event passed into the observer.
-    pub unsafe fn with_events(mut self, events: Vec<ComponentId>) -> Self {
+    pub unsafe fn with_events(mut self, events: Vec<EventKey>) -> Self {
         self.events = events;
         self
     }
 
     /// Add the given `components` to the descriptor.
-    pub fn with_components(mut self, components: Vec<ComponentId>) -> Self {
+    pub fn with_components(mut self, components: Vec<EventKey>) -> Self {
         self.components = components;
         self
     }
@@ -469,12 +469,12 @@ impl ObserverDescriptor {
     }
 
     /// Returns the `events` that the observer is watching.
-    pub fn events(&self) -> &[ComponentId] {
+    pub fn events(&self) -> &[EventKey] {
         &self.events
     }
 
     /// Returns the `components` that the observer is watching.
-    pub fn components(&self) -> &[ComponentId] {
+    pub fn components(&self) -> &[EventKey] {
         &self.components
     }
 
@@ -595,16 +595,16 @@ pub struct Observers {
 }
 
 impl Observers {
-    pub(crate) fn get_observers_mut(&mut self, event_type: ComponentId) -> &mut CachedObservers {
+    pub(crate) fn get_observers_mut(&mut self, event_type: EventKey) -> &mut CachedObservers {
         use crate::lifecycle::*;
 
         match event_type {
             ADD => &mut self.add,
-            INSERT => &mut self.insert,
-            REPLACE => &mut self.replace,
-            REMOVE => &mut self.remove,
-            DESPAWN => &mut self.despawn,
-            _ => self.cache.entry(event_type).or_default(),
+            INSERT => &self.insert,
+            REPLACE => &self.replace,
+            REMOVE => &self.remove,
+            DESPAWN => &self.despawn,
+            _ => self.cache.get(&event_type),
         }
     }
 
@@ -612,18 +612,16 @@ impl Observers {
     ///
     /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Replace`], [`Remove`], and [`Despawn`],
     /// use the [`ComponentId`] constants from the [`lifecycle`](crate::lifecycle) module.
-    pub fn try_get_observers(&self, event_type: &EventKey) -> Option<&CachedObservers> {
+    pub fn try_get_observers(&self, event_type: EventKey) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 
-        let component_id = &event_type.component_id();
-
-        match *component_id {
+        match event_type {
             ADD => Some(&self.add),
             INSERT => Some(&self.insert),
             REPLACE => Some(&self.replace),
             REMOVE => Some(&self.remove),
             DESPAWN => Some(&self.despawn),
-            _ => self.cache.get(component_id),
+            _ => self.cache.get(&event_type),
         }
     }
 
