@@ -427,11 +427,11 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
 /// This struct should only be instantiated internally to this crate.
 ///
 /// [`EventKey`]s are created in:
-/// - [`crate::observer::trigger_dynamic_ref_with_caller`]
-/// - [`crate::observer::trigger_dynamic_ref_with_caller`]
-/// - [`crate::observer::observer_multiple_events`]
-/// - [`crate::observer::observer_dynamic_trigger`]
-/// - [`crate::observer::runner::hook_on_add`]
+/// - `crate::observer::trigger_dynamic_ref_with_caller`
+/// - `crate::observer::trigger_dynamic_ref_with_caller`
+/// - `crate::observer::observer_multiple_events`
+/// - `crate::observer::observer_dynamic_trigger`
+/// - `crate::observer::runner::hook_on_add`
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
 
