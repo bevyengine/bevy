@@ -422,11 +422,11 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
     pub event: E,
 }
 
-/// Used to identify events in observers.
-///
 ///<section class="warning">
 /// Should only be instantiated internally to this crate.
 /// </section>
+///
+/// Used in ['Event`] methods:
 #[derive(Debug, Clone)]
 pub struct EventKey {
     /// The underlying [`Event`].

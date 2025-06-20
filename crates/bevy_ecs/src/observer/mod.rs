@@ -612,16 +612,18 @@ impl Observers {
     ///
     /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Replace`], [`Remove`], and [`Despawn`],
     /// use the [`ComponentId`] constants from the [`lifecycle`](crate::lifecycle) module.
-    pub fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
+    pub fn try_get_observers(&self, event_type: &EventKey) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 
-        match event_type {
+        let component_id = &event_type.component_id();
+
+        match *component_id {
             ADD => Some(&self.add),
             INSERT => Some(&self.insert),
             REPLACE => Some(&self.replace),
             REMOVE => Some(&self.remove),
             DESPAWN => Some(&self.despawn),
-            _ => self.cache.get(&event_type),
+            _ => self.cache.get(component_id),
         }
     }
 
@@ -642,7 +644,7 @@ impl Observers {
             // SAFETY: There are no outstanding world references
             world.increment_trigger_id();
             let observers = world.observers();
-            let Some(observers) = observers.try_get_observers(event_type.component_id()) else {
+            let Some(observers) = observers.try_get_observers(&event_type) else {
                 return;
             };
             // SAFETY: The only outstanding reference to world is `observers`
