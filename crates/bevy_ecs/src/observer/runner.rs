@@ -283,7 +283,7 @@ impl Observer {
     /// # Safety
     /// The type of the `event` [`ComponentId`] _must_ match the actual value
     /// of the event passed into the observer system.
-    pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
+    pub unsafe fn with_event(mut self, event: EventKey) -> Self {
         self.descriptor.events.push(event);
         self
     }
@@ -449,7 +449,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             components.push(id);
         });
         if let Some(mut observer) = world.get_mut::<Observer>(entity) {
-            observer.descriptor.events.push(event_id);
+            observer.descriptor.events.push(EventKey(event_id));
             observer.descriptor.components.extend(components);
 
             let system: &mut dyn Any = observer.system.as_mut();

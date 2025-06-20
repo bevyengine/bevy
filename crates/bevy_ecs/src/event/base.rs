@@ -105,7 +105,7 @@ pub trait Event: Send + Sync + 'static {
     /// # Warning
     ///
     /// This method should not be overridden by implementers,
-    /// and should always correspond to the implementation of [`component_id`](Event::component_id).
+    /// and should always correspond to the implementation of [`event_key`](Event::component_id).
     fn register_component_id(world: &mut World) -> ComponentId {
         world.register_component::<EventWrapperComponent<Self>>()
     }
@@ -422,11 +422,11 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
     pub event: E,
 }
 
-///<section class="warning">
+/// # Warning
+///
 /// Should only be instantiated internally to this crate.
 /// </section>
-///
-/// Used in [`Event`] methods:
+/// This struct should only be instantiated internally to this crate.
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
 

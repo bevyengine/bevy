@@ -440,7 +440,7 @@ pub struct ObserverDescriptor {
     events: Vec<EventKey>,
 
     /// The components the observer is watching.
-    components: Vec<EventKey>,
+    components: Vec<ComponentId>,
 
     /// The entities the observer is watching.
     entities: Vec<Entity>,
@@ -457,7 +457,7 @@ impl ObserverDescriptor {
     }
 
     /// Add the given `components` to the descriptor.
-    pub fn with_components(mut self, components: Vec<EventKey>) -> Self {
+    pub fn with_components(mut self, components: Vec<ComponentId>) -> Self {
         self.components = components;
         self
     }
@@ -474,7 +474,7 @@ impl ObserverDescriptor {
     }
 
     /// Returns the `components` that the observer is watching.
-    pub fn components(&self) -> &[EventKey] {
+    pub fn components(&self) -> &[ComponentId] {
         &self.components
     }
 
@@ -591,7 +591,7 @@ pub struct Observers {
     remove: CachedObservers,
     despawn: CachedObservers,
     // Map from trigger type to set of observers listening to that trigger
-    cache: HashMap<ComponentId, CachedObservers>,
+    cache: HashMap<EventKey, CachedObservers>,
 }
 
 impl Observers {
@@ -600,11 +600,11 @@ impl Observers {
 
         match event_type {
             ADD => &mut self.add,
-            INSERT => &self.insert,
-            REPLACE => &self.replace,
-            REMOVE => &self.remove,
-            DESPAWN => &self.despawn,
-            _ => self.cache.get(&event_type),
+            INSERT => &mut self.insert,
+            REPLACE => &mut self.replace,
+            REMOVE => &mut self.remove,
+            DESPAWN => &mut self.despawn,
+            _ => self.cache.entry(event_type).or_default(),
         }
     }
 
@@ -642,7 +642,7 @@ impl Observers {
             // SAFETY: There are no outstanding world references
             world.increment_trigger_id();
             let observers = world.observers();
-            let Some(observers) = observers.try_get_observers(&event_type) else {
+            let Some(observers) = observers.try_get_observers(event_type) else {
                 return;
             };
             // SAFETY: The only outstanding reference to world is `observers`
@@ -699,7 +699,7 @@ impl Observers {
         });
     }
 
-    pub(crate) fn is_archetype_cached(event_type: ComponentId) -> Option<ArchetypeFlags> {
+    pub(crate) fn is_archetype_cached(event_type: EventKey) -> Option<ArchetypeFlags> {
         use crate::lifecycle::*;
 
         match event_type {
@@ -814,9 +814,7 @@ impl World {
         // SAFETY: `event_data` is accessible as the type represented by `event_id`
         unsafe {
             world.trigger_observers_with_data::<_, ()>(
-                EventKey {
-                    component_id: event_id,
-                },
+                EventKey(event_id),
                 None,
                 None,
                 core::iter::empty::<ComponentId>(),
@@ -928,9 +926,7 @@ impl World {
             // SAFETY: `event_data` is accessible as the type represented by `event_id`
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
-                    EventKey {
-                        component_id: event_id,
-                    },
+                    EventKey(event_id),
                     None,
                     None,
                     targets.components(),
@@ -944,9 +940,7 @@ impl World {
                 // SAFETY: `event_data` is accessible as the type represented by `event_id`
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
-                        EventKey {
-                            component_id: event_id,
-                        },
+                        EventKey(event_id),
                         Some(target_entity),
                         Some(target_entity),
                         targets.components(),
@@ -1336,7 +1330,7 @@ mod tests {
                 Observer::new(|_: On<Add, A>, mut res: ResMut<Order>| {
                     res.observed("add/remove");
                 })
-                .with_event(on_remove)
+                .with_event(EventKey(on_remove))
             },
         );
 
@@ -1610,7 +1604,7 @@ mod tests {
             Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
             })
-            .with_event(event_a)
+            .with_event(EventKey(event_a))
         };
         world.spawn(observe);
 
