@@ -1,4 +1,5 @@
 //! Module with schemas used for various BRP endpoints
+use bevy_derive::Deref;
 use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
@@ -9,6 +10,8 @@ use bevy_reflect::{
     TypeRegistration,
 };
 use core::any::TypeId;
+
+use crate::schemas::json_schema::JsonSchemaBevyType;
 
 pub mod json_schema;
 pub mod open_rpc;
@@ -21,6 +24,22 @@ pub mod reflect_info;
 pub struct SchemaTypesMetadata {
     /// Type Data id mapping to human-readable type names.
     pub type_data_map: HashMap<TypeId, String>,
+}
+
+/// Reflect-compatible custom JSON Schema for this type
+#[derive(Clone, Deref)]
+pub struct ReflectJsonSchema(pub JsonSchemaBevyType);
+
+impl From<&JsonSchemaBevyType> for ReflectJsonSchema {
+    fn from(schema: &JsonSchemaBevyType) -> Self {
+        Self(schema.clone())
+    }
+}
+
+impl From<JsonSchemaBevyType> for ReflectJsonSchema {
+    fn from(schema: JsonSchemaBevyType) -> Self {
+        Self(schema)
+    }
 }
 
 impl Default for SchemaTypesMetadata {

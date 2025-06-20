@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::schemas::{
     reflect_info::{SchemaInfoReflect, SchemaNumber},
-    SchemaTypesMetadata,
+    ReflectJsonSchema, SchemaTypesMetadata,
 };
 
 /// Helper trait for converting `TypeRegistration` to `JsonSchemaBevyType`
@@ -68,6 +68,9 @@ impl TypeRegistrySchemaReader for TypeRegistry {
 impl From<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
     fn from(value: (&TypeRegistration, &SchemaTypesMetadata)) -> Self {
         let (reg, metadata) = value;
+        if let Some(s) = reg.data::<ReflectJsonSchema>() {
+            return s.0.clone();
+        }
         let type_info = reg.type_info();
         let base_schema = type_info.build_schema();
 
@@ -83,9 +86,14 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
 /// It tries to follow this standard: <https://json-schema.org/specification>
 ///
 /// To take the full advantage from info provided by Bevy registry it provides extra fields
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, Reflect)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonSchemaBevyType {
+    /// JSON Schema specific field.
+    /// This keyword is used to reference a statically identified schema.
+    #[serde(rename = "$ref")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub ref_type: Option<String>,
     /// Bevy specific field, short path of the type.
     #[serde(skip_serializing_if = "String::is_empty", default)]
     pub short_path: String,
@@ -193,6 +201,7 @@ pub struct JsonSchemaBevyType {
     pub description: Option<String>,
     /// Default value for the schema.
     #[serde(skip_serializing_if = "Option::is_none", default, rename = "default")]
+    #[reflect(ignore)]
     pub default_value: Option<Value>,
 }
 
@@ -251,7 +260,7 @@ impl JsonSchemaVariant {
 }
 
 /// Kind of json schema, maps [`TypeInfo`] type
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, Reflect)]
 pub enum SchemaKind {
     /// Struct
     #[default]
@@ -528,6 +537,48 @@ mod tests {
         assert!(schema.one_of.len() == 3, "Should have 3 possible schemas");
     }
 
+    #[test]
+    fn reflect_export_with_custom_schema() {
+        #[derive(Reflect, Component)]
+        struct SomeType;
+
+        impl bevy_reflect::FromType<SomeType> for ReflectJsonSchema {
+            fn from_type() -> Self {
+                JsonSchemaBevyType {
+                    ref_type: Some(
+                        "https://raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json"
+                            .into(),
+                    ),
+                    description: Some("Custom type for testing purposes.".to_string()),
+                    ..Default::default()
+                }
+                .into()
+            }
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<SomeType>();
+            register.register_type_data::<SomeType, ReflectJsonSchema>();
+        }
+        let type_registry = atr.read();
+        let schema = type_registry
+            .export_type_json_schema::<SomeType>(&SchemaTypesMetadata::default())
+            .expect("Failed to export");
+        assert!(
+            !schema.reflect_types.contains(&"Component".to_owned()),
+            "Should not be a component"
+        );
+        assert!(
+            schema.ref_type.is_some_and(|t| !t.is_empty()),
+            "Should have a reference type"
+        );
+        assert!(
+            schema.description.is_some_and(|t| !t.is_empty()),
+            "Should have a description"
+        );
+    }
     #[test]
     fn reflect_export_tuple_struct() {
         #[derive(Reflect, Component, Default, Deserialize, Serialize)]

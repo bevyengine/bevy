@@ -518,6 +518,8 @@ impl Default for RemotePlugin {
 
 impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
+        app.register_type_data::<schemas::open_rpc::OpenRpcDocument, schemas::ReflectJsonSchema>();
+
         let mut remote_methods = RemoteMethods::new();
 
         let plugin_methods = &mut *self.methods.write().unwrap();

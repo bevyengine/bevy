@@ -1,15 +1,16 @@
 //! Module with trimmed down `OpenRPC` document structs.
 //! It tries to follow this standard: <https://spec.open-rpc.org>
 use bevy_platform::collections::HashMap;
+use bevy_reflect::{FromType, Reflect};
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
-use crate::RemoteMethods;
+use crate::{schemas::ReflectJsonSchema, RemoteMethods};
 
 use super::json_schema::JsonSchemaBevyType;
 
 /// Represents an `OpenRPC` document as defined by the `OpenRPC` specification.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Reflect)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenRpcDocument {
     /// The version of the `OpenRPC` specification being used.
@@ -22,8 +23,24 @@ pub struct OpenRpcDocument {
     pub servers: Option<Vec<ServerObject>>,
 }
 
+impl FromType<OpenRpcDocument> for ReflectJsonSchema {
+    fn from_type() -> Self {
+        JsonSchemaBevyType {
+            ref_type: Some(
+                "https://raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json".into(),
+            ),
+            description: Some(
+                "Represents an `OpenRPC` document as defined by the `OpenRPC` specification."
+                    .to_string(),
+            ),
+            ..default()
+        }
+        .into()
+    }
+}
+
 /// Contains metadata information about the `OpenRPC` document.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Reflect)]
 #[serde(rename_all = "camelCase")]
 pub struct InfoObject {
     /// The title of the API or document.
@@ -35,6 +52,7 @@ pub struct InfoObject {
     pub description: Option<String>,
     /// A collection of custom extension fields.
     #[serde(flatten)]
+    #[reflect(ignore)]
     pub extensions: HashMap<String, serde_json::Value>,
 }
 
@@ -50,7 +68,7 @@ impl Default for InfoObject {
 }
 
 /// Describes a server hosting the API as specified in the `OpenRPC` document.
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Reflect)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerObject {
     /// The name of the server.
@@ -62,11 +80,12 @@ pub struct ServerObject {
     pub description: Option<String>,
     /// Additional custom extension fields.
     #[serde(flatten)]
+    #[reflect(ignore)]
     pub extensions: HashMap<String, serde_json::Value>,
 }
 
 /// Represents an RPC method in the `OpenRPC` document.
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Reflect)]
 #[serde(rename_all = "camelCase")]
 pub struct MethodObject {
     /// The method name (e.g., "/bevy/get")
@@ -85,11 +104,12 @@ pub struct MethodObject {
     // pub result: Option<Parameter>,
     /// Additional custom extension fields.
     #[serde(flatten)]
+    #[reflect(ignore)]
     pub extensions: HashMap<String, serde_json::Value>,
 }
 
 /// Represents an RPC method parameter in the `OpenRPC` document.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Reflect)]
 #[serde(rename_all = "camelCase")]
 pub struct Parameter {
     /// Parameter name
@@ -101,6 +121,7 @@ pub struct Parameter {
     pub schema: JsonSchemaBevyType,
     /// Additional custom extension fields.
     #[serde(flatten)]
+    #[reflect(ignore)]
     pub extensions: HashMap<String, serde_json::Value>,
 }
 
