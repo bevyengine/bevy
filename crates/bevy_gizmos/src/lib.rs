@@ -631,8 +631,8 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewQuery>,
-        uniform_index: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        uniform_index: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -662,8 +662,8 @@ impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewQuery>,
-        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        config: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -725,8 +725,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewQuery>,
-        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        config: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

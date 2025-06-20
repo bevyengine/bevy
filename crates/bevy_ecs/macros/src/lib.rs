@@ -29,12 +29,47 @@ enum BundleFieldKind {
 
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
+const BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS: &str = "ignore_from_components";
+
+#[derive(Debug)]
+struct BundleAttributes {
+    impl_from_components: bool,
+}
+
+impl Default for BundleAttributes {
+    fn default() -> Self {
+        Self {
+            impl_from_components: true,
+        }
+    }
+}
 
 /// Implement the `Bundle` trait.
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
+
+    let mut errors = vec![];
+
+    let mut attributes = BundleAttributes::default();
+
+    for attr in &ast.attrs {
+        if attr.path().is_ident(BUNDLE_ATTRIBUTE_NAME) {
+            let parsing = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident(BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS) {
+                    attributes.impl_from_components = false;
+                    return Ok(());
+                }
+
+                Err(meta.error(format!("Invalid bundle container attribute. Allowed attributes: `{BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS}`")))
+            });
+
+            if let Err(error) = parsing {
+                errors.push(error.into_compile_error());
+            }
+        }
+    }
 
     let named_fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
         Ok(fields) => fields,
@@ -130,7 +165,28 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
+    let from_components = attributes.impl_from_components.then(|| quote! {
+        // SAFETY:
+        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
+        #[allow(deprecated)]
+        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
+            #[allow(unused_variables, non_snake_case)]
+            unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
+            where
+                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
+            {
+                Self{
+                    #(#field_from_components)*
+                }
+            }
+        }
+    });
+
+    let attribute_errors = &errors;
+
     TokenStream::from(quote! {
+        #(#attribute_errors)*
+
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
@@ -159,20 +215,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        // SAFETY:
-        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
-        #[allow(deprecated)]
-        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
-            #[allow(unused_variables, non_snake_case)]
-            unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
-            where
-                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
-            {
-                Self{
-                    #(#field_from_components)*
-                }
-            }
-        }
+        #from_components
 
         #[allow(deprecated)]
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
@@ -397,10 +440,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
                 #where_clause
             {
-                fn build(self, world: &mut #path::world::World, meta: &mut #path::system::SystemMeta) -> <#generic_struct as #path::system::SystemParam>::State {
+                fn build(self, world: &mut #path::world::World) -> <#generic_struct as #path::system::SystemParam>::State {
                     let #builder_name { #(#fields: #field_locals,)* } = self;
                     #state_struct_name {
-                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world, meta)
+                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world)
                     }
                 }
             }
@@ -429,10 +472,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 type State = #state_struct_name<#punctuated_generic_idents>;
                 type Item<'w, 's> = #struct_name #ty_generics;
 
-                fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
+                fn init_state(world: &mut #path::world::World) -> Self::State {
                     #state_struct_name {
-                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
+                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world),
                     }
+                }
+
+                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet<#path::component::ComponentId>, world: &mut #path::world::World) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, component_access_set, world);
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
@@ -526,9 +573,21 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 }
 
 /// Implement the `Event` trait.
-#[proc_macro_derive(Event, attributes(event))]
+#[proc_macro_derive(Event)]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
+}
+
+/// Implement the `EntityEvent` trait.
+#[proc_macro_derive(EntityEvent, attributes(entity_event))]
+pub fn derive_entity_event(input: TokenStream) -> TokenStream {
+    component::derive_entity_event(input)
+}
+
+/// Implement the `BufferedEvent` trait.
+#[proc_macro_derive(BufferedEvent)]
+pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
+    component::derive_buffered_event(input)
 }
 
 /// Implement the `Resource` trait.

@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::vec::Vec;
+use bevy_utils::prelude::DebugName;
 
 use super::{IntoSystem, ReadOnlySystem, System, SystemParamValidationError};
 use crate::{
@@ -101,7 +102,7 @@ where
 pub struct AdapterSystem<Func, S> {
     func: Func,
     system: S,
-    name: Cow<'static, str>,
+    name: DebugName,
 }
 
 impl<Func, S> AdapterSystem<Func, S>
@@ -110,7 +111,7 @@ where
     S: System,
 {
     /// Creates a new [`System`] that uses `func` to adapt `system`, via the [`Adapt`] trait.
-    pub const fn new(func: Func, system: S, name: Cow<'static, str>) -> Self {
+    pub const fn new(func: Func, system: S, name: DebugName) -> Self {
         Self { func, system, name }
     }
 }
@@ -123,18 +124,8 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.name.clone()
-    }
-
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(
-        &self,
-    ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
-        self.system.component_access_set()
     }
 
     #[inline]
@@ -179,12 +170,15 @@ where
         unsafe { self.system.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut crate::prelude::World) {
-        self.system.initialize(world);
+    fn initialize(
+        &mut self,
+        world: &mut crate::prelude::World,
+    ) -> crate::query::FilteredAccessSet<crate::component::ComponentId> {
+        self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, change_tick: crate::component::Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: crate::component::CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {

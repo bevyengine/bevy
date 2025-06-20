@@ -2130,6 +2130,16 @@ impl BorderColor {
         }
     }
 
+    /// Helper to set all border colors to a given color.
+    pub fn set_all(&mut self, color: impl Into<Color>) -> &mut Self {
+        let color: Color = color.into();
+        self.top = color;
+        self.bottom = color;
+        self.left = color;
+        self.right = color;
+        self
+    }
+
     /// Check if all contained border colors are transparent
     pub fn is_fully_transparent(&self) -> bool {
         self.top.is_fully_transparent()
@@ -2865,8 +2875,10 @@ impl ComputedNodeTarget {
 }
 
 /// Adds a shadow behind text
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
+///
+/// Not supported by `Text2d`
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct TextShadow {
     /// Shadow displacement in logical pixels
     /// With a value of zero the shadow will be hidden directly behind the text

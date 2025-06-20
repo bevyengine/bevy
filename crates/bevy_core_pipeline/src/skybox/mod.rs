@@ -113,7 +113,9 @@ impl ExtractComponent for Skybox {
     type QueryFilter = ();
     type Out = (Self, SkyboxUniforms);
 
-    fn extract_component((skybox, exposure): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(
+        (skybox, exposure): QueryItem<'_, '_, Self::QueryData>,
+    ) -> Option<Self::Out> {
         let exposure = exposure
             .map(Exposure::exposure)
             .unwrap_or_else(|| Exposure::default().exposure());
@@ -123,7 +125,7 @@ impl ExtractComponent for Skybox {
             SkyboxUniforms {
                 brightness: skybox.brightness * exposure,
                 transform: Transform::from_rotation(skybox.rotation)
-                    .compute_matrix()
+                    .to_matrix()
                     .inverse(),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 _wasm_padding_8b: 0,

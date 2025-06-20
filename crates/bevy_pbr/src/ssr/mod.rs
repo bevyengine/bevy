@@ -274,7 +274,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             view_environment_map_offset,
             view_bind_group,
             ssr_pipeline_id,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // Grab the render pipeline.
@@ -495,7 +495,7 @@ impl ExtractComponent for ScreenSpaceReflections {
 
     type Out = ScreenSpaceReflectionsUniform;
 
-    fn extract_component(settings: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
             once!(info!(
                 "Disabling screen-space reflections on this platform because depth textures \

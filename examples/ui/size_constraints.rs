@@ -35,7 +35,7 @@ enum Constraint {
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
 
-#[derive(Event)]
+#[derive(Event, BufferedEvent)]
 struct ButtonActivatedEvent(Entity);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -251,7 +251,7 @@ fn spawn_button(
                     } else {
                         UNHOVERED_TEXT_COLOR
                     }),
-                    TextLayout::new_with_justify(JustifyText::Center),
+                    TextLayout::new_with_justify(Justify::Center),
                 ));
         });
 }

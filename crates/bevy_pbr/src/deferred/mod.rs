@@ -449,6 +449,7 @@ pub fn prepare_deferred_lighting_pipelines(
         ),
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
+        Has<SkipDeferredLighting>,
     )>,
 ) {
     for (
@@ -461,12 +462,13 @@ pub fn prepare_deferred_lighting_pipelines(
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         has_environment_maps,
         has_irradiance_volumes,
+        skip_deferred_lighting,
     ) in &views
     {
-        // If there is no deferred prepass, remove the old pipeline if there was
-        // one. This handles the case in which a view using deferred stops using
-        // it.
-        if !deferred_prepass {
+        // If there is no deferred prepass or we want to skip the deferred lighting pass,
+        // remove the old pipeline if there was one. This handles the case in which a
+        // view using deferred stops using it.
+        if !deferred_prepass || skip_deferred_lighting {
             commands.entity(entity).remove::<DeferredLightingPipeline>();
             continue;
         }
@@ -552,3 +554,14 @@ pub fn prepare_deferred_lighting_pipelines(
             .insert(DeferredLightingPipeline { pipeline_id });
     }
 }
+
+/// Component to skip running the deferred lighting pass in [`DeferredOpaquePass3dPbrLightingNode`] for a specific view.
+///
+/// This works like [`crate::PbrPlugin::add_default_deferred_lighting_plugin`], but is per-view instead of global.
+///
+/// Useful for cases where you want to generate a gbuffer, but skip the built-in deferred lighting pass
+/// to run your own custom lighting pass instead.
+///
+/// Insert this component in the render world only.
+#[derive(Component, Clone, Copy, Default)]
+pub struct SkipDeferredLighting;

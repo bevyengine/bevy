@@ -1103,10 +1103,6 @@ fn create_pipeline_task(
     target_os = "macos",
     not(feature = "multi_threaded")
 ))]
-#[expect(
-    clippy::large_enum_variant,
-    reason = "See https://github.com/bevyengine/bevy/issues/19220"
-)]
 fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
     _sync: bool,
@@ -1200,6 +1196,10 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     capabilities.set(
         Capabilities::MULTISAMPLED_SHADING,
         downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
+    );
+    capabilities.set(
+        Capabilities::RAY_QUERY,
+        features.contains(Features::EXPERIMENTAL_RAY_QUERY),
     );
     capabilities.set(
         Capabilities::DUAL_SOURCE_BLENDING,

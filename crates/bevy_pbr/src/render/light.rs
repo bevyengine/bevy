@@ -548,7 +548,7 @@ pub struct LightViewEntities(EntityHashMap<Vec<Entity>>);
 
 // TODO: using required component
 pub(crate) fn add_light_view_entities(
-    trigger: Trigger<OnAdd, (ExtractedDirectionalLight, ExtractedPointLight)>,
+    trigger: On<Add, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
     if let Ok(mut v) = commands.get_entity(trigger.target()) {
@@ -558,7 +558,7 @@ pub(crate) fn add_light_view_entities(
 
 /// Removes [`LightViewEntities`] when light is removed. See [`add_light_view_entities`].
 pub(crate) fn extracted_light_removed(
-    trigger: Trigger<OnRemove, (ExtractedDirectionalLight, ExtractedPointLight)>,
+    trigger: On<Remove, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
     if let Ok(mut v) = commands.get_entity(trigger.target()) {
@@ -567,7 +567,7 @@ pub(crate) fn extracted_light_removed(
 }
 
 pub(crate) fn remove_light_view_entities(
-    trigger: Trigger<OnRemove, LightViewEntities>,
+    trigger: On<Remove, LightViewEntities>,
     query: Query<&LightViewEntities>,
     mut commands: Commands,
 ) {

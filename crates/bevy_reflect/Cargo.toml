@@ -114,7 +114,7 @@ wgpu-types = { version = "25", features = [
 ], optional = true, default-features = false }
 
 [dev-dependencies]
-ron = "0.8.0"
+ron = "0.10"
 rmp-serde = "1.1"
 bincode = { version = "2.0", features = ["serde"] }
 serde_json = "1.0.140"

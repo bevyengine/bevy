@@ -169,7 +169,9 @@ pub enum TypeInfoError {
     /// [kind]: ReflectKind
     #[error("kind mismatch: expected {expected:?}, received {received:?}")]
     KindMismatch {
+        /// Expected kind.
         expected: ReflectKind,
+        /// Received kind.
         received: ReflectKind,
     },
 }
@@ -183,7 +185,7 @@ pub enum TypeInfoError {
 /// 3. [`PartialReflect::get_represented_type_info`]
 /// 4. [`TypeRegistry::get_type_info`]
 ///
-/// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
+/// Each returns a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
 /// the simplest. If you have a `dyn Reflect` you can use [`DynamicTyped::reflect_type_info`].
 /// If all you have is a `dyn PartialReflect`, you'll probably want [`PartialReflect::get_represented_type_info`].
@@ -199,14 +201,40 @@ pub enum TypeInfoError {
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
+    /// Type information for a [struct-like] type.
+    ///
+    /// [struct-like]: crate::Struct
     Struct(StructInfo),
+    /// Type information for a [tuple-struct-like] type.
+    ///
+    /// [tuple-struct-like]: crate::TupleStruct
     TupleStruct(TupleStructInfo),
+    /// Type information for a [tuple-like] type.
+    ///
+    /// [tuple-like]: crate::Tuple
     Tuple(TupleInfo),
+    /// Type information for a [list-like] type.
+    ///
+    /// [list-like]: crate::List
     List(ListInfo),
+    /// Type information for an [array-like] type.
+    ///
+    /// [array-like]: crate::Array
     Array(ArrayInfo),
+    /// Type information for a [map-like] type.
+    ///
+    /// [map-like]: crate::Map
     Map(MapInfo),
+    /// Type information for a [set-like] type.
+    ///
+    /// [set-like]: crate::Set
     Set(SetInfo),
+    /// Type information for an [enum-like] type.
+    ///
+    /// [enum-like]: crate::Enum
     Enum(EnumInfo),
+    /// Type information for an opaque type - see the [`OpaqueInfo`] docs for
+    /// a discussion of opaque types.
     Opaque(OpaqueInfo),
 }
 
@@ -557,6 +585,7 @@ pub struct OpaqueInfo {
 }
 
 impl OpaqueInfo {
+    /// Creates a new [`OpaqueInfo`].
     pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
