@@ -25,7 +25,7 @@ use serde_json::{Map, Value};
 use crate::{
     error_codes,
     schemas::{
-        json_schema::{export_type, JsonSchemaBevyType},
+        json_schema::{JsonSchemaBevyType, TypeRegistrySchemaReader},
         open_rpc::OpenRpcDocument,
     },
     BrpError, BrpResult,
@@ -1245,7 +1245,8 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     return None;
                 }
             }
-            let (id, schema) = export_type(type_reg, extra_info);
+            let id = type_reg.type_id();
+            let schema = types.export_type_json_schema_for_id(id, extra_info)?;
 
             if !filter.type_limit.with.is_empty()
                 && !filter
@@ -1265,7 +1266,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
             {
                 return None;
             }
-            Some((id.to_string(), schema))
+            Some((type_reg.type_info().type_path().into(), schema))
         })
         .collect::<HashMap<String, JsonSchemaBevyType>>();
 
