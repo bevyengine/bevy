@@ -7,7 +7,8 @@
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
 //! An upscaled sprite from each of the four atlases are rendered to the screen.
 
-use bevy::{asset::LoadedFolder, image::ImageSampler, prelude::*};
+use bevy::{image::ImageSampler, prelude::*};
+use bevy_asset::{LoadBatchRequest, LoadedBatch};
 
 fn main() {
     App::new()
@@ -27,17 +28,19 @@ enum AppState {
 }
 
 #[derive(Resource, Default)]
-struct RpgSpriteFolder(Handle<LoadedFolder>);
+struct RpgSpriteFolder(Handle<LoadedBatch>);
 
 fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load multiple, individual sprites from a folder
-    commands.insert_resource(RpgSpriteFolder(asset_server.load_folder("textures/rpg")));
+    commands.insert_resource(RpgSpriteFolder(asset_server.load_batch(
+        LoadBatchRequest::new(vec!["textures/rpg/**/*", "textures/rpg/chars/**/*"]),
+    )));
 }
 
 fn check_textures(
     mut next_state: ResMut<NextState<AppState>>,
     rpg_sprite_folder: Res<RpgSpriteFolder>,
-    mut events: EventReader<AssetEvent<LoadedFolder>>,
+    mut events: EventReader<AssetEvent<LoadedBatch>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
     for event in events.read() {
@@ -52,7 +55,7 @@ fn setup(
     rpg_sprite_handles: Res<RpgSpriteFolder>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    loaded_folders: Res<Assets<LoadedFolder>>,
+    loaded_folders: Res<Assets<LoadedBatch>>,
     mut textures: ResMut<Assets<Image>>,
 ) {
     let loaded_folder = loaded_folders.get(&rpg_sprite_handles.0).unwrap();
@@ -215,7 +218,7 @@ fn setup(
 /// Create a texture atlas with the given padding and sampling settings
 /// from the individual sprites in the given folder.
 fn create_texture_atlas(
-    folder: &LoadedFolder,
+    folder: &LoadedBatch,
     padding: Option<UVec2>,
     sampling: Option<ImageSampler>,
     textures: &mut ResMut<Assets<Image>>,

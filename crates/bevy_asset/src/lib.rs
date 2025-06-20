@@ -174,9 +174,9 @@ pub mod prelude {
 
 mod asset_changed;
 mod assets;
+mod batch;
 mod direct_access_ext;
 mod event;
-mod folder;
 mod handle;
 mod id;
 mod loader;
@@ -187,10 +187,10 @@ mod render_asset;
 mod server;
 
 pub use assets::*;
+pub use batch::*;
 pub use bevy_asset_macros::Asset;
 pub use direct_access_ext::DirectAssetAccessExt;
 pub use event::*;
-pub use folder::*;
 pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
@@ -410,7 +410,7 @@ impl Plugin for AssetPlugin {
             }
         }
         app.insert_resource(embedded)
-            .init_asset::<LoadedFolder>()
+            .init_asset::<LoadedBatch>()
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
@@ -668,7 +668,7 @@ pub type AssetEvents = AssetEventSystems;
 #[cfg(test)]
 mod tests {
     use crate::{
-        folder::LoadedFolder,
+        batch::LoadedBatch,
         handle::Handle,
         io::{
             gated::{GateOpener, GatedReader},
@@ -677,7 +677,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
+        AssetPlugin, AssetServer, Assets, LoadBatchRequest, LoadState, UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -1618,21 +1618,22 @@ mod tests {
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle: Handle<LoadedFolder> = asset_server.load_folder("text");
+        let handle: Handle<LoadedBatch> =
+            asset_server.load_batch(LoadBatchRequest::new(vec!["text"]));
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);
 
         let mut reader = EventCursor::default();
         run_app_until(&mut app, |world| {
-            let events = world.resource::<Events<AssetEvent<LoadedFolder>>>();
+            let events = world.resource::<Events<AssetEvent<LoadedBatch>>>();
             let asset_server = world.resource::<AssetServer>();
-            let loaded_folders = world.resource::<Assets<LoadedFolder>>();
+            let loaded_batchs = world.resource::<Assets<LoadedBatch>>();
             let cool_texts = world.resource::<Assets<CoolText>>();
             for event in reader.read(events) {
                 if let AssetEvent::LoadedWithDependencies { id } = event {
                     if *id == handle.id() {
-                        let loaded_folder = loaded_folders.get(&handle).unwrap();
+                        let loaded_batch = loaded_batchs.get(&handle).unwrap();
                         let a_handle: Handle<CoolText> =
                             asset_server.get_handle("text/a.cool.ron").unwrap();
                         let c_handle: Handle<CoolText> =
@@ -1640,7 +1641,7 @@ mod tests {
 
                         let mut found_a = false;
                         let mut found_c = false;
-                        for asset_handle in &loaded_folder.handles {
+                        for asset_handle in &loaded_batch.handles {
                             if asset_handle.id() == a_handle.id().untyped() {
                                 found_a = true;
                             } else if asset_handle.id() == c_handle.id().untyped() {
@@ -1649,7 +1650,7 @@ mod tests {
                         }
                         assert!(found_a);
                         assert!(found_c);
-                        assert_eq!(loaded_folder.handles.len(), 2);
+                        assert_eq!(loaded_batch.handles.len(), 2);
 
                         let a_text = cool_texts.get(&a_handle).unwrap();
                         let b_text = cool_texts.get(&a_text.dependencies[0]).unwrap();

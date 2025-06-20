@@ -1782,17 +1782,6 @@ category = "Assets"
 wasm = false
 
 [[example]]
-name = "folder_filter"
-path = "examples/asset/folder_filter.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.folder_filter]
-name = "Folder Filter"
-description = "Load Folder With Filter"
-category = "Assets"
-wasm = false
-
-[[example]]
 name = "asset_settings"
 path = "examples/asset/asset_settings.rs"
 doc-scrape-examples = true
