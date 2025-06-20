@@ -1,5 +1,7 @@
 use core::ops::Range;
 
+use crate::render::light::GpuLights2D;
+use crate::render::light::GpuPointLight2D;
 use crate::{Anchor, ComputedTextureSlices, ScalingMode, Sprite};
 use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -43,10 +45,13 @@ use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
+pub mod light;
+
 #[derive(Resource)]
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
+    pub point_light_layout: BindGroupLayout,
     shader: Handle<Shader>,
     pub dummy_white_gpu_image: GpuImage,
 }
@@ -89,6 +94,15 @@ impl FromWorld for SpritePipeline {
                 ),
             ),
         );
+
+        let point_light_layout = render_device.create_bind_group_layout(
+            "point_light_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (uniform_buffer::<[GpuPointLight2D; 16]>(false),),
+            ),
+        );
+
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
@@ -124,6 +138,7 @@ impl FromWorld for SpritePipeline {
         SpritePipeline {
             view_layout,
             material_layout,
+            point_light_layout,
             dummy_white_gpu_image,
             shader: load_embedded_asset!(world, "sprite.wgsl"),
         }
@@ -284,7 +299,11 @@ impl SpecializedRenderPipeline for SpritePipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: vec![self.view_layout.clone(), self.material_layout.clone()],
+            layout: vec![
+                self.view_layout.clone(),
+                self.material_layout.clone(),
+                self.point_light_layout.clone(),
+            ],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -897,9 +916,27 @@ pub type DrawSprite = (
     SetItemPipeline,
     SetSpriteViewBindGroup<0>,
     SetSpriteTextureBindGroup<1>,
+    SetPointLightBindGroup<2>,
     DrawSpriteBatch,
 );
 
+pub struct SetPointLightBindGroup<const I: usize>;
+impl<const I: usize> RenderCommand<Transparent2d> for SetPointLightBindGroup<I> {
+    type Param = SRes<GpuLights2D>;
+    type ViewQuery = &'static ViewUniformOffset;
+    type ItemQuery = ();
+
+    fn render<'w>(
+        _item: &Transparent2d,
+        _view: &ViewUniformOffset,
+        _item_query: Option<()>,
+        lights_resource: Res<'w, GpuLights2D>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(I, &lights_resource.into_inner().bind_group, &[]);
+        RenderCommandResult::Success
+    }
+}
 pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
     type Param = ();
