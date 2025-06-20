@@ -1375,7 +1375,7 @@ required-features = ["meshlet"]
 name = "Meshlet"
 description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
-# Requires compute shaders, which are not supported by WebGL.
+# Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
 wasm = false
 setup = [
   [
