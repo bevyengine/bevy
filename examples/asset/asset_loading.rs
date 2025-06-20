@@ -1,6 +1,9 @@
 //! This example illustrates various ways to load assets.
 
-use bevy::{asset::LoadedFolder, prelude::*};
+use bevy::{
+    asset::{LoadBatchRequest, LoadedBatch},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -52,7 +55,8 @@ fn setup(
     // to load.
     // If you want to keep the assets in the folder alive, make sure you store the returned handle
     // somewhere.
-    let _loaded_folder: Handle<LoadedFolder> = asset_server.load_folder("models/torus");
+    let _loaded_folder =
+        asset_server.load_batch(LoadBatchRequest::new(vec!["models/torus/torus.gltf"]));
 
     // If you want a handle to a specific asset in a loaded folder, the easiest way to get one is to call load.
     // It will _not_ be loaded a second time.
