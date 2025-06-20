@@ -1913,6 +1913,7 @@ pub fn specialize_shadows(
                 let erased_key = ErasedMaterialPipelineKey {
                     mesh_key,
                     material_key: material.properties.material_key.clone(),
+                    type_id: material_instance.asset_id.type_id(),
                 };
                 let material_pipeline_specializer = PrepassPipelineSpecializer {
                     pipeline: prepass_pipeline.clone(),

@@ -980,6 +980,7 @@ pub fn specialize_prepass_material_meshes(
             let erased_key = ErasedMaterialPipelineKey {
                 mesh_key,
                 material_key: material.properties.material_key.clone(),
+                type_id: material_instance.asset_id.type_id(),
             };
             let prepass_pipeline_specializer = PrepassPipelineSpecializer {
                 pipeline: prepass_pipeline.clone(),

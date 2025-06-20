@@ -451,6 +451,7 @@ pub struct MaterialPipelineKey<M: Material> {
 pub struct ErasedMaterialPipelineKey {
     pub mesh_key: MeshPipelineKey,
     pub material_key: SmallVec<[u8; 8]>,
+    pub type_id: TypeId,
 }
 
 /// Render pipeline data for a given [`Material`].
@@ -1017,6 +1018,7 @@ pub fn specialize_material_meshes(
             }
 
             let erased_key = ErasedMaterialPipelineKey {
+                type_id: material_instance.asset_id.type_id(),
                 mesh_key,
                 material_key: material.properties.material_key.clone(),
             };
