@@ -40,7 +40,7 @@ impl InheritableFont {
 }
 
 /// An observer which looks for changes to the `InheritableFont` component on an entity, and
-/// propagates downward the text color to all participating text entities.
+/// propagates downward the font to all participating text entities.
 pub(crate) fn on_changed_font(
     ev: On<Insert, InheritableFont>,
     font_style: Query<&InheritableFont>,
