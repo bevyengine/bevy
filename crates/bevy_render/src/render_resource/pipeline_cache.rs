@@ -1233,6 +1233,5 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         Capabilities::TEXTURE_INT64_ATOMIC,
         features.contains(Features::TEXTURE_INT64_ATOMIC),
     );
-
     capabilities
 }
