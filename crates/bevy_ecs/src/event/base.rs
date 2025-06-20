@@ -421,3 +421,10 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
     pub event_id: EventId<E>,
     pub event: E,
 }
+
+/// Used to identify events in observers.
+#[derive(Debug)]
+pub struct EventKey {
+    /// The underlying [`Event`].
+    component_id: ComponentId,
+}

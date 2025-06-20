@@ -493,6 +493,7 @@ pub struct ObserverTrigger {
     pub observer: Entity,
     /// The [`Event`] the trigger targeted.
     pub event_type: ComponentId,
+    // pub event_type: EventKey,
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
     /// The entity that the entity-event targeted, if any.
