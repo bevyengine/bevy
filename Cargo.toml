@@ -1028,13 +1028,13 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "custom_material_implementation"
-path = "examples/3d/custom_material_implementation.rs"
+name = "manual_material"
+path = "examples/3d/manual_material.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.custom_material_implementation]
-name = "Custom Material Implementation"
-description = "Demonstrates how to implement a custom material"
+[package.metadata.example.manual_material]
+name = "Manual Material Implementation"
+description = "Demonstrates how to implement a material manually using the mid-level render APIs"
 category = "3D Rendering"
 wasm = true
 
