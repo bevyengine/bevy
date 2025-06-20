@@ -429,7 +429,9 @@ impl EntityCloner {
     /// This builder tries to clone every component that was explicitly allowed from the source entity,
     /// for example by using the [`allow`](EntityClonerBuilder<OptIn>::allow) method.
     ///
-    /// Required components are also cloned when the target entity does not contain them.
+    /// Components allowed to be cloned through this builder would also allow their required components,
+    /// which will be cloned from the source entity only if the target entity does not contain them already.
+    /// To skip adding required components see [`without_required_components`](EntityClonerBuilder<OptIn>::without_required_components).
     pub fn build_opt_in(world: &mut World) -> EntityClonerBuilder<OptIn> {
         EntityClonerBuilder {
             world,
