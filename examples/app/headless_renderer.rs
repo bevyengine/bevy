@@ -23,7 +23,7 @@ use bevy::{
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
-            TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
+            PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -31,7 +31,6 @@ use bevy::{
     },
     winit::WinitPlugin,
 };
-use bevy_render::render_resource::PollType;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     ops::{Deref, DerefMut},

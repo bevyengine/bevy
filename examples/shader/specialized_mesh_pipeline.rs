@@ -12,7 +12,7 @@ use bevy::{
     math::{vec3, vec4},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
-        SetMeshBindGroup, SetMeshViewBindGroup,
+        SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
     },
     prelude::*,
     render::{
@@ -42,7 +42,6 @@ use bevy::{
         Render, RenderApp, RenderSystems,
     },
 };
-use bevy_internal::pbr::SetMeshViewEmptyBindGroup;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
