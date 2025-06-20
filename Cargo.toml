@@ -947,7 +947,7 @@ doc-scrape-examples = true
 name = "Anti-aliasing"
 description = "Compares different anti-aliasing methods"
 category = "3D Rendering"
-# Not supported by WebGL
+# TAA not supported by WebGL
 wasm = false
 
 [[example]]
@@ -1249,8 +1249,7 @@ doc-scrape-examples = true
 name = "Skybox"
 description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats."
 category = "3D Rendering"
-# Not supported by WebGL
-wasm = false
+wasm = true
 
 [[example]]
 name = "spherical_area_lights"
