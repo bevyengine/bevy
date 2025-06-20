@@ -423,6 +423,10 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
 }
 
 /// Used to identify events in observers.
+///
+///<section class="warning">
+/// Should only be instantiated internally to this crate.
+/// </section>
 #[derive(Debug, Clone)]
 pub struct EventKey {
     /// The underlying [`Event`].
@@ -430,7 +434,8 @@ pub struct EventKey {
 }
 
 impl EventKey {
-    pub fn component_id(&self) -> ComponentId {
+    /// Get the id of the underlying [`Event`].
+    pub(crate) fn component_id(&self) -> ComponentId {
         self.component_id
     }
 }
