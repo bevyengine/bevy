@@ -10,6 +10,7 @@ use crate::{
 };
 
 use alloc::{borrow::Cow, vec, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -42,7 +43,7 @@ where
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
     pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
-        self.system_meta.set_name(new_name.into());
+        self.system_meta.set_name(new_name);
         self
     }
 }
@@ -83,7 +84,7 @@ where
     type Out = F::Out;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system_meta.name.clone()
     }
 
@@ -181,7 +182,7 @@ where
         check_system_change_tick(
             &mut self.system_meta.last_run,
             check,
-            self.system_meta.name.as_ref(),
+            self.system_meta.name.clone(),
         );
     }
 

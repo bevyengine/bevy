@@ -144,10 +144,11 @@ where
 
 /// A [`Command`] that runs the given system,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-pub fn run_system_cached<M, S>(system: S) -> impl Command<Result>
+pub fn run_system_cached<O, M, S>(system: S) -> impl Command<Result>
 where
+    O: 'static,
     M: 'static,
-    S: IntoSystem<(), (), M> + Send + 'static,
+    S: IntoSystem<(), O, M> + Send + 'static,
 {
     move |world: &mut World| -> Result {
         world.run_system_cached(system)?;
@@ -157,11 +158,15 @@ where
 
 /// A [`Command`] that runs the given system with the given input value,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command<Result>
+pub fn run_system_cached_with<I, O, M, S>(
+    system: S,
+    input: I::Inner<'static>,
+) -> impl Command<Result>
 where
     I: SystemInput<Inner<'static>: Send> + Send + 'static,
+    O: 'static,
     M: 'static,
-    S: IntoSystem<I, (), M> + Send + 'static,
+    S: IntoSystem<I, O, M> + Send + 'static,
 {
     move |world: &mut World| -> Result {
         world.run_system_cached_with(system, input)?;
@@ -175,7 +180,7 @@ where
 pub fn unregister_system<I, O>(system_id: SystemId<I, O>) -> impl Command<Result>
 where
     I: SystemInput + Send + 'static,
-    O: Send + 'static,
+    O: 'static,
 {
     move |world: &mut World| -> Result {
         world.unregister_system(system_id)?;
