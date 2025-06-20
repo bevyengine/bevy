@@ -17,7 +17,7 @@ struct LineGizmoUniform {
 #endif
 }
 
-@group(2) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
+@group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
 
 struct VertexInput {
     @location(0) position_a: vec3<f32>,
