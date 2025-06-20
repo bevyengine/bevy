@@ -6,7 +6,7 @@ pull_requests: [19350, 19433, 19451]
 In 0.16, entities could have zero or more components.
 In 0.17, a new state for an entity is introduced: null/not constructed.
 Entities can now be constructed and destructed within their spawned life cycle.
-This opens up a lot of room for performance improvement, but caused a lot of breaking changes:
+This opens up a lot of room for performance improvement but also caused a lot of breaking changes:
 
 ### `Entities` rework
 
@@ -14,7 +14,7 @@ A lot has changed here.
 First, `alloc`, `free`, `reserve`, `reserve_entity`, `reserve_entities`, `flush`, `flush_as_invalid`, `total_count`, `used_count`, and `total_prospective_count` have all been removed.
 Allocation and freeing have been made private, but there are new ways to accomplish this.
 Reservation and flushing have been completely removed as they are no longer needed.
-Instead of reserving an entity and later flushing it, you can `World::spawn_null` (which does not need mutable access), and `World::construct` can be used to "flush" it.
+Instead of reserving an entity and later flushing it, you can `World::spawn_null` (which does not need mutable access), and `World::construct` can be used to "flush" the null entity.
 The counting methods have been reworked in the absence of flushing:
 `len` and `is_empty` now deal with how many entity rows have been allocated (not necessarily the number that have been constructed/spawned),
 and the new `count_constructed` and `any_constructed` are similar to the old `len` and `is_empty` behavior.
