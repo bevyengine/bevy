@@ -180,12 +180,6 @@ pub async fn initialize_renderer(
             features.remove(wgpu::Features::MAPPABLE_PRIMARY_BUFFERS);
         }
 
-        // RAY_QUERY and RAY_TRACING_ACCELERATION STRUCTURE will sometimes cause DeviceLost failures on platforms
-        // that report them as supported:
-        // <https://github.com/gfx-rs/wgpu/issues/5488>
-        features.remove(wgpu::Features::EXPERIMENTAL_RAY_QUERY);
-        features.remove(wgpu::Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE);
-
         limits = adapter.limits();
     }
 
