@@ -1,3 +1,5 @@
+//! TODO
+
 #[cfg(feature = "embedded_watcher")]
 mod embedded_watcher;
 
@@ -139,6 +141,7 @@ impl EmbeddedAssetRegistry {
 ///
 /// [`load_embedded_asset!`]: crate::load_embedded_asset
 pub trait GetAssetServer {
+    /// TODO
     fn get_asset_server(&self) -> &AssetServer;
 }
 impl GetAssetServer for App {
