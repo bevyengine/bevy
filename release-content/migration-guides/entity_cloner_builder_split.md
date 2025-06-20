@@ -44,7 +44,7 @@ The methods of the two builder types are different to 0.16 and to each other now
 - No longer offers `allow` methods, you need to be exact with denying components.
 - Offers now the `insert_mode` method to configure if components are cloned if they already exist at the target.
 - Required components of denied components are no longer considered. Denying `A`, which requires `B`, does not imply `B` alone would not be useful at the target. So if you do not want to clone `B` too, you need to deny it explicitly. This also means there is no `without_required_components` method anymore as that would be redundant.
-- It is now the other way around: Denying `A`, which is required *by* `C`, will now also deny `C`. This can be bypassed with the new `without_required_by_components` method.
+- It is now the other way around: Denying `A`, which is required _by_ `C`, will now also deny `C`. This can be bypassed with the new `without_required_by_components` method.
 
 ## Opt-In variant
 

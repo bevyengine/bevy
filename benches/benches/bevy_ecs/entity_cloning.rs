@@ -228,7 +228,7 @@ impl From<FilterScenario> for String {
             FilterScenario::OptOutNone => "opt_out_none",
             FilterScenario::OptOutNoneKeep(true) => "opt_out_none_keep_none",
             FilterScenario::OptOutNoneKeep(false) => "opt_out_none_keep_all",
-            FilterScenario::OptOutAll => "opt_out_none",
+            FilterScenario::OptOutAll => "opt_out_all",
             FilterScenario::OptInNone => "opt_in_none",
             FilterScenario::OptInAll => "opt_in_all",
             FilterScenario::OptInAllWithoutRequired => "opt_in_all_without_required",
