@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use bevy_ecs::{
     change_detection::{DetectChangesMut, MutUntyped},
     component::{ComponentId, Tick},
-    event::{BufferedEvent, EventKey, Events},
+    event::{BufferedEvent, Events},
     resource::Resource,
     world::World,
 };
