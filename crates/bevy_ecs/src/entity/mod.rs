@@ -1,34 +1,140 @@
-//! Entity handling types.
+//! This module contains all entity types and utilities for interacting with their ids.
 //!
-//! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
-//! See [`Entity`] to learn more.
+//! # What is an Entity?
 //!
-//! [component]: crate::component::Component
+//! An entity is a thing that exists in a [`World`].
+//! Entities have zero or more [`Component`]s, which are just data associated with the entity.
+//! Entities serve the same purpose as things like game objects from Unity or nodes from Godot:
+//! They can be created, have their data accessed and changed, and are eventually deleted.
+//! In bevy, an entity can represent anything from a player character to the game's window itself (and everything in-between!)
+//! However, unlike other engines, entities are not represented as large class objects.
+//! This makes bevy much faster in principal, but it also leads to some perhaps unintuitive differences that need to be considered.
 //!
-//! # Usage
+//! Because entities are not traditional, object-oriented, garbage collected, class instances, more effort is needed to interact with them.
+//! The biggest difference is that the [`Entity`] type does *not* represent a conceptual entity.
+//! In other words, an entity's data, its components, are not stored within the [`Entity`] type.
+//! Instead, the [`Entity`] acts as an id, and it's components are stored separate from its id in the [`World`].
+//! In fact, one way to think about entities and their data is to imagine each world as a list of entity ids
+//! and a hashmap for each component which maps [`Entity`] values to component values if the entity has that component.
+//! Of course, the [`World`] is really quite different from this and much more efficient, but thinking about it this way will be helpful to understand how entities work.
+//! Put another way, the world can be thought of as a big spreadsheet, where each component type has a column and each entity has a row.
+//! In order to get an entity's components, bevy finds the values by looking up the [`Entity`]'s [`EntityRow`] and the [`Component`](crate::component::Component)'s [`ComponentId`](crate::component::ComponentId).
+//! Interacting with an entity can be done through three main interfaces:
+//! Use the [`World`] with methods like [`World::entity`](crate::world::World::entity) for complete and immediate access to an entity and its components.
+//! Use [`Query`]s for very fast access to component values.
+//! Use [`Commands`] with methods like [`Commands::entity`](crate::system::Commands::entity) for delayed but unrestricted access to entities.
 //!
-//! Operations involving entities and their components are performed either from a system by submitting commands,
-//! or from the outside (or from an exclusive system) by directly using [`World`] methods:
+//! In short:
 //!
-//! |Operation|Command|Method|
-//! |:---:|:---:|:---:|
-//! |Spawn an entity with components|[`Commands::spawn`]|[`World::spawn`]|
-//! |Spawn an entity without components|[`Commands::spawn_empty`]|[`World::spawn_empty`]|
-//! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
-//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityWorldMut::insert`]|
-//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityWorldMut::remove`]|
+//! - An entity is a thing in the world, similar to game objects from Unity or nodes from Godot.
+//! - Entities can represent anything! (players, items, and the app window itself)
+//! - Entities have data attached to them called [`Component`]s. (health on the player, damage on the item, and resolution on the window)
+//! - The [`Entity`] type is an id for its entity; it is not the entity itself and does not store component data directly.
+//! - To access an entity's data, use [`World`], [`Query`], or [`Commands`] apis.
+//!
+//! # Entity Life Cycle
+//!
+//! Entities have life cycles.
+//! They are created, used for a while, and eventually destroyed.
+//! Let's start from the top:
+//!
+//! **Spawn:** An entity is crated.
+//! In bevy, this is called spawning.
+//! Most commonly, this is done through [`World::spawn`](crate::world::World::spawn) or [`Commands::spawn`](crate::system::Commands::spawn).
+//! This creates a fresh entity in the world and returns its [`Entity`] id, which can be used to interact with the entity.
+//! These methods initialize the entity with a [`Bundle`], which is a group of [components](crate::component::Component) that it starts with.
+//! It is also possible to use [`World::spawn_empty`](crate::world::World::spawn_empty) or [`Commands::spawn_empty`](crate::system::Commands::spawn_empty), which are similar but do not add any components to the entity.
+//! In either case, the returned [`Entity`] id is used to further interact with the entity.
+//! Once an entity is created, you will need its [`Entity`] id to progress the entity through its life cycle.
+//! This can be done through [`World::entity_mut`](crate::world::World::entity_mut) and [`Commands::entity`](crate::system::Commands::entity).
+//! Even if you don't store the id, you can still find the entity you spawned by searching for it in a [`Query`].
+//!
+//! **Insert:** Once an entity has been created, additional [`Bundle`]s can be inserted onto the entity.
+//! There are lots of ways to do this and lots of ways to configure what to do when a component in the bundle is already present on the entity.
+//! Each entity can only have 0 or 1 values for a component.
+//! See [`EntityWorldMut::insert`](crate::world::EntityWorldMut::insert) and [`EntityCommands::insert`](crate::system::EntityCommands::insert) for a start on how to do this.
+//!
+//! **Remove:** Components on an entity can be removed as well.
+//! See [`EntityWorldMut::remove`](crate::world::EntityWorldMut::remove) and [`EntityCommands::remove`](crate::system::EntityCommands::remove) for a start on how to do this.
+//!
+//! **Despawn:** Despawn an entity when it is no longer needed.
+//! This destroys it and all its components.
+//! The entity is no longer reachable through the [`World`], [`Commands`], or [`Query`]s.
+//! Note that this means an [`Entity`] id may refer to an entity that has since been despawned!
+//! Not all [`Entity`] ids refer to active entities.
+//! If an [`Entity`] id is used when its entity no longer exists, an [`EntityDoesNotExistError`] is emitted.
+//! Any [`System`](crate::system) could despawn entities; even if you never share an entity's id, it could still be despawned unexpectedly.
+//! Handle these errors gracefully.
+//!
+//! In short:
+//!
+//! - Entities are spawned through methods like [`World::spawn`](crate::world::World::spawn), which return an [`Entity`] id for the new entity.
+//! - Once spawned, they can be accessed and modified through [`Query`]s and other apis.
+//! - You can get the [`Entity`] id of an entity through [`Query`]s, so loosing an [`Entity`] id is not a problem.
+//! - Entities can have components inserted and removed via [`World::entity_mut`](crate::world::World::entity_mut) and [`Commands::entity`](crate::system::Commands::entity).
+//! - Entities are eventually despawned, destroying the entity and causing its [`Entity`] id to no longer refer to an entity.
+//! - Not all [`Entity`] ids point to actual entities, which makes many entity methods fallible.
+//!
+//! # Entity Ids
+//!
+//! As mentioned entities each have an [`Entity`] id, which is used to interact with that entity.
+//! But what actually is this id?
+//! This [`Entity`] id is the combination of two ideas: [`EntityRow`] and [`EntityGeneration`].
+//!
+//! An [`EntityRow`] always references exactly 1 entity in the [`World`]; they are always valid.
+//! This differs from [`Entity`] which references 0 or 1 entities, depending on if the entity it refers to still exists.
+//! Each [`EntityRow`] refers to an entity, and each entity has an [`EntityRow`].
+//! The rows are represented with 32 bits, so there are always over 4 billion entities in the world.
+//! However, not all these entities are usable or stored in memory.
+//! To understand why, let's look at the states an entity row can be in:
+//!
+//! Each [`EntityRow`] has a [`EntityIdLocation`] which defines that row/entity's state.
+//! The [`EntityIdLocation`] is an `Option` of [`EntityLocation`].
+//! If this is `Some`, the row is considered constructed, otherwise it is considered destructed.
+//! Only constructed entities, entities with `Some` [`EntityLocation`], participate in the [`World`].
+//! The [`EntityLocation`] further describes which components an entity has and where to find them.
+//! That means each entity row can be in three states: 1) It has some components, 2) It has no components *empty*, 3) It has no location *null*.
+//! Only non-null entities are discoverable through [`Query`]s, etc.
+//!
+//! Rows can be repeatedly constructed and destructed.
+//! Each construction and destruction corresponds to a [`EntityGeneration`].
+//! The first time a row is constructed, it has a generation of 0, and when it is destructed, it gets a generation of 1.
+//! This differentiates each construction of that [`EntityRow`].
+//! All an [`Entity`] id is is a [`EntityRow`] (which entity it is) and a [`EntityGeneration`] (which version of that row it references).
+//! When an [`Entity`] id is invalid, it just means that that generation of its row has been destructed.
+//!
+//! As mentioned, once an [`EntityRow`] is destructed, it is not discoverable until it is constructed again.
+//! To prevent these rows from being forgotten, bevy tracks them in an [`EntitiesAllocator`].
+//! When a new entity is spawned, all bevy does is allocate a new [`Entity`] id from the allocator and [`World::construct`](crate::world::World::construct) it.
+//! When it is despawned, all bevy does is [`World::destruct`](crate::world::World::destruct) it and return the [`Entity`] id (with the next [`EntityGeneration`] for that [`EntityRow`]) to the allocator.
+//! It's that simple.
+//!
+//! Bevy exposes this functionality as well.
+//! Spawning an entity requires full access to the [`World`], but using [`World::spawn_null`](crate::world::World::spawn_null) can be done fully concurrently.
+//! Of course, to make that entity usable, it will need to be passed to [`World::construct`](crate::world::World::construct).
+//! Managing entity ids manually is advanced but can be very useful for concurrency, custom entity allocators, etc.
+//! But there are risks when used improperly:
+//! Loosing a destructed entity row without returning it to bevy's allocator will cause that row to be unreachable, effectively a memory leak.
+//! Further, constructing an arbitrary [`EntityRow`] can cause problems if that same row is queued for reuse in the allocator.
+//! Use this powerfully but with caution.
+//!
+//! Lots of information about the state of an [`EntityRow`] can be obtained through [`Entities`].
+//! For example, this can be used to get the most recent [`Entity`] of an [`EntityRow`] in [`Entities::resolve_from_row`].
+//! See its docs for more.
+//!
+//! In short:
+//!
+//! - An [`Entity`] id is just a [`EntityRow`] and a [`EntityGeneration`] of that row.
+//! - [`EntityRow`]s can be constructed and destructed repeatedly, where each construction gets its own [`EntityGeneration`].
+//! - Bevy exposes this functionality through [`World::spawn_null`](crate::world::World::spawn_null), [`World::construct`](crate::world::World::construct), and [`World::destruct`](crate::world::World::destruct).
+//! - While understanding these details help build an intuition for how bevy handles entities, using these apis directly is risky but powerful.
+//! - Lots of id information can be obtained from [`Entities`].
 //!
 //! [`World`]: crate::world::World
-//! [`Commands::spawn`]: crate::system::Commands::spawn
-//! [`Commands::spawn_empty`]: crate::system::Commands::spawn_empty
-//! [`EntityCommands::despawn`]: crate::system::EntityCommands::despawn
-//! [`EntityCommands::insert`]: crate::system::EntityCommands::insert
-//! [`EntityCommands::remove`]: crate::system::EntityCommands::remove
-//! [`World::spawn`]: crate::world::World::spawn
-//! [`World::spawn_empty`]: crate::world::World::spawn_empty
-//! [`World::despawn`]: crate::world::World::despawn
-//! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
-//! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
+//! [`Query`]: crate::system::Query
+//! [`Bundle`]: crate::bundle::Bundle
+//! [`Component`]: crate::component::Component
+//! [`Commands`]: crate::system::Commands
 
 mod clone_entities;
 mod entity_set;
