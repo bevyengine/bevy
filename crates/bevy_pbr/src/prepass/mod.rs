@@ -7,8 +7,7 @@ use crate::{
     DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey,
     MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
     RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
-    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, SetMeshViewEmptyBindGroup, ShadowView,
-    StandardMaterial,
+    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -1312,10 +1311,30 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     }
 }
 
+pub struct SetPrepassViewEmptyBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewEmptyBindGroup<I> {
+    type Param = SRes<PrepassViewBindGroup>;
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: (),
+        _entity: Option<()>,
+        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let prepass_view_bind_group = prepass_view_bind_group.into_inner();
+        pass.set_bind_group(I, &prepass_view_bind_group.empty_bind_group, &[]);
+        RenderCommandResult::Success
+    }
+}
+
 pub type DrawPrepass<M> = (
     SetItemPipeline,
     SetPrepassViewBindGroup<0>,
-    SetMeshViewEmptyBindGroup<1>,
+    SetPrepassViewEmptyBindGroup<1>,
     SetMeshBindGroup<2>,
     SetMaterialBindGroup<M, 3>,
     DrawMesh,
