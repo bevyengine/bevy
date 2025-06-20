@@ -151,6 +151,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// let mut world = World::new();
 /// let err = world.run_system_cached(|param: MyParam| {}).unwrap_err();
 /// let expected = "Parameter `MyParam::foo` failed validation: Custom Message";
+/// # #[cfg(feature="Trace")] // Without debug_utils/debug enabled MyParam::foo is stripped and breaks the assert
 /// assert!(err.to_string().contains(expected));
 /// ```
 ///
