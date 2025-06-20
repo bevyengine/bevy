@@ -159,9 +159,7 @@ impl<'w> DeferredWorld<'w> {
             );
             if archetype.has_replace_observer() {
                 self.trigger_observers(
-                    EventKey {
-                        component_id: REPLACE,
-                    },
+                    REPLACE,
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
@@ -201,9 +199,7 @@ impl<'w> DeferredWorld<'w> {
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(
-                    EventKey {
-                        component_id: INSERT,
-                    },
+                    INSERT,
                     Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),

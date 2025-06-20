@@ -13,7 +13,7 @@ use crate::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation,
     },
-    event::{EntityEvent, EventKey},
+    event::EntityEvent,
     lifecycle::{DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
@@ -2374,9 +2374,7 @@ impl<'w> EntityWorldMut<'w> {
         unsafe {
             if archetype.has_despawn_observer() {
                 deferred_world.trigger_observers(
-                    EventKey {
-                        component_id: DESPAWN,
-                    },
+                    DESPAWN,
                     Some(self.entity),
                     archetype.components(),
                     caller,
@@ -2390,9 +2388,7 @@ impl<'w> EntityWorldMut<'w> {
             );
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(
-                    EventKey {
-                        component_id: REPLACE,
-                    },
+                    REPLACE,
                     Some(self.entity),
                     archetype.components(),
                     caller,
@@ -2407,9 +2403,7 @@ impl<'w> EntityWorldMut<'w> {
             );
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
-                    EventKey {
-                        component_id: REMOVE,
-                    },
+                    REMOVE,
                     Some(self.entity),
                     archetype.components(),
                     caller,

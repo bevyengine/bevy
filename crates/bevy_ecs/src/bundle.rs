@@ -68,7 +68,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     lifecycle::{ADD, INSERT, REMOVE, REPLACE},
     observer::Observers,
-    prelude::{EventKey, World},
+    prelude::World,
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
@@ -1190,9 +1190,7 @@ impl<'w> BundleInserter<'w> {
             if insert_mode == InsertMode::Replace {
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
-                        EventKey {
-                            component_id: REPLACE,
-                        },
+                        REPLACE,
                         Some(entity),
                         archetype_after_insert.iter_existing(),
                         caller,
@@ -1377,7 +1375,7 @@ impl<'w> BundleInserter<'w> {
             );
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    EventKey { component_id: ADD },
+                    ADD,
                     Some(entity),
                     archetype_after_insert.iter_added(),
                     caller,
@@ -1395,9 +1393,7 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            EventKey {
-                                component_id: INSERT,
-                            },
+                            INSERT,
                             Some(entity),
                             archetype_after_insert.iter_inserted(),
                             caller,
@@ -1416,9 +1412,7 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            EventKey {
-                                component_id: INSERT,
-                            },
+                            INSERT,
                             Some(entity),
                             archetype_after_insert.iter_added(),
                             caller,
@@ -1572,9 +1566,7 @@ impl<'w> BundleRemover<'w> {
             };
             if self.old_archetype.as_ref().has_replace_observer() {
                 deferred_world.trigger_observers(
-                    EventKey {
-                        component_id: REPLACE,
-                    },
+                    REPLACE,
                     Some(entity),
                     bundle_components_in_archetype(),
                     caller,
@@ -1589,9 +1581,7 @@ impl<'w> BundleRemover<'w> {
             );
             if self.old_archetype.as_ref().has_remove_observer() {
                 deferred_world.trigger_observers(
-                    EventKey {
-                        component_id: REMOVE,
-                    },
+                    REMOVE,
                     Some(entity),
                     bundle_components_in_archetype(),
                     caller,
@@ -1842,7 +1832,7 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    EventKey { component_id: ADD },
+                    ADD,
                     Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
@@ -1857,9 +1847,7 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
-                    EventKey {
-                        component_id: INSERT,
-                    },
+                    INSERT,
                     Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
