@@ -656,7 +656,7 @@ impl Observers {
                 world.reborrow(),
                 ObserverTrigger {
                     observer,
-                    event_type: event_type.clone(),
+                    event_type,
                     components: components.clone().collect(),
                     current_target,
                     original_target,
