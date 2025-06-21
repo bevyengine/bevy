@@ -1,8 +1,9 @@
-use alloc::{borrow::Cow, format, vec::Vec};
+use alloc::{format, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -55,7 +56,7 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///     IntoSystem::into_system(resource_equals(A(1))),
 ///     IntoSystem::into_system(resource_equals(B(1))),
 ///     // The name of the combined system.
-///     std::borrow::Cow::Borrowed("a ^ b"),
+///     "a ^ b".into(),
 /// )));
 /// # fn my_system(mut flag: ResMut<RanFlag>) { flag.0 = true; }
 /// #
@@ -112,21 +113,19 @@ pub struct CombinatorSystem<Func, A, B> {
     _marker: PhantomData<fn() -> Func>,
     a: A,
     b: B,
-    name: Cow<'static, str>,
-    component_access_set: FilteredAccessSet<ComponentId>,
+    name: DebugName,
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
     /// Creates a new system that combines two inner systems.
     ///
     /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
-    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+    pub fn new(a: A, b: B, name: DebugName) -> Self {
         Self {
             _marker: PhantomData,
             a,
             b,
             name,
-            component_access_set: FilteredAccessSet::default(),
         }
     }
 }
@@ -140,12 +139,8 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.name.clone()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.component_access_set
     }
 
     #[inline]
@@ -199,18 +194,16 @@ where
         unsafe { self.a.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.a.initialize(world);
-        self.b.initialize(world);
-        self.component_access_set
-            .extend(self.a.component_access_set().clone());
-        self.component_access_set
-            .extend(self.b.component_access_set().clone());
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        let mut a_access = self.a.initialize(world);
+        let b_access = self.b.initialize(world);
+        a_access.extend(b_access);
+        a_access
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.a.check_change_tick(change_tick);
-        self.b.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.a.check_change_tick(check);
+        self.b.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
@@ -279,7 +272,7 @@ where
         let system_a = IntoSystem::into_system(this.a);
         let system_b = IntoSystem::into_system(this.b);
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
-        PipeSystem::new(system_a, system_b, Cow::Owned(name))
+        PipeSystem::new(system_a, system_b, DebugName::owned(name))
     }
 }
 
@@ -325,8 +318,7 @@ where
 pub struct PipeSystem<A, B> {
     a: A,
     b: B,
-    name: Cow<'static, str>,
-    component_access_set: FilteredAccessSet<ComponentId>,
+    name: DebugName,
 }
 
 impl<A, B> PipeSystem<A, B>
@@ -336,13 +328,8 @@ where
     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
     /// Creates a new system that pipes two inner systems.
-    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
-        Self {
-            a,
-            b,
-            name,
-            component_access_set: FilteredAccessSet::default(),
-        }
+    pub fn new(a: A, b: B, name: DebugName) -> Self {
+        Self { a, b, name }
     }
 }
 
@@ -355,12 +342,8 @@ where
     type In = A::In;
     type Out = B::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.name.clone()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.component_access_set
     }
 
     #[inline]
@@ -417,18 +400,16 @@ where
         Ok(())
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.a.initialize(world);
-        self.b.initialize(world);
-        self.component_access_set
-            .extend(self.a.component_access_set().clone());
-        self.component_access_set
-            .extend(self.b.component_access_set().clone());
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        let mut a_access = self.a.initialize(world);
+        let b_access = self.b.initialize(world);
+        a_access.extend(b_access);
+        a_access
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.a.check_change_tick(change_tick);
-        self.b.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.a.check_change_tick(check);
+        self.b.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {

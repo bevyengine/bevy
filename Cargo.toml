@@ -72,7 +72,6 @@ allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
-mismatched_lifetime_syntaxes = "allow"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
@@ -165,6 +164,7 @@ default = [
   "vorbis",
   "webgl2",
   "x11",
+  "debug",
 ]
 
 # Recommended defaults for no_std applications
@@ -246,6 +246,15 @@ bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
+
+# Provides raytraced lighting (experimental)
+bevy_solari = [
+  "bevy_internal/bevy_solari",
+  "bevy_asset",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_render",
+]
 
 # Provides sprite functionality
 bevy_sprite = [
@@ -498,7 +507,10 @@ file_watcher = ["bevy_internal/file_watcher"]
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
 # Enable stepping-based debugging of Bevy systems
-bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
+bevy_debug_stepping = [
+  "bevy_internal/bevy_debug_stepping",
+  "bevy_internal/debug",
+]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
@@ -542,6 +554,9 @@ web = ["bevy_internal/web"]
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
 
+# Enable collecting debug information about systems and components to help with diagnostics
+debug = ["bevy_internal/debug"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
@@ -553,7 +568,7 @@ bevy_dylib = { path = "crates/bevy_dylib", version = "0.16.0-dev", default-featu
 [dev-dependencies]
 rand = "0.8.0"
 rand_chacha = "0.3.1"
-ron = "0.8.0"
+ron = "0.10"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
@@ -592,7 +607,7 @@ web-sys = { version = "0.3", features = ["Window"] }
 
 [[example]]
 name = "context_menu"
-path = "examples/usages/context_menu.rs"
+path = "examples/usage/context_menu.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.context_menu]
@@ -1258,6 +1273,18 @@ doc-scrape-examples = true
 [package.metadata.example.skybox]
 name = "Skybox"
 description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats."
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "solari"
+path = "examples/3d/solari.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari"]
+
+[package.metadata.example.solari]
+name = "Solari"
+description = "Demonstrates realtime dynamic global illumination rendering using Bevy Solari."
 category = "3D Rendering"
 wasm = false
 
@@ -2077,6 +2104,7 @@ wasm = false
 name = "dynamic"
 path = "examples/ecs/dynamic.rs"
 doc-scrape-examples = true
+required-features = ["debug"]
 
 [package.metadata.example.dynamic]
 name = "Dynamic ECS"

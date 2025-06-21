@@ -347,7 +347,7 @@ impl ViewNode for VolumetricFogNode {
             view_ssr_offset,
             msaa,
             view_environment_map_offset,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -700,7 +700,7 @@ pub fn prepare_volumetric_fog_uniforms(
     // Do this up front to avoid O(n^2) matrix inversion.
     local_from_world_matrices.clear();
     for (_, _, fog_transform) in fog_volumes.iter() {
-        local_from_world_matrices.push(fog_transform.compute_matrix().inverse());
+        local_from_world_matrices.push(fog_transform.to_matrix().inverse());
     }
 
     let uniform_count = view_targets.iter().len() * local_from_world_matrices.len();
@@ -712,7 +712,7 @@ pub fn prepare_volumetric_fog_uniforms(
     };
 
     for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
-        let world_from_view = extracted_view.world_from_view.compute_matrix();
+        let world_from_view = extracted_view.world_from_view.to_matrix();
 
         let mut view_fog_volumes = vec![];
 

@@ -95,7 +95,7 @@ jobs:
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
-        run: cargo miri test -p bevy_ecs
+        run: cargo miri test -p bevy_ecs --features bevy_utils/debug
         env:
           # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
           RUSTFLAGS: -Zrandomize-layout
@@ -247,7 +247,7 @@ jobs:
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
-          RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory -D warnings"
+          RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory"
 
   markdownlint:
     runs-on: ubuntu-latest

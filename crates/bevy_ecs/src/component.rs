@@ -24,7 +24,7 @@ use bevy_platform::{
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{prelude::DebugName, TypeIdMap};
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -34,7 +34,6 @@ use core::{
     mem::needs_drop,
     ops::{Deref, DerefMut},
 };
-use disqualified::ShortName;
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -598,7 +597,7 @@ mod private {
 /// `&mut ...`, created while inserted onto an entity.
 /// In all other ways, they are identical to mutable components.
 /// This restriction allows hooks to observe all changes made to an immutable
-/// component, effectively turning the `OnInsert` and `OnReplace` hooks into a
+/// component, effectively turning the `Insert` and `Replace` hooks into a
 /// `OnMutate` hook.
 /// This is not practical for mutable components, as the runtime cost of invoking
 /// a hook for every exclusive reference created would be far too high.
@@ -678,8 +677,8 @@ impl ComponentInfo {
 
     /// Returns the name of the current component.
     #[inline]
-    pub fn name(&self) -> &str {
-        &self.descriptor.name
+    pub fn name(&self) -> DebugName {
+        self.descriptor.name.clone()
     }
 
     /// Returns `true` if the current component is mutable.
@@ -836,7 +835,7 @@ impl SparseSetIndex for ComponentId {
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
 pub struct ComponentDescriptor {
-    name: Cow<'static, str>,
+    name: DebugName,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
     // associated rust component type if one exists.
     storage_type: StorageType,
@@ -882,7 +881,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
-            name: Cow::Borrowed(core::any::type_name::<T>()),
+            name: DebugName::type_name::<T>(),
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
@@ -907,7 +906,7 @@ impl ComponentDescriptor {
         clone_behavior: ComponentCloneBehavior,
     ) -> Self {
         Self {
-            name: name.into(),
+            name: name.into().into(),
             storage_type,
             is_send_and_sync: true,
             type_id: None,
@@ -923,7 +922,7 @@ impl ComponentDescriptor {
     /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
-            name: Cow::Borrowed(core::any::type_name::<T>()),
+            name: DebugName::type_name::<T>(),
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
@@ -938,7 +937,7 @@ impl ComponentDescriptor {
 
     fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            name: Cow::Borrowed(core::any::type_name::<T>()),
+            name: DebugName::type_name::<T>(),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
@@ -964,8 +963,8 @@ impl ComponentDescriptor {
 
     /// Returns the name of the current component.
     #[inline]
-    pub fn name(&self) -> &str {
-        self.name.as_ref()
+    pub fn name(&self) -> DebugName {
+        self.name.clone()
     }
 
     /// Returns whether this component is mutable.
@@ -1854,13 +1853,10 @@ impl Components {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, str>> {
+    pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<DebugName> {
         self.components
             .get(id.0)
-            .and_then(|info| {
-                info.as_ref()
-                    .map(|info| Cow::Borrowed(info.descriptor.name()))
-            })
+            .and_then(|info| info.as_ref().map(|info| info.descriptor.name()))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -2381,12 +2377,12 @@ impl Tick {
     ///
     /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
     #[inline]
-    pub fn check_tick(&mut self, tick: Tick) -> bool {
-        let age = tick.relative_to(*self);
+    pub fn check_tick(&mut self, check: CheckChangeTicks) -> bool {
+        let age = check.present_tick().relative_to(*self);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
         if age.get() > Self::MAX.get() {
-            *self = tick.relative_to(Self::MAX);
+            *self = check.present_tick().relative_to(Self::MAX);
             true
         } else {
             false
@@ -2415,16 +2411,16 @@ impl Tick {
 /// struct CustomSchedule(Schedule);
 ///
 /// # let mut world = World::new();
-/// world.add_observer(|tick: Trigger<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
-///     schedule.0.check_change_ticks(tick.get());
+/// world.add_observer(|check: On<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
+///     schedule.0.check_change_ticks(*check);
 /// });
 /// ```
 #[derive(Debug, Clone, Copy, Event)]
 pub struct CheckChangeTicks(pub(crate) Tick);
 
 impl CheckChangeTicks {
-    /// Get the `Tick` that can be used as the parameter of [`Tick::check_tick`].
-    pub fn get(self) -> Tick {
+    /// Get the present `Tick` that other ticks get compared to.
+    pub fn present_tick(self) -> Tick {
         self.0
     }
 }
@@ -2813,13 +2809,13 @@ pub fn enforce_no_required_components_recursion(
                 "Recursive required components detected: {}\nhelp: {}",
                 recursion_check_stack
                     .iter()
-                    .map(|id| format!("{}", ShortName(&components.get_name(*id).unwrap())))
+                    .map(|id| format!("{}", components.get_name(*id).unwrap().shortname()))
                     .collect::<Vec<_>>()
                     .join(" → "),
                 if direct_recursion {
                     format!(
                         "Remove require({}).",
-                        ShortName(&components.get_name(requiree).unwrap())
+                        components.get_name(requiree).unwrap().shortname()
                     )
                 } else {
                     "If this is intentional, consider merging the components.".into()

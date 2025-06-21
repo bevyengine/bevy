@@ -30,7 +30,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
-    observer::Trigger,
+    observer::On,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
@@ -337,7 +337,7 @@ fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<Prima
 ///
 /// Any [`TabNavigationError`]s that occur during tab navigation are logged as warnings.
 pub fn handle_tab_navigation(
-    mut trigger: Trigger<FocusedInput<KeyboardInput>>,
+    mut trigger: On<FocusedInput<KeyboardInput>>,
     nav: TabNavigation,
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,

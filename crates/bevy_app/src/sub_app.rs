@@ -338,7 +338,7 @@ impl SubApp {
     /// See [`App::add_event`].
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Event,
+        T: BufferedEvent,
     {
         if !self.world.contains_resource::<Events<T>>() {
             EventRegistry::register_event::<T>(self.world_mut());

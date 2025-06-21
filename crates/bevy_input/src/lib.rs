@@ -49,7 +49,7 @@ use bevy_ecs::prelude::*;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use gestures::*;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardFocusLost, KeyboardInput};
+use keyboard::{keyboard_input_system, Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use mouse::{
     accumulate_mouse_motion_system, accumulate_mouse_scroll_system, mouse_button_input_system,
     AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseButtonInput, MouseMotion,
@@ -89,6 +89,7 @@ impl Plugin for InputPlugin {
             .add_event::<KeyboardInput>()
             .add_event::<KeyboardFocusLost>()
             .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<Key>>()
             .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystems))
             // mouse
             .add_event::<MouseButtonInput>()

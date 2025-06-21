@@ -16,7 +16,7 @@ use crate::{
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
     ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
@@ -79,6 +79,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_kind = Vec::with_capacity(named_fields.len());
 
     for field in named_fields {
+        let mut kind = BundleFieldKind::Component;
+
         for attr in field
             .attrs
             .iter()
@@ -86,7 +88,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         {
             if let Err(error) = attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
-                    field_kind.push(BundleFieldKind::Ignore);
+                    kind = BundleFieldKind::Ignore;
                     Ok(())
                 } else {
                     Err(meta.error(format!(
@@ -98,7 +100,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        field_kind.push(BundleFieldKind::Component);
+        field_kind.push(kind);
     }
 
     let field = named_fields
@@ -111,82 +113,33 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
-    let mut field_component_ids = Vec::new();
-    let mut field_get_component_ids = Vec::new();
-    let mut field_get_components = Vec::new();
-    let mut field_from_components = Vec::new();
-    let mut field_required_components = Vec::new();
+    let mut active_field_types = Vec::new();
+    let mut active_field_tokens = Vec::new();
+    let mut inactive_field_tokens = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
         .iter()
         .enumerate()
         .zip(field_kind.iter())
         .zip(field.iter())
     {
+        let field_tokens = match field {
+            Some(field) => field.to_token_stream(),
+            None => Index::from(i).to_token_stream(),
+        };
         match field_kind {
             BundleFieldKind::Component => {
-                field_component_ids.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, &mut *ids);
-                });
-                field_required_components.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);
-                });
-                field_get_component_ids.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
-                });
-                match field {
-                    Some(field) => {
-                        field_get_components.push(quote! {
-                            self.#field.get_components(&mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                    }
-                    None => {
-                        let index = Index::from(i);
-                        field_get_components.push(quote! {
-                            self.#index.get_components(&mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                    }
-                }
+                active_field_types.push(field_type);
+                active_field_tokens.push(field_tokens);
             }
 
-            BundleFieldKind::Ignore => {
-                field_from_components.push(quote! {
-                    #field: ::core::default::Default::default(),
-                });
-            }
+            BundleFieldKind::Ignore => inactive_field_tokens.push(field_tokens),
         }
     }
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
-    let from_components = attributes.impl_from_components.then(|| quote! {
-        // SAFETY:
-        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
-        #[allow(deprecated)]
-        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
-            #[allow(unused_variables, non_snake_case)]
-            unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
-            where
-                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
-            {
-                Self{
-                    #(#field_from_components)*
-                }
-            }
-        }
-    });
-
-    let attribute_errors = &errors;
-
-    TokenStream::from(quote! {
-        #(#attribute_errors)*
-
+    let bundle_impl = quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
@@ -196,27 +149,27 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
-            ){
-                #(#field_component_ids)*
+            ) {
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components, ids);)*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
                 ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
-            ){
-                #(#field_get_component_ids)*
+            ) {
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);)*
             }
 
             fn register_required_components(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #ecs_path::component::RequiredComponents
-            ){
-                #(#field_required_components)*
+            ) {
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);)*
             }
         }
+    };
 
-        #from_components
-
+    let dynamic_bundle_impl = quote! {
         #[allow(deprecated)]
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
@@ -226,9 +179,36 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 self,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                #(#field_get_components)*
+                #(<#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(self.#active_field_tokens, &mut *func);)*
             }
         }
+    };
+
+    let from_components_impl = attributes.impl_from_components.then(|| quote! {
+        // SAFETY:
+        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
+        #[allow(deprecated)]
+        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
+            #[allow(unused_variables, non_snake_case)]
+            unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
+            where
+                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
+            {
+                Self {
+                    #(#active_field_tokens: <#active_field_types as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),)*
+                    #(#inactive_field_tokens: ::core::default::Default::default(),)*
+                }
+            }
+        }
+    });
+
+    let attribute_errors = &errors;
+
+    TokenStream::from(quote! {
+        #(#attribute_errors)*
+        #bundle_impl
+        #from_components_impl
+        #dynamic_bundle_impl
     })
 }
 
@@ -440,10 +420,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
                 #where_clause
             {
-                fn build(self, world: &mut #path::world::World, meta: &mut #path::system::SystemMeta) -> <#generic_struct as #path::system::SystemParam>::State {
+                fn build(self, world: &mut #path::world::World) -> <#generic_struct as #path::system::SystemParam>::State {
                     let #builder_name { #(#fields: #field_locals,)* } = self;
                     #state_struct_name {
-                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world, meta)
+                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world)
                     }
                 }
             }
@@ -472,10 +452,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 type State = #state_struct_name<#punctuated_generic_idents>;
                 type Item<'w, 's> = #struct_name #ty_generics;
 
-                fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
+                fn init_state(world: &mut #path::world::World) -> Self::State {
                     #state_struct_name {
-                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
+                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world),
                     }
+                }
+
+                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet<#path::component::ComponentId>, world: &mut #path::world::World) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, component_access_set, world);
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
@@ -569,9 +553,21 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 }
 
 /// Implement the `Event` trait.
-#[proc_macro_derive(Event, attributes(event))]
+#[proc_macro_derive(Event)]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
+}
+
+/// Implement the `EntityEvent` trait.
+#[proc_macro_derive(EntityEvent, attributes(entity_event))]
+pub fn derive_entity_event(input: TokenStream) -> TokenStream {
+    component::derive_entity_event(input)
+}
+
+/// Implement the `BufferedEvent` trait.
+#[proc_macro_derive(BufferedEvent)]
+pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
+    component::derive_buffered_event(input)
 }
 
 /// Implement the `Resource` trait.

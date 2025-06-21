@@ -43,12 +43,14 @@ cfg::parallel! {
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    pub use crate::debug_info::DebugName;
     pub use crate::default;
 }
 
 #[cfg(feature = "wgpu_wrapper")]
 mod wgpu_wrapper;
 
+mod debug_info;
 mod default;
 mod once;
 

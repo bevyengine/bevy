@@ -52,9 +52,9 @@ fn setup(mut commands: Commands) {
 //
 // - **auto_propagate:**
 // We can also choose whether or not this event will propagate by default when triggered. If this is
-// false, it will only propagate following a call to `Trigger::propagate(true)`.
-#[derive(Clone, Component, Event)]
-#[event(traversal = &'static ChildOf, auto_propagate)]
+// false, it will only propagate following a call to `On::propagate(true)`.
+#[derive(Clone, Component, Event, EntityEvent)]
+#[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct Attack {
     damage: u16,
 }
@@ -77,15 +77,15 @@ fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
     }
 }
 
-fn attack_hits(trigger: Trigger<Attack>, name: Query<&Name>) {
-    if let Ok(name) = name.get(trigger.target().unwrap()) {
+fn attack_hits(trigger: On<Attack>, name: Query<&Name>) {
+    if let Ok(name) = name.get(trigger.target()) {
         info!("Attack hit {}", name);
     }
 }
 
 /// A callback placed on [`Armor`], checking if it absorbed all the [`Attack`] damage.
-fn block_attack(mut trigger: Trigger<Attack>, armor: Query<(&Armor, &Name)>) {
-    let (armor, name) = armor.get(trigger.target().unwrap()).unwrap();
+fn block_attack(mut trigger: On<Attack>, armor: Query<(&Armor, &Name)>) {
+    let (armor, name) = armor.get(trigger.target()).unwrap();
     let attack = trigger.event_mut();
     let damage = attack.damage.saturating_sub(**armor);
     if damage > 0 {
@@ -104,20 +104,20 @@ fn block_attack(mut trigger: Trigger<Attack>, armor: Query<(&Armor, &Name)>) {
 /// A callback on the armor wearer, triggered when a piece of armor is not able to block an attack,
 /// or the wearer is attacked directly.
 fn take_damage(
-    trigger: Trigger<Attack>,
+    trigger: On<Attack>,
     mut hp: Query<(&mut HitPoints, &Name)>,
     mut commands: Commands,
     mut app_exit: EventWriter<AppExit>,
 ) {
     let attack = trigger.event();
-    let (mut hp, name) = hp.get_mut(trigger.target().unwrap()).unwrap();
+    let (mut hp, name) = hp.get_mut(trigger.target()).unwrap();
     **hp = hp.saturating_sub(attack.damage);
 
     if **hp > 0 {
         info!("{} has {:.1} HP", name, hp.0);
     } else {
         warn!("💀 {} has died a gruesome death", name);
-        commands.entity(trigger.target().unwrap()).despawn();
+        commands.entity(trigger.target()).despawn();
         app_exit.write(AppExit::Success);
     }
 
