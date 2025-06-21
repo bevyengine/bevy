@@ -2395,7 +2395,7 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// This destructs this entity if it is currently constructed, storing the new [`EntityGeneration`] in [`Self::entity`].
+    /// This destructs this entity if it is currently constructed, storing the new [`EntityGeneration`](crate::entity::EntityGeneration) in [`Self::entity`].
     pub(crate) fn destruct_with_caller(&mut self, caller: MaybeLocation) {
         // setup
         let Some(location) = self.location else {
