@@ -1619,7 +1619,7 @@ mod tests {
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<LoadedBatch> =
-            asset_server.load_batch(LoadBatchRequest::new(vec!["text/*","b.cool.ron"]));
+            asset_server.load_batch(LoadBatchRequest::new(vec!["text/*", "b.cool.ron"]));
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);
