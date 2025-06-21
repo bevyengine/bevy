@@ -41,7 +41,8 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         extra_info: &SchemaTypesMetadata,
     ) -> Option<JsonSchemaBevyType> {
         let type_reg = self.get(type_id)?;
-        let mut schema: JsonSchemaBevyType = (type_reg, extra_info).into();
+        let mut schema: JsonSchemaBevyType = (type_reg, extra_info).try_into().ok()?;
+        schema.schema = Some(SchemaMarker::default());
         schema.default_value = self.try_get_default_value_for_type_id(type_id);
 
         Some(schema)
@@ -65,20 +66,32 @@ impl TypeRegistrySchemaReader for TypeRegistry {
     }
 }
 
-impl From<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
-    fn from(value: (&TypeRegistration, &SchemaTypesMetadata)) -> Self {
+impl TryFrom<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
+    type Error = ();
+
+    fn try_from(value: (&TypeRegistration, &SchemaTypesMetadata)) -> Result<Self, Self::Error> {
         let (reg, metadata) = value;
         if let Some(s) = reg.data::<ReflectJsonSchema>() {
-            return s.0.clone();
+            return Ok(s.0.clone());
         }
         let type_info = reg.type_info();
         let base_schema = type_info.build_schema();
 
         let JsonSchemaVariant::Schema(mut typed_schema) = base_schema else {
-            return JsonSchemaBevyType::default();
+            return Err(());
         };
         typed_schema.reflect_types = metadata.get_registered_reflect_types(reg);
-        *typed_schema
+        Ok(*typed_schema)
+    }
+}
+
+/// Identifies the JSON Schema version used in the schema.
+#[derive(Deserialize, Serialize, Debug, Reflect, PartialEq, Clone)]
+pub struct SchemaMarker(String);
+
+impl Default for SchemaMarker {
+    fn default() -> Self {
+        Self("https://json-schema.org/draft/2020-12/schema".to_string())
     }
 }
 
@@ -89,6 +102,10 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, Reflect)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonSchemaBevyType {
+    /// Identifies the JSON Schema version used in the schema.
+    #[serde(rename = "$schema")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub schema: Option<SchemaMarker>,
     /// JSON Schema specific field.
     /// This keyword is used to reference a statically identified schema.
     #[serde(rename = "$ref")]
@@ -612,6 +629,7 @@ mod tests {
         eprintln!("{:#?}", &schema_as_value);
         let value = json!({
           "shortPath": "Foo",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "typePath": "bevy_remote::schemas::json_schema::tests::Foo",
           "modulePath": "bevy_remote::schemas::json_schema::tests",
           "crateName": "bevy_remote",
