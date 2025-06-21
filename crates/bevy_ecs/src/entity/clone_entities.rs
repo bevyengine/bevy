@@ -1055,7 +1055,9 @@ pub struct OptOut {
     /// Determines if a component is inserted when it is existing already.
     insert_mode: InsertMode,
 
-    /// todo
+    /// Is `true` unless during [`EntityClonerBuilder::without_required_by_components`] which will suppress
+    /// components that require denied components to be denied as well, causing them to be created independent
+    /// from the value at the source entity if needed.
     attach_required_by_components: bool,
 }
 
