@@ -86,7 +86,7 @@ fn main() {
         // Update Ui background's alpha
         .add_systems(OnEnter(GameState::SelectionMenu), darker_ui_background)
         .add_systems(OnExit(GameState::SelectionMenu), lighten_ui_background)
-        .add_systems(Update, (update_ui_backgroud, update_image_node_alpha));
+        .add_systems(Update, (update_ui_background, update_image_node_alpha));
 
     // For visuals
     app.add_systems(Startup, setup_world);
@@ -174,7 +174,7 @@ enum ItemCategory {
     Cheese,
 }
 
-/// Ui backgroud marker
+/// Ui background marker
 #[derive(Debug, Component)]
 #[require(BackgroundColor = BackgroundColor(Color::BLACK.with_alpha(0.)))]
 pub struct UiBackground;
@@ -240,7 +240,7 @@ mod single {
 
     use crate::{GameState, Inventory, ItemId, PresentingItem, QuickSlotUi, SelectionMenu};
 
-    /// Side lenght of nodes containing images
+    /// Side length of nodes containing images
     const NODE_SIDES: f32 = 64. * 2.;
     /// Gap between items on the scrollable list
     const SCROLL_ITEM_GAP: f32 = 4.;
@@ -687,7 +687,7 @@ type UpdateAlphaQuery<'w, 's, T> = Query<
 >;
 
 /// Updates the alpha of a [`BackgroundColor`]
-fn update_ui_backgroud(
+fn update_ui_background(
     mut commands: Commands,
     mut updating_ui_backgrounds: UpdateAlphaQuery<BackgroundColor>,
     time: Res<Time>,
@@ -727,7 +727,7 @@ where
     let decay = (target_alpha - old_alpha) * ops::powf(1. - DECAY_FACTOR, period);
     let new_alpha = target_alpha - decay;
     if (new_alpha - target_alpha).abs() < 1e-2 {
-        bevy::log::debug!("Removing TargetUiBackgroungAlpha");
+        bevy::log::debug!("Removing TargetUiBackgroundAlpha");
         alpha.set_alpha(target_alpha);
         true
     } else {
@@ -832,7 +832,7 @@ fn fill_inventory(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ItemCategory::Ingredient,
                 ),
                 item_maker(
-                    "Brocolli",
+                    "Broccoli",
                     &image,
                     &layout_handle,
                     19,
