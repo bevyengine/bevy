@@ -42,8 +42,7 @@ use bevy::{
     time::Time,
     transform::components::Transform,
     ui::{
-        widget::ImageNode, BackgroundColor, Display, FlexDirection, Node, PositionType, UiRect,
-        Val, ZIndex,
+        widget::ImageNode, BackgroundColor, FlexDirection, Node, PositionType, UiRect, Val, ZIndex,
     },
     DefaultPlugins,
 };
@@ -105,6 +104,7 @@ enum GameState {
 enum SelectionMenu {
     #[default]
     Single,
+    #[expect(dead_code, reason = "TODO")]
     Stacked,
 }
 
@@ -154,6 +154,7 @@ struct Item {
 
 /// Unique item id
 #[derive(Debug, Clone, Component)]
+#[expect(dead_code, reason = "Will be used on sorting later")]
 struct ItemId(u8);
 
 /// The category that the item belongs to
@@ -227,7 +228,7 @@ mod single {
         state::{
             app::AppExtStates,
             condition::in_state,
-            state::{ComputedStates, OnEnter, OnExit, States},
+            state::{ComputedStates, OnEnter, OnExit},
         },
         text::{TextColor, TextFont},
         time::Time,
