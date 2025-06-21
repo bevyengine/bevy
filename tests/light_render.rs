@@ -1,9 +1,9 @@
 //! Integration tests for the complete 2D lighting pipeline
 
-use bevy::prelude::*;
-use bevy::sprite::{FalloffType, PointLight2D};
 use bevy::math::cos;
 use bevy::math::sin;
+use bevy::prelude::*;
+use bevy::sprite::{FalloffType, PointLight2D};
 
 /// Container for extracted 2D point lights ready for rendering
 #[derive(Resource, Default)]
