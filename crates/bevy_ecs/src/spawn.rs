@@ -163,9 +163,7 @@ macro_rules! spawnable_list_impl {
 
 all_tuples!(spawnable_list_impl, 0, 12, P);
 
-/// A [`Bundle`] that:
-/// 1. Contains a [`RelationshipTarget`] component (associated with the given [`Relationship`]). This reserves space for the [`SpawnableList`].
-/// 2. Spawns a [`SpawnableList`] of related entities with a given [`Relationship`].
+/// A [`Bundle`] that spawns a [`SpawnableList`] of related entities with a given [`Relationship`].
 ///
 /// This is intended to be created using [`SpawnRelated`].
 pub struct SpawnRelatedBundle<R: Relationship, L: SpawnableList<R>> {
@@ -182,32 +180,26 @@ impl<R: Relationship, L: SpawnableList<R>> BundleEffect for SpawnRelatedBundle<R
     }
 }
 
-// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
+// SAFETY: This is a blank implementation.
 unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     for SpawnRelatedBundle<R, L>
 {
     fn component_ids(
-        components: &mut crate::component::ComponentsRegistrator,
-        ids: &mut impl FnMut(crate::component::ComponentId),
+        _components: &mut crate::component::ComponentsRegistrator,
+        _ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
     }
 
     fn get_component_ids(
-        components: &crate::component::Components,
-        ids: &mut impl FnMut(Option<crate::component::ComponentId>),
+        _components: &crate::component::Components,
+        _ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
     }
 
     fn register_required_components(
-        components: &mut crate::component::ComponentsRegistrator,
-        required_components: &mut crate::component::RequiredComponents,
+        _components: &mut crate::component::ComponentsRegistrator,
+        _required_components: &mut crate::component::RequiredComponents,
     ) {
-        <R::RelationshipTarget as Bundle>::register_required_components(
-            components,
-            required_components,
-        );
     }
 }
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
@@ -215,17 +207,13 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
 
     fn get_components(
         self,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
+        _func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) -> Self::Effect {
-        <R::RelationshipTarget as RelationshipTarget>::with_capacity(self.list.size_hint())
-            .get_components(func);
         self
     }
 }
 
-/// A [`Bundle`] that:
-/// 1. Contains a [`RelationshipTarget`] component (associated with the given [`Relationship`]). This reserves space for a single entity.
-/// 2. Spawns a single related entity containing the given `B` [`Bundle`] and the given [`Relationship`].
+/// A [`Bundle`] that spawns a single related entity containing the given `B` [`Bundle`] and the given [`Relationship`].
 ///
 /// This is intended to be created using [`SpawnRelated`].
 pub struct SpawnOneRelated<R: Relationship, B: Bundle> {
@@ -244,54 +232,45 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 
     fn get_components(
         self,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
+        _func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) -> Self::Effect {
-        <R::RelationshipTarget as RelationshipTarget>::with_capacity(1).get_components(func);
         self
     }
 }
 
-// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
+// SAFETY: This is a blank implementation.
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     fn component_ids(
-        components: &mut crate::component::ComponentsRegistrator,
-        ids: &mut impl FnMut(crate::component::ComponentId),
+        _components: &mut crate::component::ComponentsRegistrator,
+        _ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
     }
 
     fn get_component_ids(
-        components: &crate::component::Components,
-        ids: &mut impl FnMut(Option<crate::component::ComponentId>),
+        _components: &crate::component::Components,
+        _ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
     }
 
     fn register_required_components(
-        components: &mut crate::component::ComponentsRegistrator,
-        required_components: &mut crate::component::RequiredComponents,
+        _components: &mut crate::component::ComponentsRegistrator,
+        _required_components: &mut crate::component::RequiredComponents,
     ) {
-        <R::RelationshipTarget as Bundle>::register_required_components(
-            components,
-            required_components,
-        );
     }
 }
 
-/// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`DynamicBundle::Effect`] that:
-///
-/// 1. Contains the [`RelationshipTarget`] component, pre-allocated with the necessary space for spawned entities.
-/// 2. Spawns an entity (or a list of entities) that relate to the entity the [`Bundle`] is added to via the [`RelationshipTarget::Relationship`].
+/// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`DynamicBundle::Effect`] that
+/// spawns an entity (or a list of entities) that relate to the entity the [`Bundle`] is added to via the [`RelationshipTarget::Relationship`].
 pub trait SpawnRelated: RelationshipTarget {
-    /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a [`SpawnableList`] of entities, each related to the bundle's entity
-    /// via [`RelationshipTarget::Relationship`]. The [`RelationshipTarget`] (when possible) will pre-allocate space for the related entities.
+    /// Returns a [`Bundle`] that spawns a [`SpawnableList`] of entities, each related to the bundle's entity
+    /// via [`RelationshipTarget::Relationship`].
     ///
     /// See [`Spawn`], [`SpawnIter`], and [`SpawnWith`] for usage examples.
     fn spawn<L: SpawnableList<Self::Relationship>>(
         list: L,
     ) -> SpawnRelatedBundle<Self::Relationship, L>;
 
-    /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a single entity containing [`Bundle`] that is related to the bundle's entity
+    /// Returns a [`Bundle`] that spawns a single entity containing [`Bundle`] that is related to the bundle's entity
     /// via [`RelationshipTarget::Relationship`].
     ///
     /// ```
@@ -326,8 +305,8 @@ impl<T: RelationshipTarget> SpawnRelated for T {
     }
 }
 
-/// Returns a [`SpawnRelatedBundle`] that will insert the given [`RelationshipTarget`], spawn a [`SpawnableList`] of entities with given bundles that
-/// relate to the [`RelationshipTarget`] entity via the [`RelationshipTarget::Relationship`] component, and reserve space in the [`RelationshipTarget`] for each spawned entity.
+/// Returns a [`SpawnRelatedBundle`] that will spawn a [`SpawnableList`] of entities with given bundles that
+/// relate to the [`RelationshipTarget`] entity via the [`RelationshipTarget::Relationship`] component.
 ///
 /// The first argument is the [`RelationshipTarget`] type. Any additional arguments will be interpreted as bundles to be spawned.
 ///
