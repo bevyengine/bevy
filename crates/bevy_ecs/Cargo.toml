@@ -131,6 +131,12 @@ rand = "0.8"
 static_assertions = "1.1.0"
 serde_test = "1.0"
 
+# Many tests in this crate rely on precise string comparisons, which use strings
+# returned by the "debug" feature
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
+  "debug",
+] }
+
 [[example]]
 name = "events"
 path = "examples/events.rs"
