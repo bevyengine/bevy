@@ -73,6 +73,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         source_asset: Self::SourceAsset,
         asset_id: AssetId<Self::SourceAsset>,
         param: &mut SystemParamItem<Self::Param>,
+        previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
 
     /// Called whenever the [`RenderAsset::SourceAsset`] has been removed.
@@ -355,7 +356,8 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, id, &mut param) {
+        let previous_asset = render_assets.get(id);
+        match A::prepare_asset(extracted_asset, id, &mut param, previous_asset) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);
@@ -382,7 +384,7 @@ pub fn prepare_assets<A: RenderAsset>(
         // we remove previous here to ensure that if we are updating the asset then
         // any users will not see the old asset after a new asset is extracted,
         // even if the new asset is not yet ready or we are out of bytes to write.
-        render_assets.remove(id);
+        let previous_asset = render_assets.remove(id);
 
         let write_bytes = if let Some(size) = A::byte_len(&extracted_asset) {
             if bpf.exhausted() {
@@ -394,7 +396,7 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, id, &mut param) {
+        match A::prepare_asset(extracted_asset, id, &mut param, previous_asset.as_ref()) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);

@@ -473,6 +473,7 @@ impl RenderAsset for RenderWireframeMaterial {
         source_asset: Self::SourceAsset,
         _asset_id: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
+        _previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         Ok(RenderWireframeMaterial {
             color: source_asset.color.to_linear().to_f32_array(),
