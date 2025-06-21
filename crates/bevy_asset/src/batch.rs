@@ -10,7 +10,7 @@ pub struct LoadBatchRequest {
 impl LoadBatchRequest {
     pub fn new<T>(requests: Vec<T>) -> Self
     where
-        T:Into<AssetPath<'static>>,
+        T: Into<AssetPath<'static>>,
     {
         Self {
             requests: requests.into_iter().map(Into::into).collect(),

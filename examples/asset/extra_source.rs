@@ -8,11 +8,7 @@ use bevy::{
     },
     prelude::*,
 };
-use bevy_asset::{LoadBatchRequest, LoadedBatch};
 use std::path::Path;
-
-#[derive(Resource, Default)]
-struct SpriteBatch(Handle<LoadedBatch>);
 
 fn main() {
     App::new()
@@ -47,11 +43,4 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     assert_eq!(asset_path, "example_files://bevy_pixel_light.png".into());
 
     commands.spawn(Sprite::from_image(asset_server.load(asset_path)));
-
-    let path = Path::new("*.png");
-    let source = AssetSourceId::from("example_files");
-    let asset_path = AssetPath::from_path(path).with_source(source);
-    commands.insert_resource(SpriteBatch(
-        asset_server.load_batch(LoadBatchRequest::new(vec![asset_path])),
-    ));
 }
