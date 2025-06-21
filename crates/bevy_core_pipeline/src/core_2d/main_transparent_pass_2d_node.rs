@@ -28,7 +28,7 @@ impl ViewNode for MainTransparentPass2dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): bevy_ecs::query::QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(transparent_phases) =

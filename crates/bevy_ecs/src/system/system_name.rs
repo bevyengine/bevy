@@ -5,9 +5,8 @@ use crate::{
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use alloc::borrow::Cow;
-use core::ops::Deref;
-use derive_more::derive::{AsRef, Display, Into};
+use bevy_utils::prelude::DebugName;
+use derive_more::derive::{Display, Into};
 
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
@@ -35,21 +34,13 @@ use derive_more::derive::{AsRef, Display, Into};
 ///     logger.log("Hello");
 /// }
 /// ```
-#[derive(Debug, Into, Display, AsRef)]
-#[as_ref(str)]
-pub struct SystemName(Cow<'static, str>);
+#[derive(Debug, Into, Display)]
+pub struct SystemName(DebugName);
 
 impl SystemName {
     /// Gets the name of the system.
-    pub fn name(&self) -> &str {
-        &self.0
-    }
-}
-
-impl Deref for SystemName {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        self.name()
+    pub fn name(&self) -> DebugName {
+        self.0.clone()
     }
 }
 
@@ -104,7 +95,7 @@ mod tests {
     #[test]
     fn test_system_name_regular_param() {
         fn testing(name: SystemName) -> String {
-            name.name().to_owned()
+            name.name().as_string()
         }
 
         let mut world = World::default();
@@ -116,7 +107,7 @@ mod tests {
     #[test]
     fn test_system_name_exclusive_param() {
         fn testing(_world: &mut World, name: SystemName) -> String {
-            name.name().to_owned()
+            name.name().as_string()
         }
 
         let mut world = World::default();
@@ -130,7 +121,7 @@ mod tests {
         let mut world = World::default();
         let system =
             IntoSystem::into_system(|name: SystemName| name.name().to_owned()).with_name("testing");
-        let name = world.run_system_once(system).unwrap();
+        let name = world.run_system_once(system).unwrap().as_string();
         assert_eq!(name, "testing");
     }
 
@@ -140,7 +131,7 @@ mod tests {
         let system =
             IntoSystem::into_system(|_world: &mut World, name: SystemName| name.name().to_owned())
                 .with_name("testing");
-        let name = world.run_system_once(system).unwrap();
+        let name = world.run_system_once(system).unwrap().as_string();
         assert_eq!(name, "testing");
     }
 }

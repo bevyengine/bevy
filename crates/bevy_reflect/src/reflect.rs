@@ -21,32 +21,47 @@ pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
     /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to an enum.
     MismatchedKinds {
+        /// Kind of the value we attempted to apply.
         from_kind: ReflectKind,
+        /// Kind of the type we attempted to apply the value to.
         to_kind: ReflectKind,
     },
 
     #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
     /// Enum variant that we tried to apply to was missing a field.
     MissingEnumField {
+        /// Name of the enum variant.
         variant_name: Box<str>,
+        /// Name of the missing field.
         field_name: Box<str>,
     },
 
     #[error("`{from_type}` is not `{to_type}`")]
     /// Tried to apply incompatible types.
     MismatchedTypes {
+        /// Type of the value we attempted to apply.
         from_type: Box<str>,
+        /// Type we attempted to apply the value to.
         to_type: Box<str>,
     },
 
     #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
-    /// Attempted to apply to types with mismatched sizes, e.g. a [u8; 4] to [u8; 3].
-    DifferentSize { from_size: usize, to_size: usize },
+    /// Attempted to apply an [array-like] type to another of different size, e.g. a [u8; 4] to [u8; 3].
+    ///
+    /// [array-like]: crate::Array
+    DifferentSize {
+        /// Size of the value we attempted to apply, in elements.
+        from_size: usize,
+        /// Size of the type we attempted to apply the value to, in elements.
+        to_size: usize,
+    },
 
     #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
     /// The enum we tried to apply to didn't contain a variant with the give name.
     UnknownVariant {
+        /// Name of the enum.
         enum_name: Box<str>,
+        /// Name of the missing variant.
         variant_name: Box<str>,
     },
 }

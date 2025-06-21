@@ -1,5 +1,7 @@
 use core::ops::Deref;
 
+use bevy_utils::prelude::DebugName;
+
 use crate::{
     archetype::Archetype,
     change_detection::{MaybeLocation, MutUntyped},
@@ -458,7 +460,7 @@ impl<'w> DeferredWorld<'w> {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                core::any::type_name::<R>()
+                DebugName::type_name::<R>()
             ),
         }
     }
@@ -487,7 +489,7 @@ impl<'w> DeferredWorld<'w> {
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
-                core::any::type_name::<R>()
+                DebugName::type_name::<R>()
             ),
         }
     }
@@ -530,7 +532,7 @@ impl<'w> DeferredWorld<'w> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
             log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                core::any::type_name::<E>()
+                DebugName::type_name::<E>()
             );
             return None;
         };
@@ -754,6 +756,7 @@ impl<'w> DeferredWorld<'w> {
             self.reborrow(),
             event,
             target,
+            target,
             components,
             &mut (),
             &mut false,
@@ -769,7 +772,8 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
         event: ComponentId,
-        target: Option<Entity>,
+        current_target: Option<Entity>,
+        original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
@@ -780,32 +784,36 @@ impl<'w> DeferredWorld<'w> {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
-            target,
+            current_target,
+            original_target,
             components.clone(),
             data,
             &mut propagate,
             caller,
         );
-        let Some(mut target) = target else { return };
+        let Some(mut current_target) = current_target else {
+            return;
+        };
 
         loop {
             if !propagate {
                 return;
             }
             if let Some(traverse_to) = self
-                .get_entity(target)
+                .get_entity(current_target)
                 .ok()
                 .and_then(|entity| entity.get_components::<T>())
                 .and_then(|item| T::traverse(item, data))
             {
-                target = traverse_to;
+                current_target = traverse_to;
             } else {
                 break;
             }
             Observers::invoke::<_>(
                 self.reborrow(),
                 event,
-                Some(target),
+                Some(current_target),
+                original_target,
                 components.clone(),
                 data,
                 &mut propagate,

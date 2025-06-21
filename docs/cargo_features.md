@@ -41,6 +41,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
+|debug|Enable collecting debug information about systems and components to help with diagnostics|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|

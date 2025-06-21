@@ -35,7 +35,7 @@ backtrace = ["std"]
 
 ## Enables `tracing` integration, allowing spans and other metrics to be reported
 ## through that framework.
-trace = ["std", "dep:tracing"]
+trace = ["std", "dep:tracing", "bevy_utils/debug"]
 
 ## Enables a more detailed set of traces which may be noisy if left on by default.
 detailed_trace = ["trace"]
@@ -63,9 +63,9 @@ std = [
   "bevy_reflect?/std",
   "bevy_tasks/std",
   "bevy_utils/parallel",
+  "bevy_utils/std",
   "bitflags/std",
   "concurrent-queue/std",
-  "disqualified/alloc",
   "fixedbitset/std",
   "indexmap/std",
   "serde?/std",
@@ -98,7 +98,6 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 ] }
 
 bitflags = { version = "2.3", default-features = false }
-disqualified = { version = "1.0", default-features = false }
 fixedbitset = { version = "0.5", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",

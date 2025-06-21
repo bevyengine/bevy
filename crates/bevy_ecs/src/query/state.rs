@@ -14,6 +14,7 @@ use crate::{
 use crate::entity::UniqueEntityEquivalentSlice;
 
 use alloc::vec::Vec;
+use bevy_utils::prelude::DebugName;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
@@ -672,7 +673,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         assert!(
             component_access.is_subset(&self_access),
             "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
-            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>()
+            DebugName::type_name::<(NewD, NewF)>(), DebugName::type_name::<(D, F)>()
         );
 
         QueryState {
@@ -791,7 +792,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         assert!(
             component_access.is_subset(&joined_component_access),
             "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.",
-            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>(), core::any::type_name::<(OtherD, OtherF)>()
+            DebugName::type_name::<(NewD, NewF)>(), DebugName::type_name::<(D, F)>(), DebugName::type_name::<(OtherD, OtherF)>()
         );
 
         if self.archetype_generation != other.archetype_generation {
@@ -845,13 +846,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     ///
+    /// If you need to get multiple items at once but get borrowing errors,
+    /// consider using [`Self::update_archetypes`] followed by multiple [`Self::get_manual`] calls,
+    /// or making a single call with [`Self::get_many`]  or [`Self::iter_many`].
+    ///
     /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get<'w>(
         &mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, D>, QueryEntityError> {
+    ) -> Result<ROQueryItem<'w, '_, D>, QueryEntityError> {
         self.query(world).get_inner(entity)
     }
 
@@ -892,7 +897,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entities: [Entity; N],
-    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
+    ) -> Result<[ROQueryItem<'w, '_, D>; N], QueryEntityError> {
         self.query(world).get_many_inner(entities)
     }
 
@@ -930,7 +935,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entities: UniqueEntityArray<N>,
-    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
+    ) -> Result<[ROQueryItem<'w, '_, D>; N], QueryEntityError> {
         self.query(world).get_many_unique_inner(entities)
     }
 
@@ -942,7 +947,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entity: Entity,
-    ) -> Result<D::Item<'w>, QueryEntityError> {
+    ) -> Result<D::Item<'w, '_>, QueryEntityError> {
         self.query_mut(world).get_inner(entity)
     }
 
@@ -989,7 +994,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError> {
         self.query_mut(world).get_many_mut_inner(entities)
     }
 
@@ -1034,7 +1039,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entities: UniqueEntityArray<N>,
-    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError> {
         self.query_mut(world).get_many_unique_inner(entities)
     }
 
@@ -1056,7 +1061,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, D>, QueryEntityError> {
+    ) -> Result<ROQueryItem<'w, '_, D>, QueryEntityError> {
         self.query_manual(world).get_inner(entity)
     }
 
@@ -1073,13 +1078,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-    ) -> Result<D::Item<'w>, QueryEntityError> {
+    ) -> Result<D::Item<'w, '_>, QueryEntityError> {
         self.query_unchecked(world).get_inner(entity)
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
     /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
+    ///
+    /// If you need to iterate multiple times at once but get borrowing errors,
+    /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_manual`] calls.
     #[inline]
     pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnly, F> {
         self.query(world).into_iter()
@@ -1167,6 +1175,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
+    ///
+    /// If you need to iterate multiple times at once but get borrowing errors,
+    /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_many_manual`] calls.
     ///
     /// # See also
     ///
@@ -1387,8 +1398,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, T, FN, INIT>(
-        &self,
+    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, 's, T, FN, INIT>(
+        &'s self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
         batch_size: u32,
@@ -1396,7 +1407,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) where
-        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        FN: Fn(T, D::Item<'w, 's>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
@@ -1501,8 +1512,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    pub(crate) unsafe fn par_many_unique_fold_init_unchecked_manual<'w, T, FN, INIT, E>(
-        &self,
+    pub(crate) unsafe fn par_many_unique_fold_init_unchecked_manual<'w, 's, T, FN, INIT, E>(
+        &'s self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
         entity_list: &UniqueEntityEquivalentSlice<E>,
@@ -1511,7 +1522,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) where
-        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        FN: Fn(T, D::Item<'w, 's>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
         E: EntityEquivalent + Sync,
     {
@@ -1564,8 +1575,8 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    pub(crate) unsafe fn par_many_fold_init_unchecked_manual<'w, T, FN, INIT, E>(
-        &self,
+    pub(crate) unsafe fn par_many_fold_init_unchecked_manual<'w, 's, T, FN, INIT, E>(
+        &'s self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
         entity_list: &[E],
@@ -1574,7 +1585,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) where
-        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        FN: Fn(T, D::Item<'w, 's>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
         E: EntityEquivalent + Sync,
     {
@@ -1686,7 +1697,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Simply unwrapping the [`Result`] also works, but should generally be reserved for tests.
     #[inline]
-    pub fn single<'w>(&mut self, world: &'w World) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
+    pub fn single<'w>(
+        &mut self,
+        world: &'w World,
+    ) -> Result<ROQueryItem<'w, '_, D>, QuerySingleError> {
         self.query(world).single_inner()
     }
 
@@ -1703,7 +1717,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn single_mut<'w>(
         &mut self,
         world: &'w mut World,
-    ) -> Result<D::Item<'w>, QuerySingleError> {
+    ) -> Result<D::Item<'w, '_>, QuerySingleError> {
         self.query_mut(world).single_inner()
     }
 
@@ -1720,7 +1734,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn single_unchecked<'w>(
         &mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> Result<D::Item<'w>, QuerySingleError> {
+    ) -> Result<D::Item<'w, '_>, QuerySingleError> {
         self.query_unchecked(world).single_inner()
     }
 
@@ -1742,7 +1756,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<D::Item<'w>, QuerySingleError> {
+    ) -> Result<D::Item<'w, '_>, QuerySingleError> {
         // SAFETY:
         // - The caller ensured we have the correct access to the world.
         // - The caller ensured that the world matches.

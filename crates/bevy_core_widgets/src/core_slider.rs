@@ -211,6 +211,7 @@ pub(crate) fn slider_on_pointer_down(
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
+    ui_scale: Res<UiScale>,
 ) {
     if q_thumb.contains(trigger.target()) {
         // Thumb click, stop propagation to prevent track click.
@@ -255,7 +256,7 @@ pub(crate) fn slider_on_pointer_down(
 
         // Detect track click.
         let local_pos = transform.try_inverse().unwrap().transform_point2(
-            trigger.event().pointer_location.position * node_target.scale_factor(),
+            trigger.event().pointer_location.position * node_target.scale_factor() / ui_scale.0,
         );
         let track_width = node.size().x - thumb_size;
         // Avoid division by zero
@@ -394,6 +395,10 @@ fn slider_on_key_input(
             trigger.propagate(false);
             if let Some(on_change) = slider.on_change {
                 commands.run_system_with(on_change, new_value);
+            } else {
+                commands
+                    .entity(trigger.target())
+                    .insert(SliderValue(new_value));
             }
         }
     }
@@ -456,7 +461,7 @@ pub(crate) fn slider_on_insert_step(trigger: On<Insert, SliderStep>, mut world: 
 ///     commands.trigger_targets(SetSliderValue::Relative(-0.25), slider);
 /// }
 /// ```
-#[derive(Event, EntityEvent)]
+#[derive(Event, EntityEvent, Clone)]
 pub enum SetSliderValue {
     /// Set the slider value to a specific value.
     Absolute(f32),

@@ -276,7 +276,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     fn render<'w>(
         _item: &P,
         _view: (),
-        material_handle: Option<ROQueryItem<'_, Self::ItemQuery>>,
+        material_handle: Option<ROQueryItem<'_, '_, Self::ItemQuery>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::vec::Vec;
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 
 use crate::{
@@ -112,7 +113,7 @@ where
     type Out = Result;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.observer.name()
     }
 

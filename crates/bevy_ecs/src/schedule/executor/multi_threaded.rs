@@ -342,7 +342,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             #[cfg(feature = "std")]
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
-                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                eprintln!("Encountered a panic in system `{}`!", system.name());
             }
             // set the payload to propagate the error
             {
@@ -799,7 +799,7 @@ fn apply_deferred(
             {
                 eprintln!(
                     "Encountered a panic when applying buffers for system `{}`!",
-                    &*system.name()
+                    system.name()
                 );
             }
             return Err(payload);
