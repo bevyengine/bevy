@@ -223,6 +223,7 @@ pub fn trigger(event: impl Event) -> impl Command {
 }
 
 /// A [`Command`] that sends an [`EntityEvent`] for the given targets.
+#[track_caller]
 pub fn trigger_targets(
     event: impl EntityEvent,
     targets: impl TriggerTargets + Send + Sync + 'static,
