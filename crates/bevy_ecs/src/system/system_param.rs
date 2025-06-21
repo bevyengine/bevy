@@ -1399,6 +1399,7 @@ impl<'w, T> Deref for NonSend<'w, T> {
         self.value
     }
 }
+
 impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
     fn from(nsm: NonSendMut<'a, T>) -> Self {
         Self {

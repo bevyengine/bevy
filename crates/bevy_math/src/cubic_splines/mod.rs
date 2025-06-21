@@ -1347,6 +1347,7 @@ pub struct RationalSegment<P: VectorSpace> {
     /// The width of the domain of this segment.
     pub knot_span: f32,
 }
+
 impl<P: VectorSpace<Scalar = f32>> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]

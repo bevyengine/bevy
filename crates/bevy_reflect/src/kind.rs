@@ -220,6 +220,7 @@ pub enum ReflectRef<'a> {
     /// [opaque]: ReflectKind::Opaque
     Opaque(&'a dyn PartialReflect),
 }
+
 impl_reflect_kind_conversions!(ReflectRef<'_>);
 
 impl<'a> ReflectRef<'a> {
@@ -285,6 +286,7 @@ pub enum ReflectMut<'a> {
     /// [opaque]: ReflectKind::Opaque
     Opaque(&'a mut dyn PartialReflect),
 }
+
 impl_reflect_kind_conversions!(ReflectMut<'_>);
 
 impl<'a> ReflectMut<'a> {
@@ -350,6 +352,7 @@ pub enum ReflectOwned {
     /// [opaque]: ReflectKind::Opaque
     Opaque(Box<dyn PartialReflect>),
 }
+
 impl_reflect_kind_conversions!(ReflectOwned);
 
 impl ReflectOwned {

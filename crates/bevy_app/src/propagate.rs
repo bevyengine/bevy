@@ -88,6 +88,7 @@ impl<C: Component + Clone + PartialEq> core::fmt::Debug for PropagateSet<C> {
 }
 
 impl<C: Component + Clone + PartialEq> Eq for PropagateSet<C> {}
+
 impl<C: Component + Clone + PartialEq> core::hash::Hash for PropagateSet<C> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self._p.hash(state);

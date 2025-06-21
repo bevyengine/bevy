@@ -51,6 +51,7 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
     );
     fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &TypeIdMap<Box<dyn Any>>);
 }
+
 impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
     fn build(
         &mut self,

@@ -960,6 +960,7 @@ impl Index<RangeFrom<ArchetypeGeneration>> for Archetypes {
         &self.archetypes[index.start.0.index()..]
     }
 }
+
 impl Index<ArchetypeId> for Archetypes {
     type Output = Archetype;
 

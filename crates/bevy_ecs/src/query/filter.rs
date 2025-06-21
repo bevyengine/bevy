@@ -1240,6 +1240,7 @@ unsafe impl QueryFilter for Spawned {
 pub trait ArchetypeFilter: QueryFilter {}
 
 impl<T: Component> ArchetypeFilter for With<T> {}
+
 impl<T: Component> ArchetypeFilter for Without<T> {}
 
 macro_rules! impl_archetype_filter_tuple {

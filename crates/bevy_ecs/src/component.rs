@@ -623,6 +623,7 @@ pub trait ComponentMutability: private::Seal + 'static {
 pub struct Immutable;
 
 impl private::Seal for Immutable {}
+
 impl ComponentMutability for Immutable {
     const MUTABLE: bool = false;
 }
@@ -633,6 +634,7 @@ impl ComponentMutability for Immutable {
 pub struct Mutable;
 
 impl private::Seal for Mutable {}
+
 impl ComponentMutability for Mutable {
     const MUTABLE: bool = true;
 }
@@ -2968,6 +2970,7 @@ impl<T> Default for DefaultCloneBehaviorSpecialization<T> {
 pub trait DefaultCloneBehaviorBase {
     fn default_clone_behavior(&self) -> ComponentCloneBehavior;
 }
+
 impl<C> DefaultCloneBehaviorBase for DefaultCloneBehaviorSpecialization<C> {
     fn default_clone_behavior(&self) -> ComponentCloneBehavior {
         ComponentCloneBehavior::Default
@@ -2979,6 +2982,7 @@ impl<C> DefaultCloneBehaviorBase for DefaultCloneBehaviorSpecialization<C> {
 pub trait DefaultCloneBehaviorViaClone {
     fn default_clone_behavior(&self) -> ComponentCloneBehavior;
 }
+
 impl<C: Clone + Component> DefaultCloneBehaviorViaClone for &DefaultCloneBehaviorSpecialization<C> {
     fn default_clone_behavior(&self) -> ComponentCloneBehavior {
         ComponentCloneBehavior::clone::<C>()

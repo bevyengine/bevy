@@ -223,6 +223,7 @@ pub struct ReflectHandle {
     downcast_handle_untyped: fn(&dyn Any) -> Option<UntypedHandle>,
     typed: fn(UntypedHandle) -> Box<dyn Reflect>,
 }
+
 impl ReflectHandle {
     /// The [`TypeId`] of the asset
     pub fn asset_type_id(&self) -> TypeId {

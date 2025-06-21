@@ -47,6 +47,7 @@ pub(crate) struct Gilrs {
     #[cfg(not(target_arch = "wasm32"))]
     cell: SyncCell<gilrs::Gilrs>,
 }
+
 impl Gilrs {
     #[inline]
     pub fn with(&mut self, f: impl FnOnce(&mut gilrs::Gilrs)) {

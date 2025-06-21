@@ -1489,6 +1489,7 @@ impl<T: Component> Clone for ReadFetch<'_, T> {
         *self
     }
 }
+
 impl<T: Component> Copy for ReadFetch<'_, T> {}
 
 /// SAFETY:
@@ -1665,6 +1666,7 @@ impl<T: Component> Clone for RefFetch<'_, T> {
         *self
     }
 }
+
 impl<T: Component> Copy for RefFetch<'_, T> {}
 
 /// SAFETY:
@@ -1873,6 +1875,7 @@ impl<T: Component> Clone for WriteFetch<'_, T> {
         *self
     }
 }
+
 impl<T: Component> Copy for WriteFetch<'_, T> {}
 
 /// SAFETY:

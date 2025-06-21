@@ -73,6 +73,7 @@ where
         InfallibleObserverWrapper::new(IntoSystem::into_system(this))
     }
 }
+
 impl<E, B, M, S> IntoObserverSystem<E, B, (Never, M), Result> for S
 where
     S: IntoSystem<On<'static, E, B>, Never, M> + Send + 'static,
