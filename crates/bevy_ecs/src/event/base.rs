@@ -438,9 +438,12 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
 
-#[expect(unused, reason = "For potential future use.")]
 impl EventKey {
     /// Returns id of the underlying [`Event`].
+    /// Used internally in:
+    /// - [`crate::event::register_event`]
+    /// - [`crate::event::run_updates`]
+    /// - [`crate::event::deregister_events`]
     #[inline]
     pub(crate) fn component_id(&self) -> ComponentId {
         self.0
