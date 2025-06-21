@@ -608,8 +608,8 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        let (projection_width, projection_height) = match self.scaling_mode {
-            ScalingMode::WindowSize => (width, height),
+        let projection_dimensions = match self.scaling_mode {
+            ScalingMode::WindowSize => Vec2::new(width, height),
             ScalingMode::AutoMin {
                 min_width,
                 min_height,
@@ -617,9 +617,9 @@ impl CameraProjection for OrthographicProjection {
                 // Compare Pixels of current width and minimal height and Pixels of minimal width with current height.
                 // Then use bigger (min_height when true) as what it refers to (height when true) and calculate rest so it can't get under minimum.
                 if width * min_height > min_width * height {
-                    (width * min_height / height, min_height)
+                    Vec2::new(width * min_height / height, min_height)
                 } else {
-                    (min_width, height * min_width / width)
+                    Vec2::new(min_width, height * min_width / width)
                 }
             }
             ScalingMode::AutoMax {
@@ -629,29 +629,23 @@ impl CameraProjection for OrthographicProjection {
                 // Compare Pixels of current width and maximal height and Pixels of maximal width with current height.
                 // Then use smaller (max_height when true) as what it refers to (height when true) and calculate rest so it can't get over maximum.
                 if width * max_height < max_width * height {
-                    (width * max_height / height, max_height)
+                    Vec2::new(width * max_height / height, max_height)
                 } else {
-                    (max_width, height * max_width / width)
+                    Vec2::new(max_width, height * max_width / width)
                 }
             }
             ScalingMode::FixedVertical { viewport_height } => {
-                (width * viewport_height / height, viewport_height)
+                Vec2::new(width * viewport_height / height, viewport_height)
             }
             ScalingMode::FixedHorizontal { viewport_width } => {
-                (viewport_width, height * viewport_width / width)
+                Vec2::new(viewport_width, height * viewport_width / width)
             }
-            ScalingMode::Fixed { width, height } => (width, height),
+            ScalingMode::Fixed { width, height } => Vec2::new(width, height),
         };
 
-        let origin_x = projection_width * self.viewport_origin.x;
-        let origin_y = projection_height * self.viewport_origin.y;
+        let origin = projection_dimensions * self.viewport_origin;
 
-        self.area = Rect::new(
-            self.scale * -origin_x,
-            self.scale * -origin_y,
-            self.scale * (projection_width - origin_x),
-            self.scale * (projection_height - origin_y),
-        );
+        self.area = Rect::from_center_half_size(Vec2::default(), origin * self.scale);
     }
 
     fn far(&self) -> f32 {
