@@ -83,7 +83,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let user_generics_with_world_and_state = {
         let mut generics = ast.generics;
         generics.params.insert(0, parse_quote!('__w));
-        generics.params.insert(0, parse_quote!('__s));
+        generics.params.insert(1, parse_quote!('__s));
         generics
     };
     let (
