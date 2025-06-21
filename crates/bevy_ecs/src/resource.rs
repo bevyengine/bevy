@@ -129,3 +129,56 @@ fn at_most_one_hook<R: Resource>(mut deferred_world: DeferredWorld, context: Hoo
 /// This component is required by the [`ResourceEntity<R>`] component, and will automatically be added.
 #[derive(Component, Default, Debug)]
 pub struct IsResource;
+
+#[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
+mod tests {
+    use crate::change_detection::MaybeLocation;
+    use crate::ptr::PtrMut;
+    use crate::resource::Resource;
+    use crate::world::World;
+    use bevy_platform::prelude::String;
+    use core::mem::ManuallyDrop;
+
+    #[test]
+    fn unique_resource_entities() {
+        #[derive(Default, Resource)]
+        struct TestResource1;
+
+        #[derive(Resource)]
+        #[expect(dead_code, reason = "field needed for testing")]
+        struct TestResource2(String);
+
+        #[derive(Resource)]
+        #[expect(dead_code, reason = "field needed for testing")]
+        struct TestResource3(u8);
+
+        let mut world = World::new();
+        let start = world.entities().len();
+        world.init_resource::<TestResource1>();
+        assert_eq!(world.entities().len(), start + 1);
+        world.insert_resource(TestResource2(String::from("Foo")));
+        assert_eq!(world.entities().len(), start + 2);
+        // like component registration, which just makes it known to the world that a component exists,
+        // registering a resource should not spawn an entity.
+        let id = world.register_resource::<TestResource3>();
+        assert_eq!(world.entities().len(), start + 2);
+        unsafe {
+            // SAFETY
+            // *
+            world.insert_resource_by_id(
+                id,
+                PtrMut::from(&mut ManuallyDrop::new(20 as u8)).promote(),
+                MaybeLocation::caller(),
+            );
+        }
+        assert_eq!(world.entities().len(), start + 3);
+        assert!(world.remove_resource_by_id(id).is_some());
+        assert_eq!(world.entities().len(), start + 2);
+        world.remove_resource::<TestResource1>();
+        assert_eq!(world.entities().len(), start + 1);
+        // make sure that trying to add a resource twice results, doesn't change the entity count
+        world.insert_resource(TestResource2(String::from("Bar")));
+        assert_eq!(world.entities().len(), start + 1);
+    }
+}
