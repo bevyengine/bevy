@@ -18,7 +18,7 @@ use bevy_ui::{InteractionDisabled, Pressed};
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
 /// indicate whether the button is currently being pressed by the user. It emits a `ButtonClicked`
 /// event when the button is un-pressed.
-#[derive(Component, Debug)]
+#[derive(Component, Default, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
 pub struct CoreButton {
     /// Optional system to run when the button is clicked, or when the Enter or Space key
