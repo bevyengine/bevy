@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 use log::info;
 
 use crate::{
-    bundle::Bundle,
+    bundle::{Bundle, IgnoreIfCollides},
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
@@ -137,11 +137,15 @@ pub unsafe fn insert_by_id<T: Send + 'static>(
 /// An [`EntityCommand`] that adds a component to an entity using
 /// the component's [`FromWorld`] implementation.
 #[track_caller]
-pub fn insert_from_world<T: Component + FromWorld>() -> impl EntityCommand {
+pub fn insert_from_world<T: Component + FromWorld>(ignore_if_collides: bool) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(value, caller, RelationshipHookMode::Run);
+        if ignore_if_collides {
+            entity.insert_with_caller(IgnoreIfCollides(value), caller, RelationshipHookMode::Run);
+        } else {
+            entity.insert_with_caller(value, caller, RelationshipHookMode::Run);
+        }
     }
 }
 

@@ -2,7 +2,7 @@ use crate::{
     archetype::Archetype,
     bundle::{
         Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
-        InsertMode,
+        IgnoreIfCollides, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{
@@ -1818,8 +1818,11 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        // TODO: keep
-        self.insert_with_caller(bundle, MaybeLocation::caller(), RelationshipHookMode::Run)
+        self.insert_with_caller(
+            IgnoreIfCollides(bundle),
+            MaybeLocation::caller(),
+            RelationshipHookMode::Run,
+        )
     }
 
     /// Split into a new function so we can pass the calling location into the function when using

@@ -13,15 +13,16 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-pub use crate::{
-    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
-    world::command_queue::CommandQueue,
-};
 use crate::{
+    bundle::IgnoreIfCollides,
     error::{DefaultErrorHandler, ErrorHandler},
     event::BufferedEvent,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     prelude::{Add, Despawn, Insert, Remove, Replace},
+};
+pub use crate::{
+    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
+    world::command_queue::CommandQueue,
 };
 pub use bevy_ecs_macros::FromWorld;
 use bevy_utils::prelude::DebugName;
@@ -2260,8 +2261,10 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        // TODO: keep
-        self.insert_batch_with_caller(batch, MaybeLocation::caller());
+        self.insert_batch_with_caller(
+            batch.into_iter().map(|(e, b)| (e, IgnoreIfCollides(b))),
+            MaybeLocation::caller(),
+        );
     }
 
     /// Split into a new function so we can differentiate the calling location.
@@ -2395,8 +2398,10 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        // TODO: keep
-        self.try_insert_batch_with_caller(batch, MaybeLocation::caller())
+        self.try_insert_batch_with_caller(
+            batch.into_iter().map(|(e, b)| (e, IgnoreIfCollides(b))),
+            MaybeLocation::caller(),
+        )
     }
 
     /// Split into a new function so we can differentiate the calling location.
