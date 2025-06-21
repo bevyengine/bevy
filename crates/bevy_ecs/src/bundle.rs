@@ -506,8 +506,38 @@ pub enum InsertMode {
     Keep,
 }
 
-pub struct IgnoreIfCollides<B: Bundle>(pub B);
+pub struct ReplaceIfCollides<B: Bundle>(pub B);
+// SAFETY: This internally relies on the wrapped Bundle implementation, which is sound.
+unsafe impl<B: Bundle> Bundle for ReplaceIfCollides<B> {
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
+        B::component_ids(components, ids);
+    }
 
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+        B::get_component_ids(components, ids);
+    }
+
+    fn register_required_components(
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        B::register_required_components(components, required_components);
+    }
+}
+impl<B: Bundle> DynamicBundle for ReplaceIfCollides<B> {
+    type Effect = ();
+
+    fn get_components(
+        self,
+        _insert_mode: InsertMode,
+        func: &mut impl FnMut(StorageType, InsertMode, OwningPtr<'_>),
+    ) {
+        self.0.get_components(InsertMode::Replace, func);
+    }
+}
+
+pub struct IgnoreIfCollides<B: Bundle>(pub B);
+// SAFETY: This internally relies on the wrapped Bundle implementation, which is sound.
 unsafe impl<B: Bundle> Bundle for IgnoreIfCollides<B> {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         B::component_ids(components, ids);
@@ -524,7 +554,6 @@ unsafe impl<B: Bundle> Bundle for IgnoreIfCollides<B> {
         B::register_required_components(components, required_components);
     }
 }
-
 impl<B: Bundle> DynamicBundle for IgnoreIfCollides<B> {
     type Effect = ();
 
