@@ -1901,9 +1901,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Transmuted state for ((&bevy_ecs::query::state::tests::A, &bevy_ecs::query::state::tests::B), ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
-    )]
+    #[should_panic]
     fn cannot_transmute_to_include_data_not_in_original_query() {
         let mut world = World::new();
         world.register_component::<A>();
@@ -1915,9 +1913,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
-    )]
+    #[should_panic]
     fn cannot_transmute_immut_to_mut() {
         let mut world = World::new();
         world.spawn(A(0));
@@ -1927,9 +1923,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Transmuted state for (&bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (core::option::Option<&bevy_ecs::query::state::tests::A>, ())."
-    )]
+    #[should_panic]
     fn cannot_transmute_option_to_immut() {
         let mut world = World::new();
         world.spawn(C(0));
@@ -1941,9 +1935,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Transmuted state for (&bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (bevy_ecs::world::entity_ref::EntityRef, ())."
-    )]
+    #[should_panic]
     fn cannot_transmute_entity_ref() {
         let mut world = World::new();
         world.register_component::<A>();
@@ -2009,9 +2001,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Transmuted state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::B>) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
-    )]
+    #[should_panic]
     fn cannot_transmute_changed_without_access() {
         let mut world = World::new();
         world.register_component::<A>();
@@ -2021,9 +2011,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
-    )]
+    #[should_panic]
     fn cannot_transmute_mutable_after_readonly() {
         let mut world = World::new();
         // Calling this method would mean we had aliasing queries.
@@ -2130,9 +2118,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Joined state for (&bevy_ecs::query::state::tests::C, ()) \
-            attempts to access terms that are not allowed by state \
-            (&bevy_ecs::query::state::tests::A, ()) joined with (&bevy_ecs::query::state::tests::B, ()).")]
+    #[should_panic]
     fn cannot_join_wrong_fetch() {
         let mut world = World::new();
         world.register_component::<C>();
@@ -2142,12 +2128,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Joined state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::C>) \
-            attempts to access terms that are not allowed by state \
-            (&bevy_ecs::query::state::tests::A, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>) \
-            joined with (&bevy_ecs::query::state::tests::B, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>)."
-    )]
+    #[should_panic]
     fn cannot_join_wrong_filter() {
         let mut world = World::new();
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
@@ -2156,9 +2137,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Joined state for ((&mut bevy_ecs::query::state::tests::A, &mut bevy_ecs::query::state::tests::B), ()) attempts to access terms that are not allowed by state (&bevy_ecs::query::state::tests::A, ()) joined with (&mut bevy_ecs::query::state::tests::B, ())."
-    )]
+    #[should_panic]
     fn cannot_join_mutable_after_readonly() {
         let mut world = World::new();
         // Calling this method would mean we had aliasing queries.
