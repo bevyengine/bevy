@@ -9,9 +9,6 @@ const ENTITY_COUNT: usize = 10_000;
 #[derive(Component)]
 struct A;
 
-#[derive(Component)]
-struct B;
-
 pub fn spawn_one_zst(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group(bench!("spawn_one_zst"));
 

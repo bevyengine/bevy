@@ -9,9 +9,6 @@ const ENTITY_COUNT: usize = 2_000;
 #[derive(Component)]
 struct C<const N: usize>(usize);
 
-#[derive(Component)]
-struct W<T>(T);
-
 pub fn spawn_many(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group(bench!("spawn_many"));
 
