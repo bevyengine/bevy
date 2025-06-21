@@ -69,6 +69,7 @@ fn calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>
 fn calculate_directional_light_contribution(light_sample: LightSample, directional_light_id: u32, origin_world_normal: vec3<f32>) -> LightContribution {
     let directional_light = directional_lights[directional_light_id];
 
+#ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
     // Sample a random direction within a cone whose base is the sun approximated as a disk
     // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
     let cos_theta = (1.0 - light_sample.random.x) + light_sample.random.x * directional_light.cos_theta_max;
@@ -80,6 +81,9 @@ fn calculate_directional_light_contribution(light_sample: LightSample, direction
 
     // Rotate the ray so that the cone it was sampled from is aligned with the light direction
     ray_direction = build_orthonormal_basis(directional_light.direction_to_light) * ray_direction;
+#else
+    let ray_direction = directional_light.direction_to_light;
+#endif
 
     let cos_theta_origin = saturate(dot(ray_direction, origin_world_normal));
     let radiance = directional_light.luminance * cos_theta_origin;
@@ -119,6 +123,7 @@ fn trace_light_visibility(light_sample: LightSample, ray_origin: vec3<f32>) -> f
 fn trace_directional_light_visibility(light_sample: LightSample, directional_light_id: u32, ray_origin: vec3<f32>) -> f32 {
     let directional_light = directional_lights[directional_light_id];
 
+#ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
     // Sample a random direction within a cone whose base is the sun approximated as a disk
     // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
     let cos_theta = (1.0 - light_sample.random.x) + light_sample.random.x * directional_light.cos_theta_max;
@@ -130,6 +135,9 @@ fn trace_directional_light_visibility(light_sample: LightSample, directional_lig
 
     // Rotate the ray so that the cone it was sampled from is aligned with the light direction
     ray_direction = build_orthonormal_basis(directional_light.direction_to_light) * ray_direction;
+#else
+    let ray_direction = directional_light.direction_to_light;
+#endif
 
     let ray_hit = trace_ray(ray_origin, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_TERMINATE_ON_FIRST_HIT);
     return f32(ray_hit.kind == RAY_QUERY_INTERSECTION_NONE);
