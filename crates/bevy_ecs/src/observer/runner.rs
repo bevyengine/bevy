@@ -3,6 +3,7 @@ use bevy_utils::prelude::DebugName;
 use core::any::Any;
 
 use crate::{
+    bundle::StaticBundle,
     component::{ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
     lifecycle::{ComponentHook, HookContext},
@@ -209,7 +210,7 @@ impl Observer {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn new<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
+    pub fn new<E: Event, B: StaticBundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
         let system = Box::new(IntoObserverSystem::into_system(system));
         assert!(
             !system.is_exclusive(),
@@ -336,7 +337,7 @@ impl Component for Observer {
     }
 }
 
-fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+fn observer_system_runner<E: Event, B: StaticBundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld,
     observer_trigger: ObserverTrigger,
     ptr: PtrMut,
@@ -438,7 +439,7 @@ impl<T: Any + System> AnyNamedSystem for T {
 /// The type parameters of this function _must_ match those used to create the [`Observer`].
 /// As such, it is recommended to only use this function within the [`Observer::new`] method to
 /// ensure type parameters match.
-fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+fn hook_on_add<E: Event, B: StaticBundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld<'_>,
     HookContext { entity, .. }: HookContext,
 ) {

@@ -145,7 +145,7 @@ pub struct HotPatched;
 #[cfg(test)]
 mod tests {
     use crate::{
-        bundle::Bundle,
+        bundle::{Bundle, StaticBundle},
         change_detection::Ref,
         component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::{Entity, EntityMapper},
@@ -241,13 +241,35 @@ mod tests {
             x: TableStored,
             y: SparseStored,
         }
-        let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
 
+        let mut ids = Vec::new();
+        <FooBundle as Bundle>::component_ids(
+            &FooBundle {
+                x: TableStored("abc"),
+                y: SparseStored(123),
+            },
+            &mut world.components_registrator(),
+            &mut |id| {
+                ids.push(id);
+            },
+        );
         assert_eq!(
             ids,
+            &[
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
+            ]
+        );
+
+        let mut static_ids = Vec::new();
+        <FooBundle as StaticBundle>::component_ids(
+            &mut world.components_registrator(),
+            &mut |id| {
+                static_ids.push(id);
+            },
+        );
+        assert_eq!(
+            static_ids,
             &[
                 world.register_component::<TableStored>(),
                 world.register_component::<SparseStored>(),
@@ -292,12 +314,39 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
-
+        <NestedBundle as Bundle>::component_ids(
+            &NestedBundle {
+                a: A(1),
+                foo: FooBundle {
+                    x: TableStored("ghi"),
+                    y: SparseStored(789),
+                },
+                b: B(2),
+            },
+            &mut world.components_registrator(),
+            &mut |id| {
+                ids.push(id);
+            },
+        );
         assert_eq!(
             ids,
+            &[
+                world.register_component::<A>(),
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
+                world.register_component::<B>(),
+            ]
+        );
+
+        let mut static_ids = Vec::new();
+        <NestedBundle as StaticBundle>::component_ids(
+            &mut world.components_registrator(),
+            &mut |id| {
+                static_ids.push(id);
+            },
+        );
+        assert_eq!(
+            static_ids,
             &[
                 world.register_component::<A>(),
                 world.register_component::<TableStored>(),
@@ -345,13 +394,25 @@ mod tests {
 
         let mut ids = Vec::new();
         <BundleWithIgnored as Bundle>::component_ids(
+            &BundleWithIgnored {
+                c: C,
+                ignored: Ignored,
+            },
             &mut world.components_registrator(),
             &mut |id| {
                 ids.push(id);
             },
         );
+        assert_eq!(ids, &[world.register_component::<C>()]);
 
-        assert_eq!(ids, &[world.register_component::<C>(),]);
+        let mut static_ids = Vec::new();
+        <BundleWithIgnored as StaticBundle>::component_ids(
+            &mut world.components_registrator(),
+            &mut |id| {
+                static_ids.push(id);
+            },
+        );
+        assert_eq!(static_ids, &[world.register_component::<C>()]);
 
         let e4 = world
             .spawn(BundleWithIgnored {
