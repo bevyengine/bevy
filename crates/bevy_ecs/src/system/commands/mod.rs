@@ -440,7 +440,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
     /// This also does not error when the entity has not been constructed.
-    /// For that behavior, see [`get_constructed_entity`](Self::get_constructed_entity).
+    /// For that behavior, see [`get_constructed_entity`](Self::get_constructed_entity),
+    /// which should be preferred for accessing entities you expect to already exist, like those found from a query.
+    /// For details on entity construction, see [`entity`](crate::entity) module docs.
     ///
     /// # Errors
     ///
@@ -492,6 +494,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// Returns the [`EntityCommands`] for the requested [`Entity`] if it exists in the world *now*.
     /// Note that for entities that have not been constructed, like ones from [`spawn`](Self::spawn), this will error.
     /// If that is not desired, try [`get_entity`](Self::get_entity).
+    /// This should be used over [`get_entity`](Self::get_entity) when you expect the entity to already exist constructed in the world.
+    /// If it doesn't currently exists but is not constructed, this will error that information, where [`get_entity`](Self::get_entity) would succeed, leading to potentially surprising results.
+    /// For details on entity construction, see [`entity`](crate::entity) module docs.
     ///
     /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
