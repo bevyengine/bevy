@@ -1,6 +1,9 @@
 use crate::{
     component::{Component, ComponentCloneBehavior, Mutable, StorageType},
-    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
+    entity::{
+        CloneByFilter, ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper,
+        SourceComponent,
+    },
     lifecycle::{ComponentHook, HookContext},
     world::World,
 };
@@ -62,7 +65,7 @@ impl Component for ObservedBy {
     }
 }
 
-impl<Filter> EntityClonerBuilder<'_, Filter> {
+impl<Filter: CloneByFilter> EntityClonerBuilder<'_, Filter> {
     /// Sets the option to automatically add cloned entities to the observers targeting source entity.
     pub fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {

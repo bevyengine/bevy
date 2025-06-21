@@ -1,9 +1,10 @@
-use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec::Vec};
+use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::prelude::DebugName;
 use bumpalo::Bump;
 use core::{any::TypeId, cell::LazyCell, ops::Range};
+use derive_more::derive::From;
 
 use crate::{
     archetype::Archetype,
@@ -663,7 +664,29 @@ pub struct EntityClonerBuilder<'w, Filter> {
     state: EntityClonerState,
 }
 
-impl<'w, Filter> EntityClonerBuilder<'w, Filter> {
+impl<'w, Filter: CloneByFilter> EntityClonerBuilder<'w, Filter> {
+    /// Internally calls [`EntityCloner::clone_entity`] on the builder's [`World`].
+    pub fn clone_entity(&mut self, source: Entity, target: Entity) -> &mut Self {
+        let mut mapper = EntityHashMap::<Entity>::new();
+        mapper.set_mapped(source, target);
+        EntityCloner::clone_entity_mapped_internal(
+            &mut self.state,
+            &mut self.filter,
+            self.world,
+            source,
+            &mut mapper,
+        );
+        self
+    }
+
+    /// Finishes configuring [`EntityCloner`] returns it.
+    pub fn finish(self) -> EntityCloner {
+        EntityCloner {
+            filter: self.filter.into(),
+            state: self.state,
+        }
+    }
+
     /// Sets the default clone function to use.
     pub fn with_default_clone_fn(&mut self, clone_fn: ComponentCloneFn) -> &mut Self {
         self.state.default_clone_fn = clone_fn;
@@ -739,28 +762,6 @@ impl<'w, Filter> EntityClonerBuilder<'w, Filter> {
 }
 
 impl<'w> EntityClonerBuilder<'w, OptOut> {
-    /// Finishes configuring [`EntityCloner`] returns it.
-    pub fn finish(self) -> EntityCloner {
-        EntityCloner {
-            filter: EntityClonerFilter::OptOut(self.filter),
-            state: self.state,
-        }
-    }
-
-    /// Internally calls [`EntityCloner::clone_entity`] on the builder's [`World`].
-    pub fn clone_entity(&mut self, source: Entity, target: Entity) -> &mut Self {
-        let mut mapper = EntityHashMap::<Entity>::new();
-        mapper.set_mapped(source, target);
-        EntityCloner::clone_entity_mapped_internal(
-            &mut self.state,
-            &mut self.filter,
-            self.world,
-            source,
-            &mut mapper,
-        );
-        self
-    }
-
     /// By default, any components denied through the filter will automatically
     /// deny all of components they are required by too.
     ///
@@ -793,12 +794,8 @@ impl<'w> EntityClonerBuilder<'w, OptOut> {
     /// is denied as well. See [`Self::without_required_by_components`] to alter
     /// this behavior.
     pub fn deny<T: Bundle>(&mut self) -> &mut Self {
-        let bundle = self.world.register_bundle::<T>();
-        let ids = bundle.explicit_components().to_owned();
-        for id in ids {
-            self.filter.filter_deny(id, self.world);
-        }
-        self
+        let bundle_id = self.world.register_bundle::<T>().id();
+        self.deny_by_bundle_id(bundle_id)
     }
 
     /// Disallows all components of the bundle ID from being cloned.
@@ -808,8 +805,8 @@ impl<'w> EntityClonerBuilder<'w, OptOut> {
     /// this behavior.
     pub fn deny_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
         if let Some(bundle) = self.world.bundles().get(bundle_id) {
-            let ids = bundle.explicit_components().to_owned();
-            for id in ids {
+            let ids = bundle.explicit_components().iter();
+            for &id in ids {
                 self.filter.filter_deny(id, self.world);
             }
         }
@@ -844,28 +841,6 @@ impl<'w> EntityClonerBuilder<'w, OptOut> {
 }
 
 impl<'w> EntityClonerBuilder<'w, OptIn> {
-    /// Finishes configuring [`EntityCloner`] returns it.
-    pub fn finish(self) -> EntityCloner {
-        EntityCloner {
-            filter: EntityClonerFilter::OptIn(self.filter),
-            state: self.state,
-        }
-    }
-
-    /// Internally calls [`EntityCloner::clone_entity`] on the builder's [`World`].
-    pub fn clone_entity(&mut self, source: Entity, target: Entity) -> &mut Self {
-        let mut mapper = EntityHashMap::<Entity>::new();
-        mapper.set_mapped(source, target);
-        EntityCloner::clone_entity_mapped_internal(
-            &mut self.state,
-            &mut self.filter,
-            self.world,
-            source,
-            &mut mapper,
-        );
-        self
-    }
-
     /// By default, any components allowed through the filter will automatically
     /// allow all of their required components.
     ///
@@ -889,13 +864,8 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     /// is allowed as well. See [`Self::without_required_components`]
     /// to alter this behavior.
     pub fn allow<T: Bundle>(&mut self) -> &mut Self {
-        let bundle = self.world.register_bundle::<T>();
-        let ids = bundle.explicit_components().to_owned();
-        for id in ids {
-            self.filter
-                .filter_allow(id, self.world, InsertMode::Replace);
-        }
-        self
+        let bundle_id = self.world.register_bundle::<T>().id();
+        self.allow_by_bundle_id(bundle_id)
     }
 
     /// Adds all components of the bundle to the list of components to clone if
@@ -905,12 +875,8 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     /// is allowed as well. See [`Self::without_required_components`]
     /// to alter this behavior.
     pub fn allow_if_new<T: Bundle>(&mut self) -> &mut Self {
-        let bundle = self.world.register_bundle::<T>();
-        let ids = bundle.explicit_components().to_owned();
-        for id in ids {
-            self.filter.filter_allow(id, self.world, InsertMode::Keep);
-        }
-        self
+        let bundle_id = self.world.register_bundle::<T>().id();
+        self.allow_by_bundle_id_if_new(bundle_id)
     }
 
     /// Adds all components of the bundle ID to the list of components to clone.
@@ -920,8 +886,8 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     /// to alter this behavior.
     pub fn allow_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
         if let Some(bundle) = self.world.bundles().get(bundle_id) {
-            let ids = bundle.explicit_components().to_owned();
-            for id in ids {
+            let ids = bundle.explicit_components().iter();
+            for &id in ids {
                 self.filter
                     .filter_allow(id, self.world, InsertMode::Replace);
             }
@@ -937,8 +903,8 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     /// to alter this behavior.
     pub fn allow_by_bundle_id_if_new(&mut self, bundle_id: BundleId) -> &mut Self {
         if let Some(bundle) = self.world.bundles().get(bundle_id) {
-            let ids = bundle.explicit_components().to_owned();
-            for id in ids {
+            let ids = bundle.explicit_components().iter();
+            for &id in ids {
                 self.filter.filter_allow(id, self.world, InsertMode::Keep);
             }
         }
@@ -1002,7 +968,8 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
 }
 
 /// Filters that can selectively clone components depending on its inner configuration are unified with this trait.
-trait CloneByFilter {
+#[doc(hidden)]
+pub trait CloneByFilter: Into<EntityClonerFilter> {
     /// The filter will call `clone_component` for every [`ComponentId`] that passes it.
     fn clone_components<'a>(
         &mut self,
@@ -1013,7 +980,9 @@ trait CloneByFilter {
 }
 
 /// Part of the [`EntityCloner`], see there for more information.
-enum EntityClonerFilter {
+#[doc(hidden)]
+#[derive(From)]
+pub enum EntityClonerFilter {
     OptOut(OptOut),
     OptIn(OptIn),
 }
@@ -1153,12 +1122,16 @@ impl CloneByFilter for OptIn {
         target_archetype: LazyCell<&'a Archetype, impl FnOnce() -> &'a Archetype>,
         mut clone_component: impl FnMut(ComponentId),
     ) {
+        // track the amount of components left not being cloned yet to exist this method early
         let mut uncloned_components = source_archetype.component_count();
+
+        // track if any `Required::required_by_reduced` has been reduced so they are reset
         let mut reduced_any = false;
 
         // clone explicit components
         for (&component, explicit) in self.allow.iter() {
             if uncloned_components == 0 {
+                // exhausted all source components, reset changed `Required::required_by_reduced`
                 if reduced_any {
                     self.required
                         .iter_mut()
@@ -1194,6 +1167,7 @@ impl CloneByFilter for OptIn {
                     && source_archetype.contains(component) // must exist to clone, may miss if removed
                     && !target_archetype.contains(component); // do not overwrite existing values
 
+                // reset changed `Required::required_by_reduced` as this is done being checked here
                 required.reset();
 
                 do_clone.then_some(component)
@@ -1204,6 +1178,8 @@ impl CloneByFilter for OptIn {
             clone_component(required_component);
         }
 
+        // if the `required_components` has not been exhausted yet because the source has no more components
+        // to clone, iterate the rest to reset changed `Required::required_by_reduced` for the next clone
         if reduced_any {
             required_iter.for_each(|(_, required)| required.reset());
         }
@@ -1338,7 +1314,6 @@ mod tests {
     use crate::{
         component::{ComponentDescriptor, StorageType},
         prelude::{ChildOf, Children, Resource},
-        reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
         world::{FromWorld, World},
     };
     use bevy_ptr::OwningPtr;
@@ -1348,6 +1323,7 @@ mod tests {
     #[cfg(feature = "bevy_reflect")]
     mod reflect {
         use super::*;
+        use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld};
         use alloc::vec;
         use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
 
