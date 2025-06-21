@@ -4,7 +4,18 @@
 
 use bevy::{
     app::{App, Startup, Update},
+    asset::{AssetServer, Handle},
     core_pipeline::core_2d::Camera2d,
+    ecs::{
+        bundle::Bundle,
+        children,
+        component::Component,
+        hierarchy::{ChildOf, Children},
+        query::With,
+        spawn::{SpawnIter, SpawnRelated, SpawnableList},
+        system::{Commands, Query, Res},
+    },
+    image::{Image, TextureAtlas, TextureAtlasLayout},
     input::{keyboard::KeyCode, ButtonInput},
     math::UVec2,
     time::Time,
@@ -14,17 +25,6 @@ use bevy::{
     },
     DefaultPlugins,
 };
-use bevy_asset::{AssetServer, Handle};
-use bevy_ecs::{
-    bundle::Bundle,
-    children,
-    component::Component,
-    hierarchy::{ChildOf, Children},
-    query::With,
-    spawn::{SpawnIter, SpawnRelated, SpawnableList},
-    system::{Commands, Query, Res},
-};
-use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 
 /// Length of the sides of the texture
 const TEXTURE_SIDES: u32 = 64;
