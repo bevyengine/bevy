@@ -786,10 +786,10 @@ impl World {
     }
 
     pub(crate) fn trigger_with_caller<E: Event>(&mut self, mut event: E, caller: MaybeLocation) {
-        let event_id = E::register_component_id(self);
+        let event_type = E::register_event_type(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe {
-            self.trigger_dynamic_ref_with_caller(event_id, &mut event, caller);
+            self.trigger_dynamic_ref_with_caller(event_type, &mut event, caller);
         }
     }
 
@@ -799,14 +799,14 @@ impl World {
     /// or use the event after it has been modified by observers.
     #[track_caller]
     pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
-        let event_id = E::register_component_id(self);
+        let event_type = E::register_event_type(self);
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_dynamic_ref_with_caller(event_id, event, MaybeLocation::caller()) };
+        unsafe { self.trigger_dynamic_ref_with_caller(event_type, event, MaybeLocation::caller()) };
     }
 
     unsafe fn trigger_dynamic_ref_with_caller<E: Event>(
         &mut self,
-        event_id: ComponentId,
+        event_type: EventKey,
         event_data: &mut E,
         caller: MaybeLocation,
     ) {
@@ -814,7 +814,7 @@ impl World {
         // SAFETY: `event_data` is accessible as the type represented by `event_id`
         unsafe {
             world.trigger_observers_with_data::<_, ()>(
-                EventKey(event_id),
+                event_type,
                 None,
                 None,
                 core::iter::empty::<ComponentId>(),
@@ -841,10 +841,10 @@ impl World {
         targets: impl TriggerTargets,
         caller: MaybeLocation,
     ) {
-        let event_id = E::register_component_id(self);
+        let event_type = E::register_event_type(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe {
-            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, targets, caller);
+            self.trigger_targets_dynamic_ref_with_caller(event_type, &mut event, targets, caller);
         }
     }
 
@@ -859,9 +859,9 @@ impl World {
         event: &mut E,
         targets: impl TriggerTargets,
     ) {
-        let event_id = E::register_component_id(self);
+        let event_type = E::register_event_type(self);
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, event, targets) };
+        unsafe { self.trigger_targets_dynamic_ref(event_type, event, targets) };
     }
 
     /// Triggers the given [`EntityEvent`] for the given `targets`, which will run any [`Observer`]s watching for it.
@@ -876,13 +876,13 @@ impl World {
     #[track_caller]
     pub unsafe fn trigger_targets_dynamic<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
-        event_id: ComponentId,
+        event_type: EventKey,
         mut event_data: E,
         targets: Targets,
     ) {
         // SAFETY: `event_data` is accessible as the type represented by `event_id`
         unsafe {
-            self.trigger_targets_dynamic_ref(event_id, &mut event_data, targets);
+            self.trigger_targets_dynamic_ref(event_type, &mut event_data, targets);
         };
     }
 
@@ -898,12 +898,12 @@ impl World {
     #[track_caller]
     pub unsafe fn trigger_targets_dynamic_ref<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
-        event_id: ComponentId,
+        event_type: EventKey,
         event_data: &mut E,
         targets: Targets,
     ) {
         self.trigger_targets_dynamic_ref_with_caller(
-            event_id,
+            event_type,
             event_data,
             targets,
             MaybeLocation::caller(),
@@ -915,7 +915,7 @@ impl World {
     /// See `trigger_targets_dynamic_ref`
     unsafe fn trigger_targets_dynamic_ref_with_caller<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
-        event_id: ComponentId,
+        event_type: EventKey,
         event_data: &mut E,
         targets: Targets,
         caller: MaybeLocation,
@@ -926,7 +926,7 @@ impl World {
             // SAFETY: `event_data` is accessible as the type represented by `event_id`
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
-                    EventKey(event_id),
+                    event_type,
                     None,
                     None,
                     targets.components(),
@@ -940,7 +940,7 @@ impl World {
                 // SAFETY: `event_data` is accessible as the type represented by `event_id`
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
-                        EventKey(event_id),
+                        event_type,
                         Some(target_entity),
                         Some(target_entity),
                         targets.components(),
@@ -1323,14 +1323,14 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = Remove::register_component_id(&mut world);
+        let on_remove = Remove::register_event_type(&mut world);
         world.spawn(
             // SAFETY: Add and Remove are both unit types, so this is safe
             unsafe {
                 Observer::new(|_: On<Add, A>, mut res: ResMut<Order>| {
                     res.observed("add/remove");
                 })
-                .with_event(EventKey(on_remove))
+                .with_event(on_remove)
             },
         );
 
@@ -1597,14 +1597,14 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let event_a = Remove::register_component_id(&mut world);
+        let event_a = Remove::register_event_type(&mut world);
 
         // SAFETY: we registered `event_a` above and it matches the type of EventA
         let observe = unsafe {
             Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
             })
-            .with_event(EventKey(event_a))
+            .with_event(event_a)
         };
         world.spawn(observe);
 

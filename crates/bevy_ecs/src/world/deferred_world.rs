@@ -804,7 +804,7 @@ impl<'w> DeferredWorld<'w> {
             }
             Observers::invoke::<_>(
                 self.reborrow(),
-                event.clone(),
+                event,
                 Some(current_target),
                 original_target,
                 components.clone(),

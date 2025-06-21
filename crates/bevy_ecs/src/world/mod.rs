@@ -21,7 +21,7 @@ use crate::{
     error::{DefaultErrorHandler, ErrorHandler},
     event::BufferedEvent,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
-    prelude::{Add, Despawn, EventKey, Insert, Remove, Replace},
+    prelude::{Add, Despawn, Insert, Remove, Replace},
 };
 pub use bevy_ecs_macros::FromWorld;
 use bevy_utils::prelude::DebugName;
@@ -152,20 +152,20 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
-        let on_add = Add::register_component_id(self);
-        assert_eq!(ADD, EventKey(on_add));
+        let on_add = Add::register_event_type(self);
+        assert_eq!(ADD, on_add);
 
-        let on_insert = Insert::register_component_id(self);
-        assert_eq!(INSERT, EventKey(on_insert));
+        let on_insert = Insert::register_event_type(self);
+        assert_eq!(INSERT, on_insert);
 
-        let on_replace = Replace::register_component_id(self);
-        assert_eq!(REPLACE, EventKey(on_replace));
+        let on_replace = Replace::register_event_type(self);
+        assert_eq!(REPLACE, on_replace);
 
-        let on_remove = Remove::register_component_id(self);
-        assert_eq!(REMOVE, EventKey(on_remove));
+        let on_remove = Remove::register_event_type(self);
+        assert_eq!(REMOVE, on_remove);
 
-        let on_despawn = Despawn::register_component_id(self);
-        assert_eq!(DESPAWN, EventKey(on_despawn));
+        let on_despawn = Despawn::register_event_type(self);
+        assert_eq!(DESPAWN, on_despawn);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();

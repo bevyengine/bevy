@@ -443,13 +443,13 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     HookContext { entity, .. }: HookContext,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_id = E::register_component_id(world);
+        let event_type = E::register_event_type(world);
         let mut components = vec![];
         B::component_ids(&mut world.components_registrator(), &mut |id| {
             components.push(id);
         });
         if let Some(mut observer) = world.get_mut::<Observer>(entity) {
-            observer.descriptor.events.push(EventKey(event_id));
+            observer.descriptor.events.push(event_type);
             observer.descriptor.components.extend(components);
 
             let system: &mut dyn Any = observer.system.as_mut();
