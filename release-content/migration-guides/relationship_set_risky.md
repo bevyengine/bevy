@@ -4,8 +4,8 @@ pull_requests: [19601]
 ---
 
 The trait `Relationship` received a new method, `set_risky`. It is used to alter the entity ID of the entity that contains its `RelationshipTarget` counterpart.
-This is needed to keep [other data you can store in these components](https://docs.rs/bevy/latest/bevy/ecs/relationship/trait.Relationship.html#derive)
-untouched at operations that reassign the parent, for example `EntityCommands::add_related`. Previously this could have caused the
+This is needed to leave [other data you can store in these components](https://docs.rs/bevy/latest/bevy/ecs/relationship/trait.Relationship.html#derive)
+unchanged at operations that reassign the relationship target, for example `EntityCommands::add_related`. Previously this could have caused the
 data to be reset to its default value which may not be what you wanted to happen.
 
 Manually overwriting the component is still possible everywhere the full component is inserted:
