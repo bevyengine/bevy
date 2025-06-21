@@ -6,7 +6,9 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
-use bevy::{core_pipeline::Skybox, prelude::*, render::view::Hdr};
+use bevy::{
+    core_pipeline::Skybox, prelude::*, render::render_resource::TextureUsages, render::view::Hdr,
+};
 
 use std::{
     f32::consts::PI,
@@ -25,6 +27,8 @@ struct AppStatus {
     reflection_mode: ReflectionMode,
     // Whether the user has requested the scene to rotate.
     rotating: bool,
+    // The current roughness of the central sphere
+    sphere_roughness: f32,
 }
 
 // Which environment maps the user has requested to display.
@@ -37,6 +41,8 @@ enum ReflectionMode {
     // Both a world environment map and a reflection probe are present. The
     // reflection probe is shown in the sphere.
     ReflectionProbe = 2,
+    // A generated environment map is shown.
+    GeneratedEnvironmentMap = 3,
 }
 
 // The various reflection maps.
@@ -53,6 +59,9 @@ struct Cubemaps {
     // The specular cubemap that reflects both the world and the cubes.
     specular_reflection_probe: Handle<Image>,
 
+    // Unfiltered environment map
+    unfiltered_environment_map: Handle<Image>,
+
     // The skybox cubemap image. This is almost the same as
     // `specular_environment_map`.
     skybox: Handle<Image>,
@@ -68,6 +77,7 @@ fn main() {
         .add_systems(PreUpdate, add_environment_map_to_camera)
         .add_systems(Update, change_reflection_type)
         .add_systems(Update, toggle_rotation)
+        .add_systems(Update, change_sphere_roughness)
         .add_systems(
             Update,
             rotate_camera
@@ -75,6 +85,7 @@ fn main() {
                 .after(change_reflection_type),
         )
         .add_systems(Update, update_text.after(rotate_camera))
+        .add_systems(Update, setup_environment_map_usage)
         .run();
 }
 
@@ -89,7 +100,7 @@ fn setup(
 ) {
     spawn_scene(&mut commands, &asset_server);
     spawn_camera(&mut commands);
-    spawn_sphere(&mut commands, &mut meshes, &mut materials);
+    spawn_sphere(&mut commands, &mut meshes, &mut materials, &app_status);
     spawn_reflection_probe(&mut commands, &cubemaps);
     spawn_text(&mut commands, &app_status);
 }
@@ -115,6 +126,7 @@ fn spawn_sphere(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    app_status: &AppStatus,
 ) {
     // Create a sphere mesh.
     let sphere_mesh = meshes.add(Sphere::new(1.0).mesh().ico(7).unwrap());
@@ -123,11 +135,12 @@ fn spawn_sphere(
     commands.spawn((
         Mesh3d(sphere_mesh.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Srgba::hex("#ffd891").unwrap().into(),
+            base_color: Srgba::hex("#ffffff").unwrap().into(),
             metallic: 1.0,
-            perceptual_roughness: 0.0,
+            perceptual_roughness: app_status.sphere_roughness,
             ..StandardMaterial::default()
         })),
+        SphereMaterial,
     ));
 }
 
@@ -143,6 +156,27 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         },
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
         Transform::from_scale(Vec3::splat(2.0)),
+    ));
+}
+
+fn spawn_generated_environment_map(commands: &mut Commands, cubemaps: &Cubemaps) {
+    commands.spawn((
+        LightProbe,
+        GeneratedEnvironmentMapLight {
+            environment_map: cubemaps.unfiltered_environment_map.clone(),
+            intensity: 5000.0,
+            ..default()
+        },
+        Transform::from_scale(Vec3::splat(2.0)),
+    ));
+
+    // spawn directional light
+    commands.spawn((
+        DirectionalLight {
+            illuminance: 30_000.0,
+            ..default()
+        },
+        Transform::from_xyz(1.0, 0.5, 0.6).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -184,7 +218,9 @@ fn add_environment_map_to_camera(
 fn change_reflection_type(
     mut commands: Commands,
     light_probe_query: Query<Entity, With<LightProbe>>,
+    sky_box_query: Query<Entity, With<Skybox>>,
     camera_query: Query<Entity, With<Camera3d>>,
+    directional_light_query: Query<Entity, With<DirectionalLight>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
     cubemaps: Res<Cubemaps>,
@@ -196,15 +232,24 @@ fn change_reflection_type(
 
     // Switch reflection mode.
     app_status.reflection_mode =
-        ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 3).unwrap();
+        ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 4).unwrap();
 
     // Add or remove the light probe.
     for light_probe in light_probe_query.iter() {
         commands.entity(light_probe).despawn();
     }
+    for skybox in sky_box_query.iter() {
+        commands.entity(skybox).remove::<Skybox>();
+    }
+    for directional_light in directional_light_query.iter() {
+        commands.entity(directional_light).despawn();
+    }
     match app_status.reflection_mode {
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
         ReflectionMode::ReflectionProbe => spawn_reflection_probe(&mut commands, &cubemaps),
+        ReflectionMode::GeneratedEnvironmentMap => {
+            spawn_generated_environment_map(&mut commands, &cubemaps);
+        }
     }
 
     // Add or remove the environment map from the camera.
@@ -213,10 +258,23 @@ fn change_reflection_type(
             ReflectionMode::None => {
                 commands.entity(camera).remove::<EnvironmentMapLight>();
             }
-            ReflectionMode::EnvironmentMap | ReflectionMode::ReflectionProbe => {
+            ReflectionMode::EnvironmentMap
+            | ReflectionMode::ReflectionProbe
+            | ReflectionMode::GeneratedEnvironmentMap => {
+                let image = match app_status.reflection_mode {
+                    ReflectionMode::GeneratedEnvironmentMap => {
+                        cubemaps.unfiltered_environment_map.clone()
+                    }
+                    _ => cubemaps.skybox.clone(),
+                };
                 commands
                     .entity(camera)
-                    .insert(create_camera_environment_map_light(&cubemaps));
+                    .insert(create_camera_environment_map_light(&cubemaps))
+                    .insert(Skybox {
+                        image,
+                        brightness: 5000.0,
+                        ..default()
+                    });
             }
         }
     }
@@ -244,6 +302,7 @@ impl TryFrom<u32> for ReflectionMode {
             0 => Ok(ReflectionMode::None),
             1 => Ok(ReflectionMode::EnvironmentMap),
             2 => Ok(ReflectionMode::ReflectionProbe),
+            3 => Ok(ReflectionMode::GeneratedEnvironmentMap),
             _ => Err(()),
         }
     }
@@ -255,6 +314,7 @@ impl Display for ReflectionMode {
             ReflectionMode::None => "No reflections",
             ReflectionMode::EnvironmentMap => "Environment map",
             ReflectionMode::ReflectionProbe => "Reflection probe",
+            ReflectionMode::GeneratedEnvironmentMap => "Generated environment map",
         };
         formatter.write_str(text)
     }
@@ -271,8 +331,11 @@ impl AppStatus {
         };
 
         format!(
-            "{}\n{}\n{}",
-            self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT
+            "{}\n{}\nRoughness: {:.2}\n{}\nUp/Down arrows to change roughness",
+            self.reflection_mode,
+            rotation_help_text,
+            self.sphere_roughness,
+            REFLECTION_MODE_HELP_TEXT
         )
         .into()
     }
@@ -321,7 +384,21 @@ impl FromWorld for Cubemaps {
             specular_reflection_probe: world
                 .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
             specular_environment_map: specular_map.clone(),
+            unfiltered_environment_map: world
+                .load_asset("environment_maps/spiaggia_di_mondello_2k_skybox.ktx2"),
             skybox: specular_map,
+        }
+    }
+}
+
+fn setup_environment_map_usage(cubemaps: Res<Cubemaps>, mut images: ResMut<Assets<Image>>) {
+    if let Some(image) = images.get_mut(&cubemaps.unfiltered_environment_map) {
+        if !image
+            .texture_descriptor
+            .usage
+            .contains(TextureUsages::COPY_SRC)
+        {
+            image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
         }
     }
 }
@@ -331,6 +408,39 @@ impl Default for AppStatus {
         Self {
             reflection_mode: ReflectionMode::ReflectionProbe,
             rotating: true,
+            sphere_roughness: 0.0,
+        }
+    }
+}
+
+#[derive(Component)]
+struct SphereMaterial;
+
+// A system that changes the sphere's roughness with up/down arrow keys
+fn change_sphere_roughness(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut app_status: ResMut<AppStatus>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    sphere_query: Query<&MeshMaterial3d<StandardMaterial>, With<SphereMaterial>>,
+) {
+    let roughness_delta = if keyboard.pressed(KeyCode::ArrowUp) {
+        0.01 // Decrease roughness
+    } else if keyboard.pressed(KeyCode::ArrowDown) {
+        -0.01 // Increase roughness
+    } else {
+        0.0 // No change
+    };
+
+    if roughness_delta != 0.0 {
+        // Update the app status
+        app_status.sphere_roughness =
+            (app_status.sphere_roughness + roughness_delta).clamp(0.0, 1.0);
+
+        // Update the sphere material
+        for material_handle in sphere_query.iter() {
+            if let Some(material) = materials.get_mut(&material_handle.0) {
+                material.perceptual_roughness = app_status.sphere_roughness;
+            }
         }
     }
 }
