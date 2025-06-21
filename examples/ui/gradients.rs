@@ -201,17 +201,17 @@ fn setup(mut commands: Commands) {
                             TextShadow::default(),
                         )]
                 )).observe(
-                    |_trigger: Trigger<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+                    |_trigger: On<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
                     *border_query.single_mut().unwrap() = BorderColor::all(RED.into());
 
 
                 })
                 .observe(
-                    |_trigger: Trigger<Pointer<Out>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+                    |_trigger: On<Pointer<Out>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
                     *border_query.single_mut().unwrap() = BorderColor::all(Color::WHITE);
                 })
                 .observe(
-                        |_trigger: Trigger<Pointer<Click>>,
+                        |_trigger: On<Pointer<Click>>,
                             mut gradients_query: Query<&mut BackgroundGradient>,
                             mut label_query: Query<
                             &mut Text,
