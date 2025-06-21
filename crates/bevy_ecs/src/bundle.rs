@@ -187,6 +187,8 @@ use variadics_please::all_tuples;
 // bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
+// - [`Bundle::component_ids`], [`Bundle::get_component_ids`] and [`Bundle::register_required_components`]
+//   cannot depend on `self` for now.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Bundle`",
     label = "invalid `Bundle`",
@@ -195,13 +197,18 @@ use variadics_please::all_tuples;
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
-    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    );
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
+    fn get_component_ids(&self, components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 
     /// Registers components that are required by the components in this [`Bundle`].
     fn register_required_components(
+        &self,
         _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
     );
@@ -337,15 +344,24 @@ unsafe impl<C: Component> StaticBundle for C {
 // - `component_ids` calls `ids` for C's component id (and nothing else)
 // - `get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
         <Self as StaticBundle>::component_ids(components, ids);
     }
 
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+    fn get_component_ids(
+        &self,
+        components: &Components,
+        ids: &mut impl FnMut(Option<ComponentId>),
+    ) {
         <Self as StaticBundle>::get_component_ids(components, ids);
     }
 
     fn register_required_components(
+        &self,
         components: &mut ComponentsRegistrator,
         required_components: &mut RequiredComponents,
     ) {
@@ -426,19 +442,38 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, ids);)*
+            fn component_ids(&self, components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                $(<$name as Bundle>::component_ids($name, components, ids);)*
             }
 
-            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
-                $(<$name as Bundle>::get_component_ids(components, ids);)*
+            fn get_component_ids(&self, components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                $(<$name as Bundle>::get_component_ids($name, components, ids);)*
             }
 
             fn register_required_components(
+                &self,
                 components: &mut ComponentsRegistrator,
                 required_components: &mut RequiredComponents,
             ) {
-                $(<$name as Bundle>::register_required_components(components, required_components);)*
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                $(<$name as Bundle>::register_required_components($name, components, required_components);)*
             }
         }
 
@@ -2059,14 +2094,14 @@ impl Bundles {
     /// Also registers all the components in the bundle.
     pub(crate) fn register_info<T: Bundle>(
         &mut self,
-        #[expect(unused, reason = "will be used for dynamic bundles support")] bundle: &T,
+        bundle: &T,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
         *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
-            T::component_ids(components, &mut |id| component_ids.push(id));
+            bundle.component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures:

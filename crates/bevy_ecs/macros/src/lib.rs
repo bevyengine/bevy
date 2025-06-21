@@ -185,24 +185,27 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
+                &self,
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components, ids);)*
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(&self.#active_field_tokens, components, ids);)*
             }
 
             fn get_component_ids(
+                &self,
                 components: &#ecs_path::component::Components,
                 ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
             ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);)*
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(&self.#active_field_tokens, components, &mut *ids);)*
             }
 
             fn register_required_components(
+                &self,
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #ecs_path::component::RequiredComponents
             ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);)*
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::register_required_components(&self.#active_field_tokens, components, required_components);)*
             }
         }
     };
