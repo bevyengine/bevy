@@ -12,26 +12,26 @@ Manually overwriting the component is still possible everywhere the full compone
 
 ```rs
 #[derive(Component)]
-#[relationship(relationship_target = Parent)]
-struct Child {
+#[relationship(relationship_target = CarOwner)]
+struct OwnedCar {
     #[relationship]
-    parent: Entity,
-    data: u8,
+    owner: Entity,
+    first_owner: Option<Entity>, // None if `owner` is the first one
 }
 
 #[derive(Component)]
-#[relationship_target(relationship = Child)]
-struct Parent(Vec<Entity>);
+#[relationship_target(relationship = OwnedCar)]
+struct CarOwner(Vec<Entity>);
 
-let mut entity_mut = world.entity_mut(my_entity);
+let mut me_entity_mut = world.entity_mut(me_entity);
 
-// if `child_entity` already contains `Child`, then its data is unchanged
-entity_mut.add_one_related::<Child>(child_entity);
+// if `car_entity` already contains `OwnedCar`, then the first owner remains unchanged
+me_entity_mut.add_one_related::<OwnedCar>(car_entity);
 
-// if `my_entity` already contains `Child`, then its data is overwritten with 42
-entity_mut.insert(Child {
-    parent: parent_entity,
-    data: 42
+// if `my_entity` already contains `OwnedCar`, then the first owner is overwritten with None here
+car_entity_mut.insert(OwnedCar {
+    owner: me_entity,
+    first_owner: None // I swear it is not stolen officer!
 });
 ```
 
