@@ -2357,8 +2357,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Constructs the entity.
-    /// If the entity has not been constructed or has been destructed, the can construct it.
-    /// See [`World::construct`] for details.
+    /// If this entity has not yet been constructed or has been since destructed, this can construct it.
+    /// See [`World::construct`] for details and usage examples.
     #[track_caller]
     pub fn construct<B: Bundle>(&mut self, bundle: B) -> Result<&mut Self, ConstructionError> {
         let Self {
@@ -2387,6 +2387,7 @@ impl<'w> EntityWorldMut<'w> {
     /// Destructs the entity, without releasing it.
     /// This may be later [`constructed`](Self::construct).
     /// Note that this still increases the generation to differentiate different constructions of the same row.
+    /// See [`World::destruct`] for details and usage examples.
     #[track_caller]
     pub fn destruct(&mut self) -> &mut Self {
         self.destruct_with_caller(MaybeLocation::caller());
@@ -2394,7 +2395,7 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Returns whether or not it really did need to destruct.
+    /// This destructs this entity if it is currently constructed, storing the new [`EntityGeneration`] in [`Self::entity`].
     pub(crate) fn destruct_with_caller(&mut self, caller: MaybeLocation) {
         // setup
         let Some(location) = self.location else {

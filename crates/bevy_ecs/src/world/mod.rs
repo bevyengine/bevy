@@ -1087,11 +1087,24 @@ impl World {
     ///
     /// If it succeeds, this declares the entity to have this bundle.
     ///
-    /// Note: It is possible to construct an `entity` that has not been allocated yet;
+    /// In general, you should prefer [`spawn`](Self::spawn).
+    /// Spawn internally calls this method, but it takes care of finding a suitable [`Entity`] for you.
+    /// This is made available for advanced use, of which some examples are listed later.
+    ///
+    /// # Risk
+    ///
+    /// It is possible to construct an `entity` that has not been allocated yet;
     /// however, doing so is currently a bad idea as the allocator may hand out this entity row in the future, assuming it to be not constructed.
     /// This would cause a panic.
     ///
     /// Manual construction is a powerful tool, but must be used carefully.
+    ///
+    /// # Example
+    ///
+    /// Currently, this is primarily used to construct entities that come from [`spawn_null`](Self::spawn_null).
+    /// See that for an example.
+    /// More generally, manually constructing and [`destruct`](Self::destruct)ing entities allows you to skip bevy's default entity allocator.
+    /// This is useful if you want to enforce properties about the [`EntityRow`](crate::entity::EntityRow)s of a group of entities, make a custom allocator, etc.
     #[track_caller]
     pub fn construct<B: Bundle>(
         &mut self,
@@ -1519,6 +1532,7 @@ impl World {
     }
 
     /// Performs [`try_destruct`](Self::try_destruct), warning on errors.
+    /// See that method for more information.
     #[track_caller]
     #[inline]
     pub fn destruct(&mut self, entity: Entity) -> Option<EntityWorldMut<'_>> {
@@ -1535,6 +1549,7 @@ impl World {
     /// [`Components`](Component).
     /// The *only* difference between destructing and despawning an entity is that destructing does not release the `entity` to be reused.
     /// It is up to the caller to either re-construct or fully despawn the `entity`; otherwise, the [`EntityRow`](crate::entity::EntityRow) will not be able to be reused.
+    /// In general, [`despawn`](Self::despawn) should be used instead, which automatically allows the row to be reused.
     ///
     /// Returns an [`EntityDestructError`] if the entity does not exist.
     ///
@@ -1542,6 +1557,13 @@ impl World {
     ///
     /// This will also *despawn* the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
+    ///
+    /// # Example
+    ///
+    /// There is no simple example in which this would be practical, but one use for this is a custom entity allocator.
+    /// Despawning internally calls this and frees the entity id to bevy's default entity allocator.
+    /// The same principal can be used to create custom allocators with additional properties.
+    /// For example, this could be used to make an allocator that yields groups of consecutive [`EntityRow`](crate::entity::EntityRow)s, etc.
     #[track_caller]
     #[inline]
     pub fn try_destruct(
