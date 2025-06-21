@@ -18,7 +18,7 @@ use bevy::{
         lifecycle::{Insert, Replace},
         name::Name,
         observer::On,
-        query::With,
+        query::{Has, With},
         relationship::Relationship,
         schedule::{IntoScheduleConfigs, SystemCondition},
         spawn::{SpawnIter, SpawnRelated},
@@ -46,7 +46,6 @@ use bevy::{
     },
     DefaultPlugins,
 };
-use bevy_ecs::query::Has;
 
 /// How fast the ui background darkens/lightens
 const DECAY_FACTOR: f32 = 0.875;
