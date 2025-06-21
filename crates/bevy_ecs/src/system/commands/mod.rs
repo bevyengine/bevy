@@ -439,7 +439,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Returns the [`EntityCommands`] for the requested [`Entity`] if it exists.
     /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
-    /// For example, this does not error when the entity has not been constructed.
+    /// This also does not error when the entity has not been constructed.
     /// For that behavior, see [`get_constructed_entity`](Self::get_constructed_entity).
     ///
     /// # Errors
