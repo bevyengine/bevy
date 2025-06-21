@@ -28,7 +28,7 @@ let mut me_entity_mut = world.entity_mut(me_entity);
 // if `car_entity` already contains `OwnedCar`, then the first owner remains unchanged
 me_entity_mut.add_one_related::<OwnedCar>(car_entity);
 
-// if `my_entity` already contains `OwnedCar`, then the first owner is overwritten with None here
+// if `car_entity` already contains `OwnedCar`, then the first owner is overwritten with None here
 car_entity_mut.insert(OwnedCar {
     owner: me_entity,
     first_owner: None // I swear it is not stolen officer!
