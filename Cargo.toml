@@ -3355,6 +3355,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_scroll"
+path = "examples/ui/overflow_scroll.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_scroll]
+name = "Overflow and ScrollPosition interaction"
+description = "Shows the behavior of `ScrollPosition` for nodes with [`OverflowAxis::Visible`], [`OverflowAxis::Scroll`], and [`OverflowAxis::ScrollNoClip`]"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"
 doc-scrape-examples = true
