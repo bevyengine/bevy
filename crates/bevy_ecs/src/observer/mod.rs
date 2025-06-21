@@ -192,8 +192,8 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     }
 
     /// Returns the event type of this [`On`] instance.
-    pub fn event_type(&self) -> ComponentId {
-        self.trigger.event_type.component_id()
+    pub fn event_type(&self) -> EventKey {
+        self.trigger.event_type
     }
 
     /// Returns a reference to the triggered event.
@@ -611,7 +611,7 @@ impl Observers {
     /// Attempts to get the observers for the given `event_type`.
     ///
     /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Replace`], [`Remove`], and [`Despawn`],
-    /// use the [`ComponentId`] constants from the [`lifecycle`](crate::lifecycle) module.
+    /// use the [`EventKey`] constants from the [`lifecycle`](crate::lifecycle) module.
     pub fn try_get_observers(&self, event_type: EventKey) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 

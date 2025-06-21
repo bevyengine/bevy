@@ -438,6 +438,7 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
 
+#[expect(unused, reason = "For potential future use.")]
 impl EventKey {
     /// Returns id of the underlying [`Event`].
     #[inline]
