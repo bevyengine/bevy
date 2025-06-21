@@ -67,7 +67,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityLocation},
     fragmenting_value::{FragmentingValue, FragmentingValuesBorrowed},
-    lifecycle::{ON_ADD, ON_INSERT, ON_REMOVE, ON_REPLACE},
+    lifecycle::{ADD, INSERT, REMOVE, REPLACE},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
@@ -597,10 +597,9 @@ impl BundleInfo {
                     // SAFETY: the caller ensures component_id is valid.
                     unsafe { components.get_info_unchecked(id).name() }
                 })
-                .collect::<Vec<_>>()
-                .join(", ");
+                .collect::<Vec<_>>();
 
-            panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+            panic!("Bundle {bundle_type_name} has duplicate components: {names:?}");
         }
 
         // handle explicit components
@@ -1326,7 +1325,7 @@ impl<'w> BundleInserter<'w> {
             if insert_mode == InsertMode::Replace {
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
-                        ON_REPLACE,
+                        REPLACE,
                         Some(entity),
                         archetype_after_insert.iter_existing(),
                         caller,
@@ -1511,7 +1510,7 @@ impl<'w> BundleInserter<'w> {
             );
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    ON_ADD,
+                    ADD,
                     Some(entity),
                     archetype_after_insert.iter_added(),
                     caller,
@@ -1529,7 +1528,7 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            ON_INSERT,
+                            INSERT,
                             Some(entity),
                             archetype_after_insert.iter_inserted(),
                             caller,
@@ -1548,7 +1547,7 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            ON_INSERT,
+                            INSERT,
                             Some(entity),
                             archetype_after_insert.iter_added(),
                             caller,
@@ -1702,7 +1701,7 @@ impl<'w> BundleRemover<'w> {
             };
             if self.old_archetype.as_ref().has_replace_observer() {
                 deferred_world.trigger_observers(
-                    ON_REPLACE,
+                    REPLACE,
                     Some(entity),
                     bundle_components_in_archetype(),
                     caller,
@@ -1717,7 +1716,7 @@ impl<'w> BundleRemover<'w> {
             );
             if self.old_archetype.as_ref().has_remove_observer() {
                 deferred_world.trigger_observers(
-                    ON_REMOVE,
+                    REMOVE,
                     Some(entity),
                     bundle_components_in_archetype(),
                     caller,
@@ -1986,7 +1985,7 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    ON_ADD,
+                    ADD,
                     Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
@@ -2001,7 +2000,7 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
-                    ON_INSERT,
+                    INSERT,
                     Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
@@ -2539,7 +2538,7 @@ mod tests {
         #[derive(Resource, Default)]
         struct Count(u32);
         world.init_resource::<Count>();
-        world.add_observer(|_t: Trigger<ArchetypeCreated>, mut count: ResMut<Count>| {
+        world.add_observer(|_t: On<ArchetypeCreated>, mut count: ResMut<Count>| {
             count.0 += 1;
         });
 
@@ -2550,5 +2549,14 @@ mod tests {
         e.insert(A);
 
         assert_eq!(world.resource::<Count>().0, 3);
+    }
+
+    #[derive(Bundle)]
+    #[expect(unused, reason = "tests the output of the derive macro is valid")]
+    struct Ignore {
+        #[bundle(ignore)]
+        foo: i32,
+        #[bundle(ignore)]
+        bar: i32,
     }
 }

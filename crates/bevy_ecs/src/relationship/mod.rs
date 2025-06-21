@@ -6,6 +6,7 @@ mod relationship_source_collection;
 
 use alloc::format;
 
+use bevy_utils::prelude::DebugName;
 pub use related_methods::*;
 pub use relationship_query::*;
 pub use relationship_source_collection::*;
@@ -105,8 +106,8 @@ pub trait Relationship: Component + Sized {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
-                core::any::type_name::<Self>(),
-                core::any::type_name::<Self>()
+                DebugName::type_name::<Self>(),
+                DebugName::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
             return;
@@ -125,8 +126,8 @@ pub trait Relationship: Component + Sized {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
-                core::any::type_name::<Self>(),
-                core::any::type_name::<Self>()
+                DebugName::type_name::<Self>(),
+                DebugName::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
         }

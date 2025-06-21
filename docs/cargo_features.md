@@ -41,6 +41,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
+|debug|Enable collecting debug information about systems and components to help with diagnostics|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
@@ -69,6 +70,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_remote|Enable the Bevy Remote Protocol|
+|bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|

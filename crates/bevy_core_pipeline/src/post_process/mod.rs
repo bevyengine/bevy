@@ -352,7 +352,7 @@ impl ViewNode for PostProcessingNode {
         &self,
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
+        (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -485,7 +485,7 @@ impl ExtractComponent for ChromaticAberration {
     type Out = ChromaticAberration;
 
     fn extract_component(
-        chromatic_aberration: QueryItem<'_, Self::QueryData>,
+        chromatic_aberration: QueryItem<'_, '_, Self::QueryData>,
     ) -> Option<Self::Out> {
         // Skip the postprocessing phase entirely if the intensity is zero.
         if chromatic_aberration.intensity > 0.0 {

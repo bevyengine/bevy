@@ -16,26 +16,26 @@
 //! There are five types of lifecycle events, split into two categories. First, we have lifecycle events that are triggered
 //! when a component is added to an entity:
 //!
-//! - [`OnAdd`]: Triggered when a component is added to an entity that did not already have it.
-//! - [`OnInsert`]: Triggered when a component is added to an entity, regardless of whether it already had it.
+//! - [`Add`]: Triggered when a component is added to an entity that did not already have it.
+//! - [`Insert`]: Triggered when a component is added to an entity, regardless of whether it already had it.
 //!
-//! When both events occur, [`OnAdd`] hooks are evaluated before [`OnInsert`].
+//! When both events occur, [`Add`] hooks are evaluated before [`Insert`].
 //!
 //! Next, we have lifecycle events that are triggered when a component is removed from an entity:
 //!
-//! - [`OnReplace`]: Triggered when a component is removed from an entity, regardless if it is then replaced with a new value.
-//! - [`OnRemove`]: Triggered when a component is removed from an entity and not replaced, before the component is removed.
-//! - [`OnDespawn`]: Triggered for each component on an entity when it is despawned.
+//! - [`Replace`]: Triggered when a component is removed from an entity, regardless if it is then replaced with a new value.
+//! - [`Remove`]: Triggered when a component is removed from an entity and not replaced, before the component is removed.
+//! - [`Despawn`]: Triggered for each component on an entity when it is despawned.
 //!
-//! [`OnReplace`] hooks are evaluated before [`OnRemove`], then finally [`OnDespawn`] hooks are evaluated.
+//! [`Replace`] hooks are evaluated before [`Remove`], then finally [`Despawn`] hooks are evaluated.
 //!
-//! [`OnAdd`] and [`OnRemove`] are counterparts: they are only triggered when a component is added or removed
+//! [`Add`] and [`Remove`] are counterparts: they are only triggered when a component is added or removed
 //! from an entity in such a way as to cause a change in the component's presence on that entity.
-//! Similarly, [`OnInsert`] and [`OnReplace`] are counterparts: they are triggered when a component is added or replaced
+//! Similarly, [`Insert`] and [`Replace`] are counterparts: they are triggered when a component is added or replaced
 //! on an entity, regardless of whether this results in a change in the component's presence on that entity.
 //!
 //! To reliably synchronize data structures using with component lifecycle events,
-//! you can combine [`OnInsert`] and [`OnReplace`] to fully capture any changes to the data.
+//! you can combine [`Insert`] and [`Replace`] to fully capture any changes to the data.
 //! This is particularly useful in combination with immutable components,
 //! to avoid any lifecycle-bypassing mutations.
 //!
@@ -47,13 +47,17 @@
 //!
 //! Each of these lifecycle events also corresponds to a fixed [`ComponentId`],
 //! which are assigned during [`World`] initialization.
-//! For example, [`OnAdd`] corresponds to [`ON_ADD`].
+//! For example, [`Add`] corresponds to [`ADD`].
 //! This is used to skip [`TypeId`](core::any::TypeId) lookups in hot paths.
 use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events},
+    event::{
+        BufferedEvent, EntityEvent, Event, EventCursor, EventId, EventIterator,
+        EventIteratorWithId, Events,
+    },
+    query::FilteredAccessSet,
     relationship::RelationshipHookMode,
     storage::SparseSet,
     system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -310,61 +314,86 @@ impl ComponentHooks {
     }
 }
 
-/// [`ComponentId`] for [`OnAdd`]
-pub const ON_ADD: ComponentId = ComponentId::new(0);
-/// [`ComponentId`] for [`OnInsert`]
-pub const ON_INSERT: ComponentId = ComponentId::new(1);
-/// [`ComponentId`] for [`OnReplace`]
-pub const ON_REPLACE: ComponentId = ComponentId::new(2);
-/// [`ComponentId`] for [`OnRemove`]
-pub const ON_REMOVE: ComponentId = ComponentId::new(3);
-/// [`ComponentId`] for [`OnDespawn`]
-pub const ON_DESPAWN: ComponentId = ComponentId::new(4);
+/// [`ComponentId`] for [`Add`]
+pub const ADD: ComponentId = ComponentId::new(0);
+/// [`ComponentId`] for [`Insert`]
+pub const INSERT: ComponentId = ComponentId::new(1);
+/// [`ComponentId`] for [`Replace`]
+pub const REPLACE: ComponentId = ComponentId::new(2);
+/// [`ComponentId`] for [`Remove`]
+pub const REMOVE: ComponentId = ComponentId::new(3);
+/// [`ComponentId`] for [`Despawn`]
+pub const DESPAWN: ComponentId = ComponentId::new(4);
 
 /// Trigger emitted when a component is inserted onto an entity that does not already have that
-/// component. Runs before `OnInsert`.
+/// component. Runs before `Insert`.
 /// See [`crate::lifecycle::ComponentHooks::on_add`] for more information.
-#[derive(Event, Debug)]
+#[derive(Event, EntityEvent, Debug, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-pub struct OnAdd;
+#[doc(alias = "OnAdd")]
+pub struct Add;
 
 /// Trigger emitted when a component is inserted, regardless of whether or not the entity already
-/// had that component. Runs after `OnAdd`, if it ran.
+/// had that component. Runs after `Add`, if it ran.
 /// See [`crate::lifecycle::ComponentHooks::on_insert`] for more information.
-#[derive(Event, Debug)]
+#[derive(Event, EntityEvent, Debug, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-pub struct OnInsert;
+#[doc(alias = "OnInsert")]
+pub struct Insert;
 
 /// Trigger emitted when a component is removed from an entity, regardless
 /// of whether or not it is later replaced.
 ///
 /// Runs before the value is replaced, so you can still access the original component data.
 /// See [`crate::lifecycle::ComponentHooks::on_replace`] for more information.
-#[derive(Event, Debug)]
+#[derive(Event, EntityEvent, Debug, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-pub struct OnReplace;
+#[doc(alias = "OnReplace")]
+pub struct Replace;
 
 /// Trigger emitted when a component is removed from an entity, and runs before the component is
 /// removed, so you can still access the component data.
 /// See [`crate::lifecycle::ComponentHooks::on_remove`] for more information.
-#[derive(Event, Debug)]
+#[derive(Event, EntityEvent, Debug, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-pub struct OnRemove;
+#[doc(alias = "OnRemove")]
+pub struct Remove;
 
 /// Trigger emitted for each component on an entity when it is despawned.
 /// See [`crate::lifecycle::ComponentHooks::on_despawn`] for more information.
-#[derive(Event, Debug)]
+#[derive(Event, EntityEvent, Debug, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-pub struct OnDespawn;
+#[doc(alias = "OnDespawn")]
+pub struct Despawn;
+
+/// Deprecated in favor of [`Add`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Add`.")]
+pub type OnAdd = Add;
+
+/// Deprecated in favor of [`Insert`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Insert`.")]
+pub type OnInsert = Insert;
+
+/// Deprecated in favor of [`Replace`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Replace`.")]
+pub type OnReplace = Replace;
+
+/// Deprecated in favor of [`Remove`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Remove`.")]
+pub type OnRemove = Remove;
+
+/// Deprecated in favor of [`Despawn`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Despawn`.")]
+pub type OnDespawn = Despawn;
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
-#[derive(Event, Debug, Clone, Into)]
+#[derive(Event, BufferedEvent, Debug, Clone, Into)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Clone))]
 pub struct RemovedComponentEntity(Entity);
@@ -592,7 +621,15 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     type State = ();
     type Item<'w, 's> = &'w RemovedComponentEvents;
 
-    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet<ComponentId>,
+        _world: &mut World,
+    ) {
+    }
 
     #[inline]
     unsafe fn get_param<'w, 's>(

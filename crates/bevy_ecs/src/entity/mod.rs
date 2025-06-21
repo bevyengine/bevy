@@ -76,7 +76,7 @@ pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
-    component::Tick,
+    component::{CheckChangeTicks, Tick},
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
@@ -1216,9 +1216,9 @@ impl Entities {
     }
 
     #[inline]
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for meta in &mut self.meta {
-            meta.spawned_or_despawned.at.check_tick(change_tick);
+            meta.spawned_or_despawned.at.check_tick(check);
         }
     }
 

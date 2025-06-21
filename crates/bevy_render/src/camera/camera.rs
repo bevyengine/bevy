@@ -601,8 +601,7 @@ impl Camera {
         rect_relative.y = 1.0 - rect_relative.y;
 
         let ndc = rect_relative * 2. - Vec2::ONE;
-        let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
+        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
         let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
@@ -668,7 +667,7 @@ impl Camera {
     ) -> Option<Vec3> {
         // Build a transformation matrix to convert from world space to NDC using camera data
         let clip_from_world: Mat4 =
-            self.computed.clip_from_view * camera_transform.compute_matrix().inverse();
+            self.computed.clip_from_view * camera_transform.to_matrix().inverse();
         let ndc_space_coords: Vec3 = clip_from_world.project_point3(world_position);
 
         (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
@@ -689,8 +688,7 @@ impl Camera {
     /// Will panic if the projection matrix is invalid (has a determinant of 0) and `glam_assert` is enabled.
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
-        let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
+        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
 
         let world_space_coords = ndc_to_world.project_point3(ndc);
 
