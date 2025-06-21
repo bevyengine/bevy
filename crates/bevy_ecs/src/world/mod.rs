@@ -20,6 +20,7 @@ pub use crate::{
 use crate::{
     error::{DefaultErrorHandler, ErrorHandler},
     event::BufferedEvent,
+    fragmenting_value::FragmentingValuesBorrowed,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     prelude::{Add, Despawn, Insert, Remove, Replace},
 };
@@ -1163,7 +1164,7 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick, &bundle);
         // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
         let (entity_location, after_effect) =
             unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
@@ -2298,6 +2299,10 @@ impl World {
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
             if let Some(first_location) = self.entities().get(first_entity) {
+                let value_components = FragmentingValuesBorrowed::from_bundle(
+                    &mut self.components_registrator(),
+                    &first_bundle,
+                );
                 let mut cache = InserterArchetypeCache {
                     // SAFETY: we initialized this bundle_id in `register_info`
                     inserter: unsafe {
@@ -2306,6 +2311,7 @@ impl World {
                             first_location.archetype_id,
                             bundle_id,
                             change_tick,
+                            &value_components,
                         )
                     },
                     archetype_id: first_location.archetype_id,
@@ -2324,7 +2330,13 @@ impl World {
 
                 for (entity, bundle) in batch_iter {
                     if let Some(location) = cache.inserter.entities().get(entity) {
-                        if location.archetype_id != cache.archetype_id {
+                        if location.archetype_id != cache.archetype_id
+                            || B::has_fragmenting_values()
+                        {
+                            let value_components = FragmentingValuesBorrowed::from_bundle(
+                                &mut self.components_registrator(),
+                                &bundle,
+                            );
                             cache = InserterArchetypeCache {
                                 // SAFETY: we initialized this bundle_id in `register_info`
                                 inserter: unsafe {
@@ -2333,6 +2345,7 @@ impl World {
                                         location.archetype_id,
                                         bundle_id,
                                         change_tick,
+                                        &value_components,
                                     )
                                 },
                                 archetype_id: location.archetype_id,
@@ -2448,6 +2461,10 @@ impl World {
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
                 if let Some(first_location) = self.entities().get(first_entity) {
+                    let value_components = FragmentingValuesBorrowed::from_bundle(
+                        &mut self.components_registrator(),
+                        &first_bundle,
+                    );
                     let mut cache = InserterArchetypeCache {
                         // SAFETY: we initialized this bundle_id in `register_info`
                         inserter: unsafe {
@@ -2456,6 +2473,7 @@ impl World {
                                 first_location.archetype_id,
                                 bundle_id,
                                 change_tick,
+                                &value_components,
                             )
                         },
                         archetype_id: first_location.archetype_id,
@@ -2483,7 +2501,11 @@ impl World {
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
                 if let Some(location) = cache.inserter.entities().get(entity) {
-                    if location.archetype_id != cache.archetype_id {
+                    if location.archetype_id != cache.archetype_id || B::has_fragmenting_values() {
+                        let value_components = FragmentingValuesBorrowed::from_bundle(
+                            &mut self.components_registrator(),
+                            &bundle,
+                        );
                         cache = InserterArchetypeCache {
                             // SAFETY: we initialized this bundle_id in `register_info`
                             inserter: unsafe {
@@ -2492,6 +2514,7 @@ impl World {
                                     location.archetype_id,
                                     bundle_id,
                                     change_tick,
+                                    &value_components,
                                 )
                             },
                             archetype_id: location.archetype_id,
@@ -3904,6 +3927,7 @@ mod tests {
         let mut world = World::new();
 
         // SAFETY: the drop function is valid for the layout and the data will be safe to access from any thread
+        // and fragmenting_value_vtable is None
         let descriptor = unsafe {
             ComponentDescriptor::new_with_layout(
                 "Custom Test Component".to_string(),
@@ -3916,6 +3940,7 @@ mod tests {
                 }),
                 true,
                 ComponentCloneBehavior::Default,
+                None,
             )
         };
 
