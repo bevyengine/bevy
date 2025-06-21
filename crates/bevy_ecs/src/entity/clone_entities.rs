@@ -1122,7 +1122,7 @@ impl CloneByFilter for OptIn {
         target_archetype: LazyCell<&'a Archetype, impl FnOnce() -> &'a Archetype>,
         mut clone_component: impl FnMut(ComponentId),
     ) {
-        // track the amount of components left not being cloned yet to exist this method early
+        // track the amount of components left not being cloned yet to exit this method early
         let mut uncloned_components = source_archetype.component_count();
 
         // track if any `Required::required_by_reduced` has been reduced so they are reset
@@ -1178,8 +1178,9 @@ impl CloneByFilter for OptIn {
             clone_component(required_component);
         }
 
-        // if the `required_components` has not been exhausted yet because the source has no more components
-        // to clone, iterate the rest to reset changed `Required::required_by_reduced` for the next clone
+        // if the `required_components` iterator has not been exhausted yet because the source has no more
+        // components to clone, iterate the rest to reset changed `Required::required_by_reduced` for the
+        // next clone
         if reduced_any {
             required_iter.for_each(|(_, required)| required.reset());
         }
