@@ -3,15 +3,16 @@
 //! Example demonstrating 2D point lights.
 //! Features two scenes with different lighting setups and real-time parameter adjustment.
 //!
-//! Space: Change FallOffType
-//! ArrowUp: Increase intensity
-//! ArrowDown: Decrease intensity
-//! ArrowRight: Cycle through colors
+//! Space: Change `FallOffType`
+//! `ArrowUp`: Increase intensity
+//! `ArrowDown`: Decrease intensity
+//! `ArrowRight`: Cycle through colors
 //! N: Next scene
 //! O: Disable intensity
 
 use bevy::prelude::*;
 use bevy::sprite::{FalloffType, PointLight2D};
+use bevy_math::ops::{cos, sin};
 use std::f32::consts::TAU;
 
 #[derive(Resource)]
@@ -76,8 +77,8 @@ fn setup_scene1(mut commands: Commands, asset_server: Res<AssetServer>) {
     let radius = 200.0;
     for i in 0..count {
         let angle = i as f32 / count as f32 * TAU;
-        let x = radius * angle.cos();
-        let y = radius * angle.sin();
+        let x = radius * cos(angle);
+        let y = radius * sin(angle);
         commands.spawn((
             Sprite {
                 image: sprite_handle.clone(),
