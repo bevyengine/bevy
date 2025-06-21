@@ -24,7 +24,10 @@ use bevy::{
         spawn::{SpawnIter, SpawnRelated},
         system::{Commands, Query, Res, Single},
     },
-    image::{Image, ImageSamplerDescriptor, TextureAtlas, TextureAtlasLayout},
+    image::{
+        Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor, TextureAtlas,
+        TextureAtlasLayout,
+    },
     input::{common_conditions::input_just_pressed, keyboard::KeyCode},
     math::{ops, UVec2},
     render::{
@@ -738,7 +741,12 @@ where
 
 /// Spawn an inventory and fill it with items
 fn fill_inventory(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let image = asset_server.load("textures/food_kenney.png");
+    let image = asset_server.load_with_settings(
+        "textures/food_kenney.png",
+        |image_settings: &mut ImageLoaderSettings| {
+            image_settings.sampler = ImageSampler::linear();
+        },
+    );
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(64), 7, 6, None, None);
     let layout_handle = asset_server.add(layout);
 
