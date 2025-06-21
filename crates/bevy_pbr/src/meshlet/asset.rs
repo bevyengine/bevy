@@ -169,6 +169,11 @@ impl AssetSaver for MeshletMeshSaver {
             .write_all(&MESHLET_MESH_ASSET_VERSION.to_le_bytes())
             .await?;
 
+        writer.write_all(bytemuck::bytes_of(&asset.aabb)).await?;
+        writer
+            .write_all(bytemuck::bytes_of(&asset.bvh_depth))
+            .await?;
+
         // Compress and write asset data
         let mut writer = FrameEncoder::new(AsyncWriteSyncAdapter(writer));
         write_slice(&asset.vertex_positions, &mut writer)?;
@@ -178,8 +183,6 @@ impl AssetSaver for MeshletMeshSaver {
         write_slice(&asset.bvh, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
         write_slice(&asset.meshlet_cull_data, &mut writer)?;
-        writer.write_all(bytemuck::bytes_of(&asset.aabb))?;
-        writer.write_all(bytemuck::bytes_of(&asset.bvh_depth))?;
         writer.finish()?;
 
         Ok(())
@@ -212,6 +215,13 @@ impl AssetLoader for MeshletMeshLoader {
             return Err(MeshletMeshSaveOrLoadError::WrongVersion { found: version });
         }
 
+        let mut bytes = [0u8; 24];
+        reader.read_exact(&mut bytes).await?;
+        let aabb = bytemuck::cast(bytes);
+        let mut bytes = [0u8; 4];
+        reader.read_exact(&mut bytes).await?;
+        let bvh_depth = u32::from_le_bytes(bytes);
+
         // Load and decompress asset data
         let reader = &mut FrameDecoder::new(AsyncReadSyncAdapter(reader));
         let vertex_positions = read_slice(reader)?;
@@ -221,12 +231,6 @@ impl AssetLoader for MeshletMeshLoader {
         let bvh = read_slice(reader)?;
         let meshlets = read_slice(reader)?;
         let meshlet_cull_data = read_slice(reader)?;
-        let mut bytes = [0u8; 24];
-        reader.read_exact(&mut bytes)?;
-        let aabb = bytemuck::cast(bytes);
-        let mut bytes = [0u8; 4];
-        reader.read_exact(&mut bytes)?;
-        let bvh_depth = u32::from_le_bytes(bytes);
 
         Ok(MeshletMesh {
             vertex_positions,

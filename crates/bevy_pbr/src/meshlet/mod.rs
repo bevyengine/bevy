@@ -147,10 +147,10 @@ impl Plugin for MeshletPlugin {
             std::process::exit(1);
         }
 
-        embedded_asset!(app, "clear_visibility_buffer.wgsl");
         load_shader_library!(app, "meshlet_bindings.wgsl");
         load_shader_library!(app, "visibility_buffer_resolve.wgsl");
         load_shader_library!(app, "meshlet_cull_shared.wgsl");
+        embedded_asset!(app, "clear_visibility_buffer.wgsl");
         embedded_asset!(app, "cull_instances.wgsl");
         embedded_asset!(app, "cull_bvh.wgsl");
         embedded_asset!(app, "cull_clusters.wgsl");

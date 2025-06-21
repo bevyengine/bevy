@@ -25,7 +25,7 @@
 }
 
 @compute
-@workgroup_size(128, 1, 1) // 8 threads per node
+@workgroup_size(128, 1, 1) // 8 threads per node, 16 nodes per workgroup
 fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Calculate the queue ID for this thread
     let dispatch_id = global_invocation_id.x;

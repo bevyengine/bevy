@@ -1,4 +1,4 @@
-use crate::meshlet::asset::{BvhNode, MeshletAabbErrorOffset, MeshletCullData};
+use crate::meshlet::asset::{BvhNode, MeshletCullData};
 
 use super::{asset::Meshlet, persistent_buffer::PersistentGpuBufferable};
 use alloc::sync::Arc;
@@ -18,27 +18,31 @@ impl PersistentGpuBufferable for Arc<[BvhNode]> {
         buffer_slice: &mut [u8],
         buffer_offset: BufferAddress,
     ) {
+        const SIZE: usize = size_of::<BvhNode>();
+        for (i, &node) in self.iter().enumerate() {
+            let bytes: [u8; SIZE] =
+                bytemuck::cast(node.offset_aabbs(base_meshlet_index, buffer_offset));
+            buffer_slice[i * SIZE..(i + 1) * SIZE].copy_from_slice(&bytes);
+        }
+    }
+}
+
+impl BvhNode {
+    fn offset_aabbs(mut self, base_meshlet_index: u32, buffer_offset: BufferAddress) -> Self {
         let size = size_of::<BvhNode>();
         let base_bvh_node_index = (buffer_offset / size as u64) as u32;
-        for (i, &node) in self.iter().enumerate() {
-            let bytes = bytemuck::cast::<_, [u8; size_of::<BvhNode>()]>(BvhNode {
-                aabbs: core::array::from_fn(|i| {
-                    let aabb = node.aabbs[i];
-                    MeshletAabbErrorOffset {
-                        child_offset: aabb.child_offset
-                            + if node.child_counts[i] == u8::MAX {
-                                base_bvh_node_index
-                            } else {
-                                base_meshlet_index
-                            },
-                        ..aabb
-                    }
-                }),
-                ..node
-            });
-            let i = i * size;
-            buffer_slice[i..(i + size)].clone_from_slice(&bytes);
+        for i in 0..self.aabbs.len() {
+            self.aabbs[i].child_offset += if self.child_is_bvh_node(i) {
+                base_bvh_node_index
+            } else {
+                base_meshlet_index
+            };
         }
+        self
+    }
+
+    fn child_is_bvh_node(&self, i: usize) -> bool {
+        self.child_counts[i] == u8::MAX
     }
 }
 

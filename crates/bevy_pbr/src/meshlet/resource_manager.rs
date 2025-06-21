@@ -73,6 +73,7 @@ impl ResourceManager {
     pub fn new(cluster_buffer_slots: u32, render_device: &RenderDevice) -> Self {
         let needs_dispatch_remap =
             cluster_buffer_slots > render_device.limits().max_compute_workgroups_per_dimension;
+        // The IDs are a (u32, u32) of instance and index.
         let cull_queue_size = 2 * cluster_buffer_slots as u64 * size_of::<u32>() as u64;
 
         Self {
