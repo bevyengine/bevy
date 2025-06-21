@@ -93,9 +93,9 @@ fn button(asset_server: &AssetServer) -> impl Bundle + use<> {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BorderColor::all(Color::BLACK),
+            BorderColor::all(Color::WHITE),
             BorderRadius::MAX,
-            BackgroundColor(NORMAL_BUTTON),
+            BackgroundColor(Color::BLACK),
             children![(
                 Text::new("Button"),
                 TextFont {
