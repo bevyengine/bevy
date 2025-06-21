@@ -74,6 +74,11 @@ struct DrawIndirectArgs {
     first_instance: u32,
 }
 
+// Either a BVH node or a meshlet, along with the instance it is associated with.
+// Refers to BVH nodes in `meshlet_bvh_cull_queue` and `meshlet_second_pass_bvh_queue`, where `offset` is the index into `meshlet_bvh_nodes`.
+// Refers to meshlets in `meshlet_meshlet_cull_queue` and `meshlet_raster_clusters`.
+// In `meshlet_meshlet_cull_queue`, `offset` is the index into `meshlet_cull_data`.
+// In `meshlet_raster_clusters`, `offset` is the index into `meshlets`.
 struct InstancedOffset {
     instance_id: u32,
     offset: u32,
