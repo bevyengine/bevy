@@ -1,6 +1,6 @@
 [package]
 name = "no_std_library"
-version = "0.1.0"
+version = "0.17.0-dev"
 edition = "2024"
 
 # Normally we'd put all dependencies in [dependencies], but this syntax is easier to document
