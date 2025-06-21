@@ -1191,8 +1191,7 @@ impl CloneByFilter for OptIn {
                     && source_archetype.contains(component) // must exist to clone, may miss if removed
                     && !target_archetype.contains(component); // do not overwrite existing values
 
-                // revert reductions for the next entity to clone with this EntityCloner
-                required.required_by_reduced = required.required_by;
+                required.reset();
 
                 do_clone.then_some(component)
             })
@@ -1324,6 +1323,7 @@ struct Required {
 
 impl Required {
     // Revert reductions for the next entity to clone with this EntityCloner
+    #[inline]
     fn reset(&mut self) {
         self.required_by_reduced = self.required_by;
     }
