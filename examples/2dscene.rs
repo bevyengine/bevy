@@ -10,9 +10,10 @@
 //! N: Next scene
 //! O: Disable intensity
 
+use bevy::math::cos;
+use bevy::math::sin;
 use bevy::prelude::*;
 use bevy::sprite::{FalloffType, PointLight2D};
-use bevy_math::ops::{cos, sin};
 use std::f32::consts::TAU;
 
 #[derive(Resource)]

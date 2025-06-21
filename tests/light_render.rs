@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 use bevy::sprite::{FalloffType, PointLight2D};
+use bevy::math::cos;
+use bevy::math::sin;
 
 /// Container for extracted 2D point lights ready for rendering
 #[derive(Resource, Default)]
@@ -230,9 +232,9 @@ mod light_tests {
             app.world_mut().spawn((
                 PointLight2D {
                     color: Color::srgb_from_array([
-                        ((i as f32 * 72.0).to_radians().cos() + 1.0) / 2.0,
-                        ((i as f32 * 72.0 + 120.0).to_radians().cos() + 1.0) / 2.0,
-                        ((i as f32 * 72.0 + 240.0).to_radians().cos() + 1.0) / 2.0,
+                        (cos((i as f32 * 72.0).to_radians()) + 1.0) / 2.0,
+                        (cos((i as f32 * 72.0 + 120.0).to_radians()) + 1.0) / 2.0,
+                        (cos((i as f32 * 72.0 + 240.0).to_radians()) + 1.0) / 2.0,
                     ]), // Different colors
                     intensity: (i + 1) as f32,
                     radius: 100.0 + i as f32 * 50.0,
