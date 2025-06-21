@@ -374,6 +374,7 @@ impl<'w> EntityWorldMut<'w> {
         entity: Entity,
         relationship_hook_mode: RelationshipHookMode,
     ) {
+        // Check if the relation edge holds additional data
         if size_of::<R>() > size_of::<Entity>() {
             self.assert_not_despawned();
 
