@@ -211,7 +211,10 @@ fn hierarchy_many(c: &mut Criterion) {
 
 /// Filter scenario variant for bot opt-in and opt-out filters
 #[derive(Clone, Copy)]
-#[allow(clippy::enum_variant_names)]
+#[expect(
+    clippy::enum_variant_names,
+    reason = "'Opt' is not understood as an prefix but `OptOut'/'OptIn' are"
+)]
 enum FilterScenario {
     OptOutNone,
     OptOutNoneKeep(bool),
