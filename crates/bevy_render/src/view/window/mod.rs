@@ -20,6 +20,9 @@ use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
+#[cfg(target_os = "linux")]
+use std::io::Read;
+
 pub mod screenshot;
 
 use screenshot::ScreenshotPlugin;
@@ -188,6 +191,61 @@ impl WindowSurfaces {
     }
 }
 
+/// Determines if the application is running in a Windows Subsystem for Linux (WSL) environment
+#[cfg(target_os = "linux")]
+fn is_running_in_wsl() -> bool {
+    // Check for the existence of /proc/sys/kernel/osrelease which should contain "microsoft" or "WSL" if running in WSL
+    if let Ok(mut file) = std::fs::File::open("/proc/sys/kernel/osrelease") {
+        let mut content = String::new();
+        if file.read_to_string(&mut content).is_ok() {
+            let content_lower = content.to_lowercase();
+            return content_lower.contains("microsoft") || content_lower.contains("wsl");
+        }
+    }
+    false
+}
+
+#[cfg(not(target_os = "linux"))]
+fn is_running_in_wsl() -> bool {
+    false
+}
+
+/// Captures a potential panic during surface configuration and logs it instead of crashing
+/// This is especially useful for WSL2 environments where surface reconfiguration can fail
+fn safely_configure_surface(
+    render_device: &RenderDevice,
+    surface: &wgpu::Surface,
+    config: &SurfaceConfiguration,
+    is_wsl: bool,
+) {
+    if is_wsl {
+        // Use a closure to avoid polluting the backtrace with catch_unwind machinery
+        let result = core::intrinsics::catch_unwind(core::panic::AssertUnwindSafe(|| {
+            render_device.configure_surface(surface, config);
+        }));
+
+        if let Err(panic_err) = result {
+            // Log the error but don't crash the application
+            if let Some(err_str) = panic_err.downcast_ref::<String>() {
+                warn!("Failed to configure surface in WSL: {}", err_str);
+            } else if let Some(err_str) = panic_err.downcast_ref::<&str>() {
+                warn!("Failed to configure surface in WSL: {}", err_str);
+            } else {
+                warn!("Failed to configure surface in WSL (unknown error type)");
+            }
+
+            if let Some(err_str) = panic_err.downcast_ref::<String>() {
+                if err_str.contains("Surface does not support the adapter's queue family") {
+                    warn!("This is a known issue with Vulkan surfaces in WSL2 environments during window resizing");
+                }
+            }
+        }
+    } else {
+        // Regular behavior for non-WSL environments
+        render_device.configure_surface(surface, config);
+    }
+}
+
 /// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
@@ -215,6 +273,9 @@ pub fn prepare_windows(
     render_device: Res<RenderDevice>,
     #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
+    // Detect if we're running in WSL
+    let is_wsl = is_running_in_wsl();
+
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
         let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
@@ -247,7 +308,14 @@ pub fn prepare_windows(
                 window.set_swapchain_texture(frame);
             }
             Err(wgpu::SurfaceError::Outdated) => {
-                render_device.configure_surface(surface, &surface_data.configuration);
+                // Use our safe configuration function
+                safely_configure_surface(
+                    &render_device,
+                    surface,
+                    &surface_data.configuration,
+                    is_wsl,
+                );
+
                 let frame = match surface.get_current_texture() {
                     Ok(frame) => frame,
                     Err(err) => {
@@ -265,6 +333,10 @@ pub fn prepare_windows(
                     "Couldn't get swap chain texture. This is probably a quirk \
                         of your Linux GPU driver, so it can be safely ignored."
                 );
+            }
+            // Handle WSL-specific surface errors
+            Err(err) if is_wsl => {
+                warn!("Encountered surface error in WSL environment: {}. This may be due to WSL2 graphics compatibility issues. Graphics may be temporarily distorted but the application will continue.", err);
             }
             Err(err) => {
                 panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
@@ -306,6 +378,14 @@ pub fn create_surfaces(
     render_adapter: Res<RenderAdapter>,
     render_device: Res<RenderDevice>,
 ) {
+    // Detect if we're running in WSL
+    let is_wsl = is_running_in_wsl();
+    if is_wsl {
+        debug!(
+            "Detected WSL environment - enabling special handling for window surface operations"
+        );
+    }
+
     for window in windows.windows.values() {
         let data = window_surfaces
             .surfaces
@@ -393,7 +473,9 @@ pub fn create_surfaces(
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                 PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             };
-            render_device.configure_surface(&data.surface, &data.configuration);
+
+            // Configure surface with special WSL handling if needed
+            safely_configure_surface(&render_device, &data.surface, &data.configuration, is_wsl);
         }
 
         window_surfaces.configured_windows.insert(window.entity);
