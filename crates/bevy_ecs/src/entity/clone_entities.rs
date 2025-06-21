@@ -1099,7 +1099,8 @@ impl CloneByFilter for OptOut {
 }
 
 impl OptOut {
-    /// todo
+    /// Denies a component through the filter, also deny components that require `id` if
+    /// [`Self::attach_required_by_components`] is true.
     #[inline]
     fn filter_deny(&mut self, id: ComponentId, world: &World) {
         self.deny.insert(id);
@@ -1210,7 +1211,7 @@ impl CloneByFilter for OptIn {
 }
 
 impl OptIn {
-    /// Allows a component through the filter, include required components if
+    /// Allows a component through the filter, also allow required components if
     /// [`Self::attach_required_components`] is true.
     #[inline]
     fn filter_allow(&mut self, id: ComponentId, world: &World, mut insert_mode: InsertMode) {
