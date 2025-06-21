@@ -66,8 +66,15 @@ impl TypeRegistrySchemaReader for TypeRegistry {
     }
 }
 
+/// Error type for invalid JSON Schema conversions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InvalidJsonSchema {
+    /// The type cannot be converted to a valid JSON Schema.
+    InvalidType,
+}
+
 impl TryFrom<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
-    type Error = ();
+    type Error = InvalidJsonSchema;
 
     fn try_from(value: (&TypeRegistration, &SchemaTypesMetadata)) -> Result<Self, Self::Error> {
         let (reg, metadata) = value;
@@ -78,10 +85,18 @@ impl TryFrom<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
         let base_schema = type_info.build_schema();
 
         let JsonSchemaVariant::Schema(mut typed_schema) = base_schema else {
-            return Err(());
+            return Err(InvalidJsonSchema::InvalidType);
         };
         typed_schema.reflect_types = metadata.get_registered_reflect_types(reg);
         Ok(*typed_schema)
+    }
+}
+
+impl TryFrom<&TypeRegistration> for JsonSchemaBevyType {
+    type Error = InvalidJsonSchema;
+
+    fn try_from(value: &TypeRegistration) -> Result<Self, Self::Error> {
+        (value, &SchemaTypesMetadata::default()).try_into()
     }
 }
 
