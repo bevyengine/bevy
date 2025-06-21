@@ -16,7 +16,9 @@ use super::{BevyError, ErrorContext, ErrorHandler};
 pub trait HandleError<Out = ()>: Send + 'static {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command;
+    ///
+    /// If `None` is provided, the error will be completely ignored.
+    fn handle_error_with(self, error_handler: Option<ErrorHandler>) -> impl Command;
     /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     fn handle_error(self) -> impl Command;
@@ -27,15 +29,22 @@ where
     C: Command<Result<T, E>>,
     E: Into<BevyError>,
 {
-    fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command {
-        move |world: &mut World| match self.apply(world) {
-            Ok(_) => {}
-            Err(err) => (error_handler)(
-                err.into(),
-                ErrorContext::Command {
-                    name: DebugName::type_name::<C>(),
-                },
-            ),
+    fn handle_error_with(self, error_handler: Option<ErrorHandler>) -> impl Command {
+        move |world: &mut World| {
+            let result = self.apply(world);
+            if let Some(error_handler) = error_handler {
+                match result {
+                    Ok(_) => {}
+                    Err(err) => (error_handler)(
+                        err.into(),
+                        ErrorContext::Command {
+                            name: DebugName::type_name::<C>(),
+                        },
+                    ),
+                }
+            } else {
+                // If there's no error handler, we intentionally swallow the error
+            }
         }
     }
 
@@ -56,7 +65,10 @@ impl<C> HandleError<Never> for C
 where
     C: Command<Never>,
 {
-    fn handle_error_with(self, _error_handler: fn(BevyError, ErrorContext)) -> impl Command {
+    fn handle_error_with(
+        self,
+        _error_handler: Option<fn(BevyError, ErrorContext)>,
+    ) -> impl Command {
         move |world: &mut World| {
             self.apply(world);
         }
@@ -75,7 +87,10 @@ where
     C: Command,
 {
     #[inline]
-    fn handle_error_with(self, _error_handler: fn(BevyError, ErrorContext)) -> impl Command {
+    fn handle_error_with(
+        self,
+        _error_handler: Option<fn(BevyError, ErrorContext)>,
+    ) -> impl Command {
         self
     }
     #[inline]
