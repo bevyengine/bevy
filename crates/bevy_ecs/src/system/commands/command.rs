@@ -5,7 +5,7 @@
 //! [`Commands`](crate::system::Commands).
 
 use crate::{
-    bundle::{Bundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
     error::Result,
@@ -85,14 +85,14 @@ where
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
-pub fn insert_batch<I, B>(batch: I, insert_mode: InsertMode) -> impl Command<Result>
+pub fn insert_batch<I, B>(batch: I) -> impl Command<Result>
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle<Effect: NoBundleEffect>,
 {
     let caller = MaybeLocation::caller();
     move |world: &mut World| -> Result {
-        world.try_insert_batch_with_caller(batch, insert_mode, caller)?;
+        world.try_insert_batch_with_caller(batch, caller)?;
         Ok(())
     }
 }

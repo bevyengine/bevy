@@ -255,7 +255,11 @@ pub trait DynamicBundle {
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
+    fn get_components(
+        self,
+        insert_mode: InsertMode,
+        func: &mut impl FnMut(StorageType, InsertMode, OwningPtr<'_>),
+    ) -> Self::Effect;
 }
 
 /// An operation on an [`Entity`] that occurs _after_ inserting the [`Bundle`] that defined this bundle effect.
@@ -316,8 +320,12 @@ unsafe impl<C: Component> BundleFromComponents for C {
 impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-        OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, ptr));
+    fn get_components(
+        self,
+        insert_mode: InsertMode,
+        func: &mut impl FnMut(StorageType, InsertMode, OwningPtr<'_>),
+    ) -> Self::Effect {
+        OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, insert_mode, ptr));
     }
 }
 
@@ -408,14 +416,14 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+            fn get_components(self, insert_mode: InsertMode, func: &mut impl FnMut(StorageType, InsertMode, OwningPtr<'_>)) -> Self::Effect {
                 #[allow(
                     non_snake_case,
                     reason = "The names of these variables are provided by the caller, not by us."
                 )]
                 let ($(mut $name,)*) = self;
                 ($(
-                    $name.get_components(&mut *func),
+                    $name.get_components(insert_mode, &mut *func),
                 )*)
             }
         }
@@ -673,55 +681,57 @@ impl BundleInfo {
         table_row: TableRow,
         change_tick: Tick,
         bundle: T,
-        insert_mode: InsertMode,
         caller: MaybeLocation,
     ) -> T::Effect {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        let after_effect = bundle.get_components(&mut |storage_type, component_ptr| {
-            let component_id = *self.component_ids.get_unchecked(bundle_component);
-            // SAFETY: bundle_component is a valid index for this bundle
-            let status = unsafe { bundle_component_status.get_status(bundle_component) };
-            match storage_type {
-                StorageType::Table => {
-                    let column =
+        let after_effect = bundle.get_components(
+            InsertMode::Keep,
+            &mut |storage_type, insert_mode, component_ptr| {
+                let component_id = *self.component_ids.get_unchecked(bundle_component);
+                // SAFETY: bundle_component is a valid index for this bundle
+                let status = unsafe { bundle_component_status.get_status(bundle_component) };
+                match storage_type {
+                    StorageType::Table => {
+                        let column =
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
-                    match (status, insert_mode) {
-                        (ComponentStatus::Added, _) => {
-                            column.initialize(table_row, component_ptr, change_tick, caller);
-                        }
-                        (ComponentStatus::Existing, InsertMode::Replace) => {
-                            column.replace(table_row, component_ptr, change_tick, caller);
-                        }
-                        (ComponentStatus::Existing, InsertMode::Keep) => {
-                            if let Some(drop_fn) = table.get_drop_for(component_id) {
-                                drop_fn(component_ptr);
+                        match (status, insert_mode) {
+                            (ComponentStatus::Added, _) => {
+                                column.initialize(table_row, component_ptr, change_tick, caller);
+                            }
+                            (ComponentStatus::Existing, InsertMode::Replace) => {
+                                column.replace(table_row, component_ptr, change_tick, caller);
+                            }
+                            (ComponentStatus::Existing, InsertMode::Keep) => {
+                                if let Some(drop_fn) = table.get_drop_for(component_id) {
+                                    drop_fn(component_ptr);
+                                }
                             }
                         }
                     }
-                }
-                StorageType::SparseSet => {
-                    let sparse_set =
+                    StorageType::SparseSet => {
+                        let sparse_set =
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    match (status, insert_mode) {
-                        (ComponentStatus::Added, _) | (_, InsertMode::Replace) => {
-                            sparse_set.insert(entity, component_ptr, change_tick, caller);
-                        }
-                        (ComponentStatus::Existing, InsertMode::Keep) => {
-                            if let Some(drop_fn) = sparse_set.get_drop() {
-                                drop_fn(component_ptr);
+                        match (status, insert_mode) {
+                            (ComponentStatus::Added, _) | (_, InsertMode::Replace) => {
+                                sparse_set.insert(entity, component_ptr, change_tick, caller);
+                            }
+                            (ComponentStatus::Existing, InsertMode::Keep) => {
+                                if let Some(drop_fn) = sparse_set.get_drop() {
+                                    drop_fn(component_ptr);
+                                }
                             }
                         }
                     }
                 }
-            }
-            bundle_component += 1;
-        });
+                bundle_component += 1;
+            },
+        );
 
         for required_component in required_components {
             required_component.initialize(
@@ -1173,38 +1183,38 @@ impl<'w> BundleInserter<'w> {
         entity: Entity,
         location: EntityLocation,
         bundle: T,
-        insert_mode: InsertMode,
         caller: MaybeLocation,
-        relationship_hook_mode: RelationshipHookMode,
+        _relationship_hook_mode: RelationshipHookMode,
     ) -> (EntityLocation, T::Effect) {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
-        let archetype = self.archetype.as_ref();
+        let _archetype = self.archetype.as_ref();
 
+        // TEMP: not sure what to do with this
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
-        unsafe {
-            // SAFETY: Mutable references do not alias and will be dropped after this block
-            let mut deferred_world = self.world.into_deferred();
+        // unsafe {
+        //     // SAFETY: Mutable references do not alias and will be dropped after this block
+        //     let mut deferred_world = self.world.into_deferred();
 
-            if insert_mode == InsertMode::Replace {
-                if archetype.has_replace_observer() {
-                    deferred_world.trigger_observers(
-                        REPLACE,
-                        Some(entity),
-                        archetype_after_insert.iter_existing(),
-                        caller,
-                    );
-                }
-                deferred_world.trigger_on_replace(
-                    archetype,
-                    entity,
-                    archetype_after_insert.iter_existing(),
-                    caller,
-                    relationship_hook_mode,
-                );
-            }
-        }
+        //     if insert_mode == InsertMode::Replace {
+        //         if archetype.has_replace_observer() {
+        //             deferred_world.trigger_observers(
+        //                 REPLACE,
+        //                 Some(entity),
+        //                 archetype_after_insert.iter_existing(),
+        //                 caller,
+        //             );
+        //         }
+        //         deferred_world.trigger_on_replace(
+        //             archetype,
+        //             entity,
+        //             archetype_after_insert.iter_existing(),
+        //             caller,
+        //             relationship_hook_mode,
+        //         );
+        //     }
+        // }
 
         let table = self.table.as_mut();
 
@@ -1229,7 +1239,6 @@ impl<'w> BundleInserter<'w> {
                     location.table_row,
                     self.change_tick,
                     bundle,
-                    insert_mode,
                     caller,
                 );
 
@@ -1270,7 +1279,6 @@ impl<'w> BundleInserter<'w> {
                     result.table_row,
                     self.change_tick,
                     bundle,
-                    insert_mode,
                     caller,
                 );
 
@@ -1352,7 +1360,6 @@ impl<'w> BundleInserter<'w> {
                     move_result.new_row,
                     self.change_tick,
                     bundle,
-                    insert_mode,
                     caller,
                 );
 
@@ -1381,45 +1388,46 @@ impl<'w> BundleInserter<'w> {
                     caller,
                 );
             }
-            match insert_mode {
-                InsertMode::Replace => {
-                    // Insert triggers for both new and existing components if we're replacing them.
-                    deferred_world.trigger_on_insert(
-                        new_archetype,
-                        entity,
-                        archetype_after_insert.iter_inserted(),
-                        caller,
-                        relationship_hook_mode,
-                    );
-                    if new_archetype.has_insert_observer() {
-                        deferred_world.trigger_observers(
-                            INSERT,
-                            Some(entity),
-                            archetype_after_insert.iter_inserted(),
-                            caller,
-                        );
-                    }
-                }
-                InsertMode::Keep => {
-                    // Insert triggers only for new components if we're not replacing them (since
-                    // nothing is actually inserted).
-                    deferred_world.trigger_on_insert(
-                        new_archetype,
-                        entity,
-                        archetype_after_insert.iter_added(),
-                        caller,
-                        relationship_hook_mode,
-                    );
-                    if new_archetype.has_insert_observer() {
-                        deferred_world.trigger_observers(
-                            INSERT,
-                            Some(entity),
-                            archetype_after_insert.iter_added(),
-                            caller,
-                        );
-                    }
-                }
-            }
+            // TEMP: not sure what to do with this
+            // match insert_mode {
+            //     InsertMode::Replace => {
+            //         // Insert triggers for both new and existing components if we're replacing them.
+            //         deferred_world.trigger_on_insert(
+            //             new_archetype,
+            //             entity,
+            //             archetype_after_insert.iter_inserted(),
+            //             caller,
+            //             relationship_hook_mode,
+            //         );
+            //         if new_archetype.has_insert_observer() {
+            //             deferred_world.trigger_observers(
+            //                 INSERT,
+            //                 Some(entity),
+            //                 archetype_after_insert.iter_inserted(),
+            //                 caller,
+            //             );
+            //         }
+            //     }
+            //     InsertMode::Keep => {
+            //         // Insert triggers only for new components if we're not replacing them (since
+            //         // nothing is actually inserted).
+            //         deferred_world.trigger_on_insert(
+            //             new_archetype,
+            //             entity,
+            //             archetype_after_insert.iter_added(),
+            //             caller,
+            //             relationship_hook_mode,
+            //         );
+            //         if new_archetype.has_insert_observer() {
+            //             deferred_world.trigger_observers(
+            //                 INSERT,
+            //                 Some(entity),
+            //                 archetype_after_insert.iter_added(),
+            //                 caller,
+            //             );
+            //         }
+            //     }
+            // }
         }
 
         (new_location, after_effect)
@@ -1809,7 +1817,6 @@ impl<'w> BundleSpawner<'w> {
                 table_row,
                 self.change_tick,
                 bundle,
-                InsertMode::Replace,
                 caller,
             );
             entities.set(entity.index(), Some(location));
