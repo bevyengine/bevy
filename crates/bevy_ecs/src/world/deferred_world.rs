@@ -96,6 +96,7 @@ impl<'w> DeferredWorld<'w> {
     /// If you do not need to ensure the above hooks are triggered, and your component
     /// is mutable, prefer using [`get_mut`](DeferredWorld::get_mut).
     #[inline]
+    #[track_caller]
     pub(crate) fn modify_component<T: Component, R>(
         &mut self,
         entity: Entity,
@@ -129,6 +130,7 @@ impl<'w> DeferredWorld<'w> {
     /// You should prefer the typed [`modify_component`](DeferredWorld::modify_component)
     /// whenever possible.
     #[inline]
+    #[track_caller]
     pub(crate) fn modify_component_by_id<R>(
         &mut self,
         entity: Entity,
