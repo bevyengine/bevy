@@ -20,7 +20,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::Event,
+    event::{BufferedEvent, EntityEvent, Event},
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -120,16 +120,26 @@ const _: () = {
 
         type Item<'w, 's> = Commands<'w, 's>;
 
-        fn init_state(
-            world: &mut World,
-            system_meta: &mut bevy_ecs::system::SystemMeta,
-        ) -> Self::State {
+        fn init_state(world: &mut World) -> Self::State {
             FetchState {
                 state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
                     world,
-                    system_meta,
                 ),
             }
+        }
+
+        fn init_access(
+            state: &Self::State,
+            system_meta: &mut bevy_ecs::system::SystemMeta,
+            component_access_set: &mut bevy_ecs::query::FilteredAccessSet<ComponentId>,
+            world: &mut World,
+        ) {
+            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_access(
+                &state.state,
+                system_meta,
+                component_access_set,
+                world,
+            );
         }
 
         fn apply(
@@ -862,7 +872,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system(&mut self, id: SystemId) {
+    pub fn run_system<O: 'static>(&mut self, id: SystemId<(), O>) {
         self.queue(command::run_system(id).handle_error_with(warn));
     }
 
@@ -955,7 +965,7 @@ impl<'w, 's> Commands<'w, 's> {
     ) -> SystemId<I, O>
     where
         I: SystemInput + Send + 'static,
-        O: Send + 'static,
+        O: 'static,
     {
         let entity = self.spawn_empty().id();
         let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
@@ -980,7 +990,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
     where
         I: SystemInput + Send + 'static,
-        O: Send + 'static,
+        O: 'static,
     {
         self.queue(command::unregister_system(system_id).handle_error_with(warn));
     }
@@ -1029,10 +1039,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// consider passing them in as inputs via [`Commands::run_system_cached_with`].
     ///
     /// If that's not an option, consider [`Commands::register_system`] instead.
-    pub fn run_system_cached<M, S>(&mut self, system: S)
+    pub fn run_system_cached<O, M, S>(&mut self, system: S)
     where
+        O: 'static,
         M: 'static,
-        S: IntoSystem<(), (), M> + Send + 'static,
+        S: IntoSystem<(), O, M> + Send + 'static,
     {
         self.queue(command::run_system_cached(system).handle_error_with(warn));
     }
@@ -1059,16 +1070,17 @@ impl<'w, 's> Commands<'w, 's> {
     /// consider passing them in as inputs.
     ///
     /// If that's not an option, consider [`Commands::register_system`] instead.
-    pub fn run_system_cached_with<I, M, S>(&mut self, system: S, input: I::Inner<'static>)
+    pub fn run_system_cached_with<I, O, M, S>(&mut self, system: S, input: I::Inner<'static>)
     where
         I: SystemInput<Inner<'static>: Send> + Send + 'static,
+        O: 'static,
         M: 'static,
-        S: IntoSystem<I, (), M> + Send + 'static,
+        S: IntoSystem<I, O, M> + Send + 'static,
     {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
-    /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
+    /// Sends a global [`Event`] without any targets.
     ///
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     #[track_caller]
@@ -1076,13 +1088,13 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger(event));
     }
 
-    /// Sends a [`Trigger`](crate::observer::Trigger) for the given targets.
+    /// Sends an [`EntityEvent`] for the given targets.
     ///
-    /// This will run any [`Observer`] of the given [`Event`] watching those targets.
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
     #[track_caller]
     pub fn trigger_targets(
         &mut self,
-        event: impl Event,
+        event: impl EntityEvent,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
         self.queue(command::trigger_targets(event, targets));
@@ -1091,7 +1103,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
     /// with the entity that stores the observer.
     ///
-    /// `observer` can be any system whose first parameter is a [`Trigger`].
+    /// `observer` can be any system whose first parameter is [`On`].
     ///
     /// **Calling [`observe`](EntityCommands::observe) on the returned
     /// [`EntityCommands`] will observe the observer itself, which you very
@@ -1101,7 +1113,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Panics if the given system is an exclusive system.
     ///
-    /// [`Trigger`]: crate::observer::Trigger
+    /// [`On`]: crate::observer::On
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -1109,7 +1121,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.spawn(Observer::new(observer))
     }
 
-    /// Sends an arbitrary [`Event`].
+    /// Sends an arbitrary [`BufferedEvent`].
     ///
     /// This is a convenience method for sending events
     /// without requiring an [`EventWriter`](crate::event::EventWriter).
@@ -1122,7 +1134,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// If these events are performance-critical or very frequently sent,
     /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
     #[track_caller]
-    pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
         self.queue(command::send_event(event));
         self
     }
@@ -1947,16 +1959,16 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Sends a [`Trigger`](crate::observer::Trigger) targeting the entity.
+    /// Sends an [`EntityEvent`] targeting the entity.
     ///
-    /// This will run any [`Observer`] of the given [`Event`] watching this entity.
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching this entity.
     #[track_caller]
-    pub fn trigger(&mut self, event: impl Event) -> &mut Self {
+    pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
         self.queue(entity_command::trigger(event))
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {

@@ -372,7 +372,7 @@ mod text_wrap {
             for (j, message) in messages.into_iter().enumerate() {
                 commands.entity(root).with_child((
                     Text(message.clone()),
-                    TextLayout::new(JustifyText::Left, linebreak),
+                    TextLayout::new(Justify::Left, linebreak),
                     BackgroundColor(Color::srgb(0.8 - j as f32 * 0.3, 0., 0.)),
                 ));
             }

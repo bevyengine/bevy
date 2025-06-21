@@ -652,6 +652,19 @@ mod tests {
     }
 
     #[test]
+    fn fallible_system() {
+        fn sys() -> Result<()> {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        let fallible_system_id = world.register_system(sys);
+        let output = world.run_system(fallible_system_id);
+        assert!(matches!(output, Ok(Err(_))));
+    }
+
+    #[test]
     fn exclusive_system() {
         let mut world = World::new();
         let exclusive_system_id = world.register_system(|world: &mut World| {
@@ -752,18 +765,53 @@ mod tests {
     }
 
     #[test]
+    fn cached_fallible_system() {
+        fn sys() -> Result<()> {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        let fallible_system_id = world.register_system_cached(sys);
+        let output = world.run_system(fallible_system_id);
+        assert!(matches!(output, Ok(Err(_))));
+        let output = world.run_system_cached(sys);
+        assert!(matches!(output, Ok(Err(_))));
+        let output = world.run_system_cached_with(sys, ());
+        assert!(matches!(output, Ok(Err(_))));
+    }
+
+    #[test]
     fn cached_system_commands() {
         fn sys(mut counter: ResMut<Counter>) {
-            counter.0 = 1;
+            counter.0 += 1;
         }
 
         let mut world = World::new();
         world.insert_resource(Counter(0));
-
         world.commands().run_system_cached(sys);
         world.flush_commands();
-
         assert_eq!(world.resource::<Counter>().0, 1);
+        world.commands().run_system_cached_with(sys, ());
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 2);
+    }
+
+    #[test]
+    fn cached_fallible_system_commands() {
+        fn sys(mut counter: ResMut<Counter>) -> Result {
+            counter.0 += 1;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+        world.commands().run_system_cached(sys);
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 1);
+        world.commands().run_system_cached_with(sys, ());
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 2);
     }
 
     #[test]

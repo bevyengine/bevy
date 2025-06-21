@@ -1,7 +1,8 @@
 use crate::MainWorld;
 use bevy_ecs::{
-    component::Tick,
+    component::{ComponentId, Tick},
     prelude::*,
+    query::FilteredAccessSet,
     system::{
         ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemParamValidationError,
         SystemState,
@@ -71,12 +72,26 @@ where
     type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();
         ExtractState {
             state: SystemState::new(&mut main_world),
-            main_world_state: Res::<MainWorld>::init_state(world, system_meta),
+            main_world_state: Res::<MainWorld>::init_state(world),
         }
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet<ComponentId>,
+        world: &mut World,
+    ) {
+        Res::<MainWorld>::init_access(
+            &state.main_world_state,
+            system_meta,
+            component_access_set,
+            world,
+        );
     }
 
     #[inline]

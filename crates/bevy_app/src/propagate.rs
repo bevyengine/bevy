@@ -6,9 +6,9 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
+    lifecycle::RemovedComponents,
     query::{Changed, Or, QueryFilter, With, Without},
     relationship::{Relationship, RelationshipTarget},
-    removal_detection::RemovedComponents,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Local, Query},
 };

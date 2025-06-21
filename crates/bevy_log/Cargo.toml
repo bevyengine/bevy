@@ -45,7 +45,7 @@ bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = fa
 ] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
-tracing-oslog = "0.2"
+tracing-oslog = "0.3"
 
 [lints]
 workspace = true

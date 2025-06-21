@@ -9,8 +9,9 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["http"]
+default = ["http", "bevy_asset"]
 http = ["dep:async-io", "dep:smol-hyper"]
+bevy_asset = ["dep:bevy_asset"]
 
 [dependencies]
 # bevy
@@ -21,11 +22,14 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", features = [
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", features = [
+  "debug",
+] }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
   "serialize",
 ] }
+bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev", optional = true }
 
 # other
 anyhow = "1"
