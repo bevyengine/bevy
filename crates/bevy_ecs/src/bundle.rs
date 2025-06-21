@@ -1215,37 +1215,35 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         caller: MaybeLocation,
-        _relationship_hook_mode: RelationshipHookMode,
+        relationship_hook_mode: RelationshipHookMode,
     ) -> (EntityLocation, T::Effect) {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
-        let _archetype = self.archetype.as_ref();
+        let archetype = self.archetype.as_ref();
 
-        // TEMP: not sure what to do with this
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
-        // unsafe {
-        //     // SAFETY: Mutable references do not alias and will be dropped after this block
-        //     let mut deferred_world = self.world.into_deferred();
+        unsafe {
+            // SAFETY: Mutable references do not alias and will be dropped after this block
+            let mut deferred_world = self.world.into_deferred();
 
-        //     if insert_mode == InsertMode::Replace {
-        //         if archetype.has_replace_observer() {
-        //             deferred_world.trigger_observers(
-        //                 REPLACE,
-        //                 Some(entity),
-        //                 archetype_after_insert.iter_existing(),
-        //                 caller,
-        //             );
-        //         }
-        //         deferred_world.trigger_on_replace(
-        //             archetype,
-        //             entity,
-        //             archetype_after_insert.iter_existing(),
-        //             caller,
-        //             relationship_hook_mode,
-        //         );
-        //     }
-        // }
+            // TEMP: not sure what to do with this
+            if archetype.has_replace_observer() {
+                deferred_world.trigger_observers(
+                    REPLACE,
+                    Some(entity),
+                    archetype_after_insert.iter_existing(),
+                    caller,
+                );
+            }
+            deferred_world.trigger_on_replace(
+                archetype,
+                entity,
+                archetype_after_insert.iter_existing(),
+                caller,
+                relationship_hook_mode,
+            );
+        }
 
         let table = self.table.as_mut();
 
@@ -1420,45 +1418,22 @@ impl<'w> BundleInserter<'w> {
                 );
             }
             // TEMP: not sure what to do with this
-            // match insert_mode {
-            //     InsertMode::Replace => {
-            //         // Insert triggers for both new and existing components if we're replacing them.
-            //         deferred_world.trigger_on_insert(
-            //             new_archetype,
-            //             entity,
-            //             archetype_after_insert.iter_inserted(),
-            //             caller,
-            //             relationship_hook_mode,
-            //         );
-            //         if new_archetype.has_insert_observer() {
-            //             deferred_world.trigger_observers(
-            //                 INSERT,
-            //                 Some(entity),
-            //                 archetype_after_insert.iter_inserted(),
-            //                 caller,
-            //             );
-            //         }
-            //     }
-            //     InsertMode::Keep => {
-            //         // Insert triggers only for new components if we're not replacing them (since
-            //         // nothing is actually inserted).
-            //         deferred_world.trigger_on_insert(
-            //             new_archetype,
-            //             entity,
-            //             archetype_after_insert.iter_added(),
-            //             caller,
-            //             relationship_hook_mode,
-            //         );
-            //         if new_archetype.has_insert_observer() {
-            //             deferred_world.trigger_observers(
-            //                 INSERT,
-            //                 Some(entity),
-            //                 archetype_after_insert.iter_added(),
-            //                 caller,
-            //             );
-            //         }
-            //     }
-            // }
+            // Insert triggers for both new and existing components if we're replacing them.
+            deferred_world.trigger_on_insert(
+                new_archetype,
+                entity,
+                archetype_after_insert.iter_inserted(),
+                caller,
+                relationship_hook_mode,
+            );
+            if new_archetype.has_insert_observer() {
+                deferred_world.trigger_observers(
+                    INSERT,
+                    Some(entity),
+                    archetype_after_insert.iter_inserted(),
+                    caller,
+                );
+            }
         }
 
         (new_location, after_effect)
