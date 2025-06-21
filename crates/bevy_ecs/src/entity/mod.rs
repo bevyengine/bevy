@@ -378,29 +378,10 @@ impl EntityGeneration {
     }
 }
 
-/// Lightweight identifier of an [entity](crate::entity).
-///
-/// The identifier is implemented using a [generational index]: a combination of an index ([`EntityRow`]) and a generation ([`EntityGeneration`]).
-/// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
-///
-/// These identifiers are only valid on the [`World`] it's sourced from. Attempting to use an `Entity` to
-/// fetch entity components or metadata from a different world will either fail or return unexpected results.
-///
-/// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
-///
-/// # Entity ids
-///
-/// It is important to keep in mind that an [`Entity`] is just an id for a conceptual entity.
-/// Conceptual entities are just a collection of zero or more components,
-/// but [`Entity`] ids may or may not correspond to a conceptual entity.
-///
-/// Each [`EntityRow`] corresponds to a potential conceptual entity.
-/// This can happen if, for example, the row has not been allocated, or it has been allocated and has not been [`constructed`](crate::world::World::construct), or it has been since [destructed](crate::world::World::destruct).
-/// Entity rows may also be pending reuse, etc.
-///
-/// For a [`Entity`] id to correspond to a conceptual entity, its row must do so, and it must have the most up to date generation of that row.
-/// This can be un-intuitive sometimes, because an allocated [`Entity`] id that is perfectly correct but not constructed yet, still does not correspond to a conceptual entity.
-/// This is why spawning an entity from commands will provide an [`Entity`] that, technically, does not exist yet; it's just that it is *queued* to exist soon.
+/// This uniquely identifies an entity in a [`World`].
+/// Note that this is just an id, not the entity itself.
+/// Further, the entity this id refers to may no longer exist in the [`World`].
+/// For more information about entities, their ids, and how to use them, see the module docs.
 ///
 /// # Aliasing
 ///
@@ -783,13 +764,23 @@ impl SparseSetIndex for Entity {
 }
 
 /// Allocates [`Entity`] ids uniquely.
+/// This is used in [`World::construct`](crate::world::World::construct) and [`World::despawn`](crate::world::World::despawn) to track entity ids no longer in use.
+/// Allocating is fully concurrent and can be done from multiple threads.
+///
+/// Conceptually, this is a collection of [`Entity`] ids who's [`EntityRow`] is destructed and who's [`EntityGeneration`] is the most recent.
+/// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
 #[derive(Default, Debug)]
 pub struct EntitiesAllocator {
+    /// All the entities to reuse.
+    /// This is a buffer, which contains an array of [`Entity`] ids to hand out.
+    /// The next id to hand out is tracked by `free_len`.
     free: Vec<Entity>,
     /// This is continually subtracted from.
     /// If it wraps to a very large number, it will be outside the bounds of `free`,
     /// and a new row will be needed.
     free_len: AtomicU32,
+    /// This is the next "fresh" row to hand out.
+    /// If there are no rows to reuse, this row, which has a generation of 0, is the next to return.
     next_row: AtomicU32,
 }
 
@@ -898,6 +889,8 @@ impl Entities {
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`] if it exists and is constructed.
+    /// This can error if the [`EntityGeneration`] of this id has passed or if the [`EntityRow`] is not constructed.
+    /// See the module docs for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
     pub fn get_constructed(
         &self,
@@ -945,6 +938,8 @@ impl Entities {
     }
 
     /// Returns the [`EntityIdLocation`] of an [`Entity`] if it exists.
+    /// This can fail if the id's [`EntityGeneration`] has passed.
+    /// See the module docs for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<EntityIdLocation, EntityDoesNotExistError> {
         match self.meta.get(entity.index() as usize) {
@@ -973,6 +968,7 @@ impl Entities {
 
     /// Get the [`Entity`] for the given [`EntityRow`].
     /// Note that this entity may not be constructed yet.
+    /// See the module docs for a full explanation of these ids, entity life cycles, and what it means for a row to be constructed or not.
     #[inline]
     pub fn resolve_from_row(&self, row: EntityRow) -> Entity {
         self.meta
@@ -982,6 +978,7 @@ impl Entities {
     }
 
     /// Returns whether the entity at this `row` is constructed or not.
+    /// See the module docs for what it means for a row to be constructed or not.
     #[inline]
     pub fn is_row_constructed(&self, row: EntityRow) -> bool {
         self.meta
@@ -992,16 +989,20 @@ impl Entities {
 
     /// Returns true if the entity exists.
     /// This will return true for entities that exist but have not been constructed.
+    /// See the module docs for a more precise explanation of which entities exist and what construction means.
     pub fn contains(&self, entity: Entity) -> bool {
         self.resolve_from_row(entity.row()).generation() == entity.generation()
     }
 
     /// Returns true if the entity exists and are constructed.
+    /// See the module docs for a more precise explanation of which entities exist and what construction means.
     pub fn contains_constructed(&self, entity: Entity) -> bool {
         self.get_constructed(entity).is_ok()
     }
 
-    /// Provides information regarding if `entity` may be constructed.
+    /// Provides information regarding if `entity` may be safely constructed.
+    /// This can error if the entity does not exist or if it is already constructed.
+    /// See the module docs for a more precise explanation of which entities exist and what construction means.
     #[inline]
     pub fn validate_construction(&self, entity: Entity) -> Result<(), ConstructionError> {
         match self.get(entity) {
@@ -1043,14 +1044,14 @@ impl Entities {
         row: EntityRow,
         location: EntityIdLocation,
     ) -> EntityIdLocation {
-        self.ensure_row(row);
+        self.ensure_row_index_is_valid(row);
         // SAFETY: We just did `ensure_row`
         self.update(row, location)
     }
 
-    /// Ensures row is valid.
+    /// Ensures row is valid as an index in [`Self::meta`].
     #[inline]
-    fn ensure_row(&mut self, row: EntityRow) {
+    fn ensure_row_index_is_valid(&mut self, row: EntityRow) {
         #[cold] // to help with branch prediction
         fn expand(meta: &mut Vec<EntityMeta>, len: usize) {
             meta.resize(len, EntityMeta::FRESH);
@@ -1072,7 +1073,7 @@ impl Entities {
     /// - `row` must be destructed (have no location) already.
     pub(crate) unsafe fn mark_free(&mut self, row: EntityRow, generations: u32) -> Entity {
         // We need to do this in case an entity is being freed that was never constructed.
-        self.ensure_row(row);
+        self.ensure_row_index_is_valid(row);
         // SAFETY: We just did `ensure_row`
         let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
 
@@ -1161,18 +1162,21 @@ impl Entities {
     }
 
     /// The count of currently allocated entity rows.
+    /// For information on active entities, see [`Self::count_constructed`].
     #[inline]
     pub fn len(&self) -> u32 {
         self.meta.len() as u32
     }
 
-    /// Checks if any entity has been declared
+    /// Checks if any entity has been declared.
+    /// For information on active entities, see [`Self::any_constructed`].
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Counts the number of entities currently constructed, those that have locations.
+    /// Counts the number of entity rows currently constructed.
+    /// See the module docs for a more precise explanation of what construction means.
     pub fn count_constructed(&self) -> u32 {
         self.meta
             .iter()
@@ -1180,7 +1184,8 @@ impl Entities {
             .count() as u32
     }
 
-    /// Returns true if there are any entities currently constructed, entities that have locations.
+    /// Returns true if there are any entity rows currently constructed.
+    /// See the module docs for a more precise explanation of what construction means.
     pub fn any_constructed(&self) -> bool {
         self.meta.iter().any(|meta| meta.location.is_some())
     }
