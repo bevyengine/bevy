@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 use log::info;
 
 use crate::{
-    bundle::{Bundle, InsertMode},
+    bundle::Bundle,
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
@@ -105,10 +105,10 @@ where
 
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
-pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
+pub fn insert(bundle: impl Bundle) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
+        entity.insert_with_caller(bundle, caller, RelationshipHookMode::Run);
     }
 }
 
@@ -122,7 +122,6 @@ pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
 pub unsafe fn insert_by_id<T: Send + 'static>(
     component_id: ComponentId,
     value: T,
-    mode: InsertMode,
 ) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
@@ -130,13 +129,7 @@ pub unsafe fn insert_by_id<T: Send + 'static>(
         // - `component_id` safety is ensured by the caller
         // - `ptr` is valid within the `make` block
         OwningPtr::make(value, |ptr| unsafe {
-            entity.insert_by_id_with_caller(
-                component_id,
-                ptr,
-                mode,
-                caller,
-                RelationshipHookMode::Run,
-            );
+            entity.insert_by_id_with_caller(component_id, ptr, caller, RelationshipHookMode::Run);
         });
     }
 }
@@ -144,11 +137,11 @@ pub unsafe fn insert_by_id<T: Send + 'static>(
 /// An [`EntityCommand`] that adds a component to an entity using
 /// the component's [`FromWorld`] implementation.
 #[track_caller]
-pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityCommand {
+pub fn insert_from_world<T: Component + FromWorld>() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+        entity.insert_with_caller(value, caller, RelationshipHookMode::Run);
     }
 }
 
