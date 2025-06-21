@@ -215,10 +215,15 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
 
     fn get_components(
         self,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
+        insert_mode: crate::bundle::InsertMode,
+        func: &mut impl FnMut(
+            crate::component::StorageType,
+            crate::bundle::InsertMode,
+            bevy_ptr::OwningPtr<'_>,
+        ),
     ) -> Self::Effect {
         <R::RelationshipTarget as RelationshipTarget>::with_capacity(self.list.size_hint())
-            .get_components(func);
+            .get_components(insert_mode, func);
         self
     }
 }
@@ -244,9 +249,15 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 
     fn get_components(
         self,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
+        insert_mode: crate::bundle::InsertMode,
+        func: &mut impl FnMut(
+            crate::component::StorageType,
+            crate::bundle::InsertMode,
+            bevy_ptr::OwningPtr<'_>,
+        ),
     ) -> Self::Effect {
-        <R::RelationshipTarget as RelationshipTarget>::with_capacity(1).get_components(func);
+        <R::RelationshipTarget as RelationshipTarget>::with_capacity(1)
+            .get_components(insert_mode, func);
         self
     }
 }

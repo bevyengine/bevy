@@ -177,9 +177,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[inline]
             fn get_components(
                 self,
-                func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
+                insert_mode: #ecs_path::bundle::InsertMode,
+                func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::bundle::InsertMode, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                #(<#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(self.#active_field_tokens, &mut *func);)*
+                #(<#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(self.#active_field_tokens, insert_mode, &mut *func);)*
             }
         }
     };
