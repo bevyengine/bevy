@@ -1189,7 +1189,7 @@ impl<'w> BundleInserter<'w> {
         let bundle_id =
             world
                 .bundles
-                .register_info::<T>(&bundle, &mut registrator, &mut world.storages);
+                .register_info::<T>(bundle, &mut registrator, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
