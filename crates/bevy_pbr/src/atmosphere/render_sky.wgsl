@@ -1,3 +1,5 @@
+enable dual_source_blending;
+
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
     bindings::{atmosphere, view, atmosphere_transforms},
