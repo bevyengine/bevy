@@ -167,7 +167,7 @@ mod tests {
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
-            let query_type = type_name::<QueryCombinationIter<D, F, K>>();
+            let query_type = type_name::<QueryCombinationIter<&QueryState<D, F>, K>>();
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 0, query_type);
             let iter = query.iter_combinations::<K>(world);
