@@ -398,7 +398,11 @@ pub fn extract_gradients(
                 if let Some(color) = gradient.get_single() {
                     // With a single color stop there's no gradient, fill the node with the color
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
-                        stack_index: uinode.stack_index,
+                        z_order: uinode.stack_index as f32
+                            + match node_type {
+                                NodeType::Rect => stack_z_offsets::GRADIENT,
+                                NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
+                            },
                         color: color.into(),
                         rect: Rect {
                             min: Vec2::ZERO,
@@ -609,7 +613,13 @@ pub fn queue_gradient(
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
-            sort_key: FloatOrd(gradient.stack_index as f32 + stack_z_offsets::GRADIENT),
+            sort_key: FloatOrd(
+                gradient.stack_index as f32
+                    + match gradient.node_type {
+                        NodeType::Rect => stack_z_offsets::GRADIENT,
+                        NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
+                    },
+            ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             index,
