@@ -81,7 +81,7 @@ pub trait Relationship: Component + Sized {
     /// Creates this [`Relationship`] from the given `entity`.
     fn from(entity: Entity) -> Self;
 
-    /// Changes the current [`Entity`] ID of the related entity to another one.
+    /// Changes the current [`Entity`] ID of the entity containing the [`RelationshipTarget`] to another one.
     ///
     /// This is useful for updating the relationship without overwriting other fields stored in `Self`.
     ///
