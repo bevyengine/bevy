@@ -418,6 +418,10 @@ mod tests {
         else {
             panic!("Failed to export JSON schema for Foo");
         };
+        eprintln!(
+            "{}",
+            serde_json::to_string_pretty(&schema).expect("Failed to serialize schema")
+        );
         schema
     }
 
@@ -432,7 +436,6 @@ mod tests {
         }
         let schema = export_type::<Foo>();
 
-        eprintln!("{}", serde_json::to_string_pretty(&schema).expect("msg"));
         assert!(
             !schema.reflect_types.contains(&"Component".to_owned()),
             "Should not be a component"
@@ -463,7 +466,6 @@ mod tests {
             NoValue,
         }
         let schema = export_type::<EnumComponent>();
-        eprintln!("{}", serde_json::to_string_pretty(&schema).expect("msg"));
         assert!(
             schema.reflect_types.contains(&"Component".to_owned()),
             "Should be a component"
@@ -533,7 +535,7 @@ mod tests {
         let type_registry = atr.read();
         let schema = type_registry
             .export_type_json_schema::<EnumComponent>(&metadata)
-            .expect("Failed to export");
+            .expect("Failed to export schema");
         assert!(
             !metadata.has_type_data::<ReflectComponent>(&schema.reflect_types),
             "Should not be a component"
@@ -582,7 +584,7 @@ mod tests {
         let type_registry = atr.read();
         let schema = type_registry
             .export_type_json_schema::<SomeType>(&SchemaTypesMetadata::default())
-            .expect("Failed to export");
+            .expect("Failed to export schema");
         assert!(
             !schema.reflect_types.contains(&"Component".to_owned()),
             "Should not be a component"
@@ -625,8 +627,7 @@ mod tests {
         }
 
         let schema = export_type::<Foo>();
-        let schema_as_value = serde_json::to_value(&schema).expect("Should serialize");
-        eprintln!("{:#?}", &schema_as_value);
+        let schema_as_value = serde_json::to_value(&schema).expect("Failed to serialize schema");
         let value = json!({
           "shortPath": "Foo",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -652,7 +653,6 @@ mod tests {
               "description": "Test doc",
               "shortPath": "u16",
               "typePath": "u16",
-
             },
           },
           "required": [
