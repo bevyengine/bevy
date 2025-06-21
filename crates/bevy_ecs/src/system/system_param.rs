@@ -365,6 +365,18 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // The caller ensures the world matches the one used in init_state.
         unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) }
     }
+
+    #[inline]
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        D::apply(&mut state.fetch_state, system_meta, world);
+        F::apply(&mut state.filter_state, system_meta, world);
+    }
+
+    #[inline]
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        D::queue(&mut state.fetch_state, system_meta, world.reborrow());
+        F::queue(&mut state.filter_state, system_meta, world);
+    }
 }
 
 fn assert_component_access_compatibility(
