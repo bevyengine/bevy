@@ -24,7 +24,7 @@ rodio = { version = "0.20", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
-cpal = { version = "0.15", optional = true }
+cpal = { version = "0.16", optional = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 # NOTE: Explicitly depend on this patch version to fix:
