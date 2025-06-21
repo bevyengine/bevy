@@ -944,7 +944,7 @@ impl AssetServer {
     /// removed, added or moved. This includes files in subdirectories and moving, adding,
     /// or removing complete subdirectories.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
-    pub fn load_batch<'a>(&self, load_batch_request: LoadBatchRequest) -> Handle<LoadedBatch> {
+    pub fn load_batch(&self, load_batch_request: LoadBatchRequest) -> Handle<LoadedBatch> {
         let handle = self.data.infos.write().create_loading_handle_untyped(
             TypeId::of::<LoadedBatch>(),
             core::any::type_name::<LoadedBatch>(),
@@ -1012,16 +1012,13 @@ impl AssetServer {
 
                         let path = AssetPath::from_path_buf(path);
 
-                        let source = match server.get_source(path.source()) {
-                            Ok(s) => s,
-                            Err(_) => {
-                                error!(
-                                    "Failed to load {}. AssetSource {} does not exist",
-                                    path,
-                                    path.source()
-                                );
-                                continue;
-                            }
+                        let Ok(source) = server.get_source(path.source()) else {
+                            error!(
+                                "Failed to load {}. AssetSource {} does not exist",
+                                path,
+                                path.source()
+                            );
+                            return;
                         };
 
                         if let Err(err) =
@@ -1040,7 +1037,7 @@ impl AssetServer {
                     id,
                     loaded_asset: LoadedAsset::new_with_dependencies(LoadedBatch { handles })
                         .into(),
-                })
+                });
             })
             .detach();
     }

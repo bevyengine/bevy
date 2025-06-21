@@ -1574,7 +1574,7 @@ mod tests {
     }
 
     #[test]
-    fn load_folder() {
+    fn load_batch() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi_threaded"))]
         panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
@@ -1619,7 +1619,7 @@ mod tests {
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<LoadedBatch> =
-            asset_server.load_batch(LoadBatchRequest::new(vec!["text"]));
+            asset_server.load_batch(LoadBatchRequest::new(vec!["text/*","b.cool.ron"]));
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);
