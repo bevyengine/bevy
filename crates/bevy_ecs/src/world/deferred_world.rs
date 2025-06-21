@@ -96,6 +96,7 @@ impl<'w> DeferredWorld<'w> {
     /// If you do not need to ensure the above hooks are triggered, and your component
     /// is mutable, prefer using [`get_mut`](DeferredWorld::get_mut).
     #[inline]
+    #[track_caller]
     pub(crate) fn modify_component_with_relationship_hook_mode<T: Component, R>(
         &mut self,
         entity: Entity,
@@ -135,6 +136,7 @@ impl<'w> DeferredWorld<'w> {
     /// You should prefer the typed [`modify_component_with_relationship_hook_mode`](DeferredWorld::modify_component_with_relationship_hook_mode)
     /// whenever possible.
     #[inline]
+    #[track_caller]
     pub(crate) fn modify_component_by_id_with_relationship_hook_mode<R>(
         &mut self,
         entity: Entity,

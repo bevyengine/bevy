@@ -1311,6 +1311,7 @@ impl World {
     /// # assert_eq!(world.get::<Foo>(entity), Some(&Foo(true)));
     /// ```
     #[inline]
+    #[track_caller]
     pub fn modify_component<T: Component, R>(
         &mut self,
         entity: Entity,
@@ -1343,6 +1344,7 @@ impl World {
     /// You should prefer the typed [`modify_component`](World::modify_component)
     /// whenever possible.
     #[inline]
+    #[track_caller]
     pub fn modify_component_by_id<R>(
         &mut self,
         entity: Entity,
