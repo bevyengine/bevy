@@ -5,8 +5,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_app::{App, Plugin};
-use bevy_diagnostic::FrameCount;
+use bevy_app::{App, FrameCount, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_time::Time;

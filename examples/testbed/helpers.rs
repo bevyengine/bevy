@@ -1,12 +1,13 @@
 #[cfg(feature = "bevy_ci_testing")]
 use bevy::{
     dev_tools::ci_testing::{CiTestingConfig, CiTestingEvent, CiTestingEventOnFrame},
-    diagnostic::FrameCount,
     platform::collections::HashSet,
     prelude::*,
     render::view::screenshot::Captured,
     state::state::FreelyMutableState,
 };
+#[cfg(feature = "bevy_ci_testing")]
+use bevy_app::FrameCount;
 
 #[cfg(feature = "bevy_ci_testing")]
 pub fn switch_scene_in_ci<Scene: States + FreelyMutableState + Next>(
