@@ -1308,6 +1308,7 @@ mod tests {
     fn observer_multiple_listeners() {
         let mut world = World::new();
         world.init_resource::<Order>();
+        let num_resources = world.components().num_resources() as u32;
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add_1"));
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add_2"));
@@ -1315,7 +1316,7 @@ mod tests {
         world.spawn(A).flush();
         assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
         // Our A entity plus our two observers
-        assert_eq!(world.entities().len(), 3);
+        assert_eq!(world.entities().len() - num_resources, 3);
     }
 
     #[test]

@@ -2223,8 +2223,11 @@ mod tests {
         let mut query = QueryState::<()>::new(&mut world);
         // The query doesn't ask for sparse components, but the default filters adds
         // a sparse components thus it is NOT dense
+        // Moreover, we subtract the number of resources (which are also entities)
+        // They would normally be excluded, but default filters are skipped
+        let num_resources = world.components().num_resources();
         assert!(!query.is_dense);
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(1, query.iter(&world).count() - num_resources);
 
         let mut df = DefaultQueryFilters::empty();
         df.register_disabling_component(world.register_component::<Table>());
@@ -2233,7 +2236,7 @@ mod tests {
         let mut query = QueryState::<()>::new(&mut world);
         // If the filter is instead a table components, the query can still be dense
         assert!(query.is_dense);
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(1, query.iter(&world).count() - num_resources);
 
         let mut query = QueryState::<&Sparse>::new(&mut world);
         // But only if the original query was dense
