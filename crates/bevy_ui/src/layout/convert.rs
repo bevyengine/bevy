@@ -265,7 +265,7 @@ impl From<OverflowAxis> for taffy::style::Overflow {
             OverflowAxis::Visible => taffy::style::Overflow::Visible,
             OverflowAxis::Clip => taffy::style::Overflow::Clip,
             OverflowAxis::Hidden => taffy::style::Overflow::Hidden,
-            OverflowAxis::Scroll => taffy::style::Overflow::Scroll,
+            OverflowAxis::Scroll | OverflowAxis::ScrollNoClip => taffy::style::Overflow::Scroll,
         }
     }
 }

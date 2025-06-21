@@ -1185,6 +1185,30 @@ impl Overflow {
             y: OverflowAxis::Scroll,
         }
     }
+
+    /// Scroll overflowing items on both axis without clipping them
+    pub const fn scroll_no_clip() -> Self {
+        Self {
+            x: OverflowAxis::ScrollNoClip,
+            y: OverflowAxis::ScrollNoClip,
+        }
+    }
+
+    /// Scroll overflowing items on the x axis without clipping them
+    pub const fn scroll_x_no_clip() -> Self {
+        Self {
+            x: OverflowAxis::ScrollNoClip,
+            y: OverflowAxis::DEFAULT,
+        }
+    }
+
+    /// Scroll overflowing items on the y axis without clipping them
+    pub const fn scroll_y_no_clip() -> Self {
+        Self {
+            x: OverflowAxis::DEFAULT,
+            y: OverflowAxis::ScrollNoClip,
+        }
+    }
 }
 
 impl Default for Overflow {
@@ -1210,6 +1234,8 @@ pub enum OverflowAxis {
     Hidden,
     /// Scroll overflowing items.
     Scroll,
+    /// Scroll overflowing items without clipping overflown items.
+    ScrollNoClip,
 }
 
 impl OverflowAxis {
@@ -1217,7 +1243,7 @@ impl OverflowAxis {
 
     /// Overflow is visible on this axis
     pub const fn is_visible(&self) -> bool {
-        matches!(self, Self::Visible)
+        matches!(self, Self::Visible | Self::ScrollNoClip)
     }
 }
 
