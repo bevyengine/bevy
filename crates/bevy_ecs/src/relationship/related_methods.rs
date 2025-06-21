@@ -175,7 +175,7 @@ impl<'w> EntityWorldMut<'w> {
             }
 
             for related in potential_relations {
-                // SAFETY: We'll manually be adjusting the contents of the parent to fit the final state.
+                // SAFETY: We'll manually be adjusting the contents of the `RelationshipTarget` to fit the final state.
                 world
                     .entity_mut(related)
                     .modify_or_insert_relation_with_relationship_hook_mode::<R>(
