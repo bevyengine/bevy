@@ -81,12 +81,6 @@ pub trait Map: PartialReflect {
     /// After calling this function, `self` will be empty.
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>;
 
-    /// Clones the map, producing a [`DynamicMap`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_map` instead")]
-    fn clone_dynamic(&self) -> DynamicMap {
-        self.to_dynamic_map()
-    }
-
     /// Creates a new [`DynamicMap`] from this map.
     fn to_dynamic_map(&self) -> DynamicMap {
         let mut map = DynamicMap::default();
@@ -198,6 +192,8 @@ impl MapInfo {
     impl_generic_info_methods!(generics);
 }
 
+/// Used to produce an error message when an attempt is made to hash
+/// a [`PartialReflect`] value that does not support hashing.
 #[macro_export]
 macro_rules! hash_error {
     ( $key:expr ) => {{
@@ -242,8 +238,7 @@ impl DynamicMap {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Map(_)),
-                "expected TypeInfo::Map but received: {:?}",
-                represented_type
+                "expected TypeInfo::Map but received: {represented_type:?}"
             );
         }
 

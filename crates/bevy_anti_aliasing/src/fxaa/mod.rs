@@ -1,5 +1,5 @@
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -18,7 +18,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::default;
 
@@ -80,13 +80,11 @@ impl Default for Fxaa {
     }
 }
 
-const FXAA_SHADER_HANDLE: Handle<Shader> = weak_handle!("fc58c0a8-01c0-46e9-94cc-83a794bae7b0");
-
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;
 impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "fxaa.wgsl");
 
         app.register_type::<Fxaa>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
@@ -96,7 +94,10 @@ impl Plugin for FxaaPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
-            .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare))
+            .add_systems(
+                Render,
+                prepare_fxaa_pipelines.in_set(RenderSystems::Prepare),
+            )
             .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(Core3d, Node3d::Fxaa)
             .add_render_graph_edges(
                 Core3d,
@@ -129,6 +130,7 @@ impl Plugin for FxaaPlugin {
 pub struct FxaaPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for FxaaPipeline {
@@ -155,6 +157,7 @@ impl FromWorld for FxaaPipeline {
         FxaaPipeline {
             texture_bind_group,
             sampler,
+            shader: load_embedded_asset!(render_world, "fxaa.wgsl"),
         }
     }
 }
@@ -180,7 +183,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: FXAA_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs: vec![
                     format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
                     format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),

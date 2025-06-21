@@ -4,6 +4,7 @@ mod render_device;
 use bevy_derive::{Deref, DerefMut};
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
+use bevy_utils::WgpuWrapper;
 pub use graph_runner::*;
 pub use render_device::*;
 use tracing::{error, info, info_span, warn};
@@ -120,46 +121,6 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     }
 }
 
-/// A wrapper to safely make `wgpu` types Send / Sync on web with atomics enabled.
-///
-/// On web with `atomics` enabled the inner value can only be accessed
-/// or dropped on the `wgpu` thread or else a panic will occur.
-/// On other platforms the wrapper simply contains the wrapped value.
-#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-#[derive(Debug, Clone, Deref, DerefMut)]
-pub struct WgpuWrapper<T>(T);
-#[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-#[derive(Debug, Clone, Deref, DerefMut)]
-pub struct WgpuWrapper<T>(send_wrapper::SendWrapper<T>);
-
-// SAFETY: SendWrapper is always Send + Sync.
-#[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-unsafe impl<T> Send for WgpuWrapper<T> {}
-#[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-unsafe impl<T> Sync for WgpuWrapper<T> {}
-
-#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-impl<T> WgpuWrapper<T> {
-    pub fn new(t: T) -> Self {
-        Self(t)
-    }
-
-    pub fn into_inner(self) -> T {
-        self.0
-    }
-}
-
-#[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-impl<T> WgpuWrapper<T> {
-    pub fn new(t: T) -> Self {
-        Self(send_wrapper::SendWrapper::new(t))
-    }
-
-    pub fn into_inner(self) -> T {
-        self.0.take()
-    }
-}
-
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderQueue(pub Arc<WgpuWrapper<Queue>>);
@@ -202,7 +163,7 @@ pub async fn initialize_renderer(
     if adapter_info.device_type == DeviceType::Cpu {
         warn!(
             "The selected adapter is using a driver that only supports software rendering. \
-             This is likely to be very slow. See https://bevyengine.org/learn/errors/b0006/"
+             This is likely to be very slow. See https://bevy.org/learn/errors/b0006/"
         );
     }
 
@@ -218,12 +179,6 @@ pub async fn initialize_renderer(
             // integrated GPUs.
             features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
         }
-
-        // RAY_QUERY and RAY_TRACING_ACCELERATION STRUCTURE will sometimes cause DeviceLost failures on platforms
-        // that report them as supported:
-        // <https://github.com/gfx-rs/wgpu/issues/5488>
-        features -= wgpu::Features::EXPERIMENTAL_RAY_QUERY;
-        features -= wgpu::Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE;
 
         limits = adapter.limits();
     }

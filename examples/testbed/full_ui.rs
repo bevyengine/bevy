@@ -5,7 +5,10 @@ use std::f32::consts::PI;
 use accesskit::{Node as Accessible, Role};
 use bevy::{
     a11y::AccessibilityNode,
-    color::palettes::{basic::LIME, css::DARK_GRAY},
+    color::palettes::{
+        basic::LIME,
+        css::{DARK_GRAY, NAVY},
+    },
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
@@ -162,23 +165,41 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                         ))
                         .with_children(|parent| {
-                            // List items
-                            for i in 0..25 {
-                                parent
-                                    .spawn((
-                                        Text(format!("Item {i}")),
-                                        TextFont {
-                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                            ..default()
-                                        },
-                                        Label,
-                                        AccessibilityNode(Accessible::new(Role::ListItem)),
-                                    ))
-                                    .insert(Pickable {
+                            parent
+                                .spawn((
+                                    Node {
+                                        flex_direction: FlexDirection::Column,
+                                        ..Default::default()
+                                    },
+                                    BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                                        ColorStop::auto(NAVY),
+                                        ColorStop::auto(Color::BLACK),
+                                    ])),
+                                    Pickable {
                                         should_block_lower: false,
-                                        ..default()
-                                    });
-                            }
+                                        ..Default::default()
+                                    },
+                                ))
+                                .with_children(|parent| {
+                                    // List items
+                                    for i in 0..25 {
+                                        parent
+                                            .spawn((
+                                                Text(format!("Item {i}")),
+                                                TextFont {
+                                                    font: asset_server
+                                                        .load("fonts/FiraSans-Bold.ttf"),
+                                                    ..default()
+                                                },
+                                                Label,
+                                                AccessibilityNode(Accessible::new(Role::ListItem)),
+                                            ))
+                                            .insert(Pickable {
+                                                should_block_lower: false,
+                                                ..default()
+                                            });
+                                    }
+                                });
                         });
                 });
 
@@ -200,14 +221,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 justify_content: JustifyContent::Center,
                                 ..default()
                             },
-                            BorderColor(LIME.into()),
+                            BorderColor::all(LIME.into()),
                             BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
                         ))
                         .with_children(|parent| {
                             parent.spawn((
                                 ImageNode::new(asset_server.load("branding/bevy_logo_light.png")),
                                 // Uses the transform to rotate the logo image by 45 degrees
-                                Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
+                                Node {
+                                    ..Default::default()
+                                },
+                                UiTransform {
+                                    rotation: Rot2::radians(0.25 * PI),
+                                    ..Default::default()
+                                },
                                 BorderRadius::all(Val::Px(10.)),
                                 Outline {
                                     width: Val::Px(2.),

@@ -2,7 +2,6 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
-use alloc::borrow::Cow;
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -12,12 +11,11 @@ use alloc::{
     vec::Vec,
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, prelude::DebugName, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
 };
-use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
 use pass::ScheduleBuildPassObj;
@@ -25,10 +23,11 @@ use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
+use crate::component::CheckChangeTicks;
 use crate::{
-    component::{ComponentId, Components, Tick},
-    error::default_error_handler,
+    component::{ComponentId, Components},
     prelude::Component,
+    query::FilteredAccessSet,
     resource::Resource,
     schedule::*,
     system::ScheduleSystem,
@@ -112,7 +111,7 @@ impl Schedules {
     /// Iterates the change ticks of all systems in all stored schedules and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
         #[cfg_attr(
@@ -127,7 +126,7 @@ impl Schedules {
             let name = format!("{label:?}");
             #[cfg(feature = "trace")]
             let _one_span = info_span!("check schedule ticks", name = &name).entered();
-            schedule.check_change_ticks(change_tick);
+            schedule.check_change_ticks(check);
         }
     }
 
@@ -167,7 +166,7 @@ impl Schedules {
             writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
         }
 
-        info!("{}", message);
+        info!("{message}");
     }
 
     /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
@@ -218,6 +217,7 @@ impl Schedules {
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
     match kind {
+        #[expect(deprecated, reason = "We still need to support this.")]
         ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
         ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
         #[cfg(feature = "std")]
@@ -257,8 +257,16 @@ impl Chain {
 /// A collection of systems, and the metadata and executor needed to run them
 /// in a certain order under certain conditions.
 ///
+/// # Schedule labels
+///
+/// Each schedule has a [`ScheduleLabel`] value. This value is used to uniquely identify the
+/// schedule when added to a [`World`]’s [`Schedules`], and may be used to specify which schedule
+/// a system should be added to.
+///
 /// # Example
+///
 /// Here is an example of a `Schedule` running a "Hello world" system:
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn hello_world() { println!("Hello world!") }
@@ -273,6 +281,7 @@ impl Chain {
 /// ```
 ///
 /// A schedule can also run several systems in an ordered way:
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn system_one() { println!("System 1 works!") }
@@ -289,6 +298,32 @@ impl Chain {
 ///     ));
 ///
 ///     schedule.run(&mut world);
+/// }
+/// ```
+///
+/// Schedules are often inserted into a [`World`] and identified by their [`ScheduleLabel`] only:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::schedule::ScheduleLabel;
+///
+/// // Declare a new schedule label.
+/// #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+/// struct Update;
+///
+/// // This system shall be part of the schedule.
+/// fn an_update_system() {
+///     println!("Hello world!");
+/// }
+///
+/// fn main() {
+///     let mut world = World::new();
+///
+///     // Add a system to the schedule with that label (creating it automatically).
+///     world.get_resource_or_init::<Schedules>().add_systems(Update, an_update_system);
+///
+///     // Run the schedule, and therefore run the system.
+///     world.run_schedule(Update);
 /// }
 /// ```
 pub struct Schedule {
@@ -327,7 +362,8 @@ impl Schedule {
         this
     }
 
-    /// Get the `InternedScheduleLabel` for this `Schedule`.
+    /// Returns the [`InternedScheduleLabel`] for this `Schedule`,
+    /// corresponding to the [`ScheduleLabel`] this schedule was created with.
     pub fn label(&self) -> InternedScheduleLabel {
         self.label
     }
@@ -394,9 +430,21 @@ impl Schedule {
     }
 
     /// Changes miscellaneous build settings.
+    ///
+    /// If [`settings.auto_insert_apply_deferred`][ScheduleBuildSettings::auto_insert_apply_deferred]
+    /// is `false`, this clears `*_ignore_deferred` edge settings configured so far.
+    ///
+    /// Generally this method should be used before adding systems or set configurations to the schedule,
+    /// not after.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         if settings.auto_insert_apply_deferred {
-            self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
+            if !self
+                .graph
+                .passes
+                .contains_key(&TypeId::of::<passes::AutoInsertApplyDeferredPass>())
+            {
+                self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
+            }
         } else {
             self.remove_build_pass::<passes::AutoInsertApplyDeferredPass>();
         }
@@ -441,7 +489,7 @@ impl Schedule {
         self.initialize(world)
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
-        let error_handler = default_error_handler();
+        let error_handler = world.default_error_handler();
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
@@ -510,22 +558,22 @@ impl Schedule {
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for system in &mut self.executable.systems {
+    pub fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+        for SystemWithAccess { system, .. } in &mut self.executable.systems {
             if !is_apply_deferred(system) {
-                system.check_change_tick(change_tick);
+                system.check_change_tick(check);
             }
         }
 
         for conditions in &mut self.executable.system_conditions {
             for system in conditions {
-                system.check_change_tick(change_tick);
+                system.condition.check_change_tick(check);
             }
         }
 
         for conditions in &mut self.executable.set_conditions {
             for system in conditions {
-                system.check_change_tick(change_tick);
+                system.condition.check_change_tick(check);
             }
         }
     }
@@ -539,7 +587,7 @@ impl Schedule {
     /// This is used in rendering to extract data from the main world, storing the data in system buffers,
     /// before applying their buffers in a different world.
     pub fn apply_deferred(&mut self, world: &mut World) {
-        for system in &mut self.executable.systems {
+        for SystemWithAccess { system, .. } in &mut self.executable.systems {
             system.apply_deferred(world);
         }
     }
@@ -561,7 +609,7 @@ impl Schedule {
             .system_ids
             .iter()
             .zip(&self.executable.systems)
-            .map(|(node_id, system)| (*node_id, system));
+            .map(|(node_id, system)| (*node_id, &system.system));
 
         Ok(iter)
     }
@@ -629,26 +677,66 @@ impl SystemSetNode {
     }
 }
 
-/// A [`ScheduleSystem`] stored in a [`ScheduleGraph`].
+/// A [`SystemWithAccess`] stored in a [`ScheduleGraph`].
 pub struct SystemNode {
-    inner: Option<ScheduleSystem>,
+    inner: Option<SystemWithAccess>,
+}
+
+/// A [`ScheduleSystem`] stored alongside the access returned from [`System::initialize`](crate::system::System::initialize).
+pub struct SystemWithAccess {
+    /// The system itself.
+    pub system: ScheduleSystem,
+    /// The access returned by [`System::initialize`](crate::system::System::initialize).
+    /// This will be empty if the system has not been initialized yet.
+    pub access: FilteredAccessSet<ComponentId>,
+}
+
+impl SystemWithAccess {
+    /// Constructs a new [`SystemWithAccess`] from a [`ScheduleSystem`].
+    /// The `access` will initially be empty.
+    pub fn new(system: ScheduleSystem) -> Self {
+        Self {
+            system,
+            access: FilteredAccessSet::new(),
+        }
+    }
+}
+
+/// A [`BoxedCondition`] stored alongside the access returned from [`System::initialize`](crate::system::System::initialize).
+pub struct ConditionWithAccess {
+    /// The condition itself.
+    pub condition: BoxedCondition,
+    /// The access returned by [`System::initialize`](crate::system::System::initialize).
+    /// This will be empty if the system has not been initialized yet.
+    pub access: FilteredAccessSet<ComponentId>,
+}
+
+impl ConditionWithAccess {
+    /// Constructs a new [`ConditionWithAccess`] from a [`BoxedCondition`].
+    /// The `access` will initially be empty.
+    pub const fn new(condition: BoxedCondition) -> Self {
+        Self {
+            condition,
+            access: FilteredAccessSet::new(),
+        }
+    }
 }
 
 impl SystemNode {
     /// Create a new [`SystemNode`]
     pub fn new(system: ScheduleSystem) -> Self {
         Self {
-            inner: Some(system),
+            inner: Some(SystemWithAccess::new(system)),
         }
     }
 
-    /// Obtain a reference to the [`ScheduleSystem`] represented by this node.
-    pub fn get(&self) -> Option<&ScheduleSystem> {
+    /// Obtain a reference to the [`SystemWithAccess`] represented by this node.
+    pub fn get(&self) -> Option<&SystemWithAccess> {
         self.inner.as_ref()
     }
 
-    /// Obtain a mutable reference to the [`ScheduleSystem`] represented by this node.
-    pub fn get_mut(&mut self) -> Option<&mut ScheduleSystem> {
+    /// Obtain a mutable reference to the [`SystemWithAccess`] represented by this node.
+    pub fn get_mut(&mut self) -> Option<&mut SystemWithAccess> {
         self.inner.as_mut()
     }
 }
@@ -662,11 +750,11 @@ pub struct ScheduleGraph {
     /// List of systems in the schedule
     pub systems: Vec<SystemNode>,
     /// List of conditions for each system, in the same order as `systems`
-    pub system_conditions: Vec<Vec<BoxedCondition>>,
+    pub system_conditions: Vec<Vec<ConditionWithAccess>>,
     /// List of system sets in the schedule
     system_sets: Vec<SystemSetNode>,
     /// List of conditions for each system set, in the same order as `system_sets`
-    system_set_conditions: Vec<Vec<BoxedCondition>>,
+    system_set_conditions: Vec<Vec<ConditionWithAccess>>,
     /// Map from system set to node id
     system_set_ids: HashMap<InternedSystemSet, NodeId>,
     /// Systems that have not been initialized yet; for system sets, we store the index of the first uninitialized condition
@@ -717,6 +805,7 @@ impl ScheduleGraph {
         self.systems
             .get(id.index())
             .and_then(|system| system.inner.as_ref())
+            .map(|system| &system.system)
     }
 
     /// Returns `true` if the given system set is part of the graph. Otherwise, returns `false`.
@@ -753,7 +842,7 @@ impl ScheduleGraph {
     }
 
     /// Returns the conditions for the set at the given [`NodeId`], if it exists.
-    pub fn get_set_conditions_at(&self, id: NodeId) -> Option<&[BoxedCondition]> {
+    pub fn get_set_conditions_at(&self, id: NodeId) -> Option<&[ConditionWithAccess]> {
         if !id.is_set() {
             return None;
         }
@@ -766,27 +855,31 @@ impl ScheduleGraph {
     ///
     /// Panics if it doesn't exist.
     #[track_caller]
-    pub fn set_conditions_at(&self, id: NodeId) -> &[BoxedCondition] {
+    pub fn set_conditions_at(&self, id: NodeId) -> &[ConditionWithAccess] {
         self.get_set_conditions_at(id)
             .ok_or_else(|| format!("set with id {id:?} does not exist in this Schedule"))
             .unwrap()
     }
 
     /// Returns an iterator over all systems in this schedule, along with the conditions for each system.
-    pub fn systems(&self) -> impl Iterator<Item = (NodeId, &ScheduleSystem, &[BoxedCondition])> {
+    pub fn systems(
+        &self,
+    ) -> impl Iterator<Item = (NodeId, &ScheduleSystem, &[ConditionWithAccess])> {
         self.systems
             .iter()
             .zip(self.system_conditions.iter())
             .enumerate()
             .filter_map(|(i, (system_node, condition))| {
-                let system = system_node.inner.as_ref()?;
+                let system = &system_node.inner.as_ref()?.system;
                 Some((NodeId::System(i), system, condition.as_slice()))
             })
     }
 
     /// Returns an iterator over all system sets in this schedule, along with the conditions for each
     /// system set.
-    pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
+    pub fn system_sets(
+        &self,
+    ) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[ConditionWithAccess])> {
         self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
             let set = &*set_node.inner;
@@ -965,7 +1058,13 @@ impl ScheduleGraph {
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
         self.systems.push(SystemNode::new(config.node));
-        self.system_conditions.push(config.conditions);
+        self.system_conditions.push(
+            config
+                .conditions
+                .into_iter()
+                .map(ConditionWithAccess::new)
+                .collect(),
+        );
 
         Ok(id)
     }
@@ -983,7 +1082,7 @@ impl ScheduleGraph {
         let ScheduleConfig {
             node: set,
             metadata,
-            mut conditions,
+            conditions,
         } = set;
 
         let id = match self.system_set_ids.get(&set) {
@@ -997,7 +1096,7 @@ impl ScheduleGraph {
         // system init has to be deferred (need `&mut World`)
         let system_set_conditions = &mut self.system_set_conditions[id.index()];
         self.uninit.push((id, system_set_conditions.len()));
-        system_set_conditions.append(&mut conditions);
+        system_set_conditions.extend(conditions.into_iter().map(ConditionWithAccess::new));
 
         Ok(id)
     }
@@ -1149,14 +1248,15 @@ impl ScheduleGraph {
         for (id, i) in self.uninit.drain(..) {
             match id {
                 NodeId::System(index) => {
-                    self.systems[index].get_mut().unwrap().initialize(world);
+                    let system = self.systems[index].get_mut().unwrap();
+                    system.access = system.system.initialize(world);
                     for condition in &mut self.system_conditions[index] {
-                        condition.initialize(world);
+                        condition.access = condition.condition.initialize(world);
                     }
                 }
                 NodeId::Set(index) => {
                     for condition in self.system_set_conditions[index].iter_mut().skip(i) {
-                        condition.initialize(world);
+                        condition.access = condition.condition.initialize(world);
                     }
                 }
             }
@@ -1367,11 +1467,11 @@ impl ScheduleGraph {
 
             let system_a = self.systems[a.index()].get().unwrap();
             let system_b = self.systems[b.index()].get().unwrap();
-            if system_a.is_exclusive() || system_b.is_exclusive() {
+            if system_a.system.is_exclusive() || system_b.system.is_exclusive() {
                 conflicting_systems.push((a, b, Vec::new()));
             } else {
-                let access_a = system_a.component_access();
-                let access_b = system_b.component_access();
+                let access_a = &system_a.access;
+                let access_b = &system_b.access;
                 if !access_a.is_compatible(access_b) {
                     match access_a.get_conflicts(access_b) {
                         AccessConflicts::Individual(conflicts) => {
@@ -1592,9 +1692,14 @@ impl ScheduleGraph {
 
     #[inline]
     fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
-        let name = match id {
+        match id {
             NodeId::System(_) => {
-                let name = self.systems[id.index()].get().unwrap().name().to_string();
+                let name = self.systems[id.index()].get().unwrap().system.name();
+                let name = if self.settings.use_shortnames {
+                    name.shortname().to_string()
+                } else {
+                    name.to_string()
+                };
                 if report_sets {
                     let sets = self.names_of_sets_containing_node(id);
                     if sets.is_empty() {
@@ -1616,11 +1721,6 @@ impl ScheduleGraph {
                     set.name()
                 }
             }
-        };
-        if self.settings.use_shortnames {
-            ShortName(&name).to_string()
-        } else {
-            name
         }
     }
 
@@ -1659,10 +1759,7 @@ impl ScheduleGraph {
         match self.settings.hierarchy_detection {
             LogLevel::Ignore => unreachable!(),
             LogLevel::Warn => {
-                error!(
-                    "Schedule {schedule_label:?} has redundant edges:\n {}",
-                    message
-                );
+                error!("Schedule {schedule_label:?} has redundant edges:\n {message}");
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::HierarchyRedundancy(message)),
@@ -1864,7 +1961,7 @@ impl ScheduleGraph {
         match self.settings.ambiguity_detection {
             LogLevel::Ignore => Ok(()),
             LogLevel::Warn => {
-                warn!("Schedule {schedule_label:?} has ambiguities.\n{}", message);
+                warn!("Schedule {schedule_label:?} has ambiguities.\n{message}");
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::Ambiguity(message)),
@@ -1903,7 +2000,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<Cow<'a, str>>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<DebugName>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
@@ -2060,6 +2157,7 @@ mod tests {
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
+        error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, Res, Resource},
         schedule::{
             tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, SystemSet,
@@ -2075,6 +2173,46 @@ mod tests {
 
     #[derive(Resource)]
     struct Resource2;
+
+    #[test]
+    fn unchanged_auto_insert_apply_deferred_has_no_effect() {
+        use alloc::{vec, vec::Vec};
+
+        #[derive(PartialEq, Debug)]
+        enum Entry {
+            System(usize),
+            SyncPoint(usize),
+        }
+
+        #[derive(Resource, Default)]
+        struct Log(Vec<Entry>);
+
+        fn system<const N: usize>(mut res: ResMut<Log>, mut commands: Commands) {
+            res.0.push(Entry::System(N));
+            commands
+                .queue(|world: &mut World| world.resource_mut::<Log>().0.push(Entry::SyncPoint(N)));
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Log>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system::<1>, system::<2>).chain_ignore_deferred());
+        schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_apply_deferred: true,
+            ..Default::default()
+        });
+        schedule.run(&mut world);
+        let actual = world.remove_resource::<Log>().unwrap().0;
+
+        let expected = vec![
+            Entry::System(1),
+            Entry::System(2),
+            Entry::SyncPoint(1),
+            Entry::SyncPoint(2),
+        ];
+
+        assert_eq!(actual, expected);
+    }
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]
@@ -2808,5 +2946,33 @@ mod tests {
             .get_resource::<CheckSystemRan>()
             .expect("CheckSystemRan Resource Should Exist");
         assert_eq!(value.0, 2);
+    }
+
+    #[test]
+    fn test_default_error_handler() {
+        #[derive(Resource, Default)]
+        struct Ran(bool);
+
+        fn system(mut ran: ResMut<Ran>) -> Result {
+            ran.0 = true;
+            Err("I failed!".into())
+        }
+
+        // Test that the default error handler is used
+        let mut world = World::default();
+        world.init_resource::<Ran>();
+        world.insert_resource(DefaultErrorHandler(ignore));
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system).run(&mut world);
+        assert!(world.resource::<Ran>().0);
+
+        // Test that the handler doesn't change within the schedule
+        schedule.add_systems(
+            (|world: &mut World| {
+                world.insert_resource(DefaultErrorHandler(panic));
+            })
+            .before(system),
+        );
+        schedule.run(&mut world);
     }
 }

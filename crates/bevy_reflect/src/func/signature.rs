@@ -229,7 +229,7 @@ mod tests {
         );
 
         assert_eq!(
-            format!("{:?}", signature),
+            format!("{signature:?}"),
             "(&mut alloc::string::String, i32) -> ()"
         );
     }

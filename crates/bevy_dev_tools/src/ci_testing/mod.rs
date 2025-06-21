@@ -57,7 +57,7 @@ impl Plugin for CiTestingPlugin {
                 systems::send_events
                     .before(trigger_screenshots)
                     .before(bevy_window::close_when_requested)
-                    .in_set(SendEvents)
+                    .in_set(EventSenderSystems)
                     .ambiguous_with_all(),
             );
 
@@ -66,10 +66,10 @@ impl Plugin for CiTestingPlugin {
         #[cfg(any(unix, windows))]
         app.configure_sets(
             Update,
-            SendEvents.before(bevy_app::TerminalCtrlCHandlerPlugin::exit_on_flag),
+            EventSenderSystems.before(bevy_app::TerminalCtrlCHandlerPlugin::exit_on_flag),
         );
     }
 }
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-struct SendEvents;
+struct EventSenderSystems;

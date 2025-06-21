@@ -54,7 +54,7 @@ use bevy::{
         renderer::RenderContext,
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
-        Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
+        Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
     },
 };
 use nonmax::NonMaxU32;
@@ -130,10 +130,10 @@ impl Plugin for MeshStencilPhasePlugin {
             .add_systems(
                 Render,
                 (
-                    queue_custom_meshes.in_set(RenderSet::QueueMeshes),
-                    sort_phase_system::<Stencil3d>.in_set(RenderSet::PhaseSort),
+                    queue_custom_meshes.in_set(RenderSystems::QueueMeshes),
+                    sort_phase_system::<Stencil3d>.in_set(RenderSystems::PhaseSort),
                     batch_and_prepare_sorted_render_phase::<Stencil3d, StencilPipeline>
-                        .in_set(RenderSet::PrepareResources),
+                        .in_set(RenderSystems::PrepareResources),
                 ),
             );
 
@@ -588,7 +588,7 @@ impl ViewNode for CustomDrawNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // First, we need to get our phases resource

@@ -124,11 +124,6 @@ pub trait Enum: PartialReflect {
     fn variant_index(&self) -> usize;
     /// The type of the current variant.
     fn variant_type(&self) -> VariantType;
-    // Clones the enum into a [`DynamicEnum`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_enum` instead")]
-    fn clone_dynamic(&self) -> DynamicEnum {
-        self.to_dynamic_enum()
-    }
     /// Creates a new [`DynamicEnum`] from this enum.
     fn to_dynamic_enum(&self) -> DynamicEnum {
         DynamicEnum::from_ref(self)
@@ -268,6 +263,7 @@ pub struct VariantFieldIter<'a> {
 }
 
 impl<'a> VariantFieldIter<'a> {
+    /// Creates a new [`VariantFieldIter`].
     pub fn new(container: &'a dyn Enum) -> Self {
         Self {
             container,
@@ -300,12 +296,16 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 
+/// A field in the current enum variant.
 pub enum VariantField<'a> {
+    /// The name and value of a field in a struct variant.
     Struct(&'a str, &'a dyn PartialReflect),
+    /// The value of a field in a tuple variant.
     Tuple(&'a dyn PartialReflect),
 }
 
 impl<'a> VariantField<'a> {
+    /// Returns the name of a struct variant field, or [`None`] for a tuple variant field.
     pub fn name(&self) -> Option<&'a str> {
         if let Self::Struct(name, ..) = self {
             Some(*name)
@@ -314,6 +314,7 @@ impl<'a> VariantField<'a> {
         }
     }
 
+    /// Gets a reference to the value of this field.
     pub fn value(&self) -> &'a dyn PartialReflect {
         match *self {
             Self::Struct(_, value) | Self::Tuple(value) => value,

@@ -107,7 +107,7 @@ mod tests {
     use crate::{
         archetype::Archetype,
         component::{Component, ComponentId, Components, Tick},
-        prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, Resource, With, Without},
         query::{
             ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
             ReadOnlyQueryData, WorldQuery,
@@ -818,16 +818,15 @@ mod tests {
 
     /// SAFETY:
     /// `update_component_access` adds resource read access for `R`.
-    /// `update_archetype_component_access` does nothing, as this accesses no components.
     unsafe impl WorldQuery for ReadsRData {
         type Fetch<'w> = ();
         type State = ComponentId;
 
         fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
-        unsafe fn init_fetch<'w>(
+        unsafe fn init_fetch<'w, 's>(
             _world: UnsafeWorldCell<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _last_run: Tick,
             _this_run: Tick,
         ) -> Self::Fetch<'w> {
@@ -836,18 +835,18 @@ mod tests {
         const IS_DENSE: bool = true;
 
         #[inline]
-        unsafe fn set_archetype<'w>(
+        unsafe fn set_archetype<'w, 's>(
             _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _archetype: &'w Archetype,
             _table: &Table,
         ) {
         }
 
         #[inline]
-        unsafe fn set_table<'w>(
+        unsafe fn set_table<'w, 's>(
             _fetch: &mut Self::Fetch<'w>,
-            _state: &Self::State,
+            _state: &'s Self::State,
             _table: &'w Table,
         ) {
         }
@@ -883,16 +882,20 @@ mod tests {
     unsafe impl QueryData for ReadsRData {
         const IS_READ_ONLY: bool = true;
         type ReadOnly = Self;
-        type Item<'w> = ();
+        type Item<'w, 's> = ();
 
-        fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            _item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
+        }
 
         #[inline(always)]
-        unsafe fn fetch<'w>(
+        unsafe fn fetch<'w, 's>(
+            _state: &'s Self::State,
             _fetch: &mut Self::Fetch<'w>,
             _entity: Entity,
             _table_row: TableRow,
-        ) -> Self::Item<'w> {
+        ) -> Self::Item<'w, 's> {
         }
     }
 
@@ -903,29 +906,5 @@ mod tests {
     fn read_res_read_res_no_conflict() {
         fn system(_q1: Query<ReadsRData, With<A>>, _q2: Query<ReadsRData, Without<A>>) {}
         assert_is_system(system);
-    }
-
-    #[test]
-    fn read_res_sets_archetype_component_access() {
-        let mut world = World::new();
-
-        fn read_query(_q: Query<ReadsRData, With<A>>) {}
-        let mut read_query = IntoSystem::into_system(read_query);
-        read_query.initialize(&mut world);
-
-        fn read_res(_r: Res<R>) {}
-        let mut read_res = IntoSystem::into_system(read_res);
-        read_res.initialize(&mut world);
-
-        fn write_res(_r: ResMut<R>) {}
-        let mut write_res = IntoSystem::into_system(write_res);
-        write_res.initialize(&mut world);
-
-        assert!(read_query
-            .archetype_component_access()
-            .is_compatible(read_res.archetype_component_access()));
-        assert!(!read_query
-            .archetype_component_access()
-            .is_compatible(write_res.archetype_component_access()));
     }
 }

@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEvents, AssetId, AssetServer, Handle};
+use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_2d::{
         AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
@@ -45,7 +45,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
     view::{ExtractedView, ViewVisibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
@@ -275,7 +275,7 @@ where
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default())
             .add_systems(
                 PostUpdate,
-                check_entities_needing_specialization::<M>.after(AssetEvents),
+                check_entities_needing_specialization::<M>.after(AssetEventSystems),
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -298,11 +298,11 @@ where
                     Render,
                     (
                         specialize_material2d_meshes::<M>
-                            .in_set(RenderSet::PrepareMeshes)
+                            .in_set(RenderSystems::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial2d<M>>)
                             .after(prepare_assets::<RenderMesh>),
                         queue_material2d_meshes::<M>
-                            .in_set(RenderSet::QueueMeshes)
+                            .in_set(RenderSystems::QueueMeshes)
                             .after(prepare_assets::<PreparedMaterial2d<M>>),
                     ),
                 );

@@ -356,7 +356,7 @@ fn main() {
                                 .join(format!("{}.png", to_run.technical_name)),
                         );
                         if let Err(err) = renamed_screenshot {
-                            println!("Failed to rename screenshot: {}", err);
+                            println!("Failed to rename screenshot: {err}");
                             no_screenshot_examples.push((to_run, duration));
                         } else {
                             successful_examples.push((to_run, duration));
@@ -373,12 +373,12 @@ fn main() {
                     let stdout = String::from_utf8_lossy(&result.stdout);
                     let stderr = String::from_utf8_lossy(&result.stderr);
                     if show_logs {
-                        println!("{}", stdout);
-                        println!("{}", stderr);
+                        println!("{stdout}");
+                        println!("{stderr}");
                     }
                     if report_details {
                         let mut file =
-                            File::create(format!("{reports_path}/{}.log", example)).unwrap();
+                            File::create(format!("{reports_path}/{example}.log")).unwrap();
                         file.write_all(b"==== stdout ====\n").unwrap();
                         file.write_all(stdout.as_bytes()).unwrap();
                         file.write_all(b"\n==== stderr ====\n").unwrap();
@@ -628,7 +628,7 @@ header_message = \"Examples ({})\"
             optimize_size,
             api,
         } => {
-            let api = format!("{}", api);
+            let api = format!("{api}");
             let examples_to_build = parse_examples();
 
             let root_path = Path::new(&content_folder);
@@ -773,9 +773,7 @@ fn parse_examples() -> Vec<Example> {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
 
             let source_code = fs::read_to_string(val["path"].as_str().unwrap()).unwrap();
-            let shader_regex =
-                Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
-                    .unwrap();
+            let shader_regex = Regex::new(r"shaders\/\w+\.(wgsl|frag|vert|wesl)").unwrap();
 
             // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
             let mut shader_paths = vec![];

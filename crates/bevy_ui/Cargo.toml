@@ -3,7 +3,7 @@ name = "bevy_ui"
 version = "0.16.0-dev"
 edition = "2024"
 description = "A custom ECS-driven UI framework built specifically for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -35,12 +35,13 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 # other
 taffy = { version = "0.7" }
 serde = { version = "1", features = ["derive"], optional = true }
+uuid = { version = "1.1", features = ["v4"], optional = true }
 bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 nonmax = "0.5"
 smallvec = "1.11"
-accesskit = "0.18"
+accesskit = "0.19"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]
@@ -51,7 +52,7 @@ serialize = [
   "bevy_math/serialize",
   "bevy_platform/serialize",
 ]
-bevy_ui_picking_backend = ["bevy_picking"]
+bevy_ui_picking_backend = ["bevy_picking", "dep:uuid"]
 bevy_ui_debug = []
 
 # Experimental features

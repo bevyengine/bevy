@@ -2,9 +2,9 @@
 use crate::{Gilrs, GilrsGamepads};
 use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
+use bevy_platform::cell::SyncCell;
 use bevy_platform::collections::HashMap;
 use bevy_time::{Real, Time};
-use bevy_utils::synccell::SyncCell;
 use core::time::Duration;
 use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
