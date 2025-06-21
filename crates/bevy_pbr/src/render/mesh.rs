@@ -1864,7 +1864,10 @@ impl MeshPipeline {
         }
     }
 
-    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
+    pub fn get_view_layout(
+        &self,
+        layout_key: MeshPipelineViewLayoutKey,
+    ) -> &MeshPipelineViewLayout {
         self.view_layouts.get_view_layout(layout_key)
     }
 }
@@ -2320,7 +2323,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
         }
 
-        let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
+        let bind_group_layout = self.get_view_layout(key.into());
+        let mut bind_group_layout = vec![
+            bind_group_layout.main_layout.clone(),
+            bind_group_layout.binding_array_layout.clone(),
+        ];
 
         if key.msaa_samples() > 1 {
             shader_defs.push("MULTISAMPLED".into());
@@ -2890,7 +2897,47 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
             offsets.push(layers_count_offset.offset);
         }
-        pass.set_bind_group(I, &mesh_view_bind_group.value, &offsets);
+        pass.set_bind_group(I, &mesh_view_bind_group.main, &offsets);
+
+        RenderCommandResult::Success
+    }
+}
+
+pub struct SetMeshViewBindingArrayBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindingArrayBindGroup<I> {
+    type Param = ();
+    type ViewQuery = (Read<MeshViewBindGroup>,);
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        (mesh_view_bind_group,): ROQueryItem<'w, '_, Self::ViewQuery>,
+        _entity: Option<()>,
+        _: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(I, &mesh_view_bind_group.binding_array, &[]);
+
+        RenderCommandResult::Success
+    }
+}
+
+pub struct SetMeshViewEmptyBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewEmptyBindGroup<I> {
+    type Param = ();
+    type ViewQuery = (Read<MeshViewBindGroup>,);
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        (mesh_view_bind_group,): ROQueryItem<'w, '_, Self::ViewQuery>,
+        _entity: Option<()>,
+        _: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(I, &mesh_view_bind_group.empty, &[]);
 
         RenderCommandResult::Success
     }

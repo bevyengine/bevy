@@ -10,7 +10,7 @@ struct CustomMaterial {
     time: vec4<f32>,
 }
 
-@group(2) @binding(0) var<uniform> material: CustomMaterial;
+@group(3) @binding(0) var<uniform> material: CustomMaterial;
 
 @fragment
 fn fragment(
