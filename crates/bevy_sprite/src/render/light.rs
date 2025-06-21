@@ -14,6 +14,10 @@ use crate::render::SpritePipeline;
 
 pub const MAX_POINT_LIGHTS_2D: usize = 32;
 
+/// This structure is sent to the GPU for lighting calculations.
+///
+/// - `color_intensity`: RGBA color multiplied by intensity.
+/// - `position_radius`: XY position of the light, with Z as unused and W as radius.
 #[repr(C)]
 #[derive(ShaderType, Clone, Copy, Default, Pod, Zeroable)]
 pub struct GpuPointLight2D {
@@ -21,14 +25,18 @@ pub struct GpuPointLight2D {
     pub position_radius: [f32; 4],
 }
 
+/// A GPU buffer resource containing all point lights visible to the renderer.
 #[derive(Resource)]
 pub struct GpuLights2D {
+    /// The GPU buffer that stores light data.
     pub buffer: Buffer,
+    /// Bind group referencing the buffer for use in shaders.
     pub bind_group: BindGroup,
+    /// Number of lights currently in the buffer.
     pub length: u32,
 }
 
-// Light data transferred to the Render World
+/// Light data transferred to the Render World
 #[derive(Clone)]
 pub struct ExtractedPointLight2D {
     pub color: Color,
@@ -38,9 +46,11 @@ pub struct ExtractedPointLight2D {
     pub position: Vec2,
 }
 
+/// Collection of all extracted 2D lights used for rendering.
 #[derive(Resource, Default)]
 pub struct ExtractedPointLights2D(pub Vec<ExtractedPointLight2D>);
 
+/// Extracts `PointLight2D` components from the main world into the render world.
 pub fn extract_point_lights_2d(
     mut extracted: ResMut<ExtractedPointLights2D>,
     query: Extract<Query<(&PointLight2D, &GlobalTransform)>>,
@@ -57,6 +67,7 @@ pub fn extract_point_lights_2d(
     }
 }
 
+/// Writes light data into a buffer to prepare it for the GPU
 pub fn prepare_point_lights_2d(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -84,8 +95,7 @@ pub fn prepare_point_lights_2d(
                     FalloffType::Linear => 1.0,
                     FalloffType::Exponential => 2.0,
                 },
-            ]
-            .into(),
+            ],
         });
     }
 
@@ -93,8 +103,8 @@ pub fn prepare_point_lights_2d(
     lights.resize(
         16,
         GpuPointLight2D {
-            color_intensity: [0.0; 4].into(),
-            position_radius: [0.0; 4].into(),
+            color_intensity: [0.0; 4],
+            position_radius: [0.0; 4],
         },
     );
 
@@ -123,6 +133,11 @@ pub fn prepare_point_lights_2d(
     });
 }
 
+/// Initializes the GPU resources used for 2D lighting.
+///
+/// This system creates an empty buffer and corresponding bind group, which are later
+/// populated with actual light data during rendering.
+/// It should run once during startup before any frame rendering occurs.
 pub fn setup_gpu_lights(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

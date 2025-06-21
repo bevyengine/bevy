@@ -920,12 +920,22 @@ pub type DrawSprite = (
     DrawSpriteBatch,
 );
 
+/// This struct implements the `RenderCommand` trait to bind GPU light data to the render pipeline
+/// at the specified bind group index `I`.
+/// `I` - A compile-time constant that specifies the bind group index where the point light
+/// data should be bound in the render pipeline.
 pub struct SetPointLightBindGroup<const I: usize>;
 impl<const I: usize> RenderCommand<Transparent2d> for SetPointLightBindGroup<I> {
     type Param = SRes<GpuLights2D>;
     type ViewQuery = &'static ViewUniformOffset;
     type ItemQuery = ();
 
+    /// Executes the render command to bind the point light data.
+    ///  `_item` - The transparent 2D render item (unused in this implementation)
+    ///  `_view` - The view uniform offset data (unused in this implementation)
+    ///  `_item_query` - The result of the item query (unused since ItemQuery is `()`)
+    ///  `lights_resource` - The GPU lights resource containing the bind group with light data
+    ///  `pass` - The tracked render pass used to record GPU commands
     fn render<'w>(
         _item: &Transparent2d,
         _view: &ViewUniformOffset,
