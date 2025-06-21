@@ -113,6 +113,10 @@ wgpu-types = { version = "24", features = [
   "serde",
 ], optional = true, default-features = false }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
+uuid = { version = "1.13.1", default-features = false, optional = true, features = ["js"] }
+
 [dev-dependencies]
 ron = "0.10"
 rmp-serde = "1.1"
