@@ -414,6 +414,31 @@ where
         queue.write_buffer(buffer, 0, &self.data);
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
+    ///
+    /// Before queuing the write, a [`reserve`](BufferVec::reserve) operation
+    /// is executed.
+    ///
+    /// This will only write the data contained in the given range. It is useful if you only want
+    /// to update a part of the buffer.
+    pub fn write_buffer_range(
+        &mut self,
+        device: &RenderDevice,
+        render_queue: &RenderQueue,
+        range: core::ops::Range<usize>,
+    ) {
+        if self.data.is_empty() {
+            return;
+        }
+        let item_size = u64::from(T::min_size()) as usize;
+        self.reserve(self.data.len() / item_size, device);
+        if let Some(buffer) = &self.buffer {
+            let bytes = &self.data[range.start..range.end];
+            render_queue.write_buffer(buffer, (range.start * item_size) as u64, bytes);
+        }
+    }
+
     /// Reduces the length of the buffer.
     pub fn truncate(&mut self, len: usize) {
         self.data.truncate(u64::from(T::min_size()) as usize * len);
