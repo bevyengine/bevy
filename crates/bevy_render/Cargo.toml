@@ -97,7 +97,7 @@ serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 futures-lite = "2.0.1"
 ktx2 = { version = "0.4.0", optional = true }
 encase = { version = "0.10", features = ["glam"] }

@@ -93,7 +93,7 @@ erased-serde = { version = "0.4", default-features = false, features = [
 disqualified = { version = "1.0", default-features = false }
 downcast-rs = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1.11", default-features = false, optional = true }

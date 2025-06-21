@@ -104,7 +104,7 @@ serde = { version = "1", default-features = false, features = [
   "serde_derive",
 ], optional = true }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = [
+derive_more = { version = "2", default-features = false, features = [
   "from",
   "display",
   "into",

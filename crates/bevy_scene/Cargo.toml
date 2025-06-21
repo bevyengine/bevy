@@ -35,7 +35,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 serde = { version = "1.0", features = ["derive"], optional = true }
 uuid = { version = "1.13.1", features = ["v4"] }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.

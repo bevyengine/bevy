@@ -37,7 +37,7 @@ serde = "1"
 blake3 = { version = "1.0" }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 either = "1.13"
 thread_local = "1"
 uuid = { version = "1.13.1", features = ["v4"] }

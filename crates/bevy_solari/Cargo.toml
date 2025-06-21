@@ -28,7 +28,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 
 # other
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 
 [lints]
 workspace = true

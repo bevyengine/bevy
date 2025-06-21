@@ -21,7 +21,7 @@ serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 
 [dev-dependencies]
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }

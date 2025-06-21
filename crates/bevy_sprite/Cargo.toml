@@ -36,7 +36,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 # other
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
 fixedbitset = "0.5"
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"

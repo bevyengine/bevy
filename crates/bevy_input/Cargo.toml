@@ -75,7 +75,7 @@ serde = { version = "1", features = [
   "derive",
 ], default-features = false, optional = true }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 smol_str = { version = "0.2", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 

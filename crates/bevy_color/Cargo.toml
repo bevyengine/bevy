@@ -19,7 +19,7 @@ serde = { version = "1.0", features = [
   "derive",
 ], default-features = false, optional = true }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 wgpu-types = { version = "24", default-features = false, optional = true }
 encase = { version = "0.10", default-features = false, optional = true }
 
