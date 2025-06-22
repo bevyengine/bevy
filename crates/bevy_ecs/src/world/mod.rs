@@ -1680,11 +1680,15 @@ impl World {
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let caller = MaybeLocation::caller();
-        let already_exists = self.components.resource_id::<R>().is_some();
         let component_id = self.components_registrator().register_resource::<R>();
 
-        if !already_exists {
-            let _ = self.spawn(ResourceEntity::<R>::default()).id();
+        if !self
+            .components
+            .resource_entities
+            .contains_key(&component_id)
+        {
+            let id = self.spawn(ResourceEntity::<R>::default()).id();
+            self.components.resource_entities.insert(component_id, id);
         }
 
         if self
@@ -1723,11 +1727,15 @@ impl World {
         value: R,
         caller: MaybeLocation,
     ) {
-        let already_exists = self.components.resource_id::<R>().is_some();
         let component_id = self.components_registrator().register_resource::<R>();
 
-        if !already_exists {
-            let _ = self.spawn(ResourceEntity::<R>::default()).id();
+        if !self
+            .components
+            .resource_entities
+            .contains_key(&component_id)
+        {
+            let id = self.spawn(ResourceEntity::<R>::default()).id();
+            self.components.resource_entities.insert(component_id, id);
         }
 
         OwningPtr::make(value, |ptr| {
@@ -1797,6 +1805,9 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
+        if let Some(id) = self.components.resource_entities.remove(&component_id) {
+            self.despawn(id);
+        }
         let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
@@ -2670,6 +2681,16 @@ impl World {
     ) {
         let change_tick = self.change_tick();
 
+        if !self
+            .components
+            .resource_entities
+            .contains_key(&component_id)
+        {
+            // We don't have the type information so we can't spawn ResourceEntity
+            let id = self.spawn(IsResource).id();
+            self.components.resource_entities.insert(component_id, id);
+        }
+
         let resource = self.initialize_resource_internal(component_id);
         // SAFETY: `value` is valid for `component_id`, ensured by caller
         unsafe {
@@ -3362,6 +3383,10 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
+        if let Some(id) = self.components.resource_entities.remove(&component_id) {
+            self.despawn(id);
+        }
+
         self.storages
             .resources
             .get_mut(component_id)?
