@@ -21,9 +21,9 @@ impl FullscreenShader {
     /// Creates a [`VertexState`] that uses the [`FullscreenShader`] to output a
     /// ```wgsl
     /// struct FullscreenVertexOutput {
-    ///     [[builtin(position)]]
+    ///     @builtin(position)
     ///     position: vec4<f32>;
-    ///     [[location(0)]]
+    ///     @location(0)
     ///     uv: vec2<f32>;
     /// };
     /// ```
