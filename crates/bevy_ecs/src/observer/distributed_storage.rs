@@ -1,6 +1,13 @@
 //! Information about observers that is stored on the entities themselves.
 //!
 //! This allows for easier cleanup, better inspection, and more flexible querying.
+//!
+//! Each observer is associated with an entity, defined by the [`Observer`] component.
+//! The [`Observer`] component contains the system that will be run when the observer is triggered,
+//! and the [`ObserverDescriptor`] which contains information about what the observer is observing.
+//!
+//! When we watch entities, we add the [`ObservedBy`] component to those entities,
+//! which links back to the observer entity.
 
 use core::any::Any;
 
