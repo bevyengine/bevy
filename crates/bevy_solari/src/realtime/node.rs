@@ -9,6 +9,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         binding_types::{
@@ -102,12 +103,16 @@ impl ViewNode for SolariLightingNode {
 
         // Choice of number here is arbitrary
         let frame_index = frame_count.0.wrapping_mul(5782582);
+
+        let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
 
         let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("solari_lighting"),
             timestamp_writes: None,
         });
+        let pass_span = diagnostics.pass_span(&mut pass, "solari_lighting");
+
         pass.set_bind_group(0, scene_bindings, &[]);
         pass.set_bind_group(1, &bind_group, &[view_uniform_offset.offset]);
 
@@ -120,6 +125,8 @@ impl ViewNode for SolariLightingNode {
 
         pass.set_pipeline(spatial_and_shade_pipeline);
         pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
+
+        pass_span.end(&mut pass);
 
         Ok(())
     }
