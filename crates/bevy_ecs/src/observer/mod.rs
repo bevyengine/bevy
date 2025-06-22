@@ -129,14 +129,16 @@
 //! but allows for a more ad hoc approach with observers,
 //! and enables indefinite chaining of observers triggering other observers (for both better and worse!).
 
+mod centralized_storage;
+mod distributed_storage;
 mod entity_cloning;
 mod runner;
-mod storage;
 mod system_param;
 mod trigger_targets;
 
+pub use centralized_storage::*;
+pub use distributed_storage::*;
 pub use runner::*;
-pub use storage::*;
 pub use system_param::*;
 pub use trigger_targets::*;
 
@@ -147,60 +149,6 @@ use crate::{
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
-use alloc::vec::Vec;
-
-/// Store information about what an [`Observer`] observes.
-///
-/// This information is stored inside of the [`Observer`] component,
-#[derive(Default, Clone)]
-pub struct ObserverDescriptor {
-    /// The events the observer is watching.
-    events: Vec<ComponentId>,
-
-    /// The components the observer is watching.
-    components: Vec<ComponentId>,
-
-    /// The entities the observer is watching.
-    entities: Vec<Entity>,
-}
-
-impl ObserverDescriptor {
-    /// Add the given `events` to the descriptor.
-    /// # Safety
-    /// The type of each [`ComponentId`] in `events` _must_ match the actual value
-    /// of the event passed into the observer.
-    pub unsafe fn with_events(mut self, events: Vec<ComponentId>) -> Self {
-        self.events = events;
-        self
-    }
-
-    /// Add the given `components` to the descriptor.
-    pub fn with_components(mut self, components: Vec<ComponentId>) -> Self {
-        self.components = components;
-        self
-    }
-
-    /// Add the given `entities` to the descriptor.
-    pub fn with_entities(mut self, entities: Vec<Entity>) -> Self {
-        self.entities = entities;
-        self
-    }
-
-    /// Returns the `events` that the observer is watching.
-    pub fn events(&self) -> &[ComponentId] {
-        &self.events
-    }
-
-    /// Returns the `components` that the observer is watching.
-    pub fn components(&self) -> &[ComponentId] {
-        &self.components
-    }
-
-    /// Returns the `entities` that the observer is watching.
-    pub fn entities(&self) -> &[Entity] {
-        &self.entities
-    }
-}
 
 impl World {
     /// Spawns a "global" [`Observer`] which will watch for the given event.

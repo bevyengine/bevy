@@ -1,22 +1,15 @@
-//! The types needed to store and look-up observers.
+//! Centralized storage for observers, allowing for efficient look-ups.
 
 use bevy_platform::collections::HashMap;
-
-use alloc::vec::Vec;
 
 use crate::{
     archetype::ArchetypeFlags,
     change_detection::MaybeLocation,
-    component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
+    component::ComponentId,
     entity::{Entity, EntityHashMap},
-    lifecycle::{ComponentHook, HookContext},
     observer::{ObserverRunner, ObserverTrigger},
-    prelude::{Component, Observer},
     world::DeferredWorld,
 };
-
-#[cfg(feature = "bevy_reflect")]
-use crate::prelude::ReflectComponent;
 
 /// An internal lookup table tracking all of the observers in the world.
 ///
@@ -238,56 +231,5 @@ impl CachedComponentObservers {
     /// Returns the observers listening for this trigger targeting this component on a specific entity.
     pub fn entity_component_observers(&self) -> &EntityHashMap<ObserverMap> {
         &self.entity_component_observers
-    }
-}
-
-/// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
-#[derive(Default, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, Debug))]
-pub struct ObservedBy(pub(crate) Vec<Entity>);
-
-impl ObservedBy {
-    /// Provides a read-only reference to the list of entities observing this entity.
-    pub fn get(&self) -> &[Entity] {
-        &self.0
-    }
-}
-
-impl Component for ObservedBy {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-    type Mutability = Mutable;
-
-    fn on_remove() -> Option<ComponentHook> {
-        Some(|mut world, HookContext { entity, .. }| {
-            let observed_by = {
-                let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
-                core::mem::take(&mut component.0)
-            };
-            for e in observed_by {
-                let (total_entities, despawned_watched_entities) = {
-                    let Ok(mut entity_mut) = world.get_entity_mut(e) else {
-                        continue;
-                    };
-                    let Some(mut state) = entity_mut.get_mut::<Observer>() else {
-                        continue;
-                    };
-                    state.despawned_watched_entities += 1;
-                    (
-                        state.descriptor.entities.len(),
-                        state.despawned_watched_entities as usize,
-                    )
-                };
-
-                // Despawn Observer if it has no more active sources.
-                if total_entities == despawned_watched_entities {
-                    world.commands().entity(e).despawn();
-                }
-            }
-        })
-    }
-
-    fn clone_behavior() -> ComponentCloneBehavior {
-        ComponentCloneBehavior::Ignore
     }
 }
