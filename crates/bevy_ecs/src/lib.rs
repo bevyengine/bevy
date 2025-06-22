@@ -79,7 +79,8 @@ pub mod prelude {
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{
-            BufferedEvent, EntityEvent, Event, EventMutator, EventReader, EventWriter, Events,
+            BufferedEvent, EntityEvent, Event, EventKey, EventMutator, EventReader, EventWriter,
+            Events,
         },
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{
