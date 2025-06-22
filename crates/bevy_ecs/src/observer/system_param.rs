@@ -8,8 +8,8 @@ use bevy_ptr::Ptr;
 use smallvec::SmallVec;
 
 use crate::{
-    bundle::Bundle, change_detection::MaybeLocation, component::ComponentId, entity::Entity,
-    event::EntityEvent,
+    bundle::Bundle, change_detection::MaybeLocation, component::ComponentId, event::EntityEvent,
+    prelude::*,
 };
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
