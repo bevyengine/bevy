@@ -5,7 +5,6 @@ use bevy_ecs::{
     bundle::{Bundle, NoBundleEffect},
     component::Component,
     entity::{Entity, EntityRow},
-    entity_disabling::DefaultQueryFilters,
     system::{Query, SystemState},
     world::World,
 };
