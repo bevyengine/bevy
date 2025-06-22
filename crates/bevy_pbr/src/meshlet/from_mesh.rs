@@ -273,7 +273,11 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
         Mesh::ATTRIBUTE_NORMAL.id,
         Mesh::ATTRIBUTE_UV_0.id,
     ]) {
-        return Err(MeshToMeshletMeshConversionError::WrongMeshVertexAttributes);
+        return Err(MeshToMeshletMeshConversionError::WrongMeshVertexAttributes(
+            mesh.attributes()
+                .map(|(attribute, _)| format!("{:?}", attribute))
+                .collect(),
+        ));
     }
 
     match mesh.indices() {
@@ -1100,8 +1104,8 @@ fn pack2x16snorm(v: Vec2) -> u32 {
 pub enum MeshToMeshletMeshConversionError {
     #[error("Mesh primitive topology is not TriangleList")]
     WrongMeshPrimitiveTopology,
-    #[error("Mesh vertex attributes are not {{POSITION, NORMAL, UV_0}}")]
-    WrongMeshVertexAttributes,
+    #[error("Mesh vertex attributes are not {{POSITION, NORMAL, UV_0}}: {0:?}")]
+    WrongMeshVertexAttributes(Vec<String>),
     #[error("Mesh has no indices")]
     MeshMissingIndices,
 }

@@ -215,10 +215,10 @@ impl AssetLoader for MeshletMeshLoader {
             return Err(MeshletMeshSaveOrLoadError::WrongVersion { found: version });
         }
 
-        let mut bytes = [0u8; 24];
+        let mut bytes = [0u8; size_of::<MeshletAabb>()];
         reader.read_exact(&mut bytes).await?;
         let aabb = bytemuck::cast(bytes);
-        let mut bytes = [0u8; 4];
+        let mut bytes = [0u8; size_of::<u32>()];
         reader.read_exact(&mut bytes).await?;
         let bvh_depth = u32::from_le_bytes(bytes);
 
@@ -258,7 +258,7 @@ pub enum MeshletMeshSaveOrLoadError {
     WrongVersion { found: u64 },
     #[error("failed to compress or decompress asset data")]
     CompressionOrDecompression(#[from] lz4_flex::frame::Error),
-    #[error("failed to read or write asset data")]
+    #[error(transparent)]
     Io(#[from] std::io::Error),
 }
 
