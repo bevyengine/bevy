@@ -25,7 +25,7 @@ use bevy::{
         },
         render_resource::{
             BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
-            FragmentState, HasBaseDescriptor, IndexFormat, MultisampleState, PipelineCache,
+            FragmentState, GetBaseDescriptor, IndexFormat, MultisampleState, PipelineCache,
             PrimitiveState, RawBufferVec, RenderPipeline, RenderPipelineDescriptor, Specialize,
             Specializer, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat,
             VertexState, VertexStepMode,
@@ -296,7 +296,7 @@ impl Specialize<RenderPipeline> for CustomPhaseSpecializer {
     }
 }
 
-impl HasBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
+impl GetBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
     fn base_descriptor(&self) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("custom render pipeline".into()),

@@ -184,7 +184,7 @@ impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V
 /// }
 /// */
 /// ```
-pub trait HasBaseDescriptor<T: Specializable>: Specialize<T> {
+pub trait GetBaseDescriptor<T: Specializable>: Specialize<T> {
     fn base_descriptor(&self) -> T::Descriptor;
 }
 
@@ -242,7 +242,7 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
 impl<T, S> FromWorld for Specializer<T, S>
 where
     T: Specializable,
-    S: FromWorld + Specialize<T> + HasBaseDescriptor<T>,
+    S: FromWorld + Specialize<T> + GetBaseDescriptor<T>,
 {
     fn from_world(world: &mut World) -> Self {
         let specializer = S::from_world(world);
