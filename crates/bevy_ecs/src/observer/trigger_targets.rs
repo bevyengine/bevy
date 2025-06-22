@@ -1,6 +1,6 @@
 //! Stores the [`TriggerTargets`] trait.
 
-use crate::{component::ComponentId, entity::Entity};
+use crate::{component::ComponentId, prelude::*};
 use alloc::vec::Vec;
 use variadics_please::all_tuples;
 
