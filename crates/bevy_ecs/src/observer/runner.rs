@@ -1,3 +1,5 @@
+//! Logic for evaluating observers, and storing functions inside of observers.
+
 use alloc::{boxed::Box, vec};
 use bevy_utils::prelude::DebugName;
 use core::any::Any;
