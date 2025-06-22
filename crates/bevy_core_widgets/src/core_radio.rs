@@ -33,7 +33,7 @@ pub struct CoreRadioGroup {
 }
 
 /// Headless widget implementation for radio buttons. These should be enclosed within a
-/// [`CoreRadioGroup`] wiget, which is responsible for the mutual exclusion logic.
+/// [`CoreRadioGroup`] widget, which is responsible for the mutual exclusion logic.
 ///
 /// According to the WAI-ARIA best practices document, radio buttons should not be focusable,
 /// but rather the enclosing group should be focusable.
@@ -85,7 +85,7 @@ fn radio_group_on_key_input(
             let next_index = match key_code {
                 KeyCode::ArrowUp | KeyCode::ArrowLeft => {
                     // Navigate to the previous radio button in the group
-                    if current_index == 0 {
+                    if current_index == 0 || current_index >= radio_children.len() {
                         // If we're at the first one, wrap around to the last
                         radio_children.len() - 1
                     } else {
