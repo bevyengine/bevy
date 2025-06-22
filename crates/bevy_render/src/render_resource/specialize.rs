@@ -6,7 +6,7 @@ use bevy_ecs::{
     resource::Resource,
     world::{FromWorld, World},
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use core::{hash::Hash, marker::PhantomData};
 
 pub use bevy_render_macros::{HasBaseDescriptor, Specialize};
