@@ -93,33 +93,11 @@ pub trait Resource: Send + Sync + 'static {}
 /// adding this component to an entity (or spawning an entity with this component) will despawn any other entity with this component.
 #[derive(Component, Debug)]
 #[require(IsResource)]
-#[component(on_insert = at_most_one_hook::<R>)]
 pub struct ResourceEntity<R: Resource>(PhantomData<R>);
 
 impl<R: Resource> Default for ResourceEntity<R> {
     fn default() -> Self {
         ResourceEntity(PhantomData)
-    }
-}
-
-fn at_most_one_hook<R: Resource>(mut deferred_world: DeferredWorld, context: HookContext) {
-    let mut query = deferred_world
-        .try_query_filtered::<Entity, With<ResourceEntity<R>>>()
-        // The component is guaranteed to have been added to the world,
-        // since that's why this hook is running!
-        .unwrap();
-
-    let mut offending_entities = Vec::new();
-
-    for detected_entity in query.iter(&deferred_world) {
-        if detected_entity != context.entity {
-            offending_entities.push(detected_entity);
-        }
-    }
-
-    let mut commands = deferred_world.commands();
-    for offending_entity in offending_entities {
-        commands.entity(offending_entity).despawn();
     }
 }
 
