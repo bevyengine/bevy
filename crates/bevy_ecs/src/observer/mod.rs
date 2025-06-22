@@ -133,11 +133,12 @@ mod entity_cloning;
 mod runner;
 mod storage;
 mod system_param;
+mod trigger_targets;
 
 pub use runner::*;
 pub use storage::*;
 pub use system_param::*;
-use variadics_please::all_tuples;
+pub use trigger_targets::*;
 
 use crate::{
     change_detection::MaybeLocation,
@@ -198,37 +199,6 @@ impl ObserverDescriptor {
     /// Returns the `entities` that the observer is watching.
     pub fn entities(&self) -> &[Entity] {
         &self.entities
-    }
-}
-
-/// Metadata about a specific [`Event`] that triggered an observer.
-///
-/// This information is exposed via methods on [`On`].
-#[derive(Debug)]
-pub struct ObserverTrigger {
-    /// The [`Entity`] of the observer handling the trigger.
-    pub observer: Entity,
-    /// The [`Event`] the trigger targeted.
-    pub event_type: ComponentId,
-    /// The [`ComponentId`]s the trigger targeted.
-    components: SmallVec<[ComponentId; 2]>,
-    /// The entity that the entity-event targeted, if any.
-    ///
-    /// Note that if event propagation is enabled, this may not be the same as [`ObserverTrigger::original_target`].
-    pub current_target: Option<Entity>,
-    /// The entity that the entity-event was originally targeted at, if any.
-    ///
-    /// If event propagation is enabled, this will be the first entity that the event was targeted at,
-    /// even if the event was propagated to other entities.
-    pub original_target: Option<Entity>,
-    /// The location of the source code that triggered the observer.
-    pub caller: MaybeLocation,
-}
-
-impl ObserverTrigger {
-    /// Returns the components that the trigger targeted.
-    pub fn components(&self) -> &[ComponentId] {
-        &self.components
     }
 }
 

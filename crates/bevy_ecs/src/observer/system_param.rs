@@ -5,10 +5,11 @@ use core::ops::DerefMut;
 use core::{fmt::Debug, ops::Deref};
 
 use bevy_ptr::Ptr;
+use smallvec::SmallVec;
 
 use crate::{
     bundle::Bundle, change_detection::MaybeLocation, component::ComponentId, entity::Entity,
-    event::EntityEvent, observer::ObserverTrigger,
+    event::EntityEvent,
 };
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
@@ -169,5 +170,36 @@ impl<'w, E, B: Bundle> Deref for On<'w, E, B> {
 impl<'w, E, B: Bundle> DerefMut for On<'w, E, B> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
+    }
+}
+
+/// Metadata about a specific [`Event`] that triggered an observer.
+///
+/// This information is exposed via methods on [`On`].
+#[derive(Debug)]
+pub struct ObserverTrigger {
+    /// The [`Entity`] of the observer handling the trigger.
+    pub observer: Entity,
+    /// The [`Event`] the trigger targeted.
+    pub event_type: ComponentId,
+    /// The [`ComponentId`]s the trigger targeted.
+    pub components: SmallVec<[ComponentId; 2]>,
+    /// The entity that the entity-event targeted, if any.
+    ///
+    /// Note that if event propagation is enabled, this may not be the same as [`ObserverTrigger::original_target`].
+    pub current_target: Option<Entity>,
+    /// The entity that the entity-event was originally targeted at, if any.
+    ///
+    /// If event propagation is enabled, this will be the first entity that the event was targeted at,
+    /// even if the event was propagated to other entities.
+    pub original_target: Option<Entity>,
+    /// The location of the source code that triggered the observer.
+    pub caller: MaybeLocation,
+}
+
+impl ObserverTrigger {
+    /// Returns the components that the trigger targeted.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.components
     }
 }
