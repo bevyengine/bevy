@@ -81,18 +81,19 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_ecs::prelude::{Commands, On};
-    /// #
-    /// # struct MyEvent {
-    /// #   done: bool,
-    /// # }
-    /// #
-    /// /// Handle `MyEvent` and if it is done, stop observation.
-    /// fn my_observer(trigger: On<MyEvent>, mut commands: Commands) {
-    ///     if trigger.event().done {Debug
+    /// # use bevy_ecs::prelude::*;
     ///
-    ///     // ...
-    /// }
+    /// #[derive(Event, EntityEvent)]  
+    /// struct AssertEvent;  
+    ///
+    /// fn assert_observer(trigger: On<AssertEvent>) {  
+    ///     assert_eq!(trigger.observer(), trigger.target());  
+    /// }  
+    ///
+    /// let mut world = World::new();  
+    /// let observer = world.spawn(Observer::new(assert_observer)).id();  
+    ///
+    /// world.trigger_targets(AssertEvent, observer);  
     /// ```
     pub fn observer(&self) -> Entity {
         self.trigger.observer
