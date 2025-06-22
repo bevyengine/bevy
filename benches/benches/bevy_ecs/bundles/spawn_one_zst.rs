@@ -1,5 +1,3 @@
-use core::hint::black_box;
-
 use benches::bench;
 use bevy_ecs::{component::Component, world::World};
 use criterion::Criterion;
@@ -16,7 +14,7 @@ pub fn spawn_one_zst(criterion: &mut Criterion) {
         let mut world = World::new();
         bencher.iter(|| {
             for _ in 0..ENTITY_COUNT {
-                world.spawn(black_box(A));
+                world.spawn(A);
             }
             world.clear_entities();
         });

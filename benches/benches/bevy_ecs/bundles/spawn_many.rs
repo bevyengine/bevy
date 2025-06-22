@@ -1,5 +1,3 @@
-use core::hint::black_box;
-
 use benches::bench;
 use bevy_ecs::{component::Component, world::World};
 use criterion::Criterion;
@@ -16,7 +14,7 @@ pub fn spawn_many(criterion: &mut Criterion) {
         let mut world = World::new();
         bencher.iter(|| {
             for _ in 0..ENTITY_COUNT {
-                world.spawn(black_box((
+                world.spawn((
                     C::<0>(1),
                     C::<1>(1),
                     C::<2>(1),
@@ -32,7 +30,7 @@ pub fn spawn_many(criterion: &mut Criterion) {
                     C::<12>(1),
                     C::<13>(1),
                     C::<14>(1),
-                )));
+                ));
             }
             world.clear_entities();
         });
