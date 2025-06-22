@@ -5,11 +5,13 @@ mod add_remove_sparse_set;
 mod add_remove_table;
 mod add_remove_very_big_table;
 mod archetype_updates;
+mod fragmenting_values;
 mod insert_simple;
 mod insert_simple_unbatched;
 
 use archetype_updates::*;
 use criterion::{criterion_group, Criterion};
+use fragmenting_values::*;
 
 criterion_group!(
     benches,
@@ -19,6 +21,8 @@ criterion_group!(
     insert_simple,
     no_archetypes,
     added_archetypes,
+    insert_fragmenting_value,
+    add_remove_fragmenting_value
 );
 
 fn add_remove(c: &mut Criterion) {

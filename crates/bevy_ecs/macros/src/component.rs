@@ -294,6 +294,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
+    let key = if let Some(key) = attrs.key {
+        quote! {#bevy_ecs_path::component::OtherComponentKey<Self, #key>}
+    } else {
+        quote! {#bevy_ecs_path::component::NoKey<Self>}
+    };
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
@@ -301,6 +307,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
+            type Key = #key;
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::ComponentsRegistrator,
@@ -433,6 +440,7 @@ pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
 pub const CLONE_BEHAVIOR: &str = "clone_behavior";
+pub const KEY: &str = "key";
 
 /// All allowed attribute value expression kinds for component hooks
 #[derive(Debug)]
@@ -496,6 +504,7 @@ struct Attrs {
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
     clone_behavior: Option<Expr>,
+    key: Option<Type>,
 }
 
 #[derive(Clone, Copy)]
@@ -535,6 +544,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         relationship_target: None,
         immutable: false,
         clone_behavior: None,
+        key: None,
     };
 
     let mut require_paths = HashSet::new();
@@ -572,6 +582,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     Ok(())
                 } else if nested.path.is_ident(CLONE_BEHAVIOR) {
                     attrs.clone_behavior = Some(nested.value()?.parse()?);
+                    Ok(())
+                } else if nested.path.is_ident(KEY) {
+                    attrs.key = Some(nested.value()?.parse()?);
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
