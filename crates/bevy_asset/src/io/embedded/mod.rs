@@ -8,8 +8,10 @@ use crate::io::{
     memory::{Dir, MemoryAssetReader, Value},
     AssetSource, AssetSourceBuilders,
 };
+use crate::AssetServer;
 use alloc::boxed::Box;
-use bevy_ecs::resource::Resource;
+use bevy_app::App;
+use bevy_ecs::{resource::Resource, world::World};
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "embedded_watcher")]
@@ -29,7 +31,7 @@ pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
     root_paths: alloc::sync::Arc<
-        parking_lot::RwLock<bevy_platform_support::collections::HashMap<Box<Path>, PathBuf>>,
+        parking_lot::RwLock<bevy_platform::collections::HashMap<Box<Path>, PathBuf>>,
     >,
 }
 
@@ -132,6 +134,71 @@ impl EmbeddedAssetRegistry {
     }
 }
 
+/// Trait for the [`load_embedded_asset!`] macro, to access [`AssetServer`]
+/// from arbitrary things.
+///
+/// [`load_embedded_asset!`]: crate::load_embedded_asset
+pub trait GetAssetServer {
+    fn get_asset_server(&self) -> &AssetServer;
+}
+impl GetAssetServer for App {
+    fn get_asset_server(&self) -> &AssetServer {
+        self.world().get_asset_server()
+    }
+}
+impl GetAssetServer for World {
+    fn get_asset_server(&self) -> &AssetServer {
+        self.resource()
+    }
+}
+impl GetAssetServer for AssetServer {
+    fn get_asset_server(&self) -> &AssetServer {
+        self
+    }
+}
+
+/// Load an [embedded asset](crate::embedded_asset).
+///
+/// This is useful if the embedded asset in question is not publicly exposed, but
+/// you need to use it internally.
+///
+/// # Syntax
+///
+/// This macro takes two arguments and an optional third one:
+/// 1. The asset source. It may be `AssetServer`, `World` or `App`.
+/// 2. The path to the asset to embed, as a string literal.
+/// 3. Optionally, a closure of the same type as in [`AssetServer::load_with_settings`].
+///    Consider explicitly typing the closure argument in case of type error.
+///
+/// # Usage
+///
+/// The advantage compared to using directly [`AssetServer::load`] is:
+/// - This also accepts [`World`] and [`App`] arguments.
+/// - This uses the exact same path as `embedded_asset!`, so you can keep it
+///   consistent.
+///
+/// As a rule of thumb:
+/// - If the asset in used in the same module as it is declared using `embedded_asset!`,
+///   use this macro.
+/// - Otherwise, use `AssetServer::load`.
+#[macro_export]
+macro_rules! load_embedded_asset {
+    (@get: $path: literal, $provider: expr) => {{
+        let path = $crate::embedded_path!($path);
+        let path = $crate::AssetPath::from_path_buf(path).with_source("embedded");
+        let asset_server = $crate::io::embedded::GetAssetServer::get_asset_server($provider);
+        (path, asset_server)
+    }};
+    ($provider: expr, $path: literal, $settings: expr) => {{
+        let (path, asset_server) = $crate::load_embedded_asset!(@get: $path, $provider);
+        asset_server.load_with_settings(path, $settings)
+    }};
+    ($provider: expr, $path: literal) => {{
+        let (path, asset_server) = $crate::load_embedded_asset!(@get: $path, $provider);
+        asset_server.load(path)
+    }};
+}
+
 /// Returns the [`Path`] for a given `embedded` asset.
 /// This is used internally by [`embedded_asset`] and can be used to get a [`Path`]
 /// that matches the [`AssetPath`](crate::AssetPath) used by that asset.
@@ -140,7 +207,7 @@ impl EmbeddedAssetRegistry {
 #[macro_export]
 macro_rules! embedded_path {
     ($path_str: expr) => {{
-        embedded_path!("src", $path_str)
+        $crate::embedded_path!("src", $path_str)
     }};
 
     ($source_path: expr, $path_str: expr) => {{
@@ -168,6 +235,13 @@ pub fn _embedded_asset_path(
     file_path: &Path,
     asset_path: &Path,
 ) -> PathBuf {
+    let file_path = if cfg!(not(target_family = "windows")) {
+        // Work around bug: https://github.com/bevyengine/bevy/issues/14246
+        // Note, this will break any paths on Linux/Mac containing "\"
+        PathBuf::from(file_path.to_str().unwrap().replace("\\", "/"))
+    } else {
+        PathBuf::from(file_path)
+    };
     let mut maybe_parent = file_path.parent();
     let after_src = loop {
         let Some(parent) = maybe_parent else {
@@ -185,7 +259,7 @@ pub fn _embedded_asset_path(
 /// Creates a new `embedded` asset by embedding the bytes of the given path into the current binary
 /// and registering those bytes with the `embedded` [`AssetSource`].
 ///
-/// This accepts the current [`App`](bevy_app::App) as the first parameter and a path `&str` (relative to the current file) as the second.
+/// This accepts the current [`App`] as the first parameter and a path `&str` (relative to the current file) as the second.
 ///
 /// By default this will generate an [`AssetPath`] using the following rules:
 ///
@@ -210,14 +284,19 @@ pub fn _embedded_asset_path(
 ///
 /// `embedded_asset!(app, "rock.wgsl")`
 ///
-/// `rock.wgsl` can now be loaded by the [`AssetServer`](crate::AssetServer) with the following path:
+/// `rock.wgsl` can now be loaded by the [`AssetServer`] as follows:
 ///
 /// ```no_run
-/// # use bevy_asset::{Asset, AssetServer};
+/// # use bevy_asset::{Asset, AssetServer, load_embedded_asset};
 /// # use bevy_reflect::TypePath;
 /// # let asset_server: AssetServer = panic!();
 /// # #[derive(Asset, TypePath)]
 /// # struct Shader;
+/// // If we are loading the shader in the same module we used `embedded_asset!`:
+/// let shader = load_embedded_asset!(&asset_server, "rock.wgsl");
+/// # let _: bevy_asset::Handle<Shader> = shader;
+///
+/// // If the goal is to expose the asset **to the end user**:
 /// let shader = asset_server.load::<Shader>("embedded://bevy_rock/render/rock.wgsl");
 /// ```
 ///
@@ -251,11 +330,11 @@ pub fn _embedded_asset_path(
 /// [`embedded_path`]: crate::embedded_path
 #[macro_export]
 macro_rules! embedded_asset {
-    ($app: ident, $path: expr) => {{
+    ($app: expr, $path: expr) => {{
         $crate::embedded_asset!($app, "src", $path)
     }};
 
-    ($app: ident, $source_path: expr, $path: expr) => {{
+    ($app: expr, $source_path: expr, $path: expr) => {{
         let mut embedded = $app
             .world_mut()
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();

@@ -26,7 +26,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
@@ -1945,13 +1945,21 @@ pub enum AssetLoadError {
 pub struct AssetLoaderError {
     path: AssetPath<'static>,
     loader_name: &'static str,
-    error: Arc<dyn core::error::Error + Send + Sync + 'static>,
+    error: Arc<BevyError>,
 }
 
 impl AssetLoaderError {
     /// The path of the asset that failed to load.
     pub fn path(&self) -> &AssetPath<'static> {
         &self.path
+    }
+
+    /// The error the loader reported when attempting to load the asset.
+    ///
+    /// If you know the type of the error the asset loader returned, you can use
+    /// [`BevyError::downcast_ref()`] to get it.
+    pub fn error(&self) -> &BevyError {
+        &self.error
     }
 }
 

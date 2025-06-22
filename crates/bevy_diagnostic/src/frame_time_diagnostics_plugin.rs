@@ -58,10 +58,16 @@ impl Plugin for FrameTimeDiagnosticsPlugin {
 }
 
 impl FrameTimeDiagnosticsPlugin {
+    /// Frames per second.
     pub const FPS: DiagnosticPath = DiagnosticPath::const_new("fps");
+
+    /// Total frames since application start.
     pub const FRAME_COUNT: DiagnosticPath = DiagnosticPath::const_new("frame_count");
+
+    /// Frame time in ms.
     pub const FRAME_TIME: DiagnosticPath = DiagnosticPath::const_new("frame_time");
 
+    /// Updates frame count, frame time and fps measurements.
     pub fn diagnostic_system(
         mut diagnostics: Diagnostics,
         time: Res<Time<Real>>,

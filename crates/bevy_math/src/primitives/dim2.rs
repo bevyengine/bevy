@@ -1243,13 +1243,6 @@ impl Segment2d {
         }
     }
 
-    /// Create a new `Segment2d` from its endpoints and compute its geometric center.
-    #[inline(always)]
-    #[deprecated(since = "0.16.0", note = "Use the `new` constructor instead")]
-    pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
-        (Self::new(point1, point2), (point1 + point2) / 2.)
-    }
-
     /// Create a new `Segment2d` centered at the origin with the given direction and length.
     ///
     /// The endpoints will be at `-direction * length / 2.0` and `direction * length / 2.0`.

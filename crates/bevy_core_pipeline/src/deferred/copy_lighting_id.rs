@@ -3,7 +3,7 @@ use crate::{
     prepass::{DeferredPrepass, ViewPrepassTextures},
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset};
 use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
@@ -12,7 +12,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 use bevy_ecs::query::QueryItem;
@@ -23,24 +23,17 @@ use bevy_render::{
 
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
-pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("70d91342-1c43-4b20-973f-aa6ce93aa617");
 pub struct CopyDeferredLightingIdPlugin;
 
 impl Plugin for CopyDeferredLightingIdPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE,
-            "copy_deferred_lighting_id.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "copy_deferred_lighting_id.wgsl");
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app.add_systems(
             Render,
-            (prepare_deferred_lighting_id_textures.in_set(RenderSet::PrepareResources),),
+            (prepare_deferred_lighting_id_textures.in_set(RenderSystems::PrepareResources),),
         );
     }
 
@@ -137,6 +130,8 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
             ),
         );
 
+        let shader = load_embedded_asset!(world, "copy_deferred_lighting_id.wgsl");
+
         let pipeline_id =
             world
                 .resource_mut::<PipelineCache>()
@@ -145,7 +140,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                     layout: vec![layout.clone()],
                     vertex: fullscreen_shader_vertex_state(),
                     fragment: Some(FragmentState {
-                        shader: COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE,
+                        shader,
                         shader_defs: vec![],
                         entry_point: "fragment".into(),
                         targets: vec![],

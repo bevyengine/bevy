@@ -1,6 +1,6 @@
 use crate::{
     render_resource::AsBindGroupError, Extract, ExtractSchedule, MainWorld, Render, RenderApp,
-    RenderSet, Res,
+    RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
 pub use bevy_asset::RenderAssetUsages;
@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
@@ -27,14 +27,18 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 
 /// The system set during which we extract modified assets to the render world.
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ExtractAssetsSet;
+pub struct AssetExtractionSystems;
+
+/// Deprecated alias for [`AssetExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetExtractionSystems`.")]
+pub type ExtractAssetsSet = AssetExtractionSystems;
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
 /// In the [`ExtractSchedule`] step the [`RenderAsset::SourceAsset`] is transferred
 /// from the "main world" into the "render world".
 ///
-/// After that in the [`RenderSet::PrepareAssets`] step the extracted asset
+/// After that in the [`RenderSystems::PrepareAssets`] step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset`].
 pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// The representation of the asset in the "main world".
@@ -88,7 +92,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
 /// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
 ///
 /// Therefore it sets up the [`ExtractSchedule`] and
-/// [`RenderSet::PrepareAssets`] steps for the specified [`RenderAsset`].
+/// [`RenderSystems::PrepareAssets`] steps for the specified [`RenderAsset`].
 ///
 /// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run until
 /// `prepare_assets::<AFTER>` has completed. This allows the `prepare_asset` function to depend on another
@@ -120,11 +124,11 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_render_asset::<A>.in_set(ExtractAssetsSet),
+                    extract_render_asset::<A>.in_set(AssetExtractionSystems),
                 );
             AFTER::register_system(
                 render_app,
-                prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
+                prepare_assets::<A>.in_set(RenderSystems::PrepareAssets),
             );
         }
     }

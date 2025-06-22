@@ -125,7 +125,7 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
     for SpawnWith<F>
 {
     fn spawn(self, world: &mut World, entity: Entity) {
-        world.entity_mut(entity).with_related(self.0);
+        world.entity_mut(entity).with_related_entities(self.0);
     }
 
     fn size_hint(&self) -> usize {
@@ -235,9 +235,7 @@ pub struct SpawnOneRelated<R: Relationship, B: Bundle> {
 
 impl<R: Relationship, B: Bundle> BundleEffect for SpawnOneRelated<R, B> {
     fn apply(self, entity: &mut EntityWorldMut) {
-        entity.with_related::<R>(|s| {
-            s.spawn(self.bundle);
-        });
+        entity.with_related::<R>(self.bundle);
     }
 }
 
@@ -358,6 +356,151 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 #[macro_export]
 macro_rules! related {
     ($relationship_target:ty [$($child:expr),*$(,)?]) => {
-       <$relationship_target>::spawn(($($crate::spawn::Spawn($child)),*))
+       <$relationship_target>::spawn($crate::recursive_spawn!($($child),*))
+    };
+}
+
+// A tail-recursive spawn utility.
+//
+// Since `SpawnableList` is only implemented for tuples
+// up to twelve elements long, this macro will nest
+// longer sequences recursively. By default, this recursion
+// will top out at around 1400 elements, but it would be
+// ill-advised to spawn that many entities with this method.
+//
+// For spawning large batches of entities at a time,
+// consider `SpawnIter` or eagerly spawning with `Commands`.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! recursive_spawn {
+    // direct expansion
+    ($a:expr) => {
+        $crate::spawn::Spawn($a)
+    };
+    ($a:expr, $b:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr, $j:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+            $crate::spawn::Spawn($j),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr, $j:expr, $k:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+            $crate::spawn::Spawn($j),
+            $crate::spawn::Spawn($k),
+        )
+    };
+
+    // recursive expansion
+    (
+        $a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr,
+        $g:expr, $h:expr, $i:expr, $j:expr, $k:expr, $($rest:expr),*
+    ) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+            $crate::spawn::Spawn($j),
+            $crate::spawn::Spawn($k),
+            $crate::recursive_spawn!($($rest),*)
+        )
     };
 }

@@ -53,12 +53,14 @@ fn main() {
         // Relations are just components, so we can add them into the bundle that we're spawning.
         let bob = commands.spawn((Name::new("Bob"), Targeting(alice))).id();
 
-        // The `with_related` helper method on `EntityCommands` can be used to add relations in a more ergonomic way.
+        // The `with_related` and `with_relationships` helper methods on `EntityCommands` can be used to add relations in a more ergonomic way.
         let charlie = commands
             .spawn((Name::new("Charlie"), Targeting(bob)))
-            // The `with_related` method will automatically add the `Targeting` component to any entities spawned within the closure,
+            // The `with_related` method will spawn a bundle with `Targeting` relationship
+            .with_related::<Targeting>(Name::new("James"))
+            // The `with_relationships` method will automatically add the `Targeting` component to any entities spawned within the closure,
             // targeting the entity that we're calling `with_related` on.
-            .with_related::<Targeting>(|related_spawner_commands| {
+            .with_related_entities::<Targeting>(|related_spawner_commands| {
                 // We could spawn multiple entities here, and they would all target `charlie`.
                 related_spawner_commands.spawn(Name::new("Devon"));
             })

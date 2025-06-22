@@ -46,10 +46,15 @@ impl SystemInformationDiagnosticsPlugin {
 /// [`SystemInformationDiagnosticsPlugin`] for more information.
 #[derive(Debug, Resource)]
 pub struct SystemInfo {
+    /// OS name and version.
     pub os: String,
+    /// System kernel version.
     pub kernel: String,
+    /// CPU model name.
     pub cpu: String,
+    /// Physical core count.
     pub core_count: String,
+    /// System RAM.
     pub memory: String,
 }
 
@@ -74,7 +79,7 @@ pub mod internal {
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Local};
-    use bevy_platform_support::time::Instant;
+    use bevy_platform::time::Instant;
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
     use log::info;
     use std::sync::Mutex;

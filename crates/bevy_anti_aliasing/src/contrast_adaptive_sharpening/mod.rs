@@ -1,5 +1,5 @@
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -18,7 +18,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 mod node;
@@ -95,20 +95,12 @@ impl ExtractComponent for ContrastAdaptiveSharpening {
     }
 }
 
-const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("ef83f0a5-51df-4b51-9ab7-b5fd1ae5a397");
-
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
 pub struct CasPlugin;
 
 impl Plugin for CasPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
-            "robust_contrast_adaptive_sharpening.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "robust_contrast_adaptive_sharpening.wgsl");
 
         app.register_type::<ContrastAdaptiveSharpening>();
         app.add_plugins((
@@ -121,7 +113,7 @@ impl Plugin for CasPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<CasPipeline>>()
-            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
+            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare));
 
         {
             render_app
@@ -171,6 +163,7 @@ impl Plugin for CasPlugin {
 pub struct CasPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for CasPipeline {
@@ -194,6 +187,7 @@ impl FromWorld for CasPipeline {
         CasPipeline {
             texture_bind_group,
             sampler,
+            shader: load_embedded_asset!(render_world, "robust_contrast_adaptive_sharpening.wgsl"),
         }
     }
 }
@@ -217,7 +211,7 @@ impl SpecializedRenderPipeline for CasPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

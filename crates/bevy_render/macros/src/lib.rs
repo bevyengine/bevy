@@ -81,12 +81,10 @@ pub fn derive_render_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("render_graph").into());
-    let mut dyn_eq_path = trait_path.clone();
     trait_path
         .segments
         .push(format_ident!("RenderLabel").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "RenderLabel", &trait_path, &dyn_eq_path)
+    derive_label(input, "RenderLabel", &trait_path)
 }
 
 /// Derive macro generating an impl of the trait `RenderSubGraph`.
@@ -99,12 +97,10 @@ pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("render_graph").into());
-    let mut dyn_eq_path = trait_path.clone();
     trait_path
         .segments
         .push(format_ident!("RenderSubGraph").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "RenderSubGraph", &trait_path, &dyn_eq_path)
+    derive_label(input, "RenderSubGraph", &trait_path)
 }
 
 /// Derive macro generating an impl of the trait `Specialize`

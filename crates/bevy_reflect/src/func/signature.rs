@@ -15,7 +15,7 @@ use crate::func::args::ArgInfo;
 use crate::func::{ArgList, SignatureInfo};
 use crate::Type;
 use alloc::boxed::Box;
-use bevy_platform_support::collections::Equivalent;
+use bevy_platform::collections::Equivalent;
 use core::borrow::Borrow;
 use core::fmt::{Debug, Formatter};
 use core::hash::{Hash, Hasher};
@@ -229,7 +229,7 @@ mod tests {
         );
 
         assert_eq!(
-            format!("{:?}", signature),
+            format!("{signature:?}"),
             "(&mut alloc::string::String, i32) -> ()"
         );
     }

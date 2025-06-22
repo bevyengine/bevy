@@ -2,12 +2,12 @@ use core::fmt::Debug;
 
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_asset::AssetEvents;
+use bevy_asset::AssetEventSystems;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 use derive_more::derive::From;
 use serde::{Deserialize, Serialize};
 
@@ -25,18 +25,18 @@ impl Plugin for CameraProjectionPlugin {
             .register_type::<CustomProjection>()
             .add_systems(
                 PostStartup,
-                crate::camera::camera_system.in_set(CameraUpdateSystem),
+                crate::camera::camera_system.in_set(CameraUpdateSystems),
             )
             .add_systems(
                 PostUpdate,
                 (
                     crate::camera::camera_system
-                        .in_set(CameraUpdateSystem)
-                        .before(AssetEvents),
+                        .in_set(CameraUpdateSystems)
+                        .before(AssetEventSystems),
                     crate::view::update_frusta
                         .in_set(VisibilitySystems::UpdateFrusta)
                         .after(crate::camera::camera_system)
-                        .after(TransformSystem::TransformPropagate),
+                        .after(TransformSystems::Propagate),
                 ),
             );
     }
@@ -46,7 +46,11 @@ impl Plugin for CameraProjectionPlugin {
 ///
 /// [`camera_system<T>`]: crate::camera::camera_system
 #[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct CameraUpdateSystem;
+pub struct CameraUpdateSystems;
+
+/// Deprecated alias for [`CameraUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `CameraUpdateSystems`.")]
+pub type CameraUpdateSystem = CameraUpdateSystems;
 
 /// Describes a type that can generate a projection matrix, allowing it to be added to a
 /// [`Camera`]'s [`Projection`] component.
@@ -89,8 +93,7 @@ pub trait CameraProjection {
     /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
     /// for each camera to update its frustum.
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
-        let clip_from_world =
-            self.get_clip_from_view() * camera_transform.compute_matrix().inverse();
+        let clip_from_world = self.get_clip_from_view() * camera_transform.to_matrix().inverse();
         Frustum::from_clip_from_world_custom_far(
             &clip_from_world,
             &camera_transform.translation(),

@@ -12,7 +12,7 @@
 /// }
 ///
 /// // Normally you would initialize a struct with defaults using "struct update syntax"
-/// // combined with `Default::default()`. This example sets `Foo::bar` to 10 and the remaining
+/// // combined with `Default::default()`. This example sets `Foo::a` to 10 and the remaining
 /// // values to their defaults.
 /// let foo = Foo {
 ///   a: 10,
