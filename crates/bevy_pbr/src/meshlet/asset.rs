@@ -183,6 +183,9 @@ impl AssetSaver for MeshletMeshSaver {
         write_slice(&asset.bvh, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
         write_slice(&asset.meshlet_cull_data, &mut writer)?;
+        // BUG: Flushing helps with an async_fs bug, but it still fails sometimes. https://github.com/smol-rs/async-fs/issues/45
+        // ERROR bevy_asset::server: Failed to load asset with asset loader MeshletMeshLoader: failed to fill whole buffer
+        writer.flush()?;
         writer.finish()?;
 
         Ok(())
