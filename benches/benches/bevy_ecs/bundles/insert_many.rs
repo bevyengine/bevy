@@ -11,8 +11,8 @@ pub fn insert_many(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group(bench!("insert_many"));
 
     group.bench_function("all", |bencher| {
+        let mut world = World::new();
         bencher.iter(|| {
-            let mut world = World::new();
             for _ in 0..ENTITY_COUNT {
                 world
                     .spawn_empty()
@@ -32,12 +32,13 @@ pub fn insert_many(criterion: &mut Criterion) {
                     .insert(C::<13>(1))
                     .insert(C::<14>(1));
             }
+            world.clear_entities();
         });
     });
 
     group.bench_function("only_last", |bencher| {
+        let mut world = World::new();
         bencher.iter(|| {
-            let mut world = World::new();
             for _ in 0..ENTITY_COUNT {
                 world
                     .spawn((
@@ -58,6 +59,7 @@ pub fn insert_many(criterion: &mut Criterion) {
                     ))
                     .insert(C::<14>(1));
             }
+            world.clear_entities();
         });
     });
 

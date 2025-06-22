@@ -13,8 +13,8 @@ pub fn spawn_many(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group(bench!("spawn_many"));
 
     group.bench_function("static", |bencher| {
+        let mut world = World::new();
         bencher.iter(|| {
-            let mut world = World::new();
             for _ in 0..ENTITY_COUNT {
                 world.spawn(black_box((
                     C::<0>(1),
@@ -34,6 +34,7 @@ pub fn spawn_many(criterion: &mut Criterion) {
                     C::<14>(1),
                 )));
             }
+            world.clear_entities();
         });
     });
 
