@@ -216,6 +216,12 @@ impl World {
         &mut self.entities
     }
 
+    /// Retrieves the number of [`Entities`] in the world.
+    #[inline]
+    pub fn num_entities(&self) -> u32 {
+        self.entities.len()
+    }
+
     /// Retrieves this world's [`Archetypes`] collection.
     #[inline]
     pub fn archetypes(&self) -> &Archetypes {
