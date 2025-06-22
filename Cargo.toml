@@ -465,6 +465,9 @@ debug_glam_assert = ["bevy_internal/debug_glam_assert"]
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
 
+# Enable loading system fonts at startup. This increases startup time, and will be a no-op on unsupported platforms.
+system_font = ["bevy_internal/system_font"]
+
 # Enable support for shaders in GLSL
 shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 
@@ -835,9 +838,22 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "system_fonts"
+path = "examples/2d/system_fonts.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.system_fonts]
+name = "System Fonts"
+description = "Demonstrates using system fonts"
+category = "2D Rendering"
+# Wasm compiles, but there are no system fonts available
+wasm = false
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
+required-features = ["system_font"]
 
 [package.metadata.example.texture_atlas]
 name = "Texture Atlas"

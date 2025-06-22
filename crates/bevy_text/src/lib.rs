@@ -36,6 +36,7 @@ mod error;
 mod font;
 mod font_atlas;
 mod font_atlas_set;
+mod font_library;
 mod font_loader;
 mod glyph;
 mod pipeline;
@@ -43,17 +44,24 @@ mod text;
 mod text2d;
 mod text_access;
 
+#[cfg(feature = "system_font")]
+mod system_fonts;
+
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
 pub use font_atlas_set::*;
+pub use font_library::*;
 pub use font_loader::*;
 pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
 pub use text_access::*;
+
+#[cfg(feature = "system_font")]
+pub use system_fonts::SystemFontsAvailable;
 
 /// The text prelude.
 ///
@@ -112,6 +120,7 @@ impl Plugin for TextPlugin {
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
+            .init_resource::<FontIdToAssetMap>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
             .add_systems(
@@ -147,5 +156,8 @@ impl Plugin for TextPlugin {
             "FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
+
+        #[cfg(feature = "system_font")]
+        app.add_plugins(system_fonts::SystemFontsPlugin);
     }
 }

@@ -116,6 +116,7 @@ The default feature set enables most of the expected features of a game engine, 
 |symphonia-isomp4|MP4 audio format support (through symphonia)|
 |symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
 |symphonia-wav|WAV audio format support (through symphonia)|
+|system_font|Enable loading system fonts at startup. This increases startup time, and will be a no-op on unsupported platforms.|
 |tga|TGA image format support|
 |tiff|TIFF image format support|
 |trace|Tracing support|

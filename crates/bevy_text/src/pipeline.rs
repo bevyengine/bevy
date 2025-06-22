@@ -32,7 +32,6 @@ impl Default for CosmicFontSystem {
     fn default() -> Self {
         let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
         let db = cosmic_text::fontdb::Database::new();
-        // TODO: consider using `cosmic_text::FontSystem::new()` (load system fonts by default)
         Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
     }
 }
@@ -80,6 +79,16 @@ pub struct TextPipeline {
 }
 
 impl TextPipeline {
+    pub(crate) fn register_font(
+        &mut self,
+        asset_id: AssetId<Font>,
+        cosmic_id: cosmic_text::fontdb::ID,
+        family_name: Arc<str>,
+    ) {
+        self.map_handle_to_font_id
+            .insert(asset_id, (cosmic_id, family_name));
+    }
+
     /// Utilizes [`cosmic_text::Buffer`] to shape and layout text
     ///
     /// Negative or 0.0 font sizes will not be laid out.
