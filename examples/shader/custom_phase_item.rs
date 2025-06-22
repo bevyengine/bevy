@@ -237,7 +237,9 @@ fn queue_custom_phase_item(
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
             // with the exception of number of MSAA samples.
-            let pipeline_id = specializer.specialize(&pipeline_cache, *msaa);
+            let Ok(pipeline_id) = specializer.specialize(&pipeline_cache, *msaa) else {
+                continue;
+            };
 
             // Bump the change tick in order to force Bevy to rebuild the bin.
             let this_tick = next_tick.get() + 1;

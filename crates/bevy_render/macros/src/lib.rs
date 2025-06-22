@@ -15,6 +15,10 @@ pub(crate) fn bevy_render_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_render")
 }
 
+pub(crate) fn bevy_ecs_path() -> syn::Path {
+    BevyManifest::shared().get_path("bevy_ecs")
+}
+
 #[proc_macro_derive(ExtractResource)]
 pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     extract_resource::derive_extract_resource(input)

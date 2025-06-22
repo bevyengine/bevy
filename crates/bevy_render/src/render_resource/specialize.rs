@@ -3,10 +3,11 @@ use super::{
     PipelineCache, RenderPipeline, RenderPipelineDescriptor,
 };
 use bevy_ecs::{
+    error::BevyError,
     resource::Resource,
     world::{FromWorld, World},
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use core::{hash::Hash, marker::PhantomData};
 
 pub use bevy_render_macros::{HasBaseDescriptor, Specialize};
@@ -104,19 +105,31 @@ impl Specializable for ComputePipeline {
 /// ```
 pub trait Specialize<T: Specializable>: Send + Sync + 'static {
     type Key: Clone + Hash + Eq;
-    fn specialize(&self, key: Self::Key, descriptor: &mut T::Descriptor);
+    fn specialize(&self, key: Self::Key, descriptor: &mut T::Descriptor) -> Result<(), BevyError>;
 }
 
 impl<T: Specializable> Specialize<T> for () {
     type Key = ();
 
-    fn specialize(&self, _key: Self::Key, _descriptor: &mut T::Descriptor) {}
+    fn specialize(
+        &self,
+        _key: Self::Key,
+        _descriptor: &mut T::Descriptor,
+    ) -> Result<(), BevyError> {
+        Ok(())
+    }
 }
 
 impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V> {
     type Key = ();
 
-    fn specialize(&self, _key: Self::Key, _descriptor: &mut T::Descriptor) {}
+    fn specialize(
+        &self,
+        _key: Self::Key,
+        _descriptor: &mut T::Descriptor,
+    ) -> Result<(), BevyError> {
+        Ok(())
+    }
 }
 
 /// Defines a specializer that can also provide a "base descriptor".
@@ -220,18 +233,25 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
     }
 
     /// Specializes a resource given the [`Specialize`] implementation's key type.
-    pub fn specialize(&mut self, pipeline_cache: &PipelineCache, key: S::Key) -> T::CachedId {
-        self.specialized
-            .entry(key.clone())
-            .or_insert_with(|| {
+    pub fn specialize(
+        &mut self,
+        pipeline_cache: &PipelineCache,
+        key: S::Key,
+    ) -> Result<T::CachedId, BevyError> {
+        let entry = self.specialized.entry(key.clone());
+        match entry {
+            Entry::Occupied(occupied_entry) => Ok(occupied_entry.get().clone()),
+            Entry::Vacant(vacant_entry) => {
                 let mut descriptor = self.base_descriptor.clone();
-                self.specializer.specialize(key.clone(), &mut descriptor);
+                self.specializer.specialize(key.clone(), &mut descriptor)?;
                 if let Some(user_specializer) = self.user_specializer {
                     (user_specializer)(key, &mut descriptor);
                 }
-                <T as Specializable>::queue(pipeline_cache, descriptor)
-            })
-            .clone()
+                let cached_id = <T as Specializable>::queue(pipeline_cache, descriptor);
+                vacant_entry.insert(cached_id.clone());
+                Ok(cached_id)
+            }
+        }
     }
 }
 

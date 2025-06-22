@@ -1,4 +1,4 @@
-use bevy_macro_utils::fq_std::FQDefault;
+use bevy_macro_utils::fq_std::{FQDefault, FQResult};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -27,7 +27,10 @@ enum SpecializeImplTargets {
 impl Parse for SpecializeImplTargets {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let paths = input.parse_terminated(Path::parse, Token![,])?;
-        if paths.first().is_some_and(|p| p.is_ident(SPECIALIZE_ALL_IDENT)) {
+        if paths
+            .first()
+            .is_some_and(|p| p.is_ident(SPECIALIZE_ALL_IDENT))
+        {
             Ok(SpecializeImplTargets::All)
         } else {
             Ok(SpecializeImplTargets::Specific(paths.into_iter().collect()))
@@ -96,7 +99,7 @@ impl FieldInfo {
             ty, member, key, ..
         } = &self;
         let key_expr = key.expr();
-        parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::specialize(&self.#member, #key_expr, descriptor);)
+        parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::specialize(&self.#member, #key_expr, descriptor)?;)
     }
 
     fn specialize_predicate(&self, specialize_path: &Path, target_path: &Path) -> WherePredicate {
@@ -240,22 +243,29 @@ pub fn impl_specialize(input: TokenStream) -> TokenStream {
         path
     };
 
+    let ecs_path = crate::bevy_ecs_path();
+
     let ast = parse_macro_input!(input as DeriveInput);
     let targets = guard!(get_specialize_targets(&ast, "Specialize"));
     let fields = guard!(get_struct_fields(&ast, "Specialize"));
     let field_info = guard!(get_field_info(fields, &targets));
 
     match targets {
-        SpecializeImplTargets::All => impl_specialize_all(&specialize_path, &ast, &field_info),
+        SpecializeImplTargets::All => {
+            impl_specialize_all(&specialize_path, &ecs_path, &ast, &field_info)
+        }
         SpecializeImplTargets::Specific(targets) => targets
             .iter()
-            .map(|target| impl_specialize_specific(&specialize_path, &ast, &field_info, target))
+            .map(|target| {
+                impl_specialize_specific(&specialize_path, &ecs_path, &ast, &field_info, target)
+            })
             .collect(),
     }
 }
 
 fn impl_specialize_all(
     specialize_path: &Path,
+    ecs_path: &Path,
     ast: &DeriveInput,
     field_info: &[FieldInfo],
 ) -> TokenStream {
@@ -292,7 +302,11 @@ fn impl_specialize_all(
         impl #impl_generics #specialize_path::Specialize<#target_path> for #struct_name #type_generics #where_clause {
             type Key = (#(#key_elems),*);
 
-            fn specialize(&self, key: Self::Key, descriptor: &mut <#target_path as #specialize_path::Specializable>::Descriptor) {
+            fn specialize(
+                &self,
+                key: Self::Key,
+                descriptor: &mut <#target_path as #specialize_path::Specializable>::Descriptor
+            ) -> #FQResult<#ecs_path::error::BevyError> {
                 #(#specialize_stmts)*
             }
         }
@@ -301,6 +315,7 @@ fn impl_specialize_all(
 
 fn impl_specialize_specific(
     specialize_path: &Path,
+    ecs_path: &Path,
     ast: &DeriveInput,
     field_info: &[FieldInfo],
     target_path: &Path,
@@ -321,7 +336,11 @@ fn impl_specialize_specific(
         impl #impl_generics #specialize_path::Specialize<#target_path> for #struct_name #type_generics #where_clause {
             type Key = (#(#key_elems),*);
 
-            fn specialize(&self, key: Self::Key, descriptor: &mut <#target_path as #specialize_path::Specializable>::Descriptor) {
+            fn specialize(
+                &self,
+                key: Self::Key,
+                descriptor: &mut <#target_path as #specialize_path::Specializable>::Descriptor
+            ) -> #FQResult<#ecs_path::error::BevyError> {
                 #(#specialize_stmts)*
             }
         }
