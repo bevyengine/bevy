@@ -217,6 +217,8 @@ impl World {
     }
 
     /// Retrieves the number of [`Entities`] in the world.
+    ///
+    /// This is helpful as a diagnostic, but it can also be used effectively in tests.
     #[inline]
     pub fn num_entities(&self) -> u32 {
         self.entities.len()
