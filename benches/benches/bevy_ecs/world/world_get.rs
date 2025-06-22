@@ -5,6 +5,7 @@ use bevy_ecs::{
     bundle::{Bundle, NoBundleEffect},
     component::Component,
     entity::{Entity, EntityRow},
+    entity_disabling::DefaultQueryFilters,
     system::{Query, SystemState},
     world::World,
 };
@@ -74,9 +75,10 @@ pub fn world_get(criterion: &mut Criterion) {
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let world = setup::<Table>(entity_count);
+            let offset = (world.entities().len() as u32) - entity_count;
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -86,9 +88,10 @@ pub fn world_get(criterion: &mut Criterion) {
         });
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
             let world = setup::<Sparse>(entity_count);
+            let offset = (world.entities().len() as u32) - entity_count;
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -109,10 +112,11 @@ pub fn world_query_get(criterion: &mut Criterion) {
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = setup::<Table>(entity_count);
+            let offset = (world.entities().len() as u32) - entity_count;
             let mut query = world.query::<&Table>();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -129,6 +133,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 WideTable<4>,
                 WideTable<5>,
             )>(entity_count);
+            let offset = (world.entities().len() as u32) - entity_count;
             let mut query = world.query::<(
                 &WideTable<0>,
                 &WideTable<1>,
@@ -139,7 +144,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
             )>();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -149,10 +154,11 @@ pub fn world_query_get(criterion: &mut Criterion) {
         });
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
             let mut world = setup::<Sparse>(entity_count);
+            let offset = (world.entities().len() as u32) - entity_count;
             let mut query = world.query::<&Sparse>();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -171,6 +177,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
                     WideSparse<4>,
                     WideSparse<5>,
                 )>(entity_count);
+                let offset = (world.entities().len() as u32) - entity_count;
                 let mut query = world.query::<(
                     &WideSparse<0>,
                     &WideSparse<1>,
@@ -181,7 +188,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 )>();
 
                 bencher.iter(|| {
-                    for i in 0..entity_count {
+                    for i in offset..(entity_count + offset) {
                         // SAFETY: Range is exclusive.
                         let entity = Entity::from_raw(EntityRow::new(unsafe {
                             NonMaxU32::new_unchecked(i)
