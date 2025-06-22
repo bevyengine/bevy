@@ -1734,6 +1734,9 @@ pub struct Components {
     components: Vec<Option<ComponentInfo>>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
+    /// A lookup for the entities on which resources are stored.
+    /// It uses ComponentIds instead of TypeIds for untyped APIs
+    pub(crate) resource_entities: HashMap<ComponentId, Entity>,
     // This is kept internal and local to verify that no deadlocks can occor.
     queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
@@ -2193,6 +2196,11 @@ impl Components {
     #[inline]
     pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
         self.get_valid_resource_id(TypeId::of::<T>())
+    }
+
+    /// Returns the number of resources registered to a world
+    pub fn num_resources(&self) -> usize {
+        self.resource_indices.len()
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].

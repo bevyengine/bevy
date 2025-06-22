@@ -693,7 +693,7 @@ mod tests {
 
         #[derive(Component)]
         #[relationship_target(relationship = Rel, linked_spawn)]
-        struct RelTarget(EntityHashSet);
+        struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();
         let a = world.spawn_empty().id();
@@ -708,7 +708,7 @@ mod tests {
         let collection = rel_target.collection();
 
         // Insertions should maintain ordering
-        assert!(collection.iter().eq(&[d, c, b]));
+        assert!(collection.iter().eq([b, c, d]));
 
         world.entity_mut(c).despawn();
 
@@ -716,7 +716,7 @@ mod tests {
         let collection = rel_target.collection();
 
         // Removals should maintain ordering
-        assert!(collection.iter().eq(&[d, b]));
+        assert!(collection.iter().eq([b, d]));
     }
 
     #[test]

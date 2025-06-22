@@ -421,14 +421,15 @@ mod test {
         queue.push(SpawnCommand);
 
         let mut world = World::new();
+        let num_resources = world.components().num_resources() as u32;
         queue.apply(&mut world);
 
-        assert_eq!(world.entities().len(), 2);
+        assert_eq!(world.entities().len() - num_resources, 2);
 
         // The previous call to `apply` cleared the queue.
         // This call should do nothing.
         queue.apply(&mut world);
-        assert_eq!(world.entities().len(), 2);
+        assert_eq!(world.entities().len() - num_resources, 2);
     }
 
     #[expect(
@@ -452,6 +453,7 @@ mod test {
         queue.push(SpawnCommand);
 
         let mut world = World::new();
+        let num_resources = world.components().num_resources() as u32;
 
         let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
             queue.apply(&mut world);
@@ -462,7 +464,7 @@ mod test {
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
         queue.apply(&mut world);
-        assert_eq!(world.entities().len(), 3);
+        assert_eq!(world.entities().len() - num_resources, 3);
     }
 
     #[test]

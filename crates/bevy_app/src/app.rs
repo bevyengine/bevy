@@ -1488,7 +1488,7 @@ mod tests {
         event::{BufferedEvent, Event, EventWriter, Events},
         lifecycle::RemovedComponents,
         query::With,
-        resource::Resource,
+        resource::{IsResource, Resource},
         schedule::{IntoScheduleConfigs, ScheduleLabel},
         system::{Commands, Query},
         world::{FromWorld, World},
@@ -1582,7 +1582,8 @@ mod tests {
         app.add_systems(EnterMainMenu, (foo, bar));
 
         app.world_mut().run_schedule(EnterMainMenu);
-        assert_eq!(app.world().entities().len(), 2);
+        let num_resources = app.world_mut().query::<&IsResource>().iter(&app.world()).count() as u32;
+        assert_eq!(app.world().entities().len(), num_resources + 2);
     }
 
     #[test]

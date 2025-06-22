@@ -55,7 +55,7 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::Resource,
+    resource::{IsResource, Resource, ResourceEntity},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Commands,
@@ -169,6 +169,8 @@ impl World {
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
+        // We also disable resources, they are meant to be queried via Res and ResMut
+        self.register_disabling_component::<IsResource>();
     }
     /// Creates a new empty [`World`].
     ///
@@ -1691,6 +1693,16 @@ impl World {
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let caller = MaybeLocation::caller();
         let component_id = self.components_registrator().register_resource::<R>();
+
+        if !self
+            .components
+            .resource_entities
+            .contains_key(&component_id)
+        {
+            let id = self.spawn(ResourceEntity::<R>::default()).id();
+            self.components.resource_entities.insert(component_id, id);
+        }
+
         if self
             .storages
             .resources
@@ -1728,6 +1740,16 @@ impl World {
         caller: MaybeLocation,
     ) {
         let component_id = self.components_registrator().register_resource::<R>();
+
+        if !self
+            .components
+            .resource_entities
+            .contains_key(&component_id)
+        {
+            let id = self.spawn(ResourceEntity::<R>::default()).id();
+            self.components.resource_entities.insert(component_id, id);
+        }
+
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -1795,6 +1817,9 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
+        if let Some(id) = self.components.resource_entities.remove(&component_id) {
+            self.despawn(id);
+        }
         let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
@@ -2668,6 +2693,16 @@ impl World {
     ) {
         let change_tick = self.change_tick();
 
+        if !self
+            .components
+            .resource_entities
+            .contains_key(&component_id)
+        {
+            // We don't have the type information so we can't spawn ResourceEntity
+            let id = self.spawn(IsResource).id();
+            self.components.resource_entities.insert(component_id, id);
+        }
+
         let resource = self.initialize_resource_internal(component_id);
         // SAFETY: `value` is valid for `component_id`, ensured by caller
         unsafe {
@@ -3360,6 +3395,10 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
+        if let Some(id) = self.components.resource_entities.remove(&component_id) {
+            self.despawn(id);
+        }
+
         self.storages
             .resources
             .get_mut(component_id)?
@@ -3633,7 +3672,7 @@ mod tests {
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
-        resource::Resource,
+        resource::{IsResource, Resource},
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
@@ -4064,7 +4103,11 @@ mod tests {
 
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
-            for entity in world.iter_entities() {
+            for entity in world
+                .iter_entities()
+                // exclude resources
+                .filter(|e| e.get::<IsResource>().is_none())
+            {
                 let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
             }
@@ -4161,7 +4204,11 @@ mod tests {
         assert_eq!(world.entity(b1).get(), Some(&B(2)));
         assert_eq!(world.entity(b2).get(), Some(&B(4)));
 
-        let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
+        let mut entities = world
+            .iter_entities_mut()
+            // exclude resources
+            .filter(|e| e.get::<IsResource>().is_none())
+            .collect::<Vec<_>>();
         entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);
         core::mem::swap(
