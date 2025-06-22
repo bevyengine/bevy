@@ -3,8 +3,8 @@
 //! This has multiple levels:
 //! - [`World::observers`] provides access to [`Observers`], which is a central storage for all observers.
 //! - [`Observers`] contains multiple distinct caches in the form of [`CachedObservers`].
-//!     - Most observers are looked up by the [`ComponentId`] of the event they are observing, but lifecycle observers have their own
-//! fields to save lookups.
+//!     - Most observers are looked up by the [`ComponentId`] of the event they are observing
+//!     - Lifecycle observers have their own fields to save lookups.
 //! - [`CachedObservers`] contains maps of [`ObserverRunner`]s, which are the actual functions that will be run when the observer is triggered.
 //!     - These are split by target type, in order to allow for different lookup strategies.
 //!     - [`CachedComponentObservers`] is one of these maps, which contains observers that are specifically targeted at a component.

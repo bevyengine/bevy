@@ -41,19 +41,6 @@ use crate::prelude::ReflectComponent;
 ///
 /// The simplest usage of the observer pattern looks like this:
 ///
-/// ```/// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
-///
-/// Observers listen for a "trigger" of a specific [`Event`]. An event can be triggered on the [`World`]
-/// by calling [`World::trigger`], or if the event is an [`EntityEvent`], it can also be triggered for specific
-/// entity targets using [`World::trigger_targets`].
-///
-/// Note that [`BufferedEvent`]s sent using [`EventReader`] and [`EventWriter`] are _not_ automatically triggered.
-/// They must be triggered at a specific point in the schedule.
-///
-/// # Usage
-///
-/// The simplest usage of the observer pattern looks like this:
-///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
