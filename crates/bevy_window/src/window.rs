@@ -1168,13 +1168,17 @@ pub enum MonitorSelection {
 /// References an exclusive fullscreen video mode.
 ///
 /// Used when setting [`WindowMode::Fullscreen`] on a window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Clone)]
 pub enum VideoModeSelection {
     /// Uses the video mode that the monitor is already in.
     Current,

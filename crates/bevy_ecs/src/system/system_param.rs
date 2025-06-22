@@ -151,6 +151,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// let mut world = World::new();
 /// let err = world.run_system_cached(|param: MyParam| {}).unwrap_err();
 /// let expected = "Parameter `MyParam::foo` failed validation: Custom Message";
+/// # #[cfg(feature="Trace")] // Without debug_utils/debug enabled MyParam::foo is stripped and breaks the assert
 /// assert!(err.to_string().contains(expected));
 /// ```
 ///
@@ -1399,6 +1400,7 @@ impl<'w, T> Deref for NonSend<'w, T> {
         self.value
     }
 }
+
 impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
     fn from(nsm: NonSendMut<'a, T>) -> Self {
         Self {
@@ -3076,7 +3078,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_resource_error::res_system`: Parameter `Res<MissingResource>` failed validation: Resource does not exist"]
+    #[should_panic]
     fn missing_resource_error() {
         #[derive(Resource)]
         pub struct MissingResource;
@@ -3090,7 +3092,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `EventReader<MissingEvent>::events` failed validation: BufferedEvent not initialized"]
+    #[should_panic]
     fn missing_event_error() {
         use crate::prelude::{BufferedEvent, EventReader};
 

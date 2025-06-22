@@ -502,38 +502,66 @@ impl AppLifecycle {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 pub enum WindowEvent {
+    /// An application lifecycle event.
     AppLifecycle(AppLifecycle),
+    /// The user's cursor has entered a window.
     CursorEntered(CursorEntered),
+    ///The user's cursor has left a window.
     CursorLeft(CursorLeft),
+    /// The user's cursor has moved inside a window.
     CursorMoved(CursorMoved),
+    /// A file drag and drop event.
     FileDragAndDrop(FileDragAndDrop),
+    /// An Input Method Editor event.
     Ime(Ime),
+    /// A redraw of all of the application's windows has been requested.
     RequestRedraw(RequestRedraw),
+    /// The window's OS-reported scale factor has changed.
     WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
+    /// The OS has requested that a window be closed.
     WindowCloseRequested(WindowCloseRequested),
+    /// A new window has been created.
     WindowCreated(WindowCreated),
+    /// A window has been destroyed by the underlying windowing system.
     WindowDestroyed(WindowDestroyed),
+    /// A window has received or lost focus.
     WindowFocused(WindowFocused),
+    /// A window has been moved.
     WindowMoved(WindowMoved),
+    /// A window has started or stopped being occluded.
     WindowOccluded(WindowOccluded),
+    /// A window's logical size has changed.
     WindowResized(WindowResized),
+    /// A window's scale factor has changed.
     WindowScaleFactorChanged(WindowScaleFactorChanged),
+    /// Sent for windows that are using the system theme when the system theme changes.
     WindowThemeChanged(WindowThemeChanged),
 
+    /// The state of a mouse button has changed.
     MouseButtonInput(MouseButtonInput),
+    /// The physical position of a pointing device has changed.
     MouseMotion(MouseMotion),
+    /// The mouse wheel has moved.
     MouseWheel(MouseWheel),
 
+    /// A two finger pinch gesture.
     PinchGesture(PinchGesture),
+    /// A two finger rotation gesture.
     RotationGesture(RotationGesture),
+    /// A double tap gesture.
     DoubleTapGesture(DoubleTapGesture),
+    /// A pan gesture.
     PanGesture(PanGesture),
 
+    /// A touch input state change.
     TouchInput(TouchInput),
 
+    /// A keyboard input.
     KeyboardInput(KeyboardInput),
+    /// Sent when focus has been lost for all Bevy windows.
+    ///
+    /// Used to clear pressed key state.
     KeyboardFocusLost(KeyboardFocusLost),
 }
 
@@ -542,131 +570,157 @@ impl From<AppLifecycle> for WindowEvent {
         Self::AppLifecycle(e)
     }
 }
+
 impl From<CursorEntered> for WindowEvent {
     fn from(e: CursorEntered) -> Self {
         Self::CursorEntered(e)
     }
 }
+
 impl From<CursorLeft> for WindowEvent {
     fn from(e: CursorLeft) -> Self {
         Self::CursorLeft(e)
     }
 }
+
 impl From<CursorMoved> for WindowEvent {
     fn from(e: CursorMoved) -> Self {
         Self::CursorMoved(e)
     }
 }
+
 impl From<FileDragAndDrop> for WindowEvent {
     fn from(e: FileDragAndDrop) -> Self {
         Self::FileDragAndDrop(e)
     }
 }
+
 impl From<Ime> for WindowEvent {
     fn from(e: Ime) -> Self {
         Self::Ime(e)
     }
 }
+
 impl From<RequestRedraw> for WindowEvent {
     fn from(e: RequestRedraw) -> Self {
         Self::RequestRedraw(e)
     }
 }
+
 impl From<WindowBackendScaleFactorChanged> for WindowEvent {
     fn from(e: WindowBackendScaleFactorChanged) -> Self {
         Self::WindowBackendScaleFactorChanged(e)
     }
 }
+
 impl From<WindowCloseRequested> for WindowEvent {
     fn from(e: WindowCloseRequested) -> Self {
         Self::WindowCloseRequested(e)
     }
 }
+
 impl From<WindowCreated> for WindowEvent {
     fn from(e: WindowCreated) -> Self {
         Self::WindowCreated(e)
     }
 }
+
 impl From<WindowDestroyed> for WindowEvent {
     fn from(e: WindowDestroyed) -> Self {
         Self::WindowDestroyed(e)
     }
 }
+
 impl From<WindowFocused> for WindowEvent {
     fn from(e: WindowFocused) -> Self {
         Self::WindowFocused(e)
     }
 }
+
 impl From<WindowMoved> for WindowEvent {
     fn from(e: WindowMoved) -> Self {
         Self::WindowMoved(e)
     }
 }
+
 impl From<WindowOccluded> for WindowEvent {
     fn from(e: WindowOccluded) -> Self {
         Self::WindowOccluded(e)
     }
 }
+
 impl From<WindowResized> for WindowEvent {
     fn from(e: WindowResized) -> Self {
         Self::WindowResized(e)
     }
 }
+
 impl From<WindowScaleFactorChanged> for WindowEvent {
     fn from(e: WindowScaleFactorChanged) -> Self {
         Self::WindowScaleFactorChanged(e)
     }
 }
+
 impl From<WindowThemeChanged> for WindowEvent {
     fn from(e: WindowThemeChanged) -> Self {
         Self::WindowThemeChanged(e)
     }
 }
+
 impl From<MouseButtonInput> for WindowEvent {
     fn from(e: MouseButtonInput) -> Self {
         Self::MouseButtonInput(e)
     }
 }
+
 impl From<MouseMotion> for WindowEvent {
     fn from(e: MouseMotion) -> Self {
         Self::MouseMotion(e)
     }
 }
+
 impl From<MouseWheel> for WindowEvent {
     fn from(e: MouseWheel) -> Self {
         Self::MouseWheel(e)
     }
 }
+
 impl From<PinchGesture> for WindowEvent {
     fn from(e: PinchGesture) -> Self {
         Self::PinchGesture(e)
     }
 }
+
 impl From<RotationGesture> for WindowEvent {
     fn from(e: RotationGesture) -> Self {
         Self::RotationGesture(e)
     }
 }
+
 impl From<DoubleTapGesture> for WindowEvent {
     fn from(e: DoubleTapGesture) -> Self {
         Self::DoubleTapGesture(e)
     }
 }
+
 impl From<PanGesture> for WindowEvent {
     fn from(e: PanGesture) -> Self {
         Self::PanGesture(e)
     }
 }
+
 impl From<TouchInput> for WindowEvent {
     fn from(e: TouchInput) -> Self {
         Self::TouchInput(e)
     }
 }
+
 impl From<KeyboardInput> for WindowEvent {
     fn from(e: KeyboardInput) -> Self {
         Self::KeyboardInput(e)
     }
 }
+
 impl From<KeyboardFocusLost> for WindowEvent {
     fn from(e: KeyboardFocusLost) -> Self {
         Self::KeyboardFocusLost(e)

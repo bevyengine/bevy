@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mikktspace"
-version = "0.16.0-dev"
+version = "0.17.0-dev"
 edition = "2024"
 authors = [
   "Benjamin Wasty <benny.wasty@gmail.com>",

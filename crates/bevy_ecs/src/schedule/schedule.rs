@@ -235,6 +235,7 @@ pub enum Chain {
     /// will be added between the successive elements.
     Chained(TypeIdMap<Box<dyn Any>>),
 }
+
 impl Chain {
     /// Specify that the systems must be chained.
     pub fn set_chained(&mut self) {
