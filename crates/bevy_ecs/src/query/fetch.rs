@@ -2529,7 +2529,11 @@ bevy_utils::cfg::parallel! {
     ///
     /// # Footguns
     ///
-    /// It's possible to query multiple `DeferredMut` values from the same entity.
+    /// 1. The mutations tracked by `DeferredMut` will *not* be applied if used
+    /// through the manual [`QueryState`](super::QueryState) API. Instead, it
+    /// should be used through a query in a system param or [`SystemState`](crate::system::SystemState).
+    ///
+    /// 2. It's possible to query multiple `DeferredMut` values from the same entity.
     /// However, since mutations are deferred, each new value won't see the changes
     /// applied to previous iterations.
     ///
