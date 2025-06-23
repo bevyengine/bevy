@@ -129,8 +129,10 @@ impl From<String> for Text {
 }
 
 /// Adds a shadow behind text
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
+///
+/// Not supported by `Text2d`
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct TextShadow {
     /// Shadow displacement in logical pixels
     /// With a value of zero the shadow will be hidden directly behind the text
