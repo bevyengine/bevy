@@ -1,4 +1,5 @@
 //! Module with schemas used for various BRP endpoints
+use alloc::borrow::Cow;
 use bevy_derive::Deref;
 use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
@@ -10,7 +11,6 @@ use bevy_reflect::{
     TypeRegistration,
 };
 use core::any::TypeId;
-use alloc::borrow::Cow;
 
 use crate::schemas::json_schema::JsonSchemaBevyType;
 

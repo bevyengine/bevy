@@ -1,12 +1,12 @@
 //! Module containing information about reflected types.
 use bevy_reflect::{GenericInfo, NamedField, Reflect, TypeInfo, UnnamedField, VariantInfo};
 use core::any::TypeId;
-use serde::{Deserialize, Serialize};
 use core::{
     any::Any,
     fmt::Debug,
     ops::{Bound, RangeBounds},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::schemas::json_schema::{
     JsonSchemaBevyType, JsonSchemaVariant, SchemaKind, SchemaType, SchemaTypeVariant,
@@ -297,7 +297,10 @@ impl From<&SchemaTypeInfo> for Option<SchemaTypeVariant> {
                     SchemaType::Null,
                 ]))
             }
-            InternalSchemaType::Regular => value.type_id.as_ref().map(|s| SchemaTypeVariant::Single((*s).into())),
+            InternalSchemaType::Regular => value
+                .type_id
+                .as_ref()
+                .map(|s| SchemaTypeVariant::Single((*s).into())),
         }
     }
 }
@@ -335,7 +338,8 @@ impl From<SchemaTypeInfo> for JsonSchemaVariant {
                 .unwrap_or_default(),
             short_path: val
                 .type_info
-                .as_ref().map(|s| s.type_path_table().short_path().into())
+                .as_ref()
+                .map(|s| s.type_path_table().short_path().into())
                 .unwrap_or_default(),
             crate_name: val
                 .type_info
@@ -374,7 +378,10 @@ impl From<SchemaTypeInfo> for JsonSchemaVariant {
             }
             InternalSchemaType::Regular => {}
             InternalSchemaType::EnumHolder(variants) => {
-                schema.one_of = variants.iter().map(SchemaInfoReflect::build_schema).collect();
+                schema.one_of = variants
+                    .iter()
+                    .map(SchemaInfoReflect::build_schema)
+                    .collect();
             }
             InternalSchemaType::EnumVariant(variant_info) => match &variant_info {
                 VariantInfo::Struct(struct_variant_info) => {
@@ -442,7 +449,10 @@ impl From<SchemaTypeInfo> for JsonSchemaVariant {
                         return new_schema;
                     }
                 } else {
-                    schema.prefix_items = unnamed_fields.iter().map(SchemaInfoReflect::build_schema).collect();
+                    schema.prefix_items = unnamed_fields
+                        .iter()
+                        .map(SchemaInfoReflect::build_schema)
+                        .collect();
                     schema.min_items = Some(unnamed_fields.len() as u64);
                     schema.max_items = Some(unnamed_fields.len() as u64);
                 }
@@ -522,7 +532,7 @@ pub trait SchemaInfoReflect {
                 TypeInfo::Set(_) => SchemaKind::Set,
                 TypeInfo::Enum(_) => SchemaKind::Enum,
                 TypeInfo::Opaque(_) => SchemaKind::Opaque,
-            }
+            };
         }
         SchemaKind::Value
     }

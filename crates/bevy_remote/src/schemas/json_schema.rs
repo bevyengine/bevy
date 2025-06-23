@@ -1,5 +1,6 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
+use alloc::borrow::Cow;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     prelude::ReflectDefault, serde::ReflectSerializer, GetTypeRegistration, Reflect,
@@ -8,7 +9,6 @@ use bevy_reflect::{
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use alloc::borrow::Cow;
 
 use crate::schemas::{
     reflect_info::{SchemaInfoReflect, SchemaNumber},
