@@ -257,12 +257,6 @@ fn make_chunk_mesh(size: &UVec2, display_size: &Vec2, anchor: &Anchor) -> Mesh {
 
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh.insert_attribute(
-        ATTRIBUTE_TILE_INDEX,
-        (0..size.element_product())
-            .flat_map(|i| [i; 4])
-            .collect::<Vec<u32>>(),
-    );
     mesh.insert_indices(Indices::U32(indices));
 
     mesh

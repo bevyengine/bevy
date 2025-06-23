@@ -1,18 +1,12 @@
 use crate::{AlphaMode2d, Material2d, Material2dKey, Material2dPlugin};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Asset, Handle};
+use bevy_asset::{embedded_asset, embedded_path, Asset, AssetPath, Handle};
 use bevy_image::Image;
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    mesh::{Mesh, MeshVertexAttribute, MeshVertexBufferLayoutRef},
+    mesh::{Mesh, MeshVertexBufferLayoutRef},
     render_resource::*,
 };
-
-pub const TILEMAP_CHUNK_MATERIAL_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("40f33e62-82f8-4578-b3fa-f22989e7c4bb");
-
-pub const ATTRIBUTE_TILE_INDEX: MeshVertexAttribute =
-    MeshVertexAttribute::new("Vertex_TileIndex", 264043692, VertexFormat::Uint32);
 
 /// Plugin that adds support for tilemap chunk materials.
 #[derive(Default)]
@@ -20,12 +14,7 @@ pub struct TilemapChunkMaterialPlugin;
 
 impl Plugin for TilemapChunkMaterialPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            TILEMAP_CHUNK_MATERIAL_SHADER_HANDLE,
-            "tilemap_chunk_material.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "tilemap_chunk_material.wgsl");
 
         app.add_plugins(Material2dPlugin::<TilemapChunkMaterial>::default());
     }
@@ -49,11 +38,17 @@ pub struct TilemapChunkMaterial {
 
 impl Material2d for TilemapChunkMaterial {
     fn fragment_shader() -> ShaderRef {
-        TILEMAP_CHUNK_MATERIAL_SHADER_HANDLE.into()
+        ShaderRef::Path(
+            AssetPath::from_path_buf(embedded_path!("tilemap_chunk_material.wgsl"))
+                .with_source("embedded"),
+        )
     }
 
     fn vertex_shader() -> ShaderRef {
-        TILEMAP_CHUNK_MATERIAL_SHADER_HANDLE.into()
+        ShaderRef::Path(
+            AssetPath::from_path_buf(embedded_path!("tilemap_chunk_material.wgsl"))
+                .with_source("embedded"),
+        )
     }
 
     fn alpha_mode(&self) -> AlphaMode2d {
@@ -68,7 +63,6 @@ impl Material2d for TilemapChunkMaterial {
         let vertex_layout = layout.0.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             Mesh::ATTRIBUTE_UV_0.at_shader_location(1),
-            ATTRIBUTE_TILE_INDEX.at_shader_location(5),
         ])?;
         descriptor.vertex.buffers = vec![vertex_layout];
         Ok(())

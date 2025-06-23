@@ -5,9 +5,9 @@
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
+    @builtin(vertex_index) vertex_index: u32,
     @location(0) position: vec3<f32>,
     @location(1) uv: vec2<f32>,
-    @location(5) tile_index: u32,
 };
 
 struct VertexOutput {
@@ -32,7 +32,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     out.position = mesh_functions::mesh2d_position_world_to_clip(world_position);
     out.uv = vertex.uv;
-    out.tile_index = vertex.tile_index;
+    out.tile_index = vertex.vertex_index / 4u;
 
     return out;
 }
