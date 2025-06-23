@@ -171,6 +171,7 @@ struct CustomMeshPipeline {
     /// This isn't required, it's only done like this for simplicity.
     shader_handle: Handle<Shader>,
 }
+
 impl FromWorld for CustomMeshPipeline {
     fn from_world(world: &mut World) -> Self {
         // Load the shader
