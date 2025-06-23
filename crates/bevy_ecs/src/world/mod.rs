@@ -1063,10 +1063,11 @@ impl World {
         (fetcher, commands)
     }
 
-    /// Spawns an [`Entity`] that is void/null.
-    /// The returned entity id is valid and unique, but it does not correspond to any conceptual entity yet.
-    /// The conceptual entity does not exist, and using the id as if it did may produce errors.
+    /// Spawns an [`Entity`] that is null.
+    /// The returned entity id is valid and unique, but it is not yet constructed.
+    /// Using the id as if it were constructed may produce errors.
     /// It can not be queried, and it has no [`EntityLocation`](crate::entity::EntityLocation).
+    /// See [entity docs](crate::entity) for more information about null entities and construction.
     ///
     /// This is different from empty entities, which do exist in the world;
     /// they just happen to have no components.

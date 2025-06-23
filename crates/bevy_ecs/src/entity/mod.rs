@@ -418,7 +418,7 @@ impl EntityGeneration {
 /// Aliasing can happen without warning.
 /// Holding onto a [`Entity`] id corresponding to an entity well after that entity was despawned can cause un-intuitive behavior for both ordering, and comparing in general.
 /// To prevent these bugs, it is generally best practice to stop holding an [`Entity`] or [`EntityGeneration`] value as soon as you know it has been despawned.
-/// If you must do otherwise, do not assume the [`Entity`] corresponds to the same conceptual entity it originally did.
+/// If you must do otherwise, do not assume the [`Entity`] id corresponds to the same entity it originally did.
 /// See [`EntityGeneration`]'s docs for more information about aliasing and why it occurs.
 ///
 /// # Stability warning
@@ -1344,11 +1344,12 @@ pub struct EntityLocation {
     pub table_row: TableRow,
 }
 
-/// An [`Entity`] id may or may not correspond to a valid conceptual entity.
-/// If it does, the conceptual entity may or may not have a location.
+/// An [`Entity`] id may or may not correspond to an entity; the entity may have been despawned, etc.
+/// If it does correspond to an entity, that entity may or may not have a location.
 /// If it has no location, the [`EntityLocation`] will be `None`.
 /// An location of `None` means the entity effectively does not exist; it has an id, but is not participating in the ECS.
 /// This is different from a location in the empty archetype, which is participating (queryable, etc) but just happens to have no components.
+/// For more information about what a `None` location means, see the module [docs](crate::entity).
 ///
 /// Setting a location to `None` is often helpful when you want to destruct an entity or yank it from the ECS without allowing another system to reuse the id for something else.
 /// It is also useful for reserving an id; commands will often allocate an `Entity` but not provide it a location until the command is applied.
