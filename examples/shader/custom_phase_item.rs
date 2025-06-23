@@ -35,6 +35,7 @@ use bevy::{
         Render, RenderApp, RenderSystems,
     },
 };
+use bevy_render::render_resource::{Canonical, SpecializationKey};
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
@@ -290,16 +291,24 @@ impl FromWorld for CustomPhaseSpecializer {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+struct CustomPhaseKey(Msaa);
+
+impl SpecializationKey for CustomPhaseKey {
+    const CANONICAL: bool = true;
+    type Canonical = Self;
+}
+
 impl Specialize<RenderPipeline> for CustomPhaseSpecializer {
-    type Key = Msaa;
+    type Key = CustomPhaseKey;
 
     fn specialize(
         &self,
-        msaa: Self::Key,
+        key: Self::Key,
         descriptor: &mut RenderPipelineDescriptor,
-    ) -> Result<(), BevyError> {
-        descriptor.multisample.count = msaa.samples();
-        Ok(())
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        descriptor.multisample.count = key.0.samples();
+        Ok(key)
     }
 }
 

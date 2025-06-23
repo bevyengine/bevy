@@ -7,8 +7,16 @@ use bevy_ecs::{
     resource::Resource,
     world::{FromWorld, World},
 };
-use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_platform::{
+    collections::{
+        hash_map::{Entry, VacantEntry},
+        HashMap,
+    },
+    hash::FixedHasher,
+};
 use core::{hash::Hash, marker::PhantomData};
+use tracing::error;
+use variadics_please::all_tuples;
 
 pub use bevy_render_macros::Specialize;
 
@@ -16,9 +24,10 @@ pub use bevy_render_macros::Specialize;
 /// its descriptor type. This is implemented for [`RenderPipeline`] and [`ComputePipeline`], and
 /// likely will not have much utility for other types.
 pub trait Specializable {
-    type Descriptor: Clone + Send + Sync;
+    type Descriptor: PartialEq + Clone + Send + Sync;
     type CachedId: Clone + Send + Sync;
     fn queue(pipeline_cache: &PipelineCache, descriptor: Self::Descriptor) -> Self::CachedId;
+    fn get_descriptor(pipeline_cache: &PipelineCache, id: Self::CachedId) -> &Self::Descriptor;
 }
 
 impl Specializable for RenderPipeline {
@@ -27,6 +36,13 @@ impl Specializable for RenderPipeline {
 
     fn queue(pipeline_cache: &PipelineCache, descriptor: Self::Descriptor) -> Self::CachedId {
         pipeline_cache.queue_render_pipeline(descriptor)
+    }
+
+    fn get_descriptor(
+        pipeline_cache: &PipelineCache,
+        id: CachedRenderPipelineId,
+    ) -> &Self::Descriptor {
+        pipeline_cache.get_render_pipeline_descriptor(id)
     }
 }
 
@@ -37,6 +53,13 @@ impl Specializable for ComputePipeline {
 
     fn queue(pipeline_cache: &PipelineCache, descriptor: Self::Descriptor) -> Self::CachedId {
         pipeline_cache.queue_compute_pipeline(descriptor)
+    }
+
+    fn get_descriptor(
+        pipeline_cache: &PipelineCache,
+        id: CachedComputePipelineId,
+    ) -> &Self::Descriptor {
+        pipeline_cache.get_compute_pipeline_descriptor(id)
     }
 }
 
@@ -104,9 +127,20 @@ impl Specializable for ComputePipeline {
 /// */
 /// ```
 pub trait Specialize<T: Specializable>: Send + Sync + 'static {
-    type Key: Clone + Hash + Eq;
-    fn specialize(&self, key: Self::Key, descriptor: &mut T::Descriptor) -> Result<(), BevyError>;
+    type Key: SpecializationKey;
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut T::Descriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError>;
 }
+
+pub trait SpecializationKey: Clone + Hash + Eq {
+    const CANONICAL: bool;
+    type Canonical: Hash + Eq;
+}
+
+pub type Canonical<T> = <T as SpecializationKey>::Canonical;
 
 impl<T: Specializable> Specialize<T> for () {
     type Key = ();
@@ -131,6 +165,17 @@ impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V
         Ok(())
     }
 }
+
+macro_rules! impl_specialization_key_tuple {
+    ($($T:ident),*) => {
+        impl <$($T: SpecializationKey),*> SpecializationKey for ($($T,)*) {
+            const CANONICAL: bool = true $(&& <$T as SpecializationKey>::CANONICAL)*;
+            type Canonical = ($(Canonical<$T>,)*);
+        }
+    };
+}
+
+all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 
 /// Defines a specializer that can also provide a "base descriptor".
 ///
@@ -196,7 +241,8 @@ pub trait GetBaseDescriptor<T: Specializable>: Specialize<T> {
     fn get_base_descriptor(&self) -> T::Descriptor;
 }
 
-pub type SpecializeFn<T, S> = fn(<S as Specialize<T>>::Key, &mut <T as Specializable>::Descriptor);
+pub type SpecializeFn<T, S> =
+    fn(<S as Specialize<T>>::Key, &mut <T as Specializable>::Descriptor) -> Result<(), BevyError>;
 
 /// A cache for specializable resources. For a given key type the resulting
 /// resource will only be created if it is missing, retrieving it from the
@@ -206,7 +252,8 @@ pub struct Specializer<T: Specializable, S: Specialize<T>> {
     specializer: S,
     user_specializer: Option<SpecializeFn<T, S>>,
     base_descriptor: T::Descriptor,
-    specialized: HashMap<S::Key, T::CachedId>,
+    primary_cache: HashMap<S::Key, T::CachedId>,
+    secondary_cache: HashMap<Canonical<S::Key>, T::CachedId>,
 }
 
 impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
@@ -214,6 +261,7 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
     /// an optional "user specializer", and a base descriptor. The user
     /// specializer is applied after the [`Specialize`] implementation, with
     /// the same key.
+    #[inline]
     pub fn new(
         specializer: S,
         user_specializer: Option<SpecializeFn<T, S>>,
@@ -223,30 +271,83 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
             specializer,
             user_specializer,
             base_descriptor,
-            specialized: Default::default(),
+            primary_cache: Default::default(),
+            secondary_cache: Default::default(),
         }
     }
 
     /// Specializes a resource given the [`Specialize`] implementation's key type.
+    #[inline]
     pub fn specialize(
         &mut self,
         pipeline_cache: &PipelineCache,
         key: S::Key,
     ) -> Result<T::CachedId, BevyError> {
-        let entry = self.specialized.entry(key.clone());
+        let entry = self.primary_cache.entry(key.clone());
         match entry {
-            Entry::Occupied(occupied_entry) => Ok(occupied_entry.get().clone()),
-            Entry::Vacant(vacant_entry) => {
-                let mut descriptor = self.base_descriptor.clone();
-                self.specializer.specialize(key.clone(), &mut descriptor)?;
-                if let Some(user_specializer) = self.user_specializer {
-                    (user_specializer)(key, &mut descriptor);
-                }
-                let cached_id = <T as Specializable>::queue(pipeline_cache, descriptor);
-                vacant_entry.insert(cached_id.clone());
-                Ok(cached_id)
-            }
+            Entry::Occupied(entry) => Ok(entry.get().clone()),
+            Entry::Vacant(entry) => Self::specialize_slow(
+                &self.specializer,
+                self.user_specializer,
+                self.base_descriptor.clone(),
+                pipeline_cache,
+                key,
+                entry,
+                &mut self.secondary_cache,
+            ),
         }
+    }
+
+    #[cold]
+    fn specialize_slow(
+        specializer: &S,
+        user_specializer: Option<SpecializeFn<T, S>>,
+        base_descriptor: T::Descriptor,
+        pipeline_cache: &PipelineCache,
+        key: S::Key,
+        primary_entry: VacantEntry<S::Key, T::CachedId, FixedHasher>,
+        secondary_cache: &mut HashMap<Canonical<S::Key>, T::CachedId>,
+    ) -> Result<T::CachedId, BevyError> {
+        let mut descriptor = base_descriptor.clone();
+        let canonical_key = specializer.specialize(key.clone(), &mut descriptor)?;
+
+        if let Some(user_specializer) = user_specializer {
+            (user_specializer)(key, &mut descriptor)?;
+        }
+
+        // if the whole key is canonical, the secondary cache isn't needed.
+        if <S::Key as SpecializationKey>::CANONICAL {
+            return Ok(primary_entry
+                .insert(<T as Specializable>::queue(pipeline_cache, descriptor))
+                .clone());
+        }
+
+        let id = match secondary_cache.entry(canonical_key) {
+            Entry::Occupied(entry) => {
+                if cfg!(debug_assertions) {
+                    let stored_descriptor =
+                        <T as Specializable>::get_descriptor(pipeline_cache, entry.get().clone());
+                    if &descriptor != stored_descriptor {
+                        error!(
+                            "Invalid Specialize<{}> impl for {}: the cached descriptor \
+                            is not equal to the generated descriptor for the given key. \
+                            This means the Specialize implementation uses unused information \
+                            from the key to specialize the pipeline. This is not allowed \
+                            because it would invalidate the cache.",
+                            core::any::type_name::<T>(),
+                            core::any::type_name::<S>()
+                        );
+                    }
+                }
+                entry.into_mut().clone()
+            }
+            Entry::Vacant(entry) => entry
+                .insert(<T as Specializable>::queue(pipeline_cache, descriptor))
+                .clone(),
+        };
+
+        primary_entry.insert(id.clone());
+        Ok(id)
     }
 }
 
