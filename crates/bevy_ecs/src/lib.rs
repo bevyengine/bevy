@@ -1637,7 +1637,7 @@ mod tests {
 
         assert_eq!(q1.iter(&world).len(), 1);
         assert_eq!(q2.iter(&world).len(), 1);
-        assert_eq!(world.num_entities(), 2);
+        assert_eq!(world.entity_count(), 2);
 
         world.clear_entities();
 
@@ -1652,7 +1652,7 @@ mod tests {
             "world should not contain sparse set components"
         );
         assert_eq!(
-            world.num_entities(),
+            world.entity_count(),
             0,
             "world should not have any entities"
         );
