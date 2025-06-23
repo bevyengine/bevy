@@ -3,10 +3,11 @@ use crate::{
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
+use bevy_asset::{weak_handle, Asset, Assets, Handle};
 use bevy_ecs::component::Component;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
+use bevy_render::load_shader_library;
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_resource::{AsBindGroupShaderType, ShaderType};
 use bevy_render::texture::GpuImage;
@@ -14,28 +15,20 @@ use bevy_render::{
     alpha::AlphaMode,
     mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable},
     render_resource::{
-        AsBindGroup, CompareFunction, RenderPipelineDescriptor, Shader,
-        SpecializedMeshPipelineError,
+        AsBindGroup, CompareFunction, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
     RenderDebugFlags,
 };
 
 const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> =
     weak_handle!("afa817f9-1869-4e0c-ac0d-d8cd1552d38a");
-const FORWARD_DECAL_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("f8dfbef4-d88b-42ae-9af4-d9661e9f1648");
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
 
 impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            FORWARD_DECAL_SHADER_HANDLE,
-            "forward_decal.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "forward_decal.wgsl");
 
         app.register_type::<ForwardDecal>();
 

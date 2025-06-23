@@ -180,7 +180,7 @@ fn update_system(
         } else if let FogFalloff::ExponentialSquared { .. } = fog.falloff {
             // No change
         } else {
-            fog.falloff = FogFalloff::Exponential { density: 0.07 };
+            fog.falloff = FogFalloff::ExponentialSquared { density: 0.07 };
         };
     }
 

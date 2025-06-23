@@ -163,6 +163,7 @@ impl Iterator for IndicesIter<'_> {
 }
 
 impl<'a> ExactSizeIterator for IndicesIter<'a> {}
+
 impl<'a> FusedIterator for IndicesIter<'a> {}
 
 impl From<&Indices> for IndexFormat {

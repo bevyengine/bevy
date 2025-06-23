@@ -77,6 +77,7 @@ where
             .collect()
     }
 }
+
 impl<T: SmallArray + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
     T::Item: FromReflect + MaybeTyped + TypePath,
