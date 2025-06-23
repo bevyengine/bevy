@@ -63,14 +63,18 @@ impl RenderAsset for GpuImage {
                         render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                             label: Some("copy_image_on_resize"),
                         });
-                    // if the new size is bigger than the previous size, we use the previous texture
-                    // size as the copy size, otherwise we use the new texture size
-                    let copy_size = if image.texture_descriptor.size.width > previous.size.width
-                        || image.texture_descriptor.size.height > previous.size.height
-                    {
-                        previous.size
-                    } else {
-                        image.texture_descriptor.size
+                    let copy_size = Extent3d {
+                        width: image.texture_descriptor.size.width.min(previous.size.width),
+                        height: image
+                            .texture_descriptor
+                            .size
+                            .height
+                            .min(previous.size.height),
+                        depth_or_array_layers: image
+                            .texture_descriptor
+                            .size
+                            .depth_or_array_layers
+                            .min(previous.size.depth_or_array_layers),
                     };
 
                     command_encoder.copy_texture_to_texture(
