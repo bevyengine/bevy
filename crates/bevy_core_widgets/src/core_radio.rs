@@ -22,9 +22,16 @@ use bevy_ui::{Checked, InteractionDisabled};
 /// implements the tab navigation logic and keyboard shortcuts for radio buttons.
 ///
 /// The [`CoreRadioGroup`] component does not have any state itself, and makes no assumptions about
-/// what, if any, value is associated with each radio button. Instead, the "value" of the group is
-/// the entity id of the selected button. The app can then derive the selected value from this using
-/// app-specific data.
+/// what, if any, value is associated with each radio button, or what Rust type that value might be.
+/// Instead, the output of the group is the entity id of the selected button. The app can then
+/// derive the selected value from this using app-specific means, such as accessing a component on
+/// the individual buttons.
+///
+/// The [`CoreRadioGroup`] doesn't actually set the [`Checked`] states directly, that is presumed to
+/// happen by the app or via some external data-binding scheme. Typically, each button would be
+/// associated with a particular constant value, and would be checked whenever that value is equal
+/// to the group's value. This also means that as long as each button's associated value is unique
+/// within the group, it should never be the case that more than one button is selected at a time.
 #[derive(Component, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)))]
 pub struct CoreRadioGroup {
@@ -66,18 +73,18 @@ fn radio_group_on_key_input(
             let key_code = event.key_code;
             ev.propagate(false);
 
-            // Find all radio children that are not disabled
-            let radio_children = q_children
+            // Find all radio descendants that are not disabled
+            let radio_buttons = q_children
                 .iter_descendants(ev.target())
                 .filter_map(|child_id| match q_radio.get(child_id) {
                     Ok((checked, false)) => Some((child_id, checked)),
                     Ok((_, true)) | Err(_) => None,
                 })
                 .collect::<Vec<_>>();
-            if radio_children.is_empty() {
+            if radio_buttons.is_empty() {
                 return; // No enabled radio buttons in the group
             }
-            let current_index = radio_children
+            let current_index = radio_buttons
                 .iter()
                 .position(|(_, checked)| *checked)
                 .unwrap_or(usize::MAX); // Default to invalid index if none are checked
@@ -85,9 +92,9 @@ fn radio_group_on_key_input(
             let next_index = match key_code {
                 KeyCode::ArrowUp | KeyCode::ArrowLeft => {
                     // Navigate to the previous radio button in the group
-                    if current_index == 0 || current_index >= radio_children.len() {
+                    if current_index == 0 || current_index >= radio_buttons.len() {
                         // If we're at the first one, wrap around to the last
-                        radio_children.len() - 1
+                        radio_buttons.len() - 1
                     } else {
                         // Move to the previous one
                         current_index - 1
@@ -95,7 +102,7 @@ fn radio_group_on_key_input(
                 }
                 KeyCode::ArrowDown | KeyCode::ArrowRight => {
                     // Navigate to the next radio button in the group
-                    if current_index >= radio_children.len() - 1 {
+                    if current_index >= radio_buttons.len() - 1 {
                         // If we're at the last one, wrap around to the first
                         0
                     } else {
@@ -109,7 +116,7 @@ fn radio_group_on_key_input(
                 }
                 KeyCode::End => {
                     // Navigate to the last radio button in the group
-                    radio_children.len() - 1
+                    radio_buttons.len() - 1
                 }
                 _ => {
                     return;
@@ -121,7 +128,7 @@ fn radio_group_on_key_input(
                 return;
             }
 
-            let (next_id, _) = radio_children[next_index];
+            let (next_id, _) = radio_buttons[next_index];
 
             // Trigger the on_change event for the newly checked radio button
             if let Some(on_change) = on_change {
@@ -163,8 +170,8 @@ fn radio_group_on_button_click(
             }
         };
 
-        // Gather all the enabled radio group children for exclusion.
-        let radio_children = q_children
+        // Gather all the enabled radio group descendants for exclusion.
+        let radio_buttons = q_children
             .iter_descendants(ev.target())
             .filter_map(|child_id| match q_radio.get(child_id) {
                 Ok((checked, false)) => Some((child_id, checked)),
@@ -172,13 +179,13 @@ fn radio_group_on_button_click(
             })
             .collect::<Vec<_>>();
 
-        if radio_children.is_empty() {
+        if radio_buttons.is_empty() {
             return; // No enabled radio buttons in the group
         }
 
         // Pick out the radio button that is currently checked.
         ev.propagate(false);
-        let current_radio = radio_children
+        let current_radio = radio_buttons
             .iter()
             .find(|(_, checked)| *checked)
             .map(|(id, _)| *id);
