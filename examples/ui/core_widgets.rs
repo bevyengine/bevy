@@ -131,8 +131,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         },
     );
 
-    // System to update a resource when the slider value changes. Note that we could have
-    // updated the slider value directly, but we want to demonstrate externalizing the state.
+    // System to update a resource when the radio group changes.
     let on_change_radio = commands.register_system(
         |value: In<Entity>,
          mut widget_states: ResMut<DemoWidgetStates>,
