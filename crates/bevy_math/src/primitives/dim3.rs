@@ -31,6 +31,7 @@ pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
 }
+
 impl Primitive3d for Sphere {}
 
 impl Default for Sphere {
@@ -105,6 +106,7 @@ pub struct Plane3d {
     /// Half of the width and height of the plane
     pub half_size: Vec2,
 }
+
 impl Primitive3d for Plane3d {}
 
 impl Default for Plane3d {
@@ -175,6 +177,7 @@ pub struct InfinitePlane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
 }
+
 impl Primitive3d for InfinitePlane3d {}
 
 impl Default for InfinitePlane3d {
@@ -351,6 +354,7 @@ pub struct Line3d {
     /// The direction of the line
     pub direction: Dir3,
 }
+
 impl Primitive3d for Line3d {}
 
 /// A line segment defined by two endpoints in 3D space.
@@ -370,6 +374,7 @@ pub struct Segment3d {
     /// The endpoints of the line segment.
     pub vertices: [Vec3; 2],
 }
+
 impl Primitive3d for Segment3d {}
 
 impl Segment3d {
@@ -578,6 +583,7 @@ pub struct Polyline3d<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec3; N],
 }
+
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
 
 impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
@@ -648,6 +654,7 @@ pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
     pub half_size: Vec3,
 }
+
 impl Primitive3d for Cuboid {}
 
 impl Default for Cuboid {
@@ -742,6 +749,7 @@ pub struct Cylinder {
     /// The half height of the cylinder
     pub half_height: f32,
 }
+
 impl Primitive3d for Cylinder {}
 
 impl Default for Cylinder {
@@ -820,6 +828,7 @@ pub struct Capsule3d {
     /// Half the height of the capsule, excluding the hemispheres
     pub half_length: f32,
 }
+
 impl Primitive3d for Capsule3d {}
 
 impl Default for Capsule3d {
@@ -890,6 +899,7 @@ pub struct Cone {
     /// The height of the cone
     pub height: f32,
 }
+
 impl Primitive3d for Cone {}
 
 impl Default for Cone {
@@ -974,6 +984,7 @@ pub struct ConicalFrustum {
     /// The height of the frustum
     pub height: f32,
 }
+
 impl Primitive3d for ConicalFrustum {}
 
 impl Default for ConicalFrustum {
@@ -1030,6 +1041,7 @@ pub struct Torus {
     #[doc(alias = "radius_of_revolution")]
     pub major_radius: f32,
 }
+
 impl Primitive3d for Torus {}
 
 impl Default for Torus {
@@ -1326,6 +1338,7 @@ pub struct Tetrahedron {
     /// The vertices of the tetrahedron.
     pub vertices: [Vec3; 4],
 }
+
 impl Primitive3d for Tetrahedron {}
 
 impl Default for Tetrahedron {
@@ -1433,6 +1446,7 @@ pub struct Extrusion<T: Primitive2d> {
     /// Half of the depth of the extrusion
     pub half_depth: f32,
 }
+
 impl<T: Primitive2d> Primitive3d for Extrusion<T> {}
 
 impl<T: Primitive2d> Extrusion<T> {

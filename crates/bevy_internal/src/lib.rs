@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -29,6 +29,8 @@ pub use bevy_audio as audio;
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]
 pub use bevy_core_pipeline as core_pipeline;
+#[cfg(feature = "bevy_core_widgets")]
+pub use bevy_core_widgets as core_widgets;
 #[cfg(feature = "bevy_dev_tools")]
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
@@ -60,6 +62,8 @@ pub use bevy_remote as remote;
 pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
+#[cfg(feature = "bevy_solari")]
+pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
 #[cfg(feature = "bevy_state")]
