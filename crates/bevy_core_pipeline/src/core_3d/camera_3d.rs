@@ -80,6 +80,7 @@ impl From<TextureUsages> for Camera3dDepthTextureUsage {
         Self(value.bits())
     }
 }
+
 impl From<Camera3dDepthTextureUsage> for TextureUsages {
     fn from(value: Camera3dDepthTextureUsage) -> Self {
         Self::from_bits_truncate(value.0)
