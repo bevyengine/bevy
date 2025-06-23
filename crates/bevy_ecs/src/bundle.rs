@@ -81,12 +81,13 @@ use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};
 use variadics_please::all_tuples;
 
+/// A collection of components, whose identity may or may not be fixed at compile time.
+///
 /// The `Bundle` trait enables insertion of [`Component`]s to an entity.
 /// For the removal of [`Component`]s from an entity see the [`StaticBundle`]`trait`.
 ///
 /// Implementers of the `Bundle` trait are called 'bundles'.
 ///
-/// Each bundle represents a possibly dynamic set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
 /// panic once initialized if this is not met.
 ///
@@ -214,10 +215,10 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     );
 }
 
-/// Each bundle represents a static and fixed set of [`Component`] types.
+/// A static and fixed set of [`Component`] types.
 /// See the [`Bundle`] trait for a possibly dynamic set of [`Component`] types.
 ///
-/// Implementers of the `Bundle` trait are called 'static bundles'.
+/// Implementers of the [`StaticBundle`] trait are called 'static bundles'.
 ///
 /// ## Removal
 ///
@@ -233,7 +234,8 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
 /// Manual implementations of this trait are unsupported.
 /// That is, there is no safe way to implement this trait, and you must not do so.
 /// If you want a type to implement [`StaticBundle`], you must use [`derive@Bundle`](derive@Bundle).
-// Some safety points:
+//
+// (bevy internal doc) Some safety points:
 // - [`StaticBundle::component_ids`] and [`StaticBundle::get_component_ids`] must match the behavior of [`Bundle::component_ids`]
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `StaticBundle`",

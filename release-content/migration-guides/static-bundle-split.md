@@ -1,5 +1,5 @@
 ---
-title: StaticBundle split off from Bundle
+title: \`StaticBundle` has been split off from `Bundle`
 pull_requests: [19491]
 ---
 
