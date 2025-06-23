@@ -20,7 +20,15 @@ fn main() {
             sensor_height: 0.01866,
         }))
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_exposure, movement, animate_light_direction))
+        .add_systems(
+            Update,
+            (
+                update_exposure,
+                toggle_ambient_light,
+                movement,
+                animate_light_direction,
+            ),
+        )
         .run();
 }
 
@@ -111,9 +119,10 @@ fn setup(
     ));
 
     // ambient light
+    // ambient lights' brightnesses are measured in candela per meter square, calculable as (color * brightness)
     commands.insert_resource(AmbientLight {
         color: ORANGE_RED.into(),
-        brightness: 0.02,
+        brightness: 200.0,
         ..default()
     });
 
@@ -211,6 +220,7 @@ fn setup(
             ..default()
         },
         children![
+            TextSpan::new("Ambient light is on\n"),
             TextSpan(format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops,)),
             TextSpan(format!(
                 "Shutter speed: 1/{:.0}s\n",
@@ -224,6 +234,7 @@ fn setup(
             TextSpan::new("Controls\n"),
             TextSpan::new("---------------\n"),
             TextSpan::new("Arrow keys - Move objects\n"),
+            TextSpan::new("Space - Toggle ambient light\n"),
             TextSpan::new("1/2 - Decrease/Increase aperture\n"),
             TextSpan::new("3/4 - Decrease/Increase shutter speed\n"),
             TextSpan::new("5/6 - Decrease/Increase sensitivity\n"),
@@ -267,14 +278,36 @@ fn update_exposure(
         *parameters = Parameters::default();
     }
 
-    *writer.text(entity, 1) = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
-    *writer.text(entity, 2) = format!(
+    *writer.text(entity, 2) = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
+    *writer.text(entity, 3) = format!(
         "Shutter speed: 1/{:.0}s\n",
         1.0 / parameters.shutter_speed_s
     );
-    *writer.text(entity, 3) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
+    *writer.text(entity, 4) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
     **exposure = Exposure::from_physical_camera(**parameters);
+}
+
+fn toggle_ambient_light(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut ambient_light: ResMut<AmbientLight>,
+    text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
+) {
+    if key_input.just_pressed(KeyCode::Space) {
+        if ambient_light.brightness > 1. {
+            ambient_light.brightness = 0.;
+        } else {
+            ambient_light.brightness = 200.;
+        }
+
+        let entity = *text;
+        let ambient_light_state_text: &str = match ambient_light.brightness {
+            0. => "off",
+            _ => "on",
+        };
+        *writer.text(entity, 1) = format!("Ambient light is {}\n", ambient_light_state_text);
+    }
 }
 
 fn animate_light_direction(

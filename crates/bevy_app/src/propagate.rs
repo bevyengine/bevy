@@ -6,9 +6,9 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
+    lifecycle::RemovedComponents,
     query::{Changed, Or, QueryFilter, With, Without},
     relationship::{Relationship, RelationshipTarget},
-    removal_detection::RemovedComponents,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Local, Query},
 };
@@ -88,6 +88,7 @@ impl<C: Component + Clone + PartialEq> core::fmt::Debug for PropagateSet<C> {
 }
 
 impl<C: Component + Clone + PartialEq> Eq for PropagateSet<C> {}
+
 impl<C: Component + Clone + PartialEq> core::hash::Hash for PropagateSet<C> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self._p.hash(state);

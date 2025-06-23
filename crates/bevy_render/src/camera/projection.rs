@@ -93,8 +93,7 @@ pub trait CameraProjection {
     /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
     /// for each camera to update its frustum.
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
-        let clip_from_world =
-            self.get_clip_from_view() * camera_transform.compute_matrix().inverse();
+        let clip_from_world = self.get_clip_from_view() * camera_transform.to_matrix().inverse();
         Frustum::from_clip_from_world_custom_far(
             &clip_from_world,
             &camera_transform.translation(),

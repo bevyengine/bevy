@@ -84,6 +84,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
+use crate::convert_coordinates::ConvertCoordinates as _;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -191,6 +192,16 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
+    /// If true, the loader will convert glTF coordinates to Bevy's coordinate system.
+    /// - glTF:
+    ///   - forward: Z
+    ///   - up: Y
+    ///   - right: -X
+    /// - Bevy:
+    ///   - forward: -Z
+    ///   - up: Y
+    ///   - right: X
+    pub convert_coordinates: bool,
 }
 
 impl Default for GltfLoaderSettings {
@@ -203,6 +214,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
+            convert_coordinates: false,
         }
     }
 }
@@ -303,7 +315,16 @@ async fn load_gltf<'a, 'b, 'c>(
                     match outputs {
                         ReadOutputs::Translations(tr) => {
                             let translation_property = animated_field!(Transform::translation);
-                            let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
+                            let translations: Vec<Vec3> = tr
+                                .map(Vec3::from)
+                                .map(|verts| {
+                                    if settings.convert_coordinates {
+                                        Vec3::convert_coordinates(verts)
+                                    } else {
+                                        verts
+                                    }
+                                })
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     translation_property,
@@ -350,8 +371,17 @@ async fn load_gltf<'a, 'b, 'c>(
                         }
                         ReadOutputs::Rotations(rots) => {
                             let rotation_property = animated_field!(Transform::rotation);
-                            let rotations: Vec<Quat> =
-                                rots.into_f32().map(Quat::from_array).collect();
+                            let rotations: Vec<Quat> = rots
+                                .into_f32()
+                                .map(Quat::from_array)
+                                .map(|quat| {
+                                    if settings.convert_coordinates {
+                                        Quat::convert_coordinates(quat)
+                                    } else {
+                                        quat
+                                    }
+                                })
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     rotation_property,
@@ -633,6 +663,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     accessor,
                     &buffer_data,
                     &loader.custom_vertex_attributes,
+                    settings.convert_coordinates,
                 ) {
                     Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                     Err(err) => warn!("{}", err),
@@ -752,7 +783,17 @@ async fn load_gltf<'a, 'b, 'c>(
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
-                .map(|mats| mats.map(|mat| Mat4::from_cols_array_2d(&mat)).collect())
+                .map(|mats| {
+                    mats.map(|mat| Mat4::from_cols_array_2d(&mat))
+                        .map(|mat| {
+                            if settings.convert_coordinates {
+                                mat.convert_coordinates()
+                            } else {
+                                mat
+                            }
+                        })
+                        .collect()
+                })
                 .unwrap_or_else(|| {
                     core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
                 });
@@ -834,7 +875,7 @@ async fn load_gltf<'a, 'b, 'c>(
             &node,
             children,
             mesh,
-            node_transform(&node),
+            node_transform(&node, settings.convert_coordinates),
             skin,
             node.extras().as_deref().map(GltfExtras::from),
         );
@@ -1306,7 +1347,7 @@ fn load_node(
     document: &Document,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node);
+    let transform = node_transform(gltf_node, settings.convert_coordinates);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1359,7 +1400,6 @@ fn load_node(
                         },
                         ..OrthographicProjection::default_3d()
                     };
-
                     Projection::Orthographic(orthographic_projection)
                 }
                 gltf::camera::Projection::Perspective(perspective) => {
@@ -1377,6 +1417,7 @@ fn load_node(
                     Projection::Perspective(perspective_projection)
                 }
             };
+
             node.insert((
                 Camera3d::default(),
                 projection,

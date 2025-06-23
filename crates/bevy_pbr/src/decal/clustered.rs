@@ -69,7 +69,7 @@ pub struct ClusteredDecalPlugin;
 /// An object that projects a decal onto surfaces within its bounds.
 ///
 /// Conceptually, a clustered decal is a 1×1×1 cube centered on its origin. It
-/// projects the given [`Self::image`] onto surfaces in the +Z direction (thus
+/// projects the given [`Self::image`] onto surfaces in the -Z direction (thus
 /// you may find [`Transform::looking_at`] useful).
 ///
 /// Clustered decals are the highest-quality types of decals that Bevy supports,

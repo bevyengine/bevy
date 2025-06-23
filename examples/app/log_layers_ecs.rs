@@ -38,7 +38,7 @@ fn main() {
 }
 
 /// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
-#[derive(Debug, Event)]
+#[derive(Debug, Event, BufferedEvent)]
 struct LogEvent {
     message: String,
     level: Level,
@@ -63,6 +63,7 @@ fn transfer_log_events(
 struct CaptureLayer {
     sender: mpsc::Sender<LogEvent>,
 }
+
 impl<S: Subscriber> Layer<S> for CaptureLayer {
     fn on_event(
         &self,

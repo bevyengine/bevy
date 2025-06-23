@@ -13,9 +13,12 @@ use derive_more::derive::From;
 /// A dynamic representation of an enum variant.
 #[derive(Debug, Default, From)]
 pub enum DynamicVariant {
+    /// A unit variant.
     #[default]
     Unit,
+    /// A tuple variant.
     Tuple(DynamicTuple),
+    /// A struct variant.
     Struct(DynamicStruct),
 }
 

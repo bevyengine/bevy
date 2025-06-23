@@ -91,6 +91,7 @@
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
 mod assets;
+mod convert_coordinates;
 mod label;
 mod loader;
 mod vertex_attributes;

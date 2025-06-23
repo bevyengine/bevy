@@ -213,8 +213,8 @@ pub trait RenderCommand<P: PhaseItem> {
     /// issuing draw calls, etc.) via the [`TrackedRenderPass`].
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewQuery>,
-        entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        entity: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult;
@@ -246,8 +246,8 @@ macro_rules! render_command_tuple_impl {
             )]
             fn render<'w>(
                 _item: &P,
-                ($($view,)*): ROQueryItem<'w, Self::ViewQuery>,
-                maybe_entities: Option<ROQueryItem<'w, Self::ItemQuery>>,
+                ($($view,)*): ROQueryItem<'w, '_, Self::ViewQuery>,
+                maybe_entities: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {

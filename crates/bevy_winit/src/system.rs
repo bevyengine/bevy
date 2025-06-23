@@ -1,18 +1,20 @@
 use std::collections::HashMap;
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     entity::Entity,
     event::EventWriter,
+    lifecycle::RemovedComponents,
     prelude::{Changed, Component},
     query::QueryFilter,
-    removal_detection::RemovedComponents,
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
-    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
-    WindowWrapper,
+    ClosingWindow, CursorOptions, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
+    WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
+    WindowResized, WindowWrapper,
 };
 use tracing::{error, info, warn};
 
@@ -59,7 +61,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
 ) {
     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
-            for (entity, mut window, handle_holder) in &mut created_windows {
+            for (entity, mut window, cursor_options, handle_holder) in &mut created_windows {
                 if winit_windows.get_window(entity).is_some() {
                     continue;
                 }
@@ -70,6 +72,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
                     event_loop,
                     entity,
                     &window,
+                    cursor_options,
                     adapters,
                     &mut handlers,
                     &accessibility_requested,
@@ -85,9 +88,8 @@ pub fn create_windows<F: QueryFilter + 'static>(
                     .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
                 commands.entity(entity).insert((
-                    CachedWindow {
-                        window: window.clone(),
-                    },
+                    CachedWindow(window.clone()),
+                    CachedCursorOptions(cursor_options.clone()),
                     WinitWindowPressedKeys::default(),
                 ));
 
@@ -281,10 +283,12 @@ pub(crate) fn despawn_windows(
 }
 
 /// The cached state of the window so we can check which properties were changed from within the app.
-#[derive(Debug, Clone, Component)]
-pub struct CachedWindow {
-    pub window: Window,
-}
+#[derive(Debug, Clone, Component, Deref, DerefMut)]
+pub(crate) struct CachedWindow(Window);
+
+/// The cached state of the window so we can check which properties were changed from within the app.
+#[derive(Debug, Clone, Component, Deref, DerefMut)]
+pub(crate) struct CachedCursorOptions(CursorOptions);
 
 /// Propagates changes from [`Window`] entities to the [`winit`] backend.
 ///
@@ -306,11 +310,11 @@ pub(crate) fn changed_windows(
                 continue;
             };
 
-            if window.title != cache.window.title {
+            if window.title != cache.title {
                 winit_window.set_title(window.title.as_str());
             }
 
-            if window.mode != cache.window.mode {
+            if window.mode != cache.mode {
                 let new_mode = match window.mode {
                     WindowMode::BorderlessFullscreen(monitor_selection) => {
                         Some(Some(winit::window::Fullscreen::Borderless(select_monitor(
@@ -352,15 +356,15 @@ pub(crate) fn changed_windows(
                 }
             }
 
-            if window.resolution != cache.window.resolution {
+            if window.resolution != cache.resolution {
                 let mut physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
 
                 let cached_physical_size = PhysicalSize::new(
-                    cache.window.physical_width(),
-                    cache.window.physical_height(),
+                    cache.physical_width(),
+                    cache.physical_height(),
                 );
 
                 let base_scale_factor = window.resolution.base_scale_factor();
@@ -368,12 +372,12 @@ pub(crate) fn changed_windows(
                 // Note: this may be different from `winit`'s base scale factor if
                 // `scale_factor_override` is set to Some(f32)
                 let scale_factor = window.scale_factor();
-                let cached_scale_factor = cache.window.scale_factor();
+                let cached_scale_factor = cache.scale_factor();
 
                 // Check and update `winit`'s physical size only if the window is not maximized
                 if scale_factor != cached_scale_factor && !winit_window.is_maximized() {
                     let logical_size =
-                        if let Some(cached_factor) = cache.window.resolution.scale_factor_override() {
+                        if let Some(cached_factor) = cache.resolution.scale_factor_override() {
                             physical_size.to_logical::<f32>(cached_factor as f64)
                         } else {
                             physical_size.to_logical::<f32>(base_scale_factor as f64)
@@ -397,7 +401,7 @@ pub(crate) fn changed_windows(
                 }
             }
 
-            if window.physical_cursor_position() != cache.window.physical_cursor_position() {
+            if window.physical_cursor_position() != cache.physical_cursor_position() {
                 if let Some(physical_position) = window.physical_cursor_position() {
                     let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
@@ -407,44 +411,23 @@ pub(crate) fn changed_windows(
                 }
             }
 
-            if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode
-                && crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode)
-                    .is_err()
-            {
-                window.cursor_options.grab_mode = cache.window.cursor_options.grab_mode;
-            }
-
-            if window.cursor_options.visible != cache.window.cursor_options.visible {
-                winit_window.set_cursor_visible(window.cursor_options.visible);
-            }
-
-            if window.cursor_options.hit_test != cache.window.cursor_options.hit_test {
-                if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
-                    window.cursor_options.hit_test = cache.window.cursor_options.hit_test;
-                    warn!(
-                        "Could not set cursor hit test for window {}: {}",
-                        window.title, err
-                    );
-                }
-            }
-
-            if window.decorations != cache.window.decorations
+            if window.decorations != cache.decorations
                 && window.decorations != winit_window.is_decorated()
             {
                 winit_window.set_decorations(window.decorations);
             }
 
-            if window.resizable != cache.window.resizable
+            if window.resizable != cache.resizable
                 && window.resizable != winit_window.is_resizable()
             {
                 winit_window.set_resizable(window.resizable);
             }
 
-            if window.enabled_buttons != cache.window.enabled_buttons {
+            if window.enabled_buttons != cache.enabled_buttons {
                 winit_window.set_enabled_buttons(convert_enabled_buttons(window.enabled_buttons));
             }
 
-            if window.resize_constraints != cache.window.resize_constraints {
+            if window.resize_constraints != cache.resize_constraints {
                 let constraints = window.resize_constraints.check_constraints();
                 let min_inner_size = LogicalSize {
                     width: constraints.min_width,
@@ -461,7 +444,7 @@ pub(crate) fn changed_windows(
                 }
             }
 
-            if window.position != cache.window.position {
+            if window.position != cache.position {
                 if let Some(position) = crate::winit_window_position(
                     &window.position,
                     &window.resolution,
@@ -502,62 +485,62 @@ pub(crate) fn changed_windows(
                 }
             }
 
-            if window.focused != cache.window.focused && window.focused {
+            if window.focused != cache.focused && window.focused {
                 winit_window.focus_window();
             }
 
-            if window.window_level != cache.window.window_level {
+            if window.window_level != cache.window_level {
                 winit_window.set_window_level(convert_window_level(window.window_level));
             }
 
             // Currently unsupported changes
-            if window.transparent != cache.window.transparent {
-                window.transparent = cache.window.transparent;
+            if window.transparent != cache.transparent {
+                window.transparent = cache.transparent;
                 warn!("Winit does not currently support updating transparency after window creation.");
             }
 
             #[cfg(target_arch = "wasm32")]
-            if window.canvas != cache.window.canvas {
-                window.canvas.clone_from(&cache.window.canvas);
+            if window.canvas != cache.canvas {
+                window.canvas.clone_from(&cache.canvas);
                 warn!(
                     "Bevy currently doesn't support modifying the window canvas after initialization."
                 );
             }
 
-            if window.ime_enabled != cache.window.ime_enabled {
+            if window.ime_enabled != cache.ime_enabled {
                 winit_window.set_ime_allowed(window.ime_enabled);
             }
 
-            if window.ime_position != cache.window.ime_position {
+            if window.ime_position != cache.ime_position {
                 winit_window.set_ime_cursor_area(
                     LogicalPosition::new(window.ime_position.x, window.ime_position.y),
                     PhysicalSize::new(10, 10),
                 );
             }
 
-            if window.window_theme != cache.window.window_theme {
+            if window.window_theme != cache.window_theme {
                 winit_window.set_theme(window.window_theme.map(convert_window_theme));
             }
 
-            if window.visible != cache.window.visible {
+            if window.visible != cache.visible {
                 winit_window.set_visible(window.visible);
             }
 
             #[cfg(target_os = "ios")]
             {
-                if window.recognize_pinch_gesture != cache.window.recognize_pinch_gesture {
+                if window.recognize_pinch_gesture != cache.recognize_pinch_gesture {
                     winit_window.recognize_pinch_gesture(window.recognize_pinch_gesture);
                 }
-                if window.recognize_rotation_gesture != cache.window.recognize_rotation_gesture {
+                if window.recognize_rotation_gesture != cache.recognize_rotation_gesture {
                     winit_window.recognize_rotation_gesture(window.recognize_rotation_gesture);
                 }
-                if window.recognize_doubletap_gesture != cache.window.recognize_doubletap_gesture {
+                if window.recognize_doubletap_gesture != cache.recognize_doubletap_gesture {
                     winit_window.recognize_doubletap_gesture(window.recognize_doubletap_gesture);
                 }
-                if window.recognize_pan_gesture != cache.window.recognize_pan_gesture {
+                if window.recognize_pan_gesture != cache.recognize_pan_gesture {
                     match (
                         window.recognize_pan_gesture,
-                        cache.window.recognize_pan_gesture,
+                        cache.recognize_pan_gesture,
                     ) {
                         (Some(_), Some(_)) => {
                             warn!("Bevy currently doesn't support modifying PanGesture number of fingers recognition. Please disable it before re-enabling it with the new number of fingers");
@@ -567,16 +550,15 @@ pub(crate) fn changed_windows(
                     }
                 }
 
-                if window.prefers_home_indicator_hidden != cache.window.prefers_home_indicator_hidden {
+                if window.prefers_home_indicator_hidden != cache.prefers_home_indicator_hidden {
                     winit_window
                         .set_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
                 }
-                if window.prefers_status_bar_hidden != cache.window.prefers_status_bar_hidden {
+                if window.prefers_status_bar_hidden != cache.prefers_status_bar_hidden {
                     winit_window.set_prefers_status_bar_hidden(window.prefers_status_bar_hidden);
                 }
                 if window.preferred_screen_edges_deferring_system_gestures
                     != cache
-                        .window
                         .preferred_screen_edges_deferring_system_gestures
                 {
                     use crate::converters::convert_screen_edge;
@@ -585,7 +567,59 @@ pub(crate) fn changed_windows(
                     winit_window.set_preferred_screen_edges_deferring_system_gestures(preferred_edge);
                 }
             }
-            cache.window = window.clone();
+            **cache = window.clone();
+        }
+    });
+}
+
+pub(crate) fn changed_cursor_options(
+    mut changed_windows: Query<
+        (
+            Entity,
+            &Window,
+            &mut CursorOptions,
+            &mut CachedCursorOptions,
+        ),
+        Changed<CursorOptions>,
+    >,
+    _non_send_marker: NonSendMarker,
+) {
+    WINIT_WINDOWS.with_borrow(|winit_windows| {
+        for (entity, window, mut cursor_options, mut cache) in &mut changed_windows {
+            // This system already only runs when the cursor options change, so we need to bypass change detection or the next frame will also run this system
+            let cursor_options = cursor_options.bypass_change_detection();
+            let Some(winit_window) = winit_windows.get_window(entity) else {
+                continue;
+            };
+            // Don't check the cache for the grab mode. It can change through external means, leaving the cache outdated.
+            if let Err(err) =
+                crate::winit_windows::attempt_grab(winit_window, cursor_options.grab_mode)
+            {
+                warn!(
+                    "Could not set cursor grab mode for window {}: {}",
+                    window.title, err
+                );
+                cursor_options.grab_mode = cache.grab_mode;
+            } else {
+                cache.grab_mode = cursor_options.grab_mode;
+            }
+
+            if cursor_options.visible != cache.visible {
+                winit_window.set_cursor_visible(cursor_options.visible);
+                cache.visible = cursor_options.visible;
+            }
+
+            if cursor_options.hit_test != cache.hit_test {
+                if let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test) {
+                    warn!(
+                        "Could not set cursor hit test for window {}: {}",
+                        window.title, err
+                    );
+                    cursor_options.hit_test = cache.hit_test;
+                } else {
+                    cache.hit_test = cursor_options.hit_test;
+                }
+            }
         }
     });
 }
