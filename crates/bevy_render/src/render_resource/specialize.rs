@@ -385,7 +385,7 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
 }
 
 /// [`Specializer`] implements [`FromWorld`] for [`Specialize`] implementations
-/// that also satisfy [`FromWorld`] and [`HasBaseDescriptor`]. This will create
+/// that also satisfy [`FromWorld`] and [`GetBaseDescriptor`]. This will create
 /// a [`Specializer`] with no user specializer, and the base descriptor taken
 /// from the [`Specialize`] implementation.
 impl<T, S> FromWorld for Specializer<T, S>

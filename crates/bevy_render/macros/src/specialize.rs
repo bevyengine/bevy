@@ -115,13 +115,13 @@ impl FieldInfo {
         }
     }
 
-    fn has_base_descriptor_predicate(
+    fn get_base_descriptor_predicate(
         &self,
         specialize_path: &Path,
         target_path: &Path,
     ) -> WherePredicate {
         let ty = &self.ty;
-        parse_quote!(#ty: #specialize_path::HasBaseDescriptor<#target_path>)
+        parse_quote!(#ty: #specialize_path::GetBaseDescriptor<#target_path>)
     }
 }
 
@@ -427,7 +427,7 @@ fn impl_get_base_descriptor_specific(
     TokenStream::from(quote!(
         impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
             fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
-                <#field_ty as #specialize_path::HasBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
+                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
             }
         }
     ))
@@ -448,7 +448,7 @@ fn impl_get_base_descriptor_all(
 
     let where_clause = generics.make_where_clause();
     where_clause.predicates.push(
-        base_descriptor_field_info.has_base_descriptor_predicate(specialize_path, &target_path),
+        base_descriptor_field_info.get_base_descriptor_predicate(specialize_path, &target_path),
     );
 
     let (_, type_generics, _) = ast.generics.split_for_impl();
@@ -458,7 +458,7 @@ fn impl_get_base_descriptor_all(
     TokenStream::from(quote! {
         impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
             fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
-                <#field_ty as #specialize_path::HasBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
+                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
             }
         }
     })
