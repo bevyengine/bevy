@@ -2,7 +2,9 @@
 
 use crate::{
     component::ComponentCloneBehavior,
-    entity::{CloneByFilter, ComponentCloneCtx, EntityClonerBuilder, EntityMapper, SourceComponent},
+    entity::{
+        CloneByFilter, ComponentCloneCtx, EntityClonerBuilder, EntityMapper, SourceComponent,
+    },
     observer::ObservedBy,
     world::World,
 };
