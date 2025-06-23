@@ -627,7 +627,7 @@ pub trait SchemaInfoReflect {
         None
     }
 
-    /// Get the underlaying TypeId
+    /// Get the underlying TypeId
     fn get_type(&self) -> TypeId;
 
     /// Try to get the attribute by id
@@ -960,7 +960,7 @@ mod tests {
     fn reflect_struct_with_array() {
         #[derive(Reflect, Default, Deserialize, Serialize)]
         pub struct ArrayComponent {
-            pub arry: [i32; 3],
+            pub array: [i32; 3],
         }
         eprintln!(
             "{}",

@@ -649,7 +649,7 @@ mod tests {
 
         let schema = export_type::<Foo>();
         let schema_as_value = serde_json::to_value(&schema).expect("Failed to serialize schema");
-        let value = json!({
+        let mut value = json!({
           "shortPath": "Foo",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "typePath": "bevy_remote::schemas::json_schema::tests::Foo",
@@ -671,7 +671,6 @@ mod tests {
               "maximum": 65535,
               "minimum": 0,
               "type": "integer",
-              "description": "Test doc",
               "shortPath": "u16",
               "typePath": "u16",
             },
@@ -680,6 +679,9 @@ mod tests {
             "a"
           ]
         });
+        if cfg!(feature = "documentation") {
+            value["properties"]["a"]["description"] = json!("Test doc");
+        }
         assert_normalized_values(schema_as_value, value);
     }
 
