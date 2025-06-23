@@ -94,6 +94,7 @@ enum SettingType {
     Shape,
     Samples,
 }
+
 impl SettingType {
     fn label(&self) -> &str {
         match self {
