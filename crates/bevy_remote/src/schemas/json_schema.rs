@@ -8,7 +8,7 @@ use bevy_reflect::{
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::borrow::Cow;
+use alloc::borrow::Cow;
 
 use crate::schemas::{
     reflect_info::{SchemaInfoReflect, SchemaNumber},

@@ -2,7 +2,7 @@
 use bevy_reflect::{GenericInfo, NamedField, Reflect, TypeInfo, UnnamedField, VariantInfo};
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
-use std::{
+use core::{
     any::Any,
     fmt::Debug,
     ops::{Bound, RangeBounds},
@@ -148,7 +148,7 @@ impl MinMaxValues {
         }
         true
     }
-    /// Creates MinMaxValues from a reflected range type.
+    /// Creates `MinMaxValues` from a reflected range type.
     /// Attempts to downcast the reflected value to the specified range type T
     /// and extract its bounds.
     pub fn from_reflect<T, Y>(reflect_val: &dyn Reflect) -> Option<MinMaxValues>
@@ -165,8 +165,8 @@ impl MinMaxValues {
         )))
     }
 
-    /// Creates MinMaxValues from range bounds and a type identifier.
-    /// Takes a tuple containing start bound, end bound, and TypeId to construct
+    /// Creates `MinMaxValues` from range bounds and a type identifier.
+    /// Takes a tuple containing start bound, end bound, and `TypeId` to construct
     /// the appropriate range constraints.
     pub fn from_range<T>(value: (Bound<&T>, Bound<&T>, TypeId)) -> MinMaxValues
     where
@@ -226,7 +226,7 @@ impl From<TypeId> for MinMaxValues {
 pub enum InternalSchemaType {
     /// Represents array-like types (Vec, arrays, lists, sets).
     Array {
-        /// The TypeId of the element type contained in the array.
+        /// The `TypeId` of the element type contained in the array.
         element_type: TypeId,
         /// Optional type information for the element type.
         element_type_info: Option<TypeInfo>,
@@ -248,13 +248,13 @@ pub enum InternalSchemaType {
         /// Generic information about the wrapped type T in Option<T>.
         generic: GenericInfo,
     },
-    /// Represents a Map type (e.g., HashMap<K, V>).
+    /// Represents a Map type (e.g., `HashMap`<K, V>).
     Map {
-        /// The TypeId of the key type contained in the map.
+        /// The `TypeId` of the key type contained in the map.
         key_type: TypeId,
         /// Optional type information for the key type.
         key_type_info: Option<TypeInfo>,
-        /// The TypeId of the value type contained in the map.
+        /// The `TypeId` of the value type contained in the map.
         value_type: TypeId,
         /// Optional type information for the value type.
         value_type_info: Option<TypeInfo>,
@@ -297,10 +297,7 @@ impl From<&SchemaTypeInfo> for Option<SchemaTypeVariant> {
                     SchemaType::Null,
                 ]))
             }
-            InternalSchemaType::Regular => match &value.type_id {
-                Some(s) => Some(SchemaTypeVariant::Single(s.clone().into())),
-                _ => None,
-            },
+            InternalSchemaType::Regular => value.type_id.as_ref().map(|s| SchemaTypeVariant::Single((*s).into())),
         }
     }
 }
@@ -318,45 +315,44 @@ pub struct SchemaTypeInfo {
     pub kind: SchemaKind,
     /// Optional Bevy reflection type information.
     pub type_info: Option<TypeInfo>,
-    /// Optional TypeId for the type.
+    /// Optional `TypeId` for the type.
     pub type_id: Option<TypeId>,
     /// Numeric range constraints for the type.
     pub range: MinMaxValues,
 }
 
-impl Into<JsonSchemaVariant> for SchemaTypeInfo {
-    fn into(self) -> JsonSchemaVariant {
-        let schema_type: Option<SchemaTypeVariant> = (&self).into();
+impl From<SchemaTypeInfo> for JsonSchemaVariant {
+    fn from(val: SchemaTypeInfo) -> Self {
+        let schema_type: Option<SchemaTypeVariant> = (&val).into();
         let mut schema = JsonSchemaBevyType {
             schema_type: schema_type.clone(),
-            kind: self.kind.clone(),
-            description: self.documentation.clone(),
-            type_path: self
+            kind: val.kind.clone(),
+            description: val.documentation.clone(),
+            type_path: val
                 .type_info
                 .as_ref()
-                .and_then(|s| Some(s.type_path_table().path().into()))
+                .map(|s| (s.type_path_table().path().into()))
                 .unwrap_or_default(),
-            short_path: self
+            short_path: val
                 .type_info
-                .as_ref()
-                .and_then(|s| Some(s.type_path_table().short_path().into()))
+                .as_ref().map(|s| s.type_path_table().short_path().into())
                 .unwrap_or_default(),
-            crate_name: self
+            crate_name: val
                 .type_info
                 .as_ref()
                 .and_then(|s| s.type_path_table().crate_name().map(Into::into)),
-            module_path: self
+            module_path: val
                 .type_info
                 .as_ref()
                 .and_then(|s| s.type_path_table().module_path().map(Into::into)),
-            minimum: self.range.min.as_ref().and_then(|r| r.get_inclusive()),
-            maximum: self.range.max.as_ref().and_then(|r| r.get_inclusive()),
-            exclusive_minimum: self.range.min.as_ref().and_then(|r| r.get_exclusive()),
-            exclusive_maximum: self.range.max.as_ref().and_then(|r| r.get_exclusive()),
+            minimum: val.range.min.as_ref().and_then(BoundValue::get_inclusive),
+            maximum: val.range.max.as_ref().and_then(BoundValue::get_inclusive),
+            exclusive_minimum: val.range.min.as_ref().and_then(BoundValue::get_exclusive),
+            exclusive_maximum: val.range.max.as_ref().and_then(BoundValue::get_exclusive),
             ..Default::default()
         };
 
-        match self.internal_type {
+        match val.internal_type {
             InternalSchemaType::Map {
                 key_type,
                 key_type_info,
@@ -378,7 +374,7 @@ impl Into<JsonSchemaVariant> for SchemaTypeInfo {
             }
             InternalSchemaType::Regular => {}
             InternalSchemaType::EnumHolder(variants) => {
-                schema.one_of = variants.iter().map(|v| v.build_schema()).collect();
+                schema.one_of = variants.iter().map(SchemaInfoReflect::build_schema).collect();
             }
             InternalSchemaType::EnumVariant(variant_info) => match &variant_info {
                 VariantInfo::Struct(struct_variant_info) => {
@@ -441,12 +437,12 @@ impl Into<JsonSchemaVariant> for SchemaTypeInfo {
                     if let JsonSchemaVariant::Schema(new_schema_type) = new_schema {
                         schema = *new_schema_type;
                         schema.schema_type = schema_type.clone();
-                        schema.description = self.documentation.clone();
+                        schema.description = val.documentation.clone();
                     } else {
                         return new_schema;
                     }
                 } else {
-                    schema.prefix_items = unnamed_fields.iter().map(|s| s.build_schema()).collect();
+                    schema.prefix_items = unnamed_fields.iter().map(SchemaInfoReflect::build_schema).collect();
                     schema.min_items = Some(unnamed_fields.len() as u64);
                     schema.max_items = Some(unnamed_fields.len() as u64);
                 }
@@ -470,13 +466,13 @@ impl Into<JsonSchemaVariant> for SchemaTypeInfo {
                 if let JsonSchemaVariant::Schema(value) = schema_variant {
                     schema = *value;
                     schema.schema_type = schema_type.clone();
-                    schema.minimum = self.range.min.as_ref().and_then(|r| r.get_inclusive());
-                    schema.maximum = self.range.max.as_ref().and_then(|r| r.get_inclusive());
+                    schema.minimum = val.range.min.as_ref().and_then(BoundValue::get_inclusive);
+                    schema.maximum = val.range.max.as_ref().and_then(BoundValue::get_inclusive);
                     schema.exclusive_minimum =
-                        self.range.min.as_ref().and_then(|r| r.get_exclusive());
+                        val.range.min.as_ref().and_then(BoundValue::get_exclusive);
                     schema.exclusive_maximum =
-                        self.range.max.as_ref().and_then(|r| r.get_exclusive());
-                    schema.description = self.documentation;
+                        val.range.max.as_ref().and_then(BoundValue::get_exclusive);
+                    schema.description = val.documentation;
                     schema.kind = SchemaKind::Optional;
                 } else {
                     return schema_variant;
@@ -515,21 +511,18 @@ pub trait SchemaInfoReflect {
         if SchemaType::try_get_primitive_type_from_type_id(self.get_type()).is_some() {
             return SchemaKind::Value;
         }
-        match self.try_get_type_info() {
-            Some(type_info) => {
-                return match type_info {
-                    TypeInfo::Struct(_) => SchemaKind::Struct,
-                    TypeInfo::TupleStruct(_) => SchemaKind::TupleStruct,
-                    TypeInfo::Tuple(_) => SchemaKind::Tuple,
-                    TypeInfo::List(_) => SchemaKind::List,
-                    TypeInfo::Array(_) => SchemaKind::Array,
-                    TypeInfo::Map(_) => SchemaKind::Map,
-                    TypeInfo::Set(_) => SchemaKind::Set,
-                    TypeInfo::Enum(_) => SchemaKind::Enum,
-                    TypeInfo::Opaque(_) => SchemaKind::Opaque,
-                }
+        if let Some(type_info) = self.try_get_type_info() {
+            return match type_info {
+                TypeInfo::Struct(_) => SchemaKind::Struct,
+                TypeInfo::TupleStruct(_) => SchemaKind::TupleStruct,
+                TypeInfo::Tuple(_) => SchemaKind::Tuple,
+                TypeInfo::List(_) => SchemaKind::List,
+                TypeInfo::Array(_) => SchemaKind::Array,
+                TypeInfo::Map(_) => SchemaKind::Map,
+                TypeInfo::Set(_) => SchemaKind::Set,
+                TypeInfo::Enum(_) => SchemaKind::Enum,
+                TypeInfo::Opaque(_) => SchemaKind::Opaque,
             }
-            None => {}
         }
         SchemaKind::Value
     }
@@ -627,7 +620,7 @@ pub trait SchemaInfoReflect {
         None
     }
 
-    /// Get the underlying TypeId
+    /// Get the underlying `TypeId`
     fn get_type(&self) -> TypeId;
 
     /// Try to get the attribute by id
@@ -635,7 +628,7 @@ pub trait SchemaInfoReflect {
         None
     }
 
-    /// Creates MinMaxValues from a reflected range type.
+    /// Creates `MinMaxValues` from a reflected range type.
     /// Attempts to downcast the reflected value to the specified range type T
     /// and extract its bounds.
     fn min_max_from_attribute<T, Y>(&self) -> Option<MinMaxValues>
@@ -647,7 +640,7 @@ pub trait SchemaInfoReflect {
             .and_then(|reflect_value| MinMaxValues::from_reflect::<T, Y>(reflect_value))
     }
 
-    /// Creates MinMaxValues from a reflected range type.
+    /// Creates `MinMaxValues` from a reflected range type.
     /// Attempts to downcast the reflected value to the specified range type T
     /// and extract its bounds.
     fn min_max_from_attribute_for_type<T>(&self) -> Option<MinMaxValues>
@@ -681,7 +674,7 @@ pub trait SchemaInfoReflect {
         None
     }
 
-    /// Creates MinMaxValues from a reflected range type.
+    /// Creates `MinMaxValues` from a reflected range type.
     /// Attempts to downcast the reflected value to the specified range type T
     /// and extract its bounds.
     fn get_range_by_id(&self) -> MinMaxValues {
@@ -724,7 +717,7 @@ pub trait SchemaInfoReflect {
 
 impl SchemaInfoReflect for UnnamedField {
     fn try_get_type_info(&self) -> Option<TypeInfo> {
-        self.type_info().and_then(|info| Some(info.clone()))
+        self.type_info().cloned()
     }
     #[cfg(feature = "documentation")]
     fn get_docs(&self) -> Option<&str> {
@@ -741,7 +734,7 @@ impl SchemaInfoReflect for UnnamedField {
 
 impl SchemaInfoReflect for NamedField {
     fn try_get_type_info(&self) -> Option<TypeInfo> {
-        self.type_info().and_then(|info| Some(info.clone()))
+        self.type_info().cloned()
     }
     #[cfg(feature = "documentation")]
     fn get_docs(&self) -> Option<&str> {

@@ -10,7 +10,7 @@ use bevy_reflect::{
     TypeRegistration,
 };
 use core::any::TypeId;
-use std::borrow::Cow;
+use alloc::borrow::Cow;
 
 use crate::schemas::json_schema::JsonSchemaBevyType;
 

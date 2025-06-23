@@ -1,7 +1,7 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
 use core::any::TypeId;
-use std::borrow::Cow;
+use alloc::borrow::Cow;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
