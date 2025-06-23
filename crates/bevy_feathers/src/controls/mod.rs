@@ -6,7 +6,7 @@ mod slider;
 pub use button::{button, ButtonPlugin, ButtonProps, ButtonVariant};
 pub use slider::{slider, SliderPlugin, SliderProps};
 
-/// Plugin which registers all feathers controls.
+/// Plugin which registers all `bevy_feathers` controls.
 pub struct ControlsPlugin;
 
 impl Plugin for ControlsPlugin {

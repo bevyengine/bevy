@@ -1,5 +1,22 @@
 //! `bevy_feathers` is a collection of styled and themed widgets for building editors and
 //! inspectors.
+//! 
+//! The aesthetic choices made here are designed with a future Bevy Editor in mind,
+//! but this crate is deliberately exposed to the public to allow the broader ecosystem to easily create
+//! tooling for themselves and others that fits cohesively together.
+//!
+//! While it may be tempting to use this crate for your game's UI, it's deliberately not intended for that.
+//! We've opted for a clean, functional style, and prioritized consistency over customization.
+//! That said, if you like what you see, it can be a helpful learning tool.
+//! Consider copying this code into your own project,
+//! and refining the styles and abstractions provided to meet your needs.
+//! 
+//! ## Warning: Experimental!
+//! All that said, this crate is still experimental and unfinished!
+//! It will change in breaking ways, and there will be both bugs and limitations.
+//! 
+//! Please report issues, submit fixes and propose changes.
+//! Thanks for stress-testing; let's build something better together.
 
 use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;

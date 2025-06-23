@@ -4,8 +4,8 @@ authors: ["@viridia"]
 pull_requests: [19730]
 ---
 
-As part of our commitment to enhance the developer experience for UI creation in Bevy, we are
-pleased to introduce "Feathers" - a comprehensive widget set that offers:
+To make it easier for Bevy engine developers and third-party tool creators to make comfortable, visually cohesive tooling,
+we're pleased to introduce "Feathers" - a comprehensive widget set that offers:
 
 - Standard widgets designed to match the look and feel of the planned Bevy Editor
 - Components that can be leveraged to build custom editors, inspectors, and utility interfaces
@@ -19,6 +19,8 @@ pleased to introduce "Feathers" - a comprehensive widget set that offers:
 Feathers isn't meant as a toolkit for building exciting and cool game UIs: it has a somewhat plain
 and utilitarian look and feel suitable for editors and graphical utilities. That being said, using
 the themeing framework, you can spice up the colors quite a bit.
+It can also serve as a helpful base to understand how to extend and style `bevy_ui` and our new core widgets;
+copy the code into your project and start hacking!
 
 Feathers is still in development, and is currently hidden behind an experimental feature flag,
 `experimental_bevy_feathers`.
