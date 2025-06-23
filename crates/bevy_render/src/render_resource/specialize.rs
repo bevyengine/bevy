@@ -127,7 +127,7 @@ impl Specializable for ComputePipeline {
 /// */
 /// ```
 pub trait Specialize<T: Specializable>: Send + Sync + 'static {
-    type Key: SpecializationKey;
+    type Key: SpecializeKey;
     fn specialize(
         &self,
         key: Self::Key,
@@ -135,12 +135,12 @@ pub trait Specialize<T: Specializable>: Send + Sync + 'static {
     ) -> Result<Canonical<Self::Key>, BevyError>;
 }
 
-pub trait SpecializationKey: Clone + Hash + Eq {
+pub trait SpecializeKey: Clone + Hash + Eq {
     const CANONICAL: bool;
     type Canonical: Hash + Eq;
 }
 
-pub type Canonical<T> = <T as SpecializationKey>::Canonical;
+pub type Canonical<T> = <T as SpecializeKey>::Canonical;
 
 impl<T: Specializable> Specialize<T> for () {
     type Key = ();
@@ -168,8 +168,8 @@ impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V
 
 macro_rules! impl_specialization_key_tuple {
     ($($T:ident),*) => {
-        impl <$($T: SpecializationKey),*> SpecializationKey for ($($T,)*) {
-            const CANONICAL: bool = true $(&& <$T as SpecializationKey>::CANONICAL)*;
+        impl <$($T: SpecializeKey),*> SpecializeKey for ($($T,)*) {
+            const CANONICAL: bool = true $(&& <$T as SpecializeKey>::CANONICAL)*;
             type Canonical = ($(Canonical<$T>,)*);
         }
     };
@@ -316,7 +316,7 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
         }
 
         // if the whole key is canonical, the secondary cache isn't needed.
-        if <S::Key as SpecializationKey>::CANONICAL {
+        if <S::Key as SpecializeKey>::CANONICAL {
             return Ok(primary_entry
                 .insert(<T as Specializable>::queue(pipeline_cache, descriptor))
                 .clone());

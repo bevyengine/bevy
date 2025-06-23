@@ -35,7 +35,7 @@ use bevy::{
         Render, RenderApp, RenderSystems,
     },
 };
-use bevy_render::render_resource::{Canonical, SpecializationKey};
+use bevy_render::render_resource::{Canonical, SpecializeKey};
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
@@ -238,7 +238,8 @@ fn queue_custom_phase_item(
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
             // with the exception of number of MSAA samples.
-            let Ok(pipeline_id) = specializer.specialize(&pipeline_cache, *msaa) else {
+            let Ok(pipeline_id) = specializer.specialize(&pipeline_cache, CustomPhaseKey(*msaa))
+            else {
                 continue;
             };
 
@@ -294,7 +295,7 @@ impl FromWorld for CustomPhaseSpecializer {
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 struct CustomPhaseKey(Msaa);
 
-impl SpecializationKey for CustomPhaseKey {
+impl SpecializeKey for CustomPhaseKey {
     const CANONICAL: bool = true;
     type Canonical = Self;
 }
