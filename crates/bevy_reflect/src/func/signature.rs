@@ -90,6 +90,7 @@ impl<'a, 'b> ArgListSignature<'a, 'b> {
 }
 
 impl Eq for ArgListSignature<'_, '_> {}
+
 impl PartialEq for ArgListSignature<'_, '_> {
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.iter().eq(other.iter())
@@ -229,7 +230,7 @@ mod tests {
         );
 
         assert_eq!(
-            format!("{:?}", signature),
+            format!("{signature:?}"),
             "(&mut alloc::string::String, i32) -> ()"
         );
     }

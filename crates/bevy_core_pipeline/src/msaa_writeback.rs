@@ -61,7 +61,7 @@ impl ViewNode for MsaaWritebackNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (target, blit_pipeline_id, msaa): QueryItem<'w, Self::ViewQuery>,
+        (target, blit_pipeline_id, msaa): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         if *msaa == Msaa::Off {

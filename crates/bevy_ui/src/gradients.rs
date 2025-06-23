@@ -1,8 +1,9 @@
-use crate::{Position, Val};
+use crate::{UiPosition, Val};
 use bevy_color::{Color, Srgba};
 use bevy_ecs::component::Component;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
+use bevy_utils::default;
 use core::{f32, f32::consts::TAU};
 
 /// A color stop for a gradient
@@ -43,7 +44,7 @@ impl ColorStop {
         }
     }
 
-    // Set the interpolation midpoint between this and and the following stop
+    // Set the interpolation midpoint between this and the following stop
     pub fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
@@ -155,7 +156,7 @@ impl AngularColorStop {
         }
     }
 
-    // Set the interpolation midpoint between this and and the following stop
+    // Set the interpolation midpoint between this and the following stop
     pub fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
@@ -205,7 +206,7 @@ impl Default for AngularColorStop {
 /// A linear gradient
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/linear-gradient>
-#[derive(Clone, PartialEq, Debug, Reflect)]
+#[derive(Default, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -213,8 +214,10 @@ impl Default for AngularColorStop {
     reflect(Serialize, Deserialize)
 )]
 pub struct LinearGradient {
-    /// The direction of the gradient.
-    /// An angle of `0.` points upward, angles increasing clockwise.
+    /// The color space used for interpolation.
+    pub color_space: InterpolationColorSpace,
+    /// The direction of the gradient in radians.
+    /// An angle of `0.` points upward, with the value increasing in the clockwise direction.
     pub angle: f32,
     /// The list of color stops
     pub stops: Vec<ColorStop>,
@@ -240,7 +243,11 @@ impl LinearGradient {
 
     /// Create a new linear gradient
     pub fn new(angle: f32, stops: Vec<ColorStop>) -> Self {
-        Self { angle, stops }
+        Self {
+            angle,
+            stops,
+            color_space: InterpolationColorSpace::default(),
+        }
     }
 
     /// A linear gradient transitioning from bottom to top
@@ -248,6 +255,7 @@ impl LinearGradient {
         Self {
             angle: Self::TO_TOP,
             stops,
+            color_space: InterpolationColorSpace::default(),
         }
     }
 
@@ -256,6 +264,7 @@ impl LinearGradient {
         Self {
             angle: Self::TO_TOP_RIGHT,
             stops,
+            color_space: InterpolationColorSpace::default(),
         }
     }
 
@@ -264,6 +273,7 @@ impl LinearGradient {
         Self {
             angle: Self::TO_RIGHT,
             stops,
+            color_space: InterpolationColorSpace::default(),
         }
     }
 
@@ -272,6 +282,7 @@ impl LinearGradient {
         Self {
             angle: Self::TO_BOTTOM_RIGHT,
             stops,
+            color_space: InterpolationColorSpace::default(),
         }
     }
 
@@ -280,6 +291,7 @@ impl LinearGradient {
         Self {
             angle: Self::TO_BOTTOM,
             stops,
+            color_space: InterpolationColorSpace::default(),
         }
     }
 
@@ -288,6 +300,7 @@ impl LinearGradient {
         Self {
             angle: Self::TO_BOTTOM_LEFT,
             stops,
+            color_space: InterpolationColorSpace::default(),
         }
     }
 
@@ -296,6 +309,7 @@ impl LinearGradient {
         Self {
             angle: Self::TO_LEFT,
             stops,
+            color_space: InterpolationColorSpace::default(),
         }
     }
 
@@ -304,6 +318,7 @@ impl LinearGradient {
         Self {
             angle: Self::TO_TOP_LEFT,
             stops,
+            color_space: InterpolationColorSpace::default(),
         }
     }
 
@@ -312,7 +327,13 @@ impl LinearGradient {
         Self {
             angle: degrees.to_radians(),
             stops,
+            color_space: InterpolationColorSpace::default(),
         }
+    }
+
+    pub fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+        self.color_space = color_space;
+        self
     }
 }
 
@@ -327,8 +348,10 @@ impl LinearGradient {
     reflect(Serialize, Deserialize)
 )]
 pub struct RadialGradient {
+    /// The color space used for interpolation.
+    pub color_space: InterpolationColorSpace,
     /// The center of the radial gradient
-    pub position: Position,
+    pub position: UiPosition,
     /// Defines the end shape of the radial gradient
     pub shape: RadialGradientShape,
     /// The list of color stops
@@ -337,21 +360,28 @@ pub struct RadialGradient {
 
 impl RadialGradient {
     /// Create a new radial gradient
-    pub fn new(position: Position, shape: RadialGradientShape, stops: Vec<ColorStop>) -> Self {
+    pub fn new(position: UiPosition, shape: RadialGradientShape, stops: Vec<ColorStop>) -> Self {
         Self {
+            color_space: default(),
             position,
             shape,
             stops,
         }
+    }
+
+    pub fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+        self.color_space = color_space;
+        self
     }
 }
 
 impl Default for RadialGradient {
     fn default() -> Self {
         Self {
-            position: Position::CENTER,
+            position: UiPosition::CENTER,
             shape: RadialGradientShape::ClosestCorner,
             stops: Vec::new(),
+            color_space: default(),
         }
     }
 }
@@ -359,7 +389,7 @@ impl Default for RadialGradient {
 /// A conic gradient
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/conic-gradient>
-#[derive(Clone, PartialEq, Debug, Reflect)]
+#[derive(Default, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -367,33 +397,41 @@ impl Default for RadialGradient {
     reflect(Serialize, Deserialize)
 )]
 pub struct ConicGradient {
+    /// The color space used for interpolation.
+    pub color_space: InterpolationColorSpace,
     /// The starting angle of the gradient in radians
     pub start: f32,
     /// The center of the conic gradient
-    pub position: Position,
+    pub position: UiPosition,
     /// The list of color stops
     pub stops: Vec<AngularColorStop>,
 }
 
 impl ConicGradient {
-    /// create a new conic gradient
-    pub fn new(position: Position, stops: Vec<AngularColorStop>) -> Self {
+    /// Create a new conic gradient
+    pub fn new(position: UiPosition, stops: Vec<AngularColorStop>) -> Self {
         Self {
+            color_space: default(),
             start: 0.,
             position,
             stops,
         }
     }
 
-    /// Sets the starting angle of the gradient
+    /// Sets the starting angle of the gradient in radians
     pub fn with_start(mut self, start: f32) -> Self {
         self.start = start;
         self
     }
 
     /// Sets the position of the gradient
-    pub fn with_position(mut self, position: Position) -> Self {
+    pub fn with_position(mut self, position: UiPosition) -> Self {
         self.position = position;
+        self
+    }
+
+    pub fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+        self.color_space = color_space;
         self
     }
 }
@@ -430,7 +468,7 @@ impl Gradient {
         }
     }
 
-    /// If the gradient has only a single color stop `get_single` returns its color.
+    /// If the gradient has only a single color stop, `get_single` returns its color.
     pub fn get_single(&self) -> Option<Color> {
         match self {
             Gradient::Linear(gradient) => gradient
@@ -571,5 +609,81 @@ impl RadialGradientShape {
                     .unwrap_or(0.),
             ),
         }
+    }
+}
+
+/// The color space used for interpolation.
+#[derive(Default, Copy, Clone, Hash, Debug, PartialEq, Eq, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum InterpolationColorSpace {
+    /// Interpolates in `OKLab` space.
+    #[default]
+    OkLab,
+    /// Interpolates in OKLCH space, taking the shortest hue path.
+    OkLch,
+    /// Interpolates in OKLCH space, taking the longest hue path.
+    OkLchLong,
+    /// Interpolates in sRGB space.
+    Srgb,
+    /// Interpolates in linear sRGB space.
+    LinearRgb,
+}
+
+/// Set the color space used for interpolation.
+pub trait InColorSpace: Sized {
+    /// Interpolate in the given `color_space`.
+    fn in_color_space(self, color_space: InterpolationColorSpace) -> Self;
+
+    /// Interpolate in `OKLab` space.
+    fn in_oklab(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::OkLab)
+    }
+
+    /// Interpolate in OKLCH space (short hue path).
+    fn in_oklch(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::OkLch)
+    }
+
+    /// Interpolate in OKLCH space (long hue path).
+    fn in_oklch_long(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::OkLchLong)
+    }
+
+    /// Interpolate in sRGB space.
+    fn in_srgb(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::Srgb)
+    }
+
+    /// Interpolate in linear sRGB space.
+    fn in_linear_rgb(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::LinearRgb)
+    }
+}
+
+impl InColorSpace for LinearGradient {
+    /// Interpolate in the given `color_space`.
+    fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+        self.color_space = color_space;
+        self
+    }
+}
+
+impl InColorSpace for RadialGradient {
+    /// Interpolate in the given `color_space`.
+    fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+        self.color_space = color_space;
+        self
+    }
+}
+
+impl InColorSpace for ConicGradient {
+    /// Interpolate in the given `color_space`.
+    fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+        self.color_space = color_space;
+        self
     }
 }

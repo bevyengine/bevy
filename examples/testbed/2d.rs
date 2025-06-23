@@ -26,7 +26,6 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
-#[states(scoped_entities)]
 enum Scene {
     #[default]
     Shapes,
@@ -121,10 +120,6 @@ mod bloom {
     ) {
         commands.spawn((
             Camera2d,
-            Camera {
-                hdr: true,
-                ..default()
-            },
             Tonemapping::TonyMcMapface,
             Bloom::default(),
             DespawnOnExitState(super::Scene::Bloom),
@@ -156,10 +151,10 @@ mod text {
         commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Text)));
 
         for (i, justify) in [
-            JustifyText::Left,
-            JustifyText::Right,
-            JustifyText::Center,
-            JustifyText::Justified,
+            Justify::Left,
+            Justify::Right,
+            Justify::Center,
+            Justify::Justified,
         ]
         .into_iter()
         .enumerate()
@@ -201,7 +196,7 @@ mod text {
     fn spawn_anchored_text(
         commands: &mut Commands,
         dest: Vec3,
-        justify: JustifyText,
+        justify: Justify,
         bounds: Option<TextBounds>,
     ) {
         commands.spawn((

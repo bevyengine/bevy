@@ -1,4 +1,6 @@
-use core::{any::type_name, fmt};
+use core::fmt;
+
+use bevy_utils::prelude::DebugName;
 
 use crate::{
     entity::Entity,
@@ -31,7 +33,7 @@ where
             Err(err) => (error_handler)(
                 err.into(),
                 ErrorContext::Command {
-                    name: type_name::<C>().into(),
+                    name: DebugName::type_name::<C>(),
                 },
             ),
         }
@@ -43,7 +45,7 @@ where
             Err(err) => world.default_error_handler()(
                 err.into(),
                 ErrorContext::Command {
-                    name: type_name::<C>().into(),
+                    name: DebugName::type_name::<C>(),
                 },
             ),
         }

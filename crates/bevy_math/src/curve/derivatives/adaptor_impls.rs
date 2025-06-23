@@ -208,10 +208,12 @@ where
 
 // -- ZipCurve
 
-impl<S, T, C, D> SampleDerivative<(S, T)> for ZipCurve<S, T, C, D>
+impl<U, V, S, T, C, D> SampleDerivative<(S, T)> for ZipCurve<S, T, C, D>
 where
-    S: HasTangent,
-    T: HasTangent,
+    U: VectorSpace<Scalar = f32>,
+    V: VectorSpace<Scalar = f32>,
+    S: HasTangent<Tangent = U>,
+    T: HasTangent<Tangent = V>,
     C: SampleDerivative<S>,
     D: SampleDerivative<T>,
 {
@@ -225,10 +227,12 @@ where
     }
 }
 
-impl<S, T, C, D> SampleTwoDerivatives<(S, T)> for ZipCurve<S, T, C, D>
+impl<U, V, S, T, C, D> SampleTwoDerivatives<(S, T)> for ZipCurve<S, T, C, D>
 where
-    S: HasTangent,
-    T: HasTangent,
+    U: VectorSpace<Scalar = f32>,
+    V: VectorSpace<Scalar = f32>,
+    S: HasTangent<Tangent = U>,
+    T: HasTangent<Tangent = V>,
     C: SampleTwoDerivatives<S>,
     D: SampleTwoDerivatives<T>,
 {
@@ -248,9 +252,10 @@ where
 
 // -- GraphCurve
 
-impl<T, C> SampleDerivative<(f32, T)> for GraphCurve<T, C>
+impl<V, T, C> SampleDerivative<(f32, T)> for GraphCurve<T, C>
 where
-    T: HasTangent,
+    V: VectorSpace<Scalar = f32>,
+    T: HasTangent<Tangent = V>,
     C: SampleDerivative<T>,
 {
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<(f32, T)> {
@@ -262,9 +267,10 @@ where
     }
 }
 
-impl<T, C> SampleTwoDerivatives<(f32, T)> for GraphCurve<T, C>
+impl<V, T, C> SampleTwoDerivatives<(f32, T)> for GraphCurve<T, C>
 where
-    T: HasTangent,
+    V: VectorSpace<Scalar = f32>,
+    T: HasTangent<Tangent = V>,
     C: SampleTwoDerivatives<T>,
 {
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<(f32, T)> {
@@ -321,9 +327,10 @@ where
 
 // -- CurveReparamCurve
 
-impl<T, C, D> SampleDerivative<T> for CurveReparamCurve<T, C, D>
+impl<V, T, C, D> SampleDerivative<T> for CurveReparamCurve<T, C, D>
 where
-    T: HasTangent,
+    V: VectorSpace<Scalar = f32>,
+    T: HasTangent<Tangent = V>,
     C: SampleDerivative<T>,
     D: SampleDerivative<f32>,
 {
@@ -349,9 +356,10 @@ where
     }
 }
 
-impl<T, C, D> SampleTwoDerivatives<T> for CurveReparamCurve<T, C, D>
+impl<V, T, C, D> SampleTwoDerivatives<T> for CurveReparamCurve<T, C, D>
 where
-    T: HasTangent,
+    V: VectorSpace<Scalar = f32>,
+    T: HasTangent<Tangent = V>,
     C: SampleTwoDerivatives<T>,
     D: SampleTwoDerivatives<f32>,
 {
@@ -386,9 +394,10 @@ where
 
 // -- LinearReparamCurve
 
-impl<T, C> SampleDerivative<T> for LinearReparamCurve<T, C>
+impl<V, T, C> SampleDerivative<T> for LinearReparamCurve<T, C>
 where
-    T: HasTangent,
+    V: VectorSpace<Scalar = f32>,
+    T: HasTangent<Tangent = V>,
     C: SampleDerivative<T>,
 {
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<T> {
@@ -413,9 +422,10 @@ where
     }
 }
 
-impl<T, C> SampleTwoDerivatives<T> for LinearReparamCurve<T, C>
+impl<V, T, C> SampleTwoDerivatives<T> for LinearReparamCurve<T, C>
 where
-    T: HasTangent,
+    V: VectorSpace<Scalar = f32>,
+    T: HasTangent<Tangent = V>,
     C: SampleTwoDerivatives<T>,
 {
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<T> {

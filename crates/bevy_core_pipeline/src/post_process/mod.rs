@@ -3,7 +3,7 @@
 //! Currently, this consists only of chromatic aberration.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Assets, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, weak_handle, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -20,6 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    load_shader_library,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
@@ -45,13 +46,6 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader,
 };
-
-/// The handle to the built-in postprocessing shader `post_process.wgsl`.
-const POST_PROCESSING_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("5e8e627a-7531-484d-a988-9a38acb34e52");
-/// The handle to the chromatic aberration shader `chromatic_aberration.wgsl`.
-const CHROMATIC_ABERRATION_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("e598550e-71c3-4f5a-ba29-aebc3f88c7b5");
 
 /// The handle to the default chromatic aberration lookup texture.
 ///
@@ -136,6 +130,8 @@ pub struct PostProcessingPipeline {
     source_sampler: Sampler,
     /// Specifies how to sample the chromatic aberration gradient.
     chromatic_aberration_lut_sampler: Sampler,
+    /// The shader asset handle.
+    shader: Handle<Shader>,
 }
 
 /// A key that uniquely identifies a built-in postprocessing pipeline.
@@ -188,18 +184,9 @@ pub struct PostProcessingNode;
 
 impl Plugin for PostProcessingPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            POST_PROCESSING_SHADER_HANDLE,
-            "post_process.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            CHROMATIC_ABERRATION_SHADER_HANDLE,
-            "chromatic_aberration.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "chromatic_aberration.wgsl");
+
+        embedded_asset!(app, "post_process.wgsl");
 
         // Load the default chromatic aberration LUT.
         let mut assets = app.world_mut().resource_mut::<Assets<_>>();
@@ -321,6 +308,7 @@ impl FromWorld for PostProcessingPipeline {
             bind_group_layout,
             source_sampler,
             chromatic_aberration_lut_sampler,
+            shader: load_embedded_asset!(world, "post_process.wgsl"),
         }
     }
 }
@@ -334,7 +322,7 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
             layout: vec![self.bind_group_layout.clone()],
             vertex: fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: POST_PROCESSING_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs: vec![],
                 entry_point: "fragment_main".into(),
                 targets: vec![Some(ColorTargetState {
@@ -364,7 +352,7 @@ impl ViewNode for PostProcessingNode {
         &self,
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
+        (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -497,7 +485,7 @@ impl ExtractComponent for ChromaticAberration {
     type Out = ChromaticAberration;
 
     fn extract_component(
-        chromatic_aberration: QueryItem<'_, Self::QueryData>,
+        chromatic_aberration: QueryItem<'_, '_, Self::QueryData>,
     ) -> Option<Self::Out> {
         // Skip the postprocessing phase entirely if the intensity is zero.
         if chromatic_aberration.intensity > 0.0 {

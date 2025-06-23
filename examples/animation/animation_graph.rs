@@ -180,17 +180,19 @@ fn setup_assets_programmatically(
 
         IoTaskPool::get()
             .spawn(async move {
+                use std::io::Write;
+
+                let serialized_graph =
+                    ron::ser::to_string_pretty(&animation_graph, PrettyConfig::default())
+                        .expect("Failed to serialize the animation graph");
                 let mut animation_graph_writer = File::create(Path::join(
                     &FileAssetReader::get_base_path(),
                     Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),
                 ))
                 .expect("Failed to open the animation graph asset");
-                ron::ser::to_writer_pretty(
-                    &mut animation_graph_writer,
-                    &animation_graph,
-                    PrettyConfig::default(),
-                )
-                .expect("Failed to serialize the animation graph");
+                animation_graph_writer
+                    .write_all(serialized_graph.as_bytes())
+                    .expect("Failed to write the animation graph");
             })
             .detach();
     }
@@ -277,7 +279,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     ..default()
                 },
                 TextColor(ANTIQUE_WHITE.into()),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
             ))
             .id();
 
@@ -295,7 +297,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BorderColor(WHITE.into()),
+                BorderColor::all(WHITE.into()),
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
             ));
 
@@ -349,7 +351,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            BorderColor(WHITE.into()),
+            BorderColor::all(WHITE.into()),
         ));
     }
 
@@ -364,7 +366,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::left(Val::Px(1.0)),
                 ..default()
             },
-            BorderColor(WHITE.into()),
+            BorderColor::all(WHITE.into()),
         ));
     }
 }

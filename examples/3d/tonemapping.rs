@@ -9,7 +9,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         render_resource::{AsBindGroup, ShaderRef},
-        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
+        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
     },
 };
 use std::f32::consts::PI;
@@ -65,10 +65,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         camera_transform.0,
         DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
@@ -183,7 +180,7 @@ fn setup_image_viewer_scene(
             ..default()
         },
         TextColor(Color::BLACK),
-        TextLayout::new_with_justify(JustifyText::Center),
+        TextLayout::new_with_justify(Justify::Center),
         Node {
             align_self: AlignSelf::Center,
             margin: UiRect::all(Val::Auto),
