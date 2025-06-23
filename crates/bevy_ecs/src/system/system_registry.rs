@@ -816,6 +816,19 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "This system always fails")]
+    fn cached_fallible_system_commands_can_fail() {
+        use crate::system::command;
+        fn sys() -> Result {
+            Err("This system always fails".into())
+        }
+
+        let mut world = World::new();
+        world.commands().queue(command::run_system_cached(sys));
+        world.flush_commands();
+    }
+
+    #[test]
     fn cached_system_adapters() {
         fn four() -> i32 {
             4
