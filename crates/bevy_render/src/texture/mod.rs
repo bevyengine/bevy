@@ -35,28 +35,48 @@ pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
+#[derive(Default)]
 pub struct ImagePlugin {
     /// The default image sampler to use when [`bevy_image::ImageSampler`] is set to `Default`.
     pub default_sampler: ImageSamplerDescriptor,
 }
 
-impl Default for ImagePlugin {
-    fn default() -> Self {
-        ImagePlugin::default_linear()
-    }
-}
-
 impl ImagePlugin {
-    /// Creates image settings with linear sampling by default.
-    pub fn default_linear() -> ImagePlugin {
-        ImagePlugin {
-            default_sampler: ImageSamplerDescriptor::linear(),
+    /// Creates image settings with trilinear filtering by default.
+    #[deprecated(
+        since = "0.17.0",
+        note = "With more generators provided became misleading. For same behavior, use `default_trilinear()`."
+    )]
+    pub fn default_linear() -> Self {
+        Self {
+            default_sampler: ImageSamplerDescriptor::trilinear(),
         }
     }
 
-    /// Creates image settings with nearest sampling by default.
-    pub fn default_nearest() -> ImagePlugin {
-        ImagePlugin {
+    /// Creates image settings with anisotropic filtering by default.
+    pub fn default_anisotropic() -> Self {
+        Self {
+            default_sampler: ImageSamplerDescriptor::anisotropic(),
+        }
+    }
+
+    /// Creates image settings with trilinear filtering by default.
+    pub fn default_trilinear() -> Self {
+        Self {
+            default_sampler: ImageSamplerDescriptor::trilinear(),
+        }
+    }
+
+    /// Creates image settings with bilinear filtering by default.
+    pub fn default_bilinear() -> Self {
+        Self {
+            default_sampler: ImageSamplerDescriptor::bilinear(),
+        }
+    }
+
+    /// Creates image settings with nearest filtering by default.
+    pub fn default_nearest() -> Self {
+        Self {
             default_sampler: ImageSamplerDescriptor::nearest(),
         }
     }
