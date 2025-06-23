@@ -113,6 +113,7 @@ impl Specialize<RenderPipeline> for MySpecializer {
             self.layout.clone()
         };
         descriptor.fragment.targets[0].as_mut().unwrap().blend_mode = key.blend_state;
+        Ok(key)
     }
 }
 
