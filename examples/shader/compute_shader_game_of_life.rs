@@ -229,6 +229,8 @@ impl render_graph::Node for GameOfLifeNode {
                     CachedPipelineState::Ok(_) => {
                         self.state = GameOfLifeState::Init;
                     }
+                    // If the shader hasn't loaded yet, just wait.
+                    CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
                     CachedPipelineState::Err(err) => {
                         panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
                     }

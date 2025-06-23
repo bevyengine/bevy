@@ -293,7 +293,7 @@ macro_rules! impl_state_set_sealed_tuples {
                      current_state_res: Option<ResMut<State<T>>>,
                      next_state_res: Option<ResMut<NextState<T>>>,
                      ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                        let parent_changed = ($($evt.read().last().is_some())&&*);
+                        let parent_changed = ($($evt.read().last().is_some())||*);
                         let next_state = take_next_state(next_state_res);
 
                         if !parent_changed && next_state.is_none() {

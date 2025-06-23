@@ -36,7 +36,7 @@ fn main() {
 struct DisableOnClick;
 
 fn disable_entities_on_click(
-    trigger: Trigger<Pointer<Click>>,
+    trigger: On<Pointer<Click>>,
     valid_query: Query<&DisableOnClick>,
     mut commands: Commands,
 ) {

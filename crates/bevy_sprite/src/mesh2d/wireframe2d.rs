@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
-    load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp,
+    embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, Assets, Handle, UntypedAssetId,
 };
 use bevy_color::{Color, ColorToComponents};
@@ -54,9 +54,6 @@ use bevy_render::{
 use core::{hash::Hash, ops::Range};
 use tracing::error;
 
-pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("2d8a3853-2927-4de2-9dc7-3971e7e40970");
-
 /// A [`Plugin`] that draws wireframes for 2D meshes.
 ///
 /// Wireframes currently do not work when using webgl or webgpu.
@@ -81,12 +78,7 @@ impl Wireframe2dPlugin {
 
 impl Plugin for Wireframe2dPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            WIREFRAME_2D_SHADER_HANDLE,
-            "wireframe2d.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "wireframe2d.wgsl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe2dPhaseItem, Mesh2dPipeline>::new(self.debug_flags),
@@ -339,7 +331,7 @@ impl FromWorld for Wireframe2dPipeline {
     fn from_world(render_world: &mut World) -> Self {
         Wireframe2dPipeline {
             mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
-            shader: WIREFRAME_2D_SHADER_HANDLE,
+            shader: load_embedded_asset!(render_world, "wireframe2d.wgsl"),
         }
     }
 }
@@ -380,7 +372,7 @@ impl ViewNode for Wireframe2dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(wireframe_phase) =

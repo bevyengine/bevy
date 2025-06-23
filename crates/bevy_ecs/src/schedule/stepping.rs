@@ -125,7 +125,7 @@ impl core::fmt::Debug for Stepping {
         if self.action != Action::RunAll {
             let Cursor { schedule, system } = self.cursor;
             match self.schedule_order.get(schedule) {
-                Some(label) => write!(f, "cursor: {:?}[{}], ", label, system)?,
+                Some(label) => write!(f, "cursor: {label:?}[{system}], ")?,
                 None => write!(f, "cursor: None, ")?,
             };
         }
@@ -475,9 +475,8 @@ impl Stepping {
                     Some(state) => state.clear_behaviors(),
                     None => {
                         warn!(
-                            "stepping is not enabled for schedule {:?}; \
-                            use `.add_stepping({:?})` to enable stepping",
-                            label, label
+                            "stepping is not enabled for schedule {label:?}; \
+                            use `.add_stepping({label:?})` to enable stepping"
                         );
                     }
                 },
@@ -486,9 +485,8 @@ impl Stepping {
                         Some(state) => state.set_behavior(system, behavior),
                         None => {
                             warn!(
-                                "stepping is not enabled for schedule {:?}; \
-                                use `.add_stepping({:?})` to enable stepping",
-                                label, label
+                                "stepping is not enabled for schedule {label:?}; \
+                                use `.add_stepping({label:?})` to enable stepping"
                             );
                         }
                     }
@@ -498,9 +496,8 @@ impl Stepping {
                         Some(state) => state.clear_behavior(system),
                         None => {
                             warn!(
-                                "stepping is not enabled for schedule {:?}; \
-                                use `.add_stepping({:?})` to enable stepping",
-                                label, label
+                                "stepping is not enabled for schedule {label:?}; \
+                                use `.add_stepping({label:?})` to enable stepping"
                             );
                         }
                     }
@@ -898,9 +895,9 @@ mod tests {
         ($schedule:expr, $skipped_systems:expr, $($system:expr),*) => {
             // pull an ordered list of systems in the schedule, and save the
             // system TypeId, and name.
-            let systems: Vec<(TypeId, alloc::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
+            let systems: Vec<(TypeId, alloc::string::String)> = $schedule.systems().unwrap()
                 .map(|(_, system)| {
-                    (system.type_id(), system.name())
+                    (system.type_id(), system.name().as_string())
                 })
             .collect();
 

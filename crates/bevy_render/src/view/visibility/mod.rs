@@ -3,8 +3,8 @@ mod render_layers;
 
 use core::any::TypeId;
 
-use bevy_ecs::component::HookContext;
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
@@ -129,7 +129,7 @@ impl InheritedVisibility {
 
 /// A bucket into which we group entities for the purposes of visibility.
 ///
-/// Bevy's various rendering subsystems (3D, 2D, UI, etc.) want to be able to
+/// Bevy's various rendering subsystems (3D, 2D, etc.) want to be able to
 /// quickly winnow the set of entities to only those that the subsystem is
 /// tasked with rendering, to avoid spending time examining irrelevant entities.
 /// At the same time, Bevy wants the [`check_visibility`] system to determine

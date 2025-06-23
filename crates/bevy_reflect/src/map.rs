@@ -192,6 +192,8 @@ impl MapInfo {
     impl_generic_info_methods!(generics);
 }
 
+/// Used to produce an error message when an attempt is made to hash
+/// a [`PartialReflect`] value that does not support hashing.
 #[macro_export]
 macro_rules! hash_error {
     ( $key:expr ) => {{
@@ -236,8 +238,7 @@ impl DynamicMap {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Map(_)),
-                "expected TypeInfo::Map but received: {:?}",
-                represented_type
+                "expected TypeInfo::Map but received: {represented_type:?}"
             );
         }
 

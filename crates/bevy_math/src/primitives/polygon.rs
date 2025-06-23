@@ -34,6 +34,7 @@ struct SweepLineEvent {
     /// Type of the vertex (left or right)
     endpoint: Endpoint,
 }
+
 impl SweepLineEvent {
     #[cfg_attr(
         not(feature = "alloc"),
@@ -46,17 +47,21 @@ impl SweepLineEvent {
         }
     }
 }
+
 impl PartialEq for SweepLineEvent {
     fn eq(&self, other: &Self) -> bool {
         self.position() == other.position()
     }
 }
+
 impl Eq for SweepLineEvent {}
+
 impl PartialOrd for SweepLineEvent {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
+
 impl Ord for SweepLineEvent {
     fn cmp(&self, other: &Self) -> Ordering {
         xy_order(self.position(), other.position())
@@ -129,11 +134,13 @@ struct Segment {
     left: Vec2,
     right: Vec2,
 }
+
 impl PartialEq for Segment {
     fn eq(&self, other: &Self) -> bool {
         self.edge_index == other.edge_index
     }
 }
+
 impl Eq for Segment {}
 
 impl PartialOrd for Segment {
@@ -141,6 +148,7 @@ impl PartialOrd for Segment {
         Some(self.cmp(other))
     }
 }
+
 impl Ord for Segment {
     fn cmp(&self, other: &Self) -> Ordering {
         self.left

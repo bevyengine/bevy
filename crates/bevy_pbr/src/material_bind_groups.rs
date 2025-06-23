@@ -1048,63 +1048,14 @@ where
 
         for (bindless_index, owned_binding_resource) in binding_resources.drain(..) {
             let bindless_index = BindlessIndex(bindless_index);
-            // If this is an other reference to an object we've already
-            // allocated, just bump its reference count.
-            if let Some(pre_existing_resource_slot) = allocation_candidate
+
+            let pre_existing_slot = allocation_candidate
                 .pre_existing_resources
-                .get(&bindless_index)
-            {
-                allocated_resource_slots.insert(bindless_index, *pre_existing_resource_slot);
-
-                match owned_binding_resource {
-                    OwnedBindingResource::Buffer(_) => {
-                        self.buffers
-                            .get_mut(&bindless_index)
-                            .expect("Buffer binding array should exist")
-                            .bindings
-                            .get_mut(*pre_existing_resource_slot as usize)
-                            .and_then(|binding| binding.as_mut())
-                            .expect("Slot should exist")
-                            .ref_count += 1;
-                    }
-
-                    OwnedBindingResource::Data(_) => {
-                        panic!("Data buffers can't be deduplicated")
-                    }
-
-                    OwnedBindingResource::TextureView(texture_view_dimension, _) => {
-                        let bindless_resource_type =
-                            BindlessResourceType::from(texture_view_dimension);
-                        self.textures
-                            .get_mut(&bindless_resource_type)
-                            .expect("Texture binding array should exist")
-                            .bindings
-                            .get_mut(*pre_existing_resource_slot as usize)
-                            .and_then(|binding| binding.as_mut())
-                            .expect("Slot should exist")
-                            .ref_count += 1;
-                    }
-
-                    OwnedBindingResource::Sampler(sampler_binding_type, _) => {
-                        let bindless_resource_type =
-                            BindlessResourceType::from(sampler_binding_type);
-                        self.samplers
-                            .get_mut(&bindless_resource_type)
-                            .expect("Sampler binding array should exist")
-                            .bindings
-                            .get_mut(*pre_existing_resource_slot as usize)
-                            .and_then(|binding| binding.as_mut())
-                            .expect("Slot should exist")
-                            .ref_count += 1;
-                    }
-                }
-
-                continue;
-            }
+                .get(&bindless_index);
 
             // Otherwise, we need to insert it anew.
             let binding_resource_id = BindingResourceId::from(&owned_binding_resource);
-            match owned_binding_resource {
+            let increment_allocated_resource_count = match owned_binding_resource {
                 OwnedBindingResource::Buffer(buffer) => {
                     let slot = self
                         .buffers
@@ -1112,14 +1063,27 @@ where
                         .expect("Buffer binding array should exist")
                         .insert(binding_resource_id, buffer);
                     allocated_resource_slots.insert(bindless_index, slot);
+
+                    if let Some(pre_existing_slot) = pre_existing_slot {
+                        assert_eq!(*pre_existing_slot, slot);
+
+                        false
+                    } else {
+                        true
+                    }
                 }
                 OwnedBindingResource::Data(data) => {
+                    if pre_existing_slot.is_some() {
+                        panic!("Data buffers can't be deduplicated")
+                    }
+
                     let slot = self
                         .data_buffers
                         .get_mut(&bindless_index)
                         .expect("Data buffer binding array should exist")
                         .insert(&data);
                     allocated_resource_slots.insert(bindless_index, slot);
+                    false
                 }
                 OwnedBindingResource::TextureView(texture_view_dimension, texture_view) => {
                     let bindless_resource_type = BindlessResourceType::from(texture_view_dimension);
@@ -1129,6 +1093,14 @@ where
                         .expect("Texture array should exist")
                         .insert(binding_resource_id, texture_view);
                     allocated_resource_slots.insert(bindless_index, slot);
+
+                    if let Some(pre_existing_slot) = pre_existing_slot {
+                        assert_eq!(*pre_existing_slot, slot);
+
+                        false
+                    } else {
+                        true
+                    }
                 }
                 OwnedBindingResource::Sampler(sampler_binding_type, sampler) => {
                     let bindless_resource_type = BindlessResourceType::from(sampler_binding_type);
@@ -1138,11 +1110,21 @@ where
                         .expect("Sampler should exist")
                         .insert(binding_resource_id, sampler);
                     allocated_resource_slots.insert(bindless_index, slot);
+
+                    if let Some(pre_existing_slot) = pre_existing_slot {
+                        assert_eq!(*pre_existing_slot, slot);
+
+                        false
+                    } else {
+                        true
+                    }
                 }
-            }
+            };
 
             // Bump the allocated resource count.
-            self.allocated_resource_count += 1;
+            if increment_allocated_resource_count {
+                self.allocated_resource_count += 1;
+            }
         }
 
         allocated_resource_slots
@@ -1626,16 +1608,30 @@ where
     /// Inserts a bindless resource into a binding array and returns the index
     /// of the slot it was inserted into.
     fn insert(&mut self, binding_resource_id: BindingResourceId, resource: R) -> u32 {
-        let slot = self.free_slots.pop().unwrap_or(self.len);
-        self.resource_to_slot.insert(binding_resource_id, slot);
+        match self.resource_to_slot.entry(binding_resource_id) {
+            bevy_platform::collections::hash_map::Entry::Occupied(o) => {
+                let slot = *o.get();
 
-        if self.bindings.len() < slot as usize + 1 {
-            self.bindings.resize_with(slot as usize + 1, || None);
+                self.bindings[slot as usize]
+                    .as_mut()
+                    .expect("A slot in the resource_to_slot map should have a value")
+                    .ref_count += 1;
+
+                slot
+            }
+            bevy_platform::collections::hash_map::Entry::Vacant(v) => {
+                let slot = self.free_slots.pop().unwrap_or(self.len);
+                v.insert(slot);
+
+                if self.bindings.len() < slot as usize + 1 {
+                    self.bindings.resize_with(slot as usize + 1, || None);
+                }
+                self.bindings[slot as usize] = Some(MaterialBindlessBinding::new(resource));
+
+                self.len += 1;
+                slot
+            }
         }
-        self.bindings[slot as usize] = Some(MaterialBindlessBinding::new(resource));
-
-        self.len += 1;
-        slot
     }
 
     /// Removes a reference to an object from the slot.
