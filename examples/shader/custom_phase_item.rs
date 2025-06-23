@@ -296,7 +296,7 @@ impl FromWorld for CustomPhaseSpecializer {
 struct CustomPhaseKey(Msaa);
 
 impl SpecializeKey for CustomPhaseKey {
-    const CANONICAL: bool = true;
+    const IS_CANONICAL: bool = true;
     type Canonical = Self;
 }
 

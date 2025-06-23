@@ -64,7 +64,7 @@ impl Specializable for ComputePipeline {
 }
 
 /// Defines a type that is able to transform descriptors for a specializable
-/// type T, based on a known hashable key type.
+/// type T, based on a hashable key type.
 ///
 /// This is mainly used when "specializing" render
 /// pipelines, i.e. specifying shader defs and binding layout based on the key,
@@ -88,22 +88,37 @@ impl Specializable for ComputePipeline {
 ///
 /// Example:
 /// ```rs
+/// # use super::RenderPipeline;
+/// # use super::RenderPipelineDescriptor;
+/// # use bevy_ecs::error::BevyError;
+///
 /// struct A;
 /// struct B;
+/// #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+/// struct BKey;
 ///
 /// impl Specialize<RenderPipeline> for A {
 ///     type Key = ();
 ///
-///     fn specialize(&self, _key: (), _descriptor: &mut RenderPipelineDescriptor) {
+///     fn specialize(&self, key: (), descriptor: &mut RenderPipelineDescriptor) -> Result<(), BevyError>  {
+/// #       let _ = (key, descriptor);
 ///         //...
+///         Ok(())
 ///     }
 /// }
 ///
-/// impl Specialize<RenderPipeline> for B {
-///     type Key = u32;
+/// impl SpecializeKey for B {
+///     const CANONICAL: bool = true;
+///     type Canonical = Self;
+/// }
 ///
-///     fn specialize(&self, _key: u32, _descriptor: &mut RenderPipelineDescriptor) {
+/// impl Specialize<RenderPipeline> for B {
+///     type Key = BKey;
+///
+///     fn specialize(&self, _key: Bkey, _descriptor: &mut RenderPipelineDescriptor) -> Result<BKey, BevyError> {
+/// #       let _ = (key, descriptor);
 ///         //...
+///         Ok(BKey)
 ///     }
 /// }
 ///
@@ -135,8 +150,25 @@ pub trait Specialize<T: Specializable>: Send + Sync + 'static {
     ) -> Result<Canonical<Self::Key>, BevyError>;
 }
 
+/// Defines a type that is able to be used as a key for types that `impl Specialize`
+///
+/// **Most types should implement this trait with `IS_CANONICAL = true` and `Canonical = Self`**.
+///
+/// In this case, "canonical" means that each unique value of this type will produce
+/// a unique specialized result, which isn't true in general. `MeshVertexBufferLayout`
+/// is a good example of a type that's `Eq + Hash`, but that isn't canonical: vertex
+/// attributes could be specified in any order, or there could be more attributes
+/// provided than the specialized pipeline requires. Its `Canonical` key type would
+/// be `VertexBufferLayout`, the final layout required by the pipeline.
+///
+/// Processing keys into canonical keys this way allows the `Specializer` to reuse
+/// resources more eagerly where possible.
 pub trait SpecializeKey: Clone + Hash + Eq {
-    const CANONICAL: bool;
+    /// Denotes whether this key is canonical or not. This should only be `true`
+    /// if and only if `Canonical = Self`.
+    const IS_CANONICAL: bool;
+
+    /// The canonical key type to convert this into during specialization.
     type Canonical: Hash + Eq;
 }
 
@@ -169,7 +201,7 @@ impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V
 macro_rules! impl_specialization_key_tuple {
     ($($T:ident),*) => {
         impl <$($T: SpecializeKey),*> SpecializeKey for ($($T,)*) {
-            const CANONICAL: bool = true $(&& <$T as SpecializeKey>::CANONICAL)*;
+            const IS_CANONICAL: bool = true $(&& <$T as SpecializeKey>::IS_CANONICAL)*;
             type Canonical = ($(Canonical<$T>,)*);
         }
     };
@@ -316,7 +348,7 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
         }
 
         // if the whole key is canonical, the secondary cache isn't needed.
-        if <S::Key as SpecializeKey>::CANONICAL {
+        if <S::Key as SpecializeKey>::IS_CANONICAL {
             return Ok(primary_entry
                 .insert(<T as Specializable>::queue(pipeline_cache, descriptor))
                 .clone());
