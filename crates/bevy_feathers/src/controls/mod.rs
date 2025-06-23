@@ -1,3 +1,4 @@
+//! Meta-module containing all feathers controls (widgets that are interactive).
 use bevy_app::Plugin;
 
 mod button;

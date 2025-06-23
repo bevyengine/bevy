@@ -53,7 +53,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
             ..default()
         },
         TabGroup::default(),
-        ThemeBackgroundColor(theme::tokens::WINDOW_BG),
+        ThemeBackgroundColor(tokens::WINDOW_BG),
         children![(
             Node {
                 display: Display::Flex,

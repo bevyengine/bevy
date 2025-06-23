@@ -1,6 +1,6 @@
 //! `bevy_feathers` is a collection of styled and themed widgets for building editors and
 //! inspectors.
-//! 
+//!
 //! The aesthetic choices made here are designed with a future Bevy Editor in mind,
 //! but this crate is deliberately exposed to the public to allow the broader ecosystem to easily create
 //! tooling for themselves and others that fits cohesively together.
@@ -10,11 +10,11 @@
 //! That said, if you like what you see, it can be a helpful learning tool.
 //! Consider copying this code into your own project,
 //! and refining the styles and abstractions provided to meet your needs.
-//! 
+//!
 //! ## Warning: Experimental!
 //! All that said, this crate is still experimental and unfinished!
 //! It will change in breaking ways, and there will be both bugs and limitations.
-//! 
+//!
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
 
@@ -27,29 +27,19 @@ use bevy_winit::cursor::CursorIcon;
 use crate::{
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursorIcon},
-    theme::{UiTheme, UseTheme},
+    theme::{ThemedText, UiTheme},
 };
 
-/// Standard feathers color palette.
-pub mod palette;
-
-/// Entity cursor management.
-pub mod cursor;
-
-/// Modules containing feathers controls.
+pub mod constants;
 pub mod controls;
-
-/// Module containing the default feathers dark theme.
-pub mod dark;
-
-/// Provides a way to specify an asset reference either as a handle or as an asset path.
-pub mod handle_or_path;
-
-/// Inheritable text styles.
+pub mod cursor;
+pub mod dark_theme;
 pub mod font_styles;
-
-/// Module containing the themeing framework used by feathers.
+pub mod handle_or_path;
+pub mod palette;
+pub mod rounded_corners;
 pub mod theme;
+pub mod tokens;
 
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
 pub struct FeathersPlugin;
@@ -67,8 +57,8 @@ impl Plugin for FeathersPlugin {
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
-            HierarchyPropagatePlugin::<TextColor, With<UseTheme>>::default(),
-            HierarchyPropagatePlugin::<TextFont, With<UseTheme>>::default(),
+            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::default(),
+            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::default(),
         ));
 
         app.insert_resource(DefaultCursorIcon(CursorIcon::System(

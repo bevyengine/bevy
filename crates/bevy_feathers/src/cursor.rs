@@ -1,3 +1,4 @@
+//! Provides a way to automatically set the mouse cursor based on hovered entity.
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_ecs::{
     entity::Entity,

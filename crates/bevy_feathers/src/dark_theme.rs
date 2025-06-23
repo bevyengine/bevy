@@ -1,4 +1,5 @@
-use crate::{palette, theme::tokens};
+//! The standard `bevy_feathers` dark theme.
+use crate::{palette, tokens};
 use bevy_color::{Alpha, Luminance};
 use bevy_platform::collections::HashMap;
 

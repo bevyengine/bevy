@@ -24,19 +24,15 @@ use bevy_ui::{
 use bevy_winit::cursor::CursorIcon;
 
 use crate::{
+    constants::{fonts, size},
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
-    theme::{
-        self,
-        corners::RoundedCorners,
-        fonts, size,
-        tokens::{SLIDER_BAR, SLIDER_BAR_DISABLED, SLIDER_BG},
-        ThemeFontColor, UiTheme, UseTheme,
-    },
+    rounded_corners::RoundedCorners,
+    theme::{ThemeFontColor, ThemedText, UiTheme},
+    tokens,
 };
 
 /// Slider template properties, passed to [`slider`] function.
-// TODO: These should all be replaced with reactive signals.
 #[derive(Clone)]
 pub struct SliderProps {
     /// Slider current value
@@ -45,8 +41,6 @@ pub struct SliderProps {
     pub min: f32,
     /// Slider maximum value
     pub max: f32,
-    /// Number of decimal digits of precision to display.
-    pub precision: usize,
     /// On-change handler
     pub on_change: Option<SystemId<In<f32>>>,
 }
@@ -57,7 +51,6 @@ impl Default for SliderProps {
             value: 0.0,
             min: 0.0,
             max: 1.0,
-            precision: 1,
             on_change: None,
         }
     }
@@ -117,12 +110,12 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
                 justify_content: JustifyContent::Center,
                 ..Default::default()
             },
-            ThemeFontColor(theme::tokens::SLIDER_TEXT),
+            ThemeFontColor(tokens::SLIDER_TEXT),
             InheritableFont {
                 font: HandleOrPath::Path(fonts::MONO.to_owned()),
                 font_size: 12.0,
             },
-            children![(Text::new("10.0"), UseTheme, SliderValueText,)],
+            children![(Text::new("10.0"), ThemedText, SliderValueText,)],
         )],
     )
 }
@@ -153,10 +146,10 @@ fn update_slider_colors_remove(
 
 fn set_slider_colors(theme: &Res<'_, UiTheme>, disabled: bool, gradient: &mut BackgroundGradient) {
     let bar_color = theme.color(match disabled {
-        true => SLIDER_BAR_DISABLED,
-        false => SLIDER_BAR,
+        true => tokens::SLIDER_BAR_DISABLED,
+        false => tokens::SLIDER_BAR,
     });
-    let bg_color = theme.color(SLIDER_BG);
+    let bg_color = theme.color(tokens::SLIDER_BG);
     if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
         linear_gradient.stops[0].color = bar_color;
         linear_gradient.stops[1].color = bar_color;

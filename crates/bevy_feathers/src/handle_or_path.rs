@@ -1,3 +1,4 @@
+//! Provides a way to specify assets either by handle or by path.
 use bevy_asset::{Asset, Handle};
 
 /// Enum that represents a reference to an asset as either a [`Handle`] or a [`String`] path.

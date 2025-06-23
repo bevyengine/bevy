@@ -17,9 +17,12 @@ use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, Ui
 use bevy_winit::cursor::CursorIcon;
 
 use crate::{
+    constants::{fonts, size},
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
-    theme::{self, corners::RoundedCorners, fonts, size, ThemeBackgroundColor, ThemeFontColor},
+    rounded_corners::RoundedCorners,
+    theme::{ThemeBackgroundColor, ThemeFontColor},
+    tokens,
 };
 
 /// Color variants for buttons. This also functions as a component used by the dynamic styling
@@ -73,8 +76,8 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         props.corners.to_border_radius(6.0),
-        ThemeBackgroundColor(theme::tokens::BUTTON_BG),
-        ThemeFontColor(theme::tokens::BUTTON_TEXT),
+        ThemeBackgroundColor(tokens::BUTTON_BG),
+        ThemeFontColor(tokens::BUTTON_TEXT),
         InheritableFont {
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
             font_size: 14.0,
@@ -160,21 +163,21 @@ fn set_button_colors(
     commands: &mut Commands,
 ) {
     let bg_token = match (variant, disabled, pressed, hovered) {
-        (ButtonVariant::Normal, true, _, _) => theme::tokens::BUTTON_BG_DISABLED,
-        (ButtonVariant::Normal, false, true, _) => theme::tokens::BUTTON_BG_PRESSED,
-        (ButtonVariant::Normal, false, false, true) => theme::tokens::BUTTON_BG_HOVER,
-        (ButtonVariant::Normal, false, false, false) => theme::tokens::BUTTON_BG,
-        (ButtonVariant::Primary, true, _, _) => theme::tokens::BUTTON_PRIMARY_BG_DISABLED,
-        (ButtonVariant::Primary, false, true, _) => theme::tokens::BUTTON_PRIMARY_BG_PRESSED,
-        (ButtonVariant::Primary, false, false, true) => theme::tokens::BUTTON_PRIMARY_BG_HOVER,
-        (ButtonVariant::Primary, false, false, false) => theme::tokens::BUTTON_PRIMARY_BG,
+        (ButtonVariant::Normal, true, _, _) => tokens::BUTTON_BG_DISABLED,
+        (ButtonVariant::Normal, false, true, _) => tokens::BUTTON_BG_PRESSED,
+        (ButtonVariant::Normal, false, false, true) => tokens::BUTTON_BG_HOVER,
+        (ButtonVariant::Normal, false, false, false) => tokens::BUTTON_BG,
+        (ButtonVariant::Primary, true, _, _) => tokens::BUTTON_PRIMARY_BG_DISABLED,
+        (ButtonVariant::Primary, false, true, _) => tokens::BUTTON_PRIMARY_BG_PRESSED,
+        (ButtonVariant::Primary, false, false, true) => tokens::BUTTON_PRIMARY_BG_HOVER,
+        (ButtonVariant::Primary, false, false, false) => tokens::BUTTON_PRIMARY_BG,
     };
 
     let font_color_token = match (variant, disabled) {
-        (ButtonVariant::Normal, true) => theme::tokens::BUTTON_TEXT_DISABLED,
-        (ButtonVariant::Normal, false) => theme::tokens::BUTTON_TEXT,
-        (ButtonVariant::Primary, true) => theme::tokens::BUTTON_PRIMARY_TEXT_DISABLED,
-        (ButtonVariant::Primary, false) => theme::tokens::BUTTON_PRIMARY_TEXT,
+        (ButtonVariant::Normal, true) => tokens::BUTTON_TEXT_DISABLED,
+        (ButtonVariant::Normal, false) => tokens::BUTTON_TEXT,
+        (ButtonVariant::Primary, true) => tokens::BUTTON_PRIMARY_TEXT_DISABLED,
+        (ButtonVariant::Primary, false) => tokens::BUTTON_PRIMARY_TEXT,
     };
 
     // Change background color
