@@ -6,7 +6,7 @@ use crate::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
     },
     system::{Commands, EntityCommands},
-    world::{EntityWorldMut, World},
+    world::{DeferredWorld, EntityWorldMut, World},
 };
 use bevy_platform::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
@@ -42,7 +42,12 @@ impl<'w> EntityWorldMut<'w> {
         let id = self.id();
         self.world_scope(|world| {
             for related in related {
-                world.entity_mut(*related).insert(R::from(id));
+                world
+                    .entity_mut(*related)
+                    .modify_or_insert_relation_with_relationship_hook_mode::<R>(
+                        id,
+                        RelationshipHookMode::Run,
+                    );
             }
         });
         self
@@ -98,7 +103,12 @@ impl<'w> EntityWorldMut<'w> {
                         .collection_mut_risky()
                         .place(*related, index);
                 } else {
-                    world.entity_mut(*related).insert(R::from(id));
+                    world
+                        .entity_mut(*related)
+                        .modify_or_insert_relation_with_relationship_hook_mode::<R>(
+                            id,
+                            RelationshipHookMode::Run,
+                        );
                     world
                         .get_mut::<R::RelationshipTarget>(id)
                         .expect("hooks should have added relationship target")
@@ -165,10 +175,13 @@ impl<'w> EntityWorldMut<'w> {
             }
 
             for related in potential_relations {
-                // SAFETY: We'll manually be adjusting the contents of the parent to fit the final state.
+                // SAFETY: We'll manually be adjusting the contents of the `RelationshipTarget` to fit the final state.
                 world
                     .entity_mut(related)
-                    .insert_with_relationship_hook_mode(R::from(id), RelationshipHookMode::Skip);
+                    .modify_or_insert_relation_with_relationship_hook_mode::<R>(
+                        id,
+                        RelationshipHookMode::Skip,
+                    );
             }
         });
 
@@ -266,7 +279,10 @@ impl<'w> EntityWorldMut<'w> {
                 // We changed the target collection manually so don't run the insert hook
                 world
                     .entity_mut(*new_relation)
-                    .insert_with_relationship_hook_mode(R::from(this), RelationshipHookMode::Skip);
+                    .modify_or_insert_relation_with_relationship_hook_mode::<R>(
+                        this,
+                        RelationshipHookMode::Skip,
+                    );
             }
         });
 
@@ -351,6 +367,40 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         self
+    }
+
+    fn modify_or_insert_relation_with_relationship_hook_mode<R: Relationship>(
+        &mut self,
+        entity: Entity,
+        relationship_hook_mode: RelationshipHookMode,
+    ) {
+        // Check if the relation edge holds additional data
+        if size_of::<R>() > size_of::<Entity>() {
+            self.assert_not_despawned();
+
+            let this = self.id();
+
+            let modified = self.world_scope(|world| {
+                let modified = DeferredWorld::from(&mut *world)
+                    .modify_component_with_relationship_hook_mode::<R, _>(
+                        this,
+                        relationship_hook_mode,
+                        |r| r.set_risky(entity),
+                    )
+                    .expect("entity access must be valid")
+                    .is_some();
+
+                world.flush();
+
+                modified
+            });
+
+            if modified {
+                return;
+            }
+        }
+
+        self.insert_with_relationship_hook_mode(R::from(entity), relationship_hook_mode);
     }
 }
 
@@ -689,17 +739,132 @@ mod tests {
     }
 
     #[test]
-    fn replace_related_keeps_data() {
-        #[derive(Component)]
+    fn add_related_keeps_relationship_data() {
+        #[derive(Component, PartialEq, Debug)]
         #[relationship(relationship_target = Parent)]
-        pub struct Child(Entity);
+        struct Child {
+            #[relationship]
+            parent: Entity,
+            data: u8,
+        }
 
         #[derive(Component)]
         #[relationship_target(relationship = Child)]
-        pub struct Parent {
+        struct Parent(Vec<Entity>);
+
+        let mut world = World::new();
+        let parent1 = world.spawn_empty().id();
+        let parent2 = world.spawn_empty().id();
+        let child = world
+            .spawn(Child {
+                parent: parent1,
+                data: 42,
+            })
+            .id();
+
+        world.entity_mut(parent2).add_related::<Child>(&[child]);
+        assert_eq!(
+            world.get::<Child>(child),
+            Some(&Child {
+                parent: parent2,
+                data: 42
+            })
+        );
+    }
+
+    #[test]
+    fn insert_related_keeps_relationship_data() {
+        #[derive(Component, PartialEq, Debug)]
+        #[relationship(relationship_target = Parent)]
+        struct Child {
+            #[relationship]
+            parent: Entity,
+            data: u8,
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Child)]
+        struct Parent(Vec<Entity>);
+
+        let mut world = World::new();
+        let parent1 = world.spawn_empty().id();
+        let parent2 = world.spawn_empty().id();
+        let child = world
+            .spawn(Child {
+                parent: parent1,
+                data: 42,
+            })
+            .id();
+
+        world
+            .entity_mut(parent2)
+            .insert_related::<Child>(0, &[child]);
+        assert_eq!(
+            world.get::<Child>(child),
+            Some(&Child {
+                parent: parent2,
+                data: 42
+            })
+        );
+    }
+
+    #[test]
+    fn replace_related_keeps_relationship_data() {
+        #[derive(Component, PartialEq, Debug)]
+        #[relationship(relationship_target = Parent)]
+        struct Child {
+            #[relationship]
+            parent: Entity,
+            data: u8,
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Child)]
+        struct Parent(Vec<Entity>);
+
+        let mut world = World::new();
+        let parent1 = world.spawn_empty().id();
+        let parent2 = world.spawn_empty().id();
+        let child = world
+            .spawn(Child {
+                parent: parent1,
+                data: 42,
+            })
+            .id();
+
+        world
+            .entity_mut(parent2)
+            .replace_related_with_difference::<Child>(&[], &[child], &[child]);
+        assert_eq!(
+            world.get::<Child>(child),
+            Some(&Child {
+                parent: parent2,
+                data: 42
+            })
+        );
+
+        world.entity_mut(parent1).replace_related::<Child>(&[child]);
+        assert_eq!(
+            world.get::<Child>(child),
+            Some(&Child {
+                parent: parent1,
+                data: 42
+            })
+        );
+    }
+
+    #[test]
+    fn replace_related_keeps_relationship_target_data() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Parent)]
+        struct Child(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Child)]
+        struct Parent {
             #[relationship]
             children: Vec<Entity>,
-            pub data: u8,
+            data: u8,
         }
 
         let mut world = World::new();
