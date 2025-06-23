@@ -114,3 +114,9 @@ pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
 pub fn derive_specialize(input: TokenStream) -> TokenStream {
     specialize::impl_specialize(input)
 }
+
+/// Derive macro generating the most common impl of the trait `SpecializeKey`
+#[proc_macro_derive(SpecializeKey)]
+pub fn derive_specialize_key(input: TokenStream) -> TokenStream {
+    specialize::impl_specialize_key(input)
+}

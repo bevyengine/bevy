@@ -463,3 +463,21 @@ fn impl_get_base_descriptor_all(
         }
     })
 }
+
+pub fn impl_specialize_key(input: TokenStream) -> TokenStream {
+    let bevy_render_path: Path = crate::bevy_render_path();
+    let specialize_path = {
+        let mut path = bevy_render_path.clone();
+        path.segments.push(format_ident!("render_resource").into());
+        path
+    };
+
+    let ast = parse_macro_input!(input as DeriveInput);
+    let ident = ast.ident;
+    TokenStream::from(quote!(
+        impl #specialize_path::SpecializeKey for #ident {
+            const IS_CANONICAL: bool = true;
+            type Canonical = Self;
+        }
+    ))
+}
