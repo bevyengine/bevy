@@ -220,7 +220,7 @@ impl World {
     ///
     /// This is helpful as a diagnostic, but it can also be used effectively in tests.
     #[inline]
-    pub fn num_entities(&self) -> u32 {
+    pub fn entity_count(&self) -> u32 {
         self.entities.len()
     }
 
