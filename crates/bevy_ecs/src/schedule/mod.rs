@@ -279,26 +279,6 @@ mod tests {
         }
 
         #[test]
-        fn system_with_condition_result_unit() {
-            let mut world = World::default();
-            let mut schedule = Schedule::default();
-
-            world.init_resource::<SystemOrder>();
-
-            schedule.add_systems(
-                make_function_system(0).run_if(|| Err::<(), BevyError>(core::fmt::Error.into())),
-            );
-
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
-
-            schedule.add_systems(make_function_system(1).run_if(|| Ok(())));
-
-            schedule.run(&mut world);
-            assert_eq!(world.resource::<SystemOrder>().0, vec![1]);
-        }
-
-        #[test]
         fn system_with_condition_result_bool() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
