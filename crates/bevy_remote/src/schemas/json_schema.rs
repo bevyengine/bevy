@@ -88,7 +88,7 @@ impl TryFrom<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
         let JsonSchemaVariant::Schema(mut typed_schema) = base_schema else {
             return Err(InvalidJsonSchema::InvalidType);
         };
-        typed_schema.reflect_types = metadata.get_registered_reflect_types(reg);
+        typed_schema.reflect_type_data = metadata.get_registered_reflect_types(reg);
         Ok(*typed_schema)
     }
 }
@@ -139,9 +139,9 @@ pub struct JsonSchemaBevyType {
     /// Bevy specific field, name of the crate that type is part of.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub crate_name: Option<Cow<'static, str>>,
-    /// Bevy specific field, names of the types that type reflects.
+    /// Bevy specific field, names of the types that type reflects. Mapping of the names to the data types is provided by [`SchemaTypesMetadata`].
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub reflect_types: Vec<Cow<'static, str>>,
+    pub reflect_type_data: Vec<Cow<'static, str>>,
     /// Bevy specific field, [`TypeInfo`] type mapping.
     pub kind: SchemaKind,
     /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
@@ -453,11 +453,15 @@ mod tests {
         let schema = export_type::<Foo>();
 
         assert!(
-            !schema.reflect_types.contains(&Cow::Borrowed("Component")),
+            !schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Component")),
             "Should not be a component"
         );
         assert!(
-            schema.reflect_types.contains(&Cow::Borrowed("Resource")),
+            schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Resource")),
             "Should be a resource"
         );
 
@@ -488,11 +492,15 @@ mod tests {
         }
         let schema = export_type::<EnumComponent>();
         assert!(
-            schema.reflect_types.contains(&Cow::Borrowed("Component")),
+            schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Component")),
             "Should be a component"
         );
         assert!(
-            !schema.reflect_types.contains(&Cow::Borrowed("Resource")),
+            !schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Resource")),
             "Should not be a resource"
         );
         assert!(schema.properties.is_empty(), "Should not have any field");
@@ -512,11 +520,15 @@ mod tests {
         }
         let schema = export_type::<EnumComponent>();
         assert!(
-            !schema.reflect_types.contains(&Cow::Borrowed("Component")),
+            !schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Component")),
             "Should not be a component"
         );
         assert!(
-            !schema.reflect_types.contains(&Cow::Borrowed("Resource")),
+            !schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Resource")),
             "Should not be a resource"
         );
         assert!(schema.properties.is_empty(), "Should not have any field");
@@ -558,19 +570,19 @@ mod tests {
             .export_type_json_schema::<EnumComponent>(&metadata)
             .expect("Failed to export schema");
         assert!(
-            !metadata.has_type_data::<ReflectComponent>(&schema.reflect_types),
+            !metadata.has_type_data::<ReflectComponent>(&schema.reflect_type_data),
             "Should not be a component"
         );
         assert!(
-            !metadata.has_type_data::<ReflectResource>(&schema.reflect_types),
+            !metadata.has_type_data::<ReflectResource>(&schema.reflect_type_data),
             "Should not be a resource"
         );
         assert!(
-            metadata.has_type_data::<ReflectDefault>(&schema.reflect_types),
+            metadata.has_type_data::<ReflectDefault>(&schema.reflect_type_data),
             "Should have default"
         );
         assert!(
-            metadata.has_type_data::<ReflectCustomData>(&schema.reflect_types),
+            metadata.has_type_data::<ReflectCustomData>(&schema.reflect_type_data),
             "Should have CustomData"
         );
         assert!(schema.properties.is_empty(), "Should not have any field");
@@ -607,7 +619,9 @@ mod tests {
             .export_type_json_schema::<SomeType>(&SchemaTypesMetadata::default())
             .expect("Failed to export schema");
         assert!(
-            !schema.reflect_types.contains(&Cow::Borrowed("Component")),
+            !schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Component")),
             "Should not be a component"
         );
         assert!(
@@ -627,11 +641,15 @@ mod tests {
 
         let schema = export_type::<TupleStructType>();
         assert!(
-            schema.reflect_types.contains(&Cow::Borrowed("Component")),
+            schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Component")),
             "Should be a component"
         );
         assert!(
-            !schema.reflect_types.contains(&Cow::Borrowed("Resource")),
+            !schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Resource")),
             "Should not be a resource"
         );
         assert!(schema.properties.is_empty(), "Should not have any field");
@@ -655,7 +673,7 @@ mod tests {
           "typePath": "bevy_remote::schemas::json_schema::tests::Foo",
           "modulePath": "bevy_remote::schemas::json_schema::tests",
           "crateName": "bevy_remote",
-          "reflectTypes": [
+          "reflectTypeData": [
             "Resource",
             "Default",
           ],

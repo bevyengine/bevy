@@ -1254,7 +1254,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     .type_limit
                     .with
                     .iter()
-                    .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
+                    .any(|c| schema.reflect_type_data.iter().any(|cc| c.eq(cc)))
             {
                 return None;
             }
@@ -1263,7 +1263,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     .type_limit
                     .without
                     .iter()
-                    .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
+                    .any(|c| schema.reflect_type_data.iter().any(|cc| c.eq(cc)))
             {
                 return None;
             }
