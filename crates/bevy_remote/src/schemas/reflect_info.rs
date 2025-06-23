@@ -201,11 +201,10 @@ impl From<TypeId> for MinMaxValues {
         } else if value.eq(&TypeId::of::<u32>()) {
             min = Some(BoundValue::Inclusive(0.into()));
             max = Some(BoundValue::Inclusive(u32::MAX.into()));
-        } else if value.eq(&TypeId::of::<u64>()) {
-            min = Some(BoundValue::Inclusive(0.into()));
-        } else if value.eq(&TypeId::of::<u128>()) {
-            min = Some(BoundValue::Inclusive(0.into()));
-        } else if value.eq(&TypeId::of::<usize>()) {
+        } else if value.eq(&TypeId::of::<u64>())
+            || value.eq(&TypeId::of::<usize>())
+            || value.eq(&TypeId::of::<u128>())
+        {
             min = Some(BoundValue::Inclusive(0.into()));
         } else if value.eq(&TypeId::of::<i8>()) {
             min = Some(BoundValue::Inclusive(i8::MIN.into()));
@@ -712,8 +711,6 @@ pub trait SchemaInfoReflect {
             self.min_max_from_attribute_for_type::<i64>()
         } else if t.eq(&TypeId::of::<u64>()) {
             self.min_max_from_attribute_for_type::<u64>()
-        } else if t.eq(&TypeId::of::<i64>()) {
-            self.min_max_from_attribute_for_type::<i64>()
         } else if t.eq(&TypeId::of::<f32>()) {
             self.min_max_from_attribute_for_type::<f32>()
         } else if t.eq(&TypeId::of::<f64>()) {
