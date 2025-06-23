@@ -5,11 +5,11 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    observer::Trigger,
+    lifecycle::Add,
+    observer::On,
     query::Changed,
     resource::Resource,
     system::{Commands, Query, ResMut},
-    world::OnAdd,
 };
 use bevy_image::{Image, ImageSampler};
 use bevy_math::{FloatOrd, UVec2, Vec2, Vec3};
@@ -66,7 +66,7 @@ pub struct TilemapChunk {
 pub struct TilemapChunkIndices(pub Vec<Option<u16>>);
 
 fn on_add_tilemap_chunk(
-    trigger: Trigger<OnAdd, TilemapChunk>,
+    trigger: On<Add, TilemapChunk>,
     tilemap_chunk_query: Query<(&TilemapChunk, &TilemapChunkIndices, &Anchor)>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
