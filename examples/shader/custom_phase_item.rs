@@ -299,7 +299,7 @@ impl Specialize<RenderPipeline> for CustomPhaseSpecializer {
 }
 
 impl GetBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
-    fn base_descriptor(&self) -> RenderPipelineDescriptor {
+    fn get_base_descriptor(&self) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("custom render pipeline".into()),
             layout: vec![],

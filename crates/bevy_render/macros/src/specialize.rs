@@ -347,7 +347,7 @@ fn impl_specialize_specific(
     })
 }
 
-pub fn impl_has_base_descriptor(input: TokenStream) -> TokenStream {
+pub fn impl_get_base_descriptor(input: TokenStream) -> TokenStream {
     let bevy_render_path: Path = crate::bevy_render_path();
     let specialize_path = {
         let mut path = bevy_render_path.clone();
@@ -387,12 +387,12 @@ pub fn impl_has_base_descriptor(input: TokenStream) -> TokenStream {
 
     match targets {
         SpecializeImplTargets::All => {
-            impl_has_base_descriptor_all(&specialize_path, &ast, &base_descriptor_field)
+            impl_get_base_descriptor_all(&specialize_path, &ast, &base_descriptor_field)
         }
         SpecializeImplTargets::Specific(targets) => targets
             .iter()
             .map(|target| {
-                impl_has_base_descriptor_specific(
+                impl_get_base_descriptor_specific(
                     &specialize_path,
                     &ast,
                     &base_descriptor_field,
@@ -403,7 +403,7 @@ pub fn impl_has_base_descriptor(input: TokenStream) -> TokenStream {
     }
 }
 
-fn impl_has_base_descriptor_specific(
+fn impl_get_base_descriptor_specific(
     specialize_path: &Path,
     ast: &DeriveInput,
     base_descriptor_field_info: &FieldInfo,
@@ -414,15 +414,15 @@ fn impl_has_base_descriptor_specific(
     let field_ty = &base_descriptor_field_info.ty;
     let field_member = &base_descriptor_field_info.member;
     TokenStream::from(quote!(
-        impl #impl_generics #specialize_path::HasBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
-            fn base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
+        impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
+            fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
                 <#field_ty as #specialize_path::HasBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
             }
         }
     ))
 }
 
-fn impl_has_base_descriptor_all(
+fn impl_get_base_descriptor_all(
     specialize_path: &Path,
     ast: &DeriveInput,
     base_descriptor_field_info: &FieldInfo,
@@ -445,8 +445,8 @@ fn impl_has_base_descriptor_all(
     let field_ty = &base_descriptor_field_info.ty;
     let field_member = &base_descriptor_field_info.member;
     TokenStream::from(quote! {
-        impl #impl_generics #specialize_path::HasBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
-            fn base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
+        impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
+            fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
                 <#field_ty as #specialize_path::HasBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
             }
         }

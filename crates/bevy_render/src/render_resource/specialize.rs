@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use core::{hash::Hash, marker::PhantomData};
 
-pub use bevy_render_macros::{HasBaseDescriptor, Specialize};
+pub use bevy_render_macros::{GetBaseDescriptor, Specialize};
 
 /// Defines a type that is able to be "specialized" and cached by creating and transforming
 /// its descriptor type. This is implemented for [`RenderPipeline`] and [`ComputePipeline`], and
@@ -171,8 +171,8 @@ impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V
 ///     }
 /// }
 ///
-/// impl HasBaseDescriptor<RenderPipeline> for B {
-///     fn base_descriptor(&self) -> RenderPipelineDescriptor {
+/// impl GetBaseDescriptor<RenderPipeline> for B {
+///     fn get_base_descriptor(&self) -> RenderPipelineDescriptor {
 /// #       todo!()
 ///         //...
 ///     }
@@ -190,15 +190,15 @@ impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V
 ///
 /// /*
 /// The generated implementation:
-/// impl HasBaseDescriptor for C {
-///     fn base_descriptor(&self) -> RenderPipelineDescriptor {
+/// impl GetBaseDescriptor for C {
+///     fn get_base_descriptor(&self) -> RenderPipelineDescriptor {
 ///         self.b.base_descriptor()
 ///     }
 /// }
 /// */
 /// ```
 pub trait GetBaseDescriptor<T: Specializable>: Specialize<T> {
-    fn base_descriptor(&self) -> T::Descriptor;
+    fn get_base_descriptor(&self) -> T::Descriptor;
 }
 
 pub type SpecializeFn<T, S> = fn(<S as Specialize<T>>::Key, &mut <T as Specializable>::Descriptor);
@@ -266,7 +266,7 @@ where
 {
     fn from_world(world: &mut World) -> Self {
         let specializer = S::from_world(world);
-        let base_descriptor = specializer.base_descriptor();
+        let base_descriptor = specializer.get_base_descriptor();
         Self::new(specializer, None, base_descriptor)
     }
 }
