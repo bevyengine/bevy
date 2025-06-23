@@ -224,7 +224,7 @@ impl World {
     /// This is helpful as a diagnostic, but it can also be used effectively in tests.
     #[inline]
     pub fn entity_count(&self) -> u32 {
-        self.entities.len()
+        self.entities.count_constructed()
     }
 
     /// Retrieves this world's [`Archetypes`] collection.
