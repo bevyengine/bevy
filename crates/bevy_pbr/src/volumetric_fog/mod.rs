@@ -37,7 +37,8 @@ use bevy_core_pipeline::core_3d::{
     prepare_core_3d_depth_textures,
 };
 use bevy_ecs::{
-    component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs as _,
+    component::Component, reflect::ReflectComponent, resource::Resource,
+    schedule::IntoScheduleConfigs as _,
 };
 use bevy_image::Image;
 use bevy_math::{
@@ -54,9 +55,7 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::Transform;
-use render::{
-    VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
-};
+use render::{VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
 use crate::graph::NodePbr;
 
@@ -186,13 +185,19 @@ pub struct FogVolume {
     pub light_intensity: f32,
 }
 
+#[derive(Resource)]
+pub struct FogAssets {
+    plane_mesh: Handle<Mesh>,
+    cube_mesh: Handle<Mesh>,
+}
+
 impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "volumetric_fog.wgsl");
 
         let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
-        meshes.insert(&PLANE_MESH, Plane3d::new(Vec3::Z, Vec2::ONE).mesh().into());
-        meshes.insert(&CUBE_MESH, Cuboid::new(1.0, 1.0, 1.0).mesh().into());
+        let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
+        let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
 
         app.register_type::<VolumetricFog>()
             .register_type::<VolumetricLight>();
@@ -204,6 +209,10 @@ impl Plugin for VolumetricFogPlugin {
         };
 
         render_app
+            .insert_resource(FogAssets {
+                plane_mesh,
+                cube_mesh,
+            })
             .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
             .init_resource::<VolumetricFogUniformBuffer>()
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)
