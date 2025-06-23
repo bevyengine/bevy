@@ -1,14 +1,14 @@
-use alloc::borrow::Cow;
+use bevy_utils::prelude::DebugName;
 
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     error::Result,
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     system::{input::SystemIn, BoxedSystem, RunSystemError, System, SystemInput},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
-use super::{IntoSystem, SystemParamValidationError};
+use super::{IntoSystem, SystemParamValidationError, SystemStateFlags};
 
 /// See [`IntoSystem::with_input`] for details.
 pub struct WithInputWrapper<S, T>
@@ -50,31 +50,15 @@ where
     T: Send + Sync + 'static,
 {
     type In = ();
-
     type Out = S::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system.name()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
-    }
-
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
     }
 
     unsafe fn run_unsafe(
@@ -106,12 +90,12 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn get_last_run(&self) -> Tick {
@@ -159,31 +143,15 @@ where
     T: FromWorld + Send + Sync + 'static,
 {
     type In = ();
-
     type Out = S::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system.name()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
-    }
-
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.system.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.system.has_deferred()
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
     }
 
     unsafe fn run_unsafe(
@@ -219,15 +187,15 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
+        self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.system.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
     }
 
     fn get_last_run(&self) -> Tick {

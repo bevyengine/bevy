@@ -12,8 +12,8 @@ use crate::{
     system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
 };
 
-fn new_condition<M>(condition: impl SystemCondition<M>) -> BoxedCondition {
-    let condition_system = IntoSystem::into_system(condition);
+fn new_condition<M, Out>(condition: impl SystemCondition<M, (), Out>) -> BoxedCondition {
+    let condition_system = condition.into_condition_system();
     assert!(
         condition_system.is_send(),
         "SystemCondition `{}` accesses `NonSend` resources. This is not currently supported.",
@@ -445,7 +445,7 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Use [`distributive_run_if`](IntoScheduleConfigs::distributive_run_if) if you want the
     /// condition to be evaluated for each individual system, right before one is run.
-    fn run_if<M>(self, condition: impl SystemCondition<M>) -> ScheduleConfigs<T> {
+    fn run_if<M, Out>(self, condition: impl SystemCondition<M, (), Out>) -> ScheduleConfigs<T> {
         self.into_configs().run_if(condition)
     }
 
@@ -533,7 +533,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
         self
     }
 
-    fn run_if<M>(mut self, condition: impl SystemCondition<M>) -> ScheduleConfigs<T> {
+    fn run_if<M, Out>(mut self, condition: impl SystemCondition<M, (), Out>) -> ScheduleConfigs<T> {
         self.run_if_dyn(new_condition(condition));
         self
     }

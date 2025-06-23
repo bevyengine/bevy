@@ -86,13 +86,13 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     /// Inserts the entity at a specific index.
     /// If the index is too large, the entity will be added to the end of the collection.
     fn insert(&mut self, index: usize, entity: Entity);
-    /// Removes the entity at the specified idnex if it exists.
+    /// Removes the entity at the specified index if it exists.
     fn remove_at(&mut self, index: usize) -> Option<Entity>;
     /// Inserts the entity at a specific index.
     /// This will never reorder other entities.
     /// If the index is too large, the entity will be added to the end of the collection.
     fn insert_stable(&mut self, index: usize, entity: Entity);
-    /// Removes the entity at the specified idnex if it exists.
+    /// Removes the entity at the specified index if it exists.
     /// This will never reorder other entities.
     fn remove_at_stable(&mut self, index: usize) -> Option<Entity>;
     /// Sorts the source collection.

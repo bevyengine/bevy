@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, boxed::Box, format};
+use alloc::{boxed::Box, format};
+use bevy_utils::prelude::DebugName;
 use core::ops::Not;
 
 use crate::system::{
@@ -11,8 +12,18 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
-/// Implemented for functions and closures that convert into [`System<Out=bool>`](System)
-/// with [read-only](crate::system::ReadOnlySystemParam) parameters.
+/// `SystemCondition` is sealed and implemented for functions and closures with
+/// [read-only](crate::system::ReadOnlySystemParam) parameters that convert into
+/// [`System<Out = bool>`](System), [`System<Out = Result<(), BevyError>>`](System) or
+/// [`System<Out = Result<bool, BevyError>>`](System).
+///
+/// `SystemCondition` offers a private method
+/// (called by [`run_if`](crate::schedule::IntoScheduleConfigs::run_if) and the provided methods)
+/// that converts the implementing system into a condition (system) returning a bool.
+/// Depending on the output type of the implementing system:
+/// - `bool`: the implementing system is used as the condition;
+/// - `Result<(), BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(())`;
+/// - `Result<bool, BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(true)`.
 ///
 /// # Marker type parameter
 ///
@@ -31,7 +42,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// ```
 ///
 /// # Examples
-/// A condition that returns true every other time it's called.
+/// A condition that returns `true` every other time it's called.
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn every_other_time() -> impl SystemCondition<()> {
@@ -54,7 +65,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # assert!(!world.resource::<DidRun>().0);
 /// ```
 ///
-/// A condition that takes a bool as an input and returns it unchanged.
+/// A condition that takes a `bool` as an input and returns it unchanged.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -71,8 +82,30 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-pub trait SystemCondition<Marker, In: SystemInput = ()>:
-    sealed::SystemCondition<Marker, In>
+/// ```
+///
+/// A condition returning a `Result<(), BevyError>`
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)] struct Player;
+/// fn player_exists(q_player: Query<(), With<Player>>) -> Result {
+///     Ok(q_player.single()?)
+/// }
+///
+/// # let mut app = Schedule::default();
+/// # #[derive(Resource)] struct DidRun(bool);
+/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
+/// app.add_systems(my_system.run_if(player_exists));
+/// # let mut world = World::new();
+/// # world.insert_resource(DidRun(false));
+/// # app.run(&mut world);
+/// # assert!(!world.resource::<DidRun>().0);
+/// # world.spawn(Player);
+/// # app.run(&mut world);
+/// # assert!(world.resource::<DidRun>().0);
+pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
+    sealed::SystemCondition<Marker, In, Out>
 {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
@@ -122,7 +155,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and);
         let name = format!("{} && {}", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `false`
@@ -174,7 +207,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nand);
         let name = format!("!({} && {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -226,7 +259,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nor);
         let name = format!("!({} || {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that returns `true`
@@ -273,7 +306,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or);
         let name = format!("{} || {}", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -325,7 +358,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xnor);
         let name = format!("!({} ^ {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -367,32 +400,65 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xor);
         let name = format!("({} ^ {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 }
 
-impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where
-    F: sealed::SystemCondition<Marker, In>
+impl<Marker, In: SystemInput, Out, F> SystemCondition<Marker, In, Out> for F where
+    F: sealed::SystemCondition<Marker, In, Out>
 {
 }
 
 mod sealed {
-    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
+    use crate::{
+        error::BevyError,
+        system::{IntoSystem, ReadOnlySystem, SystemInput},
+    };
 
-    pub trait SystemCondition<Marker, In: SystemInput>:
-        IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
+    pub trait SystemCondition<Marker, In: SystemInput, Out>:
+        IntoSystem<In, Out, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
         // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
+        type ReadOnlySystem: ReadOnlySystem<In = In, Out = Out>;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool>;
     }
 
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, bool> for F
     where
         F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+            IntoSystem::into_system(self)
+        }
+    }
+
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<(), BevyError>> for F
+    where
+        F: IntoSystem<In, Result<(), BevyError>, Marker>,
+        F::System: ReadOnlySystem,
+    {
+        type ReadOnlySystem = F::System;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+            IntoSystem::into_system(self.map(|result| result.is_ok()))
+        }
+    }
+
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<bool, BevyError>> for F
+    where
+        F: IntoSystem<In, Result<bool, BevyError>, Marker>,
+        F::System: ReadOnlySystem,
+    {
+        type ReadOnlySystem = F::System;
+
+        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
+            IntoSystem::into_system(self.map(|result| matches!(result, Ok(true))))
+        }
     }
 }
 
@@ -401,10 +467,10 @@ pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
-        event::{Event, EventReader},
+        event::{BufferedEvent, EventReader},
+        lifecycle::RemovedComponents,
         prelude::{Component, Query, With},
         query::QueryFilter,
-        removal_detection::RemovedComponents,
         resource::Resource,
         system::{In, IntoSystem, Local, Res, System, SystemInput},
     };
@@ -863,7 +929,7 @@ pub mod common_conditions {
     ///     my_system.run_if(on_event::<MyEvent>),
     /// );
     ///
-    /// #[derive(Event)]
+    /// #[derive(Event, BufferedEvent)]
     /// struct MyEvent;
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -880,7 +946,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn on_event<T: Event>(mut reader: EventReader<T>) -> bool {
+    pub fn on_event<T: BufferedEvent>(mut reader: EventReader<T>) -> bool {
         // The events need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
@@ -1263,6 +1329,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
+    use crate::event::{BufferedEvent, Event};
     use crate::query::With;
     use crate::{
         change_detection::ResMut,
@@ -1271,7 +1338,7 @@ mod tests {
         system::Local,
         world::World,
     };
-    use bevy_ecs_macros::{Event, Resource};
+    use bevy_ecs_macros::Resource;
 
     #[derive(Resource, Default)]
     struct Counter(usize);
@@ -1382,7 +1449,7 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
-    #[derive(Event)]
+    #[derive(Event, BufferedEvent)]
     struct TestEvent;
 
     #[derive(Resource)]

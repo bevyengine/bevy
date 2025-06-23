@@ -67,7 +67,7 @@ const FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::BLUE_50;
 // In a real project, each button would also have its own unique behavior,
 // to capture the actual intent of the user
 fn universal_button_click_behavior(
-    mut trigger: Trigger<Pointer<Click>>,
+    mut trigger: On<Pointer<Click>>,
     mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
 ) {
     let button_entity = trigger.target();
@@ -186,7 +186,7 @@ fn setup_ui(
                     Text::new(button_name),
                     // And center the text if it flows onto multiple lines
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                 ))
@@ -382,7 +382,6 @@ fn interact_with_focused_button(
         if let Some(focused_entity) = input_focus.0 {
             commands.trigger_targets(
                 Pointer::<Click> {
-                    target: focused_entity,
                     // We're pretending that we're a mouse
                     pointer_id: PointerId::Mouse,
                     // This field isn't used, so we're just setting it to a placeholder value

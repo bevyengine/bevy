@@ -102,28 +102,28 @@ fn setup(
     // Spawn the readback components. For each frame, the data will be read back from the GPU
     // asynchronously and trigger the `ReadbackComplete` event on this entity. Despawn the entity
     // to stop reading back the data.
-    commands.spawn(Readback::buffer(buffer.clone())).observe(
-        |trigger: Trigger<ReadbackComplete>| {
+    commands
+        .spawn(Readback::buffer(buffer.clone()))
+        .observe(|trigger: On<ReadbackComplete>| {
             // This matches the type which was used to create the `ShaderStorageBuffer` above,
             // and is a convenient way to interpret the data.
             let data: Vec<u32> = trigger.event().to_shader_type();
             info!("Buffer {:?}", data);
-        },
-    );
+        });
     // This is just a simple way to pass the buffer handle to the render app for our compute node
     commands.insert_resource(ReadbackBuffer(buffer));
 
     // Textures can also be read back from the GPU. Pay careful attention to the format of the
     // texture, as it will affect how the data is interpreted.
-    commands.spawn(Readback::texture(image.clone())).observe(
-        |trigger: Trigger<ReadbackComplete>| {
+    commands
+        .spawn(Readback::texture(image.clone()))
+        .observe(|trigger: On<ReadbackComplete>| {
             // You probably want to interpret the data as a color rather than a `ShaderType`,
             // but in this case we know the data is a single channel storage texture, so we can
             // interpret it as a `Vec<u32>`
             let data: Vec<u32> = trigger.event().to_shader_type();
             info!("Image {:?}", data);
-        },
-    );
+        });
     commands.insert_resource(ReadbackImage(image));
 }
 

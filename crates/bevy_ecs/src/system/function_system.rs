@@ -1,9 +1,9 @@
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
@@ -13,6 +13,7 @@ use crate::{
 };
 
 use alloc::{borrow::Cow, vec, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -21,20 +22,16 @@ use tracing::{info_span, Span};
 
 use super::{
     IntoSystem, ReadOnlySystem, RunSystemError, SystemParamBuilder, SystemParamValidationError,
+    SystemStateFlags,
 };
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
 pub struct SystemMeta {
-    pub(crate) name: Cow<'static, str>,
-    /// The set of component accesses for this system. This is used to determine
-    /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
-    /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
-    pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
+    pub(crate) name: DebugName,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
-    is_send: bool,
-    has_deferred: bool,
+    flags: SystemStateFlags,
     pub(crate) last_run: Tick,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -44,23 +41,21 @@ pub struct SystemMeta {
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
-        let name = core::any::type_name::<T>();
+        let name = DebugName::type_name::<T>();
         Self {
-            name: name.into(),
-            component_access_set: FilteredAccessSet::default(),
-            is_send: true,
-            has_deferred: false,
+            #[cfg(feature = "trace")]
+            system_span: info_span!("system", name = name.clone().as_string()),
+            #[cfg(feature = "trace")]
+            commands_span: info_span!("system_commands", name = name.clone().as_string()),
+            name,
+            flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
-            #[cfg(feature = "trace")]
-            system_span: info_span!("system", name = name),
-            #[cfg(feature = "trace")]
-            commands_span: info_span!("system_commands", name = name),
         }
     }
 
     /// Returns the system's name
     #[inline]
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &DebugName {
         &self.name
     }
 
@@ -76,13 +71,13 @@ impl SystemMeta {
             self.system_span = info_span!("system", name = name);
             self.commands_span = info_span!("system_commands", name = name);
         }
-        self.name = new_name;
+        self.name = new_name.into();
     }
 
     /// Returns true if the system is [`Send`].
     #[inline]
     pub fn is_send(&self) -> bool {
-        self.is_send
+        !self.flags.intersects(SystemStateFlags::NON_SEND)
     }
 
     /// Sets the system to be not [`Send`].
@@ -90,38 +85,20 @@ impl SystemMeta {
     /// This is irreversible.
     #[inline]
     pub fn set_non_send(&mut self) {
-        self.is_send = false;
+        self.flags |= SystemStateFlags::NON_SEND;
     }
 
     /// Returns true if the system has deferred [`SystemParam`]'s
     #[inline]
     pub fn has_deferred(&self) -> bool {
-        self.has_deferred
+        self.flags.intersects(SystemStateFlags::DEFERRED)
     }
 
     /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
     /// This lets the scheduler insert [`ApplyDeferred`](`crate::prelude::ApplyDeferred`) systems automatically.
     #[inline]
     pub fn set_has_deferred(&mut self) {
-        self.has_deferred = true;
-    }
-
-    /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
-    /// Used to check if systems and/or system params have conflicting access.
-    #[inline]
-    pub fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.component_access_set
-    }
-
-    /// Returns a mutable reference to the [`FilteredAccessSet`] for [`ComponentId`].
-    /// Used internally to statically check if systems have conflicting access.
-    ///
-    /// # Safety
-    ///
-    /// No access can be removed from the returned [`FilteredAccessSet`].
-    #[inline]
-    pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
-        &mut self.component_access_set
+        self.flags |= SystemStateFlags::DEFERRED;
     }
 }
 
@@ -158,7 +135,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(Event)]
+/// # #[derive(Event, BufferedEvent)]
 /// # struct MyEvent;
 /// # #[derive(Resource)]
 /// # struct MyResource(u32);
@@ -191,7 +168,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(Event)]
+/// # #[derive(Event, BufferedEvent)]
 /// # struct MyEvent;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
@@ -283,7 +260,11 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let param_state = Param::init_state(world, &mut meta);
+        let param_state = Param::init_state(world);
+        let mut component_access_set = FilteredAccessSet::new();
+        // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
+        // even though we don't use the calculated access.
+        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
         Self {
             meta,
             param_state,
@@ -295,7 +276,11 @@ impl<Param: SystemParam> SystemState<Param> {
     pub(crate) fn from_builder(world: &mut World, builder: impl SystemParamBuilder<Param>) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let param_state = builder.build(world, &mut meta);
+        let param_state = builder.build(world);
+        let mut component_access_set = FilteredAccessSet::new();
+        // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
+        // even though we don't use the calculated access.
+        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
         Self {
             meta,
             param_state,
@@ -500,8 +485,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Modifying the system param states may have unintended consequences.
     /// The param state is generally considered to be owned by the [`SystemParam`]. Modifications
     /// should respect any invariants as required by the [`SystemParam`].
-    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) without also
-    /// updating [`SystemMeta::component_access_set`] will obviously create issues.
+    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) will obviously create issues.
     pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
         &mut self.param_state
     }
@@ -665,33 +649,13 @@ where
     type Out = Out;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system_meta.name.clone()
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
-    }
-
-    #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.system_meta.component_access_set
-    }
-
-    #[inline]
-    fn is_send(&self) -> bool {
-        self.system_meta.is_send
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        false
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
-        self.system_meta.has_deferred
+    fn flags(&self) -> SystemStateFlags {
+        self.system_meta.flags
     }
 
     #[inline]
@@ -769,28 +733,35 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,
                 world.id(),
                 "System built with a different world than the one it was added to.",
             );
-        } else {
-            self.state = Some(FunctionSystemState {
-                param: F::Param::init_state(world, &mut self.system_meta),
-                world_id: world.id(),
-            });
         }
+        let state = self.state.get_or_insert_with(|| FunctionSystemState {
+            param: F::Param::init_state(world),
+            world_id: world.id(),
+        });
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        let mut component_access_set = FilteredAccessSet::new();
+        F::Param::init_access(
+            &state.param,
+            &mut self.system_meta,
+            &mut component_access_set,
+            world,
+        );
+        component_access_set
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
         check_system_change_tick(
             &mut self.system_meta.last_run,
-            change_tick,
-            self.system_meta.name.as_ref(),
+            check,
+            self.system_meta.name.clone(),
         );
     }
 

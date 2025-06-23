@@ -341,7 +341,7 @@ pub fn build_directional_light_cascades(
         .iter()
         .filter_map(|(entity, transform, projection, camera)| {
             if camera.is_active {
-                Some((entity, projection, transform.compute_matrix()))
+                Some((entity, projection, transform.to_matrix()))
             } else {
                 None
             }
@@ -357,7 +357,7 @@ pub fn build_directional_light_cascades(
         // light_to_world has orthogonal upper-left 3x3 and zero translation.
         // Even though only the direction (i.e. rotation) of the light matters, we don't constrain
         // users to not change any other aspects of the transform - there's no guarantee
-        // `transform.compute_matrix()` will give us a matrix with our desired properties.
+        // `transform.to_matrix()` will give us a matrix with our desired properties.
         // Instead, we directly create a good matrix from just the rotation.
         let world_from_light = Mat4::from_quat(transform.compute_transform().rotation);
         let light_to_world_inverse = world_from_light.inverse();
@@ -628,7 +628,7 @@ pub fn update_point_light_frusta(
 
         for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
             let world_from_view = view_translation * *view_rotation;
-            let clip_from_world = clip_from_view * world_from_view.compute_matrix().inverse();
+            let clip_from_world = clip_from_view * world_from_view.to_matrix().inverse();
 
             *frustum = Frustum::from_clip_from_world_custom_far(
                 &clip_from_world,

@@ -8,9 +8,9 @@ use bevy_ecs::{
     entity::Entity,
     event::EventCursor,
     hierarchy::ChildOf,
+    lifecycle::RemovedComponentEntity,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-    removal_detection::RemovedComponentEntity,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
@@ -24,7 +24,10 @@ use serde_json::{Map, Value};
 
 use crate::{
     error_codes,
-    schemas::{json_schema::JsonSchemaBevyType, open_rpc::OpenRpcDocument},
+    schemas::{
+        json_schema::{export_type, JsonSchemaBevyType},
+        open_rpc::OpenRpcDocument,
+    },
     BrpError, BrpResult,
 };
 
@@ -570,7 +573,8 @@ pub fn process_remote_get_watching_request(
             );
             continue;
         };
-        let Some(component_id) = world.components().get_id(type_registration.type_id()) else {
+        let Some(component_id) = world.components().get_valid_id(type_registration.type_id())
+        else {
             let err = BrpError::component_error(format!("Unknown component: `{component_path}`"));
             if strict {
                 return Err(err);
@@ -1129,7 +1133,7 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
             let Some(component_info) = world.components().get_info(component_id) else {
                 continue;
             };
-            response.push(component_info.name().to_owned());
+            response.push(component_info.name().to_string());
         }
     }
     // If `None`, list all registered components.
@@ -1188,7 +1192,7 @@ pub fn process_remote_list_watching_request(
             let Some(component_info) = world.components().get_info(component_id) else {
                 continue;
             };
-            response.added.push(component_info.name().to_owned());
+            response.added.push(component_info.name().to_string());
         }
     }
 
@@ -1201,7 +1205,7 @@ pub fn process_remote_list_watching_request(
                 let Some(component_info) = world.components().get_info(*component_id) else {
                     continue;
                 };
-                response.removed.push(component_info.name().to_owned());
+                response.removed.push(component_info.name().to_string());
             }
         }
     }
@@ -1222,24 +1226,27 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
         Some(params) => parse(params)?,
     };
 
+    let extra_info = world.resource::<crate::schemas::SchemaTypesMetadata>();
     let types = world.resource::<AppTypeRegistry>();
     let types = types.read();
     let schemas = types
         .iter()
-        .map(crate::schemas::json_schema::export_type)
-        .filter(|(_, schema)| {
-            if let Some(crate_name) = &schema.crate_name {
+        .filter_map(|type_reg| {
+            let path_table = type_reg.type_info().type_path_table();
+            if let Some(crate_name) = &path_table.crate_name() {
                 if !filter.with_crates.is_empty()
                     && !filter.with_crates.iter().any(|c| crate_name.eq(c))
                 {
-                    return false;
+                    return None;
                 }
                 if !filter.without_crates.is_empty()
                     && filter.without_crates.iter().any(|c| crate_name.eq(c))
                 {
-                    return false;
+                    return None;
                 }
             }
+            let (id, schema) = export_type(type_reg, extra_info);
+
             if !filter.type_limit.with.is_empty()
                 && !filter
                     .type_limit
@@ -1247,7 +1254,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     .iter()
                     .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
             {
-                return false;
+                return None;
             }
             if !filter.type_limit.without.is_empty()
                 && filter
@@ -1256,10 +1263,9 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     .iter()
                     .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
             {
-                return false;
+                return None;
             }
-
-            true
+            Some((id.to_string(), schema))
         })
         .collect::<HashMap<String, JsonSchemaBevyType>>();
 
@@ -1304,7 +1310,7 @@ fn get_component_ids(
                 let type_id = type_registration.type_id();
                 world
                     .components()
-                    .get_id(type_id)
+                    .get_valid_id(type_id)
                     .map(|component_id| (type_id, component_id))
             });
         if let Some((type_id, component_id)) = maybe_component_tuple {
