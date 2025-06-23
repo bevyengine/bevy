@@ -5,6 +5,7 @@
 use bevy::{
     app::{App, Startup, Update},
     asset::{AssetServer, Handle},
+    color::Color,
     core_pipeline::core_2d::Camera2d,
     ecs::{
         bundle::Bundle,
@@ -21,7 +22,8 @@ use bevy::{
     time::Time,
     ui::{
         widget::{ImageNode, Text},
-        AlignItems, AlignSelf, FlexDirection, JustifySelf, Node, Overflow, ScrollPosition, Val,
+        AlignItems, AlignSelf, BorderColor, FlexDirection, JustifySelf, Node, Overflow,
+        ScrollPosition, UiRect, Val,
     },
     DefaultPlugins,
 };
@@ -114,9 +116,11 @@ impl SpawnableList<ChildOf> for ExampleNodes {
                             width: Val::Px(NODE_SIDES),
                             height: Val::Px(NODE_SIDES),
                             flex_direction: FlexDirection::Row,
+                            border: UiRect::all(Val::Px(2.)),
                             overflow,
                             ..Default::default()
                         },
+                        BorderColor::all(Color::WHITE),
                         spawn_list(&self.0, &self.1)
                     )
                 ],
