@@ -8,6 +8,7 @@ use bevy_reflect::{
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::borrow::Cow;
 
 use crate::schemas::{
     reflect_info::{SchemaInfoReflect, SchemaNumber},
@@ -102,11 +103,11 @@ impl TryFrom<&TypeRegistration> for JsonSchemaBevyType {
 
 /// Identifies the JSON Schema version used in the schema.
 #[derive(Deserialize, Serialize, Debug, Reflect, PartialEq, Clone)]
-pub struct SchemaMarker(String);
+pub struct SchemaMarker(Cow<'static, str>);
 
 impl Default for SchemaMarker {
     fn default() -> Self {
-        Self("https://json-schema.org/draft/2020-12/schema".to_string())
+        Self("https://json-schema.org/draft/2020-12/schema".into())
     }
 }
 
@@ -125,22 +126,22 @@ pub struct JsonSchemaBevyType {
     /// This keyword is used to reference a statically identified schema.
     #[serde(rename = "$ref")]
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub ref_type: Option<String>,
+    pub ref_type: Option<Cow<'static, str>>,
     /// Bevy specific field, short path of the type.
-    #[serde(skip_serializing_if = "String::is_empty", default)]
-    pub short_path: String,
+    #[serde(skip_serializing_if = "str::is_empty", default)]
+    pub short_path: Cow<'static, str>,
     /// Bevy specific field, full path of the type.
-    #[serde(skip_serializing_if = "String::is_empty", default)]
-    pub type_path: String,
+    #[serde(skip_serializing_if = "str::is_empty", default)]
+    pub type_path: Cow<'static, str>,
     /// Bevy specific field, path of the module that type is part of.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub module_path: Option<String>,
+    pub module_path: Option<Cow<'static, str>>,
     /// Bevy specific field, name of the crate that type is part of.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub crate_name: Option<String>,
+    pub crate_name: Option<Cow<'static, str>>,
     /// Bevy specific field, names of the types that type reflects.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub reflect_types: Vec<String>,
+    pub reflect_types: Vec<Cow<'static, str>>,
     /// Bevy specific field, [`TypeInfo`] type mapping.
     pub kind: SchemaKind,
     /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
@@ -167,10 +168,10 @@ pub struct JsonSchemaBevyType {
     /// within this keyword's value, the child instance for that name successfully validates
     /// against the corresponding schema.
     #[serde(skip_serializing_if = "HashMap::is_empty", default)]
-    pub properties: HashMap<String, JsonSchemaVariant>,
+    pub properties: HashMap<Cow<'static, str>, JsonSchemaVariant>,
     /// An object instance is valid against this keyword if every item in the array is the name of a property in the instance.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub required: Vec<String>,
+    pub required: Vec<Cow<'static, str>>,
     /// An instance validates successfully against this keyword if it validates successfully against exactly one schema defined by this keyword's value.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub one_of: Vec<JsonSchemaVariant>,
@@ -452,18 +453,23 @@ mod tests {
         let schema = export_type::<Foo>();
 
         assert!(
-            !schema.reflect_types.contains(&"Component".to_owned()),
+            !schema.reflect_types.contains(&Cow::Borrowed("Component")),
             "Should not be a component"
         );
         assert!(
-            schema.reflect_types.contains(&"Resource".to_owned()),
+            schema.reflect_types.contains(&Cow::Borrowed("Resource")),
             "Should be a resource"
         );
+
         let _ = schema.properties.get("a").expect("Missing `a` field");
         let _ = schema.properties.get("b").expect("Missing `b` field");
         assert!(
-            schema.required.contains(&"a".to_owned()),
+            schema.required.contains(&Cow::Borrowed("a")),
             "Field a should be required"
+        );
+        assert!(
+            schema.required.contains(&Cow::Borrowed("b")),
+            "Field b should be required"
         );
     }
 
@@ -482,11 +488,11 @@ mod tests {
         }
         let schema = export_type::<EnumComponent>();
         assert!(
-            schema.reflect_types.contains(&"Component".to_owned()),
+            schema.reflect_types.contains(&Cow::Borrowed("Component")),
             "Should be a component"
         );
         assert!(
-            !schema.reflect_types.contains(&"Resource".to_owned()),
+            !schema.reflect_types.contains(&Cow::Borrowed("Resource")),
             "Should not be a resource"
         );
         assert!(schema.properties.is_empty(), "Should not have any field");
@@ -506,11 +512,11 @@ mod tests {
         }
         let schema = export_type::<EnumComponent>();
         assert!(
-            !schema.reflect_types.contains(&"Component".to_owned()),
+            !schema.reflect_types.contains(&Cow::Borrowed("Component")),
             "Should not be a component"
         );
         assert!(
-            !schema.reflect_types.contains(&"Resource".to_owned()),
+            !schema.reflect_types.contains(&Cow::Borrowed("Resource")),
             "Should not be a resource"
         );
         assert!(schema.properties.is_empty(), "Should not have any field");
@@ -601,7 +607,7 @@ mod tests {
             .export_type_json_schema::<SomeType>(&SchemaTypesMetadata::default())
             .expect("Failed to export schema");
         assert!(
-            !schema.reflect_types.contains(&"Component".to_owned()),
+            !schema.reflect_types.contains(&Cow::Borrowed("Component")),
             "Should not be a component"
         );
         assert!(
@@ -621,11 +627,11 @@ mod tests {
 
         let schema = export_type::<TupleStructType>();
         assert!(
-            schema.reflect_types.contains(&"Component".to_owned()),
+            schema.reflect_types.contains(&Cow::Borrowed("Component")),
             "Should be a component"
         );
         assert!(
-            !schema.reflect_types.contains(&"Resource".to_owned()),
+            !schema.reflect_types.contains(&Cow::Borrowed("Resource")),
             "Should not be a resource"
         );
         assert!(schema.properties.is_empty(), "Should not have any field");

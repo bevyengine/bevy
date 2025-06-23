@@ -1,6 +1,7 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
 use core::any::TypeId;
+use std::borrow::Cow;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
@@ -1268,7 +1269,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
             }
             Some((type_reg.type_info().type_path().into(), schema))
         })
-        .collect::<HashMap<String, JsonSchemaBevyType>>();
+        .collect::<HashMap<Cow<'static, str>, JsonSchemaBevyType>>();
 
     serde_json::to_value(schemas).map_err(BrpError::internal)
 }

@@ -334,21 +334,21 @@ impl Into<JsonSchemaVariant> for SchemaTypeInfo {
             type_path: self
                 .type_info
                 .as_ref()
-                .and_then(|s| Some(s.type_path_table().path().to_owned()))
+                .and_then(|s| Some(s.type_path_table().path().into()))
                 .unwrap_or_default(),
             short_path: self
                 .type_info
                 .as_ref()
-                .and_then(|s| Some(s.type_path_table().short_path().to_owned()))
+                .and_then(|s| Some(s.type_path_table().short_path().into()))
                 .unwrap_or_default(),
             crate_name: self
                 .type_info
                 .as_ref()
-                .and_then(|s| s.type_path_table().crate_name().map(str::to_owned)),
+                .and_then(|s| s.type_path_table().crate_name().map(Into::into)),
             module_path: self
                 .type_info
                 .as_ref()
-                .and_then(|s| s.type_path_table().module_path().map(str::to_owned)),
+                .and_then(|s| s.type_path_table().module_path().map(Into::into)),
             minimum: self.range.min.as_ref().and_then(|r| r.get_inclusive()),
             maximum: self.range.max.as_ref().and_then(|r| r.get_inclusive()),
             exclusive_minimum: self.range.min.as_ref().and_then(|r| r.get_exclusive()),
@@ -396,9 +396,8 @@ impl Into<JsonSchemaVariant> for SchemaTypeInfo {
                         range: MinMaxValues::default(),
                     };
 
-                    schema.properties =
-                        [(variant_info.name().to_string(), schema_field.into())].into();
-                    schema.required = vec![variant_info.name().to_string()];
+                    schema.properties = [(variant_info.name().into(), schema_field.into())].into();
+                    schema.required = vec![variant_info.name().into()];
                 }
                 VariantInfo::Tuple(tuple_variant_info) => {
                     schema.kind = SchemaKind::Value;
@@ -414,9 +413,8 @@ impl Into<JsonSchemaVariant> for SchemaTypeInfo {
                         type_id: Some(tuple_variant_info.type_id()),
                         range: MinMaxValues::default(),
                     };
-                    schema.properties =
-                        [(variant_info.name().to_string(), schema_field.into())].into();
-                    schema.required = vec![variant_info.name().to_string()];
+                    schema.properties = [(variant_info.name().into(), schema_field.into())].into();
+                    schema.required = vec![variant_info.name().into()];
                 }
                 VariantInfo::Unit(unit_variant_info) => {
                     return JsonSchemaVariant::const_value(
@@ -430,11 +428,11 @@ impl Into<JsonSchemaVariant> for SchemaTypeInfo {
                 schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Object));
                 schema.properties = named_fields
                     .iter()
-                    .map(|field| (field.name().to_string(), field.build_schema()))
+                    .map(|field| (field.name().into(), field.build_schema()))
                     .collect();
                 schema.required = named_fields
                     .iter()
-                    .map(|field| field.name().to_string())
+                    .map(|field| field.name().into())
                     .collect();
             }
             InternalSchemaType::UnnamedFieldsHolder(unnamed_fields) => {
