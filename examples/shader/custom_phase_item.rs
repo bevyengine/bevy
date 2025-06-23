@@ -293,8 +293,13 @@ impl FromWorld for CustomPhaseSpecializer {
 impl Specialize<RenderPipeline> for CustomPhaseSpecializer {
     type Key = Msaa;
 
-    fn specialize(&self, msaa: Self::Key, descriptor: &mut RenderPipelineDescriptor) {
+    fn specialize(
+        &self,
+        msaa: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<(), BevyError> {
         descriptor.multisample.count = msaa.samples();
+        Ok(())
     }
 }
 

@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use core::{hash::Hash, marker::PhantomData};
 
-pub use bevy_render_macros::{GetBaseDescriptor, Specialize};
+pub use bevy_render_macros::Specialize;
 
 /// Defines a type that is able to be "specialized" and cached by creating and transforming
 /// its descriptor type. This is implemented for [`RenderPipeline`] and [`ComputePipeline`], and
@@ -139,16 +139,11 @@ impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V
 /// descriptor" at creation time in order to have something for the
 /// [`Specialize`] implementation to work off of. This trait allows
 /// [`Specializer`] to impl [`FromWorld`] for [`Specialize`] implementationss
-/// that also satisfy [`FromWorld`] and [`HasBaseDescriptor`].
+/// that also satisfy [`FromWorld`] and [`GetBaseDescriptor`].
 ///
-/// This trait can be derived with `#[derive(HasBaseDescriptor)]` for structs.
-/// Like `#[derive(Specialize)]`, it requires an additional.
-/// `#[specialize(..targets)]` attribute. See the [`Specialize`] docs for more
-/// info.
-///
-/// If the struct has a single field, it will defer to that field's
-/// [`HasBaseDescriptor`] implementation. Otherwise a single
-/// `#[base_descriptor]` attribute is required to mark which field to defer to.
+/// This trait can be also derived with `#[derive(Specialize)]`, by marking
+/// a field with `#[base_descriptor]` to use its base [`GetBaseDescriptor`]
+/// implementation.
 ///
 /// Example:
 /// ```rs
@@ -179,7 +174,7 @@ impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V
 /// }
 ///
 ///
-/// #[derive(Specialize, HasBaseDescriptor)]
+/// #[derive(Specialize)]
 /// #[specialize(RenderPipeline)]
 /// struct C {
 ///     #[key(default)]

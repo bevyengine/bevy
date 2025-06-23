@@ -110,14 +110,7 @@ pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
 /// Derive macro generating an impl of the trait `Specialize`
 ///
 /// This only works for structs whose members all implement `Specialize`
-#[proc_macro_derive(Specialize, attributes(specialize, key))]
+#[proc_macro_derive(Specialize, attributes(specialize, key, base_descriptor))]
 pub fn derive_specialize(input: TokenStream) -> TokenStream {
     specialize::impl_specialize(input)
-}
-
-/// Derive macro generating an impl of the trait `GetBaseDescriptor`
-/// by deferring to the `GetBaseDescriptor` impl of a chosen field.
-#[proc_macro_derive(GetBaseDescriptor, attributes(specialize, base_descriptor))]
-pub fn derive_get_base_descriptor(input: TokenStream) -> TokenStream {
-    specialize::impl_get_base_descriptor(input)
 }

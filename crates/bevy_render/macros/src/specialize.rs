@@ -250,16 +250,44 @@ pub fn impl_specialize(input: TokenStream) -> TokenStream {
     let fields = guard!(get_struct_fields(&ast, "Specialize"));
     let field_info = guard!(get_field_info(fields, &targets));
 
+    let base_descriptor_fields = field_info
+        .iter()
+        .filter(|field| field.use_base_descriptor)
+        .collect::<Vec<_>>();
+
+    if base_descriptor_fields.len() > 1 {
+        return syn::Error::new(
+            Span::call_site(),
+            "Too many #[base_descriptor] attributes found. It must be present on exactly one field",
+        )
+        .into_compile_error()
+        .into();
+    }
+
+    let base_descriptor_field = base_descriptor_fields.first().copied();
+
     match targets {
         SpecializeImplTargets::All => {
-            impl_specialize_all(&specialize_path, &ecs_path, &ast, &field_info)
+            let specialize_impl =
+                impl_specialize_all(&specialize_path, &ecs_path, &ast, &field_info);
+            let get_base_descriptor_impl = base_descriptor_field
+                .map(|field_info| impl_get_base_descriptor_all(&specialize_path, &ast, field_info))
+                .unwrap_or_default();
+            [specialize_impl, get_base_descriptor_impl]
+                .into_iter()
+                .collect()
         }
-        SpecializeImplTargets::Specific(targets) => targets
-            .iter()
-            .map(|target| {
+        SpecializeImplTargets::Specific(targets) => {
+            let specialize_impls = targets.iter().map(|target| {
                 impl_specialize_specific(&specialize_path, &ecs_path, &ast, &field_info, target)
-            })
-            .collect(),
+            });
+            let get_base_descriptor_impls = targets.iter().filter_map(|target| {
+                base_descriptor_field.map(|field_info| {
+                    impl_get_base_descriptor_specific(&specialize_path, &ast, field_info, target)
+                })
+            });
+            specialize_impls.chain(get_base_descriptor_impls).collect()
+        }
     }
 }
 
