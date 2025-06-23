@@ -638,12 +638,12 @@ impl<'w, 's> Commands<'w, 's> {
         command: C,
         error_handler: fn(BevyError, ErrorContext),
     ) {
-        self.queue_internal(command.handle_error_with(Some(error_handler)));
+        self.queue_internal(command.handle_error_with(error_handler));
     }
 
     /// Pushes a generic [`Command`] to the queue like [`Commands::queue_handled`], but instead silently ignores any errors.
     pub fn queue_silenced<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
-        self.queue_internal(command.handle_error_with(None));
+        self.queue_internal(command.ignore_error());
     }
 
     fn queue_internal(&mut self, command: impl Command) {
@@ -749,7 +749,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.queue(command::insert_batch(batch, InsertMode::Replace).handle_error_with(Some(warn)));
+        self.queue(command::insert_batch(batch, InsertMode::Replace).handle_error_with(warn));
     }
 
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
@@ -780,7 +780,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.queue(command::insert_batch(batch, InsertMode::Keep).handle_error_with(Some(warn)));
+        self.queue(command::insert_batch(batch, InsertMode::Keep).handle_error_with(warn));
     }
 
     /// Inserts a [`Resource`] into the [`World`] with an inferred value.
@@ -878,7 +878,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn run_system<O: 'static>(&mut self, id: SystemId<(), O>) {
-        self.queue(command::run_system(id).handle_error_with(Some(warn)));
+        self.queue(command::run_system(id).handle_error_with(warn));
     }
 
     /// Runs the system corresponding to the given [`SystemId`] with input.
@@ -903,7 +903,7 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(command::run_system_with(id, input).handle_error_with(Some(warn)));
+        self.queue(command::run_system_with(id, input).handle_error_with(warn));
     }
 
     /// Registers a system and returns its [`SystemId`] so it can later be called by
@@ -997,7 +997,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: 'static,
     {
-        self.queue(command::unregister_system(system_id).handle_error_with(Some(warn)));
+        self.queue(command::unregister_system(system_id).handle_error_with(warn));
     }
 
     /// Removes a system previously registered with one of the following:
@@ -1019,7 +1019,7 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<I, O, M> + Send + 'static,
     {
-        self.queue(command::unregister_system_cached(system).handle_error_with(Some(warn)));
+        self.queue(command::unregister_system_cached(system).handle_error_with(warn));
     }
 
     /// Runs a cached system, registering it if necessary.
@@ -1050,7 +1050,7 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<(), O, M> + Send + 'static,
     {
-        self.queue(command::run_system_cached(system).handle_error_with(Some(warn)));
+        self.queue(command::run_system_cached(system).handle_error_with(warn));
     }
 
     /// Runs a cached system with an input, registering it if necessary.
@@ -1082,7 +1082,7 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<I, O, M> + Send + 'static,
     {
-        self.queue(command::run_system_cached_with(system, input).handle_error_with(Some(warn)));
+        self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
     /// Sends a global [`Event`] without any targets.
@@ -1188,7 +1188,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.queue(command::run_schedule(label).handle_error_with(Some(warn)));
+        self.queue(command::run_schedule(label).handle_error_with(warn));
     }
 }
 
