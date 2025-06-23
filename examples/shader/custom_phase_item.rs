@@ -291,13 +291,8 @@ impl FromWorld for CustomPhaseSpecializer {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializeKey)]
 struct CustomPhaseKey(Msaa);
-
-impl SpecializeKey for CustomPhaseKey {
-    const IS_CANONICAL: bool = true;
-    type Canonical = Self;
-}
 
 impl Specialize<RenderPipeline> for CustomPhaseSpecializer {
     type Key = CustomPhaseKey;
