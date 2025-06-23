@@ -26,6 +26,10 @@ with `Specializer::new` or by implementing `GetBaseDescriptor`. Also, there's
 a new key for specialization keys, `SpecializeKey`, that can be derived with
 the included macro in most cases.
 
+Composing multiple different specializers together with the `derive(Specialize)`
+macro can be a lot more powerful (see the `Specialize` docs), but migrating
+individual specializers is fairly simple:
+
 ```rs
 pub struct MySpecializer {
     layout: BindGroupLayout,
@@ -34,9 +38,9 @@ pub struct MySpecializer {
     fragment: Handle<Shader>,
 }
 
-// before 
+// before
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-// after 
+// after
 #[derive(Clone, Copy, PartialEq, Eq, Hash, SpecializeKey)]
 pub struct MyKey {
     blend_state: BlendState,
