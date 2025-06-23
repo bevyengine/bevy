@@ -1001,7 +1001,7 @@ mod tests {
     /// If we don't append the strings in the `TypePath` derive correctly (i.e. explicitly specifying the type),
     /// we'll get a compilation error saying that "`&String` cannot be added to `String`".
     ///
-    /// So this test just ensures that we do do that correctly.
+    /// So this test just ensures that we do that correctly.
     ///
     /// This problem is a known issue and is unexpectedly expected behavior:
     /// - <https://github.com/rust-lang/rust/issues/77143>
