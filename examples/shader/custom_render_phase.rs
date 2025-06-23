@@ -165,6 +165,7 @@ struct StencilPipeline {
     /// This isn't required, it's only done like this for simplicity.
     shader_handle: Handle<Shader>,
 }
+
 impl FromWorld for StencilPipeline {
     fn from_world(world: &mut World) -> Self {
         Self {
@@ -382,6 +383,7 @@ impl GetBatchData for StencilPipeline {
         Some((mesh_uniform, None))
     }
 }
+
 impl GetFullBatchData for StencilPipeline {
     type BufferInputData = MeshInputUniform;
 

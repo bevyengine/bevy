@@ -2392,7 +2392,7 @@ mod tests {
             .spawn((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
-        assert_eq!(world.entities().count_constructed(), 1);
+        assert_eq!(world.entity_count(), 1);
         let results = world
             .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)

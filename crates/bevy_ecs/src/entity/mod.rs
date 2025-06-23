@@ -866,6 +866,7 @@ impl<'a> Iterator for AllocEntitiesIterator<'a> {
 }
 
 impl<'a> ExactSizeIterator for AllocEntitiesIterator<'a> {}
+
 impl<'a> core::iter::FusedIterator for AllocEntitiesIterator<'a> {}
 
 // SAFETY: Newly allocated entity values are unique.

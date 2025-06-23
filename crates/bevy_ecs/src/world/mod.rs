@@ -219,6 +219,14 @@ impl World {
         &mut self.entities
     }
 
+    /// Retrieves the number of [`Entities`] in the world.
+    ///
+    /// This is helpful as a diagnostic, but it can also be used effectively in tests.
+    #[inline]
+    pub fn entity_count(&self) -> u32 {
+        self.entities.len()
+    }
+
     /// Retrieves this world's [`Archetypes`] collection.
     #[inline]
     pub fn archetypes(&self) -> &Archetypes {
@@ -1426,6 +1434,7 @@ impl World {
     /// # assert_eq!(world.get::<Foo>(entity), Some(&Foo(true)));
     /// ```
     #[inline]
+    #[track_caller]
     pub fn modify_component<T: Component, R>(
         &mut self,
         entity: Entity,
@@ -1433,7 +1442,11 @@ impl World {
     ) -> Result<Option<R>, EntityMutableFetchError> {
         let mut world = DeferredWorld::from(&mut *self);
 
-        let result = world.modify_component(entity, f)?;
+        let result = world.modify_component_with_relationship_hook_mode(
+            entity,
+            RelationshipHookMode::Run,
+            f,
+        )?;
 
         self.flush();
         Ok(result)
@@ -1454,6 +1467,7 @@ impl World {
     /// You should prefer the typed [`modify_component`](World::modify_component)
     /// whenever possible.
     #[inline]
+    #[track_caller]
     pub fn modify_component_by_id<R>(
         &mut self,
         entity: Entity,
@@ -1462,7 +1476,12 @@ impl World {
     ) -> Result<Option<R>, EntityMutableFetchError> {
         let mut world = DeferredWorld::from(&mut *self);
 
-        let result = world.modify_component_by_id(entity, component_id, f)?;
+        let result = world.modify_component_by_id_with_relationship_hook_mode(
+            entity,
+            component_id,
+            RelationshipHookMode::Run,
+            f,
+        )?;
 
         self.flush();
         Ok(result)
