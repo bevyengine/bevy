@@ -6,9 +6,9 @@
 //! Entities have zero or more [`Component`]s, which are just data associated with the entity.
 //! Entities serve the same purpose as things like game objects from Unity or nodes from Godot:
 //! They can be created, have their data accessed and changed, and are eventually deleted.
-//! In bevy, an entity can represent anything from a player character to the game's window itself (and everything in-between!)
+//! In Bevy, an entity can represent anything from a player character to the game's window itself (and everything in-between!)
 //! However, unlike other engines, entities are not represented as large class objects.
-//! This makes bevy much faster in principal, but it also leads to some perhaps unintuitive differences that need to be considered.
+//! This makes Bevy much faster in principal, but it also leads to some perhaps unintuitive differences that need to be considered.
 //!
 //! Because entities are not traditional, object-oriented, garbage collected, class instances, more effort is needed to interact with them.
 //! The biggest difference is that the [`Entity`] type does *not* represent a conceptual entity.
@@ -18,7 +18,7 @@
 //! and a hashmap for each component which maps [`Entity`] values to component values if the entity has that component.
 //! Of course, the [`World`] is really quite different from this and much more efficient, but thinking about it this way will be helpful to understand how entities work.
 //! Put another way, the world can be thought of as a big spreadsheet, where each component type has a column and each entity has a row.
-//! In order to get an entity's components, bevy finds the values by looking up the [`Entity`]'s [`EntityRow`] and the [`Component`](crate::component::Component)'s [`ComponentId`](crate::component::ComponentId).
+//! In order to get an entity's components, Bevy finds the values by looking up the [`Entity`]'s [`EntityRow`] and the [`Component`](crate::component::Component)'s [`ComponentId`](crate::component::ComponentId).
 //! Interacting with an entity can be done through three main interfaces:
 //! Use the [`World`] with methods like [`World::entity`](crate::world::World::entity) for complete and immediate access to an entity and its components.
 //! Use [`Query`]s for very fast access to component values.
