@@ -108,6 +108,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Component derive syntax is documented on both the macro and the trait.
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
@@ -446,7 +447,11 @@ pub const MAP_ENTITIES: &str = "map_entities";
 pub const IMMUTABLE: &str = "immutable";
 pub const CLONE_BEHAVIOR: &str = "clone_behavior";
 
-/// All allowed attribute value expression kinds for component hooks
+/// All allowed attribute value expression kinds for component hooks.
+/// This does simply use general expressions because of conflicting needs:
+/// - we want to be able to use `Self` & generic parameters in paths
+/// - call expressions producing a closure need to be wrapped in a function
+///   to turn them into function pointers, which prevents access to the outer generic params
 #[derive(Debug)]
 enum HookAttributeKind {
     /// expressions like function or struct names
