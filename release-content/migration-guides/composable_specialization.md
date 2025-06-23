@@ -105,7 +105,7 @@ impl Specialize<RenderPipeline> for MySpecializer {
         &self,
         key: Self::Key,
         descriptor: &mut RenderPipeline,
-    ) -> Result<Canonical<Key>, BevyError> {
+    ) -> Result<Canonical<Self::Key>, BevyError> {
         descriptor.multisample.count = key.msaa.samples();
         descriptor.layout[0] = if key.msaa.samples() > 0 {
             self.layout_msaa.clone()
