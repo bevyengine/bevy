@@ -23,7 +23,7 @@ use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
 
 /// Defines how the slider should behave when you click on the track (not the thumb).
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum TrackClick {
     /// Clicking on the track lets you drag to edit the value, just like clicking on the thumb.
     #[default]
