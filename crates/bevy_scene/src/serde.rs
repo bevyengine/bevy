@@ -2,7 +2,7 @@
 
 use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{
     serde::{
         ReflectDeserializer, TypeRegistrationDeserializer, TypedReflectDeserializer,
@@ -515,14 +515,13 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{hash_map::EntityHashMap, Entity},
+        entity::{Entity, EntityHashMap},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::AppTypeRegistry,
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-    use bincode::Options;
     use serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::io::BufReader;
 
@@ -639,21 +638,21 @@ mod tests {
     ),
   },
   entities: {
-    4294967296: (
-      components: {
-        "bevy_scene::serde::tests::Foo": (123),
-      },
-    ),
-    4294967297: (
-      components: {
-        "bevy_scene::serde::tests::Bar": (345),
-        "bevy_scene::serde::tests::Foo": (123),
-      },
-    ),
-    4294967298: (
+    4294967293: (
       components: {
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Baz": (789),
+        "bevy_scene::serde::tests::Foo": (123),
+      },
+    ),
+    4294967294: (
+      components: {
+        "bevy_scene::serde::tests::Bar": (345),
+        "bevy_scene::serde::tests::Foo": (123),
+      },
+    ),
+    4294967295: (
+      components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
@@ -676,18 +675,18 @@ mod tests {
     ),
   },
   entities: {
-    4294967296: (
+    8589934591: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    4294967297: (
+    8589934590: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    4294967298: (
+    8589934589: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
@@ -816,7 +815,7 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 1, 128, 128, 128, 128, 16, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
+                0, 1, 255, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
                 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
                 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204,
                 108, 64, 1, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
@@ -857,8 +856,8 @@ mod tests {
 
         assert_eq!(
             vec![
-                146, 128, 129, 207, 0, 0, 0, 1, 0, 0, 0, 0, 145, 129, 217, 37, 98, 101, 118, 121,
-                95, 115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115,
+                146, 128, 129, 206, 255, 255, 255, 255, 145, 129, 217, 37, 98, 101, 118, 121, 95,
+                115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115,
                 116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1,
                 2, 3, 146, 202, 63, 166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112,
                 108, 101, 172, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
@@ -894,17 +893,19 @@ mod tests {
 
         let scene = DynamicScene::from_world(&world);
 
+        let config = bincode::config::standard().with_fixed_int_encoding();
         let scene_serializer = SceneSerializer::new(&scene, registry);
-        let serialized_scene = bincode::serialize(&scene_serializer).unwrap();
+        let serialized_scene = bincode::serde::encode_to_vec(&scene_serializer, config).unwrap();
 
         assert_eq!(
             vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
-                0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
-                58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
-                67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0,
-                0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 102, 102, 166, 63, 205, 204, 108, 64, 1, 0, 0, 0,
-                12, 0, 0, 0, 0, 0, 0, 0, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 1,
+                0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101,
+                110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58,
+                77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0,
+                0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 102, 102, 166, 63, 205, 204, 108, 64, 1,
+                0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108,
+                100, 33
             ],
             serialized_scene
         );
@@ -913,10 +914,9 @@ mod tests {
             type_registry: registry,
         };
 
-        let deserialized_scene = bincode::DefaultOptions::new()
-            .with_fixint_encoding()
-            .deserialize_seed(scene_deserializer, &serialized_scene)
-            .unwrap();
+        let (deserialized_scene, _read_bytes) =
+            bincode::serde::seed_decode_from_slice(scene_deserializer, &serialized_scene, config)
+                .unwrap();
 
         assert_eq!(1, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);

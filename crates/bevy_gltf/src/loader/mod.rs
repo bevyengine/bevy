@@ -1,20 +1,23 @@
 mod extensions;
 mod gltf_ext;
 
+use alloc::sync::Arc;
 use std::{
     io::Error,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
+    RenderAssetUsages,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{Entity, EntityHashMap},
     hierarchy::ChildSpawner,
     name::Name,
     world::World,
@@ -24,22 +27,22 @@ use bevy_image::{
     ImageType, TextureError,
 };
 use bevy_math::{Mat4, Vec3};
+use bevy_mesh::{
+    morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
+    skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+    Indices, Mesh, MeshVertexAttribute, PrimitiveTopology, VertexAttributeValues,
+};
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
 use bevy_pbr::{
     DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, MAX_JOINTS,
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
-    mesh::{
-        morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
-        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
-    },
+    mesh::Mesh3d,
     primitives::Aabb,
-    render_asset::RenderAssetUsages,
-    render_resource::{Face, PrimitiveTopology},
+    render_resource::Face,
     view::Visibility,
 };
 use bevy_scene::Scene;
@@ -63,7 +66,7 @@ use tracing::{error, info_span, warn};
 
 use crate::{
     vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
+    GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -81,6 +84,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
+use crate::convert_coordinates::ConvertCoordinates as _;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -122,10 +126,10 @@ pub enum GltfError {
     MissingAnimationSampler(usize),
     /// Failed to generate tangents.
     #[error("failed to generate tangents: {0}")]
-    GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
+    GenerateTangentsError(#[from] bevy_mesh::GenerateTangentsError),
     /// Failed to generate morph targets.
     #[error("failed to generate morph targets: {0}")]
-    MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
+    MorphTarget(#[from] bevy_mesh::morph::MorphBuildError),
     /// Circular children in Nodes
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
@@ -145,6 +149,22 @@ pub struct GltfLoader {
     /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    /// Arc to default [`ImageSamplerDescriptor`].
+    pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
+    /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
+    /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
+    /// such that objects looking forward in glTF will also look forward in Bevy.
+    ///
+    /// The exact coordinate system conversion is as follows:
+    /// - glTF:
+    ///   - forward: Z
+    ///   - up: Y
+    ///   - right: -X
+    /// - Bevy:
+    ///   - forward: -Z
+    ///   - up: Y
+    ///   - right: X
+    pub default_convert_coordinates: bool,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -180,6 +200,29 @@ pub struct GltfLoaderSettings {
     pub load_lights: bool,
     /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
+    /// Overrides the default sampler. Data from sampler node is added on top of that.
+    ///
+    /// If None, uses the global default which is stored in the [`DefaultGltfImageSampler`](crate::DefaultGltfImageSampler) resource.
+    pub default_sampler: Option<ImageSamplerDescriptor>,
+    /// If true, the loader will ignore sampler data from gltf and use the default sampler.
+    pub override_sampler: bool,
+    /// Overrides the default glTF coordinate conversion setting.
+    ///
+    /// If set to `Some(true)`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
+    /// such that objects looking forward in glTF will also look forward in Bevy.
+    ///
+    /// The exact coordinate system conversion is as follows:
+    /// - glTF:
+    ///   - forward: Z
+    ///   - up: Y
+    ///   - right: -X
+    /// - Bevy:
+    ///   - forward: -Z
+    ///   - up: Y
+    ///   - right: X
+    ///
+    /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
+    pub convert_coordinates: Option<bool>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -190,6 +233,9 @@ impl Default for GltfLoaderSettings {
             load_cameras: true,
             load_lights: true,
             include_source: false,
+            default_sampler: None,
+            override_sampler: false,
+            convert_coordinates: None,
         }
     }
 }
@@ -249,6 +295,11 @@ async fn load_gltf<'a, 'b, 'c>(
         paths
     };
 
+    let convert_coordinates = match settings.convert_coordinates {
+        Some(convert_coordinates) => convert_coordinates,
+        None => loader.default_convert_coordinates,
+    };
+
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
         use bevy_animation::{animated_field, animation_curves::*, gltf_curves::*, VariableCurve};
@@ -290,7 +341,16 @@ async fn load_gltf<'a, 'b, 'c>(
                     match outputs {
                         ReadOutputs::Translations(tr) => {
                             let translation_property = animated_field!(Transform::translation);
-                            let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
+                            let translations: Vec<Vec3> = tr
+                                .map(Vec3::from)
+                                .map(|verts| {
+                                    if convert_coordinates {
+                                        Vec3::convert_coordinates(verts)
+                                    } else {
+                                        verts
+                                    }
+                                })
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     translation_property,
@@ -337,8 +397,17 @@ async fn load_gltf<'a, 'b, 'c>(
                         }
                         ReadOutputs::Rotations(rots) => {
                             let rotation_property = animated_field!(Transform::rotation);
-                            let rotations: Vec<Quat> =
-                                rots.into_f32().map(Quat::from_array).collect();
+                            let rotations: Vec<Quat> = rots
+                                .into_f32()
+                                .map(Quat::from_array)
+                                .map(|quat| {
+                                    if convert_coordinates {
+                                        Quat::convert_coordinates(quat)
+                                    } else {
+                                        quat
+                                    }
+                                })
+                                .collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
                                     rotation_property,
@@ -493,12 +562,10 @@ async fn load_gltf<'a, 'b, 'c>(
                     );
                 }
             }
-            let handle = load_context
-                .add_labeled_asset(
-                    GltfAssetLabel::Animation(animation.index()).to_string(),
-                    animation_clip,
-                )
-                .expect("animation indices are unique, so the label is unique");
+            let handle = load_context.add_labeled_asset(
+                GltfAssetLabel::Animation(animation.index()).to_string(),
+                animation_clip,
+            );
             if let Some(name) = animation.name() {
                 named_animations.insert(name.into(), handle.clone());
             }
@@ -507,6 +574,10 @@ async fn load_gltf<'a, 'b, 'c>(
         (animations, named_animations, animation_roots)
     };
 
+    let default_sampler = match settings.default_sampler.as_ref() {
+        Some(sampler) => sampler,
+        None => &loader.default_sampler.lock().unwrap().clone(),
+    };
     // We collect handles to ensure loaded images from paths are not unloaded before they are used elsewhere
     // in the loader. This prevents "reloads", but it also prevents dropping the is_srgb context on reload.
     //
@@ -523,7 +594,8 @@ async fn load_gltf<'a, 'b, 'c>(
                 &linear_textures,
                 parent_path,
                 loader.supported_compressed_formats,
-                settings.load_materials,
+                default_sampler,
+                settings,
             )
             .await?;
             image.process_loaded_texture(load_context, &mut _texture_handles);
@@ -543,7 +615,8 @@ async fn load_gltf<'a, 'b, 'c>(
                             linear_textures,
                             parent_path,
                             loader.supported_compressed_formats,
-                            settings.load_materials,
+                            default_sampler,
+                            settings,
                         )
                         .await
                     });
@@ -616,6 +689,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     accessor,
                     &buffer_data,
                     &loader.custom_vertex_attributes,
+                    convert_coordinates,
                 ) {
                     Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                     Err(err) => warn!("{}", err),
@@ -645,8 +719,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         RenderAssetUsages::default(),
                     )?;
                     let handle = load_context
-                        .add_labeled_asset(morph_targets_label.to_string(), morph_target_image.0)
-                        .expect("morph target indices are unique, so the label is unique");
+                        .add_labeled_asset(morph_targets_label.to_string(), morph_target_image.0);
 
                     mesh.set_morph_targets(handle);
                     let extras = gltf_mesh.extras().as_ref();
@@ -699,9 +772,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 });
             }
 
-            let mesh_handle = load_context
-                .add_labeled_asset(primitive_label.to_string(), mesh)
-                .expect("primitive indices are unique, so the label is unique");
+            let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
             primitives.push(super::GltfPrimitive::new(
                 &gltf_mesh,
                 &primitive,
@@ -725,9 +796,7 @@ async fn load_gltf<'a, 'b, 'c>(
             gltf_mesh.extras().as_deref().map(GltfExtras::from),
         );
 
-        let handle = load_context
-            .add_labeled_asset(mesh.asset_label().to_string(), mesh)
-            .expect("mesh indices are unique, so the label is unique");
+        let handle = load_context.add_labeled_asset(mesh.asset_label().to_string(), mesh);
         if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.into(), handle.clone());
         }
@@ -740,17 +809,25 @@ async fn load_gltf<'a, 'b, 'c>(
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
-                .map(|mats| mats.map(|mat| Mat4::from_cols_array_2d(&mat)).collect())
+                .map(|mats| {
+                    mats.map(|mat| Mat4::from_cols_array_2d(&mat))
+                        .map(|mat| {
+                            if convert_coordinates {
+                                mat.convert_coordinates()
+                            } else {
+                                mat
+                            }
+                        })
+                        .collect()
+                })
                 .unwrap_or_else(|| {
                     core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
                 });
 
-            load_context
-                .add_labeled_asset(
-                    GltfAssetLabel::InverseBindMatrices(gltf_skin.index()).to_string(),
-                    SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
-                )
-                .expect("inverse bind matrix indices are unique, so the label is unique")
+            load_context.add_labeled_asset(
+                GltfAssetLabel::InverseBindMatrices(gltf_skin.index()).to_string(),
+                SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
+            )
         })
         .collect();
 
@@ -799,8 +876,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     );
 
                     let handle = load_context
-                        .add_labeled_asset(gltf_skin.asset_label().to_string(), gltf_skin)
-                        .expect("skin indices are unique, so the label is unique");
+                        .add_labeled_asset(gltf_skin.asset_label().to_string(), gltf_skin);
 
                     if let Some(name) = skin.name() {
                         named_skins.insert(name.into(), handle.clone());
@@ -825,7 +901,7 @@ async fn load_gltf<'a, 'b, 'c>(
             &node,
             children,
             mesh,
-            node_transform(&node),
+            node_transform(&node, convert_coordinates),
             skin,
             node.extras().as_deref().map(GltfExtras::from),
         );
@@ -833,9 +909,7 @@ async fn load_gltf<'a, 'b, 'c>(
         #[cfg(feature = "bevy_animation")]
         let gltf_node = gltf_node.with_animation_root(animation_roots.contains(&node.index()));
 
-        let handle = load_context
-            .add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node)
-            .expect("node indices are unique, so the label is unique");
+        let handle = load_context.add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node);
         nodes.insert(node.index(), handle.clone());
         if let Some(name) = node.name() {
             named_nodes.insert(name.into(), handle);
@@ -878,6 +952,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         #[cfg(feature = "bevy_animation")]
                         None,
                         &gltf.document,
+                        convert_coordinates,
                     );
                     if result.is_err() {
                         err = Some(result);
@@ -924,12 +999,10 @@ async fn load_gltf<'a, 'b, 'c>(
             });
         }
         let loaded_scene = scene_load_context.finish(Scene::new(world));
-        let scene_handle = load_context
-            .add_loaded_labeled_asset(
-                GltfAssetLabel::Scene(scene.index()).to_string(),
-                loaded_scene,
-            )
-            .expect("scene indices are unique, so the label is unique");
+        let scene_handle = load_context.add_loaded_labeled_asset(
+            GltfAssetLabel::Scene(scene.index()).to_string(),
+            loaded_scene,
+        );
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.into(), scene_handle.clone());
@@ -971,28 +1044,28 @@ async fn load_image<'a, 'b>(
     linear_textures: &HashSet<usize>,
     parent_path: &'b Path,
     supported_compressed_formats: CompressedImageFormats,
-    render_asset_usages: RenderAssetUsages,
+    default_sampler: &ImageSamplerDescriptor,
+    settings: &GltfLoaderSettings,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
-    let sampler_descriptor = texture_sampler(&gltf_texture);
-    #[cfg(all(debug_assertions, feature = "dds"))]
-    let name = gltf_texture
-        .name()
-        .map_or("Unknown GLTF Texture".to_string(), ToString::to_string);
+    let sampler_descriptor = if settings.override_sampler {
+        default_sampler.clone()
+    } else {
+        texture_sampler(&gltf_texture, default_sampler)
+    };
+
     match gltf_texture.source().source() {
         Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
             let image = Image::from_buffer(
-                #[cfg(all(debug_assertions, feature = "dds"))]
-                name,
                 buffer,
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
-                render_asset_usages,
+                settings.load_materials,
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -1009,14 +1082,12 @@ async fn load_image<'a, 'b>(
                 let image_type = ImageType::MimeType(data_uri.mime_type);
                 Ok(ImageOrPath::Image {
                     image: Image::from_buffer(
-                        #[cfg(all(debug_assertions, feature = "dds"))]
-                        name,
                         &bytes,
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
-                        render_asset_usages,
+                        settings.load_materials,
                     )?,
                     label: GltfAssetLabel::Texture(gltf_texture.index()),
                 })
@@ -1041,7 +1112,7 @@ fn load_material(
 ) -> Handle<StandardMaterial> {
     let material_label = material_label(material, is_scale_inverted);
     load_context
-        .labeled_asset_scope(material_label.to_string(), |load_context| {
+        .labeled_asset_scope::<_, ()>(material_label.to_string(), |load_context| {
             let pbr = material.pbr_metallic_roughness();
 
             // TODO: handle missing label handle errors here?
@@ -1192,7 +1263,7 @@ fn load_material(
             let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
             let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
 
-            StandardMaterial {
+            Ok(StandardMaterial {
                 base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
                 base_color_channel,
                 base_color_texture,
@@ -1275,15 +1346,18 @@ fn load_material(
                 #[cfg(feature = "pbr_specular_textures")]
                 specular_tint_texture: specular.specular_color_texture,
                 ..Default::default()
-            }
+            })
         })
-        .expect("material indices are unique, so the label is unique")
+        .unwrap()
 }
 
 /// Loads a glTF node.
-#[expect(
-    clippy::result_large_err,
-    reason = "`GltfError` is only barely past the threshold for large errors."
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::result_large_err,
+        reason = "`GltfError` is only barely past the threshold for large errors."
+    )
 )]
 fn load_node(
     gltf_node: &Node,
@@ -1298,9 +1372,10 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
+    convert_coordinates: bool,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node);
+    let transform = node_transform(gltf_node, convert_coordinates);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1353,7 +1428,6 @@ fn load_node(
                         },
                         ..OrthographicProjection::default_3d()
                     };
-
                     Projection::Orthographic(orthographic_projection)
                 }
                 gltf::camera::Projection::Perspective(perspective) => {
@@ -1371,6 +1445,7 @@ fn load_node(
                     Projection::Perspective(perspective_projection)
                 }
             };
+
             node.insert((
                 Camera3d::default(),
                 projection,
@@ -1465,11 +1540,16 @@ fn load_node(
                         });
                     }
 
-                    if let Some(name) = material.name() {
-                        mesh_entity.insert(GltfMaterialName(String::from(name)));
+                    if let Some(name) = mesh.name() {
+                        mesh_entity.insert(GltfMeshName(name.to_string()));
                     }
 
-                    mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
+                    if let Some(name) = material.name() {
+                        mesh_entity.insert(GltfMaterialName(name.to_string()));
+                    }
+
+                    mesh_entity.insert(Name::new(primitive_name(&mesh, &material)));
+
                     // Mark for adding skinned mesh
                     if let Some(skin) = gltf_node.skin() {
                         entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
@@ -1564,6 +1644,7 @@ fn load_node(
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
                 document,
+                convert_coordinates,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -1693,9 +1774,9 @@ impl ImageOrPath {
         handles: &mut Vec<Handle<Image>>,
     ) {
         let handle = match self {
-            ImageOrPath::Image { label, image } => load_context
-                .add_labeled_asset(label.to_string(), image)
-                .expect("texture indices are unique, so the label is unique"),
+            ImageOrPath::Image { label, image } => {
+                load_context.add_labeled_asset(label.to_string(), image)
+            }
             ImageOrPath::Path {
                 path,
                 is_srgb,
@@ -1772,7 +1853,8 @@ mod test {
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
-    use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
+    use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
+    use bevy_render::mesh::MeshPlugin;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {

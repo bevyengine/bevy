@@ -1,5 +1,5 @@
-//! This module contains the definition of the [`EntityCommand`] trait, as well as
-//! blanket implementations of the trait for closures.
+//! Contains the definition of the [`EntityCommand`] trait,
+//! as well as the blanket implementation of the trait for closures.
 //!
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
@@ -11,8 +11,8 @@ use crate::{
     bundle::{Bundle, InsertMode},
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
-    entity::{Entity, EntityClonerBuilder},
-    event::Event,
+    entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
+    event::EntityEvent,
     relationship::RelationshipHookMode,
     system::IntoObserverSystem,
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
@@ -203,9 +203,10 @@ pub fn retain<T: Bundle>() -> impl EntityCommand {
 ///
 /// # Note
 ///
-/// This will also despawn any [`Children`](crate::hierarchy::Children) entities,
-/// and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured to despawn descendants.
-/// This results in "recursive despawn" behavior.
+/// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget)
+/// that is configured to despawn descendants.
+///
+/// For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
 #[track_caller]
 pub fn despawn() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
@@ -217,7 +218,7 @@ pub fn despawn() -> impl EntityCommand {
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
 /// listening for events of type `E` targeting an entity
 #[track_caller]
-pub fn observe<E: Event, B: Bundle, M>(
+pub fn observe<E: EntityEvent, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
@@ -226,10 +227,11 @@ pub fn observe<E: Event, B: Bundle, M>(
     }
 }
 
-/// An [`EntityCommand`] that sends a [`Trigger`](crate::observer::Trigger) targeting an entity.
-/// This will run any [`Observer`](crate::observer::Observer) of the given [`Event`] watching the entity.
+/// An [`EntityCommand`] that sends an [`EntityEvent`] targeting an entity.
+///
+/// This will run any [`Observer`](crate::observer::Observer) of the given [`EntityEvent`] watching the entity.
 #[track_caller]
-pub fn trigger(event: impl Event) -> impl EntityCommand {
+pub fn trigger(event: impl EntityEvent) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         let id = entity.id();
@@ -241,12 +243,36 @@ pub fn trigger(event: impl Event) -> impl EntityCommand {
 
 /// An [`EntityCommand`] that clones parts of an entity onto another entity,
 /// configured through [`EntityClonerBuilder`].
-pub fn clone_with(
+///
+/// This builder tries to clone every component from the source entity except
+/// for components that were explicitly denied, for example by using the
+/// [`deny`](EntityClonerBuilder<OptOut>::deny) method.
+///
+/// Required components are not considered by denied components and must be
+/// explicitly denied as well if desired.
+pub fn clone_with_opt_out(
     target: Entity,
-    config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+    config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
 ) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
-        entity.clone_with(target, config);
+        entity.clone_with_opt_out(target, config);
+    }
+}
+
+/// An [`EntityCommand`] that clones parts of an entity onto another entity,
+/// configured through [`EntityClonerBuilder`].
+///
+/// This builder tries to clone every component that was explicitly allowed
+/// from the source entity, for example by using the
+/// [`allow`](EntityClonerBuilder<OptIn>::allow) method.
+///
+/// Required components are also cloned when the target entity does not contain them.
+pub fn clone_with_opt_in(
+    target: Entity,
+    config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
+) -> impl EntityCommand {
+    move |mut entity: EntityWorldMut| {
+        entity.clone_with_opt_in(target, config);
     }
 }
 

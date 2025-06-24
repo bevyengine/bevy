@@ -1,10 +1,11 @@
 use crate::{
-    component::Tick,
+    component::{ComponentId, Tick},
+    query::FilteredAccessSet,
     storage::SparseSetIndex,
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
-use bevy_platform_support::sync::atomic::{AtomicUsize, Ordering};
+use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
 
 use super::unsafe_world_cell::UnsafeWorldCell;
 
@@ -53,7 +54,15 @@ unsafe impl SystemParam for WorldId {
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(_: &mut World, _: &mut SystemMeta) -> Self::State {}
+    fn init_state(_: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet<ComponentId>,
+        _world: &mut World,
+    ) {
+    }
 
     #[inline]
     unsafe fn get_param<'world, 'state>(

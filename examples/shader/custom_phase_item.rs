@@ -32,7 +32,7 @@ use bevy::{
         },
         renderer::{RenderDevice, RenderQueue},
         view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderSystems,
     },
 };
 use bytemuck::{Pod, Zeroable};
@@ -73,8 +73,8 @@ where
 
     fn render<'w>(
         _: &P,
-        _: ROQueryItem<'w, Self::ViewQuery>,
-        _: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _: ROQueryItem<'w, '_, Self::ViewQuery>,
+        _: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         custom_phase_item_buffers: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -180,9 +180,9 @@ fn main() {
         .add_render_command::<Opaque3d, DrawCustomPhaseItemCommands>()
         .add_systems(
             Render,
-            prepare_custom_phase_item_buffers.in_set(RenderSet::Prepare),
+            prepare_custom_phase_item_buffers.in_set(RenderSystems::Prepare),
         )
-        .add_systems(Render, queue_custom_phase_item.in_set(RenderSet::Queue));
+        .add_systems(Render, queue_custom_phase_item.in_set(RenderSystems::Queue));
 
     app.run();
 }

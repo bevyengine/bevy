@@ -17,15 +17,14 @@ pub fn run_condition_yes(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
-    for amount in 0..21 {
+    for amount in [10, 100, 1_000] {
         let mut schedule = Schedule::default();
-        schedule.add_systems(empty.run_if(yes));
-        for _ in 0..amount {
+        for _ in 0..(amount / 5) {
             schedule.add_systems((empty, empty, empty, empty, empty).distributive_run_if(yes));
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{}_systems", amount), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -40,15 +39,14 @@ pub fn run_condition_no(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
-    for amount in 0..21 {
+    for amount in [10, 100, 1_000] {
         let mut schedule = Schedule::default();
-        schedule.add_systems(empty.run_if(no));
-        for _ in 0..amount {
+        for _ in 0..(amount / 5) {
             schedule.add_systems((empty, empty, empty, empty, empty).distributive_run_if(no));
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{}_systems", amount), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -70,17 +68,16 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
     fn yes_with_query(query: Single<&TestBool>) -> bool {
         query.0
     }
-    for amount in 0..21 {
+    for amount in [10, 100, 1_000] {
         let mut schedule = Schedule::default();
-        schedule.add_systems(empty.run_if(yes_with_query));
-        for _ in 0..amount {
+        for _ in 0..(amount / 5) {
             schedule.add_systems(
                 (empty, empty, empty, empty, empty).distributive_run_if(yes_with_query),
             );
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{}_systems", amount), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -99,17 +96,16 @@ pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
     fn yes_with_resource(res: Res<TestBool>) -> bool {
         res.0
     }
-    for amount in 0..21 {
+    for amount in [10, 100, 1_000] {
         let mut schedule = Schedule::default();
-        schedule.add_systems(empty.run_if(yes_with_resource));
-        for _ in 0..amount {
+        for _ in 0..(amount / 5) {
             schedule.add_systems(
                 (empty, empty, empty, empty, empty).distributive_run_if(yes_with_resource),
             );
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{}_systems", amount), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });

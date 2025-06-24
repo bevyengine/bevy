@@ -1,7 +1,7 @@
 use super::compensation_curve::{
     AutoExposureCompensationCurve, AutoExposureCompensationCurveUniform,
 };
-use bevy_asset::{prelude::*, weak_handle};
+use bevy_asset::{load_embedded_asset, prelude::*};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
@@ -44,9 +44,6 @@ pub enum AutoExposurePass {
     Average,
 }
 
-pub const METERING_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("05c84384-afa4-41d9-844e-e9cd5e7609af");
-
 pub const HISTOGRAM_BIN_COUNT: u64 = 64;
 
 impl FromWorld for AutoExposurePipeline {
@@ -71,7 +68,7 @@ impl FromWorld for AutoExposurePipeline {
                     ),
                 ),
             ),
-            histogram_shader: METERING_SHADER_HANDLE.clone(),
+            histogram_shader: load_embedded_asset!(world, "auto_exposure.wgsl"),
         }
     }
 }

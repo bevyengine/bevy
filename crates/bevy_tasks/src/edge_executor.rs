@@ -22,9 +22,8 @@ use core::{
 
 use async_task::{Runnable, Task};
 use atomic_waker::AtomicWaker;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::{Arc, LazyLock};
 use futures_lite::FutureExt;
-use once_cell::sync::OnceCell;
 
 /// An async executor.
 ///
@@ -51,7 +50,7 @@ use once_cell::sync::OnceCell;
 ///     }));
 /// ```
 pub struct Executor<'a, const C: usize = 64> {
-    state: OnceCell<Arc<State<C>>>,
+    state: LazyLock<Arc<State<C>>>,
     _invariant: PhantomData<core::cell::UnsafeCell<&'a ()>>,
 }
 
@@ -67,7 +66,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// ```
     pub const fn new() -> Self {
         Self {
-            state: OnceCell::new(),
+            state: LazyLock::new(|| Arc::new(State::new())),
             _invariant: PhantomData,
         }
     }
@@ -284,7 +283,7 @@ impl<'a, const C: usize> Executor<'a, C> {
 
     /// Returns a reference to the inner state.
     fn state(&self) -> &Arc<State<C>> {
-        self.state.get_or_init(|| Arc::new(State::new()))
+        &self.state
     }
 }
 
@@ -526,15 +525,15 @@ mod drop_tests {
     use core::task::{Poll, Waker};
     use std::sync::Mutex;
 
+    use bevy_platform::sync::LazyLock;
     use futures_lite::future;
-    use once_cell::sync::Lazy;
 
     use super::{Executor, Task};
 
     #[test]
     fn leaked_executor_leaks_everything() {
         static DROP: AtomicUsize = AtomicUsize::new(0);
-        static WAKER: Lazy<Mutex<Option<Waker>>> = Lazy::new(Default::default);
+        static WAKER: LazyLock<Mutex<Option<Waker>>> = LazyLock::new(Default::default);
 
         let ex: Executor = Default::default();
 

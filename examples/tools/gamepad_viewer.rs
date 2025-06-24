@@ -48,6 +48,7 @@ struct ButtonMaterials {
     normal: MeshMaterial2d<ColorMaterial>,
     active: MeshMaterial2d<ColorMaterial>,
 }
+
 impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
         Self {
@@ -63,6 +64,7 @@ struct ButtonMeshes {
     start_pause: Mesh2d,
     trigger: Mesh2d,
 }
+
 impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
         Self {
@@ -287,7 +289,7 @@ fn setup_sticks(
                 (
                     Text2d::default(),
                     Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
-                    Anchor::BottomCenter,
+                    Anchor::BOTTOM_CENTER,
                     TextWithAxes { x_axis, y_axis },
                     children![
                         (TextSpan(format!("{:.3}", 0.)), style.clone()),

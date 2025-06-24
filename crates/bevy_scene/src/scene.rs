@@ -5,7 +5,7 @@ use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
     component::ComponentCloneBehavior,
-    entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
+    entity::{Entity, EntityHashMap, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     relationship::RelationshipHookMode,
@@ -93,7 +93,7 @@ impl Scene {
                 type_registry
                     .get(type_id)
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        std_type_name: component_info.name().to_string(),
+                        std_type_name: component_info.name(),
                     })?;
             let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
@@ -133,7 +133,7 @@ impl Scene {
                     let registration = type_registry
                         .get(component_info.type_id().unwrap())
                         .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                            std_type_name: component_info.name().to_string(),
+                            std_type_name: component_info.name(),
                         })?;
                     let reflect_component =
                         registration.data::<ReflectComponent>().ok_or_else(|| {

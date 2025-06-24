@@ -3,8 +3,8 @@ use crate::{
     NamedField, UnnamedField,
 };
 use alloc::boxed::Box;
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::collections::HashMap;
+use bevy_platform::sync::Arc;
 use core::slice::Iter;
 use thiserror::Error;
 
@@ -47,7 +47,9 @@ pub enum VariantInfoError {
     /// [type]: VariantType
     #[error("variant type mismatch: expected {expected:?}, received {received:?}")]
     TypeMismatch {
+        /// Expected variant type.
         expected: VariantType,
+        /// Received variant type.
         received: VariantType,
     },
 }
@@ -84,6 +86,7 @@ pub enum VariantInfo {
 }
 
 impl VariantInfo {
+    /// The name of the enum variant.
     pub fn name(&self) -> &'static str {
         match self {
             Self::Struct(info) => info.name(),

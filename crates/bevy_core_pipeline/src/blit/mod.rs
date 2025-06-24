@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::{
@@ -10,16 +10,14 @@ use bevy_render::{
     RenderApp,
 };
 
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
-
-pub const BLIT_SHADER_HANDLE: Handle<Shader> = weak_handle!("59be3075-c34e-43e7-bf24-c8fe21a0192e");
+use crate::FullscreenShader;
 
 /// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
 pub struct BlitPlugin;
 
 impl Plugin for BlitPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, BLIT_SHADER_HANDLE, "blit.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "blit.wgsl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>();
@@ -40,6 +38,8 @@ impl Plugin for BlitPlugin {
 pub struct BlitPipeline {
     pub texture_bind_group: BindGroupLayout,
     pub sampler: Sampler,
+    pub fullscreen_shader: FullscreenShader,
+    pub fragment_shader: Handle<Shader>,
 }
 
 impl FromWorld for BlitPipeline {
@@ -62,6 +62,8 @@ impl FromWorld for BlitPipeline {
         BlitPipeline {
             texture_bind_group,
             sampler,
+            fullscreen_shader: render_world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(render_world, "blit.wgsl"),
         }
     }
 }
@@ -80,9 +82,9 @@ impl SpecializedRenderPipeline for BlitPipeline {
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
             layout: vec![self.texture_bind_group.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: BLIT_SHADER_HANDLE,
+                shader: self.fragment_shader.clone(),
                 shader_defs: vec![],
                 entry_point: "fs_main".into(),
                 targets: vec![Some(ColorTargetState {

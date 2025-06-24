@@ -7,8 +7,8 @@ mod intersections;
 use bevy_derive::{Deref, DerefMut};
 
 use bevy_math::{bounding::Aabb3d, Ray3d};
+use bevy_mesh::Mesh;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::Mesh;
 
 use intersections::*;
 pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};
@@ -233,7 +233,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     if let Some(distance) = ray_aabb_intersection_3d(
                         ray,
                         &Aabb3d::new(aabb.center, aabb.half_extents),
-                        &transform.compute_matrix(),
+                        &transform.to_matrix(),
                     ) {
                         aabb_hits_tx.send((FloatOrd(distance), entity)).ok();
                     }
@@ -287,7 +287,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
 
                 // Perform the actual ray cast.
                 let _ray_cast_guard = ray_cast_guard.enter();
-                let transform = transform.compute_matrix();
+                let transform = transform.to_matrix();
                 let intersection = ray_intersection_over_mesh(mesh, &transform, ray, backfaces);
 
                 if let Some(intersection) = intersection {

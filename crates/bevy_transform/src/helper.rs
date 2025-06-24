@@ -124,7 +124,7 @@ mod tests {
             let mut e = app.world_mut().spawn(transform);
 
             if let Some(parent) = entity {
-                e.insert(ChildOf { parent });
+                e.insert(ChildOf(parent));
             }
 
             entity = Some(e.id());
