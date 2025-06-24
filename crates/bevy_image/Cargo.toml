@@ -38,6 +38,9 @@ serialize = ["bevy_reflect", "bevy_platform/serialize"]
 zlib = ["flate2"]
 zstd = ["ruzstd"]
 
+# Enables compressed KTX2 UASTC texture output on the asset processor
+compressed_image_saver = ["basis-universal"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }

@@ -141,12 +141,21 @@ impl<'a> VertexAttributeIter<'a> {
             VertexAttributeIter::F32x2(it) => Ok(Values::Float32x2(it.collect())),
             VertexAttributeIter::U32x2(it) => Ok(Values::Uint32x2(it.collect())),
             VertexAttributeIter::F32x3(it) => Ok(if convert_coordinates {
+                // The following f32x3 values need to be converted to the correct coordinate system
+                // - Positions
+                // - Normals
+                //
+                // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
                 Values::Float32x3(it.map(ConvertCoordinates::convert_coordinates).collect())
             } else {
                 Values::Float32x3(it.collect())
             }),
             VertexAttributeIter::U32x3(it) => Ok(Values::Uint32x3(it.collect())),
             VertexAttributeIter::F32x4(it) => Ok(if convert_coordinates {
+                // The following f32x4 values need to be converted to the correct coordinate system
+                // - Tangents
+                //
+                // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
                 Values::Float32x4(it.map(ConvertCoordinates::convert_coordinates).collect())
             } else {
                 Values::Float32x4(it.collect())

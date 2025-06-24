@@ -156,8 +156,24 @@ impl DefaultGltfImageSampler {
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
     ///
-    /// Can be modified with [`DefaultGltfImageSampler`] resource.
+    /// Can be modified with the [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
+
+    /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
+    /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
+    /// such that objects looking forward in glTF will also look forward in Bevy.
+    ///
+    /// The exact coordinate system conversion is as follows:
+    /// - glTF:
+    ///   - forward: Z
+    ///   - up: Y
+    ///   - right: -X
+    /// - Bevy:
+    ///   - forward: -Z
+    ///   - up: Y
+    ///   - right: X
+    pub convert_coordinates: bool,
+
     /// Registry for custom vertex attributes.
     ///
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
@@ -169,6 +185,7 @@ impl Default for GltfPlugin {
         GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
+            convert_coordinates: false,
         }
     }
 }
@@ -219,10 +236,12 @@ impl Plugin for GltfPlugin {
         let default_sampler_resource = DefaultGltfImageSampler::new(&self.default_sampler);
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
+
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
+            default_convert_coordinates: self.convert_coordinates,
         });
     }
 }
