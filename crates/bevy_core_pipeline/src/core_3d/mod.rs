@@ -1043,7 +1043,7 @@ pub fn prepare_prepass_textures(
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING
-                            | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC
+                            | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC, double buffer instead (for bevy_solari)
                         view_formats: &[],
                     };
                     texture_cache.get(&render_device, descriptor)
@@ -1110,7 +1110,7 @@ pub fn prepare_prepass_textures(
                             format: DEFERRED_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING
-                                | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC
+                                | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC, double buffer instead (for bevy_solari)
                             view_formats: &[],
                         },
                     )
