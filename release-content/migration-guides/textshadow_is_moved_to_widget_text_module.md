@@ -4,4 +4,3 @@ pull_requests: []
 ---
 
 `TextShadow` has been moved to `bevy::ui::widget::text`.
-
