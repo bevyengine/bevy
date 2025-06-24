@@ -751,11 +751,10 @@ pub struct CursorOptions {
     ///
     /// ## Platform-specific
     ///
-    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
     /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
     ///
-    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+    /// Since `macOS` doesn't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub grab_mode: CursorGrabMode,
 
     /// Set whether or not mouse events within *this* window are captured or fall through to the Window below.
@@ -1064,11 +1063,10 @@ impl From<DVec2> for WindowResolution {
 ///
 /// ## Platform-specific
 ///
-/// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
 /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
 /// - **`iOS/Android`** don't have cursors.
 ///
-/// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+/// Since `macOS` doesn't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -1168,13 +1166,17 @@ pub enum MonitorSelection {
 /// References an exclusive fullscreen video mode.
 ///
 /// Used when setting [`WindowMode::Fullscreen`] on a window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Clone)]
 pub enum VideoModeSelection {
     /// Uses the video mode that the monitor is already in.
     Current,
