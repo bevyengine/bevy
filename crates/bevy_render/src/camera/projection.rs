@@ -1,9 +1,9 @@
 use core::fmt::Debug;
+use core::ops::{Deref, DerefMut};
 
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::AssetEventSystems;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
@@ -131,11 +131,10 @@ mod sealed {
 /// custom projection.
 ///
 /// The contained dynamic object can be downcast into a static type using [`CustomProjection::get`].
-#[derive(Debug, Reflect, Deref, DerefMut)]
+#[derive(Debug, Reflect)]
 #[reflect(Default, Clone)]
 pub struct CustomProjection {
     #[reflect(ignore)]
-    #[deref]
     dyn_projection: Box<dyn sealed::DynCameraProjection>,
 }
 
@@ -204,33 +203,17 @@ impl CustomProjection {
     }
 }
 
-// TODO: remove when trait upcasting is stabilized.
-// The deref impl can return `dyn DynCameraProjection`, which can be coerced into
-// `dyn CameraProjection` using trait upcasting.
-impl CameraProjection for CustomProjection {
-    #[inline(always)]
-    fn get_clip_from_view(&self) -> Mat4 {
-        self.dyn_projection.get_clip_from_view()
-    }
+impl Deref for CustomProjection {
+    type Target = dyn CameraProjection;
 
-    #[inline(always)]
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
-        self.dyn_projection.get_clip_from_view_for_sub(sub_view)
+    fn deref(&self) -> &Self::Target {
+        self.dyn_projection.as_ref()
     }
+}
 
-    #[inline(always)]
-    fn update(&mut self, width: f32, height: f32) {
-        self.dyn_projection.update(width, height);
-    }
-
-    #[inline(always)]
-    fn far(&self) -> f32 {
-        self.dyn_projection.far()
-    }
-
-    #[inline(always)]
-    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
-        self.dyn_projection.get_frustum_corners(z_near, z_far)
+impl DerefMut for CustomProjection {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.dyn_projection.as_mut()
     }
 }
 
@@ -281,24 +264,24 @@ impl Projection {
     }
 }
 
-impl core::ops::Deref for Projection {
+impl Deref for Projection {
     type Target = dyn CameraProjection;
 
     fn deref(&self) -> &Self::Target {
         match self {
             Projection::Perspective(projection) => projection,
             Projection::Orthographic(projection) => projection,
-            Projection::Custom(projection) => projection,
+            Projection::Custom(projection) => projection.deref(),
         }
     }
 }
 
-impl core::ops::DerefMut for Projection {
+impl DerefMut for Projection {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             Projection::Perspective(projection) => projection,
             Projection::Orthographic(projection) => projection,
-            Projection::Custom(projection) => projection,
+            Projection::Custom(projection) => projection.deref_mut(),
         }
     }
 }
