@@ -13,9 +13,10 @@ use bevy_ui::{
     ComputedNode, ComputedNodeTarget, Node, ScrollPosition, UiGlobalTransform, UiScale, Val,
 };
 
-/// Used to select the orientation of the scrollbar.
+/// Used to select the orientation of a scrollbar, slider, or other oriented control.
+// TODO: Move this to a more central place.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub enum Orientation {
+pub enum ControlOrientation {
     /// Horizontal orientation (stretching from left to right)
     Horizontal,
     /// Vertical orientation (stretching from top to bottom)
@@ -27,18 +28,19 @@ pub enum Orientation {
 ///
 /// Scrollbars operate differently than the other core widgets in a number of respects.
 ///
-/// Unlike sliders, scrollbars don't have an `AccessibilityNode` component, nor can they have
-/// keyboard focus. This is because scrollbars are usually used in conjunction with a scrollable
-/// container, which is itself accessible and focusable. This also means that scrollbars don't
-/// accept keyboard events, which is also the responsibility of the scrollable container.
+/// Unlike sliders, scrollbars don't have an [`AccessibilityNode`](bevy_a11y::AccessibilityNode)
+/// component, nor can they have keyboard focus. This is because scrollbars are usually used in
+/// conjunction with a scrollable container, which is itself accessible and focusable. This also
+/// means that scrollbars don't accept keyboard events, which is also the responsibility of the
+/// scrollable container.
 ///
-/// Scrollbars don't emit notification events; instead they modify the scroll position of the
-/// target entity directly.
+/// Scrollbars don't emit notification events; instead they modify the scroll position of the target
+/// entity directly.
 ///
-/// A scrollbar can have any number of child entities, but one entity must be the scrollbar
-/// thumb, which is marked with the [`CoreScrollbarThumb`] component. Other children are ignored.
-/// The core scrollbar will directly update the position and size of this entity; the application
-/// is free to set any other style properties as desired.
+/// A scrollbar can have any number of child entities, but one entity must be the scrollbar thumb,
+/// which is marked with the [`CoreScrollbarThumb`] component. Other children are ignored. The core
+/// scrollbar will directly update the position and size of this entity; the application is free to
+/// set any other style properties as desired.
 ///
 /// The application is free to position the scrollbars relative to the scrolling container however
 /// it wants: it can overlay them on top of the scrolling content, or use a grid layout to displace
@@ -49,13 +51,13 @@ pub struct CoreScrollbar {
     /// Entity being scrolled.
     pub target: Entity,
     /// Whether the scrollbar is vertical or horizontal.
-    pub orientation: Orientation,
+    pub orientation: ControlOrientation,
     /// Minimum size of the scrollbar thumb, in pixel units.
     pub min_thumb_size: f32,
 }
 
-/// Marker component to indicate that the entity is a scrollbar thumb. This should be a child
-/// of the scrollbar entity.
+/// Marker component to indicate that the entity is a scrollbar thumb (the moving, draggable part of
+/// the scrollbar). This should be a child of the scrollbar entity.
 #[derive(Component, Debug)]
 pub struct CoreScrollbarThumb;
 
@@ -67,7 +69,7 @@ impl CoreScrollbar {
     /// * `target` - The scrollable entity that this scrollbar will control.
     /// * `orientation` - The orientation of the scrollbar (horizontal or vertical).
     /// * `min_thumb_size` - The minimum size of the scrollbar's thumb, in pixels.
-    pub fn new(target: Entity, orientation: Orientation, min_thumb_size: f32) -> Self {
+    pub fn new(target: Entity, orientation: ControlOrientation, min_thumb_size: f32) -> Self {
         Self {
             target,
             orientation,
@@ -82,7 +84,7 @@ pub struct ScrollbarDragState {
     /// Whether the scrollbar is currently being dragged.
     dragging: bool,
     /// The value of the scrollbar when dragging started.
-    offset: f32,
+    drag_origin: f32,
 }
 
 fn scrollbar_on_pointer_down(
@@ -121,7 +123,7 @@ fn scrollbar_on_pointer_down(
         let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
         let max_range = (content_size - visible_size).max(Vec2::ZERO);
         match scrollbar.orientation {
-            Orientation::Horizontal => {
+            ControlOrientation::Horizontal => {
                 if node.size().x > 0. {
                     let click_pos = local_pos.x * content_size.x / node.size().x;
                     scroll_pos.offset_x = (scroll_pos.offset_x
@@ -133,7 +135,7 @@ fn scrollbar_on_pointer_down(
                     .clamp(0., max_range.x);
                 }
             }
-            Orientation::Vertical => {
+            ControlOrientation::Vertical => {
                 if node.size().y > 0. {
                     let click_pos = local_pos.y * content_size.y / node.size().y;
                     scroll_pos.offset_y = (scroll_pos.offset_y
@@ -160,9 +162,9 @@ fn scrollbar_on_drag_start(
         if let Ok((scrollbar, mut drag)) = q_scrollbar.get_mut(*thumb_parent) {
             if let Ok(scroll_area) = q_scroll_area.get(scrollbar.target) {
                 drag.dragging = true;
-                drag.offset = match scrollbar.orientation {
-                    Orientation::Horizontal => scroll_area.offset_x,
-                    Orientation::Vertical => scroll_area.offset_y,
+                drag.drag_origin = match scrollbar.orientation {
+                    ControlOrientation::Horizontal => scroll_area.offset_x,
+                    ControlOrientation::Vertical => scroll_area.offset_y,
                 };
             }
         }
@@ -185,25 +187,25 @@ fn scrollbar_on_drag(
             let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
             let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
             match scrollbar.orientation {
-                Orientation::Horizontal => {
+                ControlOrientation::Horizontal => {
                     let range = (content_size.x - visible_size.x).max(0.);
                     let scrollbar_width = (node.size().x * node.inverse_scale_factor
                         - scrollbar.min_thumb_size)
                         .max(1.0);
                     scroll_pos.offset_x = if range > 0. {
-                        (drag.offset + (distance.x * content_size.x) / scrollbar_width)
+                        (drag.drag_origin + (distance.x * content_size.x) / scrollbar_width)
                             .clamp(0., range)
                     } else {
                         0.
                     }
                 }
-                Orientation::Vertical => {
+                ControlOrientation::Vertical => {
                     let range = (content_size.y - visible_size.y).max(0.);
                     let scrollbar_height = (node.size().y * node.inverse_scale_factor
                         - scrollbar.min_thumb_size)
                         .max(1.0);
                     scroll_pos.offset_y = if range > 0. {
-                        (drag.offset + (distance.y * content_size.y) / scrollbar_height)
+                        (drag.drag_origin + (distance.y * content_size.y) / scrollbar_height)
                             .clamp(0., range)
                     } else {
                         0.
@@ -248,7 +250,7 @@ fn update_scrollbar_thumb(
         for child in children {
             if let Ok(mut thumb) = q_thumb.get_mut(*child) {
                 match scrollbar.orientation {
-                    Orientation::Horizontal => {
+                    ControlOrientation::Horizontal => {
                         let thumb_size = if content_size.x > visible_size.x {
                             (track_length.x * visible_size.x / content_size.x)
                                 .max(scrollbar.min_thumb_size)
@@ -269,7 +271,7 @@ fn update_scrollbar_thumb(
                         thumb.left = Val::Px(thumb_pos);
                         thumb.width = Val::Px(thumb_size);
                     }
-                    Orientation::Vertical => {
+                    ControlOrientation::Vertical => {
                         let thumb_size = if content_size.y > visible_size.y {
                             (track_length.y * visible_size.y / content_size.y)
                                 .max(scrollbar.min_thumb_size)

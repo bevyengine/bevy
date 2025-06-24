@@ -1,7 +1,7 @@
 //! Demonstrations of scrolling and scrollbars.
 
 use bevy::{
-    core_widgets::{CoreScrollbar, CoreScrollbarPlugin, CoreScrollbarThumb, Orientation},
+    core_widgets::{ControlOrientation, CoreScrollbar, CoreScrollbarPlugin, CoreScrollbarThumb},
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
     input_focus::{
         tab_navigation::{TabGroup, TabNavigationPlugin},
@@ -113,7 +113,7 @@ fn scroll_area_demo() -> impl Bundle {
                     ..default()
                 },
                 CoreScrollbar {
-                    orientation: Orientation::Vertical,
+                    orientation: ControlOrientation::Vertical,
                     target: scroll_area_id,
                     min_thumb_size: 8.0,
                 },
@@ -138,7 +138,7 @@ fn scroll_area_demo() -> impl Bundle {
                     ..default()
                 },
                 CoreScrollbar {
-                    orientation: Orientation::Horizontal,
+                    orientation: ControlOrientation::Horizontal,
                     target: scroll_area_id,
                     min_thumb_size: 8.0,
                 },
