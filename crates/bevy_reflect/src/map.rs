@@ -521,6 +521,7 @@ pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> core::fmt::Result 
 /// Applies the elements of reflected map `b` to the corresponding elements of map `a`.
 ///
 /// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a key from `a` does not exist in `b`, the value is removed.
 ///
 /// # Panics
 ///
@@ -536,6 +537,7 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) {
 /// and returns a Result.
 ///
 /// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a key from `a` does not exist in `b`, the value is removed.
 ///
 /// # Errors
 ///
