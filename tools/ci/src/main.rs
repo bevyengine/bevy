@@ -1,5 +1,6 @@
 //! CI script used for Bevy.
 
+mod args;
 mod ci;
 mod commands;
 mod prepare;
