@@ -526,8 +526,6 @@ mod tests {
 
         map_a.apply(&map_b);
 
-        std::println!("{:?}", map_a);
-
         assert!(map_a.get(&0).is_none());
         assert_eq!(map_a.get(&1).unwrap().try_downcast_ref(), Some(&1));
         assert_eq!(map_a.get(&2).unwrap().try_downcast_ref(), Some(&2));
