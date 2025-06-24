@@ -211,6 +211,7 @@ fn make_chunk_image(size: &UVec2, indices: &[Option<u16>]) -> Image {
         sampler: ImageSampler::nearest(),
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+        copy_on_resize: false,
     }
 }
 
