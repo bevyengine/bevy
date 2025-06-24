@@ -382,10 +382,10 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd)
+# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".
 zstd_rust = ["bevy_internal/zstd_rust"]
 
-# For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd)
+# For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".
 zstd_c = ["bevy_internal/zstd_c"]
 
 # FLAC audio format support
