@@ -41,7 +41,7 @@ pub enum Orientation {
 /// The core scrollbar will directly update the position and size of this entity; the application
 /// is free to set any other style properties as desired.
 ///
-/// The appication is free to position the scrollbars relative to the scrolling container however
+/// The application is free to position the scrollbars relative to the scrolling container however
 /// it wants: it can overlay them on top of the scrolling content, or use a grid layout to displace
 /// the content to make room for the scrollbars.
 #[derive(Component, Debug)]
