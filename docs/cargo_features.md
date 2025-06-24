@@ -73,6 +73,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
+|compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |dds|DDS compressed texture support|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
