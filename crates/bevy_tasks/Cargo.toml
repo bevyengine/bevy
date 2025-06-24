@@ -55,7 +55,7 @@ futures-lite = { version = "2.0.1", default-features = false, features = [
   "alloc",
 ] }
 async-task = { version = "4.4.0", default-features = false }
-derive_more = { version = "1", default-features = false, features = [
+derive_more = { version = "2", default-features = false, features = [
   "deref",
   "deref_mut",
 ] }
