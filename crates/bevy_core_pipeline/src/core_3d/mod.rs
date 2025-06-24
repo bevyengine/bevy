@@ -1042,7 +1042,8 @@ pub fn prepare_prepass_textures(
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
-                            | TextureUsages::TEXTURE_BINDING,
+                            | TextureUsages::TEXTURE_BINDING
+                            | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC
                         view_formats: &[],
                     };
                     texture_cache.get(&render_device, descriptor)
@@ -1108,7 +1109,8 @@ pub fn prepare_prepass_textures(
                             dimension: TextureDimension::D2,
                             format: DEFERRED_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
+                                | TextureUsages::TEXTURE_BINDING
+                                | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC
                             view_formats: &[],
                         },
                     )

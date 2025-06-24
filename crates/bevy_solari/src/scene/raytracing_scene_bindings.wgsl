@@ -59,6 +59,8 @@ struct DirectionalLight {
     inverse_pdf: f32,
 }
 
+const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
+
 @group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;
 @group(0) @binding(1) var<storage> index_buffers: binding_array<IndexBuffer>;
 @group(0) @binding(2) var textures: binding_array<texture_2d<f32>>;
@@ -70,6 +72,7 @@ struct DirectionalLight {
 @group(0) @binding(8) var<storage> material_ids: array<u32>; // TODO: Store material_id in instance_custom_index instead?
 @group(0) @binding(9) var<storage> light_sources: array<LightSource>;
 @group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;
+@group(0) @binding(11) var<storage> previous_frame_light_id_translations: array<u32>;
 
 const RAY_T_MIN = 0.01;
 const RAY_T_MAX = 100000.0;
