@@ -1410,6 +1410,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             alpha_mask_deferred_draw_functions,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
