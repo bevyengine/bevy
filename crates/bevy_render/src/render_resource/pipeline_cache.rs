@@ -1234,7 +1234,7 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::TEXTURE_INT64_ATOMIC),
     );
     capabilities.set(
-       Capabilities::SHADER_FLOAT16,
+        Capabilities::SHADER_FLOAT16,
         features.contains(Features::SHADER_F16),
     );
     capabilities.set(
