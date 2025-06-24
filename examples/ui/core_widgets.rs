@@ -639,7 +639,7 @@ fn set_checkbox_or_radio_style(
     border_color.set_all(color);
 
     let mark_color: Color = match (disabled, checked) {
-        (true, true) => CHECKBOX_CHECK.with_alpha(0.5),
+        (true, true) => GRAY.into(),
         (false, true) => CHECKBOX_CHECK,
         (_, false) => Srgba::NONE.into(),
     };
