@@ -9,7 +9,6 @@ use bevy_render::{
 };
 
 /// Plugin that adds support for tilemap chunk materials.
-#[derive(Default)]
 pub struct TilemapChunkMaterialPlugin;
 
 impl Plugin for TilemapChunkMaterialPlugin {
