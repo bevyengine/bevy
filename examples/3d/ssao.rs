@@ -1,7 +1,7 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
+    anti_aliasing::taa::TemporalAntiAliasing,
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
@@ -15,7 +15,7 @@ fn main() {
             brightness: 1000.,
             ..default()
         })
-        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, update)
         .run();

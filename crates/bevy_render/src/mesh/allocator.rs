@@ -78,6 +78,9 @@ pub struct MeshAllocator {
     /// WebGL 2. On this platform, we must give each vertex array its own
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
+
+    /// Additional buffer usages to add to any vertex or index buffers created.
+    pub extra_buffer_usages: BufferUsages,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -348,6 +351,7 @@ impl FromWorld for MeshAllocator {
             mesh_id_to_index_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
+            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
@@ -598,7 +602,7 @@ impl MeshAllocator {
                         buffer_usages_to_str(buffer_usages)
                     )),
                     size: len as u64,
-                    usage: buffer_usages | BufferUsages::COPY_DST,
+                    usage: buffer_usages | BufferUsages::COPY_DST | self.extra_buffer_usages,
                     mapped_at_creation: true,
                 });
                 {
@@ -835,7 +839,7 @@ impl MeshAllocator {
                 buffer_usages_to_str(buffer_usages)
             )),
             size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
-            usage: buffer_usages,
+            usage: buffer_usages | self.extra_buffer_usages,
             mapped_at_creation: false,
         });
 

@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
@@ -91,6 +91,7 @@
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
 mod assets;
+mod convert_coordinates;
 mod label;
 mod loader;
 mod vertex_attributes;

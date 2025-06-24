@@ -374,7 +374,7 @@ impl ViewNode for Wireframe3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()

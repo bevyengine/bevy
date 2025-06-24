@@ -275,7 +275,7 @@ mod animation {
     }
 
     fn pause_animation_frame(
-        trigger: Trigger<SceneInstanceReady>,
+        trigger: On<SceneInstanceReady>,
         children: Query<&Children>,
         mut commands: Commands,
         animation: Res<Animation>,

@@ -1,11 +1,11 @@
 [package]
 name = "bevy"
-version = "0.16.0-dev"
+version = "0.17.0-dev"
 edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
@@ -133,6 +133,7 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_core_widgets",
   "bevy_anti_aliasing",
   "bevy_gilrs",
   "bevy_gizmos",
@@ -163,6 +164,7 @@ default = [
   "vorbis",
   "webgl2",
   "x11",
+  "debug",
 ]
 
 # Recommended defaults for no_std applications
@@ -245,6 +247,15 @@ bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
+# Provides raytraced lighting (experimental)
+bevy_solari = [
+  "bevy_internal/bevy_solari",
+  "bevy_asset",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_render",
+]
+
 # Provides sprite functionality
 bevy_sprite = [
   "bevy_internal/bevy_sprite",
@@ -290,6 +301,9 @@ bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
+
+# Headless widget collection for Bevy UI.
+bevy_core_widgets = ["bevy_internal/bevy_core_widgets"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -493,7 +507,10 @@ file_watcher = ["bevy_internal/file_watcher"]
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
 # Enable stepping-based debugging of Bevy systems
-bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
+bevy_debug_stepping = [
+  "bevy_internal/bevy_debug_stepping",
+  "bevy_internal/debug",
+]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
@@ -534,30 +551,36 @@ libm = ["bevy_internal/libm"]
 # Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_internal/web"]
 
+# Enable hotpatching of Bevy systems
+hotpatching = ["bevy_internal/hotpatching"]
+
+# Enable collecting debug information about systems and components to help with diagnostics
+debug = ["bevy_internal/debug"]
+
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.17.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.17.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
 rand_chacha = "0.3.1"
-ron = "0.8.0"
+ron = "0.10"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1.7"
-bevy_render = { path = "crates/bevy_render", version = "0.16.0-dev", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.17.0-dev", default-features = false }
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.16.0-dev", default-features = false }
-bevy_state = { path = "crates/bevy_state", version = "0.16.0-dev", default-features = false }
-bevy_asset = { path = "crates/bevy_asset", version = "0.16.0-dev", default-features = false }
-bevy_reflect = { path = "crates/bevy_reflect", version = "0.16.0-dev", default-features = false }
-bevy_image = { path = "crates/bevy_image", version = "0.16.0-dev", default-features = false }
-bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.16.0-dev", default-features = false }
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.17.0-dev", default-features = false }
+bevy_state = { path = "crates/bevy_state", version = "0.17.0-dev", default-features = false }
+bevy_asset = { path = "crates/bevy_asset", version = "0.17.0-dev", default-features = false }
+bevy_reflect = { path = "crates/bevy_reflect", version = "0.17.0-dev", default-features = false }
+bevy_image = { path = "crates/bevy_image", version = "0.17.0-dev", default-features = false }
+bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.17.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 async-std = "1.13"
@@ -584,7 +607,7 @@ web-sys = { version = "0.3", features = ["Window"] }
 
 [[example]]
 name = "context_menu"
-path = "examples/usages/context_menu.rs"
+path = "examples/usage/context_menu.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.context_menu]
@@ -821,6 +844,17 @@ name = "Texture Atlas"
 description = "Generates a texture atlas (sprite sheet) from individual sprites"
 category = "2D Rendering"
 wasm = false
+
+[[example]]
+name = "tilemap_chunk"
+path = "examples/2d/tilemap_chunk.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.tilemap_chunk]
+name = "Tilemap Chunk"
+description = "Renders a tilemap chunk"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "transparency_2d"
@@ -1252,6 +1286,18 @@ name = "Skybox"
 description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats."
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "solari"
+path = "examples/3d/solari.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari"]
+
+[package.metadata.example.solari]
+name = "Solari"
+description = "Demonstrates realtime dynamic raytraced lighting using Bevy Solari."
+category = "3D Rendering"
+wasm = false                                                                        # Raytracing is not supported on the web
 
 [[example]]
 name = "spherical_area_lights"
@@ -2069,6 +2115,7 @@ wasm = false
 name = "dynamic"
 path = "examples/ecs/dynamic.rs"
 doc-scrape-examples = true
+required-features = ["debug"]
 
 [package.metadata.example.dynamic]
 name = "Dynamic ECS"
@@ -3540,6 +3587,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_transform"
+path = "examples/ui/ui_transform.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_transform]
+name = "UI Transform"
+description = "An example demonstrating how to translate, rotate and scale UI elements."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
@@ -3922,6 +3980,16 @@ description = "A simple 2D screen shake effect"
 category = "Camera"
 wasm = true
 
+[[example]]
+name = "2d_on_ui"
+path = "examples/camera/2d_on_ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_on_ui]
+name = "2D on Bevy UI"
+description = "Shows how to render 2D objects on top of Bevy UI"
+category = "Camera"
+wasm = true
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
@@ -4400,4 +4468,38 @@ doc-scrape-examples = true
 name = "Cooldown"
 description = "Example for cooldown on button clicks"
 category = "Usage"
+wasm = true
+
+[[example]]
+name = "hotpatching_systems"
+path = "examples/ecs/hotpatching_systems.rs"
+doc-scrape-examples = true
+required-features = ["hotpatching"]
+
+[package.metadata.example.hotpatching_systems]
+name = "Hotpatching Systems"
+description = "Demonstrates how to hotpatch systems"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "core_widgets"
+path = "examples/ui/core_widgets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.core_widgets]
+name = "Core Widgets"
+description = "Demonstrates use of core (headless) widgets in Bevy UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "core_widgets_observers"
+path = "examples/ui/core_widgets_observers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.core_widgets_observers]
+name = "Core Widgets (w/Observers)"
+description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
+category = "UI (User Interface)"
 wasm = true

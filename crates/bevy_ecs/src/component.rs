@@ -5,16 +5,17 @@ use crate::{
     bundle::BundleInfo,
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},
     entity::{ComponentCloneCtx, Entity, EntityMapper, SourceComponent},
+    lifecycle::{ComponentHook, ComponentHooks},
     query::DebugCheckedUnwrap,
-    relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Local, SystemParam},
-    world::{DeferredWorld, FromWorld, World},
+    world::{FromWorld, World},
 };
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
+use bevy_ecs_macros::Event;
 use bevy_platform::sync::Arc;
 use bevy_platform::{
     collections::{HashMap, HashSet},
@@ -23,7 +24,7 @@ use bevy_platform::{
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{prelude::DebugName, TypeIdMap};
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -33,7 +34,6 @@ use core::{
     mem::needs_drop,
     ops::{Deref, DerefMut},
 };
-use disqualified::ShortName;
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -375,7 +375,8 @@ use thiserror::Error;
 /// - `#[component(on_remove = on_remove_function)]`
 ///
 /// ```
-/// # use bevy_ecs::component::{Component, HookContext};
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::lifecycle::HookContext;
 /// # use bevy_ecs::world::DeferredWorld;
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::component::ComponentId;
@@ -404,7 +405,8 @@ use thiserror::Error;
 /// This also supports function calls that yield closures
 ///
 /// ```
-/// # use bevy_ecs::component::{Component, HookContext};
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::lifecycle::HookContext;
 /// # use bevy_ecs::world::DeferredWorld;
 /// #
 /// #[derive(Component)]
@@ -576,6 +578,65 @@ pub trait Component: Send + Sync + 'static {
     ///     items: Vec<Option<Entity>>
     /// }
     /// ```
+    ///
+    /// You might need more specialized logic. A likely cause of this is your component contains collections of entities that
+    /// don't implement [`MapEntities`](crate::entity::MapEntities). In that case, you can annotate your component with
+    /// `#[component(map_entities)]`. Using this attribute, you must implement `MapEntities` for the
+    /// component itself, and this method will simply call that implementation.
+    ///
+    /// ```
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
+    /// # use std::collections::HashMap;
+    /// #[derive(Component)]
+    /// #[component(map_entities)]
+    /// struct Inventory {
+    ///     items: HashMap<Entity, usize>
+    /// }
+    ///
+    /// impl MapEntities for Inventory {
+    ///   fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+    ///      self.items = self.items
+    ///          .drain()
+    ///          .map(|(id, count)|(entity_mapper.get_mapped(id), count))
+    ///          .collect();
+    ///   }
+    /// }
+    /// # let a = Entity::from_bits(0x1_0000_0001);
+    /// # let b = Entity::from_bits(0x1_0000_0002);
+    /// # let mut inv = Inventory { items: Default::default() };
+    /// # inv.items.insert(a, 10);
+    /// # <Inventory as Component>::map_entities(&mut inv, &mut (a,b));
+    /// # assert_eq!(inv.items.get(&b), Some(&10));
+    /// ````
+    ///
+    /// Alternatively, you can specify the path to a function with `#[component(map_entities = function_path)]`, similar to component hooks.
+    /// In this case, the inputs of the function should mirror the inputs to this method, with the second parameter being generic.
+    ///
+    /// ```
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
+    /// # use std::collections::HashMap;
+    /// #[derive(Component)]
+    /// #[component(map_entities = map_the_map)]
+    /// // Also works: map_the_map::<M> or map_the_map::<_>
+    /// struct Inventory {
+    ///     items: HashMap<Entity, usize>
+    /// }
+    ///
+    /// fn map_the_map<M: EntityMapper>(inv: &mut Inventory, entity_mapper: &mut M) {
+    ///    inv.items = inv.items
+    ///        .drain()
+    ///        .map(|(id, count)|(entity_mapper.get_mapped(id), count))
+    ///        .collect();
+    /// }
+    /// # let a = Entity::from_bits(0x1_0000_0001);
+    /// # let b = Entity::from_bits(0x1_0000_0002);
+    /// # let mut inv = Inventory { items: Default::default() };
+    /// # inv.items.insert(a, 10);
+    /// # <Inventory as Component>::map_entities(&mut inv, &mut (a,b));
+    /// # assert_eq!(inv.items.get(&b), Some(&10));
+    /// ````
+    ///
+    /// You can use the turbofish (`::<A,B,C>`) to specify parameters when a function is generic, using either M or _ for the type of the mapper parameter.
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
@@ -595,7 +656,7 @@ mod private {
 /// `&mut ...`, created while inserted onto an entity.
 /// In all other ways, they are identical to mutable components.
 /// This restriction allows hooks to observe all changes made to an immutable
-/// component, effectively turning the `OnInsert` and `OnReplace` hooks into a
+/// component, effectively turning the `Insert` and `Replace` hooks into a
 /// `OnMutate` hook.
 /// This is not practical for mutable components, as the runtime cost of invoking
 /// a hook for every exclusive reference created would be far too high.
@@ -621,6 +682,7 @@ pub trait ComponentMutability: private::Seal + 'static {
 pub struct Immutable;
 
 impl private::Seal for Immutable {}
+
 impl ComponentMutability for Immutable {
     const MUTABLE: bool = false;
 }
@@ -631,6 +693,7 @@ impl ComponentMutability for Immutable {
 pub struct Mutable;
 
 impl private::Seal for Mutable {}
+
 impl ComponentMutability for Mutable {
     const MUTABLE: bool = true;
 }
@@ -656,244 +719,6 @@ pub enum StorageType {
     SparseSet,
 }
 
-/// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`.
-pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, HookContext);
-
-/// Context provided to a [`ComponentHook`].
-#[derive(Clone, Copy, Debug)]
-pub struct HookContext {
-    /// The [`Entity`] this hook was invoked for.
-    pub entity: Entity,
-    /// The [`ComponentId`] this hook was invoked for.
-    pub component_id: ComponentId,
-    /// The caller location is `Some` if the `track_caller` feature is enabled.
-    pub caller: MaybeLocation,
-    /// Configures how relationship hooks will run
-    pub relationship_hook_mode: RelationshipHookMode,
-}
-
-/// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
-///
-/// Hooks are functions that run when a component is added, overwritten, or removed from an entity.
-/// These are intended to be used for structural side effects that need to happen when a component is added or removed,
-/// and are not intended for general-purpose logic.
-///
-/// For example, you might use a hook to update a cached index when a component is added,
-/// to clean up resources when a component is removed,
-/// or to keep hierarchical data structures across entities in sync.
-///
-/// This information is stored in the [`ComponentInfo`] of the associated component.
-///
-/// There is two ways of configuring hooks for a component:
-/// 1. Defining the relevant hooks on the [`Component`] implementation
-/// 2. Using the [`World::register_component_hooks`] method
-///
-/// # Example 2
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-/// use bevy_platform::collections::HashSet;
-///
-/// #[derive(Component)]
-/// struct MyTrackedComponent;
-///
-/// #[derive(Resource, Default)]
-/// struct TrackedEntities(HashSet<Entity>);
-///
-/// let mut world = World::new();
-/// world.init_resource::<TrackedEntities>();
-///
-/// // No entities with `MyTrackedComponent` have been added yet, so we can safely add component hooks
-/// let mut tracked_component_query = world.query::<&MyTrackedComponent>();
-/// assert!(tracked_component_query.iter(&world).next().is_none());
-///
-/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, context| {
-///    let mut tracked_entities = world.resource_mut::<TrackedEntities>();
-///   tracked_entities.0.insert(context.entity);
-/// });
-///
-/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, context| {
-///   let mut tracked_entities = world.resource_mut::<TrackedEntities>();
-///   tracked_entities.0.remove(&context.entity);
-/// });
-///
-/// let entity = world.spawn(MyTrackedComponent).id();
-/// let tracked_entities = world.resource::<TrackedEntities>();
-/// assert!(tracked_entities.0.contains(&entity));
-///
-/// world.despawn(entity);
-/// let tracked_entities = world.resource::<TrackedEntities>();
-/// assert!(!tracked_entities.0.contains(&entity));
-/// ```
-#[derive(Debug, Clone, Default)]
-pub struct ComponentHooks {
-    pub(crate) on_add: Option<ComponentHook>,
-    pub(crate) on_insert: Option<ComponentHook>,
-    pub(crate) on_replace: Option<ComponentHook>,
-    pub(crate) on_remove: Option<ComponentHook>,
-    pub(crate) on_despawn: Option<ComponentHook>,
-}
-
-impl ComponentHooks {
-    pub(crate) fn update_from_component<C: Component + ?Sized>(&mut self) -> &mut Self {
-        if let Some(hook) = C::on_add() {
-            self.on_add(hook);
-        }
-        if let Some(hook) = C::on_insert() {
-            self.on_insert(hook);
-        }
-        if let Some(hook) = C::on_replace() {
-            self.on_replace(hook);
-        }
-        if let Some(hook) = C::on_remove() {
-            self.on_remove(hook);
-        }
-        if let Some(hook) = C::on_despawn() {
-            self.on_despawn(hook);
-        }
-
-        self
-    }
-
-    /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
-    /// An `on_add` hook will always run before `on_insert` hooks. Spawning an entity counts as
-    /// adding all of its components.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if the component already has an `on_add` hook
-    pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
-        self.try_on_add(hook)
-            .expect("Component already has an on_add hook")
-    }
-
-    /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
-    /// or replaced.
-    ///
-    /// An `on_insert` hook always runs after any `on_add` hooks (if the entity didn't already have the component).
-    ///
-    /// # Warning
-    ///
-    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
-    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if the component already has an `on_insert` hook
-    pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
-        self.try_on_insert(hook)
-            .expect("Component already has an on_insert hook")
-    }
-
-    /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
-    /// such as being replaced (with `.insert`) or removed.
-    ///
-    /// If this component is inserted onto an entity that already has it, this hook will run before the value is replaced,
-    /// allowing access to the previous data just before it is dropped.
-    /// This hook does *not* run if the entity did not already have this component.
-    ///
-    /// An `on_replace` hook always runs before any `on_remove` hooks (if the component is being removed from the entity).
-    ///
-    /// # Warning
-    ///
-    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
-    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if the component already has an `on_replace` hook
-    pub fn on_replace(&mut self, hook: ComponentHook) -> &mut Self {
-        self.try_on_replace(hook)
-            .expect("Component already has an on_replace hook")
-    }
-
-    /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
-    /// Despawning an entity counts as removing all of its components.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if the component already has an `on_remove` hook
-    pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
-        self.try_on_remove(hook)
-            .expect("Component already has an on_remove hook")
-    }
-
-    /// Register a [`ComponentHook`] that will be run for each component on an entity when it is despawned.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if the component already has an `on_despawn` hook
-    pub fn on_despawn(&mut self, hook: ComponentHook) -> &mut Self {
-        self.try_on_despawn(hook)
-            .expect("Component already has an on_despawn hook")
-    }
-
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.
-    ///
-    /// This is a fallible version of [`Self::on_add`].
-    ///
-    /// Returns `None` if the component already has an `on_add` hook.
-    pub fn try_on_add(&mut self, hook: ComponentHook) -> Option<&mut Self> {
-        if self.on_add.is_some() {
-            return None;
-        }
-        self.on_add = Some(hook);
-        Some(self)
-    }
-
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
-    ///
-    /// This is a fallible version of [`Self::on_insert`].
-    ///
-    /// Returns `None` if the component already has an `on_insert` hook.
-    pub fn try_on_insert(&mut self, hook: ComponentHook) -> Option<&mut Self> {
-        if self.on_insert.is_some() {
-            return None;
-        }
-        self.on_insert = Some(hook);
-        Some(self)
-    }
-
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`) or removed
-    ///
-    /// This is a fallible version of [`Self::on_replace`].
-    ///
-    /// Returns `None` if the component already has an `on_replace` hook.
-    pub fn try_on_replace(&mut self, hook: ComponentHook) -> Option<&mut Self> {
-        if self.on_replace.is_some() {
-            return None;
-        }
-        self.on_replace = Some(hook);
-        Some(self)
-    }
-
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is removed from an entity.
-    ///
-    /// This is a fallible version of [`Self::on_remove`].
-    ///
-    /// Returns `None` if the component already has an `on_remove` hook.
-    pub fn try_on_remove(&mut self, hook: ComponentHook) -> Option<&mut Self> {
-        if self.on_remove.is_some() {
-            return None;
-        }
-        self.on_remove = Some(hook);
-        Some(self)
-    }
-
-    /// Attempt to register a [`ComponentHook`] that will be run for each component on an entity when it is despawned.
-    ///
-    /// This is a fallible version of [`Self::on_despawn`].
-    ///
-    /// Returns `None` if the component already has an `on_despawn` hook.
-    pub fn try_on_despawn(&mut self, hook: ComponentHook) -> Option<&mut Self> {
-        if self.on_despawn.is_some() {
-            return None;
-        }
-        self.on_despawn = Some(hook);
-        Some(self)
-    }
-}
-
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
@@ -913,8 +738,8 @@ impl ComponentInfo {
 
     /// Returns the name of the current component.
     #[inline]
-    pub fn name(&self) -> &str {
-        &self.descriptor.name
+    pub fn name(&self) -> DebugName {
+        self.descriptor.name.clone()
     }
 
     /// Returns `true` if the current component is mutable.
@@ -1071,7 +896,7 @@ impl SparseSetIndex for ComponentId {
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
 pub struct ComponentDescriptor {
-    name: Cow<'static, str>,
+    name: DebugName,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
     // associated rust component type if one exists.
     storage_type: StorageType,
@@ -1117,7 +942,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
-            name: Cow::Borrowed(core::any::type_name::<T>()),
+            name: DebugName::type_name::<T>(),
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
@@ -1142,7 +967,7 @@ impl ComponentDescriptor {
         clone_behavior: ComponentCloneBehavior,
     ) -> Self {
         Self {
-            name: name.into(),
+            name: name.into().into(),
             storage_type,
             is_send_and_sync: true,
             type_id: None,
@@ -1158,7 +983,7 @@ impl ComponentDescriptor {
     /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
-            name: Cow::Borrowed(core::any::type_name::<T>()),
+            name: DebugName::type_name::<T>(),
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
@@ -1173,7 +998,7 @@ impl ComponentDescriptor {
 
     fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            name: Cow::Borrowed(core::any::type_name::<T>()),
+            name: DebugName::type_name::<T>(),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
@@ -1199,8 +1024,8 @@ impl ComponentDescriptor {
 
     /// Returns the name of the current component.
     #[inline]
-    pub fn name(&self) -> &str {
-        self.name.as_ref()
+    pub fn name(&self) -> DebugName {
+        self.name.clone()
     }
 
     /// Returns whether this component is mutable.
@@ -2052,7 +1877,7 @@ impl Components {
     }
 
     /// Gets the metadata associated with the given component, if it is registered.
-    /// This will return `None` if the id is not regiserted or is queued.
+    /// This will return `None` if the id is not registered or is queued.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
@@ -2089,13 +1914,10 @@ impl Components {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, str>> {
+    pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<DebugName> {
         self.components
             .get(id.0)
-            .and_then(|info| {
-                info.as_ref()
-                    .map(|info| Cow::Borrowed(info.descriptor.name()))
-            })
+            .and_then(|info| info.as_ref().map(|info| info.descriptor.name()))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -2400,7 +2222,7 @@ impl Components {
     /// * [`World::component_id()`]
     #[inline]
     pub fn valid_component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.get_id(TypeId::of::<T>())
+        self.get_valid_id(TypeId::of::<T>())
     }
 
     /// Type-erased equivalent of [`Components::valid_resource_id()`].
@@ -2431,7 +2253,7 @@ impl Components {
     /// * [`Components::get_resource_id()`]
     #[inline]
     pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<T>())
+        self.get_valid_resource_id(TypeId::of::<T>())
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -2616,16 +2438,51 @@ impl Tick {
     ///
     /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
     #[inline]
-    pub(crate) fn check_tick(&mut self, tick: Tick) -> bool {
-        let age = tick.relative_to(*self);
+    pub fn check_tick(&mut self, check: CheckChangeTicks) -> bool {
+        let age = check.present_tick().relative_to(*self);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
         if age.get() > Self::MAX.get() {
-            *self = tick.relative_to(Self::MAX);
+            *self = check.present_tick().relative_to(Self::MAX);
             true
         } else {
             false
         }
+    }
+}
+
+/// An observer [`Event`] that can be used to maintain [`Tick`]s in custom data structures, enabling to make
+/// use of bevy's periodic checks that clamps ticks to a certain range, preventing overflows and thus
+/// keeping methods like [`Tick::is_newer_than`] reliably return `false` for ticks that got too old.
+///
+/// # Example
+///
+/// Here a schedule is stored in a custom resource. This way the systems in it would not have their change
+/// ticks automatically updated via [`World::check_change_ticks`], possibly causing `Tick`-related bugs on
+/// long-running apps.
+///
+/// To fix that, add an observer for this event that calls the schedule's
+/// [`Schedule::check_change_ticks`](bevy_ecs::schedule::Schedule::check_change_ticks).
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::component::CheckChangeTicks;
+///
+/// #[derive(Resource)]
+/// struct CustomSchedule(Schedule);
+///
+/// # let mut world = World::new();
+/// world.add_observer(|check: On<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
+///     schedule.0.check_change_ticks(*check);
+/// });
+/// ```
+#[derive(Debug, Clone, Copy, Event)]
+pub struct CheckChangeTicks(pub(crate) Tick);
+
+impl CheckChangeTicks {
+    /// Get the present `Tick` that other ticks get compared to.
+    pub fn present_tick(self) -> Tick {
+        self.0
     }
 }
 
@@ -3013,13 +2870,13 @@ pub fn enforce_no_required_components_recursion(
                 "Recursive required components detected: {}\nhelp: {}",
                 recursion_check_stack
                     .iter()
-                    .map(|id| format!("{}", ShortName(&components.get_name(*id).unwrap())))
+                    .map(|id| format!("{}", components.get_name(*id).unwrap().shortname()))
                     .collect::<Vec<_>>()
                     .join(" → "),
                 if direct_recursion {
                     format!(
                         "Remove require({}).",
-                        ShortName(&components.get_name(requiree).unwrap())
+                        components.get_name(requiree).unwrap().shortname()
                     )
                 } else {
                     "If this is intentional, consider merging the components.".into()
@@ -3172,6 +3029,7 @@ impl<T> Default for DefaultCloneBehaviorSpecialization<T> {
 pub trait DefaultCloneBehaviorBase {
     fn default_clone_behavior(&self) -> ComponentCloneBehavior;
 }
+
 impl<C> DefaultCloneBehaviorBase for DefaultCloneBehaviorSpecialization<C> {
     fn default_clone_behavior(&self) -> ComponentCloneBehavior {
         ComponentCloneBehavior::Default
@@ -3183,6 +3041,7 @@ impl<C> DefaultCloneBehaviorBase for DefaultCloneBehaviorSpecialization<C> {
 pub trait DefaultCloneBehaviorViaClone {
     fn default_clone_behavior(&self) -> ComponentCloneBehavior;
 }
+
 impl<C: Clone + Component> DefaultCloneBehaviorViaClone for &DefaultCloneBehaviorSpecialization<C> {
     fn default_clone_behavior(&self) -> ComponentCloneBehavior {
         ComponentCloneBehavior::clone::<C>()
