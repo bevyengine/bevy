@@ -67,6 +67,11 @@ pub trait Set: PartialReflect {
     /// After calling this function, `self` will be empty.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
+    /// Retain only the elements specified by the predicate.
+    ///
+    /// In other words, remove all elements `e` for which `f(&e)` returns `false`.
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool);
+
     /// Creates a new [`DynamicSet`] from this set.
     fn to_dynamic_set(&self) -> DynamicSet {
         let mut set = DynamicSet::default();
@@ -139,7 +144,7 @@ impl SetInfo {
     impl_generic_info_methods!(generics);
 }
 
-/// An ordered set of reflected values.
+/// An unordered set of reflected values.
 #[derive(Default)]
 pub struct DynamicSet {
     represented_type: Option<&'static TypeInfo>,
@@ -203,6 +208,10 @@ impl Set for DynamicSet {
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
         self.hash_table.drain().collect::<Vec<_>>()
+    }
+
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool) {
+        self.hash_table.retain(move |value| f(&**value));
     }
 
     fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
