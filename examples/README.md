@@ -763,9 +763,7 @@ following commands.
 
 ```sh
 cargo build --release --example lighting --target wasm32-unknown-unknown
-wasm-bindgen --out-name wasm_example \
-  --out-dir examples/wasm/target \
-  --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
+wasm-bindgen --out-name wasm_example --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
 ```
 
 The first command will build the example for the wasm target, creating a binary. Then,
