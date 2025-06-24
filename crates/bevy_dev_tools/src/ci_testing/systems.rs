@@ -22,7 +22,7 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
                 info!("Exiting after {} frames. Test successful!", *current_frame);
             }
             CiTestingEvent::ScreenshotAndExit => {
-                let this_frame = current_frame.clone();
+                let this_frame = *current_frame;
                 world.spawn(Screenshot::primary_window()).observe(
                     move |captured: On<bevy_render::view::screenshot::ScreenshotCaptured>,
                           mut exit_event: EventWriter<AppExit>| {
