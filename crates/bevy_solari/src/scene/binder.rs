@@ -27,6 +27,9 @@ const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
 /// <https://en.wikipedia.org/wiki/Angular_diameter#Use_in_astronomy>
 const SUN_ANGULAR_DIAMETER_RADIANS: f32 = 0.00930842;
 
+const TEXTURE_MAP_NONE: u32 = u32::MAX;
+const LIGHT_NOT_PRESENT_THIS_FRAME: u32 = u32::MAX;
+
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
@@ -99,7 +102,7 @@ pub fn prepare_raytracing_scene_bindings(
                 }
                 None => None,
             },
-            None => Some(u32::MAX),
+            None => Some(TEXTURE_MAP_NONE),
         }
     };
     for (asset_id, material) in material_assets.iter() {
@@ -222,7 +225,7 @@ pub fn prepare_raytracing_scene_bindings(
         let current_frame_index = this_frame_entity_to_light_id
             .get(&previous_frame_light_entity)
             .copied()
-            .unwrap_or(u32::MAX);
+            .unwrap_or(LIGHT_NOT_PRESENT_THIS_FRAME);
         previous_frame_light_id_translations
             .get_mut()
             .push(current_frame_index);
