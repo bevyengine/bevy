@@ -578,6 +578,65 @@ pub trait Component: Send + Sync + 'static {
     ///     items: Vec<Option<Entity>>
     /// }
     /// ```
+    ///
+    /// You might need more specialized logic. A likely cause of this is your component contains collections of entities that
+    /// don't implement [`MapEntities`](crate::entity::MapEntities). In that case, you can annotate your component with
+    /// `#[component(map_entities)]`. Using this attribute, you must implement `MapEntities` for the
+    /// component itself, and this method will simply call that implementation.
+    ///
+    /// ```
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
+    /// # use std::collections::HashMap;
+    /// #[derive(Component)]
+    /// #[component(map_entities)]
+    /// struct Inventory {
+    ///     items: HashMap<Entity, usize>
+    /// }
+    ///
+    /// impl MapEntities for Inventory {
+    ///   fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+    ///      self.items = self.items
+    ///          .drain()
+    ///          .map(|(id, count)|(entity_mapper.get_mapped(id), count))
+    ///          .collect();
+    ///   }
+    /// }
+    /// # let a = Entity::from_bits(0x1_0000_0001);
+    /// # let b = Entity::from_bits(0x1_0000_0002);
+    /// # let mut inv = Inventory { items: Default::default() };
+    /// # inv.items.insert(a, 10);
+    /// # <Inventory as Component>::map_entities(&mut inv, &mut (a,b));
+    /// # assert_eq!(inv.items.get(&b), Some(&10));
+    /// ````
+    ///
+    /// Alternatively, you can specify the path to a function with `#[component(map_entities = function_path)]`, similar to component hooks.
+    /// In this case, the inputs of the function should mirror the inputs to this method, with the second parameter being generic.
+    ///
+    /// ```
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
+    /// # use std::collections::HashMap;
+    /// #[derive(Component)]
+    /// #[component(map_entities = map_the_map)]
+    /// // Also works: map_the_map::<M> or map_the_map::<_>
+    /// struct Inventory {
+    ///     items: HashMap<Entity, usize>
+    /// }
+    ///
+    /// fn map_the_map<M: EntityMapper>(inv: &mut Inventory, entity_mapper: &mut M) {
+    ///    inv.items = inv.items
+    ///        .drain()
+    ///        .map(|(id, count)|(entity_mapper.get_mapped(id), count))
+    ///        .collect();
+    /// }
+    /// # let a = Entity::from_bits(0x1_0000_0001);
+    /// # let b = Entity::from_bits(0x1_0000_0002);
+    /// # let mut inv = Inventory { items: Default::default() };
+    /// # inv.items.insert(a, 10);
+    /// # <Inventory as Component>::map_entities(&mut inv, &mut (a,b));
+    /// # assert_eq!(inv.items.get(&b), Some(&10));
+    /// ````
+    ///
+    /// You can use the turbofish (`::<A,B,C>`) to specify parameters when a function is generic, using either M or _ for the type of the mapper parameter.
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
