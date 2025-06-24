@@ -46,6 +46,8 @@ ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
 detailed_trace = []
+## Adds serialization support through `serde`.
+serialize = ["bevy_mesh/serialize"]
 
 [dependencies]
 # bevy
