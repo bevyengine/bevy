@@ -4506,3 +4506,14 @@ name = "Core Widgets (w/Observers)"
 description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "scrollbars"
+path = "examples/ui/scrollbars.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scrollbars]
+name = "Scrollbars"
+description = "Demonstrates use of core scrollbar in Bevy UI"
+category = "UI (User Interface)"
+wasm = true

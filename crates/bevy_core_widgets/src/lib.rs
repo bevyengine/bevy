@@ -17,6 +17,7 @@
 mod core_button;
 mod core_checkbox;
 mod core_radio;
+mod core_scrollbar;
 mod core_slider;
 
 use bevy_app::{App, Plugin};
@@ -24,6 +25,7 @@ use bevy_app::{App, Plugin};
 pub use core_button::{CoreButton, CoreButtonPlugin};
 pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
 pub use core_radio::{CoreRadio, CoreRadioGroup, CoreRadioGroupPlugin};
+pub use core_scrollbar::{CoreScrollbar, CoreScrollbarPlugin, CoreScrollbarThumb, Orientation};
 pub use core_slider::{
     CoreSlider, CoreSliderDragState, CoreSliderPlugin, CoreSliderThumb, SetSliderValue,
     SliderRange, SliderStep, SliderValue, TrackClick,
@@ -39,6 +41,7 @@ impl Plugin for CoreWidgetsPlugin {
             CoreButtonPlugin,
             CoreCheckboxPlugin,
             CoreRadioGroupPlugin,
+            CoreScrollbarPlugin,
             CoreSliderPlugin,
         ));
     }
