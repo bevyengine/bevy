@@ -31,6 +31,12 @@ impl<T: 'static> Task<T> {
     /// This is only included for feature parity with other platforms.
     pub fn detach(self) {}
 
+    /// Returns true if the current task is finished.
+    pub fn is_finished(&self) -> bool {
+        // Returns true if the result is ready or has already been accessed.
+        !self.0.is_empty() || self.0.is_terminated()
+    }
+
     /// Requests a task to be cancelled and returns a future that suspends until it completes.
     /// Returns the output of the future if it has already completed.
     ///
