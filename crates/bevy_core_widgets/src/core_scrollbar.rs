@@ -52,7 +52,10 @@ pub struct CoreScrollbar {
     pub target: Entity,
     /// Whether the scrollbar is vertical or horizontal.
     pub orientation: ControlOrientation,
-    /// Minimum size of the scrollbar thumb, in pixel units.
+    /// Minimum size of the scrollbar thumb, in pixel units. The scrollbar will resize the thumb
+    /// entity based on the proportion of visible size to content size, but no smaller than this.
+    /// This prevents the thumb from disappearing in cases where the ratio of content to visible
+    /// is large.
     pub min_thumb_size: f32,
 }
 
@@ -247,24 +250,41 @@ fn update_scrollbar_thumb(
         // Length of the scrollbar track.
         let track_length = scrollbar_node.size() * scrollbar_node.inverse_scale_factor;
 
+        fn size_and_pos(
+            content_size: f32,
+            visible_size: f32,
+            track_length: f32,
+            min_size: f32,
+            offset: f32,
+        ) -> (f32, f32) {
+            let thumb_size = if content_size > visible_size {
+                (track_length * visible_size / content_size)
+                    .max(min_size)
+                    .min(track_length)
+            } else {
+                track_length
+            };
+
+            let thumb_pos = if content_size > visible_size {
+                offset * (track_length - thumb_size) / (content_size - visible_size)
+            } else {
+                0.
+            };
+
+            (thumb_size, thumb_pos)
+        }
+
         for child in children {
             if let Ok(mut thumb) = q_thumb.get_mut(*child) {
                 match scrollbar.orientation {
                     ControlOrientation::Horizontal => {
-                        let thumb_size = if content_size.x > visible_size.x {
-                            (track_length.x * visible_size.x / content_size.x)
-                                .max(scrollbar.min_thumb_size)
-                                .min(track_length.x)
-                        } else {
-                            track_length.x
-                        };
-
-                        let thumb_pos = if content_size.x > visible_size.x {
-                            scroll_area.0.offset_x * (track_length.x - thumb_size)
-                                / (content_size.x - visible_size.x)
-                        } else {
-                            0.
-                        };
+                        let (thumb_size, thumb_pos) = size_and_pos(
+                            content_size.x,
+                            visible_size.x,
+                            track_length.x,
+                            scrollbar.min_thumb_size,
+                            scroll_area.0.offset_x,
+                        );
 
                         thumb.top = Val::Px(0.);
                         thumb.bottom = Val::Px(0.);
@@ -272,20 +292,13 @@ fn update_scrollbar_thumb(
                         thumb.width = Val::Px(thumb_size);
                     }
                     ControlOrientation::Vertical => {
-                        let thumb_size = if content_size.y > visible_size.y {
-                            (track_length.y * visible_size.y / content_size.y)
-                                .max(scrollbar.min_thumb_size)
-                                .min(track_length.y)
-                        } else {
-                            track_length.y
-                        };
-
-                        let thumb_pos = if content_size.y > visible_size.y {
-                            scroll_area.0.offset_y * (track_length.y - thumb_size)
-                                / (content_size.y - visible_size.y)
-                        } else {
-                            0.
-                        };
+                        let (thumb_size, thumb_pos) = size_and_pos(
+                            content_size.y,
+                            visible_size.y,
+                            track_length.y,
+                            scrollbar.min_thumb_size,
+                            scroll_area.0.offset_y,
+                        );
 
                         thumb.left = Val::Px(0.);
                         thumb.right = Val::Px(0.);
