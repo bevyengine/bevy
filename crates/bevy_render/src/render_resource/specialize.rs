@@ -94,7 +94,7 @@ impl Specializable for ComputePipeline {
 ///
 /// struct A;
 /// struct B;
-/// #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+/// #[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializeKey)]
 /// struct BKey;
 ///
 /// impl Specialize<RenderPipeline> for A {
@@ -105,11 +105,6 @@ impl Specializable for ComputePipeline {
 ///         //...
 ///         Ok(())
 ///     }
-/// }
-///
-/// impl SpecializeKey for B {
-///     const CANONICAL: bool = true;
-///     type Canonical = Self;
 /// }
 ///
 /// impl Specialize<RenderPipeline> for B {
@@ -133,10 +128,15 @@ impl Specializable for ComputePipeline {
 /// /*
 /// The generated implementation:
 /// impl Specialize<RenderPipeline> for C {
-///     type Key = u32;
-///     fn specialize(&self, key: u32, descriptor: &mut RenderPipelineDescriptor) {
-///         self.a.specialize((), descriptor);
-///         self.b.specialize(key, descriptor);
+///     type Key = BKey;
+///     fn specialize(
+///         &self,
+///         key: Self::Key,
+///         descriptor: &mut RenderPipelineDescriptor
+///     ) -> Result<Canonical<Self::Key>, BevyError> {
+///         let _ = self.a.specialize((), descriptor);
+///         let key = self.b.specialize(key, descriptor);
+///         Ok(key)
 ///     }
 /// }
 /// */
