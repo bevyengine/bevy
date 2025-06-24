@@ -69,7 +69,7 @@ fn setup(mut commands: Commands) {
                         border: UiRect::all(Val::Px(2.)),
                         ..Default::default()
                     },
-                    BorderColor(Color::WHITE),
+                    BorderColor::all(Color::WHITE),
                     BackgroundColor(Color::BLACK),
                     children![(
                         Text::new("Nothing pasted yet."),
@@ -86,7 +86,7 @@ fn setup(mut commands: Commands) {
                     },
                     Button,
                     ButtonAction::PasteText,
-                    BorderColor(Color::WHITE),
+                    BorderColor::all(Color::WHITE),
                     BackgroundColor(Color::BLACK),
                     children![Text::new("Click to paste text")],
                 ),
@@ -99,7 +99,7 @@ fn setup(mut commands: Commands) {
                     },
                     Button,
                     ButtonAction::SetText,
-                    BorderColor(Color::WHITE),
+                    BorderColor::all(Color::WHITE),
                     BackgroundColor(Color::BLACK),
                     children![Text::new("Click to copy 'Hello bevy!'\nto the clipboard")],
                 ),
@@ -149,11 +149,11 @@ fn paste_text_system(
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                border_color.set_all(Color::WHITE);
             }
             Interaction::None => {
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = GREY.into();
+                border_color.set_all(GREY);
             }
         }
     }

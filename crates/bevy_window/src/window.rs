@@ -158,10 +158,8 @@ impl ContainsEntity for NormalizedWindowRef {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[require(CursorOptions)]
 pub struct Window {
-    /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
-    /// window entity.
-    pub cursor_options: CursorOptions,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
     /// Which fullscreen or windowing mode should be used.
@@ -225,6 +223,15 @@ pub struct Window {
     /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
     /// Get/set whether the window is focused.
+    ///
+    /// It cannot be set unfocused after creation.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - iOS / Android / X11 / Wayland: Spawning unfocused is
+    ///   [not supported](https://docs.rs/winit/latest/winit/window/struct.WindowAttributes.html#method.with_active).
+    /// - iOS / Android / Web / Wayland: Setting focused after creation is
+    ///   [not supported](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.focus_window).
     pub focused: bool,
     /// Where should the window appear relative to other overlapping window.
     ///
@@ -461,7 +468,6 @@ impl Default for Window {
         Self {
             title: DEFAULT_WINDOW_TITLE.to_owned(),
             name: None,
-            cursor_options: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
             position: Default::default(),
@@ -719,11 +725,11 @@ impl WindowResizeConstraints {
 }
 
 /// Cursor data for a [`Window`].
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Clone)
+    reflect(Component, Debug, Default, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1162,13 +1168,17 @@ pub enum MonitorSelection {
 /// References an exclusive fullscreen video mode.
 ///
 /// Used when setting [`WindowMode::Fullscreen`] on a window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Clone)]
 pub enum VideoModeSelection {
     /// Uses the video mode that the monitor is already in.
     Current,

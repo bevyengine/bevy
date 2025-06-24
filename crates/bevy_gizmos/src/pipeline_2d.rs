@@ -2,9 +2,10 @@ use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
     DrawLineJointGizmo, GizmoRenderSystems, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
+    SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
@@ -75,6 +76,7 @@ impl Plugin for LineGizmo2dPlugin {
 struct LineGizmoPipeline {
     mesh_pipeline: Mesh2dPipeline,
     uniform_layout: BindGroupLayout,
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for LineGizmoPipeline {
@@ -85,6 +87,7 @@ impl FromWorld for LineGizmoPipeline {
                 .resource::<LineGizmoUniformBindgroupLayout>()
                 .layout
                 .clone(),
+            shader: load_embedded_asset!(render_world, "lines.wgsl"),
         }
     }
 }
@@ -124,13 +127,13 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: fragment_entry_point.into(),
                 targets: vec![Some(ColorTargetState {
@@ -173,6 +176,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 struct LineJointGizmoPipeline {
     mesh_pipeline: Mesh2dPipeline,
     uniform_layout: BindGroupLayout,
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for LineJointGizmoPipeline {
@@ -183,6 +187,7 @@ impl FromWorld for LineJointGizmoPipeline {
                 .resource::<LineGizmoUniformBindgroupLayout>()
                 .layout
                 .clone(),
+            shader: load_embedded_asset!(render_world, "line_joints.wgsl"),
         }
     }
 }
@@ -225,13 +230,13 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_JOINT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: entry_point.into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
             },
             fragment: Some(FragmentState {
-                shader: LINE_JOINT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

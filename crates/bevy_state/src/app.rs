@@ -59,10 +59,11 @@ pub trait AppExtStates {
 
     /// Enable state-scoped entity clearing for state `S`.
     ///
-    /// If the [`States`] trait was derived with the `#[states(scoped_entities)]` attribute, it
-    /// will be called automatically.
+    /// This is enabled by default. If you don't want this behavior, add the `#[states(scoped_entities = false)]`
+    /// attribute when deriving the [`States`] trait.
     ///
     /// For more information refer to [`crate::state_scoped`].
+    #[doc(hidden)]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_reflect")]
@@ -214,6 +215,7 @@ impl AppExtStates for SubApp {
         self
     }
 
+    #[doc(hidden)]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
         if !self
             .world()
@@ -285,6 +287,7 @@ impl AppExtStates for App {
         self
     }
 
+    #[doc(hidden)]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
         self.main_mut().enable_state_scoped_entities::<S>();
         self

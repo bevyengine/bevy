@@ -1,6 +1,6 @@
 [package]
 name = "bevy_clipboard"
-version = "0.16.0-dev"
+version = "0.17.0-dev"
 edition = "2024"
 description = "Provides clipboard support for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -10,9 +10,9 @@ keywords = ["bevy", "clipboard"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false }
 
 [target.'cfg(any(windows, unix))'.dependencies]
 arboard = { version = "3.5.0", default-features = false }

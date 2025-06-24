@@ -1,6 +1,6 @@
 use crate::NodePbr;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prelude::Camera3d,
@@ -20,6 +20,7 @@ use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
+    load_shader_library,
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -39,38 +40,16 @@ use bevy_utils::prelude::default;
 use core::mem;
 use tracing::{error, warn};
 
-const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("b7f2cc3d-c935-4f5c-9ae2-43d6b0d5659a");
-const SSAO_SHADER_HANDLE: Handle<Shader> = weak_handle!("9ea355d7-37a2-4cc4-b4d1-5d8ab47b07f5");
-const SPATIAL_DENOISE_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("0f2764a0-b343-471b-b7ce-ef5d636f4fc3");
-const SSAO_UTILS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("da53c78d-f318-473e-bdff-b388bc50ada2");
-
 /// Plugin for screen space ambient occlusion.
 pub struct ScreenSpaceAmbientOcclusionPlugin;
 
 impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            PREPROCESS_DEPTH_SHADER_HANDLE,
-            "preprocess_depth.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, SSAO_SHADER_HANDLE, "ssao.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            SPATIAL_DENOISE_SHADER_HANDLE,
-            "spatial_denoise.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SSAO_UTILS_SHADER_HANDLE,
-            "ssao_utils.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "ssao_utils.wgsl");
+
+        embedded_asset!(app, "preprocess_depth.wgsl");
+        embedded_asset!(app, "ssao.wgsl");
+        embedded_asset!(app, "spatial_denoise.wgsl");
 
         app.register_type::<ScreenSpaceAmbientOcclusion>();
 
@@ -321,6 +300,8 @@ struct SsaoPipelines {
     hilbert_index_lut: TextureView,
     point_clamp_sampler: Sampler,
     linear_clamp_sampler: Sampler,
+
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for SsaoPipelines {
@@ -431,7 +412,7 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-                shader: PREPROCESS_DEPTH_SHADER_HANDLE,
+                shader: load_embedded_asset!(world, "preprocess_depth.wgsl"),
                 shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
                 zero_initialize_workgroup_memory: false,
@@ -445,7 +426,7 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-                shader: SPATIAL_DENOISE_SHADER_HANDLE,
+                shader: load_embedded_asset!(world, "spatial_denoise.wgsl"),
                 shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
                 zero_initialize_workgroup_memory: false,
@@ -463,6 +444,8 @@ impl FromWorld for SsaoPipelines {
             hilbert_index_lut,
             point_clamp_sampler,
             linear_clamp_sampler,
+
+            shader: load_embedded_asset!(world, "ssao.wgsl"),
         }
     }
 }
@@ -498,7 +481,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
                 self.common_bind_group_layout.clone(),
             ],
             push_constant_ranges: vec![],
-            shader: SSAO_SHADER_HANDLE,
+            shader: self.shader.clone(),
             shader_defs,
             entry_point: "ssao".into(),
             zero_initialize_workgroup_memory: false,

@@ -221,14 +221,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 justify_content: JustifyContent::Center,
                                 ..default()
                             },
-                            BorderColor(LIME.into()),
+                            BorderColor::all(LIME.into()),
                             BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
                         ))
                         .with_children(|parent| {
                             parent.spawn((
                                 ImageNode::new(asset_server.load("branding/bevy_logo_light.png")),
                                 // Uses the transform to rotate the logo image by 45 degrees
-                                Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
+                                Node {
+                                    ..Default::default()
+                                },
+                                UiTransform {
+                                    rotation: Rot2::radians(0.25 * PI),
+                                    ..Default::default()
+                                },
                                 BorderRadius::all(Val::Px(10.)),
                                 Outline {
                                     width: Val::Px(2.),

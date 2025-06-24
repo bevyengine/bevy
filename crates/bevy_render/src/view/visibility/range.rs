@@ -10,9 +10,9 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
+    lifecycle::RemovedComponents,
     query::{Changed, With},
     reflect::ReflectComponent,
-    removal_detection::RemovedComponents,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{Local, Query, Res, ResMut},

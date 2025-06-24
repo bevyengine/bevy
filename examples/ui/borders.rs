@@ -120,7 +120,12 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BackgroundColor(MAROON.into()),
-                            BorderColor(RED.into()),
+                            BorderColor {
+                                top: RED.into(),
+                                bottom: YELLOW.into(),
+                                left: GREEN.into(),
+                                right: BLUE.into(),
+                            },
                             Outline {
                                 width: Val::Px(6.),
                                 offset: Val::Px(6.),
@@ -182,7 +187,12 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BackgroundColor(MAROON.into()),
-                            BorderColor(RED.into()),
+                            BorderColor {
+                                top: RED.into(),
+                                bottom: YELLOW.into(),
+                                left: GREEN.into(),
+                                right: BLUE.into(),
+                            },
                             BorderRadius::px(
                                 border_size(border.left, border.top),
                                 border_size(border.right, border.top),
