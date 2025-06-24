@@ -305,7 +305,7 @@ impl Map for DynamicMap {
         let hash = Self::internal_hash(&*key);
         let eq = Self::internal_eq(&*key);
         match self.hash_table.find_mut(hash, eq) {
-            Some((_, old)) => Some(std::mem::replace(old, value)),
+            Some((_, old)) => Some(core::mem::replace(old, value)),
             None => {
                 self.hash_table.insert_unique(
                     Self::internal_hash(key.as_ref()),
