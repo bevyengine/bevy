@@ -23,12 +23,11 @@ pub enum Orientation {
     Vertical,
 }
 
-/// A headless scrollbar widget, which can be used to build custom scrollbars. This component emits
-/// [`ValueChange`] events when the scrollbar value changes.
+/// A headless scrollbar widget, which can be used to build custom scrollbars.
 ///
 /// Scrollbars operate differently than the other core widgets in a number of respects.
 ///
-/// Unlike sliders, scrollbars don't have an [`AccessibilityNode`] component, nor can they have
+/// Unlike sliders, scrollbars don't have an `AccessibilityNode` component, nor can they have
 /// keyboard focus. This is because scrollbars are usually used in conjunction with a scrollable
 /// container, which is itself accessible and focusable. This also means that scrollbars don't
 /// accept keyboard events, which is also the responsibility of the scrollable container.
