@@ -37,6 +37,9 @@ pub enum CiTestingEvent {
     /// Takes a screenshot of the entire screen, and saves the results to
     /// `screenshot-{current_frame}.png`.
     Screenshot,
+    /// Takes a screenshot of the entire screen, saves the results to
+    /// `screenshot-{current_frame}.png`, and exits once the screenshot is taken.
+    ScreenshotAndExit,
     /// Takes a screenshot of the entire screen, and saves the results to
     /// `screenshot-{name}.png`.
     NamedScreenshot(String),
