@@ -2551,32 +2551,49 @@ bevy_utils::cfg::parallel! {
     /// if two `DeferredMut` values for the same entity are created in the same system
     /// on different threads, then they'll each be inserted into the entity in an
     /// undetermined order.
-    pub struct DeferredMut<'w, 's, T: Component + Clone> {
+    pub struct DeferredMut<'w, 's, T: Component> {
         entity: Entity,
         old: &'w T,
         new: Option<T>,
         record: &'s DeferredMutations<T>,
     }
 
-    impl<'w, 's, T: Component + Clone> DeferredMut<'w, 's, T> {
+    impl<'w, 's, T: Component> DeferredMut<'w, 's, T> {
         /// Returns a reference to the `T` value still present in the ECS
+        #[inline]
         pub fn stale(&self) -> &'w T {
             self.old
         }
 
         /// Returns a reference to the `T` value currently being updated.
         /// If none is present yet, this method will clone from `Self::stale`
-        pub fn fresh(&mut self) -> &mut T {
-            self.new.get_or_insert(self.old.clone())
+        #[inline]
+        pub fn fresh(&mut self) -> &mut T where T: Clone {
+            self.get_fresh_or_insert(self.old.clone())
         }
 
         /// Returns a (possibly absent) reference to the `T` value currently being updated.
-        pub fn try_get_fresh(&mut self) -> Option<&mut T> {
+        #[inline]
+        pub fn get_fresh(&mut self) -> Option<&mut T> {
             self.new.as_mut()
+        }
+
+        /// Returns a reference to the `T` value currently being updated.
+        /// If absent, it will insert the provided value.
+        #[inline]
+        pub fn get_fresh_or_insert(&mut self, value: T) -> &mut T {
+            self.new.get_or_insert(value)
+        }
+
+        /// Replaces the `T` value currently being updated
+        #[inline]
+        pub fn insert(&mut self, value: T) {
+            self.new = Some(value);
         }
     }
 
-    impl<'w, 's, T: Component + Clone> Drop for DeferredMut<'w, 's, T> {
+    impl<'w, 's, T: Component> Drop for DeferredMut<'w, 's, T> {
+        #[inline]
         fn drop(&mut self) {
             if let Some(new) = self.new.take() {
                 self.record.insert(self.entity, new);
@@ -2584,46 +2601,50 @@ bevy_utils::cfg::parallel! {
         }
     }
 
-    impl<'w, 's, T: Component + Clone> Deref for DeferredMut<'w, 's, T> {
+    impl<'w, 's, T: Component> Deref for DeferredMut<'w, 's, T> {
         type Target = T;
 
+        #[inline]
         fn deref(&self) -> &Self::Target {
             self.new.as_ref().unwrap_or(self.old)
         }
     }
 
     impl<'w, 's, T: Component + Clone> DerefMut for DeferredMut<'w, 's, T> {
+        #[inline]
         fn deref_mut(&mut self) -> &mut Self::Target {
             self.fresh()
         }
     }
 
     /// The [`WorldQuery::State`] type for [`DeferredMut`]
-    pub struct DeferredMutState<T: Component + Clone> {
+    pub struct DeferredMutState<T: Component> {
         internal: <&'static T as WorldQuery>::State,
         record: DeferredMutations<T>,
     }
 
     struct DeferredMutations<T: Component>(Parallel<EntityHashMap<T>>);
 
-    impl<T: Component + Clone> Default for DeferredMutations<T> {
+    impl<T: Component> Default for DeferredMutations<T> {
         fn default() -> Self {
             Self(Default::default())
         }
     }
 
-    impl<T: Component + Clone> DeferredMutations<T> {
+    impl<T: Component> DeferredMutations<T> {
+        #[inline]
         fn insert(&self, entity: Entity, component: T) {
             self.0.scope(|map| map.insert(entity, component));
         }
 
+        #[inline]
         fn drain(&mut self) -> impl Iterator<Item = (Entity, T)> {
             self.0.drain()
         }
     }
 
     // SAFETY: impl defers to `<&T as WorldQuery>` for all methods
-    unsafe impl<'__w, '__s, T: Component + Clone> WorldQuery for DeferredMut<'__w, '__s, T> {
+    unsafe impl<'__w, '__s, T: Component> WorldQuery for DeferredMut<'__w, '__s, T> {
         type Fetch<'w> = ReadFetch<'w, T>;
 
         type State = DeferredMutState<T>;
@@ -2694,7 +2715,7 @@ bevy_utils::cfg::parallel! {
     }
 
     // SAFETY: DeferredMut<T> defers to &T internally, so it must be readonly and Self::ReadOnly = Self.
-    unsafe impl<'__w, '__s, T: Component + Clone> QueryData for DeferredMut<'__w, '__s, T> {
+    unsafe impl<'__w, '__s, T: Component> QueryData for DeferredMut<'__w, '__s, T> {
         const IS_READ_ONLY: bool = true;
 
         type ReadOnly = Self;
@@ -2730,7 +2751,7 @@ bevy_utils::cfg::parallel! {
 
     // SAFETY: Tracked<T> only accesses &T from the world. Though it provides mutable access, it only
     // applies those changes through commands.
-    unsafe impl<'__w, '__s, T: Component + Clone> ReadOnlyQueryData for DeferredMut<'__w, '__s, T> {}
+    unsafe impl<'__w, '__s, T: Component> ReadOnlyQueryData for DeferredMut<'__w, '__s, T> {}
 }
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
