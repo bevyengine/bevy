@@ -907,7 +907,7 @@ impl PipelineCache {
                             // TODO: Should this be the same as the vertex compilation options?
                             compilation_options,
                         }),
-                    cache: cache.as_deref(),
+                    cache: cache.as_deref().map(|v| &**v),
                 };
 
                 Ok(Pipeline::RenderPipeline(
@@ -968,7 +968,7 @@ impl PipelineCache {
                         zero_initialize_workgroup_memory: descriptor
                             .zero_initialize_workgroup_memory,
                     },
-                    cache: cache.as_deref(),
+                    cache: cache.as_deref().map(|v| &**v),
                 };
 
                 Ok(Pipeline::ComputePipeline(

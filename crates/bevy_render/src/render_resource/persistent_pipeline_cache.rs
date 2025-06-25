@@ -10,6 +10,7 @@ use bevy_ecs::{
 };
 use bevy_platform::hash::FixedHasher;
 use bevy_render::{render_resource::PipelineCache, renderer::RenderDevice, Extract, Render};
+use bevy_utils::WgpuWrapper;
 use core::hash::BuildHasher;
 use std::{
     fs,
@@ -23,7 +24,6 @@ use std::{
 use thiserror::Error;
 use tracing::{debug, warn};
 use wgpu::{hal::PipelineCacheError, Backend, PipelineCacheDescriptor};
-use bevy_utils::WgpuWrapper;
 
 /// Plugin for managing [`wgpu::PipelineCache`] resources across application runs.
 ///
