@@ -35,7 +35,7 @@ pub struct PersistentPipelineCachePlugin {
     /// if the application is updated or if the cache should be invalidated.
     pub application_key: &'static str,
     /// The directory where the pipeline cache will be stored.
-    pub data_dir: Option<PathBuf>,
+    pub data_dir: PathBuf,
     /// The eviction policy for the cache.
     pub eviction_policy: EvictionPolicy,
 }
@@ -43,10 +43,10 @@ pub struct PersistentPipelineCachePlugin {
 impl PersistentPipelineCachePlugin {
     /// Creates a new instance of the `PersistentPipelineCachePlugin` with the specified
     /// application key.
-    pub fn new(application_key: &'static str) -> Self {
+    pub fn new(application_key: &'static str, data_dir: PathBuf) -> Self {
         Self {
             application_key,
-            data_dir: dirs::cache_dir().map(|path| path.join("bevy")),
+            data_dir,
             eviction_policy: EvictionPolicy::Stale,
         }
     }
@@ -56,10 +56,13 @@ impl Plugin for PersistentPipelineCachePlugin {
     fn build(&self, _app: &mut App) {}
 
     fn finish(&self, app: &mut App) {
-        let Some(data_dir) = &self.data_dir else {
-            warn!("No data directory specified for PersistentPipelineCachePlugin.");
+        if !self.data_dir.exists() || !self.data_dir.is_dir() {
+            warn!(
+                "PersistentPipelineCachePlugin data directory does not exist or is not a directory: {:?}",
+                self.data_dir
+            );
             return;
-        };
+        }
 
         if let Some(render_app) = app.get_sub_app_mut(bevy_render::RenderApp) {
             let adapter_debug = render_app.world().resource::<RenderAdapterInfo>();
@@ -83,7 +86,7 @@ impl Plugin for PersistentPipelineCachePlugin {
 
         app.insert_resource(PersistentPipelineCacheConfig {
             application_key: self.application_key,
-            data_dir: data_dir.clone(),
+            data_dir: self.data_dir.clone(),
             eviction_policy: self.eviction_policy,
         });
     }
