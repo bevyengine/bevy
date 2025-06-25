@@ -78,6 +78,10 @@ struct DemoCheckbox;
 #[derive(Component, Default)]
 struct DemoRadio(TrackClick);
 
+/// Menuy button styling marker
+#[derive(Component)]
+struct DemoMenuButton;
+
 /// A struct to hold the state of various widgets shown in the demo.
 ///
 /// While it is possible to use the widget's own state components as the source of truth,
@@ -131,6 +135,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             widget_states.slider_value = *value;
         },
     );
+
+    let on_open_menu = commands.register_system(spawn_popup);
 
     // System to update a resource when the radio group changes.
     let on_change_radio = commands.register_system(
@@ -210,6 +216,49 @@ fn button(asset_server: &AssetServer, on_click: Callback) -> impl Bundle {
             TextColor(Color::srgb(0.9, 0.9, 0.9)),
             TextShadow::default(),
         )],
+    )
+}
+
+fn menu_button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
+    (
+        Node {
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
+            border: UiRect::all(Val::Px(5.0)),
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            padding: UiRect::axes(Val::Px(16.0), Val::Px(0.0)),
+            ..default()
+        },
+        DemoMenuButton,
+        CoreButton {
+            on_click: Callback::System(on_click),
+        },
+        Hovered::default(),
+        TabIndex(0),
+        BorderColor::all(Color::BLACK),
+        BorderRadius::all(Val::Px(5.0)),
+        BackgroundColor(NORMAL_BUTTON),
+        children![
+            (
+                Text::new("Menu"),
+                TextFont {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 33.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                TextShadow::default(),
+            ),
+            (
+                Node {
+                    width: Val::Px(12.0),
+                    height: Val::Px(12.0),
+                    ..default()
+                },
+                BackgroundColor(GRAY.into()),
+            )
+        ],
     )
 }
 
@@ -737,6 +786,43 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
             )),
         )),
     )
+}
+
+fn spawn_popup(menu: Query<Entity, With<DemoMenuButton>>, mut commands: Commands) {
+    let Ok(anchor) = menu.single() else {
+        return;
+    };
+    commands.entity(anchor).insert(PortalChildren::spawn_one((
+        Node {
+            min_height: Val::Px(100.),
+            min_width: Val::Px(100.),
+            border: UiRect::all(Val::Px(2.0)),
+            position_type: PositionType::Absolute,
+            left: Val::Px(100.),
+            ..default()
+        },
+        BorderColor::all(GREEN.into()),
+        BackgroundColor(GRAY.into()),
+        ZIndex(100),
+        Floating {
+            anchor: FloatAnchor::Node(anchor),
+            positions: vec![
+                FloatPosition {
+                    side: FloatSide::Bottom,
+                    align: FloatAlign::Start,
+                    gap: 2.0,
+                    ..default()
+                },
+                FloatPosition {
+                    side: FloatSide::Top,
+                    align: FloatAlign::Start,
+                    gap: 2.0,
+                    ..default()
+                },
+            ],
+        },
+    )));
+    info!("Open menu");
 }
 
 fn toggle_disabled(

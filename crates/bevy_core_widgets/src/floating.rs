@@ -1,9 +1,14 @@
 //! Framework for positioning of popups, tooltips, and other floating UI elements.
 
-use bevy_app::{App, Plugin, PostUpdate};
-use bevy_ecs::{component::Component, entity::Entity, query::Without, system::Query};
+use bevy_app::{App, Plugin, PreUpdate};
+use bevy_ecs::{
+    component::Component, entity::Entity, query::Without, schedule::IntoScheduleConfigs,
+    system::Query,
+};
 use bevy_math::{Rect, Vec2};
-use bevy_ui::{ComputedNode, ComputedNodeTarget, Node, UiGlobalTransform, Val};
+use bevy_ui::{
+    ComputedNode, ComputedNodeTarget, Node, PositionType, UiGlobalTransform, UiSystems, Val,
+};
 
 /// Which side of the anchor element the floating element should be placed.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -102,6 +107,11 @@ fn position_floating(
     q_anchor: Query<(&ComputedNode, &UiGlobalTransform), Without<Floating>>,
 ) {
     for (mut node, computed_node, computed_target, floating) in q_float.iter_mut() {
+        // Logical size isn't set initially, ignore until it is.
+        if computed_target.logical_size().length_squared() == 0.0 {
+            continue;
+        }
+
         // A rectangle which represents the area of the window.
         let window_rect = Rect {
             min: Vec2::ZERO,
@@ -114,7 +124,10 @@ fn position_floating(
                 let Ok((anchor_node, anchor_transform)) = q_anchor.get(anchor_entity) else {
                     continue;
                 };
-                Rect::from_center_size(anchor_transform.translation, anchor_node.size())
+                Rect::from_center_size(
+                    anchor_transform.translation * anchor_node.inverse_scale_factor,
+                    anchor_node.size() * anchor_node.inverse_scale_factor,
+                )
             }
             FloatAnchor::Rect(rect) => rect,
         };
@@ -125,7 +138,7 @@ fn position_floating(
 
         // Loop through all the potential positions and find a good one.
         for position in &floating.positions {
-            let float_size = computed_node.size();
+            let float_size = computed_node.size() * computed_node.inverse_scale_factor;
             let mut rect = Rect::default();
 
             // Taraget width and height depends on whether 'stretch' is true.
@@ -225,6 +238,7 @@ fn position_floating(
         if best_occluded < f32::MAX {
             node.left = Val::Px(best_rect.min.x);
             node.top = Val::Px(best_rect.min.y);
+            node.position_type = PositionType::Absolute;
             if best_position.stretch {
                 match best_position.side {
                     FloatSide::Top | FloatSide::Bottom => {
@@ -245,6 +259,6 @@ pub struct FloatingPlugin;
 
 impl Plugin for FloatingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, position_floating);
+        app.add_systems(PreUpdate, position_floating.in_set(UiSystems::Prepare));
     }
 }

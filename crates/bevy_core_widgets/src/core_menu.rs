@@ -17,7 +17,8 @@ use crate::portal::{PortalTraversal, PortalTraversalItem};
 ///
 /// Focus navigation: the menu may be part of a composite of multiple menus such as a menu bar.
 /// This means that depending on direction, focus movement may move to the next menu item, or
-/// the next menu.
+/// the next menu. This also means that different events will often be handled at different
+/// levels of the hierarchy - some being handled by the popup, and some by the popup's owner.
 #[derive(Event, EntityEvent, Clone)]
 pub enum MenuEvent {
     /// Indicates we want to open the menu, if it is not already open.
@@ -28,6 +29,10 @@ pub enum MenuEvent {
     /// Move the input focs to the parent element. This usually happens as the menu is closing,
     /// although will not happen if the close was a result of clicking on the background.
     FocusParent,
+    /// Move the input focus to the first child in the parent's hierarchy (Home).
+    FocusFirst,
+    /// Move the input focus to the last child in the parent's hierarchy (End).
+    FocusLast,
     /// Move the input focus to the previous child in the parent's hierarchy (Shift-Tab).
     FocusPrev,
     /// Move the input focus to the next child in the parent's hierarchy (Tab).
@@ -63,16 +68,16 @@ impl Traversal<MenuEvent> for PortalTraversal {
     }
 }
 
-/// Component that defines a popup menu
+/// Component that defines a popup menu container.
 #[derive(Component, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::MenuListPopup)))]
 pub struct CoreMenuPopup;
 
-/// Component that defines a menu item
+/// Component that defines a menu item.
 #[derive(Component, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::MenuItem)))]
 pub struct CoreMenuItem {
     /// Optional system to run when the menu item is clicked, or when the Enter or Space key
-    /// is pressed while the button is focused.
+    /// is pressed while the item is focused.
     pub on_click: Option<SystemId>,
 }
