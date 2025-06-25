@@ -28,7 +28,20 @@ error[E0283]: type annotations needed
      |     ^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type of the type parameter `Out` declared on the trait `IntoSystem`
      |
 note: multiple `impl`s satisfying `core::result::Result<(), bevy_error::BevyError>: function_system::IntoResult<_>` found
-    --> crates\bevy_ecs\src\system\function_system.rs:618:1
+   --> crates\bevy_ecs\src\system\function_system.rs:597:1
+```
+
+or
+
+```text
+error[E0283]: type annotations needed
+    --> lib.rs:100:11
+    |
+100 |     world.run_system_cached(system).unwrap();
+    |           ^^^^^^^^^^^^^^^^^ cannot infer type of the type parameter `O` declared on the method `run_system_cached`
+    |
+note: multiple `impl`s satisfying `core::result::Result<(), bevy_error::BevyError>: function_system::IntoResult<_>` found
+   --> crates\bevy_ecs\src\system\function_system.rs:597:1
 ```
 
 A function that returns `Result<T, BevyError>` may be considered either a fallible system that returns `T` or an infallible system that returns `Result`, and a function that returns `!` may be considered a system that returns *any* type.
@@ -40,4 +53,14 @@ fn example_system() -> Result { Ok(()) }
 IntoSystem::into_system(example_system)
 // 0.17 - Output type can be either `()` or `Result` and must be written explicitly
 IntoSystem::<_, (), _>::into_system(example_system);
+IntoSystem::<_, Result, _>::into_system(example_system);
+
+// 0.16 - Output type is inferred to be `Result`
+world.run_system_cached(example_system).unwrap().unwrap();
+// 0.17 - Output type can be either `()` or `Result` and must be written explicitly
+world.run_system_cached::<(), _, _>(example_system).unwrap();
+world.run_system_cached::<Result, _, _>(example_system).unwrap().unwrap();
+// or it may be inferred if the output type is specified elsewhere
+let _: () = world.run_system_cached(example_system).unwrap();
+let r: Result = world.run_system_cached(example_system).unwrap();
 ```
