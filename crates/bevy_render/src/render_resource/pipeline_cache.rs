@@ -884,7 +884,6 @@ impl PipelineCache {
                     zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
                 };
 
-
                 let descriptor = RawRenderPipelineDescriptor {
                     multiview: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
@@ -1021,9 +1020,8 @@ impl PipelineCache {
                     PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
                         self.start_create_render_pipeline(id, *descriptor.clone(), persistent_cache)
                     }
-                    PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
-                        self.start_create_compute_pipeline(id, *descriptor.clone(), persistent_cache)
-                    }
+                    PipelineDescriptor::ComputePipelineDescriptor(descriptor) => self
+                        .start_create_compute_pipeline(id, *descriptor.clone(), persistent_cache),
                 };
             }
 
@@ -1063,7 +1061,10 @@ impl PipelineCache {
         self.waiting_pipelines.insert(id);
     }
 
-    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>, persistent_pipeline_cache: Option<Res<PersistentPipelineCache>>) {
+    pub(crate) fn process_pipeline_queue_system(
+        mut cache: ResMut<Self>,
+        persistent_pipeline_cache: Option<Res<PersistentPipelineCache>>,
+    ) {
         cache.process_queue(persistent_pipeline_cache.as_deref());
     }
 

@@ -7,6 +7,7 @@ mod bindless;
 mod buffer;
 mod buffer_vec;
 mod gpu_array_buffer;
+mod persistent_pipeline_cache;
 mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
@@ -15,7 +16,6 @@ mod shader;
 mod storage_buffer;
 mod texture;
 mod uniform_buffer;
-mod persistent_pipeline_cache;
 
 pub use bind_group::*;
 pub use bind_group_entries::*;
@@ -25,6 +25,7 @@ pub use bindless::*;
 pub use buffer::*;
 pub use buffer_vec::*;
 pub use gpu_array_buffer::*;
+pub use persistent_pipeline_cache::*;
 pub use pipeline::*;
 pub use pipeline_cache::*;
 pub use pipeline_specializer::*;
@@ -32,7 +33,6 @@ pub use shader::*;
 pub use storage_buffer::*;
 pub use texture::*;
 pub use uniform_buffer::*;
-pub use persistent_pipeline_cache::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu::{
