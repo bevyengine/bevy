@@ -55,6 +55,7 @@ const SLIDER_TRACK: Color = Color::srgb(0.05, 0.05, 0.05);
 const SLIDER_THUMB: Color = Color::srgb(0.35, 0.75, 0.35);
 const CHECKBOX_OUTLINE: Color = Color::srgb(0.45, 0.45, 0.45);
 const CHECKBOX_CHECK: Color = Color::srgb(0.35, 0.75, 0.35);
+const ELEMENT_FILL_DISABLED: Color = Color::srgb(0.5019608, 0.5019608, 0.5019608);
 
 /// Marker which identifies buttons with a particular style, in this case the "Demo style".
 #[derive(Component)]
@@ -446,7 +447,7 @@ fn update_slider_style2(
 
 fn thumb_color(disabled: bool, hovered: bool) -> Color {
     match (disabled, hovered) {
-        (true, _) => GRAY.into(),
+        (true, _) => ELEMENT_FILL_DISABLED,
 
         (false, true) => SLIDER_THUMB.lighter(0.3),
 
@@ -639,7 +640,7 @@ fn set_checkbox_or_radio_style(
     border_color.set_all(color);
 
     let mark_color: Color = match (disabled, checked) {
-        (true, true) => GRAY.into(),
+        (true, true) => ELEMENT_FILL_DISABLED,
         (false, true) => CHECKBOX_CHECK,
         (_, false) => Srgba::NONE.into(),
     };
