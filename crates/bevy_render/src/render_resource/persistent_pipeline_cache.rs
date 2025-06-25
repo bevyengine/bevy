@@ -23,6 +23,7 @@ use std::{
 use thiserror::Error;
 use tracing::{debug, warn};
 use wgpu::{hal::PipelineCacheError, Backend, PipelineCacheDescriptor};
+use bevy_utils::WgpuWrapper;
 
 /// Plugin for managing [`wgpu::PipelineCache`] resources across application runs.
 ///
@@ -47,7 +48,7 @@ impl PersistentPipelineCachePlugin {
         Self {
             application_key,
             data_dir,
-            eviction_policy: EvictionPolicy::Stale,
+            eviction_policy: EvictionPolicy::Never,
         }
     }
 }
@@ -192,7 +193,7 @@ pub struct PersistentPipelineCacheConfig {
 /// Resource for managing [`wgpu::PipelineCache`].
 #[derive(Resource)]
 pub struct PersistentPipelineCache {
-    cache: Arc<wgpu::PipelineCache>,
+    cache: Arc<WgpuWrapper<wgpu::PipelineCache>>,
     write_lock: Arc<Mutex<()>>,
     write_tasks: Vec<JoinHandle<Result<(), PersistentPipelineCacheError>>>,
     cache_path: PathBuf,
@@ -237,7 +238,7 @@ impl PersistentPipelineCache {
         };
 
         Ok(PersistentPipelineCache {
-            cache: Arc::new(cache),
+            cache: Arc::new(WgpuWrapper::new(cache)),
             write_lock: Arc::new(Mutex::new(())),
             write_tasks: vec![],
             cache_path: cache_path.to_path_buf(),
@@ -314,7 +315,7 @@ impl PersistentPipelineCache {
     }
 
     /// Get the underlying wgpu pipeline cache.
-    pub fn get_cache(&self) -> Arc<wgpu::PipelineCache> {
+    pub fn get_cache(&self) -> Arc<WgpuWrapper<wgpu::PipelineCache>> {
         self.cache.clone()
     }
 }
