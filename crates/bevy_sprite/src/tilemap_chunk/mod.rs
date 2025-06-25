@@ -5,11 +5,11 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    lifecycle::Add,
-    observer::On,
+    lifecycle::HookContext,
     query::Changed,
     resource::Resource,
-    system::{Commands, Query, ResMut},
+    system::{Query, ResMut},
+    world::DeferredWorld,
 };
 use bevy_image::{Image, ImageSampler};
 use bevy_math::{FloatOrd, UVec2, Vec2, Vec3};
@@ -33,7 +33,6 @@ pub struct TilemapChunkPlugin;
 impl Plugin for TilemapChunkPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TilemapChunkMeshCache>()
-            .add_observer(on_add_tilemap_chunk)
             .add_systems(Update, update_tilemap_chunk_indices);
     }
 }
@@ -47,7 +46,8 @@ pub struct TilemapChunkMeshCache(HashMap<TilemapChunkMeshCacheKey, Handle<Mesh>>
 /// A component representing a chunk of a tilemap.
 /// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
 #[derive(Component, Clone, Debug, Default)]
-#[require(Mesh2d, MeshMaterial2d<TilemapChunkMaterial>, TilemapChunkIndices, Anchor)]
+#[require(Anchor)]
+#[component(immutable, on_insert = on_insert_tilemap_chunk)]
 pub struct TilemapChunk {
     /// The size of the chunk in tiles
     pub chunk_size: UVec2,
@@ -62,31 +62,26 @@ pub struct TilemapChunk {
 
 /// Component storing the indices of tiles within a chunk.
 /// Each index corresponds to a specific tile in the tileset.
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Deref, DerefMut)]
 pub struct TilemapChunkIndices(pub Vec<Option<u16>>);
 
-fn on_add_tilemap_chunk(
-    trigger: On<Add, TilemapChunk>,
-    tilemap_chunk_query: Query<(&TilemapChunk, &TilemapChunkIndices, &Anchor)>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<TilemapChunkMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    mut tilemap_chunk_mesh_cache: ResMut<TilemapChunkMeshCache>,
-) {
-    let chunk_entity = trigger.target();
-    let Ok((
-        TilemapChunk {
-            chunk_size,
-            tile_display_size,
-            tileset,
-            alpha_mode,
-        },
-        indices,
-        anchor,
-    )) = tilemap_chunk_query.get(chunk_entity)
-    else {
-        warn!("Tilemap chunk {} not found", chunk_entity);
+fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    let Some(tilemap_chunk) = world.get::<TilemapChunk>(entity) else {
+        warn!("TilemapChunk not found for tilemap chunk {}", entity);
+        return;
+    };
+
+    let chunk_size = tilemap_chunk.chunk_size;
+    let alpha_mode = tilemap_chunk.alpha_mode;
+    let tileset = tilemap_chunk.tileset.clone();
+
+    let Some(indices) = world.get::<TilemapChunkIndices>(entity) else {
+        warn!("TilemapChunkIndices not found for tilemap chunk {}", entity);
+        return;
+    };
+
+    let Some(&anchor) = world.get::<Anchor>(entity) else {
+        warn!("Anchor not found for tilemap chunk {}", entity);
         return;
     };
 
@@ -94,7 +89,7 @@ fn on_add_tilemap_chunk(
     if indices.len() != expected_indices_length {
         warn!(
             "Invalid indices length for tilemap chunk {} of size {}. Expected {}, got {}",
-            chunk_entity,
+            entity,
             chunk_size,
             indices.len(),
             expected_indices_length
@@ -102,30 +97,40 @@ fn on_add_tilemap_chunk(
         return;
     }
 
-    let indices_image = make_chunk_image(chunk_size, &indices.0);
+    let indices_image = make_chunk_image(&chunk_size, &indices.0);
 
-    let display_size = (chunk_size * tile_display_size).as_vec2();
+    let display_size = (chunk_size * tilemap_chunk.tile_display_size).as_vec2();
 
     let mesh_key: TilemapChunkMeshCacheKey = (
-        *chunk_size,
+        chunk_size,
         FloatOrd(display_size.x),
         FloatOrd(display_size.y),
         FloatOrd(anchor.as_vec().x),
         FloatOrd(anchor.as_vec().y),
     );
 
-    let mesh = tilemap_chunk_mesh_cache
-        .entry(mesh_key)
-        .or_insert_with(|| meshes.add(make_chunk_mesh(chunk_size, &display_size, anchor)));
+    let tilemap_chunk_mesh_cache = world.resource::<TilemapChunkMeshCache>();
+    let mesh = if let Some(mesh) = tilemap_chunk_mesh_cache.get(&mesh_key) {
+        mesh.clone()
+    } else {
+        let mut meshes = world.resource_mut::<Assets<Mesh>>();
+        meshes.add(make_chunk_mesh(&chunk_size, &display_size, &anchor))
+    };
 
-    commands.entity(chunk_entity).insert((
-        Mesh2d(mesh.clone()),
-        MeshMaterial2d(materials.add(TilemapChunkMaterial {
-            tileset: tileset.clone(),
-            indices: images.add(indices_image),
-            alpha_mode: *alpha_mode,
-        })),
-    ));
+    let mut images = world.resource_mut::<Assets<Image>>();
+    let indices = images.add(indices_image);
+
+    let mut materials = world.resource_mut::<Assets<TilemapChunkMaterial>>();
+    let material = materials.add(TilemapChunkMaterial {
+        tileset,
+        indices,
+        alpha_mode,
+    });
+
+    world
+        .commands()
+        .entity(entity)
+        .insert((Mesh2d(mesh), MeshMaterial2d(material)));
 }
 
 fn update_tilemap_chunk_indices(
@@ -154,6 +159,7 @@ fn update_tilemap_chunk_indices(
             continue;
         }
 
+        // Getting the material mutably to trigger change detection
         let Some(material) = materials.get_mut(material.id()) else {
             warn!(
                 "TilemapChunkMaterial not found for tilemap chunk {}",
@@ -211,6 +217,7 @@ fn make_chunk_image(size: &UVec2, indices: &[Option<u16>]) -> Image {
         sampler: ImageSampler::nearest(),
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+        copy_on_resize: false,
     }
 }
 
