@@ -2634,7 +2634,7 @@ bevy_utils::cfg::parallel! {
             unsafe { <&T as WorldQuery>::init_fetch(world, &state.component_id, last_run, this_run) }
         }
 
-        const IS_DENSE: bool = true;
+        const IS_DENSE: bool = <&T as WorldQuery>::IS_DENSE;
 
         unsafe fn set_archetype<'w>(
             fetch: &mut Self::Fetch<'w>,
