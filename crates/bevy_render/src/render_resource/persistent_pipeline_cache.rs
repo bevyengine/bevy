@@ -1,26 +1,27 @@
-use crate::renderer::RenderAdapterInfo;
-use crate::{ExtractSchedule, RenderSystems};
+use crate::{renderer::RenderAdapterInfo, ExtractSchedule, RenderSystems};
 use bevy_app::{App, Plugin};
-use bevy_ecs::change_detection::{Res, ResMut};
-use bevy_ecs::error::BevyError;
-use bevy_ecs::prelude::{not, resource_exists, IntoScheduleConfigs};
-use bevy_ecs::resource::Resource;
-use bevy_ecs::system::{Commands, Local};
+use bevy_ecs::{
+    change_detection::{Res, ResMut},
+    error::BevyError,
+    prelude::{not, resource_exists, IntoScheduleConfigs},
+    resource::Resource,
+    system::{Commands, Local},
+};
 use bevy_platform::hash::FixedHasher;
-use bevy_render::render_resource::PipelineCache;
-use bevy_render::renderer::RenderDevice;
-use bevy_render::{Extract, Render};
-use std::fs::OpenOptions;
-use std::hash::BuildHasher;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
-use std::{fs, io};
+use bevy_render::{render_resource::PipelineCache, renderer::RenderDevice, Extract, Render};
+use std::{
+    fs,
+    fs::OpenOptions,
+    hash::BuildHasher,
+    io,
+    io::Write,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+    thread::JoinHandle,
+};
 use thiserror::Error;
 use tracing::{debug, warn};
-use wgpu::hal::PipelineCacheError;
-use wgpu::{Backend, PipelineCacheDescriptor};
+use wgpu::{hal::PipelineCacheError, Backend, PipelineCacheDescriptor};
 
 /// Plugin for managing [`wgpu::PipelineCache`] resources across application runs.
 ///
@@ -68,9 +69,8 @@ impl Plugin for PersistentPipelineCachePlugin {
             render_app
                 .add_systems(
                     ExtractSchedule,
-                    extract_persistent_pipeline_cache.run_if(
-                        not(resource_exists::<PersistentPipelineCache>))
-
+                    extract_persistent_pipeline_cache
+                        .run_if(not(resource_exists::<PersistentPipelineCache>)),
                 )
                 .add_systems(
                     Render,
@@ -95,7 +95,7 @@ pub fn extract_persistent_pipeline_cache(
     render_device: Res<RenderDevice>,
 ) -> Result<(), BevyError> {
     let Some(persistent_pipeline_cache_config) = &*persistent_pipeline_cache_config else {
-        return Ok(())
+        return Ok(());
     };
 
     debug!(
