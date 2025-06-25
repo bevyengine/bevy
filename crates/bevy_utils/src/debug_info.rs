@@ -1,4 +1,7 @@
-use alloc::{borrow::Cow, fmt, string::String};
+use crate::cfg;
+cfg::alloc! {
+    use alloc::{borrow::Cow, fmt, string::String};
+}
 #[cfg(feature = "debug")]
 use core::any::type_name;
 use disqualified::ShortName;
@@ -16,14 +19,16 @@ pub struct DebugName {
     name: Cow<'static, str>,
 }
 
-impl fmt::Display for DebugName {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        #[cfg(feature = "debug")]
-        f.write_str(self.name.as_ref())?;
-        #[cfg(not(feature = "debug"))]
-        f.write_str(FEATURE_DISABLED)?;
+cfg::alloc! {
+    impl fmt::Display for DebugName {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            #[cfg(feature = "debug")]
+            f.write_str(self.name.as_ref())?;
+            #[cfg(not(feature = "debug"))]
+            f.write_str(FEATURE_DISABLED)?;
 
-        Ok(())
+            Ok(())
+        }
     }
 }
 
@@ -39,14 +44,16 @@ impl DebugName {
         }
     }
 
-    /// Create a new `DebugName` from a `String`
-    ///
-    /// The value will be ignored if the `debug` feature is not enabled
-    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
-    pub fn owned(value: String) -> Self {
-        DebugName {
-            #[cfg(feature = "debug")]
-            name: Cow::Owned(value),
+    cfg::alloc! {
+        /// Create a new `DebugName` from a `String`
+        ///
+        /// The value will be ignored if the `debug` feature is not enabled
+        #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
+        pub fn owned(value: String) -> Self {
+            DebugName {
+                #[cfg(feature = "debug")]
+                name: Cow::Owned(value),
+            }
         }
     }
 
@@ -79,19 +86,21 @@ impl DebugName {
     }
 }
 
-impl From<Cow<'static, str>> for DebugName {
-    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
-    fn from(value: Cow<'static, str>) -> Self {
-        Self {
-            #[cfg(feature = "debug")]
-            name: value,
+cfg::alloc! {
+    impl From<Cow<'static, str>> for DebugName {
+        #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
+        fn from(value: Cow<'static, str>) -> Self {
+            Self {
+                #[cfg(feature = "debug")]
+                name: value,
+            }
         }
     }
-}
 
-impl From<String> for DebugName {
-    fn from(value: String) -> Self {
-        Self::owned(value)
+    impl From<String> for DebugName {
+        fn from(value: String) -> Self {
+            Self::owned(value)
+        }
     }
 }
 
