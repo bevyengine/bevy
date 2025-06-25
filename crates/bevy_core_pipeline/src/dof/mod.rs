@@ -815,8 +815,8 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                     DofPass::BokehPass1 => "bokeh_pass_1".into(),
                 },
                 targets,
+                compilation_options: Default::default(),
             }),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

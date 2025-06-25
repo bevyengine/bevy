@@ -201,6 +201,7 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -215,6 +216,7 @@ impl SpecializedRenderPipeline for GradientPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             layout: vec![self.view_layout.clone()],
             push_constant_ranges: Vec::new(),
@@ -234,7 +236,6 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_gradient_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

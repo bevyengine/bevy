@@ -469,6 +469,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 shader_defs: vec![],
                 entry_point: Cow::Borrowed("vs_main"),
                 shader: self.shader.clone(),
+                compilation_options: default(),
             },
             primitive: wgpu::PrimitiveState {
                 cull_mode: Some(wgpu::Face::Back),
@@ -485,9 +486,9 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                     blend: None,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                compilation_options: default(),
             }),
             push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

@@ -497,7 +497,7 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
             } else {
                 "downsample_depth_first".into()
             },
-            zero_initialize_workgroup_memory: false,
+            compilation_options: Default::default(),
         }
     }
 }

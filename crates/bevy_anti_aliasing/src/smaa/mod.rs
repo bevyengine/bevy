@@ -485,6 +485,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: "edge_detection_vertex_main".into(),
                 buffers: vec![],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -495,6 +496,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             push_constant_ranges: vec![],
             primitive: PrimitiveState::default(),
@@ -511,7 +513,6 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 bias: default(),
             }),
             multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -545,6 +546,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: "blending_weight_calculation_vertex_main".into(),
                 buffers: vec![],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -555,6 +557,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             push_constant_ranges: vec![],
             primitive: PrimitiveState::default(),
@@ -571,7 +574,6 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 bias: default(),
             }),
             multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -593,6 +595,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: "neighborhood_blending_vertex_main".into(),
                 buffers: vec![],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -603,12 +606,12 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             push_constant_ranges: vec![],
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

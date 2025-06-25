@@ -198,6 +198,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 shader_defs: Vec::new(),
                 entry_point: "skybox_vertex".into(),
                 buffers: Vec::new(),
+                compilation_options: Default::default(),
             },
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
@@ -235,8 +236,8 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

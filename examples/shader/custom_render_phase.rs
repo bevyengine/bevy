@@ -212,6 +212,7 @@ impl SpecializedMeshPipeline for StencilPipeline {
                 shader_defs: vec![],
                 entry_point: "vertex".into(),
                 buffers: vec![vertex_buffer_layout],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
@@ -222,6 +223,7 @@ impl SpecializedMeshPipeline for StencilPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
@@ -234,7 +236,6 @@ impl SpecializedMeshPipeline for StencilPipeline {
             // It's generally recommended to specialize your pipeline for MSAA,
             // but it's not always possible
             multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
         })
     }
 }

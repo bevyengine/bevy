@@ -8,6 +8,7 @@ use alloc::borrow::Cow;
 use bevy_asset::Handle;
 use bevy_utils::WgpuWrapper;
 use core::ops::Deref;
+use std::collections::HashMap;
 use wgpu::{
     ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
 };
@@ -107,12 +108,9 @@ pub struct RenderPipelineDescriptor {
     pub multisample: MultisampleState,
     /// The compiled fragment stage, its entry point, and the color targets.
     pub fragment: Option<FragmentState>,
-    /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
-    /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
-    pub zero_initialize_workgroup_memory: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -122,10 +120,12 @@ pub struct VertexState {
     pub entry_point: Cow<'static, str>,
     /// The format of any vertex buffers used with this pipeline.
     pub buffers: Vec<VertexBufferLayout>,
+    /// Advanced options for use when a pipeline is compiled
+    pub compilation_options: PipelineCompilationOptions,
 }
 
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -135,6 +135,8 @@ pub struct FragmentState {
     pub entry_point: Cow<'static, str>,
     /// The color state of the render targets.
     pub targets: Vec<Option<ColorTargetState>>,
+    // Advanced options for use when a pipeline is compiled
+    pub compilation_options: PipelineCompilationOptions,
 }
 
 /// Describes a compute pipeline.
@@ -149,7 +151,26 @@ pub struct ComputePipelineDescriptor {
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
-    /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
-    /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
+    // Advanced options for use when a pipeline is compiled
+    pub compilation_options: PipelineCompilationOptions,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+/// Advanced options for use when a pipeline is compiled
+///
+/// This implements `Default`, and for most users can be set to `Default::default()`
+pub struct PipelineCompilationOptions {
+    /// Specifies the values of pipeline-overridable constants in the shader module.
+    ///
+    /// If an `@id` attribute was specified on the declaration,
+    /// the key must be the pipeline constant ID as a decimal ASCII number; if not,
+    /// the key must be the constant's identifier name.
+    ///
+    /// The value may represent any of WGSL's concrete scalar types.
+    pub constants: HashMap<String, f64>,
+    /// Whether workgroup scoped memory will be initialized with zero values for this stage.
+    ///
+    /// This is required by the WebGPU spec, but may have overhead which can be avoided
+    /// for cross-platform applications
     pub zero_initialize_workgroup_memory: bool,
 }

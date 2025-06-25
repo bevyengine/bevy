@@ -280,6 +280,7 @@ impl FromWorld for PostProcessPipeline {
                         blend: None,
                         write_mask: ColorWrites::ALL,
                     })],
+                    compilation_options: Default::default(),
                 }),
                 // All of the following properties are not important for this effect so just use the default values.
                 // This struct doesn't have the Default trait implemented because not all fields can have a default value.
@@ -287,7 +288,6 @@ impl FromWorld for PostProcessPipeline {
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
                 push_constant_ranges: vec![],
-                zero_initialize_workgroup_memory: false,
             });
 
         Self {

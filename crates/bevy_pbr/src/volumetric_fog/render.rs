@@ -568,6 +568,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                 shader_defs: shader_defs.clone(),
                 entry_point: "vertex".into(),
                 buffers: vec![vertex_format],
+                compilation_options: Default::default(),
             },
             primitive: PrimitiveState {
                 cull_mode: Some(Face::Back),
@@ -602,8 +603,8 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

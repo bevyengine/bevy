@@ -155,6 +155,7 @@ where
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
@@ -169,6 +170,7 @@ where
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             layout: vec![],
             push_constant_ranges: Vec::new(),
@@ -188,7 +190,6 @@ where
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_material_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
         };
 
         descriptor.layout = vec![self.view_layout.clone(), self.ui_layout.clone()];

@@ -315,6 +315,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                         },
                     ],
                 }],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -328,6 +329,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             primitive: PrimitiveState::default(),
             // Note that if your view has no depth buffer this will need to be
@@ -344,7 +346,6 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

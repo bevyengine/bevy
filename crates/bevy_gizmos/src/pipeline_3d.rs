@@ -138,6 +138,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -148,6 +149,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             layout,
             primitive: PrimitiveState::default(),
@@ -165,7 +167,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             },
             label: Some("LineGizmo 3d Pipeline".into()),
             push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -239,6 +240,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 entry_point: entry_point.into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -249,6 +251,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             layout,
             primitive: PrimitiveState::default(),
@@ -266,7 +269,6 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             },
             label: Some("LineJointGizmo 3d Pipeline".into()),
             push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

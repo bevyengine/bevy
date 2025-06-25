@@ -273,6 +273,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![instance_rate_vertex_buffer_layout],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -283,6 +284,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             layout: vec![self.view_layout.clone(), self.material_layout.clone()],
             primitive: PrimitiveState {
@@ -320,7 +322,6 @@ impl SpecializedRenderPipeline for SpritePipeline {
             },
             label: Some("sprite_pipeline".into()),
             push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

@@ -199,6 +199,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
                     buffers: Vec::new(),
+                    compilation_options: Default::default(),
                 },
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
@@ -218,8 +219,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                     shader_defs,
                     entry_point: material_fragment.entry_point,
                     targets: material_fragment.targets,
+                    compilation_options: Default::default(),
                 }),
-                zero_initialize_workgroup_memory: false,
             };
 
             let material_id = instance_manager.get_material_id(material_id.untyped());

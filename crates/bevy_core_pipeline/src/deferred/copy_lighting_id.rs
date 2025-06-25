@@ -145,6 +145,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                         shader_defs: vec![],
                         entry_point: "fragment".into(),
                         targets: vec![],
+                        compilation_options: Default::default(),
                     }),
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
@@ -156,7 +157,6 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                     }),
                     multisample: MultisampleState::default(),
                     push_constant_ranges: vec![],
-                    zero_initialize_workgroup_memory: false,
                 });
 
         Self {

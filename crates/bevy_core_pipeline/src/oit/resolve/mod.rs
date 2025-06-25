@@ -227,13 +227,13 @@ fn specialize_oit_resolve_pipeline(
                 }),
                 write_mask: ColorWrites::ALL,
             })],
+            compilation_options: Default::default(),
         }),
         vertex: fullscreen_shader.to_vertex_state(),
         primitive: PrimitiveState::default(),
         depth_stencil: None,
         multisample: MultisampleState::default(),
         push_constant_ranges: vec![],
-        zero_initialize_workgroup_memory: false,
     }
 }
 

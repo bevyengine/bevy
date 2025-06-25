@@ -357,6 +357,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader_defs: shader_defs.clone(),
                 entry_point: "vertex".into(),
                 buffers: Vec::new(),
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.deferred_lighting_shader.clone(),
@@ -371,6 +372,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
@@ -391,7 +393,6 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }),
             multisample: MultisampleState::default(),
             push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
         }
     }
 }
