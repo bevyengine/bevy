@@ -228,7 +228,7 @@ impl PersistentPipelineCache {
         };
 
         let data_key = {
-            let hasher = FixedHasher::default();
+            let hasher = FixedHasher;
             hasher.hash_one(&cache_data)
         };
 
@@ -244,7 +244,7 @@ impl PersistentPipelineCache {
     /// Get the cached data if it has changed since the last call.
     pub fn get_data(&mut self) -> Option<Vec<u8>> {
         let data = self.cache.get_data();
-        let hasher = FixedHasher::default();
+        let hasher = FixedHasher;
         let data_key = hasher.hash_one(&data);
         if self.data_key != data_key {
             self.data_key = data_key;
@@ -263,7 +263,7 @@ impl PersistentPipelineCache {
             if task.is_finished() {
                 match task.join() {
                     Ok(Ok(())) => {
-                        debug!("Persistent pipeline cache write task completed successfully.")
+                        debug!("Persistent pipeline cache write task completed successfully.");
                     }
                     Ok(Err(err)) => {
                         warn!("Persistent pipeline cache write task failed: {}", err);
@@ -271,8 +271,7 @@ impl PersistentPipelineCache {
                     }
                     Err(err) => {
                         warn!("Persistent pipeline cache write task panicked: {:?}", err);
-                        error = Some(PersistentPipelineCacheError::Io(io::Error::new(
-                            io::ErrorKind::Other,
+                        error = Some(PersistentPipelineCacheError::Io(io::Error::other(
                             "Persistent pipeline cache write task panicked",
                         )));
                     }

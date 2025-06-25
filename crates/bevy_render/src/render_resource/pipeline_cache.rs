@@ -814,7 +814,7 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        let cache = persistent_cache.map(|cache| cache.get_cache());
+        let cache = persistent_cache.map(PersistentPipelineCache::get_cache);
 
         create_pipeline_task(
             async move {
@@ -927,7 +927,7 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        let cache = persistent_cache.map(|cache| cache.get_cache());
+        let cache = persistent_cache.map(PersistentPipelineCache::get_cache);
 
         create_pipeline_task(
             async move {
