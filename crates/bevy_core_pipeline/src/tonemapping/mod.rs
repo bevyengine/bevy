@@ -448,11 +448,7 @@ pub fn lut_placeholder() -> Image {
     Image {
         data: Some(data),
         texture_descriptor: TextureDescriptor {
-            size: Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            size: Extent3d::default(),
             format,
             dimension: TextureDimension::D3,
             label: None,

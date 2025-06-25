@@ -794,11 +794,7 @@ impl Image {
         debug_assert!(format.pixel_size() == 4);
         let data = vec![255, 255, 255, 0];
         Image::new(
-            Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            Extent3d::default(),
             TextureDimension::D2,
             data,
             format,
@@ -808,11 +804,7 @@ impl Image {
     /// Creates a new uninitialized 1x1x1 image
     pub fn default_uninit() -> Image {
         Image::new_uninit(
-            Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            Extent3d::default(),
             TextureDimension::D2,
             TextureFormat::bevy_default(),
             RenderAssetUsages::default(),
