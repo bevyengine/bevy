@@ -279,7 +279,7 @@ impl FromWorld for AtmosphereLutPipelines {
             shader: load_embedded_asset!(world, "transmittance_lut.wgsl"),
             shader_defs: vec![],
             entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            compilation_options: Default::default(),
         });
 
         let multiscattering_lut =
@@ -290,7 +290,7 @@ impl FromWorld for AtmosphereLutPipelines {
                 shader: load_embedded_asset!(world, "multiscattering_lut.wgsl"),
                 shader_defs: vec![],
                 entry_point: "main".into(),
-                zero_initialize_workgroup_memory: false,
+                compilation_options: Default::default(),
             });
 
         let sky_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -300,7 +300,7 @@ impl FromWorld for AtmosphereLutPipelines {
             shader: load_embedded_asset!(world, "sky_view_lut.wgsl"),
             shader_defs: vec![],
             entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            compilation_options: Default::default(),
         });
 
         let aerial_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -310,7 +310,7 @@ impl FromWorld for AtmosphereLutPipelines {
             shader: load_embedded_asset!(world, "aerial_view_lut.wgsl"),
             shader_defs: vec![],
             entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            compilation_options: Default::default(),
         });
 
         Self {
@@ -366,7 +366,6 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            zero_initialize_workgroup_memory: false,
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
@@ -387,6 +386,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
         }
     }

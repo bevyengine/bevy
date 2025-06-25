@@ -92,6 +92,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
                     blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             primitive: PrimitiveState::default(),
             depth_stencil: None,
@@ -100,7 +101,6 @@ impl SpecializedRenderPipeline for BlitPipeline {
                 ..Default::default()
             },
             push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

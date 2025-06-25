@@ -35,6 +35,7 @@ impl FullscreenShader {
             shader_defs: Vec::new(),
             entry_point: "fullscreen_vertex_shader".into(),
             buffers: Vec::new(),
+            compilation_options: Default::default(),
         }
     }
 }

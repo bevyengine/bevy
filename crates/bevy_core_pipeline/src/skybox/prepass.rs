@@ -107,8 +107,8 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
+                compilation_options: Default::default(),
             }),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

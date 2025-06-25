@@ -1276,7 +1276,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             shader: self.shader.clone(),
             shader_defs,
             entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            compilation_options: Default::default(),
         }
     }
 }
@@ -1641,7 +1641,7 @@ impl SpecializedComputePipeline for ResetIndirectBatchSetsPipeline {
             shader: self.shader.clone(),
             shader_defs: vec![],
             entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            compilation_options: Default::default(),
         }
     }
 }
@@ -1695,7 +1695,7 @@ impl SpecializedComputePipeline for BuildIndirectParametersPipeline {
             shader: self.shader.clone(),
             shader_defs,
             entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            compilation_options: Default::default(),
         }
     }
 }

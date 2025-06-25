@@ -123,7 +123,7 @@ impl FromWorld for PathtracerNode {
             shader: load_embedded_asset!(world, "pathtracer.wgsl"),
             shader_defs: vec![],
             entry_point: "pathtrace".into(),
-            zero_initialize_workgroup_memory: false,
+            compilation_options: Default::default(),
         });
 
         Self {

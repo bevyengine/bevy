@@ -169,6 +169,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 shader_defs: vec![],
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
@@ -180,6 +181,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             // Use the two standard uniforms for 2d meshes
             layout: vec![
@@ -220,7 +222,6 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("colored_mesh2d_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

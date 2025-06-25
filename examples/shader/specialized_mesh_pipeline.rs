@@ -227,6 +227,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 entry_point: "vertex".into(),
                 // Customize how to store the meshes' vertex attributes in the vertex buffer
                 buffers: vec![vertex_buffer_layout],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
@@ -245,6 +246,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
@@ -268,7 +270,6 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 count: mesh_key.msaa_samples(),
                 ..MultisampleState::default()
             },
-            zero_initialize_workgroup_memory: false,
         })
     }
 }

@@ -598,6 +598,7 @@ impl PrepassPipelineInternal {
                 entry_point: "fragment".into(),
                 shader_defs: shader_defs.clone(),
                 targets,
+                compilation_options: Default::default(),
             }
         });
 
@@ -619,6 +620,7 @@ impl PrepassPipelineInternal {
                 entry_point: "vertex".into(),
                 shader_defs,
                 buffers: vec![vertex_buffer_layout],
+                compilation_options: Default::default(),
             },
             fragment,
             layout: bind_group_layouts,
@@ -654,7 +656,6 @@ impl PrepassPipelineInternal {
             },
             push_constant_ranges: vec![],
             label: Some("prepass_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
         };
         Ok(descriptor)
     }

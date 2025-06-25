@@ -863,20 +863,6 @@ impl PipelineCache {
                     })
                     .collect::<Vec<_>>();
 
-                let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
-                    (
-                        fragment_module.unwrap(),
-                        fragment.entry_point.deref(),
-                        fragment.targets.as_slice(),
-                    )
-                });
-
-                // TODO: Expose the rest of this somehow
-                let compilation_options = PipelineCompilationOptions {
-                    constants: &default(),
-                    zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
-                };
-
                 let descriptor = RawRenderPipelineDescriptor {
                     multiview: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
@@ -888,17 +874,27 @@ impl PipelineCache {
                         buffers: &vertex_buffer_layouts,
                         entry_point: Some(descriptor.vertex.entry_point.deref()),
                         module: &vertex_module,
-                        // TODO: Should this be the same as the fragment compilation options?
-                        compilation_options: compilation_options.clone(),
+                        compilation_options: RawPipelineCompilationOptions {
+                            constants: &descriptor.vertex.compilation_options.constants,
+                            zero_initialize_workgroup_memory: descriptor
+                                .vertex
+                                .compilation_options
+                                .zero_initialize_workgroup_memory,
+                        },
                     },
-                    fragment: fragment_data
+                    fragment: descriptor
+                        .fragment
                         .as_ref()
-                        .map(|(module, entry_point, targets)| RawFragmentState {
-                            entry_point: Some(entry_point),
-                            module,
-                            targets,
-                            // TODO: Should this be the same as the vertex compilation options?
-                            compilation_options,
+                        .map(|fragment_state| RawFragmentState {
+                            entry_point: Some(&fragment_state.entry_point),
+                            module: fragment_module.as_ref().unwrap(),
+                            targets: fragment_state.targets.as_slice(),
+                            compilation_options: RawPipelineCompilationOptions {
+                                constants: &fragment_state.compilation_options.constants,
+                                zero_initialize_workgroup_memory: fragment_state
+                                    .compilation_options
+                                    .zero_initialize_workgroup_memory,
+                            },
                         }),
                     cache: None,
                 };
@@ -953,10 +949,11 @@ impl PipelineCache {
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
                     entry_point: Some(&descriptor.entry_point),
-                    // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &default(),
+                        constants: &descriptor.compilation_options.constants,
+
                         zero_initialize_workgroup_memory: descriptor
+                            .compilation_options
                             .zero_initialize_workgroup_memory,
                     },
                     cache: None,

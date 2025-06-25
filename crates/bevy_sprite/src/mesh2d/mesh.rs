@@ -655,6 +655,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -665,6 +666,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
             push_constant_ranges: vec![],
@@ -699,7 +701,6 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some(label.into()),
-            zero_initialize_workgroup_memory: false,
         })
     }
 }

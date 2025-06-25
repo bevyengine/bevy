@@ -91,6 +91,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
+                compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -105,6 +106,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             layout: vec![self.view_layout.clone(), self.image_layout.clone()],
             push_constant_ranges: Vec::new(),
@@ -124,7 +126,6 @@ impl SpecializedRenderPipeline for UiPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

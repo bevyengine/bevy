@@ -171,7 +171,7 @@ impl FromWorld for SolariLightingNode {
                 shader: load_embedded_asset!(world, "restir_di.wgsl"),
                 shader_defs: vec![],
                 entry_point: "initial_and_temporal".into(),
-                zero_initialize_workgroup_memory: false,
+                compilation_options: Default::default(),
             });
 
         let spatial_and_shade_pipeline =
@@ -188,7 +188,7 @@ impl FromWorld for SolariLightingNode {
                 shader: load_embedded_asset!(world, "restir_di.wgsl"),
                 shader_defs: vec![],
                 entry_point: "spatial_and_shade".into(),
-                zero_initialize_workgroup_memory: false,
+                compilation_options: Default::default(),
             });
 
         Self {

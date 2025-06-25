@@ -224,12 +224,12 @@ impl SpecializedRenderPipeline for CasPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

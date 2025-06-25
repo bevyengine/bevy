@@ -333,12 +333,12 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             primitive: default(),
             depth_stencil: None,
             multisample: default(),
             push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
         }
     }
 }

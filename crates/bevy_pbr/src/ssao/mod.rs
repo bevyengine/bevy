@@ -415,7 +415,7 @@ impl FromWorld for SsaoPipelines {
                 shader: load_embedded_asset!(world, "preprocess_depth.wgsl"),
                 shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
-                zero_initialize_workgroup_memory: false,
+                compilation_options: Default::default(),
             });
 
         let spatial_denoise_pipeline =
@@ -429,7 +429,7 @@ impl FromWorld for SsaoPipelines {
                 shader: load_embedded_asset!(world, "spatial_denoise.wgsl"),
                 shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
-                zero_initialize_workgroup_memory: false,
+                compilation_options: Default::default(),
             });
 
         Self {
@@ -484,7 +484,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
             shader: self.shader.clone(),
             shader_defs,
             entry_point: "ssao".into(),
-            zero_initialize_workgroup_memory: false,
+            compilation_options: Default::default(),
         }
     }
 }
