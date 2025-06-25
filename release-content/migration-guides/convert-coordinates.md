@@ -26,9 +26,11 @@ Not to mention that any bugs in the conversion code would be incredibly frustati
 
 This is why we are now gradually rolling out support for corrected glTF imports. You will now be greeted by the following warning when using the old behavior:
 
-> Starting from Bevy 0.18, all imported glTF models will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system.
-> You are currently importing glTF files using the old behavior. To already opt into the new import behavior, enable the `gltf_convert_coordinates_default` feature.
-> If you want to continue using the old behavior, additionally set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`. See the migration guide for more details.
+> Starting from Bevy 0.18, by default all imported glTF models will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system.
+> You are currently importing glTF files using the old behavior. Consider opting-in to the new import behavior by enable the `gltf_convert_coordinates_default` feature.
+> If you encounter any issues please file a bug!
+> If you want to continue using the old behavior going forward (even when the default changes in 0.18), manually set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`.
+> See the migration >guide for more details.
 
 As the warning says, you can opt into the new behavior by enabling the `gltf_convert_coordinates_default` feature in your `Cargo.toml`:
 
