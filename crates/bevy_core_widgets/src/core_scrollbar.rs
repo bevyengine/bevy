@@ -178,6 +178,7 @@ fn scrollbar_on_drag(
     mut ev: On<Pointer<Drag>>,
     mut q_scrollbar: Query<(&ComputedNode, &CoreScrollbar, &mut ScrollbarDragState)>,
     mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
+    ui_scale: Res<UiScale>,
 ) {
     if let Ok((node, scrollbar, drag)) = q_scrollbar.get_mut(ev.target()) {
         ev.propagate(false);
@@ -186,7 +187,7 @@ fn scrollbar_on_drag(
         };
 
         if drag.dragging {
-            let distance = ev.event().distance;
+            let distance = ev.event().distance / ui_scale.0;
             let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
             let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
             match scrollbar.orientation {
