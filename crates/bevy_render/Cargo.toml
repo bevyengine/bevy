@@ -120,6 +120,7 @@ indexmap = { version = "2" }
 fixedbitset = { version = "0.5" }
 bitflags = "2"
 wesl = { version = "0.1.2", optional = true }
+dirs = "6.0.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.

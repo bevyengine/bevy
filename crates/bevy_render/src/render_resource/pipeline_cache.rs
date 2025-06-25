@@ -1,3 +1,4 @@
+use crate::render_resource::persistent_pipeline_cache::PersistentPipelineCache;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
@@ -692,9 +693,13 @@ impl PipelineCache {
 
     /// Wait for a render pipeline to finish compiling.
     #[inline]
-    pub fn block_on_render_pipeline(&mut self, id: CachedRenderPipelineId) {
+    pub fn block_on_render_pipeline(
+        &mut self,
+        id: CachedRenderPipelineId,
+        persistent_cache: Option<&PersistentPipelineCache>,
+    ) {
         if self.pipelines.len() <= id.0 {
-            self.process_queue();
+            self.process_queue(persistent_cache);
         }
 
         let state = &mut self.pipelines[id.0].state;
@@ -804,10 +809,12 @@ impl PipelineCache {
         &mut self,
         id: CachedPipelineId,
         descriptor: RenderPipelineDescriptor,
+        persistent_cache: Option<&PersistentPipelineCache>,
     ) -> CachedPipelineState {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+        let cache = persistent_cache.map(|cache| cache.get_cache());
 
         create_pipeline_task(
             async move {
@@ -877,6 +884,7 @@ impl PipelineCache {
                     zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
                 };
 
+
                 let descriptor = RawRenderPipelineDescriptor {
                     multiview: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
@@ -900,7 +908,7 @@ impl PipelineCache {
                             // TODO: Should this be the same as the vertex compilation options?
                             compilation_options,
                         }),
-                    cache: None,
+                    cache: cache.as_deref(),
                 };
 
                 Ok(Pipeline::RenderPipeline(
@@ -915,10 +923,12 @@ impl PipelineCache {
         &mut self,
         id: CachedPipelineId,
         descriptor: ComputePipelineDescriptor,
+        persistent_cache: Option<&PersistentPipelineCache>,
     ) -> CachedPipelineState {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+        let cache = persistent_cache.map(|cache| cache.get_cache());
 
         create_pipeline_task(
             async move {
@@ -959,7 +969,7 @@ impl PipelineCache {
                         zero_initialize_workgroup_memory: descriptor
                             .zero_initialize_workgroup_memory,
                     },
-                    cache: None,
+                    cache: cache.as_deref(),
                 };
 
                 Ok(Pipeline::ComputePipeline(
@@ -976,7 +986,7 @@ impl PipelineCache {
     /// be called manually to force creation at a different time.
     ///
     /// [`RenderSystems::Render`]: crate::RenderSystems::Render
-    pub fn process_queue(&mut self) {
+    pub fn process_queue(&mut self, persistent_cache: Option<&PersistentPipelineCache>) {
         let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
 
@@ -993,21 +1003,26 @@ impl PipelineCache {
         }
 
         for id in waiting_pipelines {
-            self.process_pipeline(&mut pipelines[id], id);
+            self.process_pipeline(&mut pipelines[id], id, persistent_cache);
         }
 
         self.pipelines = pipelines;
     }
 
-    fn process_pipeline(&mut self, cached_pipeline: &mut CachedPipeline, id: usize) {
+    fn process_pipeline(
+        &mut self,
+        cached_pipeline: &mut CachedPipeline,
+        id: usize,
+        persistent_cache: Option<&PersistentPipelineCache>,
+    ) {
         match &mut cached_pipeline.state {
             CachedPipelineState::Queued => {
                 cached_pipeline.state = match &cached_pipeline.descriptor {
                     PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
-                        self.start_create_render_pipeline(id, *descriptor.clone())
+                        self.start_create_render_pipeline(id, *descriptor.clone(), persistent_cache)
                     }
                     PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
-                        self.start_create_compute_pipeline(id, *descriptor.clone())
+                        self.start_create_compute_pipeline(id, *descriptor.clone(), persistent_cache)
                     }
                 };
             }
@@ -1048,8 +1063,8 @@ impl PipelineCache {
         self.waiting_pipelines.insert(id);
     }
 
-    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
-        cache.process_queue();
+    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>, persistent_pipeline_cache: Option<Res<PersistentPipelineCache>>) {
+        cache.process_queue(persistent_pipeline_cache.as_deref());
     }
 
     pub(crate) fn extract_shaders(
@@ -1076,6 +1091,10 @@ impl PipelineCache {
                 }
             }
         }
+    }
+
+    pub fn size(&self) -> usize {
+        self.pipelines.len()
     }
 }
 
