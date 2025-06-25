@@ -125,29 +125,33 @@ fn scrollbar_on_pointer_down(
         let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
         let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
         let max_range = (content_size - visible_size).max(Vec2::ZERO);
+
+        fn adjust_scroll_pos(scroll_pos: &mut f32, click_pos: f32, step: f32, range: f32) {
+            *scroll_pos =
+                (*scroll_pos + if click_pos > *scroll_pos { step } else { -step }).clamp(0., range);
+        }
+
         match scrollbar.orientation {
             ControlOrientation::Horizontal => {
                 if node.size().x > 0. {
                     let click_pos = local_pos.x * content_size.x / node.size().x;
-                    scroll_pos.offset_x = (scroll_pos.offset_x
-                        + if click_pos > scroll_pos.offset_x {
-                            visible_size.x
-                        } else {
-                            -visible_size.x
-                        })
-                    .clamp(0., max_range.x);
+                    adjust_scroll_pos(
+                        &mut scroll_pos.offset_x,
+                        click_pos,
+                        visible_size.x,
+                        max_range.x,
+                    );
                 }
             }
             ControlOrientation::Vertical => {
                 if node.size().y > 0. {
                     let click_pos = local_pos.y * content_size.y / node.size().y;
-                    scroll_pos.offset_y = (scroll_pos.offset_y
-                        + if click_pos > scroll_pos.offset_y {
-                            visible_size.y
-                        } else {
-                            -visible_size.y
-                        })
-                    .clamp(0., max_range.y);
+                    adjust_scroll_pos(
+                        &mut scroll_pos.offset_y,
+                        click_pos,
+                        visible_size.y,
+                        max_range.y,
+                    );
                 }
             }
         }
@@ -190,30 +194,20 @@ fn scrollbar_on_drag(
             let distance = ev.event().distance / ui_scale.0;
             let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
             let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
+            let scrollbar_size = (node.size() * node.inverse_scale_factor).max(Vec2::ONE);
+
             match scrollbar.orientation {
                 ControlOrientation::Horizontal => {
                     let range = (content_size.x - visible_size.x).max(0.);
-                    let scrollbar_width = (node.size().x * node.inverse_scale_factor
-                        - scrollbar.min_thumb_size)
-                        .max(1.0);
-                    scroll_pos.offset_x = if range > 0. {
-                        (drag.drag_origin + (distance.x * content_size.x) / scrollbar_width)
-                            .clamp(0., range)
-                    } else {
-                        0.
-                    }
+                    scroll_pos.offset_x = (drag.drag_origin
+                        + (distance.x * content_size.x) / scrollbar_size.x)
+                        .clamp(0., range);
                 }
                 ControlOrientation::Vertical => {
                     let range = (content_size.y - visible_size.y).max(0.);
-                    let scrollbar_height = (node.size().y * node.inverse_scale_factor
-                        - scrollbar.min_thumb_size)
-                        .max(1.0);
-                    scroll_pos.offset_y = if range > 0. {
-                        (drag.drag_origin + (distance.y * content_size.y) / scrollbar_height)
-                            .clamp(0., range)
-                    } else {
-                        0.
-                    }
+                    scroll_pos.offset_y = (drag.drag_origin
+                        + (distance.y * content_size.y) / scrollbar_size.y)
+                        .clamp(0., range);
                 }
             };
         }
