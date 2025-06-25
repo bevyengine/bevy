@@ -337,6 +337,28 @@ impl ImageFormat {
     }
 }
 
+pub trait ToExtents {
+    fn to_extents(self) -> Extent3d;
+}
+impl ToExtents for UVec2 {
+    fn to_extents(self) -> Extent3d {
+        Extent3d {
+            width: self.x,
+            height: self.y,
+            depth_or_array_layers: 1,
+        }
+    }
+}
+impl ToExtents for UVec3 {
+    fn to_extents(self) -> Extent3d {
+        Extent3d {
+            width: self.x,
+            height: self.y,
+            depth_or_array_layers: self.z,
+        }
+    }
+}
+
 #[derive(Asset, Debug, Clone)]
 #[cfg_attr(
     feature = "bevy_reflect",
