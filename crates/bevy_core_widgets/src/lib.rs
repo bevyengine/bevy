@@ -26,7 +26,7 @@ pub use core_button::{CoreButton, CoreButtonPlugin};
 pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
 pub use core_radio::{CoreRadio, CoreRadioGroup, CoreRadioGroupPlugin};
 pub use core_scrollbar::{
-    ControlOrientation, CoreScrollbar, CoreScrollbarPlugin, CoreScrollbarThumb,
+    ControlOrientation, CoreScrollbar, CoreScrollbarPlugin, CoreScrollbarThumb, ScrollbarDragState,
 };
 pub use core_slider::{
     CoreSlider, CoreSliderDragState, CoreSliderPlugin, CoreSliderThumb, SetSliderValue,
