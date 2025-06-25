@@ -2592,7 +2592,7 @@ bevy_utils::cfg::parallel! {
 
     /// The [`WorldQuery::State`] type for [`DeferredMut`]
     pub struct DeferredMutState<T: Component + Clone> {
-        component_id: ComponentId,
+        internal: <&'static T as WorldQuery>::State,
         record: DeferredMutations<T>,
     }
 
@@ -2631,7 +2631,7 @@ bevy_utils::cfg::parallel! {
             this_run: Tick,
         ) -> Self::Fetch<'w> {
             // SAFETY: invariants are upheld by the caller
-            unsafe { <&T as WorldQuery>::init_fetch(world, &state.component_id, last_run, this_run) }
+            unsafe { <&T as WorldQuery>::init_fetch(world, &state.internal, last_run, this_run) }
         }
 
         const IS_DENSE: bool = <&T as WorldQuery>::IS_DENSE;
@@ -2642,27 +2642,27 @@ bevy_utils::cfg::parallel! {
             archetype: &'w Archetype,
             table: &'w Table,
         ) {
-            <&T as WorldQuery>::set_archetype(fetch, &state.component_id, archetype, table);
+            <&T as WorldQuery>::set_archetype(fetch, &state.internal, archetype, table);
         }
 
         unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-            <&T as WorldQuery>::set_table(fetch, &state.component_id, table);
+            <&T as WorldQuery>::set_table(fetch, &state.internal, table);
         }
 
         fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
-            <&T as WorldQuery>::update_component_access(&state.component_id, access);
+            <&T as WorldQuery>::update_component_access(&state.internal, access);
         }
 
         fn init_state(world: &mut World) -> Self::State {
             DeferredMutState {
-                component_id: world.register_component::<T>(),
+                internal: <&T as WorldQuery>::init_state(world),
                 record: Default::default(),
             }
         }
 
         fn get_state(components: &Components) -> Option<Self::State> {
             Some(DeferredMutState {
-                component_id: components.component_id::<T>()?,
+                internal: <&T as WorldQuery>::get_state(components)?,
                 record: Default::default(),
             })
         }
@@ -2671,7 +2671,7 @@ bevy_utils::cfg::parallel! {
             state: &Self::State,
             set_contains_id: &impl Fn(ComponentId) -> bool,
         ) -> bool {
-            <&T as WorldQuery>::matches_component_set(&state.component_id, set_contains_id)
+            <&T as WorldQuery>::matches_component_set(&state.internal, set_contains_id)
         }
 
         fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
@@ -2707,7 +2707,7 @@ bevy_utils::cfg::parallel! {
         ) -> Self::Item<'w, 's> {
             // SAFETY: invariants are upheld by the caller
             let old =
-                unsafe { <&T as QueryData>::fetch(&state.component_id, fetch, entity, table_row) };
+                unsafe { <&T as QueryData>::fetch(&state.internal, fetch, entity, table_row) };
             DeferredMut {
                 entity,
                 old,
