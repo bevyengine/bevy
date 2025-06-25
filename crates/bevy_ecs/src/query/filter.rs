@@ -4,7 +4,8 @@ use crate::{
     entity::{Entities, Entity},
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    system::SystemMeta,
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
@@ -379,6 +380,10 @@ macro_rules! impl_or_query_filter {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         #[allow(
+            unused_mut,
+            reason = "Zero-length tuples won't access any of the parameters mutably."
+        )]
+        #[allow(
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
@@ -477,6 +482,14 @@ macro_rules! impl_or_query_filter {
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = state;
                 false $(|| $filter::matches_component_set($filter, set_contains_id))*
+            }
+
+            fn apply(($($state,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+                $(<$filter as WorldQuery>::apply($state, system_meta, world);)*
+            }
+
+            fn queue(($($state,)*): &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+                $(<$filter as WorldQuery>::queue($state, system_meta, world.reborrow());)*
             }
         }
 

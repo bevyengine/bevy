@@ -2275,6 +2275,14 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) -> bool {
         true
     }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        <T as WorldQuery>::apply(state, system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        <T as WorldQuery>::queue(state, system_meta, world);
+    }
 }
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
@@ -2823,6 +2831,10 @@ macro_rules! impl_anytuple_fetch {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         #[allow(
+            unused_mut,
+            reason = "Zero-length tuples won't access any of the parameters mutably."
+        )]
+        #[allow(
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
@@ -2918,6 +2930,14 @@ macro_rules! impl_anytuple_fetch {
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
                 false $(|| $name::matches_component_set($name, _set_contains_id))*
+            }
+
+            fn apply(($($state,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+                $(<$name as WorldQuery>::apply($state, system_meta, world);)*
+            }
+
+            fn queue(($($state,)*): &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+                $(<$name as WorldQuery>::queue($state, system_meta, world.reborrow());)*
             }
         }
 
