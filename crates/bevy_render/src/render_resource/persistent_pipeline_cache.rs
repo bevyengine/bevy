@@ -1,4 +1,5 @@
 use crate::{renderer::RenderAdapterInfo, ExtractSchedule, RenderSystems};
+use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
     change_detection::{Res, ResMut},
@@ -9,14 +10,14 @@ use bevy_ecs::{
 };
 use bevy_platform::hash::FixedHasher;
 use bevy_render::{render_resource::PipelineCache, renderer::RenderDevice, Extract, Render};
+use core::hash::BuildHasher;
 use std::{
     fs,
     fs::OpenOptions,
-    hash::BuildHasher,
     io,
     io::Write,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::Mutex,
     thread::JoinHandle,
 };
 use thiserror::Error;
@@ -213,10 +214,10 @@ impl PersistentPipelineCache {
             );
             Some(data)
         } else {
-            // If the cache file does not exist, create an empty cache
             debug!("Creating new persistent pipeline cache at {:?}", cache_path);
             None
         };
+        // SAFETY: Data was created with a cache key that matches the adapter.
         let cache = unsafe {
             render_device
                 .wgpu_device()
