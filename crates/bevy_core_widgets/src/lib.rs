@@ -17,9 +17,12 @@
 mod callback;
 mod core_button;
 mod core_checkbox;
+mod core_menu;
 mod core_radio;
 mod core_scrollbar;
 mod core_slider;
+pub mod floating;
+pub mod portal;
 
 use bevy_app::{App, Plugin};
 
@@ -36,6 +39,8 @@ pub use core_slider::{
     SliderRange, SliderStep, SliderValue, TrackClick,
 };
 
+use crate::floating::FloatingPlugin;
+
 /// A plugin that registers the observers for all of the core widgets. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
 pub struct CoreWidgetsPlugin;
@@ -43,6 +48,7 @@ pub struct CoreWidgetsPlugin;
 impl Plugin for CoreWidgetsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
+            FloatingPlugin,
             CoreButtonPlugin,
             CoreCheckboxPlugin,
             CoreRadioGroupPlugin,
