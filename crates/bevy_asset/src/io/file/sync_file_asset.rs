@@ -105,7 +105,9 @@ impl AssetReader for FileAssetReader {
             Ok(file) => Ok(FileReader(file)),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
-                    Err(AssetReaderError::NotFound(full_path))
+                    Err(AssetReaderError::NotFound(
+                        full_path.to_str().unwrap().to_owned(),
+                    ))
                 } else {
                     Err(e.into())
                 }
@@ -120,7 +122,9 @@ impl AssetReader for FileAssetReader {
             Ok(file) => Ok(FileReader(file)),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
-                    Err(AssetReaderError::NotFound(full_path))
+                    Err(AssetReaderError::NotFound(
+                        full_path.to_str().unwrap().to_owned(),
+                    ))
                 } else {
                     Err(e.into())
                 }
@@ -164,7 +168,9 @@ impl AssetReader for FileAssetReader {
             }
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
-                    Err(AssetReaderError::NotFound(full_path))
+                    Err(AssetReaderError::NotFound(
+                        full_path.to_str().unwrap().to_owned(),
+                    ))
                 } else {
                     Err(e.into())
                 }
@@ -176,7 +182,7 @@ impl AssetReader for FileAssetReader {
         let full_path = self.root_path.join(path);
         let metadata = full_path
             .metadata()
-            .map_err(|_e| AssetReaderError::NotFound(path.to_owned()))?;
+            .map_err(|_e| AssetReaderError::NotFound(path.to_str().unwrap().to_owned()))?;
         Ok(metadata.file_type().is_dir())
     }
 }

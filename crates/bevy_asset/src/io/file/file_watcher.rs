@@ -3,6 +3,8 @@ use crate::{
     path::normalize_path,
 };
 use alloc::borrow::ToOwned;
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::time::Duration;
 use crossbeam_channel::Sender;
 use notify_debouncer_full::{
@@ -31,11 +33,12 @@ pub struct FileWatcher {
 impl FileWatcher {
     /// Creates a new [`FileWatcher`] that watches for changes to the asset files in the given `path`.
     pub fn new(
-        path: PathBuf,
+        path: String,
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = normalize_path(&path).canonicalize()?;
+        let split_path: Vec<_> = path.split("/").collect();
+        let root = normalize_path(&split_path).join("/");
         let watcher = new_asset_event_debouncer(
             path.clone(),
             debounce_wait_time,
@@ -72,7 +75,7 @@ pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, boo
 /// event management logic across filesystem-driven [`AssetWatcher`] impls. Each operating system / platform behaves
 /// a little differently and this is the result of a delicate balancing act that we should only perform once.
 pub(crate) fn new_asset_event_debouncer(
-    root: PathBuf,
+    root: String,
     debounce_wait_time: Duration,
     mut handler: impl FilesystemEventHandler,
 ) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>, notify::Error> {
@@ -253,7 +256,7 @@ pub(crate) fn new_asset_event_debouncer(
 
 pub(crate) struct FileEventHandler {
     sender: Sender<AssetSourceEvent>,
-    root: PathBuf,
+    root: String,
     last_event: Option<AssetSourceEvent>,
 }
 
@@ -263,7 +266,7 @@ impl FilesystemEventHandler for FileEventHandler {
     }
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
         let absolute_path = absolute_path.canonicalize().ok()?;
-        Some(get_asset_path(&self.root, &absolute_path))
+        Some(get_asset_path(Path::new(&self.root), &absolute_path))
     }
 
     fn handle(&mut self, _absolute_paths: &[PathBuf], event: AssetSourceEvent) {
