@@ -1583,7 +1583,6 @@ mod tests {
         foo.apply(&foo_patch);
 
         let mut hash_map = <HashMap<_, _>>::default();
-        hash_map.insert(1, 1);
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
