@@ -20,7 +20,7 @@ use smallvec::SmallVec;
 
 use super::NoCpuCulling;
 use crate::{
-    camera::{Camera, CameraProjection, Projection},
+    camera::{Camera, Projection},
     mesh::{Mesh, Mesh3d, MeshAabb},
     primitives::{Aabb, Frustum, Sphere},
     sync_world::MainEntity,

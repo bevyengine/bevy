@@ -1,6 +1,6 @@
 use crate::{
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prepass::{DeferredPrepass, ViewPrepassTextures},
+    FullscreenShader,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset};
@@ -130,6 +130,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
             ),
         );
 
+        let vertex_state = world.resource::<FullscreenShader>().to_vertex_state();
         let shader = load_embedded_asset!(world, "copy_deferred_lighting_id.wgsl");
 
         let pipeline_id =
@@ -138,7 +139,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                 .queue_render_pipeline(RenderPipelineDescriptor {
                     label: Some("copy_deferred_lighting_id_pipeline".into()),
                     layout: vec![layout.clone()],
-                    vertex: fullscreen_shader_vertex_state(),
+                    vertex: vertex_state,
                     fragment: Some(FragmentState {
                         shader,
                         shader_defs: vec![],

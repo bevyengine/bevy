@@ -39,7 +39,7 @@ mod ui_node;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
-pub use interaction_states::{Checked, InteractionDisabled, Pressed};
+pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -323,8 +323,10 @@ fn build_text_interop(app: &mut App) {
 
     app.add_observer(interaction_states::on_add_disabled)
         .add_observer(interaction_states::on_remove_disabled)
-        .add_observer(interaction_states::on_insert_is_checked)
-        .add_observer(interaction_states::on_remove_is_checked);
+        .add_observer(interaction_states::on_add_checkable)
+        .add_observer(interaction_states::on_remove_checkable)
+        .add_observer(interaction_states::on_add_checked)
+        .add_observer(interaction_states::on_remove_checked);
 
     app.configure_sets(
         PostUpdate,
