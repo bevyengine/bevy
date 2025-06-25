@@ -6,9 +6,10 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
+    system::SystemMeta,
     world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, EntityMut, EntityMutExcept, EntityRef,
+        EntityRefExcept, FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -2500,7 +2501,7 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
 // gate `DeferredMut` behind support for Parallel<T>
 bevy_utils::cfg::parallel! {
     use core::ops::{Deref, DerefMut};
-    use crate::{system::SystemMeta, entity::EntityHashMap, world::DeferredWorld};
+    use crate::entity::EntityHashMap;
     use bevy_utils::Parallel;
 
     /// Provides "fake" mutable access to the component `T`
