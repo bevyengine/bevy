@@ -71,12 +71,12 @@ impl CoreScrollbar {
     ///
     /// * `target` - The scrollable entity that this scrollbar will control.
     /// * `orientation` - The orientation of the scrollbar (horizontal or vertical).
-    /// * `min_thumb_size` - The minimum size of the scrollbar's thumb, in pixels.
-    pub fn new(target: Entity, orientation: ControlOrientation, min_thumb_size: f32) -> Self {
+    /// * `min_thumb_length` - The minimum size of the scrollbar's thumb, in pixels.
+    pub fn new(target: Entity, orientation: ControlOrientation, min_thumb_length: f32) -> Self {
         Self {
             target,
             orientation,
-            min_thumb_length: min_thumb_size,
+            min_thumb_length,
         }
     }
 }
