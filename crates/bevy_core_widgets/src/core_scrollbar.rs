@@ -52,11 +52,11 @@ pub struct CoreScrollbar {
     pub target: Entity,
     /// Whether the scrollbar is vertical or horizontal.
     pub orientation: ControlOrientation,
-    /// Minimum size of the scrollbar thumb, in pixel units. The scrollbar will resize the thumb
-    /// entity based on the proportion of visible size to content size, but no smaller than this.
-    /// This prevents the thumb from disappearing in cases where the ratio of content to visible
-    /// is large.
-    pub min_thumb_size: f32,
+    /// Minimum length of the scrollbar thumb, in pixel units, in the direction parallel to the main
+    /// scrollbar axis. The scrollbar will resize the thumb entity based on the proportion of
+    /// visible size to content size, but no smaller than this. This prevents the thumb from
+    /// disappearing in cases where the ratio of content size to visible size is large.
+    pub min_thumb_length: f32,
 }
 
 /// Marker component to indicate that the entity is a scrollbar thumb (the moving, draggable part of
@@ -76,7 +76,7 @@ impl CoreScrollbar {
         Self {
             target,
             orientation,
-            min_thumb_size,
+            min_thumb_length: min_thumb_size,
         }
     }
 }
@@ -277,7 +277,7 @@ fn update_scrollbar_thumb(
                             content_size.x,
                             visible_size.x,
                             track_length.x,
-                            scrollbar.min_thumb_size,
+                            scrollbar.min_thumb_length,
                             scroll_area.0.offset_x,
                         );
 
@@ -291,7 +291,7 @@ fn update_scrollbar_thumb(
                             content_size.y,
                             visible_size.y,
                             track_length.y,
-                            scrollbar.min_thumb_size,
+                            scrollbar.min_thumb_length,
                             scroll_area.0.offset_y,
                         );
 
