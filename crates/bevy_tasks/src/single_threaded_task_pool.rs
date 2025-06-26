@@ -1,5 +1,5 @@
 use alloc::{string::String, vec::Vec};
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
@@ -8,7 +8,7 @@ use crate::Task;
 use std::thread_local;
 
 #[cfg(not(feature = "std"))]
-use bevy_platform_support::sync::{Mutex, PoisonError};
+use bevy_platform::sync::{Mutex, PoisonError};
 
 #[cfg(feature = "std")]
 use crate::executor::LocalExecutor;

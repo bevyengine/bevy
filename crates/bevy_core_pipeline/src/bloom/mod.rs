@@ -9,7 +9,7 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::embedded_asset;
 use bevy_color::{Gray, LinearRgba};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::{ops, UVec2};
@@ -24,7 +24,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
@@ -36,15 +36,13 @@ use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
 
-const BLOOM_SHADER_HANDLE: Handle<Shader> = weak_handle!("c9190ddc-573b-4472-8b21-573cab502b73");
-
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Ufloat;
 
 pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "bloom.wgsl");
 
         app.register_type::<Bloom>();
         app.register_type::<BloomPrefilter>();
@@ -63,10 +61,10 @@ impl Plugin for BloomPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
-                    prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
-                    prepare_bloom_textures.in_set(RenderSet::PrepareResources),
-                    prepare_bloom_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_downsampling_pipeline.in_set(RenderSystems::Prepare),
+                    prepare_upsampling_pipeline.in_set(RenderSystems::Prepare),
+                    prepare_bloom_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_bloom_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             // Add bloom to the 3d render graph
@@ -123,7 +121,7 @@ impl ViewNode for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         if bloom_settings.intensity == 0.0 {

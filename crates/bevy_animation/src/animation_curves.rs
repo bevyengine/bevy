@@ -101,7 +101,7 @@ use bevy_math::curve::{
     Curve, Interval,
 };
 use bevy_mesh::morph::MorphWeights;
-use bevy_platform_support::hash::Hashed;
+use bevy_platform::hash::Hashed;
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
 use downcast_rs::{impl_downcast, Downcast};
 

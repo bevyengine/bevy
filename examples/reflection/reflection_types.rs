@@ -2,7 +2,7 @@
 //! structs, tuples and vectors.
 
 use bevy::{
-    platform_support::collections::HashMap,
+    platform::collections::HashMap,
     prelude::*,
     reflect::{DynamicList, PartialReflect, ReflectRef},
 };

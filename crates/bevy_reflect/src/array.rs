@@ -68,12 +68,6 @@ pub trait Array: PartialReflect {
     /// Drain the elements of this array to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Clones the list, producing a [`DynamicArray`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_array` instead")]
-    fn clone_dynamic(&self) -> DynamicArray {
-        self.to_dynamic_array()
-    }
-
     /// Creates a new [`DynamicArray`] from this array.
     fn to_dynamic_array(&self) -> DynamicArray {
         DynamicArray {
@@ -173,6 +167,7 @@ pub struct DynamicArray {
 }
 
 impl DynamicArray {
+    /// Creates a new [`DynamicArray`].
     #[inline]
     pub fn new(values: Box<[Box<dyn PartialReflect>]>) -> Self {
         Self {
@@ -192,8 +187,7 @@ impl DynamicArray {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Array(_)),
-                "expected TypeInfo::Array but received: {:?}",
-                represented_type
+                "expected TypeInfo::Array but received: {represented_type:?}"
             );
         }
 

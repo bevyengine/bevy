@@ -22,7 +22,7 @@ use core::{
 
 use async_task::{Runnable, Task};
 use atomic_waker::AtomicWaker;
-use bevy_platform_support::sync::{Arc, LazyLock};
+use bevy_platform::sync::{Arc, LazyLock};
 use futures_lite::FutureExt;
 
 /// An async executor.
@@ -525,7 +525,7 @@ mod drop_tests {
     use core::task::{Poll, Waker};
     use std::sync::Mutex;
 
-    use bevy_platform_support::sync::LazyLock;
+    use bevy_platform::sync::LazyLock;
     use futures_lite::future;
 
     use super::{Executor, Task};

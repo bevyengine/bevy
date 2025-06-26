@@ -28,7 +28,7 @@ use bevy::{
         sync_component::SyncComponentPlugin,
         sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
-        Extract, Render, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSystems,
     },
     sprite::{
         extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
@@ -313,7 +313,10 @@ impl Plugin for ColoredMesh2dPlugin {
                 ExtractSchedule,
                 extract_colored_mesh2d.after(extract_mesh2d),
             )
-            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
+            .add_systems(
+                Render,
+                queue_colored_mesh2d.in_set(RenderSystems::QueueMeshes),
+            );
     }
 
     fn finish(&self, app: &mut App) {

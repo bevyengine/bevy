@@ -1,10 +1,11 @@
 //! The animation graph, which allows animations to be blended together.
 
 use core::{
+    fmt::Write,
     iter,
     ops::{Index, IndexMut, Range},
 };
-use std::io::{self, Write};
+use std::io;
 
 use bevy_asset::{
     io::Reader, Asset, AssetEvent, AssetId, AssetLoader, AssetPath, Assets, Handle, LoadContext,
@@ -17,7 +18,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};
 use derive_more::derive::From;
 use petgraph::{

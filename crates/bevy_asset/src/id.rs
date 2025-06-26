@@ -164,7 +164,7 @@ impl<A: Asset> From<AssetIndex> for AssetId<A> {
 /// An "untyped" / "generic-less" [`Asset`] identifier that behaves much like [`AssetId`], but stores the [`Asset`] type
 /// information at runtime instead of compile-time. This increases the size of the type, but it enables storing asset ids
 /// across asset types together and enables comparisons between them.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Reflect)]
 pub enum UntypedAssetId {
     /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
     /// the "default" identifier used for assets. The alternative(s) (ex: [`UntypedAssetId::Uuid`]) will only be used if assets are
@@ -441,7 +441,7 @@ mod tests {
     fn hash<T: Hash>(data: &T) -> u64 {
         use core::hash::BuildHasher;
 
-        bevy_platform_support::hash::FixedHasher.hash_one(data)
+        bevy_platform::hash::FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `AssetIds` should be equivalent to each other and themselves

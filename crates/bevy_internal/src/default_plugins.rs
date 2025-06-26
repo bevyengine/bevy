@@ -9,10 +9,8 @@ plugin_group! {
         bevy_app:::TaskPoolPlugin,
         bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
-        #[custom(cfg(any(feature = "libm", feature = "std")))]
         bevy_transform:::TransformPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
-        #[custom(cfg(any(feature = "libm", feature = "std")))]
         bevy_input:::InputPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,
@@ -21,7 +19,7 @@ plugin_group! {
         #[cfg(feature = "bevy_window")]
         bevy_a11y:::AccessibilityPlugin,
         #[cfg(feature = "std")]
-        #[custom(cfg(any(unix, windows)))]
+        #[custom(cfg(any(all(unix, not(target_os = "horizon")), windows)))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,
@@ -68,6 +66,8 @@ plugin_group! {
         bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
+        #[cfg(feature = "hotpatching")]
+        bevy_app::hotpatch:::HotPatchPlugin,
         #[plugin_group]
         #[cfg(feature = "bevy_picking")]
         bevy_picking:::DefaultPickingPlugins,
