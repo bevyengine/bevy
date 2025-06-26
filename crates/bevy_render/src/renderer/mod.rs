@@ -23,7 +23,7 @@ use bevy_platform::time::Instant;
 use bevy_time::TimeSender;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
-    RequestAdapterOptions,
+    RequestAdapterOptions, Trace,
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
@@ -177,7 +177,7 @@ pub async fn initialize_renderer(
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
             // should not be automatically enabled in this case. It is however beneficial for
             // integrated GPUs.
-            features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
+            features.remove(wgpu::Features::MAPPABLE_PRIMARY_BUFFERS);
         }
 
         limits = adapter.limits();
@@ -185,7 +185,7 @@ pub async fn initialize_renderer(
 
     // Enforce the disabled features
     if let Some(disabled_features) = options.disabled_features {
-        features -= disabled_features;
+        features.remove(disabled_features);
     }
     // NOTE: |= is used here to ensure that any explicitly-enabled features are respected.
     features |= options.features;
@@ -234,6 +234,12 @@ pub async fn initialize_renderer(
             max_uniform_buffers_per_shader_stage: limits
                 .max_uniform_buffers_per_shader_stage
                 .min(constrained_limits.max_uniform_buffers_per_shader_stage),
+            max_binding_array_elements_per_shader_stage: limits
+                .max_binding_array_elements_per_shader_stage
+                .min(constrained_limits.max_binding_array_elements_per_shader_stage),
+            max_binding_array_sampler_elements_per_shader_stage: limits
+                .max_binding_array_sampler_elements_per_shader_stage
+                .min(constrained_limits.max_binding_array_sampler_elements_per_shader_stage),
             max_uniform_buffer_binding_size: limits
                 .max_uniform_buffer_binding_size
                 .min(constrained_limits.max_uniform_buffer_binding_size),
@@ -304,15 +310,14 @@ pub async fn initialize_renderer(
     }
 
     let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(AsRef::as_ref),
-                required_features: features,
-                required_limits: limits,
-                memory_hints: options.memory_hints.clone(),
-            },
-            options.trace_path.as_deref(),
-        )
+        .request_device(&wgpu::DeviceDescriptor {
+            label: options.device_label.as_ref().map(AsRef::as_ref),
+            required_features: features,
+            required_limits: limits,
+            memory_hints: options.memory_hints.clone(),
+            // See https://github.com/gfx-rs/wgpu/issues/5974
+            trace: Trace::Off,
+        })
         .await
         .unwrap();
     let queue = Arc::new(WgpuWrapper::new(queue));

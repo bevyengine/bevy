@@ -206,7 +206,7 @@ impl ResourceManager {
             visibility_buffer_raster_bind_group_layout: render_device.create_bind_group_layout(
                 "meshlet_visibility_buffer_raster_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
-                    ShaderStages::all(),
+                    ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
                     (
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -225,7 +225,7 @@ impl ResourceManager {
                 .create_bind_group_layout(
                     "meshlet_visibility_buffer_raster_shadow_view_bind_group_layout",
                     &BindGroupLayoutEntries::sequential(
-                        ShaderStages::all(),
+                        ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
                         (
                             storage_buffer_read_only_sized(false, None),
                             storage_buffer_read_only_sized(false, None),
