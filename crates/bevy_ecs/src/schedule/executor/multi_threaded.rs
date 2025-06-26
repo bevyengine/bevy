@@ -20,7 +20,7 @@ use crate::{
         SystemWithAccess,
     },
     system::ScheduleSystem,
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, OnDeferred, World},
 };
 #[cfg(feature = "hotpatching")]
 use crate::{event::Events, HotPatched};
@@ -787,6 +787,8 @@ fn apply_deferred(
     systems: &[SyncUnsafeCell<SystemWithAccess>],
     world: &mut World,
 ) -> Result<(), Box<dyn Any + Send>> {
+    OnDeferred::execute(world);
+
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = &mut unsafe { &mut *systems[system_index].get() }.system;
@@ -868,11 +870,15 @@ impl MainThreadExecutor {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
+    use alloc::{sync::Arc, vec};
+
     use crate::{
         prelude::Resource,
         schedule::{ExecutorKind, IntoScheduleConfigs, Schedule},
         system::Commands,
-        world::World,
+        world::{OnDeferred, World},
     };
 
     #[derive(Resource)]
@@ -907,5 +913,45 @@ mod tests {
         schedule.set_executor_kind(ExecutorKind::MultiThreaded);
         schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn executes_on_deferred() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+
+        let result = Arc::new(Mutex::new(vec![]));
+
+        let result_clone = result.clone();
+        let my_system = move |mut commands: Commands| {
+            let result_clone = result_clone.clone();
+            commands.queue(move |_: &mut World| {
+                result_clone.lock().unwrap().push("my_system");
+            });
+        };
+        schedule.add_systems((my_system.clone(), my_system.clone(), my_system).chain());
+
+        world.insert_resource({
+            let mut on_deferred = OnDeferred::default();
+            let result_clone = result.clone();
+            on_deferred.add(move |_: &mut World| {
+                result_clone.lock().unwrap().push("on_deferred");
+            });
+            on_deferred
+        });
+
+        schedule.run(&mut world);
+        assert_eq!(
+            &*result.lock().unwrap(),
+            &[
+                "on_deferred",
+                "my_system",
+                "on_deferred",
+                "my_system",
+                "on_deferred",
+                "my_system",
+            ]
+        );
     }
 }
