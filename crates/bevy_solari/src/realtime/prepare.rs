@@ -65,7 +65,7 @@ pub fn prepare_solari_lighting_resources(
 
         let previous_gbuffer = render_device.create_texture(&TextureDescriptor {
             label: Some("solari_lighting_previous_gbuffer"),
-            size: view_size.to_exents(),
+            size: view_size.to_extents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
@@ -77,7 +77,7 @@ pub fn prepare_solari_lighting_resources(
 
         let previous_depth = render_device.create_texture(&TextureDescriptor {
             label: Some("solari_lighting_previous_depth"),
-            size: view_size.to_exents(),
+            size: view_size.to_extents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
