@@ -62,14 +62,14 @@ fn update_clipping(
         return;
     };
 
-    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
-    if node.display == Display::None {
-        maybe_inherited_clip = Some(Rect::default());
-    }
-
     // If the UI node entity has an `OverrideClip` component, discard any inherited clip rect
     if has_override_clip {
         maybe_inherited_clip = None;
+    }
+
+    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
+    if node.display == Display::None {
+        maybe_inherited_clip = Some(Rect::default());
     }
 
     // Update this node's CalculatedClip component
