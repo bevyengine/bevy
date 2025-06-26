@@ -1374,7 +1374,6 @@ impl TemporalJitter {
 #[reflect(Default, Component)]
 pub struct MipBias(pub f32);
 
-<<<<<<< resolution_override
 /// Override the resolution a 3d camera's main pass is rendered at.
 ///
 /// Does not affect post processing.
@@ -1387,10 +1386,9 @@ pub struct MipBias(pub f32);
 #[derive(Component, Reflect, Deref)]
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
-=======
+
 impl Default for MipBias {
     fn default() -> Self {
         Self(-1.0)
     }
 }
->>>>>>> main
