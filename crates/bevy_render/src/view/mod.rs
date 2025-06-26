@@ -192,7 +192,7 @@ impl Msaa {
             2 => Msaa::Sample2,
             4 => Msaa::Sample4,
             8 => Msaa::Sample8,
-            _ => panic!("Unsupported MSAA sample count: {}", samples),
+            _ => panic!("Unsupported MSAA sample count: {samples}"),
         }
     }
 }
