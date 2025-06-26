@@ -185,8 +185,7 @@ fn run_prepass<'w>(
         let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass
-                .set_camera_viewport(&viewport.with_override(resolution_override.as_deref()));
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         // Opaque draws

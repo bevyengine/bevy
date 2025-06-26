@@ -112,7 +112,10 @@ impl Viewport {
         }
     }
 
-    pub fn with_override(&self, main_pass_resolution_override: Option<&MainPassResolutionOverride>) -> Self {
+    pub fn with_override(
+        &self,
+        main_pass_resolution_override: Option<&MainPassResolutionOverride>,
+    ) -> Self {
         let mut viewport = self.clone();
         if let Some(override_size) = main_pass_resolution_override {
             viewport.physical_size = **override_size;

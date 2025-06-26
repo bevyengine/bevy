@@ -46,6 +46,7 @@ impl ViewNode for MainOpaquePass3dNode {
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
+            resolution_override,
         ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
@@ -91,8 +92,7 @@ impl ViewNode for MainOpaquePass3dNode {
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
 
             if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass
-                    .set_camera_viewport(&viewport.with_override(resolution_override.as_deref()));
+                render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
             }
 
             // Opaque draws

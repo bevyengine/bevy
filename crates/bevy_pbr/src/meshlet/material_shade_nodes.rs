@@ -103,8 +103,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             occlusion_query_set: None,
         });
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass
-                .set_camera_viewport(&viewport.with_override(resolution_override.as_deref()));
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         render_pass.set_bind_group(
@@ -224,8 +223,7 @@ impl ViewNode for MeshletPrepassNode {
             occlusion_query_set: None,
         });
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass
-                .set_camera_viewport(&viewport.with_override(resolution_override.as_deref()));
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         if view_has_motion_vector_prepass {
@@ -355,8 +353,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             occlusion_query_set: None,
         });
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass
-                .set_camera_viewport(&viewport.with_override(resolution_override.as_deref()));
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         if view_has_motion_vector_prepass {
