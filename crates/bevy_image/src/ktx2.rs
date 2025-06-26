@@ -1,4 +1,4 @@
-#[cfg(any(feature = "flate2", feature = "ruzstd"))]
+#[cfg(any(feature = "flate2", feature = "zstd_rust"))]
 use std::io::Read;
 
 #[cfg(feature = "basis-universal")]
@@ -7,7 +7,7 @@ use basis_universal::{
 };
 use bevy_color::Srgba;
 use bevy_utils::default;
-#[cfg(any(feature = "flate2", feature = "ruzstd"))]
+#[cfg(any(feature = "flate2", feature = "zstd_rust", feature = "zstd_c"))]
 use ktx2::SupercompressionScheme;
 use ktx2::{
     ChannelTypeQualifiers, ColorModel, DfdBlockBasic, DfdBlockHeaderBasic, DfdHeader, Header,
@@ -58,7 +58,7 @@ pub fn ktx2_buffer_to_image(
                     })?;
                     levels.push(decompressed);
                 }
-                #[cfg(feature = "ruzstd")]
+                #[cfg(feature = "zstd_rust")]
                 SupercompressionScheme::Zstandard => {
                     let mut cursor = std::io::Cursor::new(level.data);
                     let mut decoder = ruzstd::decoding::StreamingDecoder::new(&mut cursor)
@@ -70,6 +70,14 @@ pub fn ktx2_buffer_to_image(
                         ))
                     })?;
                     levels.push(decompressed);
+                }
+                #[cfg(all(feature = "zstd_c", not(feature = "zstd_rust")))]
+                SupercompressionScheme::Zstandard => {
+                    levels.push(zstd::decode_all(level.data).map_err(|err| {
+                        TextureError::SuperDecompressionError(format!(
+                            "Failed to decompress {supercompression_scheme:?} for mip {level_index}: {err:?}",
+                        ))
+                    })?);
                 }
                 _ => {
                     return Err(TextureError::SuperDecompressionError(format!(

@@ -36,7 +36,14 @@ serialize = ["bevy_reflect", "bevy_platform/serialize"]
 
 # For ktx2 supercompression
 zlib = ["flate2"]
-zstd = ["ruzstd"]
+
+# A marker feature indicating zstd support is required for a particular feature.
+# A backend must be chosen by enabling either the "zstd_rust" or the "zstd_c" feature.
+zstd = []
+# Pure-rust zstd implementation (safer)
+zstd_rust = ["zstd", "dep:ruzstd"]
+# Binding to zstd C implementation (faster)
+zstd_c = ["zstd", "dep:zstd"]
 
 # Enables compressed KTX2 UASTC texture output on the asset processor
 compressed_image_saver = ["basis-universal"]
@@ -73,6 +80,7 @@ ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.4.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
+zstd = { version = "0.13.3", optional = true }
 ruzstd = { version = "0.8.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.3.0", optional = true }
