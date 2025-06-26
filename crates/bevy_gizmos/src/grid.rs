@@ -390,25 +390,25 @@ fn draw_grid<Config, Clear>(
     let grid_start = -cell_count_half.x * dx - cell_count_half.y * dy - cell_count_half.z * dz;
 
     #[inline]
-    fn adj(cond: bool, val: u32) -> u32 {
-        if cond {
-            val.saturating_add(1)
+    fn cell_count_to_line_count(include_outer: bool, cell_count: u32) -> u32 {
+        if include_outer {
+            cell_count.saturating_add(1)
         } else {
-            val.saturating_sub(1).max(1)
+            cell_count.saturating_sub(1).max(1)
         }
     }
 
     let x_line_count = UVec2::new(
-        adj(outer_edges[0], cell_count.y),
-        adj(outer_edges[0], cell_count.z),
+        cell_count_to_line_count(outer_edges[0], cell_count.y),
+        cell_count_to_line_count(outer_edges[0], cell_count.z),
     );
     let y_line_count = UVec2::new(
-        adj(outer_edges[1], cell_count.z),
-        adj(outer_edges[1], cell_count.x),
+        cell_count_to_line_count(outer_edges[1], cell_count.z),
+        cell_count_to_line_count(outer_edges[1], cell_count.x),
     );
     let z_line_count = UVec2::new(
-        adj(outer_edges[2], cell_count.x),
-        adj(outer_edges[2], cell_count.y),
+        cell_count_to_line_count(outer_edges[2], cell_count.x),
+        cell_count_to_line_count(outer_edges[2], cell_count.y),
     );
 
     let x_start = grid_start + or_zero(!outer_edges[0], dy + dz);
