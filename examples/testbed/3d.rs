@@ -304,18 +304,59 @@ mod gizmos {
     pub fn setup(mut commands: Commands) {
         commands.spawn((
             Camera3d::default(),
-            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_xyz(-1.0, 2.5, 6.5).looking_at(Vec3::ZERO, Vec3::Y),
             DespawnOnExitState(super::Scene::Gizmos),
         ));
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
         gizmos.cuboid(
-            Transform::from_translation(Vec3::X * 2.0).with_scale(Vec3::splat(2.0)),
+            Transform::from_translation(Vec3::X * -1.75).with_scale(Vec3::splat(1.25)),
             RED,
         );
         gizmos
-            .sphere(Isometry3d::from_translation(Vec3::X * -2.0), 1.0, GREEN)
+            .sphere(Isometry3d::from_translation(Vec3::X * -3.5), 0.75, GREEN)
             .resolution(30_000 / 3);
+
+        fn grid_position(row: usize, col: usize) -> Vec3 {
+            Vec3::new(1.5 * col as f32, (1.0 - row as f32) * 1.25, 0.)
+        }
+
+        // Display 2d and 3d grids with all variations of outer edges on or off
+        for i in 0..4 {
+            let mut grid = gizmos.grid(
+                grid_position(0, i),
+                UVec2::new(5, 4),
+                Vec2::splat(0.175),
+                Color::WHITE,
+            );
+            if i & 1 > 0 {
+                grid = grid.outer_edges_x();
+            }
+            if i & 2 > 0 {
+                grid.outer_edges_y();
+            }
+        }
+
+        for i in 0..8 {
+            let mut grid = gizmos.grid_3d(
+                Isometry3d::new(
+                    grid_position(1 + i / 4,  i % 4),
+                    Quat::IDENTITY,
+                ),
+                UVec3::new(5, 4, 3),
+                Vec3::splat(0.175),
+                Color::WHITE,
+            );
+            if i & 1 > 0 {
+                grid = grid.outer_edges_x();
+            }
+            if i & 2 > 0 {
+                grid = grid.outer_edges_y();
+            }
+            if i & 4 > 0 {
+                grid.outer_edges_z();
+            }
+        }
     }
 }

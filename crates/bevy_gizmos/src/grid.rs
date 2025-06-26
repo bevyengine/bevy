@@ -66,19 +66,19 @@ where
         self
     }
 
-    /// Declare that the outer edges of the grid along the x axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the x axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_x(mut self) -> Self {
         self.outer_edges[0] = true;
         self
     }
-    /// Declare that the outer edges of the grid along the y axis should be drawn.
+    /// Declare that the outer edges of the grid paralllel to the y axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_y(mut self) -> Self {
         self.outer_edges[1] = true;
         self
     }
-    /// Declare that the outer edges of the grid along the z axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the z axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_z(mut self) -> Self {
         self.outer_edges[2] = true;
@@ -116,13 +116,13 @@ where
         self
     }
 
-    /// Declare that the outer edges of the grid along the x axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the x axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_x(mut self) -> Self {
         self.outer_edges[0] = true;
         self
     }
-    /// Declare that the outer edges of the grid along the y axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the y axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_y(mut self) -> Self {
         self.outer_edges[1] = true;
