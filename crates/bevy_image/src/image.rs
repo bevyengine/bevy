@@ -818,8 +818,7 @@ impl Image {
         );
         debug_assert!(
             pixel.len() <= byte_len,
-            "Fill data must fit within pixel buffer (expected {}B).",
-            byte_len,
+            "Fill data must fit within pixel buffer (expected {byte_len}B).",
         );
         let data = pixel.iter().copied().cycle().take(byte_len).collect();
         Image::new(size, dimension, data, format, asset_usage)

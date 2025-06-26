@@ -443,7 +443,7 @@ fn update_connected(
 
     let formatted = gamepads
         .iter()
-        .map(|(entity, name)| format!("{} - {}", entity, name))
+        .map(|(entity, name)| format!("{entity} - {name}"))
         .collect::<Vec<_>>()
         .join("\n");
 
