@@ -323,7 +323,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         render_pass.set_render_pipeline(render_pipeline);
         render_pass.set_bind_group(
             0,
-            &view_bind_group.value,
+            &view_bind_group.main,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -333,9 +333,10 @@ impl ViewNode for ScreenSpaceReflectionsNode {
                 **view_environment_map_offset,
             ],
         );
+        render_pass.set_bind_group(1, &view_bind_group.binding_array, &[]);
 
         // Perform the SSR render pass.
-        render_pass.set_bind_group(1, &ssr_bind_group, &[]);
+        render_pass.set_bind_group(2, &ssr_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -517,9 +518,14 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
     type Key = ScreenSpaceReflectionsPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mesh_view_layout = self
+        let layout = self
             .mesh_view_layouts
             .get_view_layout(key.mesh_pipeline_view_key);
+        let layout = vec![
+            layout.main_layout.clone(),
+            layout.binding_array_layout.clone(),
+            self.bind_group_layout.clone(),
+        ];
 
         let mut shader_defs = vec![
             "DEPTH_PREPASS".into(),
@@ -537,7 +543,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),
-            layout: vec![mesh_view_layout.clone(), self.bind_group_layout.clone()],
+            layout,
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
