@@ -122,8 +122,15 @@ pub unsafe trait WorldQuery {
     /// access to [`Components`].
     fn get_state(components: &Components) -> Option<Self::State>;
 
+    /// Returns true if (and only if) this [`WorldQuery`] contains deferred state
+    /// that needs to be applied at the next sync point. If this is set to `false`,
+    /// `apply` or `queue` may not be called.
+    const HAS_DEFERRED: bool = false;
+
     /// Applies any deferred mutations stored in this [`WorldQuery`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
+    ///
+    /// If this is not a no-op, then `HAS_DEFERRED` should be `true`
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
@@ -134,6 +141,8 @@ pub unsafe trait WorldQuery {
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
 
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
+    ///
+    /// If this is not a no-op, then `HAS_DEFERRED` should be `true`
     #[inline]
     #[expect(
         unused_variables,
@@ -230,6 +239,8 @@ macro_rules! impl_tuple_world_query {
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
             }
+
+            const HAS_DEFERRED: bool = false $(|| $name::HAS_DEFERRED)*;
 
             #[inline]
             fn apply(($($name,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {

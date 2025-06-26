@@ -484,6 +484,8 @@ macro_rules! impl_or_query_filter {
                 false $(|| $filter::matches_component_set($filter, set_contains_id))*
             }
 
+            const HAS_DEFERRED: bool = false $(|| $filter::HAS_DEFERRED)*;
+
             fn apply(($($state,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
                 $(<$filter as WorldQuery>::apply($state, system_meta, world);)*
             }

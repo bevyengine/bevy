@@ -2280,6 +2280,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         true
     }
 
+    const HAS_DEFERRED: bool = T::HAS_DEFERRED;
+
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         <T as WorldQuery>::apply(state, system_meta, world);
     }
@@ -2707,6 +2709,8 @@ bevy_utils::cfg::parallel! {
             <&T as WorldQuery>::matches_component_set(&state.internal, set_contains_id)
         }
 
+        const HAS_DEFERRED: bool = true;
+
         fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
             world.insert_batch(state.record.drain());
         }
@@ -2956,6 +2960,8 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = _state;
                 false $(|| $name::matches_component_set($name, _set_contains_id))*
             }
+
+            const HAS_DEFERRED: bool = false $(|| $name::HAS_DEFERRED)*;
 
             fn apply(($($state,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
                 $(<$name as WorldQuery>::apply($state, system_meta, world);)*

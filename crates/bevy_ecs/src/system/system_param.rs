@@ -351,6 +351,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
             world,
         );
         component_access_set.add(state.component_access.clone());
+
+        if D::HAS_DEFERRED || F::HAS_DEFERRED {
+            system_meta.set_has_deferred();
+        }
     }
 
     #[inline]
