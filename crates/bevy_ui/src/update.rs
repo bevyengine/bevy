@@ -10,7 +10,6 @@ use crate::{
 use super::ComputedNode;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    component::Component,
     entity::Entity,
     hierarchy::ChildOf,
     query::{Changed, Has, With},
