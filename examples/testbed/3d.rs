@@ -340,10 +340,7 @@ mod gizmos {
 
         for i in 0..8 {
             let mut grid = gizmos.grid_3d(
-                Isometry3d::new(
-                    grid_position(1 + i / 4,  i % 4),
-                    Quat::IDENTITY,
-                ),
+                Isometry3d::new(grid_position(1 + i / 4, i % 4), Quat::IDENTITY),
                 UVec3::new(5, 4, 3),
                 Vec3::splat(0.175),
                 Color::WHITE,
