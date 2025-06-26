@@ -123,12 +123,12 @@ fn setup(
 
 // Observer systems can also return a `Result`.
 fn fallible_observer(
-    trigger: Trigger<Pointer<Move>>,
+    trigger: On<Pointer<Move>>,
     mut world: DeferredWorld,
     mut step: Local<f32>,
 ) -> Result {
     let mut transform = world
-        .get_mut::<Transform>(trigger.target)
+        .get_mut::<Transform>(trigger.target())
         .ok_or("No transform found.")?;
 
     *step = if transform.translation.x > 3. {

@@ -1043,9 +1043,11 @@ pub enum BoxSizing {
     /// Length styles like width and height refer to the "content box" size (size excluding padding and border)
     ContentBox,
 }
+
 impl BoxSizing {
     pub const DEFAULT: Self = Self::BorderBox;
 }
+
 impl Default for BoxSizing {
     fn default() -> Self {
         Self::DEFAULT
@@ -2130,6 +2132,16 @@ impl BorderColor {
         }
     }
 
+    /// Helper to set all border colors to a given color.
+    pub fn set_all(&mut self, color: impl Into<Color>) -> &mut Self {
+        let color: Color = color.into();
+        self.top = color;
+        self.bottom = color;
+        self.left = color;
+        self.right = color;
+        self
+    }
+
     /// Check if all contained border colors are transparent
     pub fn is_fully_transparent(&self) -> bool {
         self.top.is_fully_transparent()
@@ -2865,6 +2877,8 @@ impl ComputedNodeTarget {
 }
 
 /// Adds a shadow behind text
+///
+/// Not supported by `Text2d`
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct TextShadow {

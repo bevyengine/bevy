@@ -967,6 +967,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             transparent_draw_functions,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
             Ok(prepared) => {

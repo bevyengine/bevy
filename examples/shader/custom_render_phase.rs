@@ -12,6 +12,7 @@
 
 use std::ops::Range;
 
+use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     ecs::{
@@ -165,6 +166,7 @@ struct StencilPipeline {
     /// This isn't required, it's only done like this for simplicity.
     shader_handle: Handle<Shader>,
 }
+
 impl FromWorld for StencilPipeline {
     fn from_world(world: &mut World) -> Self {
         Self {
@@ -192,17 +194,19 @@ impl SpecializedMeshPipeline for StencilPipeline {
         }
         // This will automatically generate the correct `VertexBufferLayout` based on the vertex attributes
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
-
+        let view_layout = self
+            .mesh_pipeline
+            .get_view_layout(MeshPipelineViewLayoutKey::from(key));
         Ok(RenderPipelineDescriptor {
             label: Some("Specialized Mesh Pipeline".into()),
             // We want to reuse the data from bevy so we use the same bind groups as the default
             // mesh pipeline
             layout: vec![
                 // Bind group 0 is the view uniform
-                self.mesh_pipeline
-                    .get_view_layout(MeshPipelineViewLayoutKey::from(key))
-                    .clone(),
-                // Bind group 1 is the mesh uniform
+                view_layout.main_layout.clone(),
+                // Bind group 1 is empty
+                view_layout.empty_layout.clone(),
+                // Bind group 2 is the mesh uniform
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
             push_constant_ranges: vec![],
@@ -243,8 +247,10 @@ type DrawMesh3dStencil = (
     SetItemPipeline,
     // This will set the view bindings in group 0
     SetMeshViewBindGroup<0>,
-    // This will set the mesh bindings in group 1
-    SetMeshBindGroup<1>,
+    // This will set an empty bind group in group 1
+    SetMeshViewEmptyBindGroup<1>,
+    // This will set the mesh bindings in group 2
+    SetMeshBindGroup<2>,
     // This will draw the mesh
     DrawMesh,
 );
@@ -382,6 +388,7 @@ impl GetBatchData for StencilPipeline {
         Some((mesh_uniform, None))
     }
 }
+
 impl GetFullBatchData for StencilPipeline {
     type BufferInputData = MeshInputUniform;
 
@@ -588,7 +595,7 @@ impl ViewNode for CustomDrawNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // First, we need to get our phases resource
