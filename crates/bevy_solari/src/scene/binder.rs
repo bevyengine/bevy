@@ -143,7 +143,7 @@ pub fn prepare_raytracing_scene_bindings(
             continue;
         };
 
-        let transform = transform.compute_matrix();
+        let transform = transform.to_matrix();
         *tlas.get_mut_single(instance_id).unwrap() = Some(TlasInstance::new(
             blas,
             tlas_transform(&transform),

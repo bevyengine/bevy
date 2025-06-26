@@ -15,11 +15,15 @@
 // the widget level, like `SliderValue`, should not have the `Core` prefix.
 
 mod core_button;
+mod core_checkbox;
+mod core_radio;
 mod core_slider;
 
 use bevy_app::{App, Plugin};
 
 pub use core_button::{CoreButton, CoreButtonPlugin};
+pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
+pub use core_radio::{CoreRadio, CoreRadioGroup, CoreRadioGroupPlugin};
 pub use core_slider::{
     CoreSlider, CoreSliderDragState, CoreSliderPlugin, CoreSliderThumb, SetSliderValue,
     SliderRange, SliderStep, SliderValue, TrackClick,
@@ -31,6 +35,11 @@ pub struct CoreWidgetsPlugin;
 
 impl Plugin for CoreWidgetsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((CoreButtonPlugin, CoreSliderPlugin));
+        app.add_plugins((
+            CoreButtonPlugin,
+            CoreCheckboxPlugin,
+            CoreRadioGroupPlugin,
+            CoreSliderPlugin,
+        ));
     }
 }

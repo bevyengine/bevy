@@ -847,7 +847,7 @@ impl ViewNode for SmaaNode {
             view_smaa_uniform_offset,
             smaa_textures,
             view_smaa_bind_groups,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();

@@ -3,7 +3,8 @@ mod multi_threaded;
 mod simple;
 mod single_threaded;
 
-use alloc::{borrow::Cow, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::any::TypeId;
 
 #[expect(deprecated, reason = "We still need to support this.")]
@@ -158,8 +159,8 @@ impl System for ApplyDeferred {
     type In = ();
     type Out = Result<()>;
 
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed("bevy_ecs::apply_deferred")
+    fn name(&self) -> DebugName {
+        DebugName::borrowed("bevy_ecs::apply_deferred")
     }
 
     fn flags(&self) -> SystemStateFlags {
