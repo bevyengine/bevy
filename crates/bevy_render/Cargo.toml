@@ -85,19 +85,21 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 image = { version = "0.25.2", default-features = false }
 
 # misc
-codespan-reporting = "0.11.0"
+codespan-reporting = "0.12.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use Wasm threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "24", default-features = false, features = [
+wgpu = { version = "25", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
+  "vulkan",
+  "gles",
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "24", features = ["wgsl-in"] }
+naga = { version = "25", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
@@ -123,7 +125,7 @@ wesl = { version = "0.1.2", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.17.1", default-features = false, features = [
+naga_oil = { version = "0.18", default-features = false, features = [
   "test_shader",
 ] }
 
@@ -131,7 +133,7 @@ naga_oil = { version = "0.17.1", default-features = false, features = [
 proptest = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = "0.17.1"
+naga_oil = { version = "0.18" }
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',
