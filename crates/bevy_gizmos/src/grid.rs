@@ -72,7 +72,7 @@ where
         self.outer_edges[0] = true;
         self
     }
-    /// Declare that the outer edges of the grid paralllel to the y axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the y axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_y(mut self) -> Self {
         self.outer_edges[1] = true;
