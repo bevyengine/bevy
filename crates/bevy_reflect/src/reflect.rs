@@ -167,10 +167,10 @@ where
     ///   and excess elements in `value` are appended to `self`.
     /// - If `Self` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
-    ///   Keys which are not present in `self` are inserted.
+    ///   Keys which are not present in `self` are inserted, and keys from `self` which are not present in `value` are removed.
     /// - If `Self` is a [`Set`], then each element of `value` is applied to the corresponding
     ///   element of `Self`. If an element of `value` does not exist in `Self` then it is
-    ///   cloned and inserted.
+    ///   cloned and inserted. If an element from `self` is not present in `value` then it is removed.
     /// - If `Self` is none of these, then `value` is downcast to `Self`, cloned, and
     ///   assigned to `self`.
     ///

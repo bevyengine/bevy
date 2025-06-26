@@ -158,7 +158,7 @@ fn setup_ui(
     let mut button_entities: HashMap<(u16, u16), Entity> = HashMap::default();
     for row in 0..N_ROWS {
         for col in 0..N_COLS {
-            let button_name = format!("Button {}-{}", row, col);
+            let button_name = format!("Button {row}-{col}");
 
             let button_entity = commands
                 .spawn((

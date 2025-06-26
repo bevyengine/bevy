@@ -74,8 +74,8 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;
 @group(0) @binding(11) var<storage> previous_frame_light_id_translations: array<u32>;
 
-const RAY_T_MIN = 0.01;
-const RAY_T_MAX = 100000.0;
+const RAY_T_MIN = 0.01f;
+const RAY_T_MAX = 100000.0f;
 
 const RAY_NO_CULL = 0xFFu;
 
@@ -123,7 +123,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
 
 fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
     let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
-    return resolve_triangle_data_full(ray_hit.instance_id, ray_hit.primitive_index, barycentrics);
+    return resolve_triangle_data_full(ray_hit.instance_index, ray_hit.primitive_index, barycentrics);
 }
 
 fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {

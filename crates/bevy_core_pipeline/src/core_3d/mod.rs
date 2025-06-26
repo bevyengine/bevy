@@ -85,7 +85,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault;
+use bevy_image::{BevyDefault, ToExtents};
 use bevy_math::FloatOrd;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -99,8 +99,8 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        CachedRenderPipelineId, FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
@@ -811,20 +811,14 @@ pub fn prepare_core_3d_depth_textures(
         let cached_texture = textures
             .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
-                // The size of the depth texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let usage = *render_target_usage
                     .get(&camera.target.clone())
                     .expect("The depth texture usage should already exist for this target");
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
-                    size,
+                    // The size of the depth texture
+                    size: physical_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
@@ -897,13 +891,6 @@ pub fn prepare_core_3d_transmission_textures(
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
-                // The size of the transmission texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let format = if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
@@ -912,7 +899,8 @@ pub fn prepare_core_3d_transmission_textures(
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
-                    size,
+                    // The size of the transmission texture
+                    size: physical_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
@@ -1023,11 +1011,7 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let size = Extent3d {
-            depth_or_array_layers: 1,
-            width: physical_target_size.x,
-            height: physical_target_size.y,
-        };
+        let size = physical_target_size.to_extents();
 
         let cached_depth_texture = depth_prepass.then(|| {
             depth_textures

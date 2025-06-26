@@ -186,13 +186,17 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             let mut shader_defs = material_fragment.shader_defs;
             shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
 
+            let layout = mesh_pipeline.get_view_layout(view_key.into());
+            let layout = vec![
+                layout.main_layout.clone(),
+                layout.binding_array_layout.clone(),
+                resource_manager.material_shade_bind_group_layout.clone(),
+                material_pipeline.material_layout.clone(),
+            ];
+
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
-                layout: vec![
-                    mesh_pipeline.get_view_layout(view_key.into()).clone(),
-                    resource_manager.material_shade_bind_group_layout.clone(),
-                    material_pipeline.material_layout.clone(),
-                ],
+                layout,
                 push_constant_ranges: vec![],
                 vertex: VertexState {
                     shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,

@@ -165,6 +165,7 @@ default = [
   "webgl2",
   "x11",
   "debug",
+  "zstd_rust",
 ]
 
 # Recommended defaults for no_std applications
@@ -330,6 +331,9 @@ trace = ["bevy_internal/trace", "dep:tracing"]
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
+# Enables compressed KTX2 UASTC texture output on the asset processor
+compressed_image_saver = ["bevy_internal/compressed_image_saver"]
+
 # BMP image format support
 bmp = ["bevy_internal/bmp"]
 
@@ -378,8 +382,11 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# For KTX2 supercompression
-zstd = ["bevy_internal/zstd"]
+# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".
+zstd_rust = ["bevy_internal/zstd_rust"]
+
+# For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".
+zstd_c = ["bevy_internal/zstd_c"]
 
 # FLAC audio format support
 flac = ["bevy_internal/flac"]
@@ -448,7 +455,7 @@ android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 detailed_trace = ["bevy_internal/detailed_trace"]
 
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.
-tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
+tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "bevy_image/zstd"]
 
 # Include SMAA Look Up Tables KTX2 Files
 smaa_luts = ["bevy_internal/smaa_luts"]

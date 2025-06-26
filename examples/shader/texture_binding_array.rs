@@ -163,7 +163,7 @@ impl AsBindGroup for BindlessMaterial {
             (
                 // Screen texture
                 //
-                // @group(2) @binding(0) var textures: binding_array<texture_2d<f32>>;
+                // @group(3) @binding(0) var textures: binding_array<texture_2d<f32>>;
                 (
                     0,
                     texture_2d(TextureSampleType::Float { filterable: true })
@@ -171,7 +171,7 @@ impl AsBindGroup for BindlessMaterial {
                 ),
                 // Sampler
                 //
-                // @group(2) @binding(1) var nearest_sampler: sampler;
+                // @group(3) @binding(1) var nearest_sampler: sampler;
                 //
                 // Note: as with textures, multiple samplers can also be bound
                 // onto one binding slot:

@@ -25,11 +25,12 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 
 # other
 bytemuck = { version = "1" }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]

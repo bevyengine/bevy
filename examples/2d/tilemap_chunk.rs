@@ -9,7 +9,7 @@ use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins.set(ImagePlugin::default_nearest()),))
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
         .add_systems(Update, (update_tileset_image, update_tilemap))
         .run();
@@ -18,8 +18,14 @@ fn main() {
 #[derive(Component, Deref, DerefMut)]
 struct UpdateTimer(Timer);
 
+#[derive(Resource, Deref, DerefMut)]
+struct SeededRng(ChaCha8Rng);
+
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(42);
+
     let chunk_size = UVec2::splat(64);
     let tile_display_size = UVec2::splat(8);
     let indices: Vec<Option<u16>> = (0..chunk_size.element_product())
@@ -39,6 +45,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     ));
 
     commands.spawn(Camera2d);
+
+    commands.insert_resource(SeededRng(rng));
 }
 
 fn update_tileset_image(
@@ -55,12 +63,15 @@ fn update_tileset_image(
     }
 }
 
-fn update_tilemap(time: Res<Time>, mut query: Query<(&mut TilemapChunkIndices, &mut UpdateTimer)>) {
+fn update_tilemap(
+    time: Res<Time>,
+    mut query: Query<(&mut TilemapChunkIndices, &mut UpdateTimer)>,
+    mut rng: ResMut<SeededRng>,
+) {
     for (mut indices, mut timer) in query.iter_mut() {
         timer.tick(time.delta());
 
         if timer.just_finished() {
-            let mut rng = ChaCha8Rng::from_entropy();
             for _ in 0..50 {
                 let index = rng.gen_range(0..indices.len());
                 indices[index] = Some(rng.gen_range(0..5));

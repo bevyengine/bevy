@@ -337,6 +337,28 @@ impl ImageFormat {
     }
 }
 
+pub trait ToExtents {
+    fn to_extents(self) -> Extent3d;
+}
+impl ToExtents for UVec2 {
+    fn to_extents(self) -> Extent3d {
+        Extent3d {
+            width: self.x,
+            height: self.y,
+            depth_or_array_layers: 1,
+        }
+    }
+}
+impl ToExtents for UVec3 {
+    fn to_extents(self) -> Extent3d {
+        Extent3d {
+            width: self.x,
+            height: self.y,
+            depth_or_array_layers: self.z,
+        }
+    }
+}
+
 #[derive(Asset, Debug, Clone)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -356,6 +378,8 @@ pub struct Image {
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
     pub asset_usage: RenderAssetUsages,
+    /// Whether this image should be copied on the GPU when resized.
+    pub copy_on_resize: bool,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -747,12 +771,15 @@ impl Image {
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST
+                    | TextureUsages::COPY_SRC,
                 view_formats: &[],
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
             asset_usage,
+            copy_on_resize: false,
         }
     }
 
@@ -767,11 +794,7 @@ impl Image {
         debug_assert!(format.pixel_size() == 4);
         let data = vec![255, 255, 255, 0];
         Image::new(
-            Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            Extent3d::default(),
             TextureDimension::D2,
             data,
             format,
@@ -781,11 +804,7 @@ impl Image {
     /// Creates a new uninitialized 1x1x1 image
     pub fn default_uninit() -> Image {
         Image::new_uninit(
-            Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            Extent3d::default(),
             TextureDimension::D2,
             TextureFormat::bevy_default(),
             RenderAssetUsages::default(),
@@ -813,8 +832,7 @@ impl Image {
         );
         debug_assert!(
             pixel.len() <= byte_len,
-            "Fill data must fit within pixel buffer (expected {}B).",
-            byte_len,
+            "Fill data must fit within pixel buffer (expected {byte_len}B).",
         );
         let data = pixel.iter().copied().cycle().take(byte_len).collect();
         Image::new(size, dimension, data, format, asset_usage)
@@ -887,13 +905,15 @@ impl Image {
     /// When growing, the new space is filled with 0. When shrinking, the image is clipped.
     ///
     /// For faster resizing when keeping pixel data intact is not important, use [`Image::resize`].
-    pub fn resize_in_place(&mut self, new_size: Extent3d) -> Result<(), ResizeError> {
+    pub fn resize_in_place(&mut self, new_size: Extent3d) {
         let old_size = self.texture_descriptor.size;
         let pixel_size = self.texture_descriptor.format.pixel_size();
         let byte_len = self.texture_descriptor.format.pixel_size() * new_size.volume();
+        self.texture_descriptor.size = new_size;
 
         let Some(ref mut data) = self.data else {
-            return Err(ResizeError::ImageWithoutData);
+            self.copy_on_resize = true;
+            return;
         };
 
         let mut new: Vec<u8> = vec![0; byte_len];
@@ -923,10 +943,6 @@ impl Image {
         }
 
         self.data = Some(new);
-
-        self.texture_descriptor.size = new_size;
-
-        Ok(())
     }
 
     /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
@@ -1591,14 +1607,6 @@ pub enum TextureError {
     IncompleteCubemap,
 }
 
-/// An error that occurs when an image cannot be resized.
-#[derive(Error, Debug)]
-pub enum ResizeError {
-    /// Failed to resize an Image because it has no data.
-    #[error("resize method requires cpu-side image data but none was present")]
-    ImageWithoutData,
-}
-
 /// The type of a raw image buffer.
 #[derive(Debug)]
 pub enum ImageType<'a> {
@@ -1822,13 +1830,11 @@ mod test {
         }
 
         // Grow image
-        image
-            .resize_in_place(Extent3d {
-                width: 4,
-                height: 4,
-                depth_or_array_layers: 1,
-            })
-            .unwrap();
+        image.resize_in_place(Extent3d {
+            width: 4,
+            height: 4,
+            depth_or_array_layers: 1,
+        });
 
         // After growing, the test pattern should be the same.
         assert!(matches!(
@@ -1849,13 +1855,11 @@ mod test {
         ));
 
         // Shrink
-        image
-            .resize_in_place(Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            })
-            .unwrap();
+        image.resize_in_place(Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        });
 
         // Images outside of the new dimensions should be clipped
         assert!(image.get_color_at(1, 1).is_err());
@@ -1898,13 +1902,11 @@ mod test {
         }
 
         // Grow image
-        image
-            .resize_in_place(Extent3d {
-                width: 4,
-                height: 4,
-                depth_or_array_layers: LAYERS + 1,
-            })
-            .unwrap();
+        image.resize_in_place(Extent3d {
+            width: 4,
+            height: 4,
+            depth_or_array_layers: LAYERS + 1,
+        });
 
         // After growing, the test pattern should be the same.
         assert!(matches!(
@@ -1929,13 +1931,11 @@ mod test {
         }
 
         // Shrink
-        image
-            .resize_in_place(Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            })
-            .unwrap();
+        image.resize_in_place(Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        });
 
         // Images outside of the new dimensions should be clipped
         assert!(image.get_color_at_3d(1, 1, 0).is_err());
@@ -1944,13 +1944,11 @@ mod test {
         assert!(image.get_color_at_3d(0, 0, 1).is_err());
 
         // Grow layers
-        image
-            .resize_in_place(Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 2,
-            })
-            .unwrap();
+        image.resize_in_place(Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 2,
+        });
 
         // Pixels in the newly added layer should be zeroes.
         assert!(matches!(
