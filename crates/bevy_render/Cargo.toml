@@ -125,7 +125,7 @@ wesl = { version = "0.1.2", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { git = "https://github.com/bevyengine/naga_oil", default-features = false, features = [
+naga_oil = { version = "0.18", default-features = false, features = [
   "test_shader",
 ] }
 
@@ -133,7 +133,7 @@ naga_oil = { git = "https://github.com/bevyengine/naga_oil", default-features = 
 proptest = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = { git = "https://github.com/bevyengine/naga_oil" }
+naga_oil = { version = "0.18" }
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',
