@@ -1,11 +1,16 @@
-//! This example illustrates how to make headless renderer
-//! derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
-//! It follows this steps:
+//! This example illustrates how to make a headless renderer.
+//! Derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
+//! It follows these steps:
+//!
 //! 1. Render from camera to gpu-image render target
 //! 2. Copy from gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
-//! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSet::Render`
+//! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSystems::Render`
 //! 4. Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
 //! 5. Exit if `single_image` setting is set
+//!
+//! If your goal is to capture a single “screenshot” as opposed to every single rendered frame
+//! without gaps, it is simpler to use [`bevy::render::view::window::screenshot::Screenshot`]
+//! than this approach.
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
@@ -22,7 +27,7 @@ use bevy::{
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        Extract, Render, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSystems,
     },
     winit::WinitPlugin,
 };
@@ -86,6 +91,9 @@ fn main() {
                 // replaces the bevy_winit app runner and so a window is never created.
                 .set(WindowPlugin {
                     primary_window: None,
+                    // Don’t automatically exit due to having no windows.
+                    // Instead, the code in `update()` will explicitly produce an `AppExit` event.
+                    exit_condition: bevy::window::ExitCondition::DontExit,
                     ..default()
                 })
                 // WinitPlugin will panic in environments without a display server.
@@ -217,7 +225,10 @@ impl Plugin for ImageCopyPlugin {
             .add_systems(ExtractSchedule, image_copy_extract)
             // Receives image data from buffer to channel
             // so we need to run it after the render graph is done
-            .add_systems(Render, receive_image_from_buffer.after(RenderSet::Render));
+            .add_systems(
+                Render,
+                receive_image_from_buffer.after(RenderSystems::Render),
+            );
     }
 }
 

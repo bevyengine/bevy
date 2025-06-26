@@ -223,6 +223,16 @@ impl<'a> AssetPath<'a> {
         Ok((source, path, label))
     }
 
+    /// Creates a new [`AssetPath`] from a [`PathBuf`].
+    #[inline]
+    pub fn from_path_buf(path_buf: PathBuf) -> AssetPath<'a> {
+        AssetPath {
+            path: CowArc::Owned(path_buf.into()),
+            source: AssetSourceId::Default,
+            label: None,
+        }
+    }
+
     /// Creates a new [`AssetPath`] from a [`Path`].
     #[inline]
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
@@ -477,6 +487,51 @@ impl<'a> AssetPath<'a> {
                 None
             }
         })
+    }
+
+    /// Returns `true` if this [`AssetPath`] points to a file that is
+    /// outside of its [`AssetSource`](crate::io::AssetSource) folder.
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_asset::AssetPath;
+    /// // Inside the default AssetSource.
+    /// let path = AssetPath::parse("thingy.png");
+    /// assert!( ! path.is_unapproved());
+    /// let path = AssetPath::parse("gui/thingy.png");
+    /// assert!( ! path.is_unapproved());
+    ///
+    /// // Inside a different AssetSource.
+    /// let path = AssetPath::parse("embedded://thingy.png");
+    /// assert!( ! path.is_unapproved());
+    ///
+    /// // Exits the `AssetSource`s directory.
+    /// let path = AssetPath::parse("../thingy.png");
+    /// assert!(path.is_unapproved());
+    /// let path = AssetPath::parse("folder/../../thingy.png");
+    /// assert!(path.is_unapproved());
+    ///
+    /// // This references the linux root directory.
+    /// let path = AssetPath::parse("/home/thingy.png");
+    /// assert!(path.is_unapproved());
+    /// ```
+    pub fn is_unapproved(&self) -> bool {
+        use std::path::Component;
+        let mut simplified = PathBuf::new();
+        for component in self.path.components() {
+            match component {
+                Component::Prefix(_) | Component::RootDir => return true,
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    if !simplified.pop() {
+                        return true;
+                    }
+                }
+                Component::Normal(os_str) => simplified.push(os_str),
+            }
+        }
+
+        false
     }
 }
 

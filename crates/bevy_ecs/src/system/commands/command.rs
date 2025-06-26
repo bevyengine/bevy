@@ -1,5 +1,5 @@
-//! This module contains the definition of the [`Command`] trait, as well as
-//! blanket implementations of the trait for closures.
+//! Contains the definition of the [`Command`] trait,
+//! as well as the blanket implementation of the trait for closures.
 //!
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
@@ -8,12 +8,12 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    error::{BevyError, Result},
-    event::{Event, Events},
+    error::Result,
+    event::{BufferedEvent, EntityEvent, Event, Events},
     observer::TriggerTargets,
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{error_handler, IntoSystem, SystemId, SystemInput},
+    system::{IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
 
@@ -60,52 +60,6 @@ where
 {
     fn apply(self, world: &mut World) -> Out {
         self(world)
-    }
-}
-
-/// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
-/// a [`Command`] that internally handles an error if it occurs and returns `()`.
-pub trait HandleError<Out = ()> {
-    /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
-    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error_with(self, error_handler: fn(&mut World, BevyError)) -> impl Command;
-    /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
-    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error(self) -> impl Command
-    where
-        Self: Sized,
-    {
-        self.handle_error_with(error_handler::default())
-    }
-}
-
-impl<C, T, E> HandleError<Result<T, E>> for C
-where
-    C: Command<Result<T, E>>,
-    E: Into<BevyError>,
-{
-    fn handle_error_with(self, error_handler: fn(&mut World, BevyError)) -> impl Command {
-        move |world: &mut World| match self.apply(world) {
-            Ok(_) => {}
-            Err(err) => (error_handler)(world, err.into()),
-        }
-    }
-}
-
-impl<C> HandleError for C
-where
-    C: Command,
-{
-    #[inline]
-    fn handle_error_with(self, _error_handler: fn(&mut World, BevyError)) -> impl Command {
-        self
-    }
-    #[inline]
-    fn handle_error(self) -> impl Command
-    where
-        Self: Sized,
-    {
-        self
     }
 }
 
@@ -190,10 +144,11 @@ where
 
 /// A [`Command`] that runs the given system,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-pub fn run_system_cached<M, S>(system: S) -> impl Command<Result>
+pub fn run_system_cached<O, M, S>(system: S) -> impl Command<Result>
 where
+    O: 'static,
     M: 'static,
-    S: IntoSystem<(), (), M> + Send + 'static,
+    S: IntoSystem<(), O, M> + Send + 'static,
 {
     move |world: &mut World| -> Result {
         world.run_system_cached(system)?;
@@ -203,11 +158,15 @@ where
 
 /// A [`Command`] that runs the given system with the given input value,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command<Result>
+pub fn run_system_cached_with<I, O, M, S>(
+    system: S,
+    input: I::Inner<'static>,
+) -> impl Command<Result>
 where
     I: SystemInput<Inner<'static>: Send> + Send + 'static,
+    O: 'static,
     M: 'static,
-    S: IntoSystem<I, (), M> + Send + 'static,
+    S: IntoSystem<I, O, M> + Send + 'static,
 {
     move |world: &mut World| -> Result {
         world.run_system_cached_with(system, input)?;
@@ -221,7 +180,7 @@ where
 pub fn unregister_system<I, O>(system_id: SystemId<I, O>) -> impl Command<Result>
 where
     I: SystemInput + Send + 'static,
-    O: Send + 'static,
+    O: 'static,
 {
     move |world: &mut World| -> Result {
         world.unregister_system(system_id)?;
@@ -229,8 +188,10 @@ where
     }
 }
 
-/// A [`Command`] that removes a system previously registered with
-/// [`World::register_system_cached`].
+/// A [`Command`] that removes a system previously registered with one of the following:
+/// - [`Commands::run_system_cached`](crate::system::Commands::run_system_cached)
+/// - [`World::run_system_cached`]
+/// - [`World::register_system_cached`]
 pub fn unregister_system_cached<I, O, M, S>(system: S) -> impl Command<Result>
 where
     I: SystemInput + Send + 'static,
@@ -252,7 +213,7 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
     }
 }
 
-/// A [`Command`] that sends a global [`Trigger`](crate::observer::Trigger) without any targets.
+/// A [`Command`] that sends a global [`Event`] without any targets.
 #[track_caller]
 pub fn trigger(event: impl Event) -> impl Command {
     let caller = MaybeLocation::caller();
@@ -261,9 +222,10 @@ pub fn trigger(event: impl Event) -> impl Command {
     }
 }
 
-/// A [`Command`] that sends a [`Trigger`](crate::observer::Trigger) for the given targets.
+/// A [`Command`] that sends an [`EntityEvent`] for the given targets.
+#[track_caller]
 pub fn trigger_targets(
-    event: impl Event,
+    event: impl EntityEvent,
     targets: impl TriggerTargets + Send + Sync + 'static,
 ) -> impl Command {
     let caller = MaybeLocation::caller();
@@ -272,9 +234,9 @@ pub fn trigger_targets(
     }
 }
 
-/// A [`Command`] that sends an arbitrary [`Event`].
+/// A [`Command`] that sends an arbitrary [`BufferedEvent`].
 #[track_caller]
-pub fn send_event<E: Event>(event: E) -> impl Command {
+pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
         let mut events = world.resource_mut::<Events<E>>();

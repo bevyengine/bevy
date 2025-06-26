@@ -24,23 +24,63 @@
 
 #![deny(missing_docs)]
 
-use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
+use crate::{prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::{Rect, Vec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_math::Vec2;
+use bevy_platform::collections::HashMap;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::prelude::*;
-use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
 
+/// An optional component that marks cameras that should be used in the [`UiPickingPlugin`].
+///
+/// Only needed if [`UiPickingSettings::require_markers`] is set to `true`, and ignored
+/// otherwise.
+#[derive(Debug, Clone, Default, Component, Reflect)]
+#[reflect(Debug, Default, Component)]
+pub struct UiPickingCamera;
+
+/// Runtime settings for the [`UiPickingPlugin`].
+#[derive(Resource, Reflect)]
+#[reflect(Resource, Default)]
+pub struct UiPickingSettings {
+    /// When set to `true` UI picking will only consider cameras marked with
+    /// [`UiPickingCamera`] and entities marked with [`Pickable`]. `false` by default.
+    ///
+    /// This setting is provided to give you fine-grained control over which cameras and entities
+    /// should be used by the UI picking backend at runtime.
+    pub require_markers: bool,
+}
+
+#[expect(
+    clippy::allow_attributes,
+    reason = "clippy::derivable_impls is not always linted"
+)]
+#[allow(
+    clippy::derivable_impls,
+    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
+)]
+impl Default for UiPickingSettings {
+    fn default() -> Self {
+        Self {
+            require_markers: false,
+        }
+    }
+}
+
 /// A plugin that adds picking support for UI nodes.
+///
+/// This is included by default in [`UiPlugin`](crate::UiPlugin).
 #[derive(Clone)]
 pub struct UiPickingPlugin;
 impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
+        app.init_resource::<UiPickingSettings>()
+            .register_type::<(UiPickingCamera, UiPickingSettings)>()
+            .add_systems(PreUpdate, ui_picking.in_set(PickingSystems::Backend));
     }
 }
 
@@ -50,9 +90,8 @@ impl Plugin for UiPickingPlugin {
 pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
-    global_transform: &'static GlobalTransform,
+    transform: &'static UiGlobalTransform,
     pickable: Option<&'static Pickable>,
-    calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedNodeTarget,
 }
@@ -63,11 +102,14 @@ pub struct NodeQuery {
 /// we need for determining picking.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
+    camera_query: Query<(Entity, &Camera, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
+    settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
+    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
+    child_of_query: Query<&ChildOf>,
 ) {
     // For each camera, the pointer and its position
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
@@ -81,6 +123,7 @@ pub fn ui_picking(
         // cameras. We want to ensure we return all cameras with a matching target.
         for camera in camera_query
             .iter()
+            .filter(|(_, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
             .map(|(entity, camera, _)| {
                 (
                     entity,
@@ -122,6 +165,10 @@ pub fn ui_picking(
             continue;
         };
 
+        if settings.require_markers && node.pickable.is_none() {
+            continue;
+        }
+
         // Nodes that are not rendered should not be interactable
         if node
             .inherited_visibility
@@ -134,43 +181,33 @@ pub fn ui_picking(
             continue;
         };
 
-        let node_rect = Rect::from_center_size(
-            node.global_transform.translation().truncate(),
-            node.node.size(),
-        );
-
         // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
-        if node_rect.size() == Vec2::ZERO {
+        if node.node.size() == Vec2::ZERO {
             continue;
         }
 
-        // Intersect with the calculated clip rect to find the bounds of the visible region of the node
-        let visible_rect = node
-            .calculated_clip
-            .map(|clip| node_rect.intersect(clip.clip))
-            .unwrap_or(node_rect);
-
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
-        // The mouse position relative to the node
-        // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
+        // Find the normalized cursor position relative to the node.
+        // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
         // Coordinates are relative to the entire node, not just the visible region.
         for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
-            let relative_cursor_position = (*cursor_position - node_rect.min) / node_rect.size();
-
-            if visible_rect
-                .normalize(node_rect)
-                .contains(relative_cursor_position)
-                && pick_rounded_rect(
-                    *cursor_position - node_rect.center(),
-                    node_rect.size(),
-                    node.node.border_radius,
+            if node.node.contains_point(*node.transform, *cursor_position)
+                && clip_check_recursive(
+                    *cursor_position,
+                    *node_entity,
+                    &clipping_query,
+                    &child_of_query,
                 )
             {
                 hit_nodes
                     .entry((camera_entity, *pointer_id))
                     .or_default()
-                    .push((*node_entity, relative_cursor_position));
+                    .push((
+                        *node_entity,
+                        node.transform.inverse().transform_point2(*cursor_position)
+                            / node.node.size(),
+                    ));
             }
         }
     }
@@ -214,4 +251,28 @@ pub fn ui_picking(
 
         output.write(PointerHits::new(*pointer, picks, order));
     }
+}
+
+/// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
+pub fn clip_check_recursive(
+    point: Vec2,
+    entity: Entity,
+    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
+    child_of_query: &Query<&ChildOf>,
+) -> bool {
+    if let Ok(child_of) = child_of_query.get(entity) {
+        let parent = child_of.0;
+        if let Ok((computed_node, transform, node)) = clipping_query.get(parent) {
+            if !computed_node
+                .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
+                .contains(transform.inverse().transform_point2(point))
+            {
+                // The point is clipped and should be ignored by picking
+                return false;
+            }
+        }
+        return clip_check_recursive(point, parent, clipping_query, child_of_query);
+    }
+    // Reached root, point unclipped by all ancestors
+    true
 }

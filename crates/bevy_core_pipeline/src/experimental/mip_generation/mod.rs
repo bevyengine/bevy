@@ -7,6 +7,10 @@
 
 use core::array;
 
+use crate::core_3d::{
+    graph::{Core3d, Node3d},
+    prepare_core_3d_depth_textures,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -21,6 +25,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
+use bevy_render::batching::gpu_preprocessing::GpuPreprocessingSupport;
 use bevy_render::{
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
@@ -30,23 +35,19 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor,
-        DownlevelFlags, Extent3d, IntoBinding, PipelineCache, PushConstantRange, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, SpecializedComputePipeline,
+        Extent3d, IntoBinding, PipelineCache, PushConstantRange, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, SpecializedComputePipeline,
         SpecializedComputePipelines, StorageTextureAccess, TextureAspect, TextureDescriptor,
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
         TextureViewDescriptor, TextureViewDimension,
     },
-    renderer::{RenderAdapter, RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice},
     texture::TextureCache,
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bitflags::bitflags;
-
-use crate::core_3d::{
-    graph::{Core3d, Node3d},
-    prepare_core_3d_depth_textures,
-};
+use tracing::debug;
 
 /// Identifies the `downsample_depth.wgsl` shader.
 pub const DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
@@ -102,7 +103,7 @@ impl Plugin for MipGenerationPlugin {
             )
             .add_systems(
                 Render,
-                create_downsample_depth_pipelines.in_set(RenderSet::Prepare),
+                create_downsample_depth_pipelines.in_set(RenderSystems::Prepare),
             )
             .add_systems(
                 Render,
@@ -111,7 +112,7 @@ impl Plugin for MipGenerationPlugin {
                     prepare_downsample_depth_view_bind_groups,
                 )
                     .chain()
-                    .in_set(RenderSet::PrepareResources)
+                    .in_set(RenderSystems::PrepareResources)
                     .run_if(resource_exists::<DownsampleDepthPipelines>)
                     .after(prepare_core_3d_depth_textures),
             );
@@ -325,26 +326,14 @@ pub struct DownsampleDepthPipelines {
     sampler: Sampler,
 }
 
-fn supports_compute_shaders(device: &RenderDevice, adapter: &RenderAdapter) -> bool {
-    adapter
-        .get_downlevel_capabilities()
-        .flags
-        .contains(DownlevelFlags::COMPUTE_SHADERS)
-    // Even if the adapter supports compute, we might be simulating a lack of
-    // compute via device limits (see `WgpuSettingsPriority::WebGL2` and
-    // `wgpu::Limits::downlevel_webgl2_defaults()`). This will have set all the
-    // `max_compute_*` limits to zero, so we arbitrarily pick one as a canary.
-    && (device.limits().max_compute_workgroup_storage_size != 0)
-}
-
 /// Creates the [`DownsampleDepthPipelines`] if downsampling is supported on the
 /// current platform.
 fn create_downsample_depth_pipelines(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     mut specialized_compute_pipelines: ResMut<SpecializedComputePipelines<DownsampleDepthPipeline>>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut has_run: Local<bool>,
 ) {
     // Only run once.
@@ -356,9 +345,8 @@ fn create_downsample_depth_pipelines(
     }
     *has_run = true;
 
-    // If we don't have compute shaders, we can't invoke the downsample depth
-    // compute shader.
-    if !supports_compute_shaders(&render_device, &render_adapter) {
+    if !gpu_preprocessing_support.is_culling_supported() {
+        debug!("Downsample depth is not supported on this platform.");
         return;
     }
 

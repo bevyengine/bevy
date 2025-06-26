@@ -1,13 +1,15 @@
 //! Representation of assets present in a glTF file
 
+use core::ops::Deref;
+
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_mesh::{skinning::SkinnedMeshInverseBindposes, Mesh};
 use bevy_pbr::StandardMaterial;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
-use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, Mesh};
 use bevy_scene::Scene;
 
 use crate::GltfAssetLabel;
@@ -214,7 +216,7 @@ impl GltfPrimitive {
     }
 }
 
-/// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_render::mesh::skinning::SkinnedMeshInverseBindposes)
+/// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_mesh::skinning::SkinnedMeshInverseBindposes)
 /// and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin).
@@ -297,6 +299,21 @@ pub struct GltfMeshExtras {
     pub value: String,
 }
 
+/// The mesh name of a glTF primitive.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component, Clone)]
+pub struct GltfMeshName(pub String);
+
+impl Deref for GltfMeshName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
 /// Additional untyped data that can be present on most glTF types at the material level.
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
@@ -313,3 +330,11 @@ pub struct GltfMaterialExtras {
 #[derive(Clone, Debug, Reflect, Default, Component)]
 #[reflect(Component, Clone)]
 pub struct GltfMaterialName(pub String);
+
+impl Deref for GltfMaterialName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}

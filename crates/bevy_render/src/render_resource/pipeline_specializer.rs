@@ -6,7 +6,7 @@ use crate::{
     },
 };
 use bevy_ecs::resource::Resource;
-use bevy_platform_support::{
+use bevy_platform::{
     collections::{
         hash_map::{Entry, RawEntryMut, VacantEntry},
         HashMap,

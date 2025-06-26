@@ -12,7 +12,7 @@ use core::{
     },
 };
 
-use bevy_platform_support::collections::hash_set::{self, HashSet};
+use bevy_platform::collections::hash_set::{self, HashSet};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 

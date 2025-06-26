@@ -11,8 +11,8 @@ mod update;
 mod writer;
 
 pub(crate) use base::EventInstance;
-pub use base::{Event, EventId};
-pub use bevy_ecs_macros::Event;
+pub use base::{BufferedEvent, EntityEvent, Event, EventId};
+pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
 pub use collections::{Events, SendBatchIds};
 pub use event_cursor::EventCursor;
 #[cfg(feature = "multi_threaded")]
@@ -24,8 +24,13 @@ pub use mut_iterators::{EventMutIterator, EventMutIteratorWithId};
 pub use mutator::EventMutator;
 pub use reader::EventReader;
 pub use registry::{EventRegistry, ShouldUpdateEvents};
+#[expect(
+    deprecated,
+    reason = "`EventUpdates` was renamed to `EventUpdateSystems`."
+)]
 pub use update::{
-    event_update_condition, event_update_system, signal_event_update_system, EventUpdates,
+    event_update_condition, event_update_system, signal_event_update_system, EventUpdateSystems,
+    EventUpdates,
 };
 pub use writer::EventWriter;
 
@@ -33,17 +38,20 @@ pub use writer::EventWriter;
 mod tests {
     use alloc::{vec, vec::Vec};
     use bevy_ecs::{event::*, system::assert_is_read_only_system};
-    use bevy_ecs_macros::Event;
+    use bevy_ecs_macros::BufferedEvent;
 
-    #[derive(Event, Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Event, BufferedEvent, Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
     }
 
-    #[derive(Event, Clone, PartialEq, Debug, Default)]
+    #[derive(Event, BufferedEvent, Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
-    fn get_events<E: Event + Clone>(events: &Events<E>, cursor: &mut EventCursor<E>) -> Vec<E> {
+    fn get_events<E: BufferedEvent + Clone>(
+        events: &Events<E>,
+        cursor: &mut EventCursor<E>,
+    ) -> Vec<E> {
         cursor.read(events).cloned().collect::<Vec<E>>()
     }
 

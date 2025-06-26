@@ -5,7 +5,7 @@ use core::{
 };
 use smallvec::SmallVec;
 
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_utils::TypeIdMap;
 
 use fixedbitset::FixedBitSet;

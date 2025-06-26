@@ -6,7 +6,8 @@ struct VertexOutput {
 }
 
 struct CustomMaterial {
-    time: f32,
+    // Needed for 16-bit alignment on WebGL2
+    time: vec4<f32>,
 }
 
 @group(2) @binding(0) var<uniform> material: CustomMaterial;
@@ -15,5 +16,5 @@ struct CustomMaterial {
 fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    return make_polka_dots(mesh.uv, material.time);
+    return make_polka_dots(mesh.uv, material.time.x);
 }

@@ -157,7 +157,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
         let component_id = self
             .world
             .components()
-            .resource_id::<R>()
+            .valid_resource_id::<R>()
             .ok_or(ResourceFetchError::NotRegistered)?;
         if !self.access.has_resource_read(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
@@ -474,7 +474,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         let component_id = self
             .world
             .components()
-            .resource_id::<R>()
+            .valid_resource_id::<R>()
             .ok_or(ResourceFetchError::NotRegistered)?;
         // SAFETY: THe caller ensures that there are no conflicting borrows.
         unsafe { self.get_mut_by_id_unchecked(component_id) }

@@ -1,13 +1,12 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
-    error::{DefaultSystemErrorHandler, SystemErrorContext},
     event::EventRegistry,
     prelude::*,
     schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{ScheduleSystem, SystemId, SystemInput},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use core::fmt::Debug;
 
 #[cfg(feature = "trace")]
@@ -336,26 +335,10 @@ impl SubApp {
         self
     }
 
-    /// Set the global error handler to use for systems that return a [`Result`].
-    ///
-    /// See the [`bevy_ecs::error` module-level documentation](bevy_ecs::error)
-    /// for more information.
-    pub fn set_system_error_handler(
-        &mut self,
-        error_handler: fn(BevyError, SystemErrorContext),
-    ) -> &mut Self {
-        let mut default_handler = self
-            .world_mut()
-            .get_resource_or_init::<DefaultSystemErrorHandler>();
-
-        default_handler.0 = error_handler;
-        self
-    }
-
     /// See [`App::add_event`].
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Event,
+        T: BufferedEvent,
     {
         if !self.world.contains_resource::<Events<T>>() {
             EventRegistry::register_event::<T>(self.world_mut());

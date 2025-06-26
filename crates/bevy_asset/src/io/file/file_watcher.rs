@@ -35,7 +35,7 @@ impl FileWatcher {
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = normalize_path(&path).canonicalize().unwrap();
+        let root = normalize_path(&path).canonicalize()?;
         let watcher = new_asset_event_debouncer(
             path.clone(),
             debounce_wait_time,
@@ -262,7 +262,7 @@ impl FilesystemEventHandler for FileEventHandler {
         self.last_event = None;
     }
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
-        let absolute_path = absolute_path.canonicalize().unwrap();
+        let absolute_path = absolute_path.canonicalize().ok()?;
         Some(get_asset_path(&self.root, &absolute_path))
     }
 
