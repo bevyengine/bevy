@@ -77,7 +77,7 @@ impl ViewNode for MainTransparentPass2dNode {
                 let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_2d");
 
                 if let Some(viewport) = camera.viewport.as_ref() {
-                    render_pass.set_camera_viewport(viewport, None);
+                    render_pass.set_camera_viewport(viewport);
                 }
 
                 if !transparent_phase.items.is_empty() {

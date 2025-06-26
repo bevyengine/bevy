@@ -110,6 +110,14 @@ impl Viewport {
             }
         }
     }
+
+    pub fn with_override(&self, main_pass_resolution_override: Option<&MainPassResolutionOverride>) -> Self {
+        let mut viewport = self.clone();
+        if let Some(override_size) = main_pass_resolution_override {
+            viewport.physical_size = **override_size;
+        }
+        viewport
+    }
 }
 
 /// Settings to define a camera sub view.
@@ -1352,6 +1360,6 @@ pub struct MipBias(pub f32);
 /// * Insert this component on a 3d camera entity in the render world.
 /// * The resolution override must be smaller than the camera's viewport size.
 /// * The resolution override is specified in physical pixels.
-#[derive(Component, Reflect)]
+#[derive(Component, Reflect, Deref)]
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);

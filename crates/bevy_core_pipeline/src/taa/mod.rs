@@ -229,7 +229,7 @@ impl ViewNode for TemporalAntiAliasNode {
             taa_pass.set_render_pipeline(taa_pipeline);
             taa_pass.set_bind_group(0, &taa_bind_group, &[]);
             if let Some(viewport) = camera.viewport.as_ref() {
-                taa_pass.set_camera_viewport(viewport, None);
+                taa_pass.set_camera_viewport(viewport);
             }
             taa_pass.draw(0..3, 0..1);
         }

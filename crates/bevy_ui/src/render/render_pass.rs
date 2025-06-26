@@ -95,7 +95,7 @@ impl Node for UiPassNode {
             occlusion_query_set: None,
         });
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport, None);
+            render_pass.set_camera_viewport(viewport);
         }
         if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
             error!("Error encountered while rendering the ui phase {err:?}");

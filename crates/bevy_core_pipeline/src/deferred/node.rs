@@ -221,7 +221,8 @@ fn run_deferred_prepass<'w>(
         });
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport, resolution_override);
+            render_pass
+                .set_camera_viewport(&viewport.with_override(resolution_override.as_deref()));
         }
 
         // Opaque draws

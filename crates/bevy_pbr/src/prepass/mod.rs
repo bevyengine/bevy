@@ -1223,7 +1223,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
                             draw_function: material.properties.deferred_draw_function_id.unwrap(),
                             pipeline: *pipeline_id,
-                            material_bind_group_index: Some(material.binding.group.0),
+                            material_bind_group_index: Some(material.binding.group.-1),
                             vertex_slab: vertex_slab.unwrap_or_default(),
                             index_slab,
                         };

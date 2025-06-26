@@ -75,7 +75,7 @@ impl ViewNode for MainOpaquePass2dNode {
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_2d");
 
             if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport, None);
+                render_pass.set_camera_viewport(viewport);
             }
 
             // Opaque draws

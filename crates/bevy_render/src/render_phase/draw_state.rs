@@ -590,17 +590,12 @@ impl<'a> TrackedRenderPass<'a> {
     pub fn set_camera_viewport(
         &mut self,
         viewport: &Viewport,
-        resolution_override: Option<&MainPassResolutionOverride>,
     ) {
         self.set_viewport(
             viewport.physical_position.x as f32,
             viewport.physical_position.y as f32,
-            resolution_override
-                .map(|resolution_override| resolution_override.0.x)
-                .unwrap_or(viewport.physical_size.x) as f32,
-            resolution_override
-                .map(|resolution_override| resolution_override.0.y)
-                .unwrap_or(viewport.physical_size.y) as f32,
+            viewport.physical_size.x as f32,
+            viewport.physical_size.y as f32,
             viewport.depth.start,
             viewport.depth.end,
         );

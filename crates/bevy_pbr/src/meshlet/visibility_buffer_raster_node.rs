@@ -494,7 +494,7 @@ fn raster_pass(
         occlusion_query_set: None,
     });
     if let Some(viewport) = camera.and_then(|camera| camera.viewport.as_ref()) {
-        hardware_pass.set_camera_viewport(viewport, None);
+        hardware_pass.set_camera_viewport(viewport);
     }
     hardware_pass.set_render_pipeline(visibility_buffer_hardware_raster_pipeline);
     hardware_pass.set_push_constants(
@@ -525,7 +525,7 @@ fn resolve_depth(
         occlusion_query_set: None,
     });
     if let Some(viewport) = &camera.viewport {
-        resolve_pass.set_camera_viewport(viewport, None);
+        resolve_pass.set_camera_viewport(viewport);
     }
     resolve_pass.set_render_pipeline(resolve_depth_pipeline);
     resolve_pass.set_bind_group(0, &meshlet_view_bind_groups.resolve_depth, &[]);
@@ -558,7 +558,7 @@ fn resolve_material_depth(
             occlusion_query_set: None,
         });
         if let Some(viewport) = &camera.viewport {
-            resolve_pass.set_camera_viewport(viewport, None);
+            resolve_pass.set_camera_viewport(viewport);
         }
         resolve_pass.set_render_pipeline(resolve_material_depth_pipeline);
         resolve_pass.set_bind_group(0, resolve_material_depth_bind_group, &[]);

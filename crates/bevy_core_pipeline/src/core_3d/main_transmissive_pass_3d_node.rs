@@ -99,7 +99,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                         render_context.begin_tracked_render_pass(render_pass_descriptor.clone());
 
                     if let Some(viewport) = camera.viewport.as_ref() {
-                        render_pass.set_camera_viewport(viewport, resolution_override);
+                        render_pass.set_camera_viewport(viewport);
                     }
 
                     // render items in range
@@ -114,7 +114,9 @@ impl ViewNode for MainTransmissivePass3dNode {
                     render_context.begin_tracked_render_pass(render_pass_descriptor);
 
                 if let Some(viewport) = camera.viewport.as_ref() {
-                    render_pass.set_camera_viewport(viewport, resolution_override);
+                    render_pass.set_camera_viewport(
+                        &viewport.with_override(resolution_override.as_deref()),
+                    );
                 }
 
                 if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {

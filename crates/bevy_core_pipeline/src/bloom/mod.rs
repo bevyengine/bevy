@@ -266,7 +266,7 @@ impl ViewNode for BloomNode {
                 &[uniform_index.index()],
             );
             if let Some(viewport) = camera.viewport.as_ref() {
-                upsampling_final_pass.set_camera_viewport(viewport, None);
+                upsampling_final_pass.set_camera_viewport(viewport);
             }
             let blend =
                 compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);

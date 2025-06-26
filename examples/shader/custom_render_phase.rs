@@ -619,7 +619,8 @@ impl ViewNode for CustomDrawNode {
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport, resolution_override);
+            render_pass
+                .set_camera_viewport(&viewport.with_override(resolution_override.as_deref()));
         }
 
         // Render the phase
