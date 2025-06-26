@@ -1101,10 +1101,7 @@ mod tests {
         let curve = FunctionCurve::new(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);
         let mapped_curve = curve.map(|x| x / 7.0);
         assert_eq!(mapped_curve.sample_unchecked(3.5), (3.5 * 3.0 + 1.0) / 7.0);
-        assert_eq!(
-            mapped_curve.sample_unchecked(-1.0),
-            (-1.0 * 3.0 + 1.0) / 7.0
-        );
+        assert_eq!(mapped_curve.sample_unchecked(-1.0), -3.0);
         assert_eq!(mapped_curve.domain(), Interval::EVERYWHERE);
 
         let curve = FunctionCurve::new(Interval::UNIT, |t| t * TAU);

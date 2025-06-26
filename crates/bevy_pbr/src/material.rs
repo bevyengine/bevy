@@ -1436,6 +1436,7 @@ where
             asset_server,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
+        _: Option<Self>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
         let material_layout = M::bind_group_layout(render_device);
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial>();

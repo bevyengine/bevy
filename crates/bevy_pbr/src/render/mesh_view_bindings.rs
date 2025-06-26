@@ -93,24 +93,36 @@ impl MeshPipelineViewLayoutKey {
 
         format!(
             "mesh_view_layout{}{}{}{}{}{}",
-            self.contains(Key::MULTISAMPLED)
-                .then_some("_multisampled")
-                .unwrap_or_default(),
-            self.contains(Key::DEPTH_PREPASS)
-                .then_some("_depth")
-                .unwrap_or_default(),
-            self.contains(Key::NORMAL_PREPASS)
-                .then_some("_normal")
-                .unwrap_or_default(),
-            self.contains(Key::MOTION_VECTOR_PREPASS)
-                .then_some("_motion")
-                .unwrap_or_default(),
-            self.contains(Key::DEFERRED_PREPASS)
-                .then_some("_deferred")
-                .unwrap_or_default(),
-            self.contains(Key::OIT_ENABLED)
-                .then_some("_oit")
-                .unwrap_or_default(),
+            if self.contains(Key::MULTISAMPLED) {
+                "_multisampled"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::DEPTH_PREPASS) {
+                "_depth"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::NORMAL_PREPASS) {
+                "_normal"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::MOTION_VECTOR_PREPASS) {
+                "_motion"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::DEFERRED_PREPASS) {
+                "_deferred"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::OIT_ENABLED) {
+                "_oit"
+            } else {
+                Default::default()
+            },
         )
     }
 }

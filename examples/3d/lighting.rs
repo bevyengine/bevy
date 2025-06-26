@@ -306,7 +306,7 @@ fn toggle_ambient_light(
             0. => "off",
             _ => "on",
         };
-        *writer.text(entity, 1) = format!("Ambient light is {}\n", ambient_light_state_text);
+        *writer.text(entity, 1) = format!("Ambient light is {ambient_light_state_text}\n");
     }
 }
 
