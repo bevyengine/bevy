@@ -116,7 +116,7 @@ fn scroll_area_demo() -> impl Bundle {
                 CoreScrollbar {
                     orientation: ControlOrientation::Vertical,
                     target: scroll_area_id,
-                    min_thumb_size: 8.0,
+                    min_thumb_length: 8.0,
                 },
                 Children::spawn(Spawn((
                     Node {
@@ -141,7 +141,7 @@ fn scroll_area_demo() -> impl Bundle {
                 CoreScrollbar {
                     orientation: ControlOrientation::Horizontal,
                     target: scroll_area_id,
-                    min_thumb_size: 8.0,
+                    min_thumb_length: 8.0,
                 },
                 Children::spawn(Spawn((
                     Node {
