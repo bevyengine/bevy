@@ -1,7 +1,10 @@
 //! Demonstrations of scrolling and scrollbars.
 
 use bevy::{
-    core_widgets::{ControlOrientation, CoreScrollbar, CoreScrollbarPlugin, CoreScrollbarThumb},
+    core_widgets::{
+        ControlOrientation, CoreScrollbar, CoreScrollbarDragState, CoreScrollbarPlugin,
+        CoreScrollbarThumb,
+    },
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
     input_focus::{
         tab_navigation::{TabGroup, TabNavigationPlugin},
@@ -172,12 +175,15 @@ fn text_row(caption: &str) -> impl Bundle {
 // Update the color of the scrollbar thumb.
 fn update_scrollbar_thumb(
     mut q_thumb: Query<
-        (&mut BackgroundColor, &Hovered),
-        (With<CoreScrollbarThumb>, Changed<Hovered>),
+        (&mut BackgroundColor, &Hovered, &CoreScrollbarDragState),
+        (
+            With<CoreScrollbarThumb>,
+            Or<(Changed<Hovered>, Changed<CoreScrollbarDragState>)>,
+        ),
     >,
 ) {
-    for (mut thumb_bg, Hovered(is_hovering)) in q_thumb.iter_mut() {
-        let color: Color = if *is_hovering {
+    for (mut thumb_bg, Hovered(is_hovering), drag) in q_thumb.iter_mut() {
+        let color: Color = if *is_hovering || drag.dragging {
             // If hovering, use a lighter color
             colors::GRAY3
         } else {
