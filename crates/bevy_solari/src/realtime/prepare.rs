@@ -6,12 +6,13 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, Res},
 };
+use bevy_image::ToExtents;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
-        Buffer, BufferDescriptor, BufferUsages, Extent3d, Texture, TextureDescriptor,
-        TextureDimension, TextureUsages, TextureView, TextureViewDescriptor,
+        Buffer, BufferDescriptor, BufferUsages, Texture, TextureDescriptor, TextureDimension,
+        TextureUsages, TextureView, TextureViewDescriptor,
     },
     renderer::RenderDevice,
 };
@@ -64,11 +65,7 @@ pub fn prepare_solari_lighting_resources(
 
         let previous_gbuffer = render_device.create_texture(&TextureDescriptor {
             label: Some("solari_lighting_previous_gbuffer"),
-            size: Extent3d {
-                width: view_size.x,
-                height: view_size.y,
-                depth_or_array_layers: 1,
-            },
+            size: view_size.to_exents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
@@ -80,11 +77,7 @@ pub fn prepare_solari_lighting_resources(
 
         let previous_depth = render_device.create_texture(&TextureDescriptor {
             label: Some("solari_lighting_previous_depth"),
-            size: Extent3d {
-                width: view_size.x,
-                height: view_size.y,
-                depth_or_array_layers: 1,
-            },
+            size: view_size.to_exents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
