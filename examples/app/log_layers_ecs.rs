@@ -63,6 +63,7 @@ fn transfer_log_events(
 struct CaptureLayer {
     sender: mpsc::Sender<LogEvent>,
 }
+
 impl<S: Subscriber> Layer<S> for CaptureLayer {
     fn on_event(
         &self,

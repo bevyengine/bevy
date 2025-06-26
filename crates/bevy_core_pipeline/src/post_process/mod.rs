@@ -44,7 +44,7 @@ use bevy_utils::prelude::default;
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
-    fullscreen_vertex_shader,
+    FullscreenShader,
 };
 
 /// The handle to the default chromatic aberration lookup texture.
@@ -130,8 +130,10 @@ pub struct PostProcessingPipeline {
     source_sampler: Sampler,
     /// Specifies how to sample the chromatic aberration gradient.
     chromatic_aberration_lut_sampler: Sampler,
-    /// The shader asset handle.
-    shader: Handle<Shader>,
+    /// The asset handle for the fullscreen vertex shader.
+    fullscreen_shader: FullscreenShader,
+    /// The fragment shader asset handle.
+    fragment_shader: Handle<Shader>,
 }
 
 /// A key that uniquely identifies a built-in postprocessing pipeline.
@@ -308,7 +310,8 @@ impl FromWorld for PostProcessingPipeline {
             bind_group_layout,
             source_sampler,
             chromatic_aberration_lut_sampler,
-            shader: load_embedded_asset!(world, "post_process.wgsl"),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(world, "post_process.wgsl"),
         }
     }
 }
@@ -320,9 +323,9 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
         RenderPipelineDescriptor {
             label: Some("postprocessing".into()),
             layout: vec![self.bind_group_layout.clone()],
-            vertex: fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs: vec![],
                 entry_point: "fragment_main".into(),
                 targets: vec![Some(ColorTargetState {
@@ -352,7 +355,7 @@ impl ViewNode for PostProcessingNode {
         &self,
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
+        (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -485,7 +488,7 @@ impl ExtractComponent for ChromaticAberration {
     type Out = ChromaticAberration;
 
     fn extract_component(
-        chromatic_aberration: QueryItem<'_, Self::QueryData>,
+        chromatic_aberration: QueryItem<'_, '_, Self::QueryData>,
     ) -> Option<Self::Out> {
         // Skip the postprocessing phase entirely if the intensity is zero.
         if chromatic_aberration.intensity > 0.0 {

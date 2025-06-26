@@ -86,7 +86,7 @@ impl<E> Traversal<Pointer<E>> for PointerTraversal
 where
     E: Debug + Clone + Reflect,
 {
-    fn traverse(item: Self::Item<'_>, pointer: &Pointer<E>) -> Option<Entity> {
+    fn traverse(item: Self::Item<'_, '_>, pointer: &Pointer<E>) -> Option<Entity> {
         let PointerTraversalItem { child_of, window } = item;
 
         // Send event to parent, if it has one.

@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::vec::Vec;
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 
 use crate::{
@@ -72,6 +73,7 @@ where
         InfallibleObserverWrapper::new(IntoSystem::into_system(this))
     }
 }
+
 impl<E, B, M, S> IntoObserverSystem<E, B, (Never, M), Result> for S
 where
     S: IntoSystem<On<'static, E, B>, Never, M> + Send + 'static,
@@ -112,7 +114,7 @@ where
     type Out = Result;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.observer.name()
     }
 
