@@ -8,10 +8,10 @@ uniforms with dynamic offsets which are used pervasively in the renderer. Dynami
 of any kind are no longer allowed to be used in the same bind group as binding arrays. As such, the
 following changes to the default bind group numbering have been made in 3d:
 
-- `@group(0)` view uniforms
-- `@group(1)` view uniforms requiring binding arrays
-- `@group(2)` mesh uniforms
-- `@group(3)` material uniforms
+- `@group(0)` view binding resources
+- `@group(1)` view resources requiring binding arrays
+- `@group(2)` mesh binding resources
+- `@group(3)` material binding resources
 
 Most users who are not using mid-level render APIs will simply need to switch their material bind groups
 from `@group(2)` to `@group(3)`.
