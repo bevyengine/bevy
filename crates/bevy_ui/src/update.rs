@@ -3,16 +3,17 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
-    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
-    UiTargetCamera,
+    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, OverrideClip,
+    UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
+    component::Component,
     entity::Entity,
     hierarchy::ChildOf,
-    query::{Changed, With},
+    query::{Changed, Has, With},
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -28,6 +29,7 @@ pub fn update_clipping_system(
         &ComputedNode,
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
+        Has<OverrideClip>,
     )>,
     ui_children: UiChildren,
 ) {
@@ -50,11 +52,13 @@ fn update_clipping(
         &ComputedNode,
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
+        Has<OverrideClip>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
-    let Ok((node, computed_node, transform, maybe_calculated_clip)) = node_query.get_mut(entity)
+    let Ok((node, computed_node, transform, maybe_calculated_clip, has_override_clip)) =
+        node_query.get_mut(entity)
     else {
         return;
     };
@@ -62,6 +66,11 @@ fn update_clipping(
     // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
     if node.display == Display::None {
         maybe_inherited_clip = Some(Rect::default());
+    }
+
+    // If the UI node entity has an `OverrideClip` component, discard any inherited clip rect
+    if has_override_clip {
+        maybe_inherited_clip = None;
     }
 
     // Update this node's CalculatedClip component
