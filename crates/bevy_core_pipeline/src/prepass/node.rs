@@ -79,7 +79,7 @@ impl ViewNode for LatePrepassNode {
     ) -> Result<(), NodeRunError> {
         // We only need a late prepass if we have occlusion culling and indirect
         // drawing.
-        let (_, _, _, _, _, _, _, _, _, _, occlusion_culling, no_indirect_drawing, _) = query;
+        let (.., occlusion_culling, no_indirect_drawing, _) = query;
         if !occlusion_culling || no_indirect_drawing {
             return Ok(());
         }
