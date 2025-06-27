@@ -2,9 +2,9 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
+    FullscreenShader,
 };
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
@@ -15,7 +15,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_image::BevyDefault as _;
+use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -25,8 +25,8 @@ use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
-        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
+        ColorTargetState, ColorWrites, FilterMode, FragmentState, MultisampleState, Operations,
+        PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
@@ -238,7 +238,8 @@ struct TaaPipeline {
     taa_bind_group_layout: BindGroupLayout,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
-    shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 impl FromWorld for TaaPipeline {
@@ -283,7 +284,8 @@ impl FromWorld for TaaPipeline {
             taa_bind_group_layout,
             nearest_sampler,
             linear_sampler,
-            shader: load_embedded_asset!(world, "taa.wgsl"),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(world, "taa.wgsl"),
         }
     }
 }
@@ -314,9 +316,9 @@ impl SpecializedRenderPipeline for TaaPipeline {
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
             layout: vec![self.taa_bind_group_layout.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
                 entry_point: "taa".into(),
                 targets: vec![
@@ -418,11 +420,7 @@ fn prepare_taa_history_textures(
         if let Some(physical_target_size) = camera.physical_target_size {
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
-                size: Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                },
+                size: physical_target_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,

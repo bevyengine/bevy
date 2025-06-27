@@ -1,4 +1,3 @@
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
@@ -27,6 +26,8 @@ mod node;
 
 use bevy_utils::default;
 pub use node::TonemappingNode;
+
+use crate::FullscreenShader;
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
@@ -112,7 +113,8 @@ impl Plugin for TonemappingPlugin {
 pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
-    shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
@@ -273,9 +275,9 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
             layout: vec![self.texture_bind_group.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -319,7 +321,8 @@ impl FromWorld for TonemappingPipeline {
         TonemappingPipeline {
             texture_bind_group: tonemap_texture_bind_group,
             sampler,
-            shader: load_embedded_asset!(render_world, "tonemapping.wgsl"),
+            fullscreen_shader: render_world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(render_world, "tonemapping.wgsl"),
         }
     }
 }
@@ -445,11 +448,7 @@ pub fn lut_placeholder() -> Image {
     Image {
         data: Some(data),
         texture_descriptor: TextureDescriptor {
-            size: Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            size: Extent3d::default(),
             format,
             dimension: TextureDimension::D3,
             label: None,
@@ -461,5 +460,6 @@ pub fn lut_placeholder() -> Image {
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD,
+        copy_on_resize: false,
     }
 }

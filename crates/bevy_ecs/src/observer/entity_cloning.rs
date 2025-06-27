@@ -2,14 +2,16 @@
 
 use crate::{
     component::ComponentCloneBehavior,
-    entity::{ComponentCloneCtx, EntityClonerBuilder, EntityMapper, SourceComponent},
+    entity::{
+        CloneByFilter, ComponentCloneCtx, EntityClonerBuilder, EntityMapper, SourceComponent,
+    },
     observer::ObservedBy,
     world::World,
 };
 
 use super::Observer;
 
-impl EntityClonerBuilder<'_> {
+impl<Filter: CloneByFilter> EntityClonerBuilder<'_, Filter> {
     /// Sets the option to automatically add cloned entities to the observers targeting source entity.
     pub fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {
@@ -98,7 +100,7 @@ mod tests {
         world.trigger_targets(E, e);
 
         let e_clone = world.spawn_empty().id();
-        EntityCloner::build(&mut world)
+        EntityCloner::build_opt_out(&mut world)
             .add_observers(true)
             .clone_entity(e, e_clone);
 

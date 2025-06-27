@@ -1931,7 +1931,7 @@ pub enum AssetLoadError {
             base_path,
             label,
             all_labels.len(),
-            all_labels.iter().map(|l| format!("'{}'", l)).collect::<Vec<_>>().join(", "))]
+            all_labels.iter().map(|l| format!("'{l}'")).collect::<Vec<_>>().join(", "))]
     MissingLabel {
         base_path: AssetPath<'static>,
         label: String,

@@ -587,8 +587,7 @@ fn update_status_text(
 
         let _ = write!(
             &mut text.0,
-            "{}/{} meshes rendered",
-            rendered_object_count, total_mesh_count
+            "{rendered_object_count}/{total_mesh_count} meshes rendered"
         );
     }
 }
