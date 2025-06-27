@@ -126,9 +126,9 @@ use tracing::error;
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(2) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(2) @binding(2) var color_sampler: sampler;
+/// @group(3) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(3) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(3) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -487,7 +487,7 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
 
         descriptor
             .layout
-            .insert(2, self.properties.material_layout.as_ref().unwrap().clone());
+            .insert(3, self.properties.material_layout.as_ref().unwrap().clone());
 
         if let Some(specialize) = self.properties.specialize {
             specialize(&self.pipeline, &mut descriptor, layout, key)?;

@@ -204,7 +204,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #bind_group_layout_entries.push(
                                 #render_path::render_resource::BindGroupLayoutEntry {
                                     binding: #binding_array_binding,
-                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                                     ty: #render_path::render_resource::BindingType::Buffer {
                                         ty: #uniform_binding_type,
                                         has_dynamic_offset: false,
@@ -253,7 +253,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #bind_group_layout_entries.push(
                                 #render_path::render_resource::BindGroupLayoutEntry {
                                     binding: #binding_array_binding,
-                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                                     ty: #render_path::render_resource::BindingType::Buffer {
                                         ty: #uniform_binding_type,
                                         has_dynamic_offset: false,
@@ -279,7 +279,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     #bind_group_layout_entries.push(
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::ShaderStages::all(),
+                            visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                             ty: #render_path::render_resource::BindingType::Buffer {
                                 ty: #uniform_binding_type,
                                 has_dynamic_offset: false,
@@ -519,7 +519,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #bind_group_layout_entries.push(
                                 #render_path::render_resource::BindGroupLayoutEntry {
                                     binding: #binding_array_binding,
-                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                                     ty: #render_path::render_resource::BindingType::Buffer {
                                         ty: #render_path::render_resource::BufferBindingType::Storage {
                                             read_only: #read_only
@@ -834,7 +834,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     #bind_group_layout_entries.push(
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::ShaderStages::all(),
+                            visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                             ty: #render_path::render_resource::BindingType::Buffer {
                                 ty: #uniform_binding_type,
                                 has_dynamic_offset: false,
@@ -881,7 +881,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 non_bindless_binding_layouts.push(quote!{
                     #bind_group_layout_entries.push(#render_path::render_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
-                        visibility: #render_path::render_resource::ShaderStages::all(),
+                        visibility: #render_path::render_resource::ShaderStages::FRAGMENT | #render_path::render_resource::ShaderStages::VERTEX | #render_path::render_resource::ShaderStages::COMPUTE,
                         ty: #render_path::render_resource::BindingType::Buffer {
                             ty: #uniform_binding_type,
                             has_dynamic_offset: false,
@@ -1341,7 +1341,13 @@ impl VisibilityFlags {
 impl ShaderStageVisibility {
     fn hygienic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
         match self {
-            ShaderStageVisibility::All => quote! { #path::ShaderStages::all() },
+            ShaderStageVisibility::All => quote! {
+                if cfg!(feature = "webgpu") {
+                    todo!("Please use a more specific shader stage: https://github.com/gfx-rs/wgpu/issues/7708")
+                } else {
+                    #path::ShaderStages::all()
+                }
+            },
             ShaderStageVisibility::None => quote! { #path::ShaderStages::NONE },
             ShaderStageVisibility::Flags(flags) => {
                 let mut quoted = Vec::new();

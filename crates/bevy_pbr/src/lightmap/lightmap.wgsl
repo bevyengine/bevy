@@ -3,11 +3,11 @@
 #import bevy_pbr::mesh_bindings::mesh
 
 #ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
-@group(1) @binding(4) var lightmaps_textures: binding_array<texture_2d<f32>, 4>;
-@group(1) @binding(5) var lightmaps_samplers: binding_array<sampler, 4>;
+@group(2) @binding(4) var lightmaps_textures: binding_array<texture_2d<f32>, 4>;
+@group(2) @binding(5) var lightmaps_samplers: binding_array<sampler, 4>;
 #else   // MULTIPLE_LIGHTMAPS_IN_ARRAY
-@group(1) @binding(4) var lightmaps_texture: texture_2d<f32>;
-@group(1) @binding(5) var lightmaps_sampler: sampler;
+@group(2) @binding(4) var lightmaps_texture: texture_2d<f32>;
+@group(2) @binding(5) var lightmaps_sampler: sampler;
 #endif  // MULTIPLE_LIGHTMAPS_IN_ARRAY
 
 // Samples the lightmap, if any, and returns indirect illumination from it.

@@ -1,11 +1,12 @@
 use super::{Camera3d, ViewTransmissionTexture};
 use crate::core_3d::Transmissive3d;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_image::ToExtents;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
-    render_resource::{Extent3d, RenderPassDescriptor, StoreOp},
+    render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
@@ -85,11 +86,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                     render_context.command_encoder().copy_texture_to_texture(
                         target.main_texture().as_image_copy(),
                         transmission.texture.as_image_copy(),
-                        Extent3d {
-                            width: physical_target_size.x,
-                            height: physical_target_size.y,
-                            depth_or_array_layers: 1,
-                        },
+                        physical_target_size.to_extents(),
                     );
 
                     let mut render_pass =

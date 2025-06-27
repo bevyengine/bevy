@@ -43,6 +43,8 @@ ktx2 = ["bevy_image/ktx2", "bevy_render/ktx2"]
 # For ktx2 supercompression
 zlib = ["bevy_image/zlib"]
 zstd = ["bevy_image/zstd"]
+zstd_rust = ["bevy_image/zstd_rust"]
+zstd_c = ["bevy_image/zstd_c"]
 
 # Image format support (PNG enabled by default)
 bmp = ["bevy_image/bmp"]
