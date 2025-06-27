@@ -19,17 +19,10 @@ impl Prepare for TestCommand {
                     sh,
                     // `--benches` runs each benchmark once in order to verify that they behave
                     // correctly and do not panic.
-                    "cargo test --workspace --lib --bins --benches {no_fail_fast...} {jobs...} -- {test_threads...}"
+                    "cargo test --workspace --lib --bins --tests --benches {no_fail_fast...} {jobs...} -- {test_threads...}"
                 ),
                 "Please fix failing tests in output above.",
-            ),
-            PreparedCommand::new::<Self>(
-                cmd!(
-                    sh,
-                    "cargo test --tests {no_fail_fast...} -- --skip check_mesh --skip check_standard_material"
-                ),
-                "Please fix failing tests in output above.",
-            ),
+            )
         ]
     }
 }
