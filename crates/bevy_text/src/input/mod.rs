@@ -24,7 +24,7 @@ use cosmic_text::Edit;
 use cosmic_text::Editor;
 use cosmic_text::FontSystem;
 use cosmic_text::Metrics;
-use cosmic_text::Motion;
+pub use cosmic_text::Motion;
 use cosmic_text::Selection;
 use cosmic_text::SwashCache;
 use cosmic_text::Wrap;
@@ -118,6 +118,16 @@ pub enum TextInputAction {
     Redo,
     SelectAll,
     SelectLine,
+    Escape,
+}
+
+impl TextInputAction {
+    pub fn motion(motion: Motion, with_select: bool) -> Self {
+        Self::Motion {
+            motion,
+            with_select,
+        }
+    }
 }
 
 /// apply a motion action to the editor buffer
@@ -252,6 +262,9 @@ pub fn apply_text_input_actions(
                     let cursor = editor.cursor();
                     editor.set_selection(Selection::Normal(cursor));
                     editor.action(Action::Motion(Motion::End));
+                }
+                TextInputAction::Escape => {
+                    editor.set_selection(Selection::None);
                 }
             }
 

@@ -11,7 +11,9 @@ use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
 use bevy_ecs::world::DeferredWorld;
+use bevy_input::keyboard::Key;
 use bevy_input::keyboard::KeyboardInput;
+use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
 use bevy_input_focus::InputFocus;
 use bevy_math::IVec2;
@@ -22,6 +24,7 @@ use bevy_picking::events::Move;
 use bevy_picking::events::Pointer;
 use bevy_picking::events::Press;
 use bevy_picking::pointer::PointerButton;
+use bevy_text::Motion;
 use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
 use bevy_text::TextInputBuffer;
@@ -212,7 +215,10 @@ fn on_multi_click_set_selection(
 }
 
 fn on_move_clear_multi_click(move_: On<Pointer<Move>>, mut commands: Commands) {
-    if let Ok(mut entity) = commands.get_entity(move_.target()) {
+    if let Some(mut entity) = move_
+        .target()
+        .and_then(|entity| commands.get_entity(entity).ok())
+    {
         entity.try_remove::<TextInputMultiClickCounter>();
     }
 }
@@ -225,58 +231,61 @@ fn on_focused_keyboard_input(
         &mut TextInputModifiers,
     )>,
 ) {
-    if let Ok((input, mut queue, mut modifiers)) = query.get_mut(trigger.target()) {
+    if let Some((input, mut actions, mut modifiers)) = trigger
+        .target()
+        .and_then(|entity| query.get_mut(entity).ok())
+    {
         let keyboard_input = &trigger.event().input;
         match keyboard_input.logical_key {
             Key::Shift => {
-                modifiers.shift_pressed = keyboard_input.state == ButtonState::Pressed;
+                modifiers.shift = keyboard_input.state == ButtonState::Pressed;
                 return;
             }
             Key::Control => {
-                modifiers.command_pressed = keyboard_input.state == ButtonState::Pressed;
+                modifiers.command = keyboard_input.state == ButtonState::Pressed;
                 return;
             }
             #[cfg(target_os = "macos")]
             Key::Super => {
-                modifiers.command_pressed = keyboard_input.state == ButtonState::Pressed;
+                modifiers.command = keyboard_input.state == ButtonState::Pressed;
                 return;
             }
             _ => {}
         };
 
         if keyboard_input.state.is_pressed() {
-            if modifiers.command_pressed {
+            if modifiers.command {
                 match &keyboard_input.logical_key {
                     Key::Character(str) => {
                         if let Some(char) = str.chars().next() {
                             // convert to lowercase so that the commands work with capslock on
-                            match (char.to_ascii_lowercase(), *shift_pressed) {
+                            match (char.to_ascii_lowercase(), modifiers.shift) {
                                 ('c', false) => {
                                     // copy
-                                    queue(TextInputAction::Copy);
+                                    actions.queue(TextInputAction::Copy);
                                 }
                                 ('x', false) => {
                                     // cut
-                                    queue(TextInputAction::Cut);
+                                    actions.queue(TextInputAction::Cut);
                                 }
                                 ('v', false) => {
                                     // paste
-                                    queue(TextInputAction::Paste);
+                                    actions.queue(TextInputAction::Paste);
                                 }
                                 ('z', false) => {
-                                    queue(TextInputAction::Edit(TextInputEdit::Undo));
+                                    actions.queue(TextInputAction::Undo);
                                 }
                                 #[cfg(target_os = "macos")]
                                 ('z', true) => {
-                                    queue(TextInputAction::Edit(TextInputEdit::Redo));
+                                    actions.queue(TextInputAction::Redo);
                                 }
                                 #[cfg(not(target_os = "macos"))]
                                 ('y', false) => {
-                                    queue(TextInputAction::Edit(TextInputEdit::Redo));
+                                    actions.queue(TextInputAction::Redo);
                                 }
                                 ('a', false) => {
                                     // select all
-                                    queue(TextInputAction::Edit(TextInputEdit::SelectAll));
+                                    actions.queue(TextInputAction::SelectAll);
                                 }
                                 _ => {
                                     // not recognised, ignore
@@ -285,38 +294,37 @@ fn on_focused_keyboard_input(
                         }
                     }
                     Key::ArrowLeft => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::PreviousWord,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::Motion {
+                            motion: Motion::PreviousWord,
+                            with_select: modifiers.shift,
+                        });
                     }
                     Key::ArrowRight => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::NextWord,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::Motion {
+                            motion: Motion::NextWord,
+                            with_select: modifiers.shift,
+                        });
                     }
                     Key::ArrowUp => {
                         if matches!(input_mode, TextInputMode::MultiLine { .. }) {
-                            queue(TextInputAction::Edit(TextInputEdit::Scroll { lines: -1 }));
+                            actions
+                                .queue(TextInputAction::Edit(TextInputEdit::Scroll { lines: -1 }));
                         }
                     }
                     Key::ArrowDown => {
                         if matches!(input_mode, TextInputMode::MultiLine { .. }) {
-                            queue(TextInputAction::Edit(TextInputEdit::Scroll { lines: 1 }));
+                            actions
+                                .queue(TextInputAction::Edit(TextInputEdit::Scroll { lines: 1 }));
                         }
                     }
                     Key::Home => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
+                        actions.queue(TextInputAction::motion(
                             Motion::BufferStart,
-                            *shift_pressed,
-                        )));
+                            modifiers.shift,
+                        ));
                     }
                     Key::End => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::BufferEnd,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::motion(Motion::BufferEnd, modifiers.shift));
                     }
                     _ => {
                         // not recognised, ignore
@@ -331,94 +339,67 @@ fn on_focused_keyboard_input(
                             " ".chars()
                         };
                         for char in str {
-                            queue(TextInputAction::Edit(TextInputEdit::Insert(
-                                char,
-                                *overwrite_mode,
-                            )));
+                            actions.queue(TextInputAction::Insert(char));
                         }
                     }
-                    Key::Enter => match (*shift_pressed, input_mode) {
+                    Key::Enter => match (modifiers.shift, input_mode) {
                         (false, TextInputMode::MultiLine { .. }) => {
-                            queue(TextInputAction::Edit(TextInputEdit::Enter));
+                            actions.queue(TextInputAction::Edit(TextInputEdit::Enter));
                         }
                         _ => {
-                            queue(TextInputAction::Submit);
+                            actions.queue(TextInputAction::Submit);
                         }
                     },
                     Key::Backspace => {
-                        queue(TextInputAction::Edit(TextInputEdit::Backspace));
+                        actions.queue(TextInputAction::Backspace);
                     }
                     Key::Delete => {
-                        if *shift_pressed {
-                            queue(TextInputAction::Cut);
+                        if modifiers.shift {
+                            actions.queue(TextInputAction::Cut);
                         } else {
-                            queue(TextInputAction::Edit(TextInputEdit::Delete));
+                            actions.queue(TextInputAction::Delete);
                         }
                     }
                     Key::PageUp => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::PageUp,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::motion(Motion::PageUp, modifiers.shift));
                     }
                     Key::PageDown => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::PageDown,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::motion(Motion::PageDown, modifiers.shift));
                     }
                     Key::ArrowLeft => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::Left,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::motion(Motion::Left, modifiers.shift));
                     }
                     Key::ArrowRight => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::Right,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::motion(Motion::Right, modifiers.shift));
                     }
                     Key::ArrowUp => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::Up,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::motion(Motion::Up, modifiers.shift));
                     }
                     Key::ArrowDown => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::Down,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::motion(Motion::Down, modifiers.shift));
                     }
                     Key::Home => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::Home,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::motion(Motion::Home, modifiers.shift));
                     }
                     Key::End => {
-                        queue(TextInputAction::Edit(TextInputEdit::Motion(
-                            Motion::End,
-                            *shift_pressed,
-                        )));
+                        actions.queue(TextInputAction::motion(Motion::End, modifiers.shift));
                     }
                     Key::Escape => {
-                        queue(TextInputAction::Edit(TextInputEdit::Escape));
+                        actions.queue(TextInputAction::Escape);
                     }
                     Key::Tab => {
                         if matches!(input_mode, TextInputMode::MultiLine { .. }) {
-                            if *shift_pressed {
-                                queue(TextInputAction::Edit(TextInputEdit::Unindent));
+                            if modifiers.shift {
+                                actions.queue(TextInputAction::Unindent);
                             } else {
-                                queue(TextInputAction::Edit(TextInputEdit::Indent));
+                                actions.queue(TextInputAction::Indent);
                             }
                         }
                     }
                     Key::Insert => {
-                        if !*shift_pressed {
-                            *overwrite_mode = !*overwrite_mode;
-                        }
+                        // if !modifiers.shift {
+                        //     *overwrite_mode = !*overwrite_mode;
+                        // }
                     }
                     _ => {}
                 }
