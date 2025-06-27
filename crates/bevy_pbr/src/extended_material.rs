@@ -383,19 +383,17 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Call the base material's specialize function
-        let MaterialPipeline { mesh_pipeline } = pipeline.clone();
-        let base_pipeline = MaterialPipeline { mesh_pipeline };
         let base_key = MaterialPipelineKey::<B> {
             mesh_key: key.mesh_key,
             bind_group_data: key.bind_group_data.base,
         };
-        B::specialize(&base_pipeline, descriptor, layout, base_key)?;
+        B::specialize(pipeline, descriptor, layout, base_key)?;
 
         // Call the extended material's specialize function afterwards
-        let MaterialPipeline { mesh_pipeline, .. } = pipeline.clone();
-
         E::specialize(
-            &MaterialExtensionPipeline { mesh_pipeline },
+            &MaterialExtensionPipeline {
+                mesh_pipeline: pipeline.mesh_pipeline.clone(),
+            },
             descriptor,
             layout,
             MaterialExtensionKey {
