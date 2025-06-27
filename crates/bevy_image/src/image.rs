@@ -18,8 +18,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
-    SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    TextureViewDescriptor,
+    SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureUsages, TextureViewDescriptor,
 };
 
 /// Trait used to provide default values for Bevy-external types that
@@ -372,6 +372,10 @@ pub struct Image {
     /// CPU, then this should be `None`.
     /// Otherwise, it should always be `Some`.
     pub data: Option<Vec<u8>>,
+    /// For texture data with layers and mips, this field controls how wgpu interprets the buffer layout.
+    ///
+    /// Use [`TextureDataOrder::default()`] for all other cases.
+    pub data_order: TextureDataOrder,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
@@ -764,6 +768,7 @@ impl Image {
     ) -> Self {
         Image {
             data: None,
+            data_order: TextureDataOrder::default(),
             texture_descriptor: TextureDescriptor {
                 size,
                 format,
