@@ -20,9 +20,14 @@ use bevy::{
         diagnostic::{MeshAllocatorDiagnosticPlugin, RenderAssetDiagnosticPlugin},
         mesh::{Mesh, Meshable, RenderMesh},
     },
+    utils::default,
     window::{ExitCondition, WindowPlugin},
     winit::WinitPlugin,
     DefaultPlugins,
+};
+use bevy_render::{
+    settings::{Backends, RenderCreation, WgpuSettings},
+    RenderPlugin,
 };
 
 fn base_app() -> App {
@@ -33,12 +38,19 @@ fn base_app() -> App {
             .set(WindowPlugin {
                 primary_window: None,
                 exit_condition: ExitCondition::DontExit,
-                ..Default::default()
+                ..default()
+            })
+            .set(RenderPlugin {
+                render_creation: RenderCreation::Automatic(WgpuSettings {
+                    backends: Some(Backends::NOOP),
+                    ..default()
+                }),
+                ..default()
             })
             .disable::<WinitPlugin>(),
         LogDiagnosticsPlugin {
             wait_duration: Duration::ZERO,
-            ..Default::default()
+            ..default()
         },
     ));
     app
