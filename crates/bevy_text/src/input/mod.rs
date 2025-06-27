@@ -4,6 +4,7 @@ use bevy_asset::Assets;
 use bevy_asset::Handle;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
+use bevy_ecs::entity::Entity;
 use bevy_ecs::query::Changed;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
@@ -19,6 +20,7 @@ use bevy_math::Vec2;
 use cosmic_text::Buffer;
 use cosmic_text::Edit;
 use cosmic_text::Editor;
+use cosmic_text::FontSystem;
 use cosmic_text::Metrics;
 use cosmic_text::Motion;
 use cosmic_text::SwashCache;
@@ -74,18 +76,18 @@ pub struct TextInputData {
 
 /// Text input commands queue
 #[derive(Component, Default)]
-pub struct TextInputCommands {
-    pub commands_queue: VecDeque<TextInputCommand>,
+pub struct TextInputActions {
+    pub queue: VecDeque<TextInputAction>,
 }
 
-impl TextInputCommands {
-    pub fn queue(&mut self, command: TextInputCommand) {
-        self.commands_queue.push_back(command);
+impl TextInputActions {
+    pub fn queue(&mut self, command: TextInputAction) {
+        self.queue.push_back(command);
     }
 }
 
 /// Text input commands
-pub enum TextInputCommand {
+pub enum TextInputAction {
     Submit,
     Copy,
     Cut,
@@ -115,7 +117,40 @@ pub enum TextInputCommand {
     SelectLine,
 }
 
-pub fn apply_text_input_commands() {}
+pub fn apply_text_input_actions(
+    mut font_system: ResMut<CosmicFontSystem>,
+    mut text_input_query: Query<(Entity, &mut TextInputBuffer, &mut TextInputActions)>,
+) {
+    for (entity, mut buffer, mut text_input_actions) in text_input_query.iter_mut() {
+        let mut editor = buffer.editor.borrow_with(&mut font_system);
+
+        while let Some(action) = text_input_actions.queue.pop_front() {
+            match action {
+                TextInputAction::Submit => {}
+                TextInputAction::Copy => {}
+                TextInputAction::Cut => {}
+                TextInputAction::Paste => {}
+                TextInputAction::Motion { motion, select } => {}
+                TextInputAction::Insert(_) => {}
+                TextInputAction::Overwrite(_) => {}
+                TextInputAction::Enter => {}
+                TextInputAction::Backspace => {}
+                TextInputAction::Delete => {}
+                TextInputAction::Indent => {}
+                TextInputAction::Unindent => {}
+                TextInputAction::Click(ivec2) => {}
+                TextInputAction::DoubleClick(ivec2) => {}
+                TextInputAction::TripleClick(ivec2) => {}
+                TextInputAction::Drag(ivec2) => {}
+                TextInputAction::Scroll { lines } => {}
+                TextInputAction::Undo => {}
+                TextInputAction::Redo => {}
+                TextInputAction::SelectAll => {}
+                TextInputAction::SelectLine => {}
+            }
+        }
+    }
+}
 
 /// update editor
 pub fn update_text_input_buffers(
@@ -127,7 +162,7 @@ pub fn update_text_input_buffers(
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
     for (mut input_buffer, data) in text_input_query.iter_mut() {
-        input_buffer.editor.with_buffer_mut(|buffer| {
+        let _ = input_buffer.editor.with_buffer_mut(|buffer| {
             let metrics = Metrics::new(data.font_size, data.line_height);
 
             buffer.set_metrics_and_size(font_system, metrics, Some(data.width), Some(data.height));
