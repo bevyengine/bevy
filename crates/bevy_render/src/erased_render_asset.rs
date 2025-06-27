@@ -41,8 +41,9 @@ pub type ExtractAssetsSet = AssetExtractionSystems;
 /// After that in the [`RenderSystems::PrepareAssets`] step the extracted asset
 /// is transformed into its GPU-representation of type [`ErasedRenderAsset`].
 pub trait ErasedRenderAsset: Send + Sync + 'static {
-    type SourceAsset: Asset + Clone;
     /// The representation of the asset in the "main world".
+    type SourceAsset: Asset + Clone;
+    /// The target representation of the asset in the "render world".
     type ErasedAsset: Send + Sync + 'static + Sized;
 
     /// Specifies all ECS data required by [`ErasedRenderAsset::prepare_asset`].
