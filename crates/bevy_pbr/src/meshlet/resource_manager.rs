@@ -12,6 +12,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
 };
+use bevy_image::ToExtents;
 use bevy_math::{UVec2, Vec4Swizzles};
 use bevy_render::{
     render_resource::*,
@@ -596,11 +597,7 @@ pub fn prepare_meshlet_per_frame_resources(
             &render_device,
             TextureDescriptor {
                 label: Some("meshlet_dummy_render_target"),
-                size: Extent3d {
-                    width: view.viewport.z,
-                    height: view.viewport.w,
-                    depth_or_array_layers: 1,
-                },
+                size: view.viewport.zw().to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -614,11 +611,7 @@ pub fn prepare_meshlet_per_frame_resources(
             &render_device,
             TextureDescriptor {
                 label: Some("meshlet_visibility_buffer"),
-                size: Extent3d {
-                    width: view.viewport.z,
-                    height: view.viewport.w,
-                    depth_or_array_layers: 1,
-                },
+                size: view.viewport.zw().to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -758,11 +751,7 @@ pub fn prepare_meshlet_per_frame_resources(
 
         let material_depth = TextureDescriptor {
             label: Some("meshlet_material_depth"),
-            size: Extent3d {
-                width: view.viewport.z,
-                height: view.viewport.w,
-                depth_or_array_layers: 1,
-            },
+            size: view.viewport.zw().to_extents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
