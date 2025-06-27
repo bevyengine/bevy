@@ -19,7 +19,8 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
-    InteractionDisabled, JustifyContent, LinearGradient, Node, UiRect, Val,
+    InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node, UiRect,
+    Val,
 };
 use bevy_winit::cursor::CursorIcon;
 
@@ -99,6 +100,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
                 ColorStop::new(Color::NONE, Val::Percent(50.)),
                 ColorStop::new(Color::NONE, Val::Percent(100.)),
             ],
+            color_space: InterpolationColorSpace::Srgb,
         })]),
         overrides,
         children![(
