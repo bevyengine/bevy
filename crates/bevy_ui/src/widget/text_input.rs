@@ -306,16 +306,14 @@ fn on_focused_keyboard_input(
                         });
                     }
                     Key::ArrowUp => {
-                        if matches!(input_mode, TextInputMode::MultiLine { .. }) {
-                            actions
-                                .queue(TextInputAction::Edit(TextInputEdit::Scroll { lines: -1 }));
-                        }
+                        //if matches!(input_mode, TextInputMode::MultiLine { .. }) {
+                        actions.queue(TextInputAction::Scroll { lines: -1 });
+                        //}
                     }
                     Key::ArrowDown => {
-                        if matches!(input_mode, TextInputMode::MultiLine { .. }) {
-                            actions
-                                .queue(TextInputAction::Edit(TextInputEdit::Scroll { lines: 1 }));
-                        }
+                        //if matches!(input_mode, TextInputMode::MultiLine { .. }) {
+                        actions.queue(TextInputAction::Scroll { lines: 1 });
+                        //}
                     }
                     Key::Home => {
                         actions.queue(TextInputAction::motion(
@@ -342,14 +340,15 @@ fn on_focused_keyboard_input(
                             actions.queue(TextInputAction::Insert(char));
                         }
                     }
-                    Key::Enter => match (modifiers.shift, input_mode) {
-                        (false, TextInputMode::MultiLine { .. }) => {
-                            actions.queue(TextInputAction::Edit(TextInputEdit::Enter));
-                        }
-                        _ => {
-                            actions.queue(TextInputAction::Submit);
-                        }
-                    },
+                    Key::Enter => {
+                        //match (modifiers.shift, input_mode) {
+                        //(false, TextInputMode::MultiLine { .. }) => {
+                        actions.queue(TextInputAction::Enter);
+                        // }
+                        // _ => {
+                        //     actions.queue(TextInputAction::Submit);
+                        // }
+                    }
                     Key::Backspace => {
                         actions.queue(TextInputAction::Backspace);
                     }
@@ -388,13 +387,13 @@ fn on_focused_keyboard_input(
                         actions.queue(TextInputAction::Escape);
                     }
                     Key::Tab => {
-                        if matches!(input_mode, TextInputMode::MultiLine { .. }) {
-                            if modifiers.shift {
-                                actions.queue(TextInputAction::Unindent);
-                            } else {
-                                actions.queue(TextInputAction::Indent);
-                            }
+                        //if matches!(input_mode, TextInputMode::MultiLine { .. }) {
+                        if modifiers.shift {
+                            actions.queue(TextInputAction::Unindent);
+                        } else {
+                            actions.queue(TextInputAction::Indent);
                         }
+                        //    }
                     }
                     Key::Insert => {
                         // if !modifiers.shift {
