@@ -13,21 +13,29 @@ use bevy_ecs::world::Ref;
 use bevy_image::Image;
 use bevy_image::TextureAtlasLayout;
 use bevy_math::IVec2;
+use bevy_math::Rect;
+use bevy_math::UVec2;
 use bevy_math::Vec2;
 use cosmic_text::Buffer;
 use cosmic_text::Edit;
 use cosmic_text::Editor;
 use cosmic_text::Metrics;
 use cosmic_text::Motion;
+use cosmic_text::SwashCache;
 use cosmic_text::Wrap;
 
+use crate::buffer_dimensions;
 use crate::input;
 use crate::load_font_to_fontdb;
 use crate::CosmicFontSystem;
 use crate::Font;
+use crate::FontAtlas;
+use crate::FontAtlasSets;
+use crate::FontSmoothing;
 use crate::Justify;
 use crate::LineBreak;
 use crate::LineHeight;
+use crate::PositionedGlyph;
 use crate::TextBounds;
 use crate::TextError;
 use crate::TextFont;
@@ -46,6 +54,11 @@ impl Default for TextInputBuffer {
             editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
         }
     }
+}
+
+pub struct TextInputSize {
+    width: f32,
+    height: f32,
 }
 
 #[derive(Component)]
@@ -163,14 +176,14 @@ pub fn update_text_input_buffers(
 /// Update text input buffers
 pub fn update_text_input_layout(
     mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut text_input_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(&mut TextLayoutInfo, &mut TextInputBuffer)>,
+    mut text_query: Query<(&mut TextLayoutInfo, &mut TextInputBuffer, &mut TextFont)>,
     mut font_system: ResMut<CosmicFontSystem>,
+    mut swash_cache: ResMut<crate::pipeline::SwashCache>,
+    mut font_atlas_sets: ResMut<FontAtlasSets>,
 ) {
     let font_system = &mut font_system.0;
-    for (layout_info, mut buffer) in text_query.iter_mut() {
+    for (mut layout_info, mut buffer, text_font) in text_query.iter_mut() {
         let editor = &mut buffer.editor;
         let selection = editor.selection_bounds();
 
@@ -188,7 +201,7 @@ pub fn update_text_input_layout(
                             let y1 = y0 + run.line_height;
                             let x1 = x0 + w;
                             let r = Rect::new(x0, y0, x1, y1);
-                            selection_rects.push(r);
+                            layout_info.selection_rects.push(r);
                         }
                     }
 
@@ -219,14 +232,7 @@ pub fn update_text_input_layout(
                                 layout_glyph
                             };
 
-                            let TextInputPipeline {
-                                font_system,
-                                swash_cache,
-                                font_atlas_sets,
-                                ..
-                            } = &mut *text_input_pipeline;
-
-                            let font_atlas_set = font_atlas_sets.entry(font_id).or_default();
+                            let font_atlas_set = font_atlas_sets.sets.entry(font_id).or_default();
 
                             let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
@@ -238,7 +244,7 @@ pub fn update_text_input_layout(
                                         &mut texture_atlases,
                                         &mut textures,
                                         font_system,
-                                        swash_cache,
+                                        &mut swash_cache.0,
                                         layout_glyph,
                                         font_smoothing,
                                     )
@@ -259,7 +265,7 @@ pub fn update_text_input_layout(
 
                             let position = Vec2::new(x, y);
 
-                            let pos_glyph = TextInputGlyph {
+                            let pos_glyph = PositionedGlyph {
                                 position,
                                 size: glyph_size.as_vec2(),
                                 atlas_info,
@@ -290,8 +296,8 @@ pub fn update_text_input_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    layout_info.size.x = layout_info.size.x * node.inverse_scale_factor();
-                    layout_info.size.y = layout_info.size.y * node.inverse_scale_factor();
+                    layout_info.size.x = layout_info.size.x;
+                    layout_info.size.y = layout_info.size.y;
                     editor.set_redraw(false);
                 }
             }
