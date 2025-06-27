@@ -4,9 +4,10 @@ use bevy::{
     core_widgets::{CoreWidgetsPlugin, SliderStep},
     feathers::{
         controls::{button, slider, ButtonProps, ButtonVariant, SliderProps},
-        dark::create_dark_theme,
-        theme::{self, corners::RoundedCorners, ThemeBackgroundColor, UiTheme, UseTheme},
-        FeathersPlugin,
+        dark_theme::create_dark_theme,
+        rounded_corners::RoundedCorners,
+        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
+        tokens, FeathersPlugin,
     },
     input_focus::{
         tab_navigation::{TabGroup, TabNavigationPlugin},
@@ -85,7 +86,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn((Text::new("Normal"), UseTheme))
+                            Spawn((Text::new("Normal"), ThemedText))
                         ),
                         button(
                             ButtonProps {
@@ -95,7 +96,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             InteractionDisabled,
-                            Spawn((Text::new("Disabled"), UseTheme))
+                            Spawn((Text::new("Disabled"), ThemedText))
                         ),
                         button(
                             ButtonProps {
@@ -106,7 +107,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn((Text::new("Primary"), UseTheme))
+                            Spawn((Text::new("Primary"), ThemedText))
                         ),
                     ]
                 ),
@@ -129,7 +130,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn((Text::new("Left"), UseTheme))
+                            Spawn((Text::new("Left"), ThemedText))
                         ),
                         button(
                             ButtonProps {
@@ -140,7 +141,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn((Text::new("Center"), UseTheme))
+                            Spawn((Text::new("Center"), ThemedText))
                         ),
                         button(
                             ButtonProps {
@@ -151,7 +152,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 corners: RoundedCorners::Right,
                             },
                             (),
-                            Spawn((Text::new("Right"), UseTheme))
+                            Spawn((Text::new("Right"), ThemedText))
                         ),
                     ]
                 ),
@@ -163,13 +164,12 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ..default()
                     },
                     (),
-                    Spawn((Text::new("Button"), UseTheme))
+                    Spawn((Text::new("Button"), ThemedText))
                 ),
                 slider(
                     SliderProps {
                         max: 100.0,
                         value: 20.0,
-                        precision: 1,
                         ..default()
                     },
                     SliderStep(10.)

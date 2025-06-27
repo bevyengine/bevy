@@ -75,7 +75,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         Hovered::default(),
         CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
-        props.corners.to_border_radius(6.0),
+        props.corners.to_border_radius(4.0),
         ThemeBackgroundColor(tokens::BUTTON_BG),
         ThemeFontColor(tokens::BUTTON_TEXT),
         InheritableFont {
