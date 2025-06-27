@@ -7,8 +7,8 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::Image;
-use bevy_math::Rect;
+use bevy_image::{Image, ToExtents};
+use bevy_math::{Rect, UVec2};
 #[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_picking::{
     events::PointerState,
@@ -17,12 +17,8 @@ use bevy_picking::{
 };
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
-use bevy_render::{
-    camera::{Camera, NormalizedRenderTarget},
-    render_resource::Extent3d,
-};
+use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::default;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use uuid::Uuid;
 
@@ -166,16 +162,7 @@ pub fn update_viewport_render_target_size(
         let Some(image_handle) = camera.target.as_image() else {
             continue;
         };
-        let size = Extent3d {
-            width: u32::max(1, size.x as u32),
-            height: u32::max(1, size.y as u32),
-            ..default()
-        };
-        let image = images.get_mut(image_handle).unwrap();
-        if image.data.is_some() {
-            image.resize(size);
-        } else {
-            image.texture_descriptor.size = size;
-        }
+        let size = size.as_uvec2().max(UVec2::ONE).to_extents();
+        images.get_mut(image_handle).unwrap().resize(size);
     }
 }

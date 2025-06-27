@@ -2090,7 +2090,7 @@ impl MaterialDataBuffer {
     /// The size of the piece of data supplied to this method must equal the
     /// [`Self::aligned_element_size`] provided to [`MaterialDataBuffer::new`].
     fn insert(&mut self, data: &[u8]) -> u32 {
-        // Make the the data is of the right length.
+        // Make sure the data is of the right length.
         debug_assert_eq!(data.len(), self.aligned_element_size as usize);
 
         // Grab a slot.

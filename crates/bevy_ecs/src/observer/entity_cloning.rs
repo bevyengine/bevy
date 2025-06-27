@@ -1,57 +1,17 @@
+//! Logic to track observers when cloning entities.
+
 use crate::{
-    component::{
-        Component, ComponentCloneBehavior, ComponentHook, HookContext, Mutable, StorageType,
+    component::ComponentCloneBehavior,
+    entity::{
+        CloneByFilter, ComponentCloneCtx, EntityClonerBuilder, EntityMapper, SourceComponent,
     },
-    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
+    observer::ObservedBy,
     world::World,
 };
-use alloc::vec::Vec;
 
 use super::Observer;
 
-/// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
-#[derive(Default)]
-pub struct ObservedBy(pub(crate) Vec<Entity>);
-
-impl Component for ObservedBy {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-    type Mutability = Mutable;
-
-    fn on_remove() -> Option<ComponentHook> {
-        Some(|mut world, HookContext { entity, .. }| {
-            let observed_by = {
-                let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
-                core::mem::take(&mut component.0)
-            };
-            for e in observed_by {
-                let (total_entities, despawned_watched_entities) = {
-                    let Ok(mut entity_mut) = world.get_entity_mut(e) else {
-                        continue;
-                    };
-                    let Some(mut state) = entity_mut.get_mut::<Observer>() else {
-                        continue;
-                    };
-                    state.despawned_watched_entities += 1;
-                    (
-                        state.descriptor.entities.len(),
-                        state.despawned_watched_entities as usize,
-                    )
-                };
-
-                // Despawn Observer if it has no more active sources.
-                if total_entities == despawned_watched_entities {
-                    world.commands().entity(e).despawn();
-                }
-            }
-        })
-    }
-
-    fn clone_behavior() -> ComponentCloneBehavior {
-        ComponentCloneBehavior::Ignore
-    }
-}
-
-impl EntityClonerBuilder<'_> {
+impl<Filter: CloneByFilter> EntityClonerBuilder<'_, Filter> {
     /// Sets the option to automatically add cloned entities to the observers targeting source entity.
     pub fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {
@@ -86,7 +46,7 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
             let event_types = observer_state.descriptor.events.clone();
             let components = observer_state.descriptor.components.clone();
             for event_type in event_types {
-                let observers = world.observers.get_observers(event_type);
+                let observers = world.observers.get_observers_mut(event_type);
                 if components.is_empty() {
                     if let Some(map) = observers.entity_observers.get(&source).cloned() {
                         observers.entity_observers.insert(target, map);
@@ -97,8 +57,10 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
                         else {
                             continue;
                         };
-                        if let Some(map) = observers.entity_map.get(&source).cloned() {
-                            observers.entity_map.insert(target, map);
+                        if let Some(map) =
+                            observers.entity_component_observers.get(&source).cloned()
+                        {
+                            observers.entity_component_observers.insert(target, map);
                         }
                     }
                 }
@@ -110,14 +72,18 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::EntityCloner, event::Event, observer::Trigger, resource::Resource, system::ResMut,
+        entity::EntityCloner,
+        event::{EntityEvent, Event},
+        observer::On,
+        resource::Resource,
+        system::ResMut,
         world::World,
     };
 
     #[derive(Resource, Default)]
     struct Num(usize);
 
-    #[derive(Event)]
+    #[derive(Event, EntityEvent)]
     struct E;
 
     #[test]
@@ -127,14 +93,14 @@ mod tests {
 
         let e = world
             .spawn_empty()
-            .observe(|_: Trigger<E>, mut res: ResMut<Num>| res.0 += 1)
+            .observe(|_: On<E>, mut res: ResMut<Num>| res.0 += 1)
             .id();
         world.flush();
 
         world.trigger_targets(E, e);
 
         let e_clone = world.spawn_empty().id();
-        EntityCloner::build(&mut world)
+        EntityCloner::build_opt_out(&mut world)
             .add_observers(true)
             .clone_entity(e, e_clone);
 

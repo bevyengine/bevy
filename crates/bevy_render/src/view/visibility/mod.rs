@@ -3,8 +3,8 @@ mod render_layers;
 
 use core::any::TypeId;
 
-use bevy_ecs::component::HookContext;
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
@@ -20,7 +20,7 @@ use smallvec::SmallVec;
 
 use super::NoCpuCulling;
 use crate::{
-    camera::{Camera, CameraProjection, Projection},
+    camera::{Camera, Projection},
     mesh::{Mesh, Mesh3d, MeshAabb},
     primitives::{Aabb, Frustum, Sphere},
     sync_world::MainEntity,

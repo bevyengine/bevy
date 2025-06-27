@@ -30,7 +30,7 @@ use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault as _;
+use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -41,7 +41,7 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use wgpu::{
-    BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    BufferUsages, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
@@ -192,7 +192,7 @@ impl Msaa {
             2 => Msaa::Sample2,
             4 => Msaa::Sample4,
             8 => Msaa::Sample8,
-            _ => panic!("Unsupported MSAA sample count: {}", samples),
+            _ => panic!("Unsupported MSAA sample count: {samples}"),
         }
     }
 }
@@ -316,7 +316,7 @@ pub struct ExtractedView {
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_world_from_view(&self.world_from_view.compute_matrix())
+        ViewRangefinder3d::from_world_from_view(&self.world_from_view.to_matrix())
     }
 }
 
@@ -934,7 +934,7 @@ pub fn prepare_view_uniforms(
         }
 
         let view_from_clip = clip_from_view.inverse();
-        let world_from_view = extracted_view.world_from_view.compute_matrix();
+        let world_from_view = extracted_view.world_from_view.to_matrix();
         let view_from_world = world_from_view.inverse();
 
         let clip_from_world = if temporal_jitter.is_some() {
@@ -1046,12 +1046,6 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let size = Extent3d {
-            width: target_size.x,
-            height: target_size.y,
-            depth_or_array_layers: 1,
-        };
-
         let main_texture_format = if view.hdr {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -1069,7 +1063,7 @@ pub fn prepare_view_targets(
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
-                    size,
+                    size: target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D2,
@@ -1100,7 +1094,7 @@ pub fn prepare_view_targets(
                         &render_device,
                         TextureDescriptor {
                             label: Some("main_texture_sampled"),
-                            size,
+                            size: target_size.to_extents(),
                             mip_level_count: 1,
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,

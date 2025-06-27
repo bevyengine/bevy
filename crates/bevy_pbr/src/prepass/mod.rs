@@ -95,7 +95,6 @@ where
                 Render,
                 prepare_prepass_view_bind_group::<M>.in_set(RenderSystems::PrepareBindGroups),
             )
-            .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
     }
@@ -105,7 +104,9 @@ where
             return;
         };
 
-        render_app.init_resource::<PrepassPipeline<M>>();
+        render_app
+            .init_resource::<PrepassPipeline<M>>()
+            .init_resource::<PrepassViewBindGroup>();
     }
 }
 
@@ -216,11 +217,16 @@ pub fn update_previous_view_data(
     query: Query<(Entity, &Camera, &GlobalTransform), Or<(With<Camera3d>, With<ShadowView>)>>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        let view_from_world = camera_transform.compute_matrix().inverse();
+        let world_from_view = camera_transform.to_matrix();
+        let view_from_world = world_from_view.inverse();
+        let view_from_clip = camera.clip_from_view().inverse();
+
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
             clip_from_view: camera.clip_from_view(),
+            world_from_clip: world_from_view * view_from_clip,
+            view_from_clip,
         });
     }
 }
@@ -267,6 +273,7 @@ pub struct PrepassPipelineInternal {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layouts: MeshLayouts,
+    pub empty_layout: BindGroupLayout,
     pub material_layout: BindGroupLayout,
     pub prepass_material_vertex_shader: Option<Handle<Shader>>,
     pub prepass_material_fragment_shader: Option<Handle<Shader>>,
@@ -376,6 +383,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(render_device),
             depth_clip_control_supported,
             binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
+            empty_layout: render_device.create_bind_group_layout("prepass_empty_layout", &[]),
         };
         PrepassPipeline {
             internal,
@@ -420,13 +428,14 @@ impl PrepassPipelineInternal {
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = shader_defs;
-        let mut bind_group_layouts = vec![if mesh_key
-            .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-        {
-            self.view_layout_motion_vectors.clone()
-        } else {
-            self.view_layout_no_motion_vectors.clone()
-        }];
+        let mut bind_group_layouts = vec![
+            if mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+                self.view_layout_motion_vectors.clone()
+            } else {
+                self.view_layout_no_motion_vectors.clone()
+            },
+            self.empty_layout.clone(),
+        ];
         let mut vertex_attributes = Vec::new();
 
         // Let the shader code know that it's running in a prepass pipeline.
@@ -551,7 +560,7 @@ impl PrepassPipelineInternal {
             &mut vertex_attributes,
             self.skins_use_uniform_buffers,
         );
-        bind_group_layouts.insert(1, bind_group);
+        bind_group_layouts.insert(2, bind_group);
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = prepass_target_descriptors(
@@ -698,11 +707,16 @@ pub fn prepare_previous_view_uniforms(
         let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let view_from_world = camera.world_from_view.compute_matrix().inverse();
+                let world_from_view = camera.world_from_view.to_matrix();
+                let view_from_world = world_from_view.inverse();
+                let view_from_clip = camera.clip_from_view.inverse();
+
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
                     clip_from_view: camera.clip_from_view,
+                    world_from_clip: world_from_view * view_from_clip,
+                    view_from_clip,
                 }
             }
         };
@@ -713,10 +727,29 @@ pub fn prepare_previous_view_uniforms(
     }
 }
 
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct PrepassViewBindGroup {
     pub motion_vectors: Option<BindGroup>,
     pub no_motion_vectors: Option<BindGroup>,
+    pub empty_bind_group: BindGroup,
+}
+
+impl FromWorld for PrepassViewBindGroup {
+    fn from_world(world: &mut World) -> Self {
+        let pipeline = world.resource::<PrepassPipeline<StandardMaterial>>();
+
+        let render_device = world.resource::<RenderDevice>();
+        let empty_bind_group = render_device.create_bind_group(
+            "prepass_view_empty_bind_group",
+            &pipeline.internal.empty_layout,
+            &[],
+        );
+        PrepassViewBindGroup {
+            motion_vectors: None,
+            no_motion_vectors: None,
+            empty_bind_group,
+        }
+    }
 }
 
 pub fn prepare_prepass_view_bind_group<M: Material>(
@@ -1274,7 +1307,26 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
                 );
             }
         }
+        RenderCommandResult::Success
+    }
+}
 
+pub struct SetPrepassViewEmptyBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewEmptyBindGroup<I> {
+    type Param = SRes<PrepassViewBindGroup>;
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: (),
+        _entity: Option<()>,
+        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let prepass_view_bind_group = prepass_view_bind_group.into_inner();
+        pass.set_bind_group(I, &prepass_view_bind_group.empty_bind_group, &[]);
         RenderCommandResult::Success
     }
 }
@@ -1282,7 +1334,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
 pub type DrawPrepass<M> = (
     SetItemPipeline,
     SetPrepassViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    SetMaterialBindGroup<M, 2>,
+    SetPrepassViewEmptyBindGroup<1>,
+    SetMeshBindGroup<2>,
+    SetMaterialBindGroup<M, 3>,
     DrawMesh,
 );
