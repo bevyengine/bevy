@@ -34,7 +34,7 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::ExtractedCamera,
+        camera::{ExtractedCamera, MainPassResolutionOverride},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
         render_asset::RenderAssets,
@@ -589,13 +589,14 @@ impl ViewNode for CustomDrawNode {
         &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewTarget,
+        Option<&'static MainPassResolutionOverride>,
     );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target): QueryItem<'w, '_, Self::ViewQuery>,
+        (camera, view, target, resolution_override): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // First, we need to get our phases resource
@@ -625,7 +626,7 @@ impl ViewNode for CustomDrawNode {
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         // Render the phase

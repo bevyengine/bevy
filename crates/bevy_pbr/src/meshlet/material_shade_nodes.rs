@@ -18,7 +18,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, MainPassResolutionOverride},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
@@ -42,6 +42,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
         &'static ViewEnvironmentMapUniformOffset,
+        Option<&'static MainPassResolutionOverride>,
         &'static MeshletViewMaterialsMainOpaquePass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -61,6 +62,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             view_light_probes_offset,
             view_ssr_offset,
             view_environment_map_offset,
+            resolution_override,
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
@@ -101,7 +103,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             occlusion_query_set: None,
         });
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         render_pass.set_bind_group(
@@ -147,6 +149,7 @@ impl ViewNode for MeshletPrepassNode {
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
         &'static PreviousViewUniformOffset,
+        Option<&'static MainPassResolutionOverride>,
         Has<MotionVectorPrepass>,
         &'static MeshletViewMaterialsPrepass,
         &'static MeshletViewBindGroups,
@@ -162,6 +165,7 @@ impl ViewNode for MeshletPrepassNode {
             view_prepass_textures,
             view_uniform_offset,
             previous_view_uniform_offset,
+            resolution_override,
             view_has_motion_vector_prepass,
             meshlet_view_materials,
             meshlet_view_bind_groups,
@@ -219,7 +223,7 @@ impl ViewNode for MeshletPrepassNode {
             occlusion_query_set: None,
         });
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         if view_has_motion_vector_prepass {
@@ -270,6 +274,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
         &'static PreviousViewUniformOffset,
+        Option<&'static MainPassResolutionOverride>,
         Has<MotionVectorPrepass>,
         &'static MeshletViewMaterialsDeferredGBufferPrepass,
         &'static MeshletViewBindGroups,
@@ -285,6 +290,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             view_prepass_textures,
             view_uniform_offset,
             previous_view_uniform_offset,
+            resolution_override,
             view_has_motion_vector_prepass,
             meshlet_view_materials,
             meshlet_view_bind_groups,
@@ -347,7 +353,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             occlusion_query_set: None,
         });
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         if view_has_motion_vector_prepass {
