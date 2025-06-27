@@ -88,7 +88,6 @@ impl Plugin for PrepassPipelinePlugin {
                 Render,
                 prepare_prepass_view_bind_group.in_set(RenderSystems::PrepareBindGroups),
             )
-            .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipelineSpecializer>>();
     }
 
@@ -255,11 +254,6 @@ pub struct PrepassPipelineInternal {
     pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layouts: MeshLayouts,
     pub empty_layout: BindGroupLayout,
-    pub material_layout: BindGroupLayout,
-    pub prepass_material_vertex_shader: Option<Handle<Shader>>,
-    pub prepass_material_fragment_shader: Option<Handle<Shader>>,
-    pub deferred_material_vertex_shader: Option<Handle<Shader>>,
-    pub deferred_material_fragment_shader: Option<Handle<Shader>>,
     pub default_prepass_shader: Handle<Shader>,
 
     /// Whether skins will use uniform buffers on account of storage buffers
@@ -730,7 +724,7 @@ pub struct PrepassViewBindGroup {
 
 impl FromWorld for PrepassViewBindGroup {
     fn from_world(world: &mut World) -> Self {
-        let pipeline = world.resource::<PrepassPipeline<StandardMaterial>>();
+        let pipeline = world.resource::<PrepassPipeline>();
 
         let render_device = world.resource::<RenderDevice>();
         let empty_bind_group = render_device.create_bind_group(
