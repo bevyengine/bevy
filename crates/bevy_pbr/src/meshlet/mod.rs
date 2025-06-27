@@ -69,7 +69,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Has,
     reflect::ReflectComponent,
-    schedule::{common_conditions::resource_exists, IntoScheduleConfigs},
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -283,13 +283,10 @@ impl Plugin for MeshletPlugin {
                         .in_set(RenderSystems::ManageViews),
                     prepare_meshlet_per_frame_resources.in_set(RenderSystems::PrepareResources),
                     prepare_meshlet_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                    queue_material_meshlet_meshes
-                        .in_set(RenderSystems::QueueMeshes)
-                        .run_if(resource_exists::<InstanceManager>),
+                    queue_material_meshlet_meshes.in_set(RenderSystems::QueueMeshes),
                     prepare_material_meshlet_meshes_main_opaque_pass
                         .in_set(RenderSystems::QueueMeshes)
-                        .before(queue_material_meshlet_meshes)
-                        .run_if(resource_exists::<InstanceManager>),
+                        .before(queue_material_meshlet_meshes),
                 ),
             );
     }

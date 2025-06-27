@@ -1,11 +1,6 @@
 use crate::material_bind_groups::{
     FallbackBindlessResources, MaterialBindGroupAllocator, MaterialBindingId,
 };
-#[cfg(feature = "meshlet")]
-use crate::meshlet::{
-    prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
-    InstanceManager,
-};
 use crate::*;
 use alloc::sync::Arc;
 use bevy_asset::prelude::AssetChanged;
