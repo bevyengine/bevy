@@ -239,6 +239,9 @@ impl Plugin for PbrPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                     debug_flags: self.debug_flags,
                 },
+                MaterialsPlugin {
+                    debug_flags: self.debug_flags,
+                },
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
                     debug_flags: self.debug_flags,

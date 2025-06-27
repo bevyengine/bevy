@@ -2,12 +2,13 @@ mod prepass_bindings;
 
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
-    collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
-    queue_material_meshes, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs, skin,
-    DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey,
+    collect_meshes_for_gpu_building, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs,
+    skin, DeferredDrawFunction, DeferredFragmentShader, DeferredVertexShader, DrawMesh,
+    EntitySpecializationTicks, ErasedMaterialPipelineKey, MaterialPipeline, MaterialProperties,
     MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
-    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
-    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    PrepassDrawFunction, PrepassFragmentShader, PrepassVertexShader, RenderLightmaps,
+    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -24,7 +25,7 @@ use bevy_render::{
 };
 pub use prepass_bindings::*;
 
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
@@ -55,30 +56,22 @@ use crate::meshlet::{
     MeshletMesh3d,
 };
 
+use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_platform::collections::HashMap;
+use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSystems::{PrepareAssets, PrepareResources};
-use core::{hash::Hash, marker::PhantomData};
 
 /// Sets up everything required to use the prepass pipeline.
 ///
 /// This does not add the actual prepasses, see [`PrepassPlugin`] for that.
-pub struct PrepassPipelinePlugin<M: Material>(PhantomData<M>);
+pub struct PrepassPipelinePlugin;
 
-impl<M: Material> Default for PrepassPipelinePlugin<M> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl<M: Material> Plugin for PrepassPipelinePlugin<M>
-where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
+impl Plugin for PrepassPipelinePlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "prepass.wgsl");
 
@@ -93,10 +86,9 @@ where
         render_app
             .add_systems(
                 Render,
-                prepare_prepass_view_bind_group::<M>.in_set(RenderSystems::PrepareBindGroups),
+                prepare_prepass_view_bind_group.in_set(RenderSystems::PrepareBindGroups),
             )
-            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
+            .init_resource::<SpecializedMeshPipelines<PrepassPipelineSpecializer>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -105,34 +97,27 @@ where
         };
 
         render_app
-            .init_resource::<PrepassPipeline<M>>()
+            .init_resource::<PrepassPipeline>()
             .init_resource::<PrepassViewBindGroup>();
     }
 }
 
-/// Sets up the prepasses for a [`Material`].
+/// Sets up the prepasses for a material.
 ///
 /// This depends on the [`PrepassPipelinePlugin`].
-pub struct PrepassPlugin<M: Material> {
+pub struct PrepassPlugin {
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
-    pub phantom: PhantomData<M>,
 }
 
-impl<M: Material> PrepassPlugin<M> {
+impl PrepassPlugin {
     /// Creates a new [`PrepassPlugin`] with the given debug flags.
     pub fn new(debug_flags: RenderDebugFlags) -> Self {
-        PrepassPlugin {
-            debug_flags,
-            phantom: PhantomData,
-        }
+        PrepassPlugin { debug_flags }
     }
 }
 
-impl<M: Material> Plugin for PrepassPlugin<M>
-where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
+impl Plugin for PrepassPlugin {
     fn build(&self, app: &mut App) {
         let no_prepass_plugin_loaded = app
             .world()
@@ -174,36 +159,30 @@ where
         render_app
             .init_resource::<ViewPrepassSpecializationTicks>()
             .init_resource::<ViewKeyPrepassCache>()
-            .init_resource::<SpecializedPrepassMaterialPipelineCache<M>>()
-            .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
-            .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
-            .add_render_command::<Opaque3dDeferred, DrawPrepass<M>>()
-            .add_render_command::<AlphaMask3dDeferred, DrawPrepass<M>>()
+            .init_resource::<SpecializedPrepassMaterialPipelineCache>()
+            .add_render_command::<Opaque3dPrepass, DrawPrepass>()
+            .add_render_command::<AlphaMask3dPrepass, DrawPrepass>()
+            .add_render_command::<Opaque3dDeferred, DrawPrepass>()
+            .add_render_command::<AlphaMask3dDeferred, DrawPrepass>()
             .add_systems(
                 Render,
                 (
                     check_prepass_views_need_specialization.in_set(PrepareAssets),
-                    specialize_prepass_material_meshes::<M>
+                    specialize_prepass_material_meshes
                         .in_set(RenderSystems::PrepareMeshes)
-                        .after(prepare_assets::<PreparedMaterial<M>>)
                         .after(prepare_assets::<RenderMesh>)
                         .after(collect_meshes_for_gpu_building)
                         .after(set_mesh_motion_vector_flags),
-                    queue_prepass_material_meshes::<M>
-                        .in_set(RenderSystems::QueueMeshes)
-                        .after(prepare_assets::<PreparedMaterial<M>>)
-                        // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
-                        .ambiguous_with(queue_material_meshes::<StandardMaterial>),
+                    queue_prepass_material_meshes.in_set(RenderSystems::QueueMeshes),
                 ),
             );
 
         #[cfg(feature = "meshlet")]
         render_app.add_systems(
             Render,
-            prepare_material_meshlet_meshes_prepass::<M>
+            prepare_material_meshlet_meshes_prepass
                 .in_set(RenderSystems::QueueMeshes)
-                .after(prepare_assets::<PreparedMaterial<M>>)
-                .before(queue_material_meshlet_meshes::<M>)
+                .before(queue_material_meshlet_meshes)
                 .run_if(resource_exists::<InstanceManager>),
         );
     }
@@ -261,24 +240,20 @@ pub fn update_mesh_previous_global_transforms(
     }
 }
 
-#[derive(Resource)]
-pub struct PrepassPipeline<M: Material> {
+#[derive(Resource, Clone)]
+pub struct PrepassPipeline {
     pub internal: PrepassPipelineInternal,
-    pub material_pipeline: MaterialPipeline<M>,
+    pub material_pipeline: MaterialPipeline,
 }
 
 /// Internal fields of the `PrepassPipeline` that don't need the generic bound
 /// This is done as an optimization to not recompile the same code multiple time
+#[derive(Clone)]
 pub struct PrepassPipelineInternal {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layouts: MeshLayouts,
     pub empty_layout: BindGroupLayout,
-    pub material_layout: BindGroupLayout,
-    pub prepass_material_vertex_shader: Option<Handle<Shader>>,
-    pub prepass_material_fragment_shader: Option<Handle<Shader>>,
-    pub deferred_material_vertex_shader: Option<Handle<Shader>>,
-    pub deferred_material_fragment_shader: Option<Handle<Shader>>,
     pub default_prepass_shader: Handle<Shader>,
 
     /// Whether skins will use uniform buffers on account of storage buffers
@@ -292,12 +267,10 @@ pub struct PrepassPipelineInternal {
     pub binding_arrays_are_usable: bool,
 }
 
-impl<M: Material> FromWorld for PrepassPipeline<M> {
+impl FromWorld for PrepassPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let render_adapter = world.resource::<RenderAdapter>();
-        let asset_server = world.resource::<AssetServer>();
-
         let visibility_ranges_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
@@ -358,28 +331,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
             mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
-            prepass_material_vertex_shader: match M::prepass_vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            prepass_material_fragment_shader: match M::prepass_fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            deferred_material_vertex_shader: match M::deferred_vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            deferred_material_fragment_shader: match M::deferred_fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
             default_prepass_shader: load_embedded_asset!(world, "prepass.wgsl"),
-            material_layout: M::bind_group_layout(render_device),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(render_device),
             depth_clip_control_supported,
             binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
@@ -387,16 +339,18 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
         };
         PrepassPipeline {
             internal,
-            material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
+            material_pipeline: world.resource::<MaterialPipeline>().clone(),
         }
     }
 }
 
-impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M>
-where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    type Key = MaterialPipelineKey<M>;
+pub struct PrepassPipelineSpecializer {
+    pub(crate) pipeline: PrepassPipeline,
+    pub(crate) properties: Arc<MaterialProperties>,
+}
+
+impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
+    type Key = ErasedMaterialPipelineKey;
 
     fn specialize(
         &self,
@@ -404,17 +358,27 @@ where
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = Vec::new();
-        if self.material_pipeline.bindless {
+        if self.properties.bindless {
             shader_defs.push("BINDLESS".into());
         }
-        let mut descriptor = self
-            .internal
-            .specialize(key.mesh_key, shader_defs, layout)?;
+        let mut descriptor = self.pipeline.internal.specialize(
+            key.mesh_key,
+            shader_defs,
+            layout,
+            &self.properties,
+        )?;
 
         // This is a bit risky because it's possible to change something that would
         // break the prepass but be fine in the main pass.
         // Since this api is pretty low-level it doesn't matter that much, but it is a potential issue.
-        M::specialize(&self.material_pipeline, &mut descriptor, layout, key)?;
+        if let Some(specialize) = self.properties.specialize {
+            specialize(
+                &self.pipeline.material_pipeline,
+                &mut descriptor,
+                layout,
+                key,
+            )?;
+        }
 
         Ok(descriptor)
     }
@@ -426,6 +390,7 @@ impl PrepassPipelineInternal {
         mesh_key: MeshPipelineKey,
         shader_defs: Vec<ShaderDefVal>,
         layout: &MeshVertexBufferLayoutRef,
+        material_properties: &MaterialProperties,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = shader_defs;
         let mut bind_group_layouts = vec![
@@ -445,7 +410,13 @@ impl PrepassPipelineInternal {
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
-        bind_group_layouts.push(self.material_layout.clone());
+        bind_group_layouts.push(
+            material_properties
+                .material_layout
+                .as_ref()
+                .unwrap()
+                .clone(),
+        );
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
@@ -581,17 +552,28 @@ impl PrepassPipelineInternal {
         let fragment_required = !targets.is_empty()
             || emulate_unclipped_depth
             || (mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
-                && self.prepass_material_fragment_shader.is_some());
+                && material_properties
+                    .shaders
+                    .get(&PrepassFragmentShader.intern())
+                    .is_some());
 
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
             let frag_shader_handle = if mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-                match self.deferred_material_fragment_shader.clone() {
+                match material_properties
+                    .shaders
+                    .get(&DeferredFragmentShader.intern())
+                    .cloned()
+                {
                     Some(frag_shader_handle) => frag_shader_handle,
                     None => self.default_prepass_shader.clone(),
                 }
             } else {
-                match self.prepass_material_fragment_shader.clone() {
+                match material_properties
+                    .shaders
+                    .get(&PrepassFragmentShader.intern())
+                    .cloned()
+                {
                     Some(frag_shader_handle) => frag_shader_handle,
                     None => self.default_prepass_shader.clone(),
                 }
@@ -607,13 +589,13 @@ impl PrepassPipelineInternal {
 
         // Use the vertex shader from the material if present
         let vert_shader_handle = if mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-            if let Some(handle) = &self.deferred_material_vertex_shader {
-                handle.clone()
+            if let Some(handle) = material_properties.get_shader(DeferredVertexShader) {
+                handle
             } else {
                 self.default_prepass_shader.clone()
             }
-        } else if let Some(handle) = &self.prepass_material_vertex_shader {
-            handle.clone()
+        } else if let Some(handle) = material_properties.get_shader(PrepassVertexShader) {
+            handle
         } else {
             self.default_prepass_shader.clone()
         };
@@ -736,7 +718,7 @@ pub struct PrepassViewBindGroup {
 
 impl FromWorld for PrepassViewBindGroup {
     fn from_world(world: &mut World) -> Self {
-        let pipeline = world.resource::<PrepassPipeline<StandardMaterial>>();
+        let pipeline = world.resource::<PrepassPipeline>();
 
         let render_device = world.resource::<RenderDevice>();
         let empty_bind_group = render_device.create_bind_group(
@@ -752,9 +734,9 @@ impl FromWorld for PrepassViewBindGroup {
     }
 }
 
-pub fn prepare_prepass_view_bind_group<M: Material>(
+pub fn prepare_prepass_view_bind_group(
     render_device: Res<RenderDevice>,
-    prepass_pipeline: Res<PrepassPipeline<M>>,
+    prepass_pipeline: Res<PrepassPipeline>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
@@ -792,40 +774,20 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
 }
 
 /// Stores the [`SpecializedPrepassMaterialViewPipelineCache`] for each view.
-#[derive(Resource, Deref, DerefMut)]
-pub struct SpecializedPrepassMaterialPipelineCache<M> {
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct SpecializedPrepassMaterialPipelineCache {
     // view_entity -> view pipeline cache
     #[deref]
-    map: HashMap<RetainedViewEntity, SpecializedPrepassMaterialViewPipelineCache<M>>,
-    marker: PhantomData<M>,
+    map: HashMap<RetainedViewEntity, SpecializedPrepassMaterialViewPipelineCache>,
 }
 
 /// Stores the cached render pipeline ID for each entity in a single view, as
 /// well as the last time it was changed.
-#[derive(Deref, DerefMut)]
-pub struct SpecializedPrepassMaterialViewPipelineCache<M> {
+#[derive(Deref, DerefMut, Default)]
+pub struct SpecializedPrepassMaterialViewPipelineCache {
     // material entity -> (tick, pipeline_id)
     #[deref]
     map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
-    marker: PhantomData<M>,
-}
-
-impl<M> Default for SpecializedPrepassMaterialPipelineCache<M> {
-    fn default() -> Self {
-        Self {
-            map: HashMap::default(),
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<M> Default for SpecializedPrepassMaterialViewPipelineCache<M> {
-    fn default() -> Self {
-        Self {
-            map: HashMap::default(),
-            marker: PhantomData,
-        }
-    }
 }
 
 #[derive(Resource, Deref, DerefMut, Default, Clone)]
@@ -870,14 +832,13 @@ pub fn check_prepass_views_need_specialization(
     }
 }
 
-pub fn specialize_prepass_material_meshes<M>(
+pub fn specialize_prepass_material_meshes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
+    render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     view_key_cache: Res<ViewKeyPrepassCache>,
     views: Query<(
         &ExtractedView,
@@ -906,18 +867,15 @@ pub fn specialize_prepass_material_meshes<M>(
         view_specialization_ticks,
         entity_specialization_ticks,
     ): (
-        ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
+        ResMut<SpecializedPrepassMaterialPipelineCache>,
         SystemChangeTick,
-        Res<PrepassPipeline<M>>,
-        ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
+        Res<PrepassPipeline>,
+        ResMut<SpecializedMeshPipelines<PrepassPipelineSpecializer>>,
         Res<PipelineCache>,
         Res<ViewPrepassSpecializationTicks>,
-        Res<EntitySpecializationTicks<M>>,
+        Res<EntitySpecializationTicks>,
     ),
-) where
-    M: Material,
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
+) {
     for (extracted_view, visible_entities, msaa, motion_vector_prepass, deferred_prepass) in &views
     {
         if !opaque_deferred_render_phases.contains_key(&extracted_view.retained_view_entity)
@@ -944,9 +902,6 @@ pub fn specialize_prepass_material_meshes<M>(
             else {
                 continue;
             };
-            let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
-                continue;
-            };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
@@ -962,13 +917,7 @@ pub fn specialize_prepass_material_meshes<M>(
             if !needs_specialization {
                 continue;
             }
-            let Some(material) = render_materials.get(material_asset_id) else {
-                continue;
-            };
-            let Some(material_bind_group) =
-                material_bind_group_allocator.get(material.binding.group)
-            else {
-                warn!("Couldn't get bind group for material");
+            let Some(material) = render_materials.get(material_instance.asset_id) else {
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -1045,15 +994,19 @@ pub fn specialize_prepass_material_meshes<M>(
                 }
             }
 
+            let erased_key = ErasedMaterialPipelineKey {
+                mesh_key,
+                material_key: material.properties.material_key.clone(),
+                type_id: material_instance.asset_id.type_id(),
+            };
+            let prepass_pipeline_specializer = PrepassPipelineSpecializer {
+                pipeline: prepass_pipeline.clone(),
+                properties: material.properties.clone(),
+            };
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
-                &prepass_pipeline,
-                MaterialPipelineKey {
-                    mesh_key,
-                    bind_group_data: material_bind_group
-                        .get_extra_data(material.binding.slot)
-                        .clone(),
-                },
+                &prepass_pipeline_specializer,
+                erased_key,
                 &mesh.layout,
             );
             let pipeline_id = match pipeline_id {
@@ -1070,9 +1023,9 @@ pub fn specialize_prepass_material_meshes<M>(
     }
 }
 
-pub fn queue_prepass_material_meshes<M: Material>(
+pub fn queue_prepass_material_meshes(
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
+    render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_material_instances: Res<RenderMaterialInstances>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
@@ -1081,10 +1034,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
-    specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache<M>>,
-) where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
+    specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache>,
+) {
     for (extracted_view, visible_entities) in &views {
         let (
             mut opaque_phase,
@@ -1137,14 +1088,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
             else {
                 continue;
             };
-            let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
-                continue;
-            };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
-            let Some(material) = render_materials.get(material_asset_id) else {
+            let Some(material) = render_materials.get(material_instance.asset_id) else {
                 continue;
             };
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
@@ -1162,7 +1110,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             OpaqueNoLightmap3dBatchSetKey {
                                 draw_function: material
                                     .properties
-                                    .deferred_draw_function_id
+                                    .get_draw_function(DeferredDrawFunction)
                                     .unwrap(),
                                 pipeline: *pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
@@ -1187,7 +1135,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             OpaqueNoLightmap3dBatchSetKey {
                                 draw_function: material
                                     .properties
-                                    .prepass_draw_function_id
+                                    .get_draw_function(PrepassDrawFunction)
                                     .unwrap(),
                                 pipeline: *pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
@@ -1212,7 +1160,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                            draw_function: material.properties.deferred_draw_function_id.unwrap(),
+                            draw_function: material
+                                .properties
+                                .get_draw_function(DeferredDrawFunction)
+                                .unwrap(),
                             pipeline: *pipeline_id,
                             material_bind_group_index: Some(material.binding.group.0),
                             vertex_slab: vertex_slab.unwrap_or_default(),
@@ -1236,7 +1187,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                            draw_function: material.properties.prepass_draw_function_id.unwrap(),
+                            draw_function: material
+                                .properties
+                                .get_draw_function(PrepassDrawFunction)
+                                .unwrap(),
                             pipeline: *pipeline_id,
                             material_bind_group_index: Some(material.binding.group.0),
                             vertex_slab: vertex_slab.unwrap_or_default(),
@@ -1331,11 +1285,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewEmptyBindG
     }
 }
 
-pub type DrawPrepass<M> = (
+pub type DrawPrepass = (
     SetItemPipeline,
     SetPrepassViewBindGroup<0>,
     SetPrepassViewEmptyBindGroup<1>,
     SetMeshBindGroup<2>,
-    SetMaterialBindGroup<M, 3>,
+    SetMaterialBindGroup<3>,
     DrawMesh,
 );
