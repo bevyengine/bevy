@@ -275,7 +275,7 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
     ]) {
         return Err(MeshToMeshletMeshConversionError::WrongMeshVertexAttributes(
             mesh.attributes()
-                .map(|(attribute, _)| format!("{:?}", attribute))
+                .map(|(attribute, _)| format!("{attribute:?}"))
                 .collect(),
         ));
     }
