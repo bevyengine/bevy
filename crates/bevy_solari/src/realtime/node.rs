@@ -9,6 +9,7 @@ use bevy_ecs::{
     query::QueryItem,
     world::{FromWorld, World},
 };
+use bevy_image::ToExtents;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -156,11 +157,7 @@ impl ViewNode for SolariLightingNode {
                 .texture
                 .as_image_copy(),
             solari_lighting_resources.previous_gbuffer.0.as_image_copy(),
-            Extent3d {
-                width: viewport.x,
-                height: viewport.y,
-                depth_or_array_layers: 1,
-            },
+            viewport.to_extents(),
         );
         command_encoder.copy_texture_to_texture(
             view_prepass_textures
@@ -171,11 +168,7 @@ impl ViewNode for SolariLightingNode {
                 .texture
                 .as_image_copy(),
             solari_lighting_resources.previous_depth.0.as_image_copy(),
-            Extent3d {
-                width: viewport.x,
-                height: viewport.y,
-                depth_or_array_layers: 1,
-            },
+            viewport.to_extents(),
         );
 
         Ok(())
