@@ -589,16 +589,12 @@ impl PrepassPipelineInternal {
 
         // Use the vertex shader from the material if present
         let vert_shader_handle = if mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-            if let Some(handle) = material_properties
-                .get_shader(DeferredVertexShader)
-            {
+            if let Some(handle) = material_properties.get_shader(DeferredVertexShader) {
                 handle
             } else {
                 self.default_prepass_shader.clone()
             }
-        } else if let Some(handle) = material_properties
-            .get_shader(PrepassVertexShader)
-        {
+        } else if let Some(handle) = material_properties.get_shader(PrepassVertexShader) {
             handle
         } else {
             self.default_prepass_shader.clone()
