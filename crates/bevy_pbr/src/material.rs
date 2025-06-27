@@ -516,8 +516,9 @@ impl FromWorld for MaterialPipeline {
 pub type DrawMaterial = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    SetMaterialBindGroup<2>,
+    SetMeshViewBindingArrayBindGroup<1>,
+    SetMeshBindGroup<2>,
+    SetMaterialBindGroup<3>,
     DrawMesh,
 );
 
