@@ -254,8 +254,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 }
 
-pub trait ErasedMaterialBindGroupData: Any + Sync + Send + 'static {}
-
 #[derive(Default)]
 pub struct MaterialsPlugin {
     /// Debugging flags that can optionally be set when constructing the renderer.
