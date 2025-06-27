@@ -63,18 +63,12 @@ impl FromWorld for SpritePipeline {
         let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
         let view_layout = render_device.create_bind_group_layout(
             "sprite_view_layout",
-            &BindGroupLayoutEntries::with_indices(
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
-                    (0, uniform_buffer::<ViewUniform>(true)),
-                    (
-                        1,
-                        tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
-                    ),
-                    (
-                        2,
-                        tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
-                    ),
+                    uniform_buffer::<ViewUniform>(true),
+                    tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                    tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
                 ),
             ),
         );
@@ -636,11 +630,7 @@ pub fn prepare_sprite_view_bind_groups(
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &sprite_pipeline.view_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, lut_bindings.0),
-                (2, lut_bindings.1),
-            )),
+            &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
         );
 
         commands.entity(entity).insert(SpriteViewBindGroup {
