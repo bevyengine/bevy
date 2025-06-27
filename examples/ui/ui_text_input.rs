@@ -1,8 +1,12 @@
 //! minimal text input example
 
+use bevy::color::palettes::css::NAVY;
+use bevy::prelude::*;
+use bevy::ui::widget::TextInputNode;
+
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, TextInputPlugin))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();
 }
