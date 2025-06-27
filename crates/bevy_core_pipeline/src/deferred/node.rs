@@ -79,7 +79,7 @@ impl ViewNode for LateDeferredGBufferPrepassNode {
         view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let (_, _, _, _, _, occlusion_culling, no_indirect_drawing) = view_query;
+        let (.., occlusion_culling, no_indirect_drawing) = view_query;
         if !occlusion_culling || no_indirect_drawing {
             return Ok(());
         }
