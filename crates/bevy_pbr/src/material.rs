@@ -303,23 +303,6 @@ impl Plugin for MaterialsPlugin {
                         queue_shadows.in_set(RenderSystems::QueueMeshes),
                     ),
                 );
-
-            #[cfg(feature = "meshlet")]
-            render_app.add_systems(
-                Render,
-                queue_material_meshlet_meshes
-                    .in_set(RenderSystems::QueueMeshes)
-                    .run_if(resource_exists::<InstanceManager>),
-            );
-
-            #[cfg(feature = "meshlet")]
-            render_app.add_systems(
-                Render,
-                prepare_material_meshlet_meshes_main_opaque_pass
-                    .in_set(RenderSystems::QueueMeshes)
-                    .before(queue_material_meshlet_meshes)
-                    .run_if(resource_exists::<InstanceManager>),
-            );
         }
     }
 
@@ -1507,97 +1490,40 @@ where
         }
 
         let mut shaders = HashMap::new();
+        let mut add_shader = |label: InternedShaderLabel, shader_ref: ShaderRef| {
+            let mayber_shader = match shader_ref {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            };
+            if let Some(shader) = mayber_shader {
+                shaders.insert(label, shader);
+            }
+        };
+        add_shader(MaterialVertexShader.intern(), M::vertex_shader());
+        add_shader(MaterialFragmentShader.intern(), M::fragment_shader());
+        add_shader(PrepassVertexShader.intern(), M::prepass_vertex_shader());
+        add_shader(PrepassFragmentShader.intern(), M::prepass_fragment_shader());
+        add_shader(DeferredVertexShader.intern(), M::deferred_vertex_shader());
+        add_shader(
+            DeferredFragmentShader.intern(),
+            M::deferred_fragment_shader(),
+        );
 
-        let vertex_shader = match M::vertex_shader() {
-            ShaderRef::Default => None,
-            ShaderRef::Handle(handle) => Some(handle),
-            ShaderRef::Path(path) => Some(asset_server.load(path)),
-        };
-        if let Some(vertex_shader) = vertex_shader {
-            shaders.insert(MaterialVertexShader.intern(), vertex_shader);
-        }
-        let fragment_shader = match M::fragment_shader() {
-            ShaderRef::Default => None,
-            ShaderRef::Handle(handle) => Some(handle),
-            ShaderRef::Path(path) => Some(asset_server.load(path)),
-        };
-        if let Some(fragment_shader) = fragment_shader {
-            shaders.insert(MaterialFragmentShader.intern(), fragment_shader);
-        }
-        let prepass_material_vertex_shader = match M::prepass_vertex_shader() {
-            ShaderRef::Default => None,
-            ShaderRef::Handle(handle) => Some(handle),
-            ShaderRef::Path(path) => Some(asset_server.load(path)),
-        };
-        if let Some(prepass_material_vertex_shader) = prepass_material_vertex_shader {
-            shaders.insert(PrepassVertexShader.intern(), prepass_material_vertex_shader);
-        }
-        let prepass_material_fragment_shader = match M::prepass_fragment_shader() {
-            ShaderRef::Default => None,
-            ShaderRef::Handle(handle) => Some(handle),
-            ShaderRef::Path(path) => Some(asset_server.load(path)),
-        };
-        if let Some(prepass_material_fragment_shader) = prepass_material_fragment_shader {
-            shaders.insert(
-                PrepassFragmentShader.intern(),
-                prepass_material_fragment_shader,
-            );
-        }
-        let deferred_material_vertex_shader = match M::deferred_vertex_shader() {
-            ShaderRef::Default => None,
-            ShaderRef::Handle(handle) => Some(handle),
-            ShaderRef::Path(path) => Some(asset_server.load(path)),
-        };
-        if let Some(deferred_material_vertex_shader) = deferred_material_vertex_shader {
-            shaders.insert(
-                DeferredVertexShader.intern(),
-                deferred_material_vertex_shader,
-            );
-        }
-        let deferred_material_fragment_shader = match M::deferred_fragment_shader() {
-            ShaderRef::Default => None,
-            ShaderRef::Handle(handle) => Some(handle),
-            ShaderRef::Path(path) => Some(asset_server.load(path)),
-        };
-        if let Some(deferred_material_fragment_shader) = deferred_material_fragment_shader {
-            shaders.insert(
-                DeferredFragmentShader.intern(),
-                deferred_material_fragment_shader,
-            );
-        }
         #[cfg(feature = "meshlet")]
         {
-            let meshlet_fragment_shader = match M::meshlet_mesh_fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            };
-            if let Some(meshlet_fragment_shader) = meshlet_fragment_shader {
-                shaders.insert(MeshletFragmentShader.intern(), meshlet_fragment_shader);
-            }
-            let meshlet_prepass_fragment_shader = match M::meshlet_mesh_prepass_fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            };
-            if let Some(meshlet_prepass_fragment_shader) = meshlet_prepass_fragment_shader {
-                shaders.insert(
-                    MeshletPrepassFragmentShader.intern(),
-                    meshlet_prepass_fragment_shader,
-                );
-            }
-            let meshlet_deferred_fragment_shader = match M::meshlet_mesh_deferred_fragment_shader()
-            {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            };
-            if let Some(meshlet_deferred_fragment_shader) = meshlet_deferred_fragment_shader {
-                shaders.insert(
-                    MeshletDeferredFragmentShader.intern(),
-                    meshlet_deferred_fragment_shader,
-                );
-            }
+            add_shader(
+                MeshletFragmentShader.intern(),
+                M::meshlet_mesh_fragment_shader(),
+            );
+            add_shader(
+                MeshletPrepassFragmentShader.intern(),
+                M::meshlet_mesh_prepass_fragment_shader(),
+            );
+            add_shader(
+                MeshletDeferredFragmentShader.intern(),
+                M::meshlet_mesh_deferred_fragment_shader(),
+            );
         }
 
         let bindless = material_uses_bindless_resources::<M>(render_device);
