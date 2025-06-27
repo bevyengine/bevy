@@ -3392,6 +3392,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_text_input"
+path = "examples/ui/ui_text_input.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_text_input]
+name = "Text Input"
+description = "Example demonstrating a text input"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_background_colors"
 path = "examples/ui/text_background_colors.rs"
 doc-scrape-examples = true
