@@ -17,12 +17,15 @@ use bevy_math::IVec2;
 use bevy_math::Rect;
 use bevy_math::UVec2;
 use bevy_math::Vec2;
+use cosmic_text::Action;
+use cosmic_text::BorrowedWithFontSystem;
 use cosmic_text::Buffer;
 use cosmic_text::Edit;
 use cosmic_text::Editor;
 use cosmic_text::FontSystem;
 use cosmic_text::Metrics;
 use cosmic_text::Motion;
+use cosmic_text::Selection;
 use cosmic_text::SwashCache;
 use cosmic_text::Wrap;
 
@@ -95,7 +98,7 @@ pub enum TextInputAction {
     /// Move the cursor with some motion
     Motion {
         motion: Motion,
-        select: bool,
+        with_select: bool,
     },
     Insert(char),
     Overwrite(char),
@@ -117,6 +120,34 @@ pub enum TextInputAction {
     SelectLine,
 }
 
+/// apply a motion action to the editor buffer
+pub fn apply_motion<'a>(
+    editor: &mut BorrowedWithFontSystem<Editor<'a>>,
+    shift_pressed: bool,
+    motion: Motion,
+) {
+    if shift_pressed {
+        if editor.selection() == Selection::None {
+            let cursor = editor.cursor();
+            editor.set_selection(Selection::Normal(cursor));
+        }
+    } else {
+        editor.action(Action::Escape);
+    }
+    editor.action(Action::Motion(motion));
+}
+
+pub fn cursor_at_line_end(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bool {
+    let cursor = editor.cursor();
+    editor.with_buffer(|buffer| {
+        buffer
+            .lines
+            .get(cursor.line)
+            .map(|line| cursor.index == line.text().len())
+            .unwrap_or(false)
+    })
+}
+
 pub fn apply_text_input_actions(
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_input_query: Query<(Entity, &mut TextInputBuffer, &mut TextInputActions)>,
@@ -125,28 +156,107 @@ pub fn apply_text_input_actions(
         let mut editor = buffer.editor.borrow_with(&mut font_system);
 
         while let Some(action) = text_input_actions.queue.pop_front() {
+            editor.start_change();
+
             match action {
                 TextInputAction::Submit => {}
                 TextInputAction::Copy => {}
                 TextInputAction::Cut => {}
                 TextInputAction::Paste => {}
-                TextInputAction::Motion { motion, select } => {}
-                TextInputAction::Insert(_) => {}
-                TextInputAction::Overwrite(_) => {}
-                TextInputAction::Enter => {}
-                TextInputAction::Backspace => {}
-                TextInputAction::Delete => {}
-                TextInputAction::Indent => {}
-                TextInputAction::Unindent => {}
-                TextInputAction::Click(ivec2) => {}
-                TextInputAction::DoubleClick(ivec2) => {}
-                TextInputAction::TripleClick(ivec2) => {}
-                TextInputAction::Drag(ivec2) => {}
-                TextInputAction::Scroll { lines } => {}
+                TextInputAction::Motion {
+                    motion,
+                    with_select,
+                } => {
+                    apply_motion(&mut editor, with_select, motion);
+                }
+                TextInputAction::Insert(ch) => {
+                    // else if max_chars
+                    //     .is_none_or(|max_chars| editor.with_buffer(buffer_len) < max_chars)
+                    editor.action(Action::Insert(ch));
+                }
+                TextInputAction::Overwrite(ch) => {
+                    match editor.selection() {
+                        Selection::None => {
+                            if !cursor_at_line_end(&mut editor) {
+                                editor.action(Action::Delete);
+                                editor.action(Action::Insert(ch));
+                            } else {
+                                // else if max_chars
+                                //     .is_none_or(|max_chars| editor.with_buffer(buffer_len) < max_chars)
+                                editor.action(Action::Insert(ch));
+                            }
+                        }
+                        _ => editor.action(Action::Insert(ch)),
+                    }
+                }
+                TextInputAction::Enter => {
+                    editor.action(Action::Enter);
+                }
+                TextInputAction::Backspace => {
+                    if editor.delete_selection() {
+                        editor.set_redraw(true);
+                    } else {
+                        editor.action(Action::Backspace);
+                    }
+                }
+                TextInputAction::Delete => {
+                    if editor.delete_selection() {
+                        editor.set_redraw(true);
+                    } else {
+                        editor.action(Action::Delete);
+                    }
+                }
+                TextInputAction::Indent => {
+                    editor.action(Action::Indent);
+                }
+                TextInputAction::Unindent => {
+                    editor.action(Action::Unindent);
+                }
+                TextInputAction::Click(point) => {
+                    editor.action(Action::Click {
+                        x: point.x,
+                        y: point.y,
+                    });
+                }
+                TextInputAction::DoubleClick(point) => {
+                    editor.action(Action::DoubleClick {
+                        x: point.x,
+                        y: point.y,
+                    });
+                }
+                TextInputAction::TripleClick(point) => {
+                    editor.action(Action::TripleClick {
+                        x: point.x,
+                        y: point.y,
+                    });
+                }
+                TextInputAction::Drag(point) => {
+                    editor.action(Action::Drag {
+                        x: point.x,
+                        y: point.y,
+                    });
+                }
+                TextInputAction::Scroll { lines } => {
+                    editor.action(Action::Scroll { lines });
+                }
                 TextInputAction::Undo => {}
                 TextInputAction::Redo => {}
-                TextInputAction::SelectAll => {}
-                TextInputAction::SelectLine => {}
+                TextInputAction::SelectAll => {
+                    editor.action(Action::Motion(Motion::BufferStart));
+                    let cursor = editor.cursor();
+                    editor.set_selection(Selection::Normal(cursor));
+                    editor.action(Action::Motion(Motion::BufferEnd));
+                }
+                TextInputAction::SelectLine => {
+                    editor.action(Action::Motion(Motion::Home));
+                    let cursor = editor.cursor();
+                    editor.set_selection(Selection::Normal(cursor));
+                    editor.action(Action::Motion(Motion::End));
+                }
+            }
+
+            if let Some(_change) = editor.finish_change() {
+                editor.set_redraw(true);
             }
         }
     }

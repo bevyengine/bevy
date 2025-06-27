@@ -22,9 +22,9 @@ use bevy_picking::events::Move;
 use bevy_picking::events::Pointer;
 use bevy_picking::events::Press;
 use bevy_picking::pointer::PointerButton;
+use bevy_text::TextInputAction;
+use bevy_text::TextInputActions;
 use bevy_text::TextInputBuffer;
-use bevy_text::TextInputCommand;
-use bevy_text::TextInputCommands;
 use bevy_text::TextPipeline;
 use bevy_time::Time;
 
@@ -72,7 +72,7 @@ fn on_text_input_pressed(
         &UiGlobalTransform,
         &mut TextInputBuffer,
         &TextInputNode,
-        &mut TextInputCommands,
+        &mut TextInputActions,
     )>,
     mut text_input_pipeline: ResMut<TextPipeline>,
     mut input_focus: ResMut<InputFocus>,
@@ -100,7 +100,7 @@ fn on_text_input_pressed(
         / ui_scale.0
         - rect.min;
 
-    edits.queue(TextInputCommand::Click(position.as_ivec2()));
+    edits.queue(TextInputAction::Click(position.as_ivec2()));
 }
 
 fn on_text_input_dragged(
@@ -110,7 +110,7 @@ fn on_text_input_dragged(
         &UiGlobalTransform,
         &mut TextInputBuffer,
         &TextInputNode,
-        &mut TextInputCommands,
+        &mut TextInputActions,
     )>,
     mut text_input_pipeline: ResMut<TextPipeline>,
     input_focus: Res<InputFocus>,
@@ -141,7 +141,7 @@ fn on_text_input_dragged(
         y: position.y as i32,
     };
 
-    edits.queue(TextInputCommand::Drag(target));
+    edits.queue(TextInputAction::Drag(target));
 }
 
 fn on_multi_click_set_selection(
@@ -149,7 +149,7 @@ fn on_multi_click_set_selection(
     time: Res<Time>,
     mut text_input_nodes: Query<(
         &TextInputNode,
-        &mut TextInputCommands,
+        &mut TextInputActions,
         &mut TextInputBuffer,
         &UiGlobalTransform,
         &ComputedNode,
@@ -189,11 +189,11 @@ fn on_multi_click_set_selection(
                     multi_click_data.click_count += 1;
                     multi_click_data.last_click_time = now;
 
-                    edits.queue(TextInputCommand::DoubleClick(position.as_ivec2()));
+                    edits.queue(TextInputAction::DoubleClick(position.as_ivec2()));
                     return;
                 }
                 2 => {
-                    edits.queue(TextInputCommand::SelectLine);
+                    edits.queue(TextInputAction::SelectLine);
                     if let Ok(mut entity) = commands.get_entity(entity) {
                         entity.try_remove::<TextInputMultiClickCounter>();
                     }
@@ -221,7 +221,7 @@ fn on_focused_keyboard_input(
     trigger: On<FocusedInput<KeyboardInput>>,
     mut query: Query<(
         &TextInputNode,
-        &mut TextInputCommands,
+        &mut TextInputActions,
         &mut TextInputModifiers,
     )>,
 ) {
