@@ -481,6 +481,10 @@ impl Deref for BindGroup {
 ///     is_shaded: bool,
 /// }
 ///
+/// // Materials keys are intended to be small, cheap to hash, and
+/// // uniquely identify a specific material permutation, which
+/// // is why they are required to be `bytemuck::Pod` and `bytemuck::Zeroable`
+/// // when using the `AsBindGroup` derive macro.
 /// #[repr(C)]
 /// #[derive(Copy, Clone, Hash, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 /// struct CoolMaterialKey {

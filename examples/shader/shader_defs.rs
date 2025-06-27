@@ -86,7 +86,9 @@ struct CustomMaterial {
 // This key is used to identify a specific permutation of this material pipeline.
 // In this case, we specialize on whether or not to configure the "IS_RED" shader def.
 // Specialization keys should be kept as small / cheap to hash as possible,
-// as they will be used to look up the pipeline for each drawn entity with this material type.
+// as they will be used to look up the pipeline for each drawn entity with this material type,
+// Which is why they are required to be `bytemuck::Pod` and `bytemuck::Zeroable` for materials
+// that use the `AsBindGroup` derive macro.
 #[repr(C)]
 #[derive(Eq, PartialEq, Hash, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CustomMaterialKey {
