@@ -297,7 +297,7 @@ impl Plugin for MaterialsPlugin {
                     Render,
                     (
                         check_views_lights_need_specialization.in_set(RenderSystems::PrepareAssets),
-                        // specialize_shadows::<M> also needs to run after prepare_assets::<PreparedMaterial<M>>,
+                        // specialize_shadows also needs to run after prepare_assets::<PreparedMaterial>,
                         // which is fine since ManageViews is after PrepareAssets
                         specialize_shadows
                             .in_set(RenderSystems::ManageViews)
