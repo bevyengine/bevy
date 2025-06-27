@@ -219,7 +219,7 @@ pub enum RenderSystems {
 
 /// The schedule that contains the app logic that is evaluated each tick
 ///
-/// This is highly inspired by [`bevy_app::main_schedule::Main`]
+/// This is highly inspired by [`bevy_app::Main`]
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct MainRender;
 impl MainRender {
@@ -241,7 +241,7 @@ impl MainRender {
     }
 }
 
-/// Defines the schedules to be run for the [`RenderSchedule`], including
+/// Defines the schedules to be run for the [`MainRender`] schedule, including
 /// their order.
 #[derive(Resource, Debug)]
 struct MainRenderScheduleOrder {
