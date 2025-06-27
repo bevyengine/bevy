@@ -549,7 +549,7 @@ fn get_attrs<'a>(
 }
 
 /// Calculate the size of the text area for the given buffer.
-fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
+pub(crate) fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     let (width, height) = buffer
         .layout_runs()
         .map(|run| (run.line_w, run.line_height))
