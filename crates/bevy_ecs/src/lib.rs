@@ -2455,6 +2455,24 @@ mod tests {
     }
 
     #[test]
+    fn runtime_required_components_existing_bundle() {
+        #[derive(Component)]
+        struct X;
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+
+        // Registering required components after it contributed to a bundle should panic.
+        // This may change in the future.
+        world.register_bundle::<X>();
+        assert!(matches!(
+            world.try_register_required_components::<X, Y>(),
+            Err(RequiredComponentsError::BundleExists(_))
+        ));
+    }
+
+    #[test]
     fn runtime_required_components_fail_with_duplicate() {
         #[derive(Component)]
         #[require(Y)]

@@ -2625,6 +2625,9 @@ pub enum RequiredComponentsError {
     /// An archetype with the component that requires other components already exists
     #[error("An archetype with the component {0:?} that requires other components already exists")]
     ArchetypeExists(ComponentId),
+    /// A bundle with the component that requires other components already exists
+    #[error("A bundle with the component {0:?} that requires other components already exists")]
+    BundleExists(ComponentId),
 }
 
 /// A Required Component constructor. See [`Component`] for details.

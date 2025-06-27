@@ -534,9 +534,14 @@ impl World {
     ) -> Result<(), RequiredComponentsError> {
         let requiree = self.register_component::<T>();
 
-        // TODO: Remove this panic and update archetype edges accordingly when required components are added
+        // TODO: Remove this error and update archetype edges accordingly when required components are added
         if self.archetypes().component_index().contains_key(&requiree) {
             return Err(RequiredComponentsError::ArchetypeExists(requiree));
+        }
+
+        // TODO: Remove this error and update bundles with requiree and constructors of required components
+        if self.bundles().component_contributes_to_any(requiree) {
+            return Err(RequiredComponentsError::BundleExists(requiree));
         }
 
         let required = self.register_component::<R>();

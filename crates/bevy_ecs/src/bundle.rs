@@ -1901,6 +1901,7 @@ pub struct Bundles {
     /// Cache optimized dynamic [`BundleId`] with single component
     dynamic_component_bundle_ids: HashMap<ComponentId, BundleId>,
     dynamic_component_storages: HashMap<BundleId, StorageType>,
+    bundled_components: HashSet<ComponentId>,
 }
 
 impl Bundles {
@@ -1953,6 +1954,7 @@ impl Bundles {
                 // - appropriate storage for it has been initialized.
                 // - it was created in the same order as the components in T
                 unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
+            self.bundled_components.extend(bundle_info.contributed_components().iter().copied());
             bundle_infos.push(bundle_info);
             id
         })
@@ -2024,6 +2026,7 @@ impl Bundles {
         component_ids: &[ComponentId],
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
+        let bundled_components = &mut self.bundled_components;
 
         // Use `raw_entry_mut` to avoid cloning `component_ids` to access `Entry`
         let (_, bundle_id) = self
@@ -2033,6 +2036,7 @@ impl Bundles {
             .or_insert_with(|| {
                 let (id, storages) = initialize_dynamic_bundle(
                     bundle_infos,
+                    bundled_components,
                     storages,
                     components,
                     Vec::from(component_ids),
@@ -2059,12 +2063,15 @@ impl Bundles {
         component_id: ComponentId,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
+        let bundled_components = &mut self.bundled_components;
+
         let bundle_id = self
             .dynamic_component_bundle_ids
             .entry(component_id)
             .or_insert_with(|| {
                 let (id, storage_type) = initialize_dynamic_bundle(
                     bundle_infos,
+                    bundled_components,
                     storages,
                     components,
                     vec![component_id],
@@ -2074,12 +2081,18 @@ impl Bundles {
             });
         *bundle_id
     }
+
+    /// Returns `true` if this component [contributes](`BundleInfo::contributed_components`) to any bundle.
+    pub(crate) fn component_contributes_to_any(&self, component: ComponentId) -> bool {
+        self.bundled_components.contains(&component)
+    }
 }
 
 /// Asserts that all components are part of [`Components`]
 /// and initializes a [`BundleInfo`].
 fn initialize_dynamic_bundle(
     bundle_infos: &mut Vec<BundleInfo>,
+    bundled_components: &mut HashSet<ComponentId>,
     storages: &mut Storages,
     components: &Components,
     component_ids: Vec<ComponentId>,
@@ -2097,6 +2110,7 @@ fn initialize_dynamic_bundle(
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
         unsafe { BundleInfo::new("<dynamic bundle>", storages, components, component_ids, id) };
+    bundled_components.extend(bundle_info.contributed_components().iter().copied());
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
