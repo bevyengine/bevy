@@ -293,19 +293,13 @@ impl FromWorld for Mesh2dPipeline {
         let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
         let view_layout = render_device.create_bind_group_layout(
             "mesh2d_view_layout",
-            &BindGroupLayoutEntries::with_indices(
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
-                    (0, uniform_buffer::<ViewUniform>(true)),
-                    (1, uniform_buffer::<GlobalsUniform>(false)),
-                    (
-                        2,
-                        tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
-                    ),
-                    (
-                        3,
-                        tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
-                    ),
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<GlobalsUniform>(false),
+                    tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                    tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
                 ),
             ),
         );
@@ -755,11 +749,11 @@ pub fn prepare_mesh2d_view_bind_groups(
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &mesh2d_pipeline.view_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, globals.clone()),
-                (2, lut_bindings.0),
-                (3, lut_bindings.1),
+            &BindGroupEntries::sequential((
+                view_binding.clone(),
+                globals.clone(),
+                lut_bindings.0,
+                lut_bindings.1,
             )),
         );
 

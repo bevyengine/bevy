@@ -238,43 +238,12 @@ pub fn ktx2_buffer_to_image(
         )));
     }
 
-    // Reorder data from KTX2 MipXLayerYFaceZ to wgpu LayerYFaceZMipX
-    let texture_format_info = texture_format;
-    let (block_width_pixels, block_height_pixels) = (
-        texture_format_info.block_dimensions().0 as usize,
-        texture_format_info.block_dimensions().1 as usize,
-    );
-    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
-    let block_bytes = texture_format_info.block_copy_size(None).unwrap() as usize;
-
-    let mut wgpu_data = vec![Vec::default(); (layer_count * face_count) as usize];
-    for (level, level_data) in levels.iter().enumerate() {
-        let (level_width, level_height, level_depth) = (
-            (width as usize >> level).max(1),
-            (height as usize >> level).max(1),
-            (depth as usize >> level).max(1),
-        );
-        let (num_blocks_x, num_blocks_y) = (
-            level_width.div_ceil(block_width_pixels).max(1),
-            level_height.div_ceil(block_height_pixels).max(1),
-        );
-        let level_bytes = num_blocks_x * num_blocks_y * level_depth * block_bytes;
-
-        let mut index = 0;
-        for _layer in 0..layer_count {
-            for _face in 0..face_count {
-                let offset = index * level_bytes;
-                wgpu_data[index].extend_from_slice(&level_data[offset..(offset + level_bytes)]);
-                index += 1;
-            }
-        }
-    }
-
     // Assign the data and fill in the rest of the metadata now the possible
     // error cases have been handled
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
-    image.data = Some(wgpu_data.into_iter().flatten().collect::<Vec<_>>());
+    image.data = Some(levels.into_iter().flatten().collect::<Vec<_>>());
+    image.data_order = wgpu_types::TextureDataOrder::MipMajor;
     // Note: we must give wgpu the logical texture dimensions, so it can correctly compute mip sizes.
     // However this currently causes wgpu to panic if the dimensions arent a multiple of blocksize.
     // See https://github.com/gfx-rs/wgpu/issues/7677 for more context.
