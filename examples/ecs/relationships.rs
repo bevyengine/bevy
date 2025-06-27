@@ -104,7 +104,7 @@ fn main() {
             ));
         }
 
-        println!("{}", relationships);
+        println!("{relationships}");
     }
 
     world.run_system_once(debug_relationships).unwrap();
