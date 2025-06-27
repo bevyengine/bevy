@@ -11,14 +11,12 @@ use bevy_ecs::{
     system::{Query, ResMut},
     world::DeferredWorld,
 };
-use bevy_image::{Image, ImageSampler};
+use bevy_image::{Image, ImageSampler, ToExtents};
 use bevy_math::{FloatOrd, UVec2, Vec2, Vec3};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     mesh::{Indices, Mesh, Mesh2d, PrimitiveTopology},
-    render_resource::{
-        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    },
+    render_resource::{TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
 };
 use tracing::warn;
 
@@ -201,11 +199,7 @@ fn make_chunk_image(size: &UVec2, indices: &[Option<u16>]) -> Image {
                 .collect(),
         ),
         texture_descriptor: TextureDescriptor {
-            size: Extent3d {
-                width: size.x,
-                height: size.y,
-                depth_or_array_layers: 1,
-            },
+            size: size.to_extents(),
             dimension: TextureDimension::D2,
             format: TextureFormat::R16Uint,
             label: None,

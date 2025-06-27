@@ -337,6 +337,28 @@ impl ImageFormat {
     }
 }
 
+pub trait ToExtents {
+    fn to_extents(self) -> Extent3d;
+}
+impl ToExtents for UVec2 {
+    fn to_extents(self) -> Extent3d {
+        Extent3d {
+            width: self.x,
+            height: self.y,
+            depth_or_array_layers: 1,
+        }
+    }
+}
+impl ToExtents for UVec3 {
+    fn to_extents(self) -> Extent3d {
+        Extent3d {
+            width: self.x,
+            height: self.y,
+            depth_or_array_layers: self.z,
+        }
+    }
+}
+
 #[derive(Asset, Debug, Clone)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -772,11 +794,7 @@ impl Image {
         debug_assert!(format.pixel_size() == 4);
         let data = vec![255, 255, 255, 0];
         Image::new(
-            Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            Extent3d::default(),
             TextureDimension::D2,
             data,
             format,
@@ -786,11 +804,7 @@ impl Image {
     /// Creates a new uninitialized 1x1x1 image
     pub fn default_uninit() -> Image {
         Image::new_uninit(
-            Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            Extent3d::default(),
             TextureDimension::D2,
             TextureFormat::bevy_default(),
             RenderAssetUsages::default(),
