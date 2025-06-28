@@ -86,9 +86,10 @@ interacting with that widget. Externalizing the state avoids the need for two-wa
 instead allows simpler one-way data binding that aligns well with the traditional "Model / View /
 Controller" (MVC) design pattern.
 
-That being said, the choice of internal or external state management is up to you: if the widget
-has an `on_change` callback that is not `None`, then the callback is used. If the callback
-is `None`, however, the widget will update its own state. (This is similar to how React.js does it.)
+That being said, the choice of internal or external state management is up to you: if the widget has
+an `on_change` callback that is not `Callback::Ignore`, then the callback is used. If the callback
+is `Callback::Ignore`, however, the widget will update its own state. (This is similar to how
+React.js does it.)
 
 There are two exceptions to this rule about external state management. First, widgets which don't
 edit a value, but which merely trigger an event (such as buttons), don't fall under this rule.
