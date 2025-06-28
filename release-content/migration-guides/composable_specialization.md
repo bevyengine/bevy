@@ -28,7 +28,9 @@ the included macro in most cases.
 
 Composing multiple different specializers together with the `derive(Specialize)`
 macro can be a lot more powerful (see the `Specialize` docs), but migrating
-individual specializers is fairly simple:
+individual specializers is fairly simple. All static parts of the pipeline
+should be specified in the base descriptor, while the `Specialize` impl
+should mutate the key as little as necessary to match the key.
 
 ```rs
 pub struct MySpecializer {
