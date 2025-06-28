@@ -133,7 +133,7 @@ fn radio_group_on_key_input(
             let (next_id, _) = radio_buttons[next_index];
 
             // Trigger the on_change event for the newly checked radio button
-            commands.notify_arg(on_change, next_id);
+            commands.notify_with(on_change, next_id);
         }
     }
 }
@@ -196,7 +196,7 @@ fn radio_group_on_button_click(
         }
 
         // Trigger the on_change event for the newly checked radio button
-        commands.notify_arg(on_change, radio_id);
+        commands.notify_with(on_change, radio_id);
     }
 }
 

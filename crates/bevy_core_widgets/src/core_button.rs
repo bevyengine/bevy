@@ -23,9 +23,8 @@ use crate::{Callback, Notify};
 #[derive(Component, Default, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
 pub struct CoreButton {
-    /// Optional system to run when the button is clicked, or when the Enter or Space key
-    /// is pressed while the button is focused. If this field is `None`, the button will
-    /// emit a `ButtonClicked` event when clicked.
+    /// Callback to invoke when the button is clicked, or when the `Enter` or `Space` key
+    /// is pressed while the button is focused.
     pub on_click: Callback,
 }
 

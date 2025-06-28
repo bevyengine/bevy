@@ -265,7 +265,7 @@ pub(crate) fn slider_on_pointer_down(
                 .entity(trigger.target())
                 .insert(SliderValue(new_value));
         } else {
-            commands.notify_arg(&slider.on_change, new_value);
+            commands.notify_with(&slider.on_change, new_value);
         }
     }
 }
@@ -330,7 +330,7 @@ pub(crate) fn slider_on_drag(
                     .entity(trigger.target())
                     .insert(SliderValue(new_value));
             } else {
-                commands.notify_arg(&slider.on_change, new_value);
+                commands.notify_with(&slider.on_change, new_value);
             }
         }
     }
@@ -377,7 +377,7 @@ fn slider_on_key_input(
                     .entity(trigger.target())
                     .insert(SliderValue(new_value));
             } else {
-                commands.notify_arg(&slider.on_change, new_value);
+                commands.notify_with(&slider.on_change, new_value);
             }
         }
     }
@@ -469,7 +469,7 @@ fn slider_on_set_value(
                 .entity(trigger.target())
                 .insert(SliderValue(new_value));
         } else {
-            commands.notify_arg(&slider.on_change, new_value);
+            commands.notify_with(&slider.on_change, new_value);
         }
     }
 }
