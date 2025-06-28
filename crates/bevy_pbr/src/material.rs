@@ -1300,11 +1300,11 @@ pub struct MaterialProperties {
     pub reads_view_transmission_texture: bool,
     pub render_phase_type: RenderPhaseType,
     pub material_layout: Option<BindGroupLayout>,
-    pub draw_functions: HashMap<InternedDrawFunctionLabel, DrawFunctionId>,
-    pub shaders: HashMap<InternedShaderLabel, Handle<Shader>>,
-    /// Backing array is a size of 3 because the StandardMaterial has 3 custom shaders (frag, prepass_frag, deferred_frag) which is the
+    /// Backing array is a size of 4 because the `StandardMaterial` needs 4 draw functions by default
+    pub draw_functions: SmallVec<[(InternedDrawFunctionLabel, DrawFunctionId); 4]>,
+    /// Backing array is a size of 3 because the `StandardMaterial` has 3 custom shaders (`frag`, `prepass_frag`, `deferred_frag`) which is the
     /// most common use case
-    pub shaders_vec: SmallVec<[(InternedShaderLabel, Handle<Shader>); 3]>,
+    pub shaders: SmallVec<[(InternedShaderLabel, Handle<Shader>); 3]>,
     /// Whether this material *actually* uses bindless resources, taking the
     /// platform support (or lack thereof) of bindless resources into account.
     pub bindless: bool,
@@ -1323,8 +1323,7 @@ pub struct MaterialProperties {
 
 impl MaterialProperties {
     pub fn get_shader(&self, label: impl ShaderLabel) -> Option<Handle<Shader>> {
-        // self.shaders.get(&label.intern()).cloned();
-        self.shaders_vec
+        self.shaders
             .iter()
             .find(|(inner_label, _)| inner_label == &label.intern())
             .map(|(_, shader)| shader)
@@ -1336,13 +1335,16 @@ impl MaterialProperties {
         label: impl ShaderLabel,
         shader: Handle<Shader>,
     ) -> Option<Handle<Shader>> {
-        // self.shaders.insert(label.intern(), shader);
-        self.shaders_vec.push((label.intern(), shader));
-        self.shaders_vec.last().map(|(_, shader)| shader).cloned()
+        self.shaders.push((label.intern(), shader));
+        self.shaders.last().map(|(_, shader)| shader).cloned()
     }
 
     pub fn get_draw_function(&self, label: impl DrawFunctionLabel) -> Option<DrawFunctionId> {
-        self.draw_functions.get(&label.intern()).copied()
+        self.draw_functions
+            .iter()
+            .find(|(inner_label, _)| inner_label == &label.intern())
+            .map(|(_, shader)| shader)
+            .cloned()
     }
 
     pub fn add_draw_function(
@@ -1350,7 +1352,11 @@ impl MaterialProperties {
         label: impl DrawFunctionLabel,
         draw_function: DrawFunctionId,
     ) -> Option<DrawFunctionId> {
-        self.draw_functions.insert(label.intern(), draw_function)
+        self.draw_functions.push((label.intern(), draw_function));
+        self.draw_functions
+            .last()
+            .map(|(_, shader)| shader)
+            .cloned()
     }
 }
 
@@ -1482,20 +1488,19 @@ where
             _ => None,
         };
 
-        let mut draw_functions = HashMap::new();
-        draw_functions.insert(MaterialDrawFunction.intern(), draw_function_id);
+        let mut draw_functions = SmallVec::new();
+        draw_functions.push((MaterialDrawFunction.intern(), draw_function_id));
         if let Some(prepass_draw_function_id) = prepass_draw_function_id {
-            draw_functions.insert(PrepassDrawFunction.intern(), prepass_draw_function_id);
+            draw_functions.push((PrepassDrawFunction.intern(), prepass_draw_function_id));
         }
         if let Some(deferred_draw_function_id) = deferred_draw_function_id {
-            draw_functions.insert(DeferredDrawFunction.intern(), deferred_draw_function_id);
+            draw_functions.push((DeferredDrawFunction.intern(), deferred_draw_function_id));
         }
         if let Some(shadow_draw_function_id) = shadow_draw_function_id {
-            draw_functions.insert(ShadowsDrawFunction.intern(), shadow_draw_function_id);
+            draw_functions.push((ShadowsDrawFunction.intern(), shadow_draw_function_id));
         }
 
-        let mut shaders = HashMap::new();
-        let mut shaders_vec = SmallVec::new();
+        let mut shaders = SmallVec::new();
         let mut add_shader = |label: InternedShaderLabel, shader_ref: ShaderRef| {
             let mayber_shader = match shader_ref {
                 ShaderRef::Default => None,
@@ -1504,7 +1509,7 @@ where
             };
             if let Some(shader) = mayber_shader {
                 // shaders.insert(label, shader);
-                shaders_vec.push((label, shader));
+                shaders.push((label, shader));
             }
         };
         add_shader(MaterialVertexShader.intern(), M::vertex_shader());
@@ -1532,14 +1537,6 @@ where
                 M::meshlet_mesh_deferred_fragment_shader(),
             );
         }
-        println!("shaders_vec size: {}", shaders_vec.len());
-        println!(
-            "{:?}",
-            shaders_vec
-                .iter()
-                .map(|(label, _)| label)
-                .collect::<Vec<_>>()
-        );
 
         let bindless = material_uses_bindless_resources::<M>(render_device);
         let bind_group_data = material.bind_group_data();
@@ -1600,7 +1597,6 @@ where
                         bindless,
                         specialize: Some(specialize::<M>),
                         material_key,
-                        shaders_vec,
                     }),
                 })
             }
@@ -1638,7 +1634,6 @@ where
                                 bindless,
                                 specialize: Some(specialize::<M>),
                                 material_key,
-                                shaders_vec,
                             }),
                         })
                     }
