@@ -19,12 +19,14 @@ fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, 
 
     let projection = view.clip_from_view;
     if projection[3][3] == 1.0 {
+        // Orthographic
         let world_error = simplification_error * world_scale;
         let proj = projection[1][1];
         let height = 2.0 / proj;
         let norm_error = world_error / height;
         return norm_error * view.viewport.w < 1.0;
     } else {
+        // Perspective
         var near = projection[3][2];
         let world_sphere_center = (world_from_local * vec4<f32>(lod_sphere.xyz, 1.0)).xyz;
         let world_sphere_radius = lod_sphere.w * world_scale;
