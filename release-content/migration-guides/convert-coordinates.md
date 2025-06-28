@@ -30,7 +30,7 @@ This is why we are now gradually rolling out support for corrected glTF imports.
 > You are currently importing glTF files using the old behavior. Consider opting-in to the new import behavior by enable the `gltf_convert_coordinates_default` feature.
 > If you encounter any issues please file a bug!
 > If you want to continue using the old behavior going forward (even when the default changes in 0.18), manually set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`.
-> See the migration >guide for more details.
+> See the migration guide for more details.
 
 As the warning says, you can opt into the new behavior by enabling the `gltf_convert_coordinates_default` feature in your `Cargo.toml`:
 
