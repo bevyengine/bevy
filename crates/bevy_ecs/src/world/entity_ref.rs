@@ -2,7 +2,7 @@ use crate::{
     archetype::Archetype,
     bundle::{
         Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
-        InsertMode,
+        IgnoreIfCollides, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{
@@ -1782,12 +1782,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Replace,
-            MaybeLocation::caller(),
-            RelationshipHookMode::Run,
-        )
+        self.insert_with_caller(bundle, MaybeLocation::caller(), RelationshipHookMode::Run)
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -1810,12 +1805,7 @@ impl<'w> EntityWorldMut<'w> {
         bundle: T,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Replace,
-            MaybeLocation::caller(),
-            relationship_hook_mode,
-        )
+        self.insert_with_caller(bundle, MaybeLocation::caller(), relationship_hook_mode)
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting.
@@ -1829,8 +1819,7 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         self.insert_with_caller(
-            bundle,
-            InsertMode::Keep,
+            IgnoreIfCollides(bundle),
             MaybeLocation::caller(),
             RelationshipHookMode::Run,
         )
@@ -1842,7 +1831,6 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) fn insert_with_caller<T: Bundle>(
         &mut self,
         bundle: T,
-        mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
@@ -1856,7 +1844,6 @@ impl<'w> EntityWorldMut<'w> {
                 self.entity,
                 location,
                 bundle,
-                mode,
                 caller,
                 relationship_hook_mode,
             )
@@ -1891,7 +1878,6 @@ impl<'w> EntityWorldMut<'w> {
         self.insert_by_id_with_caller(
             component_id,
             component,
-            InsertMode::Replace,
             MaybeLocation::caller(),
             RelationshipHookMode::Run,
         )
@@ -1906,7 +1892,6 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_id: ComponentId,
         component: OwningPtr<'_>,
-        mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> &mut Self {
@@ -1928,7 +1913,6 @@ impl<'w> EntityWorldMut<'w> {
             location,
             Some(component).into_iter(),
             Some(storage_type).iter().cloned(),
-            mode,
             caller,
             relationship_hook_insert_mode,
         ));
@@ -1987,7 +1971,6 @@ impl<'w> EntityWorldMut<'w> {
             location,
             iter_components,
             (*storage_types).iter().cloned(),
-            InsertMode::Replace,
             MaybeLocation::caller(),
             relationship_hook_insert_mode,
         ));
@@ -4462,7 +4445,6 @@ unsafe fn insert_dynamic_bundle<
     location: EntityLocation,
     components: I,
     storage_types: S,
-    mode: InsertMode,
     caller: MaybeLocation,
     relationship_hook_insert_mode: RelationshipHookMode,
 ) -> EntityLocation {
@@ -4474,8 +4456,13 @@ unsafe fn insert_dynamic_bundle<
         for DynamicInsertBundle<'a, I>
     {
         type Effect = ();
-        fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-            self.components.for_each(|(t, ptr)| func(t, ptr));
+        fn get_components(
+            self,
+            insert_mode: InsertMode,
+            func: &mut impl FnMut(StorageType, InsertMode, OwningPtr<'_>),
+        ) {
+            self.components
+                .for_each(|(t, ptr)| func(t, insert_mode, ptr));
         }
     }
 
@@ -4490,7 +4477,6 @@ unsafe fn insert_dynamic_bundle<
                 entity,
                 location,
                 bundle,
-                mode,
                 caller,
                 relationship_hook_insert_mode,
             )

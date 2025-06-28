@@ -13,15 +13,16 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-pub use crate::{
-    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
-    world::command_queue::CommandQueue,
-};
 use crate::{
+    bundle::IgnoreIfCollides,
     error::{DefaultErrorHandler, ErrorHandler},
     event::BufferedEvent,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     prelude::{Add, Despawn, Insert, Remove, Replace},
+};
+pub use crate::{
+    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
+    world::command_queue::CommandQueue,
 };
 pub use bevy_ecs_macros::FromWorld;
 use bevy_utils::prelude::DebugName;
@@ -39,8 +40,7 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
-        NoBundleEffect,
+        Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, NoBundleEffect,
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -2255,7 +2255,7 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.insert_batch_with_caller(batch, InsertMode::Replace, MaybeLocation::caller());
+        self.insert_batch_with_caller(batch, MaybeLocation::caller());
     }
 
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
@@ -2280,7 +2280,10 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.insert_batch_with_caller(batch, InsertMode::Keep, MaybeLocation::caller());
+        self.insert_batch_with_caller(
+            batch.into_iter().map(|(e, b)| (e, IgnoreIfCollides(b))),
+            MaybeLocation::caller(),
+        );
     }
 
     /// Split into a new function so we can differentiate the calling location.
@@ -2289,12 +2292,8 @@ impl World {
     /// - [`World::insert_batch`]
     /// - [`World::insert_batch_if_new`]
     #[inline]
-    pub(crate) fn insert_batch_with_caller<I, B>(
-        &mut self,
-        batch: I,
-        insert_mode: InsertMode,
-        caller: MaybeLocation,
-    ) where
+    pub(crate) fn insert_batch_with_caller<I, B>(&mut self, batch: I, caller: MaybeLocation)
+    where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle<Effect: NoBundleEffect>,
@@ -2335,7 +2334,6 @@ impl World {
                         first_entity,
                         first_location,
                         first_bundle,
-                        insert_mode,
                         caller,
                         RelationshipHookMode::Run,
                     )
@@ -2363,7 +2361,6 @@ impl World {
                                 entity,
                                 location,
                                 bundle,
-                                insert_mode,
                                 caller,
                                 RelationshipHookMode::Run,
                             )
@@ -2398,7 +2395,7 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.try_insert_batch_with_caller(batch, InsertMode::Replace, MaybeLocation::caller())
+        self.try_insert_batch_with_caller(batch, MaybeLocation::caller())
     }
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity` without overwriting.
@@ -2420,7 +2417,10 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.try_insert_batch_with_caller(batch, InsertMode::Keep, MaybeLocation::caller())
+        self.try_insert_batch_with_caller(
+            batch.into_iter().map(|(e, b)| (e, IgnoreIfCollides(b))),
+            MaybeLocation::caller(),
+        )
     }
 
     /// Split into a new function so we can differentiate the calling location.
@@ -2436,7 +2436,6 @@ impl World {
     pub(crate) fn try_insert_batch_with_caller<I, B>(
         &mut self,
         batch: I,
-        insert_mode: InsertMode,
         caller: MaybeLocation,
     ) -> Result<(), TryInsertBatchError>
     where
@@ -2485,7 +2484,6 @@ impl World {
                             first_entity,
                             first_location,
                             first_bundle,
-                            insert_mode,
                             caller,
                             RelationshipHookMode::Run,
                         )
@@ -2522,7 +2520,6 @@ impl World {
                             entity,
                             location,
                             bundle,
-                            insert_mode,
                             caller,
                             RelationshipHookMode::Run,
                         )

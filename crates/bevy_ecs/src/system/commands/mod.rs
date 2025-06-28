@@ -15,7 +15,7 @@ use core::marker::PhantomData;
 
 use crate::{
     self as bevy_ecs,
-    bundle::{Bundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, IgnoreIfCollides, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
@@ -398,7 +398,6 @@ impl<'w, 's> Commands<'w, 's> {
 
             entity.insert_with_caller(
                 bundle,
-                InsertMode::Replace,
                 caller,
                 crate::relationship::RelationshipHookMode::Run,
             );
@@ -683,7 +682,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.queue(command::insert_batch(batch, InsertMode::Replace));
+        self.queue(command::insert_batch(batch));
     }
 
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
@@ -712,9 +711,12 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        I::IntoIter: Send + Sync + 'static,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.queue(command::insert_batch(batch, InsertMode::Keep));
+        self.queue(command::insert_batch(
+            batch.into_iter().map(|(e, b)| (e, IgnoreIfCollides(b))),
+        ));
     }
 
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
@@ -744,7 +746,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.queue(command::insert_batch(batch, InsertMode::Replace).handle_error_with(warn));
+        self.queue(command::insert_batch(batch).handle_error_with(warn));
     }
 
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
@@ -773,9 +775,13 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        I::IntoIter: Send + Sync + 'static,
         B: Bundle<Effect: NoBundleEffect>,
     {
-        self.queue(command::insert_batch(batch, InsertMode::Keep).handle_error_with(warn));
+        self.queue(
+            command::insert_batch(batch.into_iter().map(|(e, b)| (e, IgnoreIfCollides(b))))
+                .handle_error_with(warn),
+        );
     }
 
     /// Inserts a [`Resource`] into the [`World`] with an inferred value.
@@ -1353,7 +1359,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert(bundle, InsertMode::Replace))
+        self.queue(entity_command::insert(bundle))
     }
 
     /// Adds a [`Bundle`] of components to the entity if the predicate returns true.
@@ -1401,7 +1407,7 @@ impl<'a> EntityCommands<'a> {
     /// as well as initialize it with a default value.
     #[track_caller]
     pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert(bundle, InsertMode::Keep))
+        self.queue(entity_command::insert(IgnoreIfCollides(bundle)))
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting if the
@@ -1441,7 +1447,7 @@ impl<'a> EntityCommands<'a> {
             // SAFETY:
             // - `ComponentId` safety is ensured by the caller.
             // - `T` safety is ensured by the caller.
-            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
+            unsafe { entity_command::insert_by_id(component_id, value) },
         )
     }
 
@@ -1470,7 +1476,7 @@ impl<'a> EntityCommands<'a> {
             // SAFETY:
             // - `ComponentId` safety is ensured by the caller.
             // - `T` safety is ensured by the caller.
-            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
+            unsafe { entity_command::insert_by_id(component_id, value) },
             ignore,
         )
     }
@@ -1523,7 +1529,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle, InsertMode::Replace), ignore)
+        self.queue_handled(entity_command::insert(bundle), ignore)
     }
 
     /// Adds a [`Bundle`] of components to the entity if the predicate returns true.
@@ -1579,7 +1585,7 @@ impl<'a> EntityCommands<'a> {
     /// the resulting error will be ignored.
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle, InsertMode::Keep), ignore)
+        self.queue_handled(entity_command::insert(IgnoreIfCollides(bundle)), ignore)
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -2294,7 +2300,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         T: FromWorld,
     {
         self.entity_commands
-            .queue(entity_command::insert_from_world::<T>(InsertMode::Keep));
+            .queue(entity_command::insert_from_world::<T>(true));
         self
     }
 
