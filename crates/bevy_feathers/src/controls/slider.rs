@@ -2,7 +2,7 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_color::Color;
-use bevy_core_widgets::{CoreSlider, SliderRange, SliderValue, TrackClick};
+use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -13,7 +13,7 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, Spawned, With},
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
-    system::{In, Query, Res, SystemId},
+    system::{In, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
@@ -34,7 +34,6 @@ use crate::{
 };
 
 /// Slider template properties, passed to [`slider`] function.
-#[derive(Clone)]
 pub struct SliderProps {
     /// Slider current value
     pub value: f32,
@@ -43,7 +42,7 @@ pub struct SliderProps {
     /// Slider maximum value
     pub max: f32,
     /// On-change handler
-    pub on_change: Option<SystemId<In<f32>>>,
+    pub on_change: Callback<In<f32>>,
 }
 
 impl Default for SliderProps {
@@ -52,7 +51,7 @@ impl Default for SliderProps {
             value: 0.0,
             min: 0.0,
             max: 1.0,
-            on_change: None,
+            on_change: Callback::Ignore,
         }
     }
 }
