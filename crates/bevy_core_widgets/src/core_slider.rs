@@ -92,7 +92,9 @@ pub struct SliderValue(pub f32);
 #[derive(Component, Debug, PartialEq, Clone, Copy)]
 #[component(immutable)]
 pub struct SliderRange {
+    /// The beginning of the allowed range for the slider value.
     start: f32,
+    /// The end of the allowed range for the slider value.
     end: f32,
 }
 

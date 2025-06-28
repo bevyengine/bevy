@@ -306,6 +306,9 @@ bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 # Headless widget collection for Bevy UI.
 bevy_core_widgets = ["bevy_internal/bevy_core_widgets"]
 
+# Feathers widget collection.
+experimental_bevy_feathers = ["bevy_internal/bevy_feathers"]
+
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
@@ -4526,3 +4529,16 @@ name = "Core Widgets (w/Observers)"
 description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "feathers"
+path = "examples/ui/feathers.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.feathers]
+name = "Feathers Widgets"
+description = "Gallery of Feathers Widgets"
+category = "UI (User Interface)"
+wasm = true
+hidden = true
