@@ -62,8 +62,8 @@ use crate::{
     },
     change_detection::MaybeLocation,
     component::{
-        Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
-        RequiredComponents, StorageType, Tick,
+        Component, ComponentId, Components, ComponentsRegistrator, RequiredComponent,
+        RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     lifecycle::{ADD, INSERT, REMOVE, REPLACE},
@@ -512,7 +512,7 @@ pub struct BundleInfo {
     /// and the range (0..`explicit_components_len`) must be in the same order as the source bundle
     /// type writes its components in.
     component_ids: Vec<ComponentId>,
-    required_components: Vec<RequiredComponentConstructor>,
+    required_components: Vec<RequiredComponent>,
     explicit_components_len: usize,
 }
 
@@ -570,14 +570,14 @@ impl BundleInfo {
         let required_components = required_components
             .0
             .into_iter()
-            .map(|(component_id, v)| {
+            .map(|(component_id, required_component)| {
                 // Safety: These ids came out of the passed `components`, so they must be valid.
                 let info = unsafe { components.get_info_unchecked(component_id) };
                 storages.prepare_component(info);
                 // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
                 // components. This ordering is important!
                 component_ids.push(component_id);
-                v.constructor
+                required_component
             })
             .collect();
 
@@ -828,7 +828,7 @@ impl BundleInfo {
 
         for (index, component_id) in self.iter_required_components().enumerate() {
             if !current_archetype.contains(component_id) {
-                added_required_components.push(self.required_components[index].clone());
+                added_required_components.push(self.required_components[index].constructor.clone());
                 added.push(component_id);
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
@@ -1804,7 +1804,10 @@ impl<'w> BundleSpawner<'w> {
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
-                bundle_info.required_components.iter(),
+                bundle_info
+                    .required_components
+                    .iter()
+                    .map(|r| &r.constructor),
                 entity,
                 table_row,
                 self.change_tick,
@@ -1901,6 +1904,7 @@ pub struct Bundles {
     /// Cache optimized dynamic [`BundleId`] with single component
     dynamic_component_bundle_ids: HashMap<ComponentId, BundleId>,
     dynamic_component_storages: HashMap<BundleId, StorageType>,
+    components_in_bundles: Vec<Vec<BundleId>>,
 }
 
 impl Bundles {
@@ -1943,6 +1947,7 @@ impl Bundles {
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
+
         *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
             T::component_ids(components, &mut |id| component_ids.push(id));
@@ -1953,7 +1958,17 @@ impl Bundles {
                 // - appropriate storage for it has been initialized.
                 // - it was created in the same order as the components in T
                 unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
+
+            for component in bundle_info.contributed_components() {
+                components_in_bundles_push(
+                    &mut self.components_in_bundles,
+                    *component,
+                    id
+                );
+            }
+
             bundle_infos.push(bundle_info);
+
             id
         })
     }
@@ -2024,6 +2039,7 @@ impl Bundles {
         component_ids: &[ComponentId],
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
+        let components_in_bundles = &mut self.components_in_bundles;
 
         // Use `raw_entry_mut` to avoid cloning `component_ids` to access `Entry`
         let (_, bundle_id) = self
@@ -2033,6 +2049,7 @@ impl Bundles {
             .or_insert_with(|| {
                 let (id, storages) = initialize_dynamic_bundle(
                     bundle_infos,
+                    components_in_bundles,
                     storages,
                     components,
                     Vec::from(component_ids),
@@ -2059,12 +2076,14 @@ impl Bundles {
         component_id: ComponentId,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
+        let components_in_bundles = &mut self.components_in_bundles;
         let bundle_id = self
             .dynamic_component_bundle_ids
             .entry(component_id)
             .or_insert_with(|| {
                 let (id, storage_type) = initialize_dynamic_bundle(
                     bundle_infos,
+                    components_in_bundles,
                     storages,
                     components,
                     vec![component_id],
@@ -2074,12 +2093,71 @@ impl Bundles {
             });
         *bundle_id
     }
+
+    pub(crate) fn register_required_components(
+        &mut self,
+        requiree: ComponentId,
+        required: Vec<(ComponentId, RequiredComponent)>,
+    ) {
+        let taken_bundles_with_requiree = self
+            .components_in_bundles
+            .get_mut(requiree.index())
+            .filter(|bundles| !bundles.is_empty())
+            .map(core::mem::take);
+
+        let Some(taken_bundles_with_requiree) = taken_bundles_with_requiree else {
+            return;
+        };
+
+        for bundle_id in taken_bundles_with_requiree.iter() {
+            let bundle_info = &mut self.bundle_infos[bundle_id.index()];
+
+            for (newly_required_id, newly_required_component) in required.iter() {
+                let index = bundle_info
+                    .required_components()
+                    .iter()
+                    .enumerate()
+                    .find_map(|(index, &existing_required_id)| {
+                        (existing_required_id == *newly_required_id).then_some(index)
+                    });
+
+                match index {
+                    Some(index) => {
+                        let existing_required_component =
+                            &mut bundle_info.required_components[index];
+                        if existing_required_component.inheritance_depth
+                            > newly_required_component.inheritance_depth
+                        {
+                            *existing_required_component = newly_required_component.clone();
+                        }
+                    }
+                    None => {
+                        bundle_info.component_ids.push(*newly_required_id);
+                        bundle_info
+                            .required_components
+                            .push(newly_required_component.clone());
+                        components_in_bundles_push(
+                            &mut self.components_in_bundles,
+                            *newly_required_id,
+                            bundle_info.id,
+                        );
+                    }
+                }
+            }
+        }
+
+        let replaced = self.components_in_bundles.get_mut(requiree.index());
+        // SAFETY: todo
+        let replaced = unsafe { replaced.debug_checked_unwrap() };
+        *replaced = taken_bundles_with_requiree;
+    }
 }
 
 /// Asserts that all components are part of [`Components`]
 /// and initializes a [`BundleInfo`].
 fn initialize_dynamic_bundle(
     bundle_infos: &mut Vec<BundleInfo>,
+    components_in_bundles: &mut Vec<Vec<BundleId>>,
     storages: &mut Storages,
     components: &Components,
     component_ids: Vec<ComponentId>,
@@ -2097,9 +2175,30 @@ fn initialize_dynamic_bundle(
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
         unsafe { BundleInfo::new("<dynamic bundle>", storages, components, component_ids, id) };
+
+    for component in bundle_info.contributed_components() {
+        components_in_bundles_push(components_in_bundles, *component, id);
+    }
+
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
+}
+
+fn components_in_bundles_push(
+    components_in_bundles: &mut Vec<Vec<BundleId>>,
+    component: ComponentId,
+    bundle: BundleId,
+) {
+    match components_in_bundles.get_mut(component.index()) {
+        Some(bundles) => bundles.push(bundle),
+        None => {
+            let missing_minus_one = component.index() - components_in_bundles.len();
+            let iter = core::iter::repeat_n(Vec::new(), missing_minus_one)
+                .chain(core::iter::once(vec![bundle]));
+            components_in_bundles.extend(iter);
+        }
+    }
 }
 
 fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {

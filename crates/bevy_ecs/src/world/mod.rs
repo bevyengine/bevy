@@ -542,10 +542,15 @@ impl World {
         let required = self.register_component::<R>();
 
         // SAFETY: We just created the `required` and `requiree` components.
-        unsafe {
+        let required = unsafe {
             self.components
-                .register_required_components::<R>(requiree, required, constructor)
-        }
+                .register_required_components::<R>(requiree, required, constructor)?
+        };
+
+        self.bundles
+            .register_required_components(requiree, required);
+
+        Ok(())
     }
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
