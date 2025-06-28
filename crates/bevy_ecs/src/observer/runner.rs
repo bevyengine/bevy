@@ -3,8 +3,8 @@
 use core::any::Any;
 
 use crate::{
-    error::ErrorContext, observer::ObserverTrigger, prelude::*, query::DebugCheckedUnwrap,
-    system::ObserverSystem, world::DeferredWorld,
+    bundle::StaticBundle, error::ErrorContext, observer::ObserverTrigger, prelude::*,
+    query::DebugCheckedUnwrap, system::ObserverSystem, world::DeferredWorld,
 };
 use bevy_ptr::PtrMut;
 
@@ -14,7 +14,7 @@ use bevy_ptr::PtrMut;
 /// but can be overridden for custom behavior.
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
 
-pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+pub(super) fn observer_system_runner<E: Event, B: StaticBundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld,
     observer_trigger: ObserverTrigger,
     ptr: PtrMut,
