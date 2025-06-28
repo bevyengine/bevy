@@ -314,7 +314,7 @@ impl Plugin for LogPlugin {
                     .and_then(|source| source.downcast_ref::<ParseError>())
                     .map(|parse_err| {
                         // we cannot use the `error!` macro here because the logger is not ready yet.
-                        eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
+                        eprintln!("LogPlugin failed to parse filter from env: {parse_err}");
                     });
 
                 Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))

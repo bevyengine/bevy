@@ -26,6 +26,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
+pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
 pub mod extract_instances;
@@ -352,10 +353,12 @@ impl Plugin for RenderPlugin {
                             backend_options: wgpu::BackendOptions {
                                 gl: wgpu::GlBackendOptions {
                                     gles_minor_version: settings.gles3_minor_version,
+                                    fence_behavior: wgpu::GlFenceBehavior::Normal,
                                 },
                                 dx12: wgpu::Dx12BackendOptions {
                                     shader_compiler: settings.dx12_shader_compiler.clone(),
                                 },
+                                noop: wgpu::NoopBackendOptions { enable: false },
                             },
                         });
 

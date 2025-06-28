@@ -529,7 +529,7 @@ impl core::fmt::Display for DisplayInfo {
         let millihertz = self.refresh_rate_millihertz.unwrap_or(0);
         let hertz = millihertz / 1000;
         let extra_millihertz = millihertz % 1000;
-        write!(f, "  Refresh rate (Hz): {}.{:03}", hertz, extra_millihertz)?;
+        write!(f, "  Refresh rate (Hz): {hertz}.{extra_millihertz:03}")?;
         Ok(())
     }
 }

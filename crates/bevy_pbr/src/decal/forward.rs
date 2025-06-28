@@ -132,7 +132,7 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         }
 
         if let Some(label) = &mut descriptor.label {
-            *label = format!("forward_decal_{}", label).into();
+            *label = format!("forward_decal_{label}").into();
         }
 
         Ok(())

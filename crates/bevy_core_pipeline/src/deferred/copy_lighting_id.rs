@@ -5,7 +5,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset};
 use bevy_ecs::prelude::*;
-use bevy_math::UVec2;
+use bevy_image::ToExtents;
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{binding_types::texture_2d, *},
@@ -178,18 +178,10 @@ fn prepare_deferred_lighting_id_textures(
     views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
 ) {
     for (entity, camera) in &views {
-        if let Some(UVec2 {
-            x: width,
-            y: height,
-        }) = camera.physical_target_size
-        {
+        if let Some(physical_target_size) = camera.physical_target_size {
             let texture_descriptor = TextureDescriptor {
                 label: Some("deferred_lighting_id_depth_texture_a"),
-                size: Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
+                size: physical_target_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,

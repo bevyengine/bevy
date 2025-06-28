@@ -50,9 +50,7 @@ impl Plugin for LineGizmo3dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystems::QueueLineGizmos3d
-                    .in_set(RenderSystems::Queue)
-                    .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
+                GizmoRenderSystems::QueueLineGizmos3d.in_set(RenderSystems::Queue),
             )
             .add_systems(
                 Render,
@@ -123,8 +121,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
             .clone();
-
-        let layout = vec![view_layout, self.uniform_layout.clone()];
+        let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
 
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
@@ -220,8 +217,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
             .clone();
-
-        let layout = vec![view_layout, self.uniform_layout.clone()];
+        let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
 
         if key.joints == GizmoLineJoint::None {
             error!("There is no entry point for line joints with GizmoLineJoints::None. Please consider aborting the drawing process before reaching this stage.");

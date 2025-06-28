@@ -283,6 +283,10 @@ impl Plugin for MeshletPlugin {
                         .in_set(RenderSystems::ManageViews),
                     prepare_meshlet_per_frame_resources.in_set(RenderSystems::PrepareResources),
                     prepare_meshlet_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    queue_material_meshlet_meshes.in_set(RenderSystems::QueueMeshes),
+                    prepare_material_meshlet_meshes_main_opaque_pass
+                        .in_set(RenderSystems::QueueMeshes)
+                        .before(queue_material_meshlet_meshes),
                 ),
             );
     }
