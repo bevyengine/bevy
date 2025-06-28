@@ -553,27 +553,18 @@ impl PrepassPipelineInternal {
             || emulate_unclipped_depth
             || (mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && material_properties
-                    .shaders
-                    .get(&PrepassFragmentShader.intern())
+                    .get_shader(PrepassFragmentShader)
                     .is_some());
 
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
             let frag_shader_handle = if mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-                match material_properties
-                    .shaders
-                    .get(&DeferredFragmentShader.intern())
-                    .cloned()
-                {
+                match material_properties.get_shader(DeferredFragmentShader) {
                     Some(frag_shader_handle) => frag_shader_handle,
                     None => self.default_prepass_shader.clone(),
                 }
             } else {
-                match material_properties
-                    .shaders
-                    .get(&PrepassFragmentShader.intern())
-                    .cloned()
-                {
+                match material_properties.get_shader(PrepassFragmentShader) {
                     Some(frag_shader_handle) => frag_shader_handle,
                     None => self.default_prepass_shader.clone(),
                 }
