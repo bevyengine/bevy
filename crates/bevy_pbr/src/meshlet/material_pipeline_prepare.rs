@@ -210,11 +210,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 }),
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
-                    shader: match material.properties.get_shader(MeshletFragmentShader) {
-                        ShaderRef::Default => meshlet_pipelines.meshlet_mesh_material.clone(),
-                        ShaderRef::Handle(handle) => handle,
-                        ShaderRef::Path(path) => asset_server.load(path),
-                    },
+                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs,
                     entry_point: material_fragment.entry_point,
                     targets: material_fragment.targets,
@@ -359,23 +355,6 @@ pub fn prepare_material_meshlet_meshes_prepass(
                     .clone()
             };
 
-            let fragment_shader = if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-                material
-                    .properties
-                    .get_shader(MeshletDeferredFragmentShader)
-                    .unwrap_or(MESHLET_MESH_MATERIAL_SHADER_HANDLE)
-            } else {
-                material
-                    .properties
-                    .get_shader(MeshletPrepassFragmentShader)
-                    .unwrap_or(MESHLET_MESH_MATERIAL_SHADER_HANDLE)
-            };
-
-            let entry_point = match &fragment_shader {
-                x if x == &MESHLET_MESH_MATERIAL_SHADER_HANDLE => "prepass_fragment".into(),
-                _ => material_fragment.entry_point,
-            };
-
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout: vec![
@@ -405,13 +384,9 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 }),
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
-                    shader: match fragment_shader {
-                        ShaderRef::Default => meshlet_pipelines.meshlet_mesh_material.clone(),
-                        ShaderRef::Handle(handle) => handle,
-                        ShaderRef::Path(path) => asset_server.load(path),
-                    },
+                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs,
-                    entry_point,
+                    entry_point: material_fragment.entry_point,
                     targets: material_fragment.targets,
                 }),
                 zero_initialize_workgroup_memory: false,
