@@ -36,7 +36,7 @@ pub enum Callback<I: SystemInput = ()> {
     Ignore,
 }
 
-/// Trait used to invoke [`Callbacks`], unifying the API across callers.
+/// Trait used to invoke a [`Callback`], unifying the API across callers.
 pub trait Notify {
     /// Invoke the callback with no arguments.
     fn notify(&mut self, callback: &Callback<()>);
