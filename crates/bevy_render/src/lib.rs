@@ -79,7 +79,7 @@ pub mod _macro {
     pub use bevy_asset;
 }
 
-use bevy_ecs::schedule::{InternedScheduleLabel, ScheduleBuildSettings};
+use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
@@ -225,35 +225,11 @@ pub struct MainRender;
 impl MainRender {
     pub fn run(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            world.resource_scope(|world, order: Mut<MainRenderScheduleOrder>| {
-                for &label in &order.startup_labels {
-                    let _ = world.try_run_schedule(label);
-                }
-            });
+            let _ = world.try_run_schedule(RenderStartup);
             *run_at_least_once = true;
         }
 
-        world.resource_scope(|world, order: Mut<MainRenderScheduleOrder>| {
-            for &label in &order.labels {
-                let _ = world.try_run_schedule(label);
-            }
-        });
-    }
-}
-
-/// Defines the schedules to be run for the [`MainRender`] schedule, including
-/// their order.
-#[derive(Resource, Debug)]
-struct MainRenderScheduleOrder {
-    labels: Vec<InternedScheduleLabel>,
-    startup_labels: Vec<InternedScheduleLabel>,
-}
-impl Default for MainRenderScheduleOrder {
-    fn default() -> Self {
-        Self {
-            labels: vec![Render.intern()],
-            startup_labels: vec![RenderStartup.intern()],
-        }
+        let _ = world.try_run_schedule(Render);
     }
 }
 
@@ -590,7 +566,6 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
         .init_resource::<render_graph::RenderGraph>()
-        .init_resource::<MainRenderScheduleOrder>()
         .add_systems(MainRender, MainRender::run)
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
