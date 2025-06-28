@@ -1,3 +1,5 @@
+use std::any::{Any, TypeId};
+use tracing::info;
 use super::{
     instance_manager::InstanceManager, pipelines::MeshletPipelines,
     resource_manager::ResourceManager,
@@ -27,7 +29,7 @@ pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipeline
 pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
-    mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
+    mut cache: Local<HashMap<(MeshPipelineKey, TypeId), CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
     material_pipeline: Res<MaterialPipeline>,
     mesh_pipeline: Res<MeshPipeline>,
@@ -210,21 +212,25 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 }),
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
-                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
+                    shader: match material.properties.get_shader(MeshletFragmentShader) {
+                            Some(shader) => shader.clone(),
+                            None => meshlet_pipelines.meshlet_mesh_material.clone()
+                    },
                     shader_defs,
                     entry_point: material_fragment.entry_point,
                     targets: material_fragment.targets,
                 }),
                 zero_initialize_workgroup_memory: false,
             };
+            let type_id = material_id.type_id();
             let Some(material_bind_group_allocator) =
-                material_bind_group_allocators.get(&material_id.type_id())
+                material_bind_group_allocators.get(&type_id)
             else {
                 continue;
             };
             let material_id = instance_manager.get_material_id(material_id);
 
-            let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
+            let pipeline_id = *cache.entry((view_key, type_id)).or_insert_with(|| {
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
             });
 
@@ -257,7 +263,7 @@ pub struct MeshletViewMaterialsDeferredGBufferPrepass(
 pub fn prepare_material_meshlet_meshes_prepass(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
-    mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
+    mut cache: Local<HashMap<(MeshPipelineKey, TypeId), CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
     prepass_pipeline: Res<PrepassPipeline>,
     material_bind_group_allocators: Res<MaterialBindGroupAllocators>,
@@ -355,10 +361,29 @@ pub fn prepare_material_meshlet_meshes_prepass(
                     .clone()
             };
 
+            let fragment_shader = if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+                material
+                    .properties
+                    .get_shader(MeshletDeferredFragmentShader)
+                    .unwrap_or(meshlet_pipelines.meshlet_mesh_material.clone())
+            } else {
+                material
+                    .properties
+                    .get_shader(MeshletPrepassFragmentShader)
+                    .unwrap_or(meshlet_pipelines.meshlet_mesh_material.clone())
+            };
+
+            let entry_point = if &fragment_shader == &meshlet_pipelines.meshlet_mesh_material {
+                material_fragment.entry_point.clone()
+            } else {
+                "prepass_fragment".into()
+            };
+
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout: vec![
                     view_layout,
+                    prepass_pipeline.internal.empty_layout.clone(),
                     resource_manager.material_shade_bind_group_layout.clone(),
                     material
                         .properties
@@ -384,9 +409,9 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 }),
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
-                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
+                    shader: fragment_shader,
                     shader_defs,
-                    entry_point: material_fragment.entry_point,
+                    entry_point,
                     targets: material_fragment.targets,
                 }),
                 zero_initialize_workgroup_memory: false,
@@ -394,7 +419,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
 
             let material_id = instance_manager.get_material_id(material_id);
 
-            let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
+            let pipeline_id = *cache.entry((view_key, material_id.type_id())).or_insert_with(|| {
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
             });
 
