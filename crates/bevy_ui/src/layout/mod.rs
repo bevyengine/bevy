@@ -310,12 +310,18 @@ with UI components as a child of an entity without UI components, your UI layout
             let scroll_position: Vec2 = maybe_scroll_position
                 .map(|scroll_pos| {
                     Vec2::new(
-                        if style.overflow.x == OverflowAxis::Scroll {
+                        if matches!(
+                            style.overflow.x,
+                            OverflowAxis::Scroll | OverflowAxis::ScrollNoClip
+                        ) {
                             scroll_pos.offset_x
                         } else {
                             0.0
                         },
-                        if style.overflow.y == OverflowAxis::Scroll {
+                        if matches!(
+                            style.overflow.y,
+                            OverflowAxis::Scroll | OverflowAxis::ScrollNoClip
+                        ) {
                             scroll_pos.offset_y
                         } else {
                             0.0
