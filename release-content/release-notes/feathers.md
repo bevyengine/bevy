@@ -1,6 +1,6 @@
 ---
 title: Bevy Feathers
-authors: ["@viridia"]
+authors: ["@viridia", "@Atlas16A"]
 pull_requests: [19730]
 ---
 
