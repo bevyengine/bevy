@@ -1330,13 +1330,8 @@ impl MaterialProperties {
             .cloned()
     }
 
-    pub fn add_shader(
-        &mut self,
-        label: impl ShaderLabel,
-        shader: Handle<Shader>,
-    ) -> Option<Handle<Shader>> {
+    pub fn add_shader(&mut self, label: impl ShaderLabel, shader: Handle<Shader>) {
         self.shaders.push((label.intern(), shader));
-        self.shaders.last().map(|(_, shader)| shader).cloned()
     }
 
     pub fn get_draw_function(&self, label: impl DrawFunctionLabel) -> Option<DrawFunctionId> {
@@ -1351,12 +1346,8 @@ impl MaterialProperties {
         &mut self,
         label: impl DrawFunctionLabel,
         draw_function: DrawFunctionId,
-    ) -> Option<DrawFunctionId> {
+    ) {
         self.draw_functions.push((label.intern(), draw_function));
-        self.draw_functions
-            .last()
-            .map(|(_, shader)| shader)
-            .cloned()
     }
 }
 
@@ -1508,7 +1499,6 @@ where
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             };
             if let Some(shader) = mayber_shader {
-                // shaders.insert(label, shader);
                 shaders.push((label, shader));
             }
         };
