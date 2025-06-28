@@ -3,7 +3,7 @@
 struct CustomMaterial {
     color: vec4<f32>,
 };
-@group(2) @binding(0) var<uniform> material: CustomMaterial;
+@group(3) @binding(0) var<uniform> material: CustomMaterial;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,

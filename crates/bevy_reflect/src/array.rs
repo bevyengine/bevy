@@ -167,6 +167,7 @@ pub struct DynamicArray {
 }
 
 impl DynamicArray {
+    /// Creates a new [`DynamicArray`].
     #[inline]
     pub fn new(values: Box<[Box<dyn PartialReflect>]>) -> Self {
         Self {
@@ -186,8 +187,7 @@ impl DynamicArray {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Array(_)),
-                "expected TypeInfo::Array but received: {:?}",
-                represented_type
+                "expected TypeInfo::Array but received: {represented_type:?}"
             );
         }
 

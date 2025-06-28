@@ -529,11 +529,7 @@ pub fn create_depth_pyramid_dummy_texture(
     render_device
         .create_texture(&TextureDescriptor {
             label: Some(texture_label),
-            size: Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            size: Extent3d::default(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,

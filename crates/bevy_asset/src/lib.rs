@@ -141,8 +141,8 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -267,7 +267,7 @@ pub struct AssetPlugin {
 /// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
 ///
 /// It is strongly discouraged to use [`Allow`](UnapprovedPathMode::Allow) if your
-/// app will include scripts or modding support, as it could allow allow arbitrary file
+/// app will include scripts or modding support, as it could allow arbitrary file
 /// access for malicious code.
 ///
 /// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
@@ -275,10 +275,10 @@ pub struct AssetPlugin {
 pub enum UnapprovedPathMode {
     /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
-    /// Fails to load any asset that is is unapproved, unless an override method is used, like
+    /// Fails to load any asset that is unapproved, unless an override method is used, like
     /// [`AssetServer::load_override`].
     Deny,
-    /// Fails to load any asset that is is unapproved.
+    /// Fails to load any asset that is unapproved.
     #[default]
     Forbid,
 }

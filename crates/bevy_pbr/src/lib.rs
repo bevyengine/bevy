@@ -2,8 +2,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 extern crate alloc;
@@ -152,8 +152,8 @@ fn shader_ref(path: PathBuf) -> ShaderRef {
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("69187376-3dea-4d0f-b3f5-185bde63d6a2");
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 26;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 27;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 18;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 19;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -237,6 +237,9 @@ impl Plugin for PbrPlugin {
             .add_plugins((
                 MeshRenderPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+                    debug_flags: self.debug_flags,
+                },
+                MaterialsPlugin {
                     debug_flags: self.debug_flags,
                 },
                 MaterialPlugin::<StandardMaterial> {

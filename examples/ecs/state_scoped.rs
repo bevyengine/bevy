@@ -10,7 +10,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<GameState>()
-        .enable_state_scoped_entities::<GameState>()
         .add_systems(Startup, setup_camera)
         .add_systems(OnEnter(GameState::A), on_a_enter)
         .add_systems(OnEnter(GameState::B), on_b_enter)
@@ -117,7 +116,7 @@ fn toggle(
     state: Res<State<GameState>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    if !timer.0.tick(time.delta()).finished() {
+    if !timer.0.tick(time.delta()).is_finished() {
         return;
     }
     *next_state = match state.get() {

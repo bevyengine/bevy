@@ -49,9 +49,34 @@ This means that where `Result<T, IdentifierError>` was returned, `Option<T>` is 
 It is well documented that both the bit format, serialization, and `Ord` implementations for `Entity` are subject to change between versions.
 Those have all changed in this version.
 
-For entity ordering, the order still prioretizes an entity's generation, but after that, it now considers higher index entities less than lower index entities.
+For entity ordering, the order still prioritizes an entity's generation, but after that, it now considers higher index entities less than lower index entities.
 
 The changes to serialization and the bit format are directly related.
 Effectively, this means that all serialized and transmuted entities will not work as expected and may crash.
 To migrate, invert the lower 32 bits of the 64 representation of the entity, and subtract 1 from the upper bits.
 Again, this is still subject to change, and serialized scenes may break between versions.
+
+### Length Representation
+
+Because the maximum index of an entity is now `NonZeroU32::MAX`, the maximum number of entities (and length of unique entity row collections) is `u32::MAX`.
+As a result, a lot of APIs that returned `usize` have been changed to `u32`.
+
+These include:
+
+- `Archetype::len`
+- `Table::entity_count`
+
+### Other kinds of entity rows
+
+Since the `EntityRow` is a `NonMaxU32`, `TableRow` and `ArchetypeRow` have been given the same treatment.
+They now wrap a `NonMaxU32`, allowing more performance optimizations.
+
+Additionally, they have been given new, standardized interfaces:
+
+- `fn new(NonMaxU32)`
+- `fn index(self) -> usize`
+- `fn index_u32(self) -> u32`
+
+The other interfaces for these types have been removed.
+Although it's not usually recommended to be creating these types manually, if you run into any issues migrating here, please open an issue.
+If all else fails, `TableRow` and `ArchetypeRow` are `repr(transparent)`, allowing careful transmutations.
