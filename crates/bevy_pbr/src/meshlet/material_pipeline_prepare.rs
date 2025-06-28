@@ -1,5 +1,3 @@
-use std::any::{Any, TypeId};
-use tracing::info;
 use super::{
     instance_manager::InstanceManager, pipelines::MeshletPipelines,
     resource_manager::ResourceManager,
@@ -19,6 +17,7 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
+use core::any::{Any, TypeId};
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
 #[derive(Component, Deref, DerefMut, Default)]
@@ -213,8 +212,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: match material.properties.get_shader(MeshletFragmentShader) {
-                            Some(shader) => shader.clone(),
-                            None => meshlet_pipelines.meshlet_mesh_material.clone()
+                        Some(shader) => shader.clone(),
+                        None => meshlet_pipelines.meshlet_mesh_material.clone(),
                     },
                     shader_defs,
                     entry_point: material_fragment.entry_point,
@@ -223,8 +222,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 zero_initialize_workgroup_memory: false,
             };
             let type_id = material_id.type_id();
-            let Some(material_bind_group_allocator) =
-                material_bind_group_allocators.get(&type_id)
+            let Some(material_bind_group_allocator) = material_bind_group_allocators.get(&type_id)
             else {
                 continue;
             };
@@ -373,7 +371,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
                     .unwrap_or(meshlet_pipelines.meshlet_mesh_material.clone())
             };
 
-            let entry_point = if &fragment_shader == &meshlet_pipelines.meshlet_mesh_material {
+            let entry_point = if fragment_shader == meshlet_pipelines.meshlet_mesh_material {
                 material_fragment.entry_point.clone()
             } else {
                 "prepass_fragment".into()
@@ -419,9 +417,11 @@ pub fn prepare_material_meshlet_meshes_prepass(
 
             let material_id = instance_manager.get_material_id(material_id);
 
-            let pipeline_id = *cache.entry((view_key, material_id.type_id())).or_insert_with(|| {
-                pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
-            });
+            let pipeline_id = *cache
+                .entry((view_key, material_id.type_id()))
+                .or_insert_with(|| {
+                    pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
+                });
 
             let Some(material_bind_group) =
                 material_bind_group_allocator.get(material.binding.group)
