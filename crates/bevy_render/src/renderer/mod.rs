@@ -7,14 +7,14 @@ use bevy_tasks::ComputeTaskPool;
 use bevy_utils::WgpuWrapper;
 pub use graph_runner::*;
 pub use render_device::*;
-use tracing::{error, info, info_span, warn};
+use tracing::{debug, error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
     render_graph::RenderGraph,
     render_phase::TrackedRenderPass,
     render_resource::RenderPassDescriptor,
-    settings::{WgpuSettings, WgpuSettingsPriority},
+    settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
 use alloc::sync::Arc;
@@ -148,10 +148,11 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
-    instance: &Instance,
+    instance: Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_, '_>,
-) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
+    #[cfg(feature = "dlss")] dlss_project_id: bevy_asset::uuid::Uuid,
+) -> RenderResources {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -309,24 +310,47 @@ pub async fn initialize_renderer(
         };
     }
 
-    let (device, queue) = adapter
-        .request_device(&wgpu::DeviceDescriptor {
-            label: options.device_label.as_ref().map(AsRef::as_ref),
-            required_features: features,
-            required_limits: limits,
-            memory_hints: options.memory_hints.clone(),
-            // See https://github.com/gfx-rs/wgpu/issues/5974
-            trace: Trace::Off,
-        })
-        .await
-        .unwrap();
-    let queue = Arc::new(WgpuWrapper::new(queue));
-    let adapter = Arc::new(WgpuWrapper::new(adapter));
-    (
+    let device_descriptor = wgpu::DeviceDescriptor {
+        label: options.device_label.as_ref().map(AsRef::as_ref),
+        required_features: features,
+        required_limits: limits,
+        memory_hints: options.memory_hints.clone(),
+        // See https://github.com/gfx-rs/wgpu/issues/5974
+        trace: Trace::Off,
+    };
+
+    #[cfg(not(feature = "dlss"))]
+    let (device, queue) = adapter.request_device(&device_descriptor).await.unwrap();
+
+    #[cfg(feature = "dlss")]
+    let mut dlss_supported = false;
+    #[cfg(feature = "dlss")]
+    let (device, queue) = {
+        match dlss_wgpu::request_device(dlss_project_id, &adapter, &device_descriptor) {
+            Ok(x) => {
+                dlss_supported = true;
+                x
+            }
+            // Fallback to standard device request
+            Err(_) => adapter.request_device(&device_descriptor).await.unwrap(),
+        }
+    };
+
+    debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
+    debug!("Configured wgpu adapter Features: {:#?}", device.features());
+
+    RenderResources(
         RenderDevice::from(device),
-        RenderQueue(queue),
+        RenderQueue(Arc::new(WgpuWrapper::new(queue))),
         RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
-        RenderAdapter(adapter),
+        RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
+        RenderInstance(Arc::new(WgpuWrapper::new(instance))),
+        #[cfg(feature = "dlss")]
+        if dlss_supported {
+            Some(crate::DlssSupported)
+        } else {
+            None
+        },
     )
 }
 

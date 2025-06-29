@@ -13,6 +13,8 @@ use smaa::SmaaPlugin;
 use taa::TemporalAntiAliasPlugin;
 
 pub mod contrast_adaptive_sharpening;
+#[cfg(feature = "dlss")]
+pub mod dlss;
 pub mod fxaa;
 pub mod smaa;
 pub mod taa;
@@ -21,6 +23,13 @@ pub mod taa;
 pub struct AntiAliasingPlugin;
 impl Plugin for AntiAliasingPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_plugins((FxaaPlugin, SmaaPlugin, TemporalAntiAliasPlugin, CasPlugin));
+        app.add_plugins((
+            FxaaPlugin,
+            SmaaPlugin,
+            TemporalAntiAliasPlugin,
+            CasPlugin,
+            #[cfg(feature = "dlss")]
+            dlss::DlssPlugin,
+        ));
     }
 }
