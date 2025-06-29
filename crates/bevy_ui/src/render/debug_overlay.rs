@@ -1,8 +1,14 @@
+use super::ExtractedUiItem;
+use super::ExtractedUiNode;
+use super::ExtractedUiNodes;
+use super::NodeType;
+use super::UiCameraMap;
 use crate::shader_flags;
 use crate::ui_node::ComputedNodeTarget;
 use crate::ui_transform::UiGlobalTransform;
 use crate::CalculatedClip;
 use crate::ComputedNode;
+use crate::UiStack;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -17,12 +23,6 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
-
-use super::ExtractedUiItem;
-use super::ExtractedUiNode;
-use super::ExtractedUiNodes;
-use super::NodeType;
-use super::UiCameraMap;
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]
@@ -68,6 +68,7 @@ pub fn extract_debug_overlay(
             &ComputedNodeTarget,
         )>,
     >,
+    ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     if !debug_options.enabled {
@@ -89,7 +90,7 @@ pub fn extract_debug_overlay(
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             // Add a large number to the UI node's stack index so that the overlay is always drawn on top
-            stack_index: uinode.stack_index + u32::MAX / 2,
+            z_order: (ui_stack.uinodes.len() as u32 + uinode.stack_index()) as f32,
             color: Hsla::sequential_dispersed(entity.index()).into(),
             rect: Rect {
                 min: Vec2::ZERO,
