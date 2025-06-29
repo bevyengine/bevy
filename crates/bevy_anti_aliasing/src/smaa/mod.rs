@@ -339,9 +339,9 @@ impl Plugin for SmaaPlugin {
         app.add_plugins(ExtractComponentPlugin::<Smaa>::default())
             .register_type::<Smaa>();
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<SmaaSpecializedRenderPipelines>()
@@ -376,9 +376,10 @@ impl Plugin for SmaaPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SmaaPipelines>();
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.init_resource::<SmaaPipelines>();
     }
 }
 

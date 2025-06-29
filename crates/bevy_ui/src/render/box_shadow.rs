@@ -41,30 +41,32 @@ impl Plugin for BoxShadowPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "box_shadow.wgsl");
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<TransparentUi, DrawBoxShadows>()
-                .init_resource::<ExtractedBoxShadows>()
-                .init_resource::<BoxShadowMeta>()
-                .init_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_shadows.in_set(RenderUiSystems::ExtractBoxShadows),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_shadows.in_set(RenderSystems::Queue),
-                        prepare_shadows.in_set(RenderSystems::PrepareBindGroups),
-                    ),
-                );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .add_render_command::<TransparentUi, DrawBoxShadows>()
+            .init_resource::<ExtractedBoxShadows>()
+            .init_resource::<BoxShadowMeta>()
+            .init_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
+            .add_systems(
+                ExtractSchedule,
+                extract_shadows.in_set(RenderUiSystems::ExtractBoxShadows),
+            )
+            .add_systems(
+                Render,
+                (
+                    queue_shadows.in_set(RenderSystems::Queue),
+                    prepare_shadows.in_set(RenderSystems::PrepareBindGroups),
+                ),
+            );
     }
 
     fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<BoxShadowPipeline>();
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.init_resource::<BoxShadowPipeline>();
     }
 }
 
