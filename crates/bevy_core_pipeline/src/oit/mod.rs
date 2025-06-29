@@ -109,9 +109,9 @@ impl Plugin for OrderIndependentTransparencyPlugin {
         .add_systems(Last, configure_depth_texture_usages)
         .register_type::<OrderIndependentTransparencySettings>();
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app.add_systems(
             Render,
@@ -131,9 +131,9 @@ impl Plugin for OrderIndependentTransparencyPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app.init_resource::<OitBuffers>();
     }

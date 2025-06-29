@@ -80,9 +80,9 @@ impl Plugin for Core2dPlugin {
         app.register_type::<Camera2d>()
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app
             .init_resource::<DrawFunctions<Opaque2d>>()
             .init_resource::<DrawFunctions<AlphaMask2d>>()

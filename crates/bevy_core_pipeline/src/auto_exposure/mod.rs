@@ -54,9 +54,9 @@ impl Plugin for AutoExposurePlugin {
         app.register_type::<AutoExposure>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
@@ -77,9 +77,9 @@ impl Plugin for AutoExposurePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app.init_resource::<AutoExposurePipeline>();
         render_app.init_resource::<AutoExposureResources>();

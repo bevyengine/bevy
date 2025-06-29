@@ -46,9 +46,9 @@ impl Plugin for SkyboxPlugin {
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .init_resource::<SpecializedRenderPipelines<SkyboxPrepassPipeline>>()
@@ -66,9 +66,9 @@ impl Plugin for SkyboxPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         let shader = load_embedded_asset!(render_app.world(), "skybox.wgsl");
         let render_device = render_app.world().resource::<RenderDevice>().clone();
         render_app

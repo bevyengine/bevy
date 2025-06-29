@@ -212,9 +212,9 @@ impl Plugin for DepthOfFieldPlugin {
 
         app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
@@ -250,9 +250,9 @@ impl Plugin for DepthOfFieldPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app.init_resource::<DepthOfFieldGlobalBindGroupLayout>();
     }
