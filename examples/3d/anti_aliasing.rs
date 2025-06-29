@@ -1,4 +1,4 @@
-//! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
+//! Compares different anti-aliasing techniques supported by Bevy.
 
 use std::{f32::consts::PI, fmt::Write};
 

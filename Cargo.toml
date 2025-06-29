@@ -1003,7 +1003,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.anti_aliasing]
 name = "Anti-aliasing"
-description = "Compares different anti-aliasing methods"
+description = "Compares different anti-aliasing techniques supported by Bevy"
 category = "3D Rendering"
 wasm = false
 
