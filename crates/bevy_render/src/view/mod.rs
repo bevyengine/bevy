@@ -933,7 +933,7 @@ pub fn prepare_view_uniforms(
         frustum,
         temporal_jitter,
         mip_bias,
-        viewport_override,
+        resolution_override,
     ) in &views
     {
         let viewport = extracted_view.viewport.as_vec4();
@@ -941,7 +941,7 @@ pub fn prepare_view_uniforms(
         let mut clip_from_view = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
-            let jitter_view_size = viewport_override.map_or(viewport.zw(), |v| v.0.as_vec2());
+            let jitter_view_size = resolution_override.map_or(viewport.zw(), |v| v.0.as_vec2());
             temporal_jitter.jitter_projection(&mut clip_from_view, jitter_view_size);
         }
 

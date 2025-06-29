@@ -29,7 +29,7 @@ impl ViewNode for DlssNode {
         (
             dlss,
             dlss_context,
-            viewport_override,
+            resolution_override,
             temporal_jitter,
             view_target,
             prepass_textures,
@@ -45,7 +45,7 @@ impl ViewNode for DlssNode {
 
         let view_target = view_target.post_process_write();
 
-        let render_resolution = viewport_override.0;
+        let render_resolution = resolution_override.0;
         let render_parameters = DlssRenderParameters {
             color: DlssTexture {
                 texture: &view_target.source_texture,
