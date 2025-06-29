@@ -816,10 +816,13 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
 /// Parameters for the `bevy/query_all` request.
 #[derive(Deserialize)]
 pub struct BrpQueryAllParams {
+    /// The filter to apply to the query.
     #[serde(default)]
     filter: BrpQueryFilter,
+    /// If true, only root entities (entities without children) will be returned.
     #[serde(default)]
     root_only: bool,
+    /// The list of entity IDs to query. If empty, all entities will be queried.
     #[serde(default)]
     entities: Vec<Entity>,
 }
