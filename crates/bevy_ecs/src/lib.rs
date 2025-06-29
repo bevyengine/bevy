@@ -168,7 +168,7 @@ mod tests {
         marker::PhantomData,
         sync::atomic::{AtomicUsize, Ordering},
     };
-    use std::sync::Mutex;
+    use std::{println, sync::Mutex};
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
@@ -2569,6 +2569,9 @@ mod tests {
 
         let mut world = World::new();
 
+        std::println!("A: {:?}", world.register_component::<A>());
+        std::println!("B: {:?}", world.register_component::<B>());
+        std::println!("C: {:?}", world.register_component::<C>());
         world.register_bundle::<A>();
         world.register_required_components::<A, B>();
 
@@ -2595,6 +2598,10 @@ mod tests {
 
         let mut world = World::new();
 
+        std::println!("A: {:?}", world.register_component::<A>());
+        std::println!("B: {:?}", world.register_component::<B>());
+        std::println!("C: {:?}", world.register_component::<C>());
+        std::println!("D: {:?}", world.register_component::<D>());
         world.register_bundle::<A>();
         world.register_required_components::<B, C>();
 
@@ -2618,6 +2625,9 @@ mod tests {
 
         let mut world = World::new();
 
+        std::println!("A: {:?}", world.register_component::<A>());
+        std::println!("B: {:?}", world.register_component::<B>());
+        std::println!("C: {:?}", world.register_component::<C>());
         world.register_bundle::<A>();
         world.register_required_components::<A, B>();
 
@@ -2644,6 +2654,10 @@ mod tests {
 
         let mut world = World::new();
 
+        std::println!("A: {:?}", world.register_component::<A>());
+        std::println!("B: {:?}", world.register_component::<B>());
+        std::println!("C: {:?}", world.register_component::<C>());
+        std::println!("D: {:?}", world.register_component::<D>());
         world.register_bundle::<A>();
         world.register_required_components::<A, C>();
 
@@ -2666,6 +2680,9 @@ mod tests {
 
         let mut world = World::new();
 
+        std::println!("A: {:?}", world.register_component::<A>());
+        std::println!("B: {:?}", world.register_component::<B>());
+        std::println!("C: {:?}", world.register_component::<C>());
         world.register_bundle::<A>();
         world.register_required_components_with::<A, C>(|| C(10));
 
@@ -2676,6 +2693,10 @@ mod tests {
     #[test]
     fn register_required_components_with_further_required_with_equal_inheritance_depth_updates_bundle(
     ) {
+        /*
+        A -> B -> C -> F
+         '-> D -> E -> F
+         */
         #[derive(Component, Default)]
         #[require(B)]
         struct A;
@@ -2701,8 +2722,28 @@ mod tests {
 
         let mut world = World::new();
 
+        let a_id = world.register_component::<A>();
+        std::println!("A: {:?}", a_id);
+        std::println!("B: {:?}", world.register_component::<B>());
+        std::println!("C: {:?}", world.register_component::<C>());
+        std::println!("D: {:?}", world.register_component::<D>());
+        std::println!("E: {:?}", world.register_component::<E>());
+        std::println!("F: {:?}", world.register_component::<F>());
+
+        let required: Vec<_> = world
+            .components()
+            .get_info(a_id)
+            .unwrap()
+            .required_components()
+            .0
+            .iter()
+            .map(|(id, required)| (id, required.inheritance_depth))
+            .collect();
+
+        std::println!("required of A\n{required:#?}");        
+
         world.register_bundle::<A>();
-        world.register_required_components::<A, D>();
+        world.register_required_components::<B, E>();
 
         let entity = world.spawn(A);
         assert_eq!(entity.get::<F>(), Some(&F(10))); // todo: fix and add tests with lower and higher depth

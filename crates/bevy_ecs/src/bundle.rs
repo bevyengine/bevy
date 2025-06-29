@@ -2117,19 +2117,36 @@ impl Bundles {
     ) {
         // take the vector listing the bundles with `requiree` so `components_in_bundles` can be mutated
         // while the list is iterated
-        let taken_bundles_with_requiree = self
+        let Some(taken_bundles_with_requiree) = self
             .components_in_bundles
             .get_mut(requiree.index())
             .filter(|bundles| !bundles.is_empty())
-            .map(core::mem::take);
-
-        let Some(taken_bundles_with_requiree) = taken_bundles_with_requiree else {
+            .map(core::mem::take) else {
             return;
         };
 
         // check each bundle if it needs to be updated
         for bundle_id in taken_bundles_with_requiree.iter() {
             let bundle_info = &mut self.bundle_infos[bundle_id.index()];
+            std::println!("bundle {bundle_id:?}");
+
+            {
+                //debug
+                for (&id, required) in bundle_info.required_components().iter().zip(bundle_info.required_components.iter()) {
+                    std::println!("existing_Required_id {id:?}, existing_inheritance_depth {}", required.inheritance_depth);
+                }
+            }
+
+            // get inheritance_depth of requiree as that offsets the inheritance_depth of the required components for this bundle
+            let requiree_inheritance_depth = bundle_info
+                .required_components()
+                .iter()
+                .enumerate()
+                .find_map(|(index, &existing_requiree_id)| {
+                    (existing_requiree_id == requiree).then_some(index)
+                })
+                .map(|index| bundle_info.required_components[index].inheritance_depth)
+                .unwrap_or(0); // requiree is explicit component of bundle
 
             for (newly_required_id, newly_required_component) in required.iter() {
                 let index = bundle_info
@@ -2139,6 +2156,7 @@ impl Bundles {
                     .find_map(|(index, &existing_required_id)| {
                         (existing_required_id == *newly_required_id).then_some(index)
                     });
+                std::println!("newly_required_id: {newly_required_id:?}, newly_inheritance_depth: {} + {requiree_inheritance_depth}", newly_required_component.inheritance_depth);
 
                 match index {
                     Some(index) => {
@@ -2146,13 +2164,14 @@ impl Bundles {
                         // update `RequiredComponent` if the new one has a smaller or equal `existing_required_component`
                         let existing_required_component =
                             &mut bundle_info.required_components[index];
-                        if existing_required_component.inheritance_depth
-                            >= newly_required_component.inheritance_depth
-                        {
+                        std::println!("index: {index}, existing_inheritance_depth: {}", existing_required_component.inheritance_depth);
+                        let newly_inheritance_depth = newly_required_component.inheritance_depth + requiree_inheritance_depth;
+                        if existing_required_component.inheritance_depth >= newly_inheritance_depth {
                             *existing_required_component = newly_required_component.clone();
                         }
                     }
                     None => {
+                        std::println!("new required component");
                         // required component was not yet known to this bundle
                         // update both `BundleInfo` and `components_in_bundles`
                         bundle_info.component_ids.push(*newly_required_id);
