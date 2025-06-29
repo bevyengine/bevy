@@ -12,7 +12,7 @@ use crate::{
     schedule::{
         is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
     },
-    world::World,
+    world::{OnDeferred, World},
 };
 #[cfg(feature = "hotpatching")]
 use crate::{event::Events, HotPatched};
@@ -205,6 +205,8 @@ impl SingleThreadedExecutor {
     }
 
     fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+        OnDeferred::execute(world);
+
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index].system;
             system.apply_deferred(world);
@@ -254,4 +256,59 @@ fn evaluate_and_fold_conditions(
             __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
         })
         .fold(true, |acc, res| acc && res)
+}
+
+#[cfg(test)]
+#[cfg(feature = "std")]
+mod tests {
+    use std::sync::Mutex;
+
+    use alloc::{sync::Arc, vec};
+
+    use crate::{
+        prelude::{IntoScheduleConfigs, Schedule},
+        schedule::ExecutorKind,
+        system::Commands,
+        world::{OnDeferred, World},
+    };
+
+    #[test]
+    fn executes_on_deferred() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+
+        let result = Arc::new(Mutex::new(vec![]));
+
+        let result_clone = result.clone();
+        let my_system = move |mut commands: Commands| {
+            let result_clone = result_clone.clone();
+            commands.queue(move |_: &mut World| {
+                result_clone.lock().unwrap().push("my_system");
+            });
+        };
+        schedule.add_systems((my_system.clone(), my_system.clone(), my_system).chain());
+
+        world.insert_resource({
+            let mut on_deferred = OnDeferred::default();
+            let result_clone = result.clone();
+            on_deferred.add(move |_: &mut World| {
+                result_clone.lock().unwrap().push("on_deferred");
+            });
+            on_deferred
+        });
+
+        schedule.run(&mut world);
+        assert_eq!(
+            &*result.lock().unwrap(),
+            &[
+                "on_deferred",
+                "my_system",
+                "on_deferred",
+                "my_system",
+                "on_deferred",
+                "my_system",
+            ]
+        );
+    }
 }

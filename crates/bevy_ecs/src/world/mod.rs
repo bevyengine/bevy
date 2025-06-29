@@ -7,6 +7,7 @@ mod entity_ref;
 pub mod error;
 mod filtered_resource;
 mod identifier;
+mod on_deferred;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
@@ -34,6 +35,7 @@ pub use entity_ref::{
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;
+pub use on_deferred::OnDeferred;
 pub use spawn_batch::*;
 
 use crate::{
