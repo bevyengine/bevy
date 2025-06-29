@@ -110,6 +110,8 @@ impl Plugin for SpritePlugin {
         #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(SpritePickingPlugin);
 
+        // We intentionally aren't unwrapping the render app since this plugin may be added in
+        // headless situations (e.g., to spawn a scene that includes a Sprite).
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ImageBindGroups>()
@@ -142,6 +144,7 @@ impl Plugin for SpritePlugin {
     }
 
     fn finish(&self, app: &mut App) {
+        // We intentionally aren't unwrapping the render app. See `build()` for details.
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SpriteBatches>()

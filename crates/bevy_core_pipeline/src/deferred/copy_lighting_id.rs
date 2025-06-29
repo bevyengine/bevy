@@ -28,9 +28,9 @@ pub struct CopyDeferredLightingIdPlugin;
 impl Plugin for CopyDeferredLightingIdPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "copy_deferred_lighting_id.wgsl");
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app.add_systems(
             Render,
             (prepare_deferred_lighting_id_textures.in_set(RenderSystems::PrepareResources),),
@@ -38,9 +38,9 @@ impl Plugin for CopyDeferredLightingIdPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app.init_resource::<CopyDeferredLightingIdPipeline>();
     }

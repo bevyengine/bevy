@@ -309,9 +309,9 @@ impl Display for SlabId {
 
 impl Plugin for MeshAllocatorPlugin {
     fn build(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<MeshAllocatorSettings>()
@@ -324,9 +324,9 @@ impl Plugin for MeshAllocatorPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         // The `RenderAdapter` isn't available until now, so we can't do this in
         // [`Plugin::build`].

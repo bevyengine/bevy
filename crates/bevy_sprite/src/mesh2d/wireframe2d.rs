@@ -109,9 +109,9 @@ impl Plugin for Wireframe2dPlugin {
                 .run_if(resource_exists::<Wireframe2dConfig>),
         );
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<WireframeEntitySpecializationTicks>()
@@ -152,9 +152,9 @@ impl Plugin for Wireframe2dPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app.init_resource::<Wireframe2dPipeline>();
     }
 }

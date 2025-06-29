@@ -137,9 +137,9 @@ impl Plugin for MotionBlurPlugin {
             UniformComponentPlugin::<MotionBlurUniform>::default(),
         ));
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<SpecializedRenderPipelines<pipeline::MotionBlurPipeline>>()
@@ -164,9 +164,9 @@ impl Plugin for MotionBlurPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app.init_resource::<pipeline::MotionBlurPipeline>();
     }

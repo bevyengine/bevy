@@ -184,9 +184,9 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         app.register_type::<ScreenSpaceReflections>()
             .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<ScreenSpaceReflectionsBuffer>()
@@ -202,9 +202,9 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<ScreenSpaceReflectionsPipeline>()

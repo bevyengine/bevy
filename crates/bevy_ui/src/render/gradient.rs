@@ -40,33 +40,35 @@ impl Plugin for GradientPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "gradient.wgsl");
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<TransparentUi, DrawGradientFns>()
-                .init_resource::<ExtractedGradients>()
-                .init_resource::<ExtractedColorStops>()
-                .init_resource::<GradientMeta>()
-                .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_gradients
-                        .in_set(RenderUiSystems::ExtractGradient)
-                        .after(extract_uinode_background_colors),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_gradient.in_set(RenderSystems::Queue),
-                        prepare_gradient.in_set(RenderSystems::PrepareBindGroups),
-                    ),
-                );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .add_render_command::<TransparentUi, DrawGradientFns>()
+            .init_resource::<ExtractedGradients>()
+            .init_resource::<ExtractedColorStops>()
+            .init_resource::<GradientMeta>()
+            .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
+            .add_systems(
+                ExtractSchedule,
+                extract_gradients
+                    .in_set(RenderUiSystems::ExtractGradient)
+                    .after(extract_uinode_background_colors),
+            )
+            .add_systems(
+                Render,
+                (
+                    queue_gradient.in_set(RenderSystems::Queue),
+                    prepare_gradient.in_set(RenderSystems::PrepareBindGroups),
+                ),
+            );
     }
 
     fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<GradientPipeline>();
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.init_resource::<GradientPipeline>();
     }
 }
 

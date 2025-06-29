@@ -133,6 +133,8 @@ impl Plugin for TextPlugin {
             )
             .add_systems(Last, trim_cosmic_cache);
 
+        // We aren't unwrapping the render app since users may be using bevy_text with their own
+        // rendering.
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 ExtractSchedule,

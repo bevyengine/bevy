@@ -17,20 +17,22 @@ pub struct GpuComponentArrayBufferPlugin<C: Component + GpuArrayBufferable>(Phan
 
 impl<C: Component + GpuArrayBufferable> Plugin for GpuComponentArrayBufferPlugin<C> {
     fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                Render,
-                prepare_gpu_component_array_buffers::<C>.in_set(RenderSystems::PrepareResources),
-            );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.add_systems(
+            Render,
+            prepare_gpu_component_array_buffers::<C>.in_set(RenderSystems::PrepareResources),
+        );
     }
 
     fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.insert_resource(GpuArrayBuffer::<C>::new(
-                render_app.world().resource::<RenderDevice>(),
-            ));
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.insert_resource(GpuArrayBuffer::<C>::new(
+            render_app.world().resource::<RenderDevice>(),
+        ));
     }
 }
 

@@ -79,9 +79,9 @@ impl Plugin for PrepassPipelinePlugin {
         load_shader_library!(app, "prepass_utils.wgsl");
         load_shader_library!(app, "prepass_io.wgsl");
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .add_systems(
@@ -92,9 +92,9 @@ impl Plugin for PrepassPipelinePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<PrepassPipeline>()
@@ -143,9 +143,9 @@ impl Plugin for PrepassPlugin {
                 ));
         }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         if no_prepass_plugin_loaded {
             render_app

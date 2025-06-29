@@ -94,13 +94,14 @@ where
     EI: ExtractInstance,
 {
     fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ExtractedInstances<EI>>();
-            if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible::<EI>);
-            } else {
-                render_app.add_systems(ExtractSchedule, extract_all::<EI>);
-            }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.init_resource::<ExtractedInstances<EI>>();
+        if self.only_extract_visible {
+            render_app.add_systems(ExtractSchedule, extract_visible::<EI>);
+        } else {
+            render_app.add_systems(ExtractSchedule, extract_all::<EI>);
         }
     }
 }

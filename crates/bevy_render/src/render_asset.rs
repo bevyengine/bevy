@@ -118,20 +118,21 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ExtractedAssets<A>>()
-                .init_resource::<RenderAssets<A>>()
-                .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_render_asset::<A>.in_set(AssetExtractionSystems),
-                );
-            AFTER::register_system(
-                render_app,
-                prepare_assets::<A>.in_set(RenderSystems::PrepareAssets),
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<ExtractedAssets<A>>()
+            .init_resource::<RenderAssets<A>>()
+            .init_resource::<PrepareNextFrameAssets<A>>()
+            .add_systems(
+                ExtractSchedule,
+                extract_render_asset::<A>.in_set(AssetExtractionSystems),
             );
-        }
+        AFTER::register_system(
+            render_app,
+            prepare_assets::<A>.in_set(RenderSystems::PrepareAssets),
+        );
     }
 }
 

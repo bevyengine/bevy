@@ -39,14 +39,15 @@ impl Plugin for CameraPlugin {
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
             ));
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<SortedCameras>()
-                .add_systems(ExtractSchedule, extract_cameras)
-                .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
-            let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
-            let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
-            render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<SortedCameras>()
+            .add_systems(ExtractSchedule, extract_cameras)
+            .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
+        let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
+        let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
+        render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
     }
 }

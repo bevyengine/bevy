@@ -276,41 +276,43 @@ where
                 check_entities_needing_specialization::<M>.after(AssetEventSystems),
             );
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<EntitySpecializationTicks<M>>()
-                .init_resource::<SpecializedMaterial2dPipelineCache<M>>()
-                .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
-                .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
-                .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
-                .init_resource::<RenderMaterial2dInstances<M>>()
-                .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    (
-                        extract_entities_needs_specialization::<M>.after(extract_cameras),
-                        extract_mesh_materials_2d::<M>,
-                    ),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        specialize_material2d_meshes::<M>
-                            .in_set(RenderSystems::PrepareMeshes)
-                            .after(prepare_assets::<PreparedMaterial2d<M>>)
-                            .after(prepare_assets::<RenderMesh>),
-                        queue_material2d_meshes::<M>
-                            .in_set(RenderSystems::QueueMeshes)
-                            .after(prepare_assets::<PreparedMaterial2d<M>>),
-                    ),
-                );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<EntitySpecializationTicks<M>>()
+            .init_resource::<SpecializedMaterial2dPipelineCache<M>>()
+            .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
+            .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
+            .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
+            .init_resource::<RenderMaterial2dInstances<M>>()
+            .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_entities_needs_specialization::<M>.after(extract_cameras),
+                    extract_mesh_materials_2d::<M>,
+                ),
+            )
+            .add_systems(
+                Render,
+                (
+                    specialize_material2d_meshes::<M>
+                        .in_set(RenderSystems::PrepareMeshes)
+                        .after(prepare_assets::<PreparedMaterial2d<M>>)
+                        .after(prepare_assets::<RenderMesh>),
+                    queue_material2d_meshes::<M>
+                        .in_set(RenderSystems::QueueMeshes)
+                        .after(prepare_assets::<PreparedMaterial2d<M>>),
+                ),
+            );
     }
 
     fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<Material2dPipeline<M>>();
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.init_resource::<Material2dPipeline<M>>();
     }
 }
 

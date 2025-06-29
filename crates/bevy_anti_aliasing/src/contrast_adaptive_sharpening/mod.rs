@@ -108,9 +108,9 @@ impl Plugin for CasPlugin {
             UniformComponentPlugin::<CasUniform>::default(),
         ));
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app
             .init_resource::<SpecializedRenderPipelines<CasPipeline>>()
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare));
@@ -152,9 +152,9 @@ impl Plugin for CasPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app.init_resource::<CasPipeline>();
     }
 }

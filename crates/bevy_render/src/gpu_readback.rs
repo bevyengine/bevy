@@ -51,22 +51,23 @@ impl Plugin for GpuReadbackPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ExtractComponentPlugin::<Readback>::default());
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<GpuReadbackBufferPool>()
-                .init_resource::<GpuReadbacks>()
-                .insert_resource(GpuReadbackMaxUnusedFrames(self.max_unused_frames))
-                .add_systems(ExtractSchedule, sync_readbacks.ambiguous_with_all())
-                .add_systems(
-                    Render,
-                    (
-                        prepare_buffers.in_set(RenderSystems::PrepareResources),
-                        map_buffers
-                            .after(render_system)
-                            .in_set(RenderSystems::Render),
-                    ),
-                );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<GpuReadbackBufferPool>()
+            .init_resource::<GpuReadbacks>()
+            .insert_resource(GpuReadbackMaxUnusedFrames(self.max_unused_frames))
+            .add_systems(ExtractSchedule, sync_readbacks.ambiguous_with_all())
+            .add_systems(
+                Render,
+                (
+                    prepare_buffers.in_set(RenderSystems::PrepareResources),
+                    map_buffers
+                        .after(render_system)
+                        .in_set(RenderSystems::Render),
+                ),
+            );
     }
 }
 

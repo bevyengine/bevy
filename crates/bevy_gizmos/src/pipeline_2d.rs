@@ -35,9 +35,9 @@ pub struct LineGizmo2dPlugin;
 
 impl Plugin for LineGizmo2dPlugin {
     fn build(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
@@ -63,9 +63,9 @@ impl Plugin for LineGizmo2dPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app.init_resource::<LineGizmoPipeline>();
         render_app.init_resource::<LineJointGizmoPipeline>();

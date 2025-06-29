@@ -19,15 +19,16 @@ impl Plugin for BlitPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "blit.wgsl");
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>();
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>();
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app
             .init_resource::<BlitPipeline>()
             .init_resource::<SpecializedRenderPipelines<BlitPipeline>>();

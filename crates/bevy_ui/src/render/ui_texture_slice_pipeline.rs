@@ -36,31 +36,33 @@ impl Plugin for UiTextureSlicerPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "ui_texture_slice.wgsl");
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<TransparentUi, DrawUiTextureSlices>()
-                .init_resource::<ExtractedUiTextureSlices>()
-                .init_resource::<UiTextureSliceMeta>()
-                .init_resource::<UiTextureSliceImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_ui_texture_slices.in_set(RenderUiSystems::ExtractTextureSlice),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_ui_slices.in_set(RenderSystems::Queue),
-                        prepare_ui_slices.in_set(RenderSystems::PrepareBindGroups),
-                    ),
-                );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .add_render_command::<TransparentUi, DrawUiTextureSlices>()
+            .init_resource::<ExtractedUiTextureSlices>()
+            .init_resource::<UiTextureSliceMeta>()
+            .init_resource::<UiTextureSliceImageBindGroups>()
+            .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
+            .add_systems(
+                ExtractSchedule,
+                extract_ui_texture_slices.in_set(RenderUiSystems::ExtractTextureSlice),
+            )
+            .add_systems(
+                Render,
+                (
+                    queue_ui_slices.in_set(RenderSystems::Queue),
+                    prepare_ui_slices.in_set(RenderSystems::PrepareBindGroups),
+                ),
+            );
     }
 
     fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiTextureSlicePipeline>();
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.init_resource::<UiTextureSlicePipeline>();
     }
 }
 

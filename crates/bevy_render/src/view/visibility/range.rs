@@ -63,9 +63,9 @@ impl Plugin for VisibilityRangePlugin {
                     .before(check_visibility),
             );
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<RenderVisibilityRanges>()

@@ -37,9 +37,9 @@ impl Plugin for OitResolvePlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         if !is_oit_supported(
             render_app.world().resource::<RenderAdapter>(),
