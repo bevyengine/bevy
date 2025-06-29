@@ -548,7 +548,7 @@ impl World {
         };
 
         self.bundles
-            .register_required_components(requiree, required);
+            .register_required_components(requiree, &required);
 
         Ok(())
     }

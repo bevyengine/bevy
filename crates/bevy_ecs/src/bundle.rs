@@ -1923,6 +1923,18 @@ impl Bundles {
         self.bundle_infos.iter()
     }
 
+    /// Iterate over [`BundleInfo`] containing `component`, either explicitly or as required.
+    pub fn iter_containing(&self, component: ComponentId) -> impl Iterator<Item = &BundleInfo> {
+        self.components_in_bundles
+            .get(component.index())
+            .into_iter()
+            .flatten()
+            .map(|id| unsafe {
+                // SAFETY: components_in_bundles contains only valid ids
+                self.bundle_infos.get(id.index()).debug_checked_unwrap()
+            })
+    }
+
     /// Gets the metadata associated with a specific type of bundle.
     /// Returns `None` if the bundle is not registered with the world.
     #[inline]
@@ -2094,11 +2106,17 @@ impl Bundles {
         *bundle_id
     }
 
+    /// Updates the required components of bundles that contain `requiree`.
+    ///
+    /// Bundles that already contain this required component only update their [`RequiredComponent`]
+    /// if its [`inheritance_depth`](RequiredComponent::inheritance_depth) is smaller or equal.
     pub(crate) fn register_required_components(
         &mut self,
         requiree: ComponentId,
-        required: Vec<(ComponentId, RequiredComponent)>,
+        required: &[(ComponentId, RequiredComponent)],
     ) {
+        // take the vector listing the bundles with `requiree` so `components_in_bundles` can be mutated
+        // while the list is iterated
         let taken_bundles_with_requiree = self
             .components_in_bundles
             .get_mut(requiree.index())
@@ -2109,6 +2127,7 @@ impl Bundles {
             return;
         };
 
+        // check each bundle if it needs to be updated
         for bundle_id in taken_bundles_with_requiree.iter() {
             let bundle_info = &mut self.bundle_infos[bundle_id.index()];
 
@@ -2123,15 +2142,19 @@ impl Bundles {
 
                 match index {
                     Some(index) => {
+                        // required component is already in this bundle
+                        // update `RequiredComponent` if the new one has a smaller or equal `existing_required_component`
                         let existing_required_component =
                             &mut bundle_info.required_components[index];
                         if existing_required_component.inheritance_depth
-                            > newly_required_component.inheritance_depth
+                            >= newly_required_component.inheritance_depth
                         {
                             *existing_required_component = newly_required_component.clone();
                         }
                     }
                     None => {
+                        // required component was not yet known to this bundle
+                        // update both `BundleInfo` and `components_in_bundles`
                         bundle_info.component_ids.push(*newly_required_id);
                         bundle_info
                             .required_components
@@ -2146,8 +2169,9 @@ impl Bundles {
             }
         }
 
+        // put the list of bundles with `requiree` back
         let replaced = self.components_in_bundles.get_mut(requiree.index());
-        // SAFETY: todo
+        // SAFETY: this list has to exist at this index to be taken in the first place
         let replaced = unsafe { replaced.debug_checked_unwrap() };
         *replaced = taken_bundles_with_requiree;
     }
@@ -2185,6 +2209,13 @@ fn initialize_dynamic_bundle(
     (id, storage_types)
 }
 
+/// Inserts `bundle` in `components_in_bundles` at [`component.index()`](ComponentId::index).
+///
+/// Extends `components_in_bundles` with empty vectors if needed.
+///
+/// This method does not check if the bundle is already known to contain this component,
+/// so this function should only be called when this was asserted previously or the bundle
+/// is new.
 fn components_in_bundles_push(
     components_in_bundles: &mut Vec<Vec<BundleId>>,
     component: ComponentId,
@@ -2196,6 +2227,7 @@ fn components_in_bundles_push(
             let missing_minus_one = component.index() - components_in_bundles.len();
             let iter = core::iter::repeat_n(Vec::new(), missing_minus_one)
                 .chain(core::iter::once(vec![bundle]));
+            components_in_bundles.reserve_exact(missing_minus_one + 1);
             components_in_bundles.extend(iter);
         }
     }
