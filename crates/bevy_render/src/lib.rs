@@ -26,6 +26,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
+pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
 pub mod extract_instances;
