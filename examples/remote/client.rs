@@ -3,11 +3,15 @@
 
 use anyhow::Result as AnyhowResult;
 use argh::FromArgs;
-use bevy::remote::{
-    builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_METHOD},
-    http::DEFAULT_ADDR,
-    http::DEFAULT_PORT,
-    BrpRequest,
+use bevy::{
+    log::info,
+    remote::{
+        builtin_methods::{
+            BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_ALL_METHOD, BRP_QUERY_METHOD,
+        },
+        http::{DEFAULT_ADDR, DEFAULT_PORT},
+        BrpRequest,
+    },
 };
 
 /// Struct containing the command-line arguments that can be passed to this example.
@@ -44,7 +48,7 @@ fn main() -> AnyhowResult<()> {
 
     // Create the URL. We're going to need it to issue the HTTP request.
     let host_part = format!("{}:{}", args.host, args.port);
-    let url = format!("http://{host_part}/");
+    let url = format!("http://{}/", host_part);
 
     let req = BrpRequest {
         jsonrpc: String::from("2.0"),
@@ -64,12 +68,30 @@ fn main() -> AnyhowResult<()> {
         ),
     };
 
+    println!("req: {:#?}", req);
     let res = ureq::post(&url)
         .send_json(req)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
 
-    println!("{res:#}");
+    println!("{:#}", res);
+
+    /// Create a query_all request to send to the remote Bevy app.
+    /// This request will return all entities in the app, their components, and their
+    /// component values.
+    let req = BrpRequest {
+        jsonrpc: String::from("2.0"),
+        method: String::from(BRP_QUERY_ALL_METHOD),
+        id: Some(serde_json::to_value(1)?),
+        params: Some(
+            serde_json::to_value(BrpQueryAllParams {
+                filter: BrpQueryFilter::default(),
+                root_only: false,
+                entities: Vec::default(),
+            })
+            .expect("Unable to convert query parameters to a valid JSON value"),
+        ),
+    };
 
     Ok(())
 }

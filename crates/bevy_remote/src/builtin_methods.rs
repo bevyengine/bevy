@@ -7,14 +7,14 @@ use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
     event::EventCursor,
-    hierarchy::ChildOf,
+    hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponentEntity,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     GetPath, PartialReflect, TypeRegistration, TypeRegistry,
@@ -39,6 +39,9 @@ pub const BRP_GET_METHOD: &str = "bevy/get";
 
 /// The method path for a `bevy/query` request.
 pub const BRP_QUERY_METHOD: &str = "bevy/query";
+
+/// The method path for a `bevy/query_all` request.
+pub const BRP_QUERY_ALL_METHOD: &str = "bevy/query_all";
 
 /// The method path for a `bevy/spawn` request.
 pub const BRP_SPAWN_METHOD: &str = "bevy/spawn";
@@ -804,6 +807,115 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
             entity: row.id(),
             components: components_map,
             has: has_map,
+        });
+    }
+
+    serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+/// Parameters for the `bevy/query_all` request.
+#[derive(Deserialize)]
+pub struct BrpQueryAllParams {
+    #[serde(default)]
+    filter: BrpQueryFilter,
+    #[serde(default)]
+    root_only: bool,
+    #[serde(default)]
+    entities: Vec<Entity>,
+}
+
+/// Handles a `bevy/query_all` request coming from a client.
+/// Returns all entities and all their components (with values), with optional filtering.
+/// This is a more expensive operation than `bevy/query`.
+/// You can specify a filter like below:
+///
+///
+/// {
+///   "filter": { "with": ["SomeComponent"] },
+///   "root_only": false,
+///   "entities": [123, 456]
+/// }
+pub fn process_remote_query_all_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
+    let BrpQueryAllParams {
+        filter,
+        root_only,
+        entities,
+    } = params
+        .map(|v| serde_json::from_value(v).map_err(BrpError::internal))
+        .transpose()?
+        .unwrap_or(BrpQueryAllParams {
+            filter: BrpQueryFilter::default(),
+            root_only: false,
+            entities: Vec::new(),
+        });
+
+    let app_type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = app_type_registry.read();
+
+    // Prepare filter sets
+    let with_set: HashSet<_> = filter.with.iter().cloned().collect();
+    let without_set: HashSet<_> = filter.without.iter().cloned().collect();
+
+    let mut response = BrpQueryResponse::default();
+    // If no entities are specified, query all entities in the world.
+    let filter_entities = !entities.is_empty();
+
+    'entity: for entity_ref in world.iter_entities() {
+        // If entities filter is set, skip if not in the list
+        if filter_entities && !entities.contains(&entity_ref.id()) {
+            continue 'entity;
+        }
+
+        // Filtering: skip entities that don't match the filter
+        let mut present_types = HashSet::new();
+        for component_id in entity_ref.archetype().components() {
+            if let Some(component_info) = world.components().get_info(component_id) {
+                let type_name = component_info.name().to_string();
+                present_types.insert(type_name);
+            }
+        }
+        // Must have all "with"
+        if !with_set.is_subset(&present_types) {
+            continue 'entity;
+        }
+        // Must have none of "without"
+        if !without_set.is_disjoint(&present_types) {
+            continue 'entity;
+        }
+
+        // If root_only is set, skip entities without children
+        if root_only && entity_ref.get::<Children>().is_none() {
+            continue 'entity;
+        }
+
+        let entity = entity_ref.id();
+        let mut components_map = HashMap::new();
+
+        for component_id in entity_ref.archetype().components() {
+            let Some(component_info) = world.components().get_info(component_id) else {
+                continue;
+            };
+            let type_path = component_info.name().to_string();
+            if let Some(type_registration) = type_registry.get_with_type_path(type_path.as_str()) {
+                // Reflect the component value and serialize it.
+                if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
+                    if let Some(reflected) = reflect_component.reflect(entity_ref.clone()) {
+                        let reflect_serializer =
+                            ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
+                        if let Ok(Value::Object(serialized_object)) =
+                            serde_json::to_value(&reflect_serializer)
+                        {
+                            components_map.extend(serialized_object.into_iter());
+                        }
+                    }
+                }
+            }
+        }
+
+        response.push(BrpQueryRow {
+            entity,
+            components: components_map,
+            has: HashMap::new(),
         });
     }
 

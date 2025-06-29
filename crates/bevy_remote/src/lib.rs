@@ -450,6 +450,10 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_query_request,
             )
             .with_method(
+                builtin_methods::BRP_QUERY_METHOD,
+                builtin_methods::process_remote_query_all_request,
+            )
+            .with_method(
                 builtin_methods::BRP_SPAWN_METHOD,
                 builtin_methods::process_remote_spawn_request,
             )
