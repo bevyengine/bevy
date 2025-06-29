@@ -1,6 +1,6 @@
 use super::{
-    instance_manager::InstanceManager, resource_manager::ResourceManager,
-    MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+    instance_manager::InstanceManager, pipelines::MeshletPipelines,
+    resource_manager::ResourceManager,
 };
 use crate::{environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume, *};
 use bevy_core_pipeline::{
@@ -17,6 +17,7 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
+use core::any::{Any, TypeId};
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
 #[derive(Component, Deref, DerefMut, Default)]
@@ -27,11 +28,12 @@ pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipeline
 pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
-    mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
+    mut cache: Local<HashMap<(MeshPipelineKey, TypeId), CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
     material_pipeline: Res<MaterialPipeline>,
     mesh_pipeline: Res<MeshPipeline>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
+    meshlet_pipelines: Res<MeshletPipelines>,
     render_material_instances: Res<RenderMaterialInstances>,
     material_bind_group_allocators: Res<MaterialBindGroupAllocators>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
@@ -194,7 +196,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 layout,
                 push_constant_ranges: vec![],
                 vertex: VertexState {
-                    shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
                     buffers: Vec::new(),
@@ -211,7 +213,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 fragment: Some(FragmentState {
                     shader: match material.properties.get_shader(MeshletFragmentShader) {
                         Some(shader) => shader.clone(),
-                        None => MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                        None => meshlet_pipelines.meshlet_mesh_material.clone(),
                     },
                     shader_defs,
                     entry_point: material_fragment.entry_point,
@@ -219,14 +221,14 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 }),
                 zero_initialize_workgroup_memory: false,
             };
-            let Some(material_bind_group_allocator) =
-                material_bind_group_allocators.get(&material_id.type_id())
+            let type_id = material_id.type_id();
+            let Some(material_bind_group_allocator) = material_bind_group_allocators.get(&type_id)
             else {
                 continue;
             };
             let material_id = instance_manager.get_material_id(material_id);
 
-            let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
+            let pipeline_id = *cache.entry((view_key, type_id)).or_insert_with(|| {
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
             });
 
@@ -259,11 +261,12 @@ pub struct MeshletViewMaterialsDeferredGBufferPrepass(
 pub fn prepare_material_meshlet_meshes_prepass(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
-    mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
+    mut cache: Local<HashMap<(MeshPipelineKey, TypeId), CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
     prepass_pipeline: Res<PrepassPipeline>,
     material_bind_group_allocators: Res<MaterialBindGroupAllocators>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
+    meshlet_pipelines: Res<MeshletPipelines>,
     render_material_instances: Res<RenderMaterialInstances>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     mut views: Query<
@@ -360,23 +363,25 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 material
                     .properties
                     .get_shader(MeshletDeferredFragmentShader)
-                    .unwrap_or(MESHLET_MESH_MATERIAL_SHADER_HANDLE)
+                    .unwrap_or(meshlet_pipelines.meshlet_mesh_material.clone())
             } else {
                 material
                     .properties
                     .get_shader(MeshletPrepassFragmentShader)
-                    .unwrap_or(MESHLET_MESH_MATERIAL_SHADER_HANDLE)
+                    .unwrap_or(meshlet_pipelines.meshlet_mesh_material.clone())
             };
 
-            let entry_point = match &fragment_shader {
-                x if x == &MESHLET_MESH_MATERIAL_SHADER_HANDLE => "prepass_fragment".into(),
-                _ => material_fragment.entry_point,
+            let entry_point = if fragment_shader == meshlet_pipelines.meshlet_mesh_material {
+                material_fragment.entry_point.clone()
+            } else {
+                "prepass_fragment".into()
             };
 
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout: vec![
                     view_layout,
+                    prepass_pipeline.internal.empty_layout.clone(),
                     resource_manager.material_shade_bind_group_layout.clone(),
                     material
                         .properties
@@ -387,7 +392,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 ],
                 push_constant_ranges: vec![],
                 vertex: VertexState {
-                    shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
                     buffers: Vec::new(),
@@ -412,9 +417,11 @@ pub fn prepare_material_meshlet_meshes_prepass(
 
             let material_id = instance_manager.get_material_id(material_id);
 
-            let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
-                pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
-            });
+            let pipeline_id = *cache
+                .entry((view_key, material_id.type_id()))
+                .or_insert_with(|| {
+                    pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
+                });
 
             let Some(material_bind_group) =
                 material_bind_group_allocator.get(material.binding.group)
