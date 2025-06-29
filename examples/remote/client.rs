@@ -79,7 +79,7 @@ fn main() -> AnyhowResult<()> {
     /// Create a query_all request to send to the remote Bevy app.
     /// This request will return all entities in the app, their components, and their
     /// component values.
-    let req = BrpRequest {
+    let query_all_req = BrpRequest {
         jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_ALL_METHOD),
         id: Some(serde_json::to_value(1)?),
@@ -92,6 +92,14 @@ fn main() -> AnyhowResult<()> {
             .expect("Unable to convert query parameters to a valid JSON value"),
         ),
     };
+
+    println!("query_all req: {:#?}", query_all_req);
+    let query_all_res = ureq::post(&url)
+        .send_json(query_all_req)?
+        .body_mut()
+        .read_json::<serde_json::Value>()?;
+
+    println!("{:#}", query_all_res);
 
     Ok(())
 }
