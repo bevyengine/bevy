@@ -99,9 +99,9 @@ impl Plugin for DeferredPbrLightingPlugin {
 
         embedded_asset!(app, "deferred_lighting.wgsl");
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
@@ -124,9 +124,9 @@ impl Plugin for DeferredPbrLightingPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app.init_resource::<DeferredLightingLayout>();
     }

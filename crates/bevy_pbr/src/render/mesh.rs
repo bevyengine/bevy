@@ -155,69 +155,71 @@ impl Plugin for MeshRenderPlugin {
             SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::new(self.debug_flags),
         ));
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<MorphUniforms>()
-                .init_resource::<MorphIndices>()
-                .init_resource::<MeshCullingDataBuffer>()
-                .init_resource::<RenderMaterialInstances>()
-                .configure_sets(
-                    ExtractSchedule,
-                    MeshExtractionSystems
-                        .after(view::extract_visibility_ranges)
-                        .after(late_sweep_material_instances),
-                )
-                .add_systems(
-                    ExtractSchedule,
-                    (
-                        extract_skins,
-                        extract_morphs,
-                        gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
-                            .before(MeshExtractionSystems),
-                    ),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        set_mesh_motion_vector_flags.in_set(RenderSystems::PrepareMeshes),
-                        prepare_skins.in_set(RenderSystems::PrepareResources),
-                        prepare_morphs.in_set(RenderSystems::PrepareResources),
-                        prepare_mesh_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                        prepare_mesh_view_bind_groups
-                            .in_set(RenderSystems::PrepareBindGroups)
-                            .after(prepare_oit_buffers),
-                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
-                            .in_set(RenderSystems::Cleanup)
-                            .after(RenderSystems::Render),
-                    ),
-                );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<MorphUniforms>()
+            .init_resource::<MorphIndices>()
+            .init_resource::<MeshCullingDataBuffer>()
+            .init_resource::<RenderMaterialInstances>()
+            .configure_sets(
+                ExtractSchedule,
+                MeshExtractionSystems
+                    .after(view::extract_visibility_ranges)
+                    .after(late_sweep_material_instances),
+            )
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_skins,
+                    extract_morphs,
+                    gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
+                        .before(MeshExtractionSystems),
+                ),
+            )
+            .add_systems(
+                Render,
+                (
+                    set_mesh_motion_vector_flags.in_set(RenderSystems::PrepareMeshes),
+                    prepare_skins.in_set(RenderSystems::PrepareResources),
+                    prepare_morphs.in_set(RenderSystems::PrepareResources),
+                    prepare_mesh_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    prepare_mesh_view_bind_groups
+                        .in_set(RenderSystems::PrepareBindGroups)
+                        .after(prepare_oit_buffers),
+                    no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
+                        .in_set(RenderSystems::Cleanup)
+                        .after(RenderSystems::Render),
+                ),
+            );
     }
 
     fn finish(&self, app: &mut App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<ViewKeyCache>()
+            .init_resource::<ViewSpecializationTicks>()
+            .init_resource::<GpuPreprocessingSupport>()
+            .init_resource::<SkinUniforms>()
+            .add_systems(
+                Render,
+                check_views_need_specialization.in_set(PrepareAssets),
+            );
+
+        let gpu_preprocessing_support = render_app.world().resource::<GpuPreprocessingSupport>();
+        let use_gpu_instance_buffer_builder =
+            self.use_gpu_instance_buffer_builder && gpu_preprocessing_support.is_available();
+
+        let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
+        render_app.insert_resource(render_mesh_instances);
+
+        if use_gpu_instance_buffer_builder {
             render_app
-                .init_resource::<ViewKeyCache>()
-                .init_resource::<ViewSpecializationTicks>()
-                .init_resource::<GpuPreprocessingSupport>()
-                .init_resource::<SkinUniforms>()
-                .add_systems(
-                    Render,
-                    check_views_need_specialization.in_set(PrepareAssets),
-                );
-
-            let gpu_preprocessing_support =
-                render_app.world().resource::<GpuPreprocessingSupport>();
-            let use_gpu_instance_buffer_builder =
-                self.use_gpu_instance_buffer_builder && gpu_preprocessing_support.is_available();
-
-            let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
-            render_app.insert_resource(render_mesh_instances);
-
-            if use_gpu_instance_buffer_builder {
-                render_app
                     .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<
                         MeshUniform,
                         MeshInputUniform
@@ -243,37 +245,36 @@ impl Plugin for MeshRenderPlugin {
                                 .before(set_mesh_motion_vector_flags),
                         ),
                     );
-            } else {
-                let render_device = render_app.world().resource::<RenderDevice>();
-                let cpu_batched_instance_buffer =
-                    no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
-                render_app
-                    .insert_resource(cpu_batched_instance_buffer)
-                    .add_systems(
-                        ExtractSchedule,
-                        extract_meshes_for_cpu_building.in_set(MeshExtractionSystems),
-                    )
-                    .add_systems(
-                        Render,
-                        no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
-                            .in_set(RenderSystems::PrepareResourcesFlush),
-                    );
-            };
-
+        } else {
             let render_device = render_app.world().resource::<RenderDevice>();
-            if let Some(per_object_buffer_batch_size) =
-                GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
-            {
-                mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
-                    "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
-                    per_object_buffer_batch_size,
-                ));
-            }
-
+            let cpu_batched_instance_buffer =
+                no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
             render_app
-                .init_resource::<MeshPipelineViewLayouts>()
-                .init_resource::<MeshPipeline>();
+                .insert_resource(cpu_batched_instance_buffer)
+                .add_systems(
+                    ExtractSchedule,
+                    extract_meshes_for_cpu_building.in_set(MeshExtractionSystems),
+                )
+                .add_systems(
+                    Render,
+                    no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
+                        .in_set(RenderSystems::PrepareResourcesFlush),
+                );
+        };
+
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if let Some(per_object_buffer_batch_size) =
+            GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
+        {
+            mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
+                "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
+                per_object_buffer_batch_size,
+            ));
         }
+
+        render_app
+            .init_resource::<MeshPipelineViewLayouts>()
+            .init_resource::<MeshPipeline>();
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
         // whether storage buffers are supported, or the maximum uniform buffer binding size.

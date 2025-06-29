@@ -154,9 +154,9 @@ impl Plugin for ClusteredDecalPlugin {
         app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default())
             .register_type::<ClusteredDecal>();
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<DecalsBuffer>()
