@@ -238,11 +238,16 @@ pub fn ktx2_buffer_to_image(
         )));
     }
 
+    // Collect all level data into a contiguous buffer
+    let mut image_data = Vec::new();
+    image_data.reserve_exact(levels.iter().map(Vec::len).sum());
+    levels.iter().for_each(|level| image_data.extend(level));
+
     // Assign the data and fill in the rest of the metadata now the possible
     // error cases have been handled
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
-    image.data = Some(levels.into_iter().flatten().collect::<Vec<_>>());
+    image.data = Some(image_data);
     image.data_order = wgpu_types::TextureDataOrder::MipMajor;
     // Note: we must give wgpu the logical texture dimensions, so it can correctly compute mip sizes.
     // However this currently causes wgpu to panic if the dimensions arent a multiple of blocksize.
