@@ -1,5 +1,6 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
+use alloc::borrow::Cow;
 use core::any::TypeId;
 
 use anyhow::{anyhow, Result as AnyhowResult};
@@ -25,7 +26,7 @@ use serde_json::{Map, Value};
 use crate::{
     error_codes,
     schemas::{
-        json_schema::{export_type, JsonSchemaBevyType},
+        json_schema::{JsonSchemaBevyType, TypeRegistrySchemaReader},
         open_rpc::OpenRpcDocument,
     },
     BrpError, BrpResult,
@@ -1245,14 +1246,15 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     return None;
                 }
             }
-            let (id, schema) = export_type(type_reg, extra_info);
+            let id = type_reg.type_id();
+            let schema = types.export_type_json_schema_for_id(id, extra_info)?;
 
             if !filter.type_limit.with.is_empty()
                 && !filter
                     .type_limit
                     .with
                     .iter()
-                    .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
+                    .any(|c| schema.reflect_type_data.iter().any(|cc| c.eq(cc)))
             {
                 return None;
             }
@@ -1261,13 +1263,13 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     .type_limit
                     .without
                     .iter()
-                    .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
+                    .any(|c| schema.reflect_type_data.iter().any(|cc| c.eq(cc)))
             {
                 return None;
             }
-            Some((id.to_string(), schema))
+            Some((type_reg.type_info().type_path().into(), schema))
         })
-        .collect::<HashMap<String, JsonSchemaBevyType>>();
+        .collect::<HashMap<Cow<'static, str>, JsonSchemaBevyType>>();
 
     serde_json::to_value(schemas).map_err(BrpError::internal)
 }
