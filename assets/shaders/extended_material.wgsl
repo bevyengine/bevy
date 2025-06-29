@@ -17,6 +17,12 @@
 
 struct MyExtendedMaterial {
     quantize_steps: u32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    // Web examples WebGL2 support: structs must be 16 byte aligned.
+    _webgl2_padding_8b: u32,
+    _webgl2_padding_12b: u32,
+    _webgl2_padding_16b: u32,
+#endif
 }
 
 @group(3) @binding(100)
