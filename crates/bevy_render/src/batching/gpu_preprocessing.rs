@@ -1120,8 +1120,7 @@ impl FromWorld for GpuPreprocessingSupport {
             device.limits().max_compute_workgroup_storage_size != 0;
 
         let downlevel_support = adapter.get_downlevel_capabilities().flags.contains(
-            DownlevelFlags::COMPUTE_SHADERS |
-            DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW
+            DownlevelFlags::COMPUTE_SHADERS
         );
 
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
