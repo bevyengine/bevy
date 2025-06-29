@@ -401,7 +401,7 @@ impl ShaderCache {
                         render_device.create_and_validate_shader_module(module_descriptor)
                     }
                     // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
-                    // such as indexing out of bounds.
+                   // such as indexing out of bounds.
                     // The checks required are prohibitively expensive and a poor default for game engines.
                     ValidateShader::Disabled => unsafe {
                         render_device.create_shader_module(module_descriptor)

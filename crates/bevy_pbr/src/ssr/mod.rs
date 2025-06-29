@@ -311,6 +311,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             label: Some("SSR pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: postprocess.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
