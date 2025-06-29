@@ -49,9 +49,9 @@ pub struct BatchingPlugin {
 
 impl Plugin for BatchingPlugin {
     fn build(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .insert_resource(IndirectParametersBuffers::new(
@@ -69,9 +69,9 @@ impl Plugin for BatchingPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app.init_resource::<GpuPreprocessingSupport>();
     }

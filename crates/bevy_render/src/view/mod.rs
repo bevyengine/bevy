@@ -118,35 +118,37 @@ impl Plugin for ViewPlugin {
                 VisibilityRangePlugin,
             ));
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                Render,
-                (
-                    // `TextureView`s need to be dropped before reconfiguring window surfaces.
-                    clear_view_attachments
-                        .in_set(RenderSystems::ManageViews)
-                        .before(create_surfaces),
-                    prepare_view_attachments
-                        .in_set(RenderSystems::ManageViews)
-                        .before(prepare_view_targets)
-                        .after(prepare_windows),
-                    prepare_view_targets
-                        .in_set(RenderSystems::ManageViews)
-                        .after(prepare_windows)
-                        .after(crate::render_asset::prepare_assets::<GpuImage>)
-                        .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
-                    prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
-                ),
-            );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.add_systems(
+            Render,
+            (
+                // `TextureView`s need to be dropped before reconfiguring window surfaces.
+                clear_view_attachments
+                    .in_set(RenderSystems::ManageViews)
+                    .before(create_surfaces),
+                prepare_view_attachments
+                    .in_set(RenderSystems::ManageViews)
+                    .before(prepare_view_targets)
+                    .after(prepare_windows),
+                prepare_view_targets
+                    .in_set(RenderSystems::ManageViews)
+                    .after(prepare_windows)
+                    .after(crate::render_asset::prepare_assets::<GpuImage>)
+                    .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
+                prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
+            ),
+        );
     }
 
     fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ViewUniforms>()
-                .init_resource::<ViewTargetAttachments>();
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<ViewUniforms>()
+            .init_resource::<ViewTargetAttachments>();
     }
 }
 

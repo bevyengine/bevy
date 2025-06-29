@@ -101,12 +101,13 @@ impl Plugin for ImagePlugin {
             >>("png");
         }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<TextureCache>().add_systems(
-                Render,
-                update_texture_cache_system.in_set(RenderSystems::Cleanup),
-            );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.init_resource::<TextureCache>().add_systems(
+            Render,
+            update_texture_cache_system.in_set(RenderSystems::Cleanup),
+        );
 
         if !ImageLoader::SUPPORTED_FILE_EXTENSIONS.is_empty() {
             app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
@@ -128,17 +129,18 @@ impl Plugin for ImagePlugin {
             app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
         }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            let default_sampler = {
-                let device = render_app.world().resource::<RenderDevice>();
-                device.create_sampler(&self.default_sampler.as_wgpu())
-            };
-            render_app
-                .insert_resource(DefaultImageSampler(default_sampler))
-                .init_resource::<FallbackImage>()
-                .init_resource::<FallbackImageZero>()
-                .init_resource::<FallbackImageCubemap>()
-                .init_resource::<FallbackImageFormatMsaaCache>();
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        let default_sampler = {
+            let device = render_app.world().resource::<RenderDevice>();
+            device.create_sampler(&self.default_sampler.as_wgpu())
+        };
+        render_app
+            .insert_resource(DefaultImageSampler(default_sampler))
+            .init_resource::<FallbackImage>()
+            .init_resource::<FallbackImageZero>()
+            .init_resource::<FallbackImageCubemap>()
+            .init_resource::<FallbackImageFormatMsaaCache>();
     }
 }

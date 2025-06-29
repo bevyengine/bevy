@@ -54,15 +54,16 @@ impl Plugin for RenderDiagnosticsPlugin {
         app.insert_resource(render_diagnostics_mutex.clone())
             .add_systems(PreUpdate, sync_diagnostics);
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.insert_resource(render_diagnostics_mutex);
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.insert_resource(render_diagnostics_mutex);
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         let adapter_info = render_app.world().resource::<RenderAdapterInfo>();
         let device = render_app.world().resource::<RenderDevice>();
