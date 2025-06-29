@@ -290,7 +290,7 @@ impl WinitWindows {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
                     winit_window_attributes = winit_window_attributes.with_canvas(canvas);
                 } else {
-                    panic!("Cannot find element: {}.", selector);
+                    panic!("Cannot find element: {selector}.");
                 }
             }
 
