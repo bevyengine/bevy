@@ -438,15 +438,6 @@ impl Plugin for RenderPlugin {
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>();
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
-            render_app
-                .add_systems(ExtractSchedule, extract_render_asset_bytes_per_frame)
-                .add_systems(
-                    Render,
-                    reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
-                );
-        }
 
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
@@ -559,6 +550,14 @@ unsafe fn initialize_render_app(app: &mut App) {
                     .in_set(RenderSystems::Render),
                 despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
             ),
+        );
+
+    render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
+    render_app
+        .add_systems(ExtractSchedule, extract_render_asset_bytes_per_frame)
+        .add_systems(
+            Render,
+            reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
         );
 
     render_app.set_extract(|main_world, render_world| {
