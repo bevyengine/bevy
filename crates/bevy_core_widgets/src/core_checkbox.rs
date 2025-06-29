@@ -7,7 +7,7 @@ use bevy_ecs::system::{In, ResMut};
 use bevy_ecs::{
     component::Component,
     observer::On,
-    system::{Commands, Query, SystemId},
+    system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
@@ -15,11 +15,13 @@ use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Click, Pointer};
 use bevy_ui::{Checkable, Checked, InteractionDisabled};
 
+use crate::{Callback, Notify as _};
+
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
 /// state of the checkbox. The `on_change` field is an optional system id that will be run when the
 /// checkbox is clicked, or when the `Enter` or `Space` key is pressed while the checkbox is
-/// focused. If the `on_change` field is `None`, then instead of calling a callback, the checkbox
-/// will update its own [`Checked`] state directly.
+/// focused. If the `on_change` field is `Callback::Ignore`, then instead of calling a callback, the
+/// checkbox will update its own [`Checked`] state directly.
 ///
 /// # Toggle switches
 ///
@@ -29,8 +31,10 @@ use bevy_ui::{Checkable, Checked, InteractionDisabled};
 #[derive(Component, Debug, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
 pub struct CoreCheckbox {
-    /// One-shot system that is run when the checkbox state needs to be changed.
-    pub on_change: Option<SystemId<In<bool>>>,
+    /// One-shot system that is run when the checkbox state needs to be changed. If this value is
+    /// `Callback::Ignore`, then the checkbox will update it's own internal [`Checked`] state
+    /// without notification.
+    pub on_change: Callback<In<bool>>,
 }
 
 fn checkbox_on_key_input(
@@ -157,8 +161,8 @@ fn set_checkbox_state(
     checkbox: &CoreCheckbox,
     new_state: bool,
 ) {
-    if let Some(on_change) = checkbox.on_change {
-        commands.run_system_with(on_change, new_state);
+    if !matches!(checkbox.on_change, Callback::Ignore) {
+        commands.notify_with(&checkbox.on_change, new_state);
     } else if new_state {
         commands.entity(entity.into()).insert(Checked);
     } else {

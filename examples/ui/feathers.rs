@@ -1,7 +1,7 @@
 //! This example shows off the various Bevy Feathers widgets.
 
 use bevy::{
-    core_widgets::{CoreWidgetsPlugin, SliderStep},
+    core_widgets::{Callback, CoreWidgetsPlugin, SliderStep},
     feathers::{
         controls::{button, slider, ButtonProps, ButtonVariant, SliderProps},
         dark_theme::create_dark_theme,
@@ -80,7 +80,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     children![
                         button(
                             ButtonProps {
-                                on_click: Some(commands.register_system(|| {
+                                on_click: Callback::System(commands.register_system(|| {
                                     info!("Normal button clicked!");
                                 })),
                                 ..default()
@@ -90,7 +90,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ),
                         button(
                             ButtonProps {
-                                on_click: Some(commands.register_system(|| {
+                                on_click: Callback::System(commands.register_system(|| {
                                     info!("Disabled button clicked!");
                                 })),
                                 ..default()
@@ -100,7 +100,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ),
                         button(
                             ButtonProps {
-                                on_click: Some(commands.register_system(|| {
+                                on_click: Callback::System(commands.register_system(|| {
                                     info!("Primary button clicked!");
                                 })),
                                 variant: ButtonVariant::Primary,
@@ -123,7 +123,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     children![
                         button(
                             ButtonProps {
-                                on_click: Some(commands.register_system(|| {
+                                on_click: Callback::System(commands.register_system(|| {
                                     info!("Left button clicked!");
                                 })),
                                 corners: RoundedCorners::Left,
@@ -134,7 +134,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ),
                         button(
                             ButtonProps {
-                                on_click: Some(commands.register_system(|| {
+                                on_click: Callback::System(commands.register_system(|| {
                                     info!("Center button clicked!");
                                 })),
                                 corners: RoundedCorners::None,
@@ -145,7 +145,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ),
                         button(
                             ButtonProps {
-                                on_click: Some(commands.register_system(|| {
+                                on_click: Callback::System(commands.register_system(|| {
                                     info!("Right button clicked!");
                                 })),
                                 variant: ButtonVariant::Primary,
@@ -158,7 +158,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 ),
                 button(
                     ButtonProps {
-                        on_click: Some(commands.register_system(|| {
+                        on_click: Callback::System(commands.register_system(|| {
                             info!("Wide button clicked!");
                         })),
                         ..default()
