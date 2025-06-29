@@ -69,7 +69,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             ..Default::default()
         },
         CoreButton {
-            on_click: props.on_click,
+            on_activate: props.on_click,
         },
         props.variant,
         Hovered::default(),

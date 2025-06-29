@@ -139,7 +139,9 @@ fn button(asset_server: &AssetServer, on_click: Callback) -> impl Bundle {
             ..default()
         },
         DemoButton,
-        CoreButton { on_click },
+        CoreButton {
+            on_activate: on_click,
+        },
         Hovered::default(),
         TabIndex(0),
         BorderColor::all(Color::BLACK),

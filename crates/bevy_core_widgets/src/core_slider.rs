@@ -75,7 +75,7 @@ pub enum TrackClick {
 pub struct CoreSlider {
     /// Callback which is called when the slider is dragged or the value is changed via other user
     /// interaction. If this value is `Callback::Ignore`, then the slider will update it's own
-    /// internal value without notification.
+    /// internal [`SliderValue`] state without notification.
     pub on_change: Callback<In<f32>>,
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,

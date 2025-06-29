@@ -25,7 +25,7 @@ use crate::{Callback, Notify};
 pub struct CoreButton {
     /// Callback to invoke when the button is clicked, or when the `Enter` or `Space` key
     /// is pressed while the button is focused.
-    pub on_click: Callback,
+    pub on_activate: Callback,
 }
 
 fn button_on_key_event(
@@ -41,7 +41,7 @@ fn button_on_key_event(
                 && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
             {
                 trigger.propagate(false);
-                commands.notify(&bstate.on_click);
+                commands.notify(&bstate.on_activate);
             }
         }
     }
@@ -55,7 +55,7 @@ fn button_on_pointer_click(
     if let Ok((bstate, pressed, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
         if pressed && !disabled {
-            commands.notify(&bstate.on_click);
+            commands.notify(&bstate.on_activate);
         }
     }
 }

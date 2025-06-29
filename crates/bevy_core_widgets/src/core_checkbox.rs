@@ -32,8 +32,8 @@ use crate::{Callback, Notify as _};
 #[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
 pub struct CoreCheckbox {
     /// One-shot system that is run when the checkbox state needs to be changed. If this value is
-    /// `Callback::Ignore`, then the checkbox will update it's own internal value without
-    /// notification.
+    /// `Callback::Ignore`, then the checkbox will update it's own internal [`Checked`] state
+    /// without notification.
     pub on_change: Callback<In<bool>>,
 }
 
