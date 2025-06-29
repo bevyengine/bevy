@@ -68,6 +68,8 @@ impl Plugin for Mesh2dRenderPlugin {
 
         embedded_asset!(app, "mesh2d.wgsl");
 
+        // We intentionally aren't unwrapping the render app since this plugin is added
+        // unconditionally by `SpritePlugin`, which may itself be added in headless situations.
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewKeyCache>()
