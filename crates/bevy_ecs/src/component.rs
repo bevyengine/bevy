@@ -1986,7 +1986,7 @@ impl Components {
         requiree: ComponentId,
         required: ComponentId,
         constructor: fn() -> R,
-    ) -> Result<(), RequiredComponentsError> {
+    ) -> Result<Vec<(ComponentId, RequiredComponent)>, RequiredComponentsError> {
         // SAFETY: The caller ensures that the `requiree` is valid.
         let required_components = unsafe {
             self.get_required_components_mut(requiree)
@@ -2006,7 +2006,9 @@ impl Components {
 
         // Register the required component for the requiree.
         // This is a direct requirement with a depth of `0`.
-        required_components.register_by_id(required, constructor, 0);
+        let required_component = required_components
+            .register_by_id(required, constructor, 0)
+            .clone();
 
         // Add the requiree to the list of components that require the required component.
         // SAFETY: The component is in the list of required components, so it must exist already.
@@ -2015,7 +2017,7 @@ impl Components {
 
         let mut required_components_tmp = RequiredComponents::default();
         // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
-        let inherited_requirements = unsafe {
+        let mut inherited_requirements = unsafe {
             self.register_inherited_required_components(
                 requiree,
                 required,
@@ -2070,7 +2072,9 @@ impl Components {
             }
         }
 
-        Ok(())
+        inherited_requirements.push((required, required_component));
+
+        Ok(inherited_requirements)
     }
 
     /// Registers the components inherited from `required` for the given `requiree`,
@@ -2706,23 +2710,24 @@ impl RequiredComponents {
         component_id: ComponentId,
         inheritance_depth: u16,
         constructor: impl FnOnce() -> RequiredComponentConstructor,
-    ) {
+    ) -> &RequiredComponent {
         let entry = self.0.entry(component_id);
         match entry {
-            bevy_platform::collections::hash_map::Entry::Occupied(mut occupied) => {
-                let current = occupied.get_mut();
+            bevy_platform::collections::hash_map::Entry::Occupied(occupied) => {
+                let current = occupied.into_mut();
                 if current.inheritance_depth > inheritance_depth {
                     *current = RequiredComponent {
                         constructor: constructor(),
                         inheritance_depth,
                     }
                 }
+                current
             }
             bevy_platform::collections::hash_map::Entry::Vacant(vacant) => {
                 vacant.insert(RequiredComponent {
                     constructor: constructor(),
                     inheritance_depth,
-                });
+                })
             }
         }
     }
@@ -2750,7 +2755,7 @@ impl RequiredComponents {
         component_id: ComponentId,
         constructor: fn() -> C,
         inheritance_depth: u16,
-    ) {
+    ) -> &RequiredComponent {
         let erased = || {
             RequiredComponentConstructor({
                 // `portable-atomic-util` `Arc` is not able to coerce an unsized
@@ -2810,7 +2815,7 @@ impl RequiredComponents {
         // `erased` initializes a component for `component_id` in such a way that
         // matches the storage type of the component. It only uses the given `table_row` or `Entity` to
         // initialize the storage corresponding to the given entity.
-        unsafe { self.register_dynamic_with(component_id, inheritance_depth, erased) };
+        unsafe { self.register_dynamic_with(component_id, inheritance_depth, erased) }
     }
 
     /// Iterates the ids of all required components. This includes recursive required components.
