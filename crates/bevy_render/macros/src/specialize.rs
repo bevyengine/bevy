@@ -464,7 +464,7 @@ fn impl_get_base_descriptor_all(
     })
 }
 
-pub fn impl_specialize_key(input: TokenStream) -> TokenStream {
+pub fn impl_specialization_key(input: TokenStream) -> TokenStream {
     let bevy_render_path: Path = crate::bevy_render_path();
     let specialize_path = {
         let mut path = bevy_render_path.clone();

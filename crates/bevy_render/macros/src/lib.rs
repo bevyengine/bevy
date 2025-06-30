@@ -117,6 +117,6 @@ pub fn derive_specialize(input: TokenStream) -> TokenStream {
 
 /// Derive macro generating the most common impl of the trait `SpecializationKey`
 #[proc_macro_derive(SpecializationKey)]
-pub fn derive_specialize_key(input: TokenStream) -> TokenStream {
-    specialize::impl_specialize_key(input)
+pub fn derive_specialization_key(input: TokenStream) -> TokenStream {
+    specialize::impl_specialization_key(input)
 }
