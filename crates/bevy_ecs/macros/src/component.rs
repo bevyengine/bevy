@@ -40,19 +40,26 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     let mut traversal: Type = parse_quote!(());
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
+    let mut processed_attrs = Vec::new();
+
     ast.generics
         .make_where_clause()
         .predicates
         .push(parse_quote! { Self: Send + Sync + 'static });
 
-    if let Some(attr) = ast.attrs.iter().find(|attr| attr.path().is_ident(EVENT)) {
+    for attr in ast.attrs.iter().filter(|attr| attr.path().is_ident(EVENT)) {
         if let Err(e) = attr.parse_nested_meta(|meta| match meta.path.get_ident() {
+            Some(ident) if processed_attrs.iter().any(|i| ident == i) => {
+                Err(meta.error(format!("duplicate attribute: {ident}")))
+            }
             Some(ident) if ident == AUTO_PROPAGATE => {
                 auto_propagate = true;
+                processed_attrs.push(AUTO_PROPAGATE);
                 Ok(())
             }
             Some(ident) if ident == TRAVERSAL => {
                 traversal = meta.value()?.parse()?;
+                processed_attrs.push(TRAVERSAL);
                 Ok(())
             }
             Some(ident) => Err(meta.error(format!("unsupported attribute: {ident}"))),
