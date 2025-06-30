@@ -1,6 +1,6 @@
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, MainPassResolutionOverride},
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{BindGroupEntries, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
@@ -23,13 +23,14 @@ impl ViewNode for OitResolveNode {
         &'static ViewUniformOffset,
         &'static OitResolvePipelineId,
         &'static ViewDepthTexture,
+        Option<&'static MainPassResolutionOverride>,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, view_uniform, oit_resolve_pipeline_id, depth): QueryItem<
+        (camera, view_target, view_uniform, oit_resolve_pipeline_id, depth, resolution_override): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -63,7 +64,7 @@ impl ViewNode for OitResolveNode {
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
+                render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
             }
 
             render_pass.set_render_pipeline(pipeline);

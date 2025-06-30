@@ -20,15 +20,6 @@ pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
             main();
         }
 
-        // SAFETY: `#[bevy_main]` should only be placed on a single `main` function
-        // TODO: Potentially make `bevy_main` and unsafe attribute as there is a safety
-        // guarantee required from the caller.
-        #[unsafe(no_mangle)]
-        #[cfg(target_os = "ios")]
-        extern "C" fn main_rs() {
-            main();
-        }
-
         #[allow(unused)]
         #input
     })

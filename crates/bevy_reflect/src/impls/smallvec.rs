@@ -77,6 +77,7 @@ where
             .collect()
     }
 }
+
 impl<T: SmallArray + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
     T::Item: FromReflect + MaybeTyped + TypePath,
@@ -132,10 +133,6 @@ where
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::List(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {

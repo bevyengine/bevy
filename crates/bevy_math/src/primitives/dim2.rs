@@ -25,7 +25,7 @@ use alloc::{boxed::Box, vec::Vec};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -35,6 +35,7 @@ pub struct Circle {
     /// The radius of the circle
     pub radius: f32,
 }
+
 impl Primitive2d for Circle {}
 
 impl Default for Circle {
@@ -112,7 +113,7 @@ impl Measured2d for Circle {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -124,6 +125,7 @@ pub struct Arc2d {
     /// Half the angle defining the arc
     pub half_angle: f32,
 }
+
 impl Primitive2d for Arc2d {}
 
 impl Default for Arc2d {
@@ -279,7 +281,7 @@ impl Arc2d {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -290,6 +292,7 @@ pub struct CircularSector {
     #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
+
 impl Primitive2d for CircularSector {}
 
 impl Default for CircularSector {
@@ -422,7 +425,7 @@ impl CircularSector {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -433,6 +436,7 @@ pub struct CircularSegment {
     #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
+
 impl Primitive2d for CircularSegment {}
 
 impl Default for CircularSegment {
@@ -453,6 +457,7 @@ impl Measured2d for CircularSegment {
         self.chord_length() + self.arc_length()
     }
 }
+
 impl CircularSegment {
     /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
     #[inline(always)]
@@ -776,7 +781,7 @@ mod arc_tests {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -788,6 +793,7 @@ pub struct Ellipse {
     /// This corresponds to the two perpendicular radii defining the ellipse.
     pub half_size: Vec2,
 }
+
 impl Primitive2d for Ellipse {}
 
 impl Default for Ellipse {
@@ -926,7 +932,7 @@ impl Measured2d for Ellipse {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -939,6 +945,7 @@ pub struct Annulus {
     /// The outer circle of the annulus
     pub outer_circle: Circle,
 }
+
 impl Primitive2d for Annulus {}
 
 impl Default for Annulus {
@@ -1025,7 +1032,7 @@ impl Measured2d for Annulus {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1036,6 +1043,7 @@ pub struct Rhombus {
     /// Size of the horizontal and vertical diagonals of the rhombus
     pub half_diagonals: Vec2,
 }
+
 impl Primitive2d for Rhombus {}
 
 impl Default for Rhombus {
@@ -1161,7 +1169,7 @@ impl Measured2d for Rhombus {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1171,6 +1179,7 @@ pub struct Plane2d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir2,
 }
+
 impl Primitive2d for Plane2d {}
 
 impl Default for Plane2d {
@@ -1199,7 +1208,11 @@ impl Plane2d {
 /// For a finite line: [`Segment2d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -1209,12 +1222,17 @@ pub struct Line2d {
     /// and its opposite direction
     pub direction: Dir2,
 }
+
 impl Primitive2d for Line2d {}
 
 /// A line segment defined by two endpoints in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -1224,6 +1242,7 @@ pub struct Segment2d {
     /// The endpoints of the line segment.
     pub vertices: [Vec2; 2],
 }
+
 impl Primitive2d for Segment2d {}
 
 impl Segment2d {
@@ -1233,13 +1252,6 @@ impl Segment2d {
         Self {
             vertices: [point1, point2],
         }
-    }
-
-    /// Create a new `Segment2d` from its endpoints and compute its geometric center.
-    #[inline(always)]
-    #[deprecated(since = "0.16.0", note = "Use the `new` constructor instead")]
-    pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
-        (Self::new(point1, point2), (point1 + point2) / 2.)
     }
 
     /// Create a new `Segment2d` centered at the origin with the given direction and length.
@@ -1489,7 +1501,11 @@ impl From<(Vec2, Vec2)> for Segment2d {
 /// For a version without generics: [`BoxedPolyline2d`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -1499,6 +1515,7 @@ pub struct Polyline2d<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
+
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
 impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
@@ -1558,7 +1575,7 @@ impl BoxedPolyline2d {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1568,6 +1585,7 @@ pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
 }
+
 impl Primitive2d for Triangle2d {}
 
 impl Default for Triangle2d {
@@ -1729,7 +1747,7 @@ impl Measured2d for Triangle2d {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1740,6 +1758,7 @@ pub struct Rectangle {
     /// Half of the width and height of the rectangle
     pub half_size: Vec2,
 }
+
 impl Primitive2d for Rectangle {}
 
 impl Default for Rectangle {
@@ -1819,7 +1838,11 @@ impl Measured2d for Rectangle {
 /// For a version without generics: [`BoxedPolygon`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -1829,6 +1852,7 @@ pub struct Polygon<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
+
 impl<const N: usize> Primitive2d for Polygon<N> {}
 
 impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
@@ -1869,7 +1893,11 @@ impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
 /// A convex polygon with `N` vertices.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -1879,6 +1907,7 @@ pub struct ConvexPolygon<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     vertices: [Vec2; N],
 }
+
 impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
 
 /// An error that happens when creating a [`ConvexPolygon`].
@@ -1988,7 +2017,7 @@ impl BoxedPolygon {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -2000,6 +2029,7 @@ pub struct RegularPolygon {
     /// The number of sides
     pub sides: u32,
 }
+
 impl Primitive2d for RegularPolygon {}
 
 impl Default for RegularPolygon {
@@ -2134,7 +2164,7 @@ impl Measured2d for RegularPolygon {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -2147,6 +2177,7 @@ pub struct Capsule2d {
     /// Half the height of the capsule, excluding the semicircles
     pub half_length: f32,
 }
+
 impl Primitive2d for Capsule2d {}
 
 impl Default for Capsule2d {

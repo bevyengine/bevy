@@ -17,15 +17,14 @@ mod entity_commands;
 mod from_world;
 mod map_entities;
 mod resource;
-mod visit_entities;
 
+use bevy_utils::prelude::DebugName;
 pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
-pub use visit_entities::{ReflectVisitEntities, ReflectVisitEntitiesMut};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.
@@ -138,7 +137,7 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
             `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
             or `#[reflect(FromWorld)]`?",
             // FIXME: once we have unique reflect, use `TypePath`.
-            core::any::type_name::<T>(),
+            DebugName::type_name::<T>(),
         );
     };
 

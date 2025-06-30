@@ -1,13 +1,13 @@
 use core::fmt::Debug;
+use core::ops::{Deref, DerefMut};
 
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_asset::AssetEvents;
-use bevy_derive::{Deref, DerefMut};
+use bevy_asset::AssetEventSystems;
 use bevy_ecs::prelude::*;
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 use derive_more::derive::From;
 use serde::{Deserialize, Serialize};
 
@@ -25,18 +25,18 @@ impl Plugin for CameraProjectionPlugin {
             .register_type::<CustomProjection>()
             .add_systems(
                 PostStartup,
-                crate::camera::camera_system.in_set(CameraUpdateSystem),
+                crate::camera::camera_system.in_set(CameraUpdateSystems),
             )
             .add_systems(
                 PostUpdate,
                 (
                     crate::camera::camera_system
-                        .in_set(CameraUpdateSystem)
-                        .before(AssetEvents),
+                        .in_set(CameraUpdateSystems)
+                        .before(AssetEventSystems),
                     crate::view::update_frusta
                         .in_set(VisibilitySystems::UpdateFrusta)
                         .after(crate::camera::camera_system)
-                        .after(TransformSystem::TransformPropagate),
+                        .after(TransformSystems::Propagate),
                 ),
             );
     }
@@ -46,7 +46,11 @@ impl Plugin for CameraProjectionPlugin {
 ///
 /// [`camera_system<T>`]: crate::camera::camera_system
 #[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct CameraUpdateSystem;
+pub struct CameraUpdateSystems;
+
+/// Deprecated alias for [`CameraUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `CameraUpdateSystems`.")]
+pub type CameraUpdateSystem = CameraUpdateSystems;
 
 /// Describes a type that can generate a projection matrix, allowing it to be added to a
 /// [`Camera`]'s [`Projection`] component.
@@ -89,8 +93,7 @@ pub trait CameraProjection {
     /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
     /// for each camera to update its frustum.
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
-        let clip_from_world =
-            self.get_clip_from_view() * camera_transform.compute_matrix().inverse();
+        let clip_from_world = self.get_clip_from_view() * camera_transform.to_matrix().inverse();
         Frustum::from_clip_from_world_custom_far(
             &clip_from_world,
             &camera_transform.translation(),
@@ -128,11 +131,10 @@ mod sealed {
 /// custom projection.
 ///
 /// The contained dynamic object can be downcast into a static type using [`CustomProjection::get`].
-#[derive(Component, Debug, Reflect, Deref, DerefMut)]
-#[reflect(Default)]
+#[derive(Debug, Reflect)]
+#[reflect(Default, Clone)]
 pub struct CustomProjection {
     #[reflect(ignore)]
-    #[deref]
     dyn_projection: Box<dyn sealed::DynCameraProjection>,
 }
 
@@ -201,6 +203,20 @@ impl CustomProjection {
     }
 }
 
+impl Deref for CustomProjection {
+    type Target = dyn CameraProjection;
+
+    fn deref(&self) -> &Self::Target {
+        self.dyn_projection.as_ref()
+    }
+}
+
+impl DerefMut for CustomProjection {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.dyn_projection.as_mut()
+    }
+}
+
 /// Component that defines how to compute a [`Camera`]'s projection matrix.
 ///
 /// Common projections, like perspective and orthographic, are provided out of the box to handle the
@@ -221,7 +237,7 @@ impl CustomProjection {
 ///
 /// [`Camera`]: crate::camera::Camera
 #[derive(Component, Debug, Clone, Reflect, From)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),
@@ -237,7 +253,7 @@ impl Projection {
         // that, say, the `Debug` implementation is missing. Wrapping these traits behind a super
         // trait or some other indirection will make the errors harder to understand.
         //
-        // For example, we don't use the `DynCameraProjection`` trait bound, because it is not the
+        // For example, we don't use the `DynCameraProjection` trait bound, because it is not the
         // trait the user should be implementing - they only need to worry about implementing
         // `CameraProjection`.
         P: CameraProjection + Debug + Send + Sync + Clone + 'static,
@@ -248,44 +264,24 @@ impl Projection {
     }
 }
 
-impl CameraProjection for Projection {
-    fn get_clip_from_view(&self) -> Mat4 {
+impl Deref for Projection {
+    type Target = dyn CameraProjection;
+
+    fn deref(&self) -> &Self::Target {
         match self {
-            Projection::Perspective(projection) => projection.get_clip_from_view(),
-            Projection::Orthographic(projection) => projection.get_clip_from_view(),
-            Projection::Custom(projection) => projection.get_clip_from_view(),
+            Projection::Perspective(projection) => projection,
+            Projection::Orthographic(projection) => projection,
+            Projection::Custom(projection) => projection.deref(),
         }
     }
+}
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+impl DerefMut for Projection {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
-            Projection::Perspective(projection) => projection.get_clip_from_view_for_sub(sub_view),
-            Projection::Orthographic(projection) => projection.get_clip_from_view_for_sub(sub_view),
-            Projection::Custom(projection) => projection.get_clip_from_view_for_sub(sub_view),
-        }
-    }
-
-    fn update(&mut self, width: f32, height: f32) {
-        match self {
-            Projection::Perspective(projection) => projection.update(width, height),
-            Projection::Orthographic(projection) => projection.update(width, height),
-            Projection::Custom(projection) => projection.update(width, height),
-        }
-    }
-
-    fn far(&self) -> f32 {
-        match self {
-            Projection::Perspective(projection) => projection.far(),
-            Projection::Orthographic(projection) => projection.far(),
-            Projection::Custom(projection) => projection.far(),
-        }
-    }
-
-    fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
-        match self {
-            Projection::Perspective(projection) => projection.get_frustum_corners(z_near, z_far),
-            Projection::Orthographic(projection) => projection.get_frustum_corners(z_near, z_far),
-            Projection::Custom(projection) => projection.get_frustum_corners(z_near, z_far),
+            Projection::Perspective(projection) => projection,
+            Projection::Orthographic(projection) => projection,
+            Projection::Custom(projection) => projection.deref_mut(),
         }
     }
 }
@@ -298,7 +294,7 @@ impl Default for Projection {
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
 #[derive(Debug, Clone, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
     ///
@@ -433,7 +429,7 @@ impl Default for PerspectiveProjection {
 /// });
 /// ```
 #[derive(Default, Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Default, Clone)]
 pub enum ScalingMode {
     /// Match the viewport size.
     ///
@@ -490,7 +486,7 @@ pub enum ScalingMode {
 /// });
 /// ```
 #[derive(Debug, Clone, Reflect)]
-#[reflect(Debug, FromWorld)]
+#[reflect(Debug, FromWorld, Clone)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///

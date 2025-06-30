@@ -55,8 +55,13 @@ pub trait Tuple: PartialReflect {
     /// Drain the fields of this tuple to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Clones the struct into a [`DynamicTuple`].
-    fn clone_dynamic(&self) -> DynamicTuple;
+    /// Creates a new [`DynamicTuple`] from this tuple.
+    fn to_dynamic_tuple(&self) -> DynamicTuple {
+        DynamicTuple {
+            represented_type: self.get_represented_type_info(),
+            fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
+        }
+    }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
@@ -71,6 +76,7 @@ pub struct TupleFieldIter<'a> {
 }
 
 impl<'a> TupleFieldIter<'a> {
+    /// Creates a new [`TupleFieldIter`].
     pub fn new(value: &'a dyn Tuple) -> Self {
         TupleFieldIter {
             tuple: value,
@@ -222,8 +228,7 @@ impl DynamicTuple {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Tuple(_)),
-                "expected TypeInfo::Tuple but received: {:?}",
-                represented_type
+                "expected TypeInfo::Tuple but received: {represented_type:?}"
             );
         }
         self.represented_type = represented_type;
@@ -269,18 +274,6 @@ impl Tuple for DynamicTuple {
     #[inline]
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
         self.fields
-    }
-
-    #[inline]
-    fn clone_dynamic(&self) -> DynamicTuple {
-        DynamicTuple {
-            represented_type: self.represented_type,
-            fields: self
-                .fields
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-        }
     }
 }
 
@@ -337,11 +330,6 @@ impl PartialReflect for DynamicTuple {
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Tuple(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
@@ -518,18 +506,6 @@ macro_rules! impl_reflect_tuple {
                     $(Box::new(self.$index),)*
                 ]
             }
-
-            #[inline]
-            fn clone_dynamic(&self) -> DynamicTuple {
-                let info = self.get_represented_type_info();
-                DynamicTuple {
-                    represented_type: info,
-                    fields: self
-                        .iter_fields()
-                        .map(|value| value.clone_value())
-                        .collect(),
-                }
-            }
         }
 
         impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> PartialReflect for ($($name,)*) {
@@ -576,10 +552,6 @@ macro_rules! impl_reflect_tuple {
 
             fn reflect_owned(self: Box<Self>) -> ReflectOwned {
                 ReflectOwned::Tuple(self)
-            }
-
-            fn clone_value(&self) -> Box<dyn PartialReflect> {
-                Box::new(self.clone_dynamic())
             }
 
             fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
@@ -677,17 +649,29 @@ macro_rules! impl_reflect_tuple {
 }
 
 impl_reflect_tuple! {}
+
 impl_reflect_tuple! {0: A}
+
 impl_reflect_tuple! {0: A, 1: B}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L}
 
 macro_rules! impl_type_path_tuple {

@@ -9,8 +9,8 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 #[cfg(target_pointer_width = "16")]
@@ -26,6 +26,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
+pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
 pub mod extract_instances;
@@ -72,7 +73,14 @@ pub mod prelude {
     };
 }
 use batching::gpu_preprocessing::BatchingPlugin;
+
+#[doc(hidden)]
+pub mod _macro {
+    pub use bevy_asset;
+}
+
 use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
@@ -86,7 +94,8 @@ use render_asset::{
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
-    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
+    despawn_temporary_render_entities, entity_sync_system, MainEntity, RenderEntity,
+    SyncToRenderWorld, SyncWorldPlugin, TemporaryRenderEntity,
 };
 
 use crate::gpu_readback::GpuReadbackPlugin;
@@ -95,19 +104,38 @@ use crate::{
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance, WgpuWrapper},
+    renderer::{render_system, RenderInstance},
     settings::RenderCreation,
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetServer, Handle};
+use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bevy_utils::WgpuWrapper;
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
+
+/// Inline shader as an `embedded_asset` and load it permanently.
+///
+/// This works around a limitation of the shader loader not properly loading
+/// dependencies of shaders.
+#[macro_export]
+macro_rules! load_shader_library {
+    ($asset_server_provider: expr, $path: literal $(, $settings: expr)?) => {
+        $crate::_macro::bevy_asset::embedded_asset!($asset_server_provider, $path);
+        let handle: $crate::_macro::bevy_asset::prelude::Handle<$crate::prelude::Shader> =
+            $crate::_macro::bevy_asset::load_embedded_asset!(
+                $asset_server_provider,
+                $path
+                $(,$settings)?
+            );
+        core::mem::forget(handle);
+    }
+}
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -144,7 +172,7 @@ bitflags! {
 ///
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderSet {
+pub enum RenderSystems {
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
@@ -156,9 +184,9 @@ pub enum RenderSet {
     /// Queue drawable entities as phase items in render phases ready for
     /// sorting (if necessary)
     Queue,
-    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSystems::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
     QueueMeshes,
-    /// A sub-set within [`Queue`](RenderSet::Queue) where meshes that have
+    /// A sub-set within [`Queue`](RenderSystems::Queue) where meshes that have
     /// become invisible or changed phases are removed from the bins.
     QueueSweep,
     // TODO: This could probably be moved in favor of a system ordering
@@ -169,14 +197,14 @@ pub enum RenderSet {
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.
     Prepare,
-    /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
     /// Collect phase buffers after
-    /// [`PrepareResources`](RenderSet::PrepareResources) has run.
+    /// [`PrepareResources`](RenderSystems::PrepareResources) has run.
     PrepareResourcesCollectPhaseBuffers,
-    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before [`PrepareBindGroups`](RenderSet::PrepareBindGroups).
+    /// Flush buffers after [`PrepareResources`](RenderSystems::PrepareResources), but before [`PrepareBindGroups`](RenderSystems::PrepareBindGroups).
     PrepareResourcesFlush,
-    /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSystems::PrepareResources).
     PrepareBindGroups,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
@@ -185,12 +213,36 @@ pub enum RenderSet {
     Cleanup,
     /// Final cleanup occurs: all entities will be despawned.
     ///
-    /// Runs after [`Cleanup`](RenderSet::Cleanup).
+    /// Runs after [`Cleanup`](RenderSystems::Cleanup).
     PostCleanup,
 }
 
+/// The schedule that contains the app logic that is evaluated each tick
+///
+/// This is highly inspired by [`bevy_app::Main`]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct MainRender;
+impl MainRender {
+    pub fn run(world: &mut World, mut run_at_least_once: Local<bool>) {
+        if !*run_at_least_once {
+            let _ = world.try_run_schedule(RenderStartup);
+            *run_at_least_once = true;
+        }
+
+        let _ = world.try_run_schedule(Render);
+    }
+}
+
+/// Deprecated alias for [`RenderSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RenderSystems`.")]
+pub type RenderSet = RenderSystems;
+
+/// The startup schedule of the [`RenderApp`]
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct RenderStartup;
+
 /// The main render schedule.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
 
 impl Render {
@@ -198,7 +250,7 @@ impl Render {
     ///
     /// The sets defined in this enum are configured to run in order.
     pub fn base_schedule() -> Schedule {
-        use RenderSet::*;
+        use RenderSystems::*;
 
         let mut schedule = Schedule::new(Self);
 
@@ -246,7 +298,7 @@ impl Render {
 ///
 /// This schedule is run on the main world, but its buffers are not applied
 /// until it is returned to the render world.
-#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
+#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
 
 /// The simulation [`World`] of the application, stored as a resource.
@@ -285,17 +337,8 @@ struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
-pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("475c76aa-4afd-4a6b-9878-1fc1e2f41216");
-pub const MATHS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d94d70d4-746d-49c4-bfc3-27d63f2acda0");
-pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("33a80b2f-aaf7-4c86-b828-e7ae83b72f1a");
-pub const BINDLESS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("13f1baaa-41bf-448e-929e-258f9307a522");
-
 impl Plugin for RenderPlugin {
-    /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
+    /// Initializes the renderer, sets up the [`RenderSystems`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
@@ -330,10 +373,12 @@ impl Plugin for RenderPlugin {
                             backend_options: wgpu::BackendOptions {
                                 gl: wgpu::GlBackendOptions {
                                     gles_minor_version: settings.gles3_minor_version,
+                                    fence_behavior: wgpu::GlFenceBehavior::Normal,
                                 },
                                 dx12: wgpu::Dx12BackendOptions {
                                     shader_compiler: settings.dx12_shader_compiler.clone(),
                                 },
+                                noop: wgpu::NoopBackendOptions { enable: false },
                             },
                         });
 
@@ -408,6 +453,8 @@ impl Plugin for RenderPlugin {
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
+            #[cfg(feature = "tracing-tracy")]
+            diagnostic::RenderDiagnosticsPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>();
@@ -417,7 +464,7 @@ impl Plugin for RenderPlugin {
                 .add_systems(ExtractSchedule, extract_render_asset_bytes_per_frame)
                 .add_systems(
                     Render,
-                    reset_render_asset_bytes_per_frame.in_set(RenderSet::Cleanup),
+                    reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
                 );
         }
 
@@ -428,6 +475,9 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>()
+            .register_type::<RenderEntity>()
+            .register_type::<TemporaryRenderEntity>()
+            .register_type::<MainEntity>()
             .register_type::<SyncToRenderWorld>();
     }
 
@@ -439,29 +489,24 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            COLOR_OPERATIONS_SHADER_HANDLE,
-            "color_operations.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            BINDLESS_SHADER_HANDLE,
-            "bindless.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "maths.wgsl");
+        load_shader_library!(app, "color_operations.wgsl");
+        load_shader_library!(app, "bindless.wgsl");
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
             let RenderResources(device, queue, adapter_info, render_adapter, instance) =
                 future_render_resources.0.lock().unwrap().take().unwrap();
 
+            let compressed_image_format_support = CompressedImageFormatSupport(
+                CompressedImageFormats::from_features(device.features()),
+            );
+
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone());
+                .insert_resource(render_adapter.clone())
+                .insert_resource(compressed_image_format_support);
 
             let render_app = app.sub_app_mut(RenderApp);
 
@@ -506,7 +551,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = SubApp::new();
-    render_app.update_schedule = Some(Render.intern());
+    render_app.update_schedule = Some(MainRender.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     // We skip applying any commands during the ExtractSchedule
@@ -521,6 +566,7 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
         .init_resource::<render_graph::RenderGraph>()
+        .add_systems(MainRender, MainRender::run)
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(
@@ -528,11 +574,11 @@ unsafe fn initialize_render_app(app: &mut App) {
             (
                 // This set applies the commands from the extract schedule while the render schedule
                 // is running in parallel with the main app.
-                apply_extract_commands.in_set(RenderSet::ExtractCommands),
+                apply_extract_commands.in_set(RenderSystems::ExtractCommands),
                 (PipelineCache::process_pipeline_queue_system, render_system)
                     .chain()
-                    .in_set(RenderSet::Render),
-                despawn_temporary_render_entities.in_set(RenderSet::PostCleanup),
+                    .in_set(RenderSystems::Render),
+                despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
             ),
         );
 
@@ -583,4 +629,27 @@ pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
             .map_while(|c| c.to_digit(10))
             .fold(0, |acc, digit| acc * 10 + digit),
     )
+}
+
+/// Get the Mali driver version if the adapter is a Mali GPU.
+pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
+    if !cfg!(target_os = "android") {
+        return None;
+    }
+
+    let driver_name = adapter.get_info().name;
+    if !driver_name.contains("Mali") {
+        return None;
+    }
+    let driver_info = adapter.get_info().driver_info;
+    if let Some(start_pos) = driver_info.find("v1.r") {
+        if let Some(end_pos) = driver_info[start_pos..].find('p') {
+            let start_idx = start_pos + 4; // Skip "v1.r"
+            let end_idx = start_pos + end_pos;
+
+            return driver_info[start_idx..end_idx].parse::<u32>().ok();
+        }
+    }
+
+    None
 }

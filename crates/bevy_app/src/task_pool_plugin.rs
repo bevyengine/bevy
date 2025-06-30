@@ -1,20 +1,21 @@
 use crate::{App, Plugin};
 
 use alloc::string::ToString;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
-use core::{fmt::Debug, marker::PhantomData};
+use core::fmt::Debug;
 use log::trace;
 
 cfg_if::cfg_if! {
     if #[cfg(not(all(target_arch = "wasm32", feature = "web")))] {
-        use {crate::Last, bevy_ecs::prelude::NonSend, bevy_tasks::tick_global_task_pools_on_main_thread};
+        use {crate::Last, bevy_tasks::tick_global_task_pools_on_main_thread};
+        use bevy_ecs::system::NonSendMarker;
 
         /// A system used to check and advanced our task pools.
         ///
         /// Calls [`tick_global_task_pools_on_main_thread`],
         /// and uses [`NonSendMarker`] to ensure that this system runs on the main thread
-        fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
+        fn tick_global_task_pools(_main_thread_marker: NonSendMarker) {
             tick_global_task_pools_on_main_thread();
         }
     }
@@ -36,8 +37,6 @@ impl Plugin for TaskPoolPlugin {
         _app.add_systems(Last, tick_global_task_pools);
     }
 }
-/// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
-pub struct NonSendMarker(PhantomData<*mut ()>);
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
@@ -161,7 +160,7 @@ impl TaskPoolOptions {
     pub fn create_default_pools(&self) {
         let total_threads = bevy_tasks::available_parallelism()
             .clamp(self.min_total_threads, self.max_total_threads);
-        trace!("Assigning {} cores to default task pools", total_threads);
+        trace!("Assigning {total_threads} cores to default task pools");
 
         let mut remaining_threads = total_threads;
 
@@ -171,7 +170,7 @@ impl TaskPoolOptions {
                 .io
                 .get_number_of_threads(remaining_threads, total_threads);
 
-            trace!("IO Threads: {}", io_threads);
+            trace!("IO Threads: {io_threads}");
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
             IoTaskPool::get_or_init(|| {
@@ -201,7 +200,7 @@ impl TaskPoolOptions {
                 .async_compute
                 .get_number_of_threads(remaining_threads, total_threads);
 
-            trace!("Async Compute Threads: {}", async_compute_threads);
+            trace!("Async Compute Threads: {async_compute_threads}");
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
             AsyncComputeTaskPool::get_or_init(|| {
@@ -232,7 +231,7 @@ impl TaskPoolOptions {
                 .compute
                 .get_number_of_threads(remaining_threads, total_threads);
 
-            trace!("Compute Threads: {}", compute_threads);
+            trace!("Compute Threads: {compute_threads}");
 
             ComputeTaskPool::get_or_init(|| {
                 let builder = TaskPoolBuilder::default()

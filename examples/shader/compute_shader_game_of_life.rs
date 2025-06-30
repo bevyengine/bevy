@@ -12,7 +12,7 @@ use bevy::{
         render_resource::{binding_types::texture_storage_2d, *},
         renderer::{RenderContext, RenderDevice},
         texture::GpuImage,
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderSystems,
     },
 };
 use std::borrow::Cow;
@@ -105,7 +105,7 @@ impl Plugin for GameOfLifeComputePlugin {
         let render_app = app.sub_app_mut(RenderApp);
         render_app.add_systems(
             Render,
-            prepare_bind_group.in_set(RenderSet::PrepareBindGroups),
+            prepare_bind_group.in_set(RenderSystems::PrepareBindGroups),
         );
 
         let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
@@ -229,6 +229,8 @@ impl render_graph::Node for GameOfLifeNode {
                     CachedPipelineState::Ok(_) => {
                         self.state = GameOfLifeState::Init;
                     }
+                    // If the shader hasn't loaded yet, just wait.
+                    CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
                     CachedPipelineState::Err(err) => {
                         panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
                     }

@@ -4,7 +4,7 @@ use crate::io::{
     AssetSourceEvent, AssetWatcher,
 };
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use core::time::Duration;
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
 use parking_lot::RwLock;
@@ -56,6 +56,7 @@ pub(crate) struct EmbeddedEventHandler {
     dir: Dir,
     last_event: Option<AssetSourceEvent>,
 }
+
 impl FilesystemEventHandler for EmbeddedEventHandler {
     fn begin(&mut self) {
         self.last_event = None;

@@ -3,13 +3,13 @@ use crate::reflect::ReflectComponent;
 use crate::{
     change_detection::Mut,
     entity::Entity,
-    system::{input::SystemInput, BoxedSystem, IntoSystem},
+    system::{input::SystemInput, BoxedSystem, IntoSystem, SystemParamValidationError},
     world::World,
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::marker::PhantomData;
 use thiserror::Error;
 
@@ -33,7 +33,7 @@ impl<I, O> RegisteredSystem<I, O> {
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
 #[derive(Component, Default)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
 pub struct SystemIdMarker;
 
 /// A system that has been removed from the registry.
@@ -351,15 +351,16 @@ impl World {
             initialized = true;
         }
 
-        let result = if system.validate_param(self) {
-            // Wait to run the commands until the system is available again.
-            // This is needed so the systems can recursively run themselves.
-            let ret = system.run_without_applying_deferred(input, self);
-            system.queue_deferred(self.into());
-            Ok(ret)
-        } else {
-            Err(RegisteredSystemError::InvalidParams(id))
-        };
+        let result = system
+            .validate_param(self)
+            .map_err(|err| RegisteredSystemError::InvalidParams { system: id, err })
+            .map(|()| {
+                // Wait to run the commands until the system is available again.
+                // This is needed so the systems can recursively run themselves.
+                let ret = system.run_without_applying_deferred(input, self);
+                system.queue_deferred(self.into());
+                ret
+            });
 
         // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
@@ -492,10 +493,14 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
-    ///
-    /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
-    InvalidParams(SystemId<I, O>),
+    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
+    #[error("System {system:?} did not run due to failed parameter validation: {err}")]
+    InvalidParams {
+        /// The identifier of the system that was run.
+        system: SystemId<I, O>,
+        /// The returned parameter validation error.
+        err: SystemParamValidationError,
+    },
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -507,7 +512,11 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
             Self::SystemNotCached => write!(f, "SystemNotCached"),
             Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
             Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
-            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
+            Self::InvalidParams { system, err } => f
+                .debug_struct("InvalidParams")
+                .field("system", system)
+                .field("err", err)
+                .finish(),
         }
     }
 }
@@ -643,6 +652,19 @@ mod tests {
     }
 
     #[test]
+    fn fallible_system() {
+        fn sys() -> Result<()> {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        let fallible_system_id = world.register_system(sys);
+        let output = world.run_system(fallible_system_id);
+        assert!(matches!(output, Ok(Err(_))));
+    }
+
+    #[test]
     fn exclusive_system() {
         let mut world = World::new();
         let exclusive_system_id = world.register_system(|world: &mut World| {
@@ -743,18 +765,53 @@ mod tests {
     }
 
     #[test]
+    fn cached_fallible_system() {
+        fn sys() -> Result<()> {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        let fallible_system_id = world.register_system_cached(sys);
+        let output = world.run_system(fallible_system_id);
+        assert!(matches!(output, Ok(Err(_))));
+        let output = world.run_system_cached(sys);
+        assert!(matches!(output, Ok(Err(_))));
+        let output = world.run_system_cached_with(sys, ());
+        assert!(matches!(output, Ok(Err(_))));
+    }
+
+    #[test]
     fn cached_system_commands() {
         fn sys(mut counter: ResMut<Counter>) {
-            counter.0 = 1;
+            counter.0 += 1;
         }
 
         let mut world = World::new();
         world.insert_resource(Counter(0));
-
         world.commands().run_system_cached(sys);
         world.flush_commands();
-
         assert_eq!(world.resource::<Counter>().0, 1);
+        world.commands().run_system_cached_with(sys, ());
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 2);
+    }
+
+    #[test]
+    fn cached_fallible_system_commands() {
+        fn sys(mut counter: ResMut<Counter>) -> Result {
+            counter.0 += 1;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+        world.commands().run_system_cached(sys);
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 1);
+        world.commands().run_system_cached_with(sys, ());
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 2);
     }
 
     #[test]
@@ -862,13 +919,13 @@ mod tests {
         fn system(_: Res<T>) {}
 
         let mut world = World::new();
-        let id = world.register_system(system.warn_param_missing());
+        let id = world.register_system(system);
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 
         assert!(matches!(
             result,
-            Err(RegisteredSystemError::InvalidParams(_))
+            Err(RegisteredSystemError::InvalidParams { .. })
         ));
     }
 
@@ -893,5 +950,14 @@ mod tests {
         world.run_system(id).unwrap();
 
         assert_eq!(INVOCATIONS_LEFT.get(), 0);
+    }
+
+    #[test]
+    fn run_system_exclusive_adapters() {
+        let mut world = World::new();
+        fn system(_: &mut World) {}
+        world.run_system_cached(system).unwrap();
+        world.run_system_cached(system.pipe(system)).unwrap();
+        world.run_system_cached(system.map(|()| {})).unwrap();
     }
 }

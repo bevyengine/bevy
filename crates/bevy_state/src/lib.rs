@@ -28,6 +28,9 @@
 //! - A [`StateTransitionEvent<S>`](crate::state::StateTransitionEvent) that gets fired when a given state changes.
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
+//!
+//! Bevy also provides ("state-scoped entities")[`crate::state_scoped`] functionality for managing the lifetime of entities in the context of game states.
+//! This, especially in combination with system scheduling, enables a flexible and expressive way to manage spawning and despawning entities.
 
 #![cfg_attr(
     any(docsrs, docsrs_dep),
@@ -56,8 +59,7 @@ pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
 
-/// Provides [`StateScoped`](crate::state_scoped::StateScoped) and
-/// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
+/// Provides tools for managing the lifetime of entities based on state transitions.
 pub mod state_scoped;
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with methods for registering
@@ -89,6 +91,6 @@ pub mod prelude {
             OnExit, OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States,
             SubStates, TransitionSchedules,
         },
-        state_scoped::StateScoped,
+        state_scoped::{DespawnOnEnterState, DespawnOnExitState},
     };
 }

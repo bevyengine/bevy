@@ -1,12 +1,10 @@
-use crate::{ExtractedSprite, Sprite, SpriteImageMode, TextureAtlasLayout};
-
 use super::TextureSlice;
+use crate::{ExtractedSlice, Sprite, SpriteImageMode, TextureAtlasLayout};
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
-use bevy_platform_support::collections::HashSet;
-use bevy_transform::prelude::*;
+use bevy_platform::collections::HashSet;
 
 /// Component storing texture slices for tiled or sliced sprite entities
 ///
@@ -15,58 +13,33 @@ use bevy_transform::prelude::*;
 pub struct ComputedTextureSlices(Vec<TextureSlice>);
 
 impl ComputedTextureSlices {
-    /// Computes [`ExtractedSprite`] iterator from the sprite slices
+    /// Computes [`ExtractedSlice`] iterator from the sprite slices
     ///
     /// # Arguments
     ///
-    /// * `transform` - the sprite entity global transform
-    /// * `original_entity` - the sprite entity
     /// * `sprite` - The sprite component
-    /// * `handle` - The sprite texture handle
     #[must_use]
-    pub(crate) fn extract_sprites<'a>(
+    pub(crate) fn extract_slices<'a>(
         &'a self,
-        transform: &'a GlobalTransform,
-        original_entity: Entity,
         sprite: &'a Sprite,
-    ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a {
+        anchor: Vec2,
+    ) -> impl ExactSizeIterator<Item = ExtractedSlice> + 'a {
         let mut flip = Vec2::ONE;
-        let [mut flip_x, mut flip_y] = [false; 2];
         if sprite.flip_x {
             flip.x *= -1.0;
-            flip_x = true;
         }
         if sprite.flip_y {
             flip.y *= -1.0;
-            flip_y = true;
         }
-        self.0.iter().map(move |slice| {
-            let offset = (slice.offset * flip).extend(0.0);
-            let transform = transform.mul_transform(Transform::from_translation(offset));
-            ExtractedSprite {
-                original_entity: Some(original_entity),
-                color: sprite.color.into(),
-                transform,
-                rect: Some(slice.texture_rect),
-                custom_size: Some(slice.draw_size),
-                flip_x,
-                flip_y,
-                image_handle_id: sprite.image.id(),
-                anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
-                scaling_mode: sprite.image_mode.scale(),
-            }
+        let anchor = anchor
+            * sprite
+                .custom_size
+                .unwrap_or(sprite.rect.unwrap_or_default().size());
+        self.0.iter().map(move |slice| ExtractedSlice {
+            offset: slice.offset * flip - anchor,
+            rect: slice.texture_rect,
+            size: slice.draw_size,
         })
-    }
-
-    fn redepend_anchor_from_sprite_to_slice(sprite: &Sprite, slice: &TextureSlice) -> Vec2 {
-        let sprite_size = sprite
-            .custom_size
-            .unwrap_or(sprite.rect.unwrap_or_default().size());
-        if sprite_size == Vec2::ZERO {
-            sprite.anchor.as_vec()
-        } else {
-            sprite.anchor.as_vec() * sprite_size / slice.draw_size
-        }
     }
 }
 

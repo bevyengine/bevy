@@ -4,7 +4,7 @@
 
 #![expect(clippy::print_stdout, reason = "Allowed in examples.")]
 
-use bevy_platform_support::time::Instant;
+use bevy_platform::time::Instant;
 use bevy_tasks::TaskPoolBuilder;
 use core::time::Duration;
 

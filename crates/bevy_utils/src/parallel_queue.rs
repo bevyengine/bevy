@@ -10,7 +10,6 @@ pub struct Parallel<T: Send> {
     locals: ThreadLocal<RefCell<T>>,
 }
 
-/// A scope guard of a `Parallel`, when this struct is dropped ,the value will writeback to its `Parallel`
 impl<T: Send> Parallel<T> {
     /// Gets a mutable iterator over all of the per-thread queues.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
@@ -29,13 +28,12 @@ impl<T: Default + Send> Parallel<T> {
     /// If there is no thread-local value, it will be initialized to its default.
     pub fn scope<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let mut cell = self.locals.get_or_default().borrow_mut();
-        let ret = f(cell.deref_mut());
-        ret
+        f(cell.deref_mut())
     }
 
     /// Mutably borrows the thread-local value.
     ///
-    /// If there is no thread-local value, it will be initialized to it's default.
+    /// If there is no thread-local value, it will be initialized to its default.
     pub fn borrow_local_mut(&self) -> impl DerefMut<Target = T> + '_ {
         self.locals.get_or_default().borrow_mut()
     }
@@ -57,7 +55,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<T: Send> Parallel<Vec<T>> {
     /// Collect all enqueued items from all threads and appends them to the end of a
     /// single Vec.

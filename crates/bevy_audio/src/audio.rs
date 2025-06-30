@@ -6,6 +6,7 @@ use bevy_reflect::prelude::*;
 
 /// The way Bevy manages the sound playback.
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
     ///
@@ -29,7 +30,7 @@ pub enum PlaybackMode {
 /// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
 /// components. Changes to this component will *not* be applied to already-playing audio.
 #[derive(Component, Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Component, Debug)]
+#[reflect(Clone, Default, Component, Debug)]
 pub struct PlaybackSettings {
     /// The desired playback behavior.
     pub mode: PlaybackMode,
@@ -56,6 +57,16 @@ pub struct PlaybackSettings {
     /// Optional scale factor applied to the positions of this audio source and the listener,
     /// overriding the default value configured on [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
     pub spatial_scale: Option<SpatialScale>,
+    /// The point in time in the audio clip where playback should start. If set to `None`, it will
+    /// play from the beginning of the clip.
+    ///
+    /// If the playback mode is set to `Loop`, each loop will start from this position.
+    pub start_position: Option<core::time::Duration>,
+    /// How long the audio should play before stopping. If set, the clip will play for at most
+    /// the specified duration. If set to `None`, it will play for as long as it can.
+    ///
+    /// If the playback mode is set to `Loop`, each loop will last for this duration.
+    pub duration: Option<core::time::Duration>,
 }
 
 impl Default for PlaybackSettings {
@@ -80,6 +91,8 @@ impl PlaybackSettings {
         muted: false,
         spatial: false,
         spatial_scale: None,
+        start_position: None,
+        duration: None,
     };
 
     /// Will play the associated audio source in a loop.
@@ -135,6 +148,18 @@ impl PlaybackSettings {
         self.spatial_scale = Some(spatial_scale);
         self
     }
+
+    /// Helper to use a custom playback start position.
+    pub const fn with_start_position(mut self, start_position: core::time::Duration) -> Self {
+        self.start_position = Some(start_position);
+        self
+    }
+
+    /// Helper to use a custom playback duration.
+    pub const fn with_duration(mut self, duration: core::time::Duration) -> Self {
+        self.duration = Some(duration);
+        self
+    }
 }
 
 /// Settings for the listener for spatial audio sources.
@@ -142,7 +167,7 @@ impl PlaybackSettings {
 /// This must be accompanied by `Transform` and `GlobalTransform`.
 /// Only one entity with a `SpatialListener` should be present at any given time.
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Default, Component, Debug)]
+#[reflect(Clone, Default, Component, Debug)]
 pub struct SpatialListener {
     /// Left ear position relative to the `GlobalTransform`.
     pub left_ear_offset: Vec3,
@@ -174,6 +199,7 @@ impl SpatialListener {
 ///
 /// Default is `Vec3::ONE`.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Clone, Default)]
 pub struct SpatialScale(pub Vec3);
 
 impl SpatialScale {
@@ -202,7 +228,7 @@ impl Default for SpatialScale {
 ///
 /// Default is `Vec3::ONE`.
 #[derive(Resource, Default, Clone, Copy, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Clone)]
 pub struct DefaultSpatialScale(pub SpatialScale);
 
 /// A component for playing a sound.
@@ -218,7 +244,7 @@ pub struct DefaultSpatialScale(pub SpatialScale);
 /// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
 /// `PlaybackSettings` component will *not* affect already-playing audio.
 #[derive(Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Clone)]
 #[require(PlaybackSettings)]
 pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>)
 where

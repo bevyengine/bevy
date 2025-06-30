@@ -19,6 +19,7 @@ pub mod graph {
         MainOpaquePass,
         MainTransparentPass,
         EndMainPass,
+        Wireframe,
         Bloom,
         PostProcessing,
         Tonemapping,
@@ -33,7 +34,8 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_image::ToExtents;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     render_phase::PhaseItemBatchSetKey,
@@ -57,14 +59,14 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        BindGroupId, CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages,
+        BindGroupId, CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages,
     },
     renderer::RenderDevice,
     sync_world::MainEntity,
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
 use self::graph::{Core2d, Node2d};
@@ -92,8 +94,8 @@ impl Plugin for Core2dPlugin {
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
-                    prepare_core_2d_depth_textures.in_set(RenderSet::PrepareResources),
+                    sort_phase_system::<Transparent2d>.in_set(RenderSystems::PhaseSort),
+                    prepare_core_2d_depth_textures.in_set(RenderSystems::PrepareResources),
                 ),
             );
 
@@ -349,6 +351,7 @@ pub struct Transparent2d {
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
+    pub extracted_index: usize,
     pub extra_index: PhaseItemExtraIndex,
     /// Whether the mesh in question is indexed (uses an index buffer in
     /// addition to its vertex buffer).
@@ -472,16 +475,10 @@ pub fn prepare_core_2d_depth_textures(
         let cached_texture = textures
             .entry(camera.target.clone())
             .or_insert_with(|| {
-                // The size of the depth texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
-                    size,
+                    // The size of the depth texture
+                    size: physical_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,

@@ -2,7 +2,7 @@
 
 use crate::TypeInfo;
 use alloc::boxed::Box;
-use bevy_platform_support::{
+use bevy_platform::{
     hash::{DefaultHasher, FixedHasher, NoOpHash},
     sync::{OnceLock, PoisonError, RwLock},
 };
@@ -16,6 +16,7 @@ use core::{
 ///
 /// [`Non`]: NonGenericTypeCell
 pub trait TypedProperty: sealed::Sealed {
+    /// The type of the value stored in [`GenericTypeCell`].
     type Stored: 'static;
 }
 
@@ -88,7 +89,6 @@ mod sealed {
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl Reflect for Foo {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
@@ -176,7 +176,6 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
@@ -203,7 +202,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("my_crate::foo::Foo<{}>", T::type_path()))
 ///     }
-///     
+///
 ///     fn short_type_path() -> &'static str {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("Foo<{}>", T::short_type_path()))

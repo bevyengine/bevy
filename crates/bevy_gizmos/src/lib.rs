@@ -1,7 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
@@ -24,12 +24,18 @@ extern crate self as bevy_gizmos;
 
 /// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum GizmoRenderSystem {
+pub enum GizmoRenderSystems {
     /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
+    #[cfg(feature = "bevy_sprite")]
     QueueLineGizmos2d,
     /// Adds gizmos to the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render phase
+    #[cfg(feature = "bevy_pbr")]
     QueueLineGizmos3d,
 }
+
+/// Deprecated alias for [`GizmoRenderSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `GizmoRenderSystems`.")]
+pub type GizmoRenderSystem = GizmoRenderSystems;
 
 #[cfg(feature = "bevy_render")]
 pub mod aabb;
@@ -44,16 +50,13 @@ pub mod grid;
 pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
-#[cfg(feature = "bevy_render")]
-mod view;
 
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 pub mod light;
 
-#[cfg(feature = "bevy_render")]
+#[cfg(all(feature = "bevy_sprite", feature = "bevy_render"))]
 mod pipeline_2d;
-
-#[cfg(feature = "bevy_render")]
+#[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 mod pipeline_3d;
 
 /// The gizmos prelude.
@@ -80,18 +83,18 @@ pub mod prelude {
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
-use bevy_asset::{weak_handle, Asset, AssetApp, AssetId, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_ecs::{
     resource::Resource,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Res, ResMut},
 };
-use bevy_math::Vec4;
 use bevy_reflect::TypePath;
-#[cfg(feature = "bevy_render")]
-use view::OnlyViewLayout;
 
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 use crate::config::GizmoMeshConfig;
 
 use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
@@ -99,6 +102,7 @@ use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 #[cfg(feature = "bevy_render")]
 use {
     crate::retained::extract_linegizmos,
+    bevy_asset::AssetId,
     bevy_ecs::{
         component::Component,
         entity::Entity,
@@ -108,45 +112,41 @@ use {
             Commands, SystemParamItem,
         },
     },
-    bevy_math::{Affine3, Affine3A},
+    bevy_math::{Affine3, Affine3A, Vec4},
     bevy_render::{
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
             binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
-            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader,
-            ShaderStages, ShaderType, VertexFormat,
+            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, ShaderStages,
+            ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
         sync_world::{MainEntity, TemporaryRenderEntity},
-        Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+        Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
     },
     bytemuck::cast_slice,
 };
 
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite"),
+))]
 use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
-use config::{
-    DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
-};
+#[cfg(feature = "bevy_render")]
+use config::GizmoLineJoint;
+use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use core::{any::TypeId, marker::PhantomData, mem};
 use gizmos::{GizmoStorage, Swap};
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
 
-#[cfg(feature = "bevy_render")]
-const LINE_SHADER_HANDLE: Handle<Shader> = weak_handle!("15dc5869-ad30-4664-b35a-4137cb8804a1");
-#[cfg(feature = "bevy_render")]
-const LINE_JOINT_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("7b5bdda5-df81-4711-a6cf-e587700de6f2");
-
-/// A [`Plugin`] for the [`RenderApp`] that provides an immediate mode drawing api for visual debugging.
+/// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
-/// Additionally, it can support debugging light when the `bevy_pbr` feature is enabled,
-/// see [`LightGizmoPlugin`]
+/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
 #[derive(Default)]
 pub struct GizmoPlugin;
 
@@ -154,14 +154,9 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "bevy_render")]
         {
-            use bevy_asset::load_internal_asset;
-            load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
-            load_internal_asset!(
-                app,
-                LINE_JOINT_SHADER_HANDLE,
-                "line_joints.wgsl",
-                Shader::from_wgsl
-            );
+            use bevy_asset::embedded_asset;
+            embedded_asset!(app, "lines.wgsl");
+            embedded_asset!(app, "line_joints.wgsl");
         }
 
         app.register_type::<GizmoConfig>()
@@ -183,12 +178,23 @@ impl Plugin for GizmoPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
-                prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
+                prepare_line_gizmo_bind_group.in_set(RenderSystems::PrepareBindGroups),
             );
 
             render_app.add_systems(ExtractSchedule, (extract_gizmo_data, extract_linegizmos));
-            app.add_plugins(pipeline_3d::LineGizmo3dPlugin)
-                .add_plugins(pipeline_2d::LineGizmo2dPlugin);
+
+            #[cfg(feature = "bevy_sprite")]
+            if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
+                app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
+            } else {
+                tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
+            }
+            #[cfg(feature = "bevy_pbr")]
+            if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
+                app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+            } else {
+                tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
+            }
         } else {
             tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
         }
@@ -209,11 +215,9 @@ impl Plugin for GizmoPlugin {
             ),
         );
 
-        render_app
-            .init_resource::<OnlyViewLayout>()
-            .insert_resource(LineGizmoUniformBindgroupLayout {
-                layout: line_layout,
-            });
+        render_app.insert_resource(LineGizmoUniformBindgroupLayout {
+            layout: line_layout,
+        });
     }
 }
 
@@ -257,20 +261,20 @@ impl AppGizmoBuilder for App {
             .add_systems(
                 RunFixedMainLoop,
                 start_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystem::BeforeFixedMainLoop),
+                    .in_set(bevy_app::RunFixedMainLoopSystems::BeforeFixedMainLoop),
             )
             .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
             .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
             .add_systems(
                 RunFixedMainLoop,
                 end_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystem::AfterFixedMainLoop),
+                    .in_set(bevy_app::RunFixedMainLoopSystems::AfterFixedMainLoop),
             )
             .add_systems(
                 Last,
                 (
-                    propagate_gizmos::<Config, Fixed>.before(UpdateGizmoMeshes),
-                    update_gizmo_meshes::<Config>.in_set(UpdateGizmoMeshes),
+                    propagate_gizmos::<Config, Fixed>.before(GizmoMeshSystems),
+                    update_gizmo_meshes::<Config>.in_set(GizmoMeshSystems),
                 ),
             );
 
@@ -321,7 +325,7 @@ pub fn start_gizmo_context<Config, Clear>(
 ///
 /// Pop the default gizmos context out of the [`Swap<Clear>`] gizmo storage.
 ///
-/// This must be called before [`UpdateGizmoMeshes`] in the [`Last`] schedule.
+/// This must be called before [`GizmoMeshSystems`] in the [`Last`] schedule.
 pub fn end_gizmo_context<Config, Clear>(
     mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
     mut default: ResMut<GizmoStorage<Config, ()>>,
@@ -356,7 +360,7 @@ where
 
 /// Propagate the contextual gizmo into the `Update` storage for rendering.
 ///
-/// This should be before [`UpdateGizmoMeshes`].
+/// This should be before [`GizmoMeshSystems`].
 pub fn propagate_gizmos<Config, Clear>(
     mut update_storage: ResMut<GizmoStorage<Config, ()>>,
     contextual_storage: Res<GizmoStorage<Config, Clear>>,
@@ -369,7 +373,11 @@ pub fn propagate_gizmos<Config, Clear>(
 
 /// System set for updating the rendering meshes for drawing gizmos.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct UpdateGizmoMeshes;
+pub struct GizmoMeshSystems;
+
+/// Deprecated alias for [`GizmoMeshSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `GizmoMeshSystems`.")]
+pub type UpdateGizmoMeshes = GizmoMeshSystems;
 
 /// Prepare gizmos for rendering.
 ///
@@ -463,6 +471,7 @@ fn extract_gizmo_data(
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
+            #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             GizmoMeshConfig {
                 line_perspective: config.line.perspective,
                 line_style: config.line.style,
@@ -545,6 +554,7 @@ impl RenderAsset for GpuLineGizmo {
         gizmo: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let list_position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
@@ -622,8 +632,8 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     #[inline]
     fn render<'w>(
         _item: &P,
-        _views: ROQueryItem<'w, Self::ViewQuery>,
-        uniform_index: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        uniform_index: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -641,7 +651,10 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 #[cfg(feature = "bevy_render")]
 struct DrawLineGizmo<const STRIP: bool>;
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
@@ -650,8 +663,8 @@ impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewQuery>,
-        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        config: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -701,7 +714,10 @@ impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> 
 
 #[cfg(feature = "bevy_render")]
 struct DrawLineJointGizmo;
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
@@ -710,8 +726,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewQuery>,
-        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        config: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -771,7 +787,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     }
 }
 
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
@@ -826,7 +845,10 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     }
 }
 
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {

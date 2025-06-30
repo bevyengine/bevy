@@ -17,6 +17,7 @@ pub use mesh::*;
 pub use mikktspace::*;
 pub use primitives::*;
 pub use vertex::*;
+pub use wgpu_types::VertexFormat;
 
 bitflags! {
     /// Our base mesh pipeline key bits start from the highest bit and go

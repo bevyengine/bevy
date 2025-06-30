@@ -232,7 +232,7 @@ fn infotext_system(mut commands: Commands) {
 fn panic_on_fail(scenes: Query<&DynamicSceneRoot>, asset_server: Res<AssetServer>) {
     for scene in &scenes {
         if let Some(LoadState::Failed(err)) = asset_server.get_load_state(&scene.0) {
-            panic!("Failed to load scene. {}", err);
+            panic!("Failed to load scene. {err}");
         }
     }
 }

@@ -30,7 +30,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
-    observer::Trigger,
+    observer::On,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
@@ -38,11 +38,12 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
-use bevy_window::PrimaryWindow;
+use bevy_picking::events::{Pointer, Press};
+use bevy_window::{PrimaryWindow, Window};
 use log::warn;
 use thiserror::Error;
 
-use crate::{FocusedInput, InputFocus, InputFocusVisible};
+use crate::{AcquireFocus, FocusedInput, InputFocus, InputFocusVisible};
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -58,7 +59,7 @@ use {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Component, PartialEq)
+    reflect(Debug, Default, Component, PartialEq, Clone)
 )]
 pub struct TabIndex(pub i32);
 
@@ -67,7 +68,7 @@ pub struct TabIndex(pub i32);
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Component)
+    reflect(Debug, Default, Component, Clone)
 )]
 pub struct TabGroup {
     /// The order of the tab group relative to other tab groups.
@@ -221,7 +222,7 @@ impl TabNavigation<'_, '_> {
         action: NavAction,
     ) -> Result<Entity, TabNavigationError> {
         // List of all focusable entities found.
-        let mut focusable: Vec<(Entity, TabIndex)> =
+        let mut focusable: Vec<(Entity, TabIndex, usize)> =
             Vec::with_capacity(self.tabindex_query.iter().len());
 
         match tabgroup {
@@ -229,7 +230,7 @@ impl TabNavigation<'_, '_> {
                 // We're in a modal tab group, then gather all tab indices in that group.
                 if let Ok((_, _, children)) = self.tabgroup_query.get(tg_entity) {
                     for child in children.iter() {
-                        self.gather_focusable(&mut focusable, *child);
+                        self.gather_focusable(&mut focusable, *child, 0);
                     }
                 }
             }
@@ -245,9 +246,12 @@ impl TabNavigation<'_, '_> {
                 tab_groups.sort_by_key(|(_, tg)| tg.order);
 
                 // Search group descendants
-                tab_groups.iter().for_each(|(tg_entity, _)| {
-                    self.gather_focusable(&mut focusable, *tg_entity);
-                });
+                tab_groups
+                    .iter()
+                    .enumerate()
+                    .for_each(|(idx, (tg_entity, _))| {
+                        self.gather_focusable(&mut focusable, *tg_entity, idx);
+                    });
             }
         }
 
@@ -255,8 +259,14 @@ impl TabNavigation<'_, '_> {
             return Err(TabNavigationError::NoFocusableEntities);
         }
 
-        // Stable sort by tabindex
-        focusable.sort_by_key(|(_, idx)| *idx);
+        // Sort by TabGroup and then TabIndex
+        focusable.sort_by(|(_, a_tab_idx, a_group), (_, b_tab_idx, b_group)| {
+            if a_group == b_group {
+                a_tab_idx.cmp(b_tab_idx)
+            } else {
+                a_group.cmp(b_group)
+            }
+        });
 
         let index = focusable.iter().position(|e| Some(e.0) == focus.0);
         let count = focusable.len();
@@ -267,33 +277,63 @@ impl TabNavigation<'_, '_> {
             (None, NavAction::Previous) | (_, NavAction::Last) => count - 1,
         };
         match focusable.get(next) {
-            Some((entity, _)) => Ok(*entity),
+            Some((entity, _, _)) => Ok(*entity),
             None => Err(TabNavigationError::FailedToNavigateToNextFocusableEntity),
         }
     }
 
     /// Gather all focusable entities in tree order.
-    fn gather_focusable(&self, out: &mut Vec<(Entity, TabIndex)>, parent: Entity) {
+    fn gather_focusable(
+        &self,
+        out: &mut Vec<(Entity, TabIndex, usize)>,
+        parent: Entity,
+        tab_group_idx: usize,
+    ) {
         if let Ok((entity, tabindex, children)) = self.tabindex_query.get(parent) {
             if let Some(tabindex) = tabindex {
                 if tabindex.0 >= 0 {
-                    out.push((entity, *tabindex));
+                    out.push((entity, *tabindex, tab_group_idx));
                 }
             }
             if let Some(children) = children {
                 for child in children.iter() {
                     // Don't traverse into tab groups, as they are handled separately.
                     if self.tabgroup_query.get(*child).is_err() {
-                        self.gather_focusable(out, *child);
+                        self.gather_focusable(out, *child, tab_group_idx);
                     }
                 }
             }
         } else if let Ok((_, tabgroup, children)) = self.tabgroup_query.get(parent) {
             if !tabgroup.modal {
                 for child in children.iter() {
-                    self.gather_focusable(out, *child);
+                    self.gather_focusable(out, *child, tab_group_idx);
                 }
             }
+        }
+    }
+}
+
+/// Observer which sets focus to the nearest ancestor that has tab index, using bubbling.
+pub(crate) fn acquire_focus(
+    mut ev: On<AcquireFocus>,
+    focusable: Query<(), With<TabIndex>>,
+    windows: Query<(), With<Window>>,
+    mut focus: ResMut<InputFocus>,
+) {
+    // If the entity has a TabIndex
+    if focusable.contains(ev.target()) {
+        // Stop and focus it
+        ev.propagate(false);
+        // Don't mutate unless we need to, for change detection
+        if focus.0 != Some(ev.target()) {
+            focus.0 = Some(ev.target());
+        }
+    } else if windows.contains(ev.target()) {
+        // Stop and clear focus
+        ev.propagate(false);
+        // Don't mutate unless we need to, for change detection
+        if focus.0.is_some() {
+            focus.clear();
         }
     }
 }
@@ -307,12 +347,38 @@ impl Plugin for TabNavigationPlugin {
 
         #[cfg(feature = "bevy_reflect")]
         app.register_type::<TabIndex>().register_type::<TabGroup>();
+        app.add_observer(acquire_focus);
+        app.add_observer(click_to_focus);
     }
 }
 
 fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<PrimaryWindow>>) {
     for window in window.iter() {
         commands.entity(window).observe(handle_tab_navigation);
+    }
+}
+
+fn click_to_focus(
+    ev: On<Pointer<Press>>,
+    mut focus_visible: ResMut<InputFocusVisible>,
+    windows: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    // Because `Pointer` is a bubbling event, we don't want to trigger an `AcquireFocus` event
+    // for every ancestor, but only for the original entity. Also, users may want to stop
+    // propagation on the pointer event at some point along the bubbling chain, so we need our
+    // own dedicated event whose propagation we can control.
+    if ev.target() == ev.original_target() {
+        // Clicking hides focus
+        if focus_visible.0 {
+            focus_visible.0 = false;
+        }
+        // Search for a focusable parent entity, defaulting to window if none.
+        if let Ok(window) = windows.single() {
+            commands
+                .entity(ev.target())
+                .trigger(AcquireFocus { window });
+        }
     }
 }
 
@@ -323,7 +389,7 @@ fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<Prima
 ///
 /// Any [`TabNavigationError`]s that occur during tab navigation are logged as warnings.
 pub fn handle_tab_navigation(
-    mut trigger: Trigger<FocusedInput<KeyboardInput>>,
+    mut trigger: On<FocusedInput<KeyboardInput>>,
     nav: TabNavigation,
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
@@ -351,7 +417,7 @@ pub fn handle_tab_navigation(
                 visible.0 = true;
             }
             Err(e) => {
-                warn!("Tab navigation error: {}", e);
+                warn!("Tab navigation error: {e}");
                 // This failure mode is recoverable, but still indicates a problem.
                 if let TabNavigationError::NoTabGroupForCurrentFocus { new_focus, .. } = e {
                     trigger.propagate(false);
@@ -375,22 +441,8 @@ mod tests {
         let world = app.world_mut();
 
         let tab_group_entity = world.spawn(TabGroup::new(0)).id();
-        let tab_entity_1 = world
-            .spawn((
-                TabIndex(0),
-                ChildOf {
-                    parent: tab_group_entity,
-                },
-            ))
-            .id();
-        let tab_entity_2 = world
-            .spawn((
-                TabIndex(1),
-                ChildOf {
-                    parent: tab_group_entity,
-                },
-            ))
-            .id();
+        let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_entity))).id();
+        let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);
@@ -410,5 +462,46 @@ mod tests {
 
         let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
         assert_eq!(last_entity, Ok(tab_entity_2));
+    }
+
+    #[test]
+    fn test_tab_navigation_between_groups_is_sorted_by_group() {
+        let mut app = App::new();
+        let world = app.world_mut();
+
+        let tab_group_1 = world.spawn(TabGroup::new(0)).id();
+        let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_1))).id();
+        let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_1))).id();
+
+        let tab_group_2 = world.spawn(TabGroup::new(1)).id();
+        let tab_entity_3 = world.spawn((TabIndex(0), ChildOf(tab_group_2))).id();
+        let tab_entity_4 = world.spawn((TabIndex(1), ChildOf(tab_group_2))).id();
+
+        let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
+        let tab_navigation = system_state.get(world);
+        assert_eq!(tab_navigation.tabgroup_query.iter().count(), 2);
+        assert_eq!(tab_navigation.tabindex_query.iter().count(), 4);
+
+        let next_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
+        assert_eq!(next_entity, Ok(tab_entity_2));
+
+        let prev_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Previous);
+        assert_eq!(prev_entity, Ok(tab_entity_1));
+
+        let first_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::First);
+        assert_eq!(first_entity, Ok(tab_entity_1));
+
+        let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
+        assert_eq!(last_entity, Ok(tab_entity_4));
+
+        let next_from_end_of_group_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Next);
+        assert_eq!(next_from_end_of_group_entity, Ok(tab_entity_3));
+
+        let prev_entity_from_start_of_group =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_3), NavAction::Previous);
+        assert_eq!(prev_entity_from_start_of_group, Ok(tab_entity_2));
     }
 }

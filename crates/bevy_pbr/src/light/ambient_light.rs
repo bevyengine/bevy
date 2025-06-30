@@ -18,7 +18,7 @@ use super::*;
 /// }
 /// ```
 #[derive(Resource, Component, Clone, Debug, ExtractResource, ExtractComponent, Reflect)]
-#[reflect(Resource, Component, Debug, Default)]
+#[reflect(Resource, Component, Debug, Default, Clone)]
 #[require(Camera)]
 pub struct AmbientLight {
     pub color: Color,
@@ -48,6 +48,7 @@ impl Default for AmbientLight {
         }
     }
 }
+
 impl AmbientLight {
     pub const NONE: AmbientLight = AmbientLight {
         color: Color::WHITE,

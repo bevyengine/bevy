@@ -9,6 +9,8 @@
   - [Chrome tracing format](#chrome-tracing-format)
   - [Perf flame graph](#perf-flame-graph)
 - [GPU runtime](#gpu-runtime)
+  - [Vendor tools](#vendor-tools)
+  - [Tracy RenderQueue](#tracy-renderqueue)
 - [Compile time](#compile-time)
 
 ## CPU runtime
@@ -59,6 +61,7 @@ For more details, check out the [tracing span docs](https://docs.rs/tracing/*/tr
 ### Tracy profiler
 
 The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
+
 > A real time, nanosecond resolution, remote telemetry, hybrid frame and sampling profiler for games and other applications.
 
 There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
@@ -123,6 +126,16 @@ After closing your app, an interactive `svg` file will be produced:
 
 ## GPU runtime
 
+First, a quick note on how GPU programming works. GPUs are essentially separate computers with their own compiler, scheduler, memory (for discrete GPUs), etc. You do not simply call functions to have the GPU perform work - instead, you communicate with them by sending data back and forth over the PCIe bus, via the GPU driver.
+
+Specifically, you record a list of tasks (commands) for the GPU to perform into a CommandBuffer, and then submit that on a Queue to the GPU. At some point in the future, the GPU will receive the commands and execute them.
+
+In terms of where your app is spending time doing graphics work, it might manifest as a CPU bottleneck (extracting to the render world, wgpu resource tracking, recording commands to a CommandBuffer, or GPU driver code), as a GPU bottleneck (the GPU actually running your commands), or even as a data transfer bottleneck (uploading new assets or other data to the GPU over the PCIe bus).
+
+Graphics related work is not all CPU work or all GPU work, but a mix of both, and you should find the bottleneck and profile using the appropriate tool for each case.
+
+### Vendor tools
+
 If CPU profiling has shown that GPU work is the bottleneck, it's time to profile the GPU.
 
 For profiling GPU work, you should use the tool corresponding to your GPU's vendor:
@@ -134,17 +147,30 @@ For profiling GPU work, you should use the tool corresponding to your GPU's vend
 
 Note that while RenderDoc is a great debugging tool, it is _not_ a profiler, and should not be used for this purpose.
 
-### Graphics work
+### Tracy RenderQueue
 
-Finally, a quick note on how GPU programming works. GPUs are essentially separate computers with their own compiler, scheduler, memory (for discrete GPUs), etc. You do not simply call functions to have the GPU perform work - instead, you communicate with them by sending data back and forth over the PCIe bus, via the GPU driver.
+While it doesn't provide as much detail as vendor-specific tooling, Tracy can also be used to coarsely measure GPU performance.
 
-Specifically, you record a list of tasks (commands) for the GPU to perform into a CommandBuffer, and then submit that on a Queue to the GPU. At some point in the future, the GPU will receive the commands and execute them.
+When you compile with Bevy's `trace_tracy` feature, GPU spans will show up in a separate row at the top of Tracy, labeled as `RenderQueue`.
 
-In terms of where your app is spending time doing graphics work, it might manifest as a CPU bottleneck (extracting to the render world, wgpu resource tracking, recording commands to a CommandBuffer, or GPU driver code), or it might manifest as a GPU bottleneck (the GPU actually running your commands).
+> [!NOTE]
+> Due to dynamic clock speeds, GPU timings will have large frame-to-frame variance, unless you use an external tool to lock your GPU clocks to base speeds. When measuring GPU performance via Tracy, only look at the MTPC column of Tracy's statistics panel, or the span distribution/median, and not at any individual frame data.
+<!-- markdownlint-disable MD028 -->
 
-Graphics related work is not all CPU work or all GPU work, but a mix of both, and you should find the bottleneck and profile using the appropriate tool for each case.
+> [!NOTE]
+> Unlike ECS systems, Bevy will not automatically add GPU profiling spans. You will need to add GPU timing spans yourself for any custom rendering work. See the [`RenderDiagnosticsPlugin`](https://docs.rs/bevy/latest/bevy/render/diagnostic/struct.RenderDiagnosticsPlugin.html) docs for more details.
 
 ## Compile time
+
+### General advice
+
+- Run `cargo clean` before timing a command.
+- If you are using a rustc wrapper (like `sccache`), disable it by setting `RUSTC_WRAPPER=""`
+- To measure noise in duration, run commands more than once and take the average. [`hyperfine`](https://github.com/sharkdp/hyperfine) can do that for you with a cleanup between each execution (`hyperfine --cleanup "sleep 1; cargo clean" "cargo build"`).
+- Avoid running benchmarks on a computer that can do power throttling or thermal throttling, like a laptop.
+- Avoid running benchmarks with a processor that has different types of cores (efficiency vs performance), unless you can force the processor to use only one type of core.
+
+### Cargo timings
 
 Append `--timings` to your app's cargo command (ex: `cargo build --timings`).
 If you want a "full" profile, make sure you run `cargo clean` first (note: this will clear previously generated reports).
@@ -152,4 +178,26 @@ The command will tell you where it saved the report, which will be in your targe
 The report is a `.html` file and can be opened and viewed in your browser.
 This will show how much time each crate in your app's dependency tree took to build.
 
-![image](https://user-images.githubusercontent.com/2694663/141657811-f4e15e3b-c9fc-491b-9313-236fd8c01288.png)
+![Cargo timings](https://user-images.githubusercontent.com/2694663/141657811-f4e15e3b-c9fc-491b-9313-236fd8c01288.png)
+
+### rustc self-profile
+
+Cargo can generate a self-profile when building a crate. This is an unstable feature, but it can be used on a stable toolchain with `RUSTC_BOOTSTRAP`.
+
+The following command will generate a self-profile for the `bevy_render` crate:
+
+```sh
+RUSTC_BOOTSTRAP=1 cargo rustc --package bevy_render --  -Z self-profile -Z self-profile-events=default,args
+```
+
+This will generate a file named something like `bevy_render-<id>>.mm_profdata` in the current directory. You can convert this file to a Chrome profiler trace with [`crox`](https://github.com/rust-lang/measureme/blob/master/crox/README.md) and view the resulting trace in [perfetto](https://ui.perfetto.dev/).
+
+![rustc self-profile](https://github.com/user-attachments/assets/12645add-c647-4611-b533-9145cbcbac1c)
+
+### cargo-llvm-lines
+
+[`cargo-llvm-lines`](https://github.com/dtolnay/cargo-llvm-lines) can show the number of LLVM lines generated by generic functions in your code. This can show you how much code is generated by each function, which can help you identify potential build performance issues.
+
+### cargo-bloat
+
+[`cargo-bloat`](https://github.com/RazrFalcon/cargo-bloat) can show the size of each function in your code. This can help you identify large functions that ends up in the final binary.
