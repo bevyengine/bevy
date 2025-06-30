@@ -63,7 +63,7 @@ fn main() -> AnyhowResult<()> {
         ),
     };
 
-    println!("req: {:#?}", req);
+    println!("req: {req:#?}");
     let res = ureq::post(&url)
         .send_json(req)?
         .body_mut()
