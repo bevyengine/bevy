@@ -1,5 +1,5 @@
 ---
-title: Newtype ScrollPosition
+title: Make `ScrollPosition` newtype `Vec2`
 pull_requests: [19881]
 ---
 
