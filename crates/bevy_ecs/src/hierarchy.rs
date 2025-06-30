@@ -330,7 +330,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enabled if an invariant is is broken and the command is executed.
+    /// Panics when debug assertions are enabled if an invariant is broken and the command is executed.
     pub fn replace_children_with_difference(
         &mut self,
         entities_to_unrelate: &[Entity],
@@ -420,7 +420,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enabled if an invariant is is broken and the command is executed.
+    /// Panics when debug assertions are enabled if an invariant is broken and the command is executed.
     pub fn replace_children_with_difference(
         &mut self,
         entities_to_unrelate: &[Entity],

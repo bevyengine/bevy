@@ -57,7 +57,7 @@ parking_lot = { version = "0.12", default-features = false, features = [
 ron = { version = "0.10", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 uuid = { version = "1.13.1", default-features = false, features = [
   "v4",
   "serde",

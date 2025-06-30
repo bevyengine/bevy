@@ -1905,7 +1905,6 @@ mod tests {
         schedule.add_systems(sys);
         schedule.add_systems(|_query: Query<&Name>| {});
         schedule.add_systems(|_query: Query<&Name>| todo!());
-        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
 
         fn obs(_trigger: On<Add, Name>) {
@@ -1915,7 +1914,6 @@ mod tests {
         world.add_observer(obs);
         world.add_observer(|_trigger: On<Add, Name>| {});
         world.add_observer(|_trigger: On<Add, Name>| todo!());
-        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         world.add_observer(|_trigger: On<Add, Name>| -> () { todo!() });
 
         fn my_command(_world: &mut World) {
@@ -1925,7 +1923,6 @@ mod tests {
         world.commands().queue(my_command);
         world.commands().queue(|_world: &mut World| {});
         world.commands().queue(|_world: &mut World| todo!());
-        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         world
             .commands()
             .queue(|_world: &mut World| -> () { todo!() });
