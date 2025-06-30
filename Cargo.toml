@@ -4548,6 +4548,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "scrollbars"
+path = "examples/ui/scrollbars.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scrollbars]
+name = "Scrollbars"
+description = "Demonstrates use of core scrollbar in Bevy UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "feathers"
 path = "examples/ui/feathers.rs"
 doc-scrape-examples = true
