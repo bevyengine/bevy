@@ -67,7 +67,7 @@ impl Plugin for PostProcessPlugin {
         };
 
         // RenderStartup runs once on startup after all plugins are built
-        // It is useful to initiliaze data that will only live in the RenderApp
+        // It is useful to initialize data that will only live in the RenderApp
         render_app.add_systems(RenderStartup, setup_pipeline);
 
         render_app
