@@ -14,6 +14,7 @@ use bevy_ecs::{
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
+use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
@@ -783,17 +784,14 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         let mut components_map = HashMap::new();
         if components.is_empty() {
             for component_id in entity_ref.archetype().components() {
-                let info = match world.components().get_info(component_id) {
-                    Some(info) => info,
-                    None => continue, // Skip if info is missing
+                let Some(info) = world.components().get_info(component_id) else {
+                    continue;
                 };
-                let type_id = match info.type_id() {
-                    Some(type_id) => type_id,
-                    None => continue, // Skip if type_id is missing
+                let Some(type_id) = info.type_id() else {
+                    continue;
                 };
-                let type_registration = match type_registry.get(type_id) {
-                    Some(reg) => reg,
-                    None => continue, // Skip if not registered for reflection
+                let Some(type_registration) = type_registry.get(type_id) else {
+                    continue;
                 };
                 if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
                     if let Some(reflected) = reflect_component.reflect(entity_ref) {
@@ -803,7 +801,7 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
                             components_map.extend(obj);
                         } else {
                             // If serialization fails, skip this component, but log an error.
-                            println!(
+                            warn_once!(
                                 "Failed to serialize component `{}` for entity {:?}",
                                 info.name(),
                                 entity_id
