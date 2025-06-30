@@ -321,7 +321,7 @@ impl Default for ComputedNode {
     }
 }
 
-/// The scroll position of the node.
+/// The scroll position of the node. Values are in logical pixels, increasing from top-left to bottom-right.
 ///
 /// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount in logical pixels.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
