@@ -48,6 +48,51 @@ pub fn create_dark_theme() -> ThemeProps {
                 tokens::SLIDER_TEXT_DISABLED.into(),
                 palette::WHITE.with_alpha(0.5),
             ),
+            (tokens::CHECKBOX_BG.into(), palette::GRAY_3),
+            (tokens::CHECKBOX_BG_CHECKED.into(), palette::ACCENT),
+            (
+                tokens::CHECKBOX_BG_DISABLED.into(),
+                palette::GRAY_1.with_alpha(0.5),
+            ),
+            (
+                tokens::CHECKBOX_BG_CHECKED_DISABLED.into(),
+                palette::ACCENT.with_alpha(0.5),
+            ),
+            (tokens::CHECKBOX_BORDER.into(), palette::GRAY_3),
+            (
+                tokens::CHECKBOX_BORDER_HOVER.into(),
+                palette::GRAY_3.lighter(0.1),
+            ),
+            (
+                tokens::CHECKBOX_BORDER_DISABLED.into(),
+                palette::GRAY_3.with_alpha(0.5),
+            ),
+            (tokens::CHECKBOX_MARK.into(), palette::WHITE),
+            (tokens::CHECKBOX_MARK_DISABLED.into(), palette::LIGHT_GRAY_2),
+            (tokens::CHECKBOX_TEXT.into(), palette::LIGHT_GRAY_1),
+            (
+                tokens::CHECKBOX_TEXT_DISABLED.into(),
+                palette::LIGHT_GRAY_1.with_alpha(0.5),
+            ),
+            (tokens::RADIO_BORDER.into(), palette::GRAY_3),
+            (
+                tokens::RADIO_BORDER_HOVER.into(),
+                palette::GRAY_3.lighter(0.1),
+            ),
+            (
+                tokens::RADIO_BORDER_DISABLED.into(),
+                palette::GRAY_3.with_alpha(0.5),
+            ),
+            (tokens::RADIO_MARK.into(), palette::ACCENT),
+            (
+                tokens::RADIO_MARK_DISABLED.into(),
+                palette::ACCENT.with_alpha(0.5),
+            ),
+            (tokens::RADIO_TEXT.into(), palette::LIGHT_GRAY_1),
+            (
+                tokens::RADIO_TEXT_DISABLED.into(),
+                palette::LIGHT_GRAY_1.with_alpha(0.5),
+            ),
         ]),
     }
 }
