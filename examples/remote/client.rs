@@ -87,7 +87,7 @@ fn main() -> AnyhowResult<()> {
         .body_mut()
         .read_json::<serde_json::Value>()?;
 
-    println!("{:#}", query_all_res);
+    println!("{query_all_res:#}")
 
     Ok(())
 }
