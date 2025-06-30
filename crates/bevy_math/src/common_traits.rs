@@ -93,7 +93,7 @@ impl VectorSpace for DVec2 {
 // Every scalar field is a 1-dimensional vector space over itself.
 impl<T: ScalarField> VectorSpace for T {
     type Scalar = Self;
-    const ZERO: Self = <Self as ScalarField>::ZERO;
+    const ZERO: Self = Self::ZERO;
 }
 
 /// A type that supports the operations of a scalar field. An implementation should support:
