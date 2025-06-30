@@ -103,7 +103,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             Entity,
             &AudioPlayer<Source>,
             &PlaybackSettings,
-            Option<&GlobalTransform>,
+            &GlobalTransform,
         ),
         (Without<AudioSink>, Without<SpatialAudioSink>),
     >,
@@ -118,7 +118,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         return;
     };
 
-    for (entity, source_handle, settings, maybe_emitter_transform) in &query_nonplaying {
+    for (entity, source_handle, settings, emitter_transform) in &query_nonplaying {
         let Some(audio_source) = audio_sources.get(&source_handle.0) else {
             continue;
         };
@@ -136,14 +136,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             let scale = settings.spatial_scale.unwrap_or(default_spatial_scale.0).0;
-
-            let emitter_translation = if let Some(emitter_transform) = maybe_emitter_transform {
-                (emitter_transform.translation() * scale).into()
-            } else {
-                warn!("Spatial AudioPlayer with no GlobalTransform component. Using zero.");
-                Vec3::ZERO.into()
-            };
-
+            let emitter_translation = (emitter_transform.translation() * scale).into();
             let sink = match SpatialSink::try_new(
                 stream_handle,
                 emitter_translation,
