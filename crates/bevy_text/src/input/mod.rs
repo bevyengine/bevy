@@ -61,6 +61,7 @@ impl Default for TextInputBuffer {
     }
 }
 
+#[derive(Component, Debug, Default)]
 pub struct TextInputSize {
     width: f32,
     height: f32,
