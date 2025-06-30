@@ -156,7 +156,6 @@
 //! ### Example
 //! To query all entities and all of their Reflectable components (and retrieve their values), you can pass
 //! something like this in the JSON:
-//!
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
