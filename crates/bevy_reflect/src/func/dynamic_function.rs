@@ -439,6 +439,7 @@ impl PartialReflect for DynamicFunction<'static> {
 }
 
 impl MaybeTyped for DynamicFunction<'static> {}
+
 impl RegisterForReflection for DynamicFunction<'static> {}
 
 impl_type_path!((in bevy_reflect) DynamicFunction<'env>);

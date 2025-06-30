@@ -115,7 +115,7 @@ impl GlobalTransform {
 
     /// Returns the 3d affine transformation matrix as a [`Mat4`].
     #[inline]
-    pub fn compute_matrix(&self) -> Mat4 {
+    pub fn to_matrix(&self) -> Mat4 {
         Mat4::from(self.0)
     }
 
@@ -139,8 +139,9 @@ impl GlobalTransform {
         }
     }
 
-    /// Returns the isometric part of the transformation as an [isometry]. Any scaling done by the
-    /// transformation will be ignored.
+    /// Computes a Scale-Rotation-Translation decomposition of the transformation and returns
+    /// the isometric part as an [isometry]. Any scaling done by the transformation will be ignored.
+    /// Note: this is a somewhat costly and lossy conversion.
     ///
     /// The transform is expected to be non-degenerate and without shearing, or the output
     /// will be invalid.

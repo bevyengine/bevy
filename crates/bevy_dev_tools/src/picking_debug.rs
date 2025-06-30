@@ -5,9 +5,9 @@ use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_picking::backend::HitData;
 use bevy_picking::hover::HoverMap;
-use bevy_picking::pointer::{Location, PointerId, PointerPress};
+use bevy_picking::pointer::{Location, PointerId, PointerInput, PointerLocation, PointerPress};
 use bevy_picking::prelude::*;
-use bevy_picking::{pointer, PickingSystems};
+use bevy_picking::PickingSystems;
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_text::prelude::*;
@@ -91,7 +91,7 @@ impl Plugin for DebugPickingPlugin {
                 (
                     // This leaves room to easily change the log-level associated
                     // with different events, should that be desired.
-                    log_event_debug::<pointer::PointerInput>.run_if(DebugPickingMode::is_noisy),
+                    log_event_debug::<PointerInput>.run_if(DebugPickingMode::is_noisy),
                     log_pointer_event_debug::<Over>,
                     log_pointer_event_debug::<Out>,
                     log_pointer_event_debug::<Press>,
@@ -121,7 +121,7 @@ impl Plugin for DebugPickingPlugin {
 }
 
 /// Listen for any event and logs it at the debug level
-pub fn log_event_debug<E: Event + Debug>(mut events: EventReader<pointer::PointerInput>) {
+pub fn log_event_debug<E: BufferedEvent + Debug>(mut events: EventReader<PointerInput>) {
     for event in events.read() {
         debug!("{event:?}");
     }
@@ -214,7 +214,7 @@ pub fn update_debug_data(
     entity_names: Query<NameOrEntity>,
     mut pointers: Query<(
         &PointerId,
-        &pointer::PointerLocation,
+        &PointerLocation,
         &PointerPress,
         &mut PointerDebug,
     )>,

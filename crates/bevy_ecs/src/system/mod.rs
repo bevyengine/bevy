@@ -634,7 +634,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn any_of_with_mut_and_ref() {
         fn sys(_: Query<AnyOf<(&mut A, &A)>>) {}
         let mut world = World::default();
@@ -642,7 +642,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&mut bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn any_of_with_ref_and_mut() {
         fn sys(_: Query<AnyOf<(&A, &mut A)>>) {}
         let mut world = World::default();
@@ -650,7 +650,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn any_of_with_mut_and_option() {
         fn sys(_: Query<AnyOf<(&mut A, Option<&A>)>>) {}
         let mut world = World::default();
@@ -680,7 +680,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "&mut bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    #[should_panic]
     fn any_of_with_conflicting() {
         fn sys(_: Query<AnyOf<(&mut A, &mut A)>>) {}
         let mut world = World::default();
@@ -1629,54 +1629,42 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_world_and_entity_mut_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001"
-    )]
+    #[should_panic]
     fn assert_world_and_entity_mut_system_does_conflict_first() {
         fn system(_query: &World, _q2: Query<EntityMut>) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules"
-    )]
+    #[should_panic]
     fn assert_world_and_entity_mut_system_does_conflict_second() {
         fn system(_: Query<EntityMut>, _: &World) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_ref_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001"
-    )]
+    #[should_panic]
     fn assert_entity_ref_and_entity_mut_system_does_conflict() {
         fn system(_query: Query<EntityRef>, _q2: Query<EntityMut>) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001"
-    )]
+    #[should_panic]
     fn assert_entity_mut_system_does_conflict() {
         fn system(_query: Query<EntityMut>, _q2: Query<EntityMut>) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "error[B0001]: Query<EntityRef, ()> in system bevy_ecs::system::tests::assert_deferred_world_and_entity_ref_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001"
-    )]
+    #[should_panic]
     fn assert_deferred_world_and_entity_ref_system_does_conflict_first() {
         fn system(_world: DeferredWorld, _query: Query<EntityRef>) {}
         super::assert_system_does_not_conflict(system);
     }
 
     #[test]
-    #[should_panic(
-        expected = "DeferredWorld in system bevy_ecs::system::tests::assert_deferred_world_and_entity_ref_system_does_conflict_second::system conflicts with a previous access."
-    )]
+    #[should_panic]
     fn assert_deferred_world_and_entity_ref_system_does_conflict_second() {
         fn system(_query: Query<EntityRef>, _world: DeferredWorld) {}
         super::assert_system_does_not_conflict(system);
@@ -1897,7 +1885,6 @@ mod tests {
         schedule.add_systems(sys);
         schedule.add_systems(|_query: Query<&Name>| {});
         schedule.add_systems(|_query: Query<&Name>| todo!());
-        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
 
         fn obs(_trigger: On<Add, Name>) {
@@ -1907,7 +1894,6 @@ mod tests {
         world.add_observer(obs);
         world.add_observer(|_trigger: On<Add, Name>| {});
         world.add_observer(|_trigger: On<Add, Name>| todo!());
-        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         world.add_observer(|_trigger: On<Add, Name>| -> () { todo!() });
 
         fn my_command(_world: &mut World) {
@@ -1917,7 +1903,6 @@ mod tests {
         world.commands().queue(my_command);
         world.commands().queue(|_world: &mut World| {});
         world.commands().queue(|_world: &mut World| todo!());
-        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         world
             .commands()
             .queue(|_world: &mut World| -> () { todo!() });

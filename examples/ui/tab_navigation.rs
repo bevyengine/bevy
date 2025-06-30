@@ -131,7 +131,7 @@ fn setup(mut commands: Commands) {
                                     BackgroundColor(NORMAL_BUTTON),
                                     TabIndex(i),
                                     children![(
-                                        Text::new(format!("TabIndex {}", i)),
+                                        Text::new(format!("TabIndex {i}")),
                                         TextFont {
                                             font_size: 20.0,
                                             ..default()
@@ -142,7 +142,7 @@ fn setup(mut commands: Commands) {
                                 .observe(
                                     |mut trigger: On<Pointer<Click>>,
                                     mut focus: ResMut<InputFocus>| {
-                                        focus.0 = Some(trigger.target().unwrap());
+                                        focus.0 = Some(trigger.target());
                                         trigger.propagate(false);
                                     },
                                 );

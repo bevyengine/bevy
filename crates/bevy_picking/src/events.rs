@@ -59,11 +59,10 @@ use crate::{
 ///
 /// The documentation for the [`pointer_events`] explains the events this module exposes and
 /// the order in which they fire.
-#[derive(Clone, PartialEq, Debug, Reflect, Component)]
+#[derive(Event, BufferedEvent, EntityEvent, Clone, PartialEq, Debug, Reflect, Component)]
+#[entity_event(traversal = PointerTraversal, auto_propagate)]
 #[reflect(Component, Debug, Clone)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
-    /// The original target of this picking event, before bubbling
-    pub target: Entity,
     /// The pointer that triggered this event
     pub pointer_id: PointerId,
     /// The location of the pointer during this event
@@ -87,7 +86,7 @@ impl<E> Traversal<Pointer<E>> for PointerTraversal
 where
     E: Debug + Clone + Reflect,
 {
-    fn traverse(item: Self::Item<'_>, pointer: &Pointer<E>) -> Option<Entity> {
+    fn traverse(item: Self::Item<'_, '_>, pointer: &Pointer<E>) -> Option<Entity> {
         let PointerTraversalItem { child_of, window } = item;
 
         // Send event to parent, if it has one.
@@ -104,15 +103,6 @@ where
 
         None
     }
-}
-
-impl<E> Event for Pointer<E>
-where
-    E: Debug + Clone + Reflect,
-{
-    type Traversal = PointerTraversal;
-
-    const AUTO_PROPAGATE: bool = true;
 }
 
 impl<E: Debug + Clone + Reflect> core::fmt::Display for Pointer<E> {
@@ -134,9 +124,8 @@ impl<E: Debug + Clone + Reflect> core::ops::Deref for Pointer<E> {
 
 impl<E: Debug + Clone + Reflect> Pointer<E> {
     /// Construct a new `Pointer<E>` event.
-    pub fn new(id: PointerId, location: Location, target: Entity, event: E) -> Self {
+    pub fn new(id: PointerId, location: Location, event: E) -> Self {
         Self {
-            target,
             pointer_id: id,
             pointer_location: location,
             event,
@@ -505,12 +494,7 @@ pub fn pointer_events(
             };
 
             // Always send Out events
-            let out_event = Pointer::new(
-                pointer_id,
-                location.clone(),
-                hovered_entity,
-                Out { hit: hit.clone() },
-            );
+            let out_event = Pointer::new(pointer_id, location.clone(), Out { hit: hit.clone() });
             commands.trigger_targets(out_event.clone(), hovered_entity);
             event_writers.out_events.write(out_event);
 
@@ -522,7 +506,6 @@ pub fn pointer_events(
                     let drag_leave_event = Pointer::new(
                         pointer_id,
                         location.clone(),
-                        hovered_entity,
                         DragLeave {
                             button,
                             dragged: *drag_target,
@@ -564,7 +547,6 @@ pub fn pointer_events(
                     let drag_enter_event = Pointer::new(
                         pointer_id,
                         location.clone(),
-                        hovered_entity,
                         DragEnter {
                             button,
                             dragged: *drag_target,
@@ -577,12 +559,7 @@ pub fn pointer_events(
             }
 
             // Always send Over events
-            let over_event = Pointer::new(
-                pointer_id,
-                location.clone(),
-                hovered_entity,
-                Over { hit: hit.clone() },
-            );
+            let over_event = Pointer::new(pointer_id, location.clone(), Over { hit: hit.clone() });
             commands.trigger_targets(over_event.clone(), hovered_entity);
             event_writers.over_events.write(over_event);
         }
@@ -608,7 +585,6 @@ pub fn pointer_events(
                     let pressed_event = Pointer::new(
                         pointer_id,
                         location.clone(),
-                        hovered_entity,
                         Press {
                             button,
                             hit: hit.clone(),
@@ -636,7 +612,6 @@ pub fn pointer_events(
                         let click_event = Pointer::new(
                             pointer_id,
                             location.clone(),
-                            hovered_entity,
                             Click {
                                 button,
                                 hit: hit.clone(),
@@ -650,7 +625,6 @@ pub fn pointer_events(
                     let released_event = Pointer::new(
                         pointer_id,
                         location.clone(),
-                        hovered_entity,
                         Release {
                             button,
                             hit: hit.clone(),
@@ -667,7 +641,6 @@ pub fn pointer_events(
                         let drag_drop_event = Pointer::new(
                             pointer_id,
                             location.clone(),
-                            *dragged_over,
                             DragDrop {
                                 button,
                                 dropped: drag_target,
@@ -681,7 +654,6 @@ pub fn pointer_events(
                     let drag_end_event = Pointer::new(
                         pointer_id,
                         location.clone(),
-                        drag_target,
                         DragEnd {
                             button,
                             distance: drag.latest_pos - drag.start_pos,
@@ -694,7 +666,6 @@ pub fn pointer_events(
                         let drag_leave_event = Pointer::new(
                             pointer_id,
                             location.clone(),
-                            *dragged_over,
                             DragLeave {
                                 button,
                                 dragged: drag_target,
@@ -735,7 +706,6 @@ pub fn pointer_events(
                         let drag_start_event = Pointer::new(
                             pointer_id,
                             location.clone(),
-                            *press_target,
                             DragStart {
                                 button,
                                 hit: hit.clone(),
@@ -754,7 +724,6 @@ pub fn pointer_events(
                         let drag_event = Pointer::new(
                             pointer_id,
                             location.clone(),
-                            *drag_target,
                             Drag {
                                 button,
                                 distance: location.position - drag.start_pos,
@@ -777,7 +746,6 @@ pub fn pointer_events(
                             let drag_over_event = Pointer::new(
                                 pointer_id,
                                 location.clone(),
-                                hovered_entity,
                                 DragOver {
                                     button,
                                     dragged: *drag_target,
@@ -799,7 +767,6 @@ pub fn pointer_events(
                     let move_event = Pointer::new(
                         pointer_id,
                         location.clone(),
-                        hovered_entity,
                         Move {
                             hit: hit.clone(),
                             delta,
@@ -819,7 +786,6 @@ pub fn pointer_events(
                     let scroll_event = Pointer::new(
                         pointer_id,
                         location.clone(),
-                        hovered_entity,
                         Scroll {
                             unit,
                             x,
@@ -839,8 +805,7 @@ pub fn pointer_events(
                     .iter()
                     .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
                 {
-                    let cancel_event =
-                        Pointer::new(pointer_id, location.clone(), hovered_entity, Cancel { hit });
+                    let cancel_event = Pointer::new(pointer_id, location.clone(), Cancel { hit });
                     commands.trigger_targets(cancel_event.clone(), hovered_entity);
                     event_writers.cancel_events.write(cancel_event);
                 }

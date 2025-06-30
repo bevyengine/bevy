@@ -342,7 +342,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             #[cfg(feature = "std")]
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
-                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                eprintln!("Encountered a panic in system `{}`!", system.name());
             }
             // set the payload to propagate the error
             {
@@ -353,6 +353,10 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         self.tick_executor();
     }
 
+    #[expect(
+        clippy::mut_from_ref,
+        reason = "Field is only accessed here and is guarded by lock with a documented safety comment"
+    )]
     fn try_lock<'a>(&'a self) -> Option<(&'a mut Conditions<'sys>, MutexGuard<'a, ExecutorState>)> {
         let guard = self.environment.executor.state.try_lock().ok()?;
         // SAFETY: This is an exclusive access as no other location fetches conditions mutably, and
@@ -799,7 +803,7 @@ fn apply_deferred(
             {
                 eprintln!(
                     "Encountered a panic when applying buffers for system `{}`!",
-                    &*system.name()
+                    system.name()
                 );
             }
             return Err(payload);

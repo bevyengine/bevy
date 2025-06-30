@@ -535,12 +535,12 @@ pub fn extract_clusters(
             continue;
         }
 
-        let num_entities: usize = clusters
+        let entity_count: usize = clusters
             .clusterable_objects
             .iter()
             .map(|l| l.entities.len())
             .sum();
-        let mut data = Vec::with_capacity(clusters.clusterable_objects.len() + num_entities);
+        let mut data = Vec::with_capacity(clusters.clusterable_objects.len() + entity_count);
         for cluster_objects in &clusters.clusterable_objects {
             data.push(ExtractedClusterableObjectElement::ClusterHeader(
                 cluster_objects.counts,

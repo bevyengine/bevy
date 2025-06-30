@@ -63,18 +63,12 @@ impl FromWorld for SpritePipeline {
         let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
         let view_layout = render_device.create_bind_group_layout(
             "sprite_view_layout",
-            &BindGroupLayoutEntries::with_indices(
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
-                    (0, uniform_buffer::<ViewUniform>(true)),
-                    (
-                        1,
-                        tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
-                    ),
-                    (
-                        2,
-                        tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
-                    ),
+                    uniform_buffer::<ViewUniform>(true),
+                    tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                    tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
                 ),
             ),
         );
@@ -636,11 +630,7 @@ pub fn prepare_sprite_view_bind_groups(
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &sprite_pipeline.view_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, lut_bindings.0),
-                (2, lut_bindings.1),
-            )),
+            &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
         );
 
         commands.entity(entity).insert(SpriteViewBindGroup {
@@ -908,7 +898,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 
     fn render<'w>(
         _item: &P,
-        (view_uniform, sprite_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
+        (view_uniform, sprite_view_bind_group): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -925,7 +915,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewQuery>,
+        view: ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         (image_bind_groups, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -955,7 +945,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewQuery>,
+        view: ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         (sprite_meta, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,

@@ -3,8 +3,8 @@ use crate::{
     component::{CheckChangeTicks, ComponentId, ComponentTicks, Components, Tick, TickCells},
     storage::{blob_vec::BlobVec, SparseSet},
 };
-use alloc::string::String;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, mem::ManuallyDrop, panic::Location};
 
 #[cfg(feature = "std")]
@@ -23,7 +23,7 @@ pub struct ResourceData<const SEND: bool> {
         not(feature = "std"),
         expect(dead_code, reason = "currently only used with the std feature")
     )]
-    type_name: String,
+    type_name: DebugName,
     #[cfg(feature = "std")]
     origin_thread_id: Option<ThreadId>,
     changed_by: MaybeLocation<UnsafeCell<&'static Location<'static>>>,
@@ -64,32 +64,23 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if called from a different thread than the one it was inserted from.
     #[inline]
     fn validate_access(&self) {
-        if SEND {
-            #[cfg_attr(
-                not(feature = "std"),
-                expect(
-                    clippy::needless_return,
-                    reason = "needless until no_std is addressed (see below)",
-                )
-            )]
-            return;
-        }
+        if !SEND {
+            #[cfg(feature = "std")]
+            if self.origin_thread_id != Some(std::thread::current().id()) {
+                // Panic in tests, as testing for aborting is nearly impossible
+                panic!(
+                    "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
+                    self.type_name,
+                    self.origin_thread_id,
+                    std::thread::current().id()
+                );
+            }
 
-        #[cfg(feature = "std")]
-        if self.origin_thread_id != Some(std::thread::current().id()) {
-            // Panic in tests, as testing for aborting is nearly impossible
-            panic!(
-                "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
-                self.type_name,
-                self.origin_thread_id,
-                std::thread::current().id()
-            );
+            // TODO: Handle no_std non-send.
+            // Currently, no_std is single-threaded only, so this is safe to ignore.
+            // To support no_std multithreading, an alternative will be required.
+            // Remove the #[expect] attribute above when this is addressed.
         }
-
-        // TODO: Handle no_std non-send.
-        // Currently, no_std is single-threaded only, so this is safe to ignore.
-        // To support no_std multithreading, an alternative will be required.
-        // Remove the #[expect] attribute above when this is addressed.
     }
 
     /// Returns true if the resource is populated.
@@ -385,7 +376,7 @@ impl<const SEND: bool> Resources<SEND> {
                 data: ManuallyDrop::new(data),
                 added_ticks: UnsafeCell::new(Tick::new(0)),
                 changed_ticks: UnsafeCell::new(Tick::new(0)),
-                type_name: String::from(component_info.name()),
+                type_name: component_info.name(),
                 #[cfg(feature = "std")]
                 origin_thread_id: None,
                 changed_by: MaybeLocation::caller().map(UnsafeCell::new),
