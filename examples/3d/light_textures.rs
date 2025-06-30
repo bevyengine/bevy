@@ -379,7 +379,7 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Draws the outlines that show the bounds of the spotlight.
 fn draw_gizmos(mut gizmos: Gizmos, spotlight: Query<(&GlobalTransform, &SpotLight, &Visibility)>) {
-    if let Ok((global_transform, spotlight, visibility)) = spotlight.get_single() {
+    if let Ok((global_transform, spotlight, visibility)) = spotlight.single() {
         if visibility != Visibility::Hidden {
             gizmos.primitive_3d(
                 &Cone::new(7.0 * spotlight.outer_angle, 7.0),
@@ -680,8 +680,11 @@ fn update_directional_light(
         })
         .any(|(_, visibility)| visibility != Visibility::Hidden);
 
+    let (entity, mut light, maybe_texture) = light
+        .single_mut()
+        .expect("there should be a single directional light");
+
     if directional_visible {
-        let (entity, mut light, maybe_texture) = light.single_mut();
         light.illuminance = AMBIENT_DAYLIGHT;
         if maybe_texture.is_none() {
             commands.entity(entity).insert(DirectionalLightTexture {
@@ -690,13 +693,11 @@ fn update_directional_light(
             });
         }
     } else if any_texture_light_visible {
-        let (entity, mut light, maybe_texture) = light.single_mut();
         light.illuminance = CLEAR_SUNRISE;
         if maybe_texture.is_some() {
             commands.entity(entity).remove::<DirectionalLightTexture>();
         }
     } else {
-        let (entity, mut light, maybe_texture) = light.single_mut();
         light.illuminance = AMBIENT_DAYLIGHT;
         if maybe_texture.is_some() {
             commands.entity(entity).remove::<DirectionalLightTexture>();
