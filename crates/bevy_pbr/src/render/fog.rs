@@ -136,10 +136,11 @@ impl Plugin for FogPlugin {
         app.register_type::<DistanceFog>();
         app.add_plugins(ExtractComponentPlugin::<DistanceFog>::default());
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<FogMeta>()
-                .add_systems(Render, prepare_fog.in_set(RenderSystems::PrepareResources));
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<FogMeta>()
+            .add_systems(Render, prepare_fog.in_set(RenderSystems::PrepareResources));
     }
 }

@@ -52,30 +52,32 @@ where
                 RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
             ));
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
-                .init_resource::<ExtractedUiMaterialNodes<M>>()
-                .init_resource::<UiMaterialMeta<M>>()
-                .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_ui_material_nodes::<M>.in_set(RenderUiSystems::ExtractBackgrounds),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_ui_material_nodes::<M>.in_set(RenderSystems::Queue),
-                        prepare_uimaterial_nodes::<M>.in_set(RenderSystems::PrepareBindGroups),
-                    ),
-                );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
+            .init_resource::<ExtractedUiMaterialNodes<M>>()
+            .init_resource::<UiMaterialMeta<M>>()
+            .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
+            .add_systems(
+                ExtractSchedule,
+                extract_ui_material_nodes::<M>.in_set(RenderUiSystems::ExtractBackgrounds),
+            )
+            .add_systems(
+                Render,
+                (
+                    queue_ui_material_nodes::<M>.in_set(RenderSystems::Queue),
+                    prepare_uimaterial_nodes::<M>.in_set(RenderSystems::PrepareBindGroups),
+                ),
+            );
     }
 
     fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiMaterialPipeline<M>>();
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app.init_resource::<UiMaterialPipeline<M>>();
     }
 }
 

@@ -142,9 +142,9 @@ impl Plugin for Core3dPlugin {
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
             .add_systems(PostUpdate, check_msaa);
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()

@@ -347,12 +347,13 @@ impl Plugin for LightProbePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
+
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
             .add_systems(ExtractSchedule, gather_environment_map_uniform)

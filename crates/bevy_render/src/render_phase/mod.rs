@@ -1149,9 +1149,9 @@ where
     GFBD: GetFullBatchData + Sync + Send + 'static,
 {
     fn build(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<ViewBinnedRenderPhases<BPI>>()
@@ -1255,9 +1255,9 @@ where
     GFBD: GetFullBatchData + Sync + Send + 'static,
 {
     fn build(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
 
         render_app
             .init_resource::<ViewSortedRenderPhases<SPI>>()

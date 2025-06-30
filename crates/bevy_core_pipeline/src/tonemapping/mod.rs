@@ -90,9 +90,9 @@ impl Plugin for TonemappingPlugin {
             ExtractComponentPlugin::<DebandDither>::default(),
         ));
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app
             .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
             .add_systems(
@@ -102,9 +102,9 @@ impl Plugin for TonemappingPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app.init_resource::<TonemappingPipeline>();
     }
 }

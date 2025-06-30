@@ -89,9 +89,9 @@ impl Plugin for FxaaPlugin {
         app.register_type::<Fxaa>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
             .add_systems(
@@ -119,9 +119,9 @@ impl Plugin for FxaaPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
         render_app.init_resource::<FxaaPipeline>();
     }
 }

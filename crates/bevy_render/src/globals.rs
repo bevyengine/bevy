@@ -18,16 +18,17 @@ impl Plugin for GlobalsPlugin {
         load_shader_library!(app, "globals.wgsl");
         app.register_type::<GlobalsUniform>();
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<GlobalsBuffer>()
-                .init_resource::<Time>()
-                .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
-                .add_systems(
-                    Render,
-                    prepare_globals_buffer.in_set(RenderSystems::PrepareResources),
-                );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<GlobalsBuffer>()
+            .init_resource::<Time>()
+            .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
+            .add_systems(
+                Render,
+                prepare_globals_buffer.in_set(RenderSystems::PrepareResources),
+            );
     }
 }
 

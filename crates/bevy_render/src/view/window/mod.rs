@@ -30,19 +30,20 @@ impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ExtractedWindows>()
-                .init_resource::<WindowSurfaces>()
-                .add_systems(ExtractSchedule, extract_windows)
-                .add_systems(
-                    Render,
-                    create_surfaces
-                        .run_if(need_surface_configuration)
-                        .before(prepare_windows),
-                )
-                .add_systems(Render, prepare_windows.in_set(RenderSystems::ManageViews));
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .init_resource::<ExtractedWindows>()
+            .init_resource::<WindowSurfaces>()
+            .add_systems(ExtractSchedule, extract_windows)
+            .add_systems(
+                Render,
+                create_surfaces
+                    .run_if(need_surface_configuration)
+                    .before(prepare_windows),
+            )
+            .add_systems(Render, prepare_windows.in_set(RenderSystems::ManageViews));
     }
 }
 

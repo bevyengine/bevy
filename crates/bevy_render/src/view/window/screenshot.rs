@@ -407,22 +407,23 @@ impl Plugin for ScreenshotPlugin {
         app.add_systems(Update, trigger_screenshots)
             .insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))));
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .insert_resource(RenderScreenshotsSender(tx))
-                .init_resource::<RenderScreenshotTargets>()
-                .init_resource::<RenderScreenshotsPrepared>()
-                .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
-                .init_resource::<ScreenshotToScreenPipeline>()
-                .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
-                .add_systems(
-                    Render,
-                    prepare_screenshots
-                        .after(prepare_view_attachments)
-                        .before(prepare_view_targets)
-                        .in_set(RenderSystems::ManageViews),
-                );
-        }
+        let render_app = app
+            .get_sub_app_mut(RenderApp)
+            .expect("RenderPlugin has not been added");
+        render_app
+            .insert_resource(RenderScreenshotsSender(tx))
+            .init_resource::<RenderScreenshotTargets>()
+            .init_resource::<RenderScreenshotsPrepared>()
+            .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+            .init_resource::<ScreenshotToScreenPipeline>()
+            .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
+            .add_systems(
+                Render,
+                prepare_screenshots
+                    .after(prepare_view_attachments)
+                    .before(prepare_view_targets)
+                    .in_set(RenderSystems::ManageViews),
+            );
     }
 }
 

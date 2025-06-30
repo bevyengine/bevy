@@ -126,9 +126,9 @@ pub type RenderUiSystem = RenderUiSystems;
 pub fn build_ui_render(app: &mut App) {
     load_shader_library!(app, "ui.wgsl");
 
-    let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-        return;
-    };
+    let render_app = app
+        .get_sub_app_mut(RenderApp)
+        .expect("RenderPlugin has not been added");
 
     render_app
         .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
