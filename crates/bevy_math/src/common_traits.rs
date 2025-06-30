@@ -5,6 +5,7 @@ use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
+use rand_distr::weighted::Weight;
 use variadics_please::all_tuples_enumerated;
 
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
@@ -93,7 +94,7 @@ impl VectorSpace for DVec2 {
 // Every scalar field is a 1-dimensional vector space over itself.
 impl<T: ScalarField> VectorSpace for T {
     type Scalar = Self;
-    const ZERO: Self = Self::ZERO;
+    const ZERO: Self = <Self as ScalarField>::ZERO;
 }
 
 /// A type that supports the operations of a scalar field. An implementation should support:
@@ -119,6 +120,7 @@ pub trait ScalarField:
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
     + Neg<Output = Self>
+    + Weight
     + Default
     + Debug
     + Clone

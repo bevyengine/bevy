@@ -295,8 +295,8 @@ where
 
     // Generate random points on a parallelepiped and reflect so that
     // we can use the points that lie outside the triangle
-    let u = rng.random_range(P::Scalar::ZERO..=P::Scalar::ONE);
-    let v = rng.random_range(P::Scalar::ZERO..=P::Scalar::ONE);
+    let u = rng.random_range(<P::Scalar as ScalarField>::ZERO..=P::Scalar::ONE);
+    let v = rng.random_range(<P::Scalar as ScalarField>::ZERO..=P::Scalar::ONE);
 
     if u + v > P::Scalar::ONE {
         let u1 = P::Scalar::ONE - v;
@@ -319,7 +319,7 @@ where
     let ac = c - a;
     let bc = c - b;
 
-    let t = rng.random_range(P::Scalar::ZERO..=P::Scalar::ONE);
+    let t = rng.random_range(<P::Scalar as ScalarField>::ZERO..=P::Scalar::ONE);
 
     if let Ok(dist) = WeightedIndex::new([ab.norm(), ac.norm(), bc.norm()]) {
         match dist.sample(rng) {
