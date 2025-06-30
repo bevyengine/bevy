@@ -5,7 +5,6 @@ use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
-use rand::distr::weighted::Weight;
 use variadics_please::all_tuples_enumerated;
 
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
@@ -120,7 +119,6 @@ pub trait ScalarField:
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
     + Neg<Output = Self>
-    + Weight
     + Default
     + Debug
     + Clone

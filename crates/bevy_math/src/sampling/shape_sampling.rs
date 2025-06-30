@@ -42,7 +42,7 @@ use core::f32::consts::{PI, TAU};
 
 use crate::{ops, primitives::*, NormedVectorSpace, ScalarField, Vec2, Vec3};
 use rand::{
-    distr::{uniform::SampleUniform, weighted::WeightedIndex, Distribution},
+    distr::{uniform::SampleUniform, weighted::{Weight, WeightedIndex}, Distribution},
     Rng,
 };
 
@@ -294,8 +294,8 @@ where
 
     // Generate random points on a parallelepiped and reflect so that
     // we can use the points that lie outside the triangle
-    let u = rng.random_range(<P::Scalar as ScalarField>::ZERO..=P::Scalar::ONE);
-    let v = rng.random_range(<P::Scalar as ScalarField>::ZERO..=P::Scalar::ONE);
+    let u = rng.random_range(P::Scalar::ZERO..=P::Scalar::ONE);
+    let v = rng.random_range(P::Scalar::ZERO..=P::Scalar::ONE);
 
     if u + v > P::Scalar::ONE {
         let u1 = P::Scalar::ONE - v;
@@ -310,7 +310,7 @@ where
 fn sample_triangle_boundary<P, R>(vertices: [P; 3], rng: &mut R) -> P
 where
     P: NormedVectorSpace,
-    P::Scalar: SampleUniform + PartialOrd + for<'a> ::core::ops::AddAssign<&'a P::Scalar>,
+    P::Scalar: Weight + SampleUniform + PartialOrd + for<'a> ::core::ops::AddAssign<&'a P::Scalar>,
     R: Rng + ?Sized,
 {
     let [a, b, c] = vertices;
