@@ -154,7 +154,7 @@
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
 //! ### Example
-//! To use the query API and retrieve all [`bevy_transform::components::transform::Transform`] objects on all entities you would
+//! To use the query API and retrieve all [`Transform`](bevy_transform::components::transform::Transform) components on all entities you would
 //! use this query:
 //!
 //! ```json
