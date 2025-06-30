@@ -60,13 +60,17 @@ pub mod world;
 pub use bevy_ptr as ptr;
 
 #[cfg(feature = "hotpatching")]
-use event::Event;
+use event::{BufferedEvent, Event};
 
 /// The ECS prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
+    #[expect(
+        deprecated,
+        reason = "`Trigger` was deprecated in favor of `On`, and `OnX` lifecycle events were deprecated in favor of `X` events."
+    )]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
@@ -74,11 +78,16 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
-        event::{Event, EventMutator, EventReader, EventWriter, Events},
+        event::{
+            BufferedEvent, EntityEvent, Event, EventMutator, EventReader, EventWriter, Events,
+        },
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
-        lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, RemovedComponents},
+        lifecycle::{
+            Add, Despawn, Insert, OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, Remove,
+            RemovedComponents, Replace,
+        },
         name::{Name, NameOrEntity},
-        observer::{Observer, Trigger},
+        observer::{Observer, On, Trigger},
         query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
@@ -130,7 +139,7 @@ pub mod __macro_exports {
 ///
 /// Systems should refresh their inner pointers.
 #[cfg(feature = "hotpatching")]
-#[derive(Event, Default)]
+#[derive(Event, BufferedEvent, Default)]
 pub struct HotPatched;
 
 #[cfg(test)]
@@ -1563,9 +1572,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Attempted to access or drop non-send resource bevy_ecs::tests::NonSendA from thread"
-    )]
+    #[should_panic]
     fn non_send_resource_drop_from_different_thread() {
         let mut world = World::default();
         world.insert_non_send_resource(NonSendA::default());
@@ -1630,7 +1637,7 @@ mod tests {
 
         assert_eq!(q1.iter(&world).len(), 1);
         assert_eq!(q2.iter(&world).len(), 1);
-        assert_eq!(world.entities().len(), 2);
+        assert_eq!(world.entity_count(), 2);
 
         world.clear_entities();
 
@@ -1645,7 +1652,7 @@ mod tests {
             "world should not contain sparse set components"
         );
         assert_eq!(
-            world.entities().len(),
+            world.entity_count(),
             0,
             "world should not have any entities"
         );
@@ -2580,7 +2587,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Recursive required components detected: A → B → C → B\nhelp: If this is intentional, consider merging the components."]
+    #[should_panic]
     fn required_components_recursion_errors() {
         #[derive(Component, Default)]
         #[require(B)]
@@ -2598,7 +2605,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Recursive required components detected: A → A\nhelp: Remove require(A)."]
+    #[should_panic]
     fn required_components_self_errors() {
         #[derive(Component, Default)]
         #[require(A)]

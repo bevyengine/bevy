@@ -7,7 +7,7 @@
 //!
 //! ## Implementation Notes
 //!
-//! - The `position` reported in `HitData` in in world space, and the `normal` is a normalized
+//! - The `position` reported in `HitData` in world space, and the `normal` is a normalized
 //!   vector provided by the target's `GlobalTransform::back()`.
 
 use crate::{Anchor, Sprite};

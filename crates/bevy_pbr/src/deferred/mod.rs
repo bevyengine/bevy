@@ -184,9 +184,9 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
-        let bind_group_1 = render_context.render_device().create_bind_group(
-            "deferred_lighting_layout_group_1",
-            &deferred_lighting_layout.bind_group_layout_1,
+        let bind_group_2 = render_context.render_device().create_bind_group(
+            "deferred_lighting_layout_group_2",
+            &deferred_lighting_layout.bind_group_layout_2,
             &BindGroupEntries::single(deferred_lighting_pass_id_binding),
         );
 
@@ -208,7 +208,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(
             0,
-            &mesh_view_bind_group.value,
+            &mesh_view_bind_group.main,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -218,7 +218,8 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 **view_environment_map_offset,
             ],
         );
-        render_pass.set_bind_group(1, &bind_group_1, &[]);
+        render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
+        render_pass.set_bind_group(2, &bind_group_2, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -228,7 +229,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 #[derive(Resource)]
 pub struct DeferredLightingLayout {
     mesh_pipeline: MeshPipeline,
-    bind_group_layout_1: BindGroupLayout,
+    bind_group_layout_2: BindGroupLayout,
     deferred_lighting_shader: Handle<Shader>,
 }
 
@@ -346,11 +347,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
+        let layout = self.mesh_pipeline.get_view_layout(key.into());
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                self.mesh_pipeline.get_view_layout(key.into()).clone(),
-                self.bind_group_layout_1.clone(),
+                layout.main_layout.clone(),
+                layout.binding_array_layout.clone(),
+                self.bind_group_layout_2.clone(),
             ],
             vertex: VertexState {
                 shader: self.deferred_lighting_shader.clone(),
@@ -408,7 +411,7 @@ impl FromWorld for DeferredLightingLayout {
         );
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
-            bind_group_layout_1: layout,
+            bind_group_layout_2: layout,
             deferred_lighting_shader: load_embedded_asset!(world, "deferred_lighting.wgsl"),
         }
     }
@@ -449,6 +452,7 @@ pub fn prepare_deferred_lighting_pipelines(
         ),
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
+        Has<SkipDeferredLighting>,
     )>,
 ) {
     for (
@@ -461,12 +465,13 @@ pub fn prepare_deferred_lighting_pipelines(
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         has_environment_maps,
         has_irradiance_volumes,
+        skip_deferred_lighting,
     ) in &views
     {
-        // If there is no deferred prepass, remove the old pipeline if there was
-        // one. This handles the case in which a view using deferred stops using
-        // it.
-        if !deferred_prepass {
+        // If there is no deferred prepass or we want to skip the deferred lighting pass,
+        // remove the old pipeline if there was one. This handles the case in which a
+        // view using deferred stops using it.
+        if !deferred_prepass || skip_deferred_lighting {
             commands.entity(entity).remove::<DeferredLightingPipeline>();
             continue;
         }
@@ -552,3 +557,14 @@ pub fn prepare_deferred_lighting_pipelines(
             .insert(DeferredLightingPipeline { pipeline_id });
     }
 }
+
+/// Component to skip running the deferred lighting pass in [`DeferredOpaquePass3dPbrLightingNode`] for a specific view.
+///
+/// This works like [`crate::PbrPlugin::add_default_deferred_lighting_plugin`], but is per-view instead of global.
+///
+/// Useful for cases where you want to generate a gbuffer, but skip the built-in deferred lighting pass
+/// to run your own custom lighting pass instead.
+///
+/// Insert this component in the render world only.
+#[derive(Component, Clone, Copy, Default)]
+pub struct SkipDeferredLighting;

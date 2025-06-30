@@ -106,7 +106,7 @@ struct DelayedComponentTimer(Timer);
 #[component(immutable)]
 struct DelayedComponent<B: Bundle>(B);
 
-#[derive(Event)]
+#[derive(Event, EntityEvent)]
 struct Unwrap;
 
 fn tick_timers(
@@ -126,11 +126,8 @@ fn tick_timers(
     }
 }
 
-fn unwrap<B: Bundle>(trigger: Trigger<Unwrap>, world: &mut World) {
-    if let Some(mut target) = trigger
-        .target()
-        .and_then(|target| world.get_entity_mut(target).ok())
-    {
+fn unwrap<B: Bundle>(trigger: On<Unwrap>, world: &mut World) {
+    if let Ok(mut target) = world.get_entity_mut(trigger.target()) {
         if let Some(DelayedComponent(bundle)) = target.take::<DelayedComponent<B>>() {
             target.insert(bundle);
         }

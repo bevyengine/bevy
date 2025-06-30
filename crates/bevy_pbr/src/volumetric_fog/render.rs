@@ -347,7 +347,7 @@ impl ViewNode for VolumetricFogNode {
             view_ssr_offset,
             msaa,
             view_environment_map_offset,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -461,7 +461,7 @@ impl ViewNode for VolumetricFogNode {
             render_pass.set_pipeline(pipeline);
             render_pass.set_bind_group(
                 0,
-                &view_bind_group.value,
+                &view_bind_group.main,
                 &[
                     view_uniform_offset.offset,
                     view_lights_offset.offset,
@@ -511,10 +511,6 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
     type Key = VolumetricFogPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mesh_view_layout = self
-            .mesh_view_layouts
-            .get_view_layout(key.mesh_pipeline_view_key);
-
         // We always use hardware 2x2 filtering for sampling the shadow map; the
         // more accurate versions with percentage-closer filtering aren't worth
         // the overhead.
@@ -559,9 +555,17 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             shader_defs.push("DENSITY_TEXTURE".into());
         }
 
+        let layout = self
+            .mesh_view_layouts
+            .get_view_layout(key.mesh_pipeline_view_key);
+        let layout = vec![
+            layout.main_layout.clone(),
+            volumetric_view_bind_group_layout.clone(),
+        ];
+
         RenderPipelineDescriptor {
             label: Some("volumetric lighting pipeline".into()),
-            layout: vec![mesh_view_layout.clone(), volumetric_view_bind_group_layout],
+            layout,
             push_constant_ranges: vec![],
             vertex: VertexState {
                 shader: self.shader.clone(),
@@ -700,7 +704,7 @@ pub fn prepare_volumetric_fog_uniforms(
     // Do this up front to avoid O(n^2) matrix inversion.
     local_from_world_matrices.clear();
     for (_, _, fog_transform) in fog_volumes.iter() {
-        local_from_world_matrices.push(fog_transform.compute_matrix().inverse());
+        local_from_world_matrices.push(fog_transform.to_matrix().inverse());
     }
 
     let uniform_count = view_targets.iter().len() * local_from_world_matrices.len();
@@ -712,7 +716,7 @@ pub fn prepare_volumetric_fog_uniforms(
     };
 
     for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
-        let world_from_view = extracted_view.world_from_view.compute_matrix();
+        let world_from_view = extracted_view.world_from_view.to_matrix();
 
         let mut view_fog_volumes = vec![];
 

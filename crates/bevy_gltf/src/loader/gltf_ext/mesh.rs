@@ -11,7 +11,7 @@ pub(crate) fn primitive_name(mesh: &Mesh<'_>, material: &Material) -> String {
     let mesh_name = mesh.name().unwrap_or("Mesh");
 
     if let Some(material_name) = material.name() {
-        format!("{}.{}", mesh_name, material_name)
+        format!("{mesh_name}.{material_name}")
     } else {
         mesh_name.to_string()
     }

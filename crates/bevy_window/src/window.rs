@@ -158,10 +158,8 @@ impl ContainsEntity for NormalizedWindowRef {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[require(CursorOptions)]
 pub struct Window {
-    /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
-    /// window entity.
-    pub cursor_options: CursorOptions,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
     /// Which fullscreen or windowing mode should be used.
@@ -470,7 +468,6 @@ impl Default for Window {
         Self {
             title: DEFAULT_WINDOW_TITLE.to_owned(),
             name: None,
-            cursor_options: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
             position: Default::default(),
@@ -706,15 +703,13 @@ impl WindowResizeConstraints {
         min_height = min_height.max(1.);
         if max_width < min_width {
             warn!(
-                "The given maximum width {} is smaller than the minimum width {}",
-                max_width, min_width
+                "The given maximum width {max_width} is smaller than the minimum width {min_width}"
             );
             max_width = min_width;
         }
         if max_height < min_height {
             warn!(
-                "The given maximum height {} is smaller than the minimum height {}",
-                max_height, min_height
+                "The given maximum height {max_height} is smaller than the minimum height {min_height}",
             );
             max_height = min_height;
         }
@@ -728,11 +723,11 @@ impl WindowResizeConstraints {
 }
 
 /// Cursor data for a [`Window`].
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Clone)
+    reflect(Component, Debug, Default, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -754,11 +749,11 @@ pub struct CursorOptions {
     ///
     /// ## Platform-specific
     ///
-    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
     /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
+    /// - **`X11`** doesn't support [`CursorGrabMode::Locked`]
     /// - **`iOS/Android`** don't have cursors.
     ///
-    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+    /// Since `macOS` and `X11` don't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub grab_mode: CursorGrabMode,
 
     /// Set whether or not mouse events within *this* window are captured or fall through to the Window below.
@@ -1067,11 +1062,11 @@ impl From<DVec2> for WindowResolution {
 ///
 /// ## Platform-specific
 ///
-/// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
 /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
+/// - **`X11`** doesn't support [`CursorGrabMode::Locked`]
 /// - **`iOS/Android`** don't have cursors.
 ///
-/// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+/// Since `macOS` and `X11` don't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -1171,13 +1166,17 @@ pub enum MonitorSelection {
 /// References an exclusive fullscreen video mode.
 ///
 /// Used when setting [`WindowMode::Fullscreen`] on a window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Clone)]
 pub enum VideoModeSelection {
     /// Uses the video mode that the monitor is already in.
     Current,

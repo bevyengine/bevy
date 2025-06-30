@@ -39,7 +39,7 @@ mod ui_node;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
-pub use interaction_states::{Checked, InteractionDisabled, Pressed};
+pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -60,7 +60,7 @@ pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
     #[doc(hidden)]
-    pub use crate::widget::{Text, TextUiReader, TextUiWriter};
+    pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -184,7 +184,6 @@ impl Plugin for UiPlugin {
             .register_type::<Outline>()
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
-            .register_type::<TextShadow>()
             .register_type::<ColorStop>()
             .register_type::<AngularColorStop>()
             .register_type::<UiPosition>()
@@ -284,11 +283,12 @@ impl Plugin for UiPlugin {
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextNodeFlags;
     use bevy_text::TextLayoutInfo;
-    use widget::Text;
+    use widget::{Text, TextShadow};
 
     app.register_type::<TextLayoutInfo>()
         .register_type::<TextNodeFlags>()
-        .register_type::<Text>();
+        .register_type::<Text>()
+        .register_type::<TextShadow>();
 
     app.add_systems(
         PostUpdate,
@@ -323,8 +323,10 @@ fn build_text_interop(app: &mut App) {
 
     app.add_observer(interaction_states::on_add_disabled)
         .add_observer(interaction_states::on_remove_disabled)
-        .add_observer(interaction_states::on_insert_is_checked)
-        .add_observer(interaction_states::on_remove_is_checked);
+        .add_observer(interaction_states::on_add_checkable)
+        .add_observer(interaction_states::on_remove_checkable)
+        .add_observer(interaction_states::on_add_checked)
+        .add_observer(interaction_states::on_remove_checked);
 
     app.configure_sets(
         PostUpdate,

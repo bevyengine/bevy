@@ -35,6 +35,8 @@ pub use bevy_core_widgets as core_widgets;
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
 pub use bevy_ecs as ecs;
+#[cfg(feature = "bevy_feathers")]
+pub use bevy_feathers as feathers;
 #[cfg(feature = "bevy_gilrs")]
 pub use bevy_gilrs as gilrs;
 #[cfg(feature = "bevy_gizmos")]
@@ -62,6 +64,8 @@ pub use bevy_remote as remote;
 pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
+#[cfg(feature = "bevy_solari")]
+pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
 #[cfg(feature = "bevy_state")]
