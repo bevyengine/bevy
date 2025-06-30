@@ -517,7 +517,10 @@ file_watcher = ["bevy_internal/file_watcher"]
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
 # Enables using assets from HTTP sources
-http_source = ["bevy_internal/http_source"]
+http = ["bevy_internal/http"]
+
+# Enables using assets from HTTPS sources
+https = ["bevy_internal/https"]
 
 # Assets downloaded from HTTP sources are cached
 http_source_cache = ["bevy_internal/http_source_cache"]
@@ -1902,7 +1905,7 @@ wasm = false
 name = "http_source"
 path = "examples/asset/http_source.rs"
 doc-scrape-examples = true
-required-features = ["http_source"]
+required-features = ["https"]
 
 [package.metadata.example.http_source]
 name = "HTTP Asset Source"

@@ -2,22 +2,40 @@ use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
 use crate::AssetApp;
 use alloc::boxed::Box;
-use bevy_app::App;
+use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
 use std::path::{Path, PathBuf};
 
 /// Adds the `http` and `https` asset sources to the app.
-/// Any asset path that begins with `http` or `https` will be loaded from the web
-/// via `fetch`(wasm) or `ureq`(native).
-pub fn http_source_plugin(app: &mut App) {
-    app.register_asset_source(
-        "http",
-        AssetSource::build().with_reader(|| Box::new(HttpSourceAssetReader::Http)),
-    );
-    app.register_asset_source(
-        "https",
-        AssetSource::build().with_reader(|| Box::new(HttpSourceAssetReader::Https)),
-    );
+///
+/// Any asset path that begins with `http` (when the `http` feature is enabled) or `https` (when the
+/// `https` feature is enabled) will be loaded from the web via `fetch`(wasm) or `ureq`(native).
+pub struct HttpSourcePlugin;
+
+impl Plugin for HttpSourcePlugin {
+    fn build(&self, app: &mut App) {
+        #[cfg(feature = "http")]
+        app.register_asset_source(
+            "http",
+            AssetSource::build()
+                .with_reader(|| Box::new(HttpSourceAssetReader::Http))
+                .with_processed_reader(|| Box::new(HttpSourceAssetReader::Http)),
+        );
+
+        #[cfg(feature = "https")]
+        app.register_asset_source(
+            "https",
+            AssetSource::build()
+                .with_reader(|| Box::new(HttpSourceAssetReader::Https))
+                .with_processed_reader(|| Box::new(HttpSourceAssetReader::Https)),
+        );
+    }
+}
+
+impl Default for HttpSourcePlugin {
+    fn default() -> Self {
+        Self
+    }
 }
 
 /// Asset reader that treats paths as urls to load assets from.
