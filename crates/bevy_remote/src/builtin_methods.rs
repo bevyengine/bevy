@@ -41,9 +41,6 @@ pub const BRP_GET_METHOD: &str = "bevy/get";
 /// The method path for a `bevy/query` request.
 pub const BRP_QUERY_METHOD: &str = "bevy/query";
 
-/// The method path for a `bevy/query_all` request.
-pub const BRP_QUERY_ALL_METHOD: &str = "bevy/query_all";
-
 /// The method path for a `bevy/spawn` request.
 pub const BRP_SPAWN_METHOD: &str = "bevy/spawn";
 
