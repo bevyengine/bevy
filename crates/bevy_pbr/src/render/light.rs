@@ -1877,6 +1877,10 @@ pub fn specialize_shadows(
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
                     continue;
                 };
+                if !material.properties.shadows_enabled {
+                    // If the material is not a shadow caster, we don't need to specialize it.
+                    continue;
+                }
                 if !mesh_instance
                     .flags
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
