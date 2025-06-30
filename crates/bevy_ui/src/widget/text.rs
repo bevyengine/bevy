@@ -128,6 +128,28 @@ impl From<String> for Text {
     }
 }
 
+/// Adds a shadow behind text
+///
+/// Not supported by `Text2d`
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub struct TextShadow {
+    /// Shadow displacement in logical pixels
+    /// With a value of zero the shadow will be hidden directly behind the text
+    pub offset: Vec2,
+    /// Color of the shadow
+    pub color: Color,
+}
+
+impl Default for TextShadow {
+    fn default() -> Self {
+        Self {
+            offset: Vec2::splat(4.),
+            color: Color::linear_rgba(0., 0., 0., 0.75),
+        }
+    }
+}
+
 /// UI alias for [`TextReader`].
 pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 

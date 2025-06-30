@@ -60,12 +60,13 @@ use touch::{touch_screen_input_system, TouchInput, Touches};
 #[cfg(feature = "bevy_reflect")]
 use gamepad::Gamepad;
 use gamepad::{
-    gamepad_connection_system, gamepad_event_processing_system, GamepadAxis,
-    GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
-    GamepadButtonStateChangedEvent, GamepadConnection, GamepadConnectionEvent, GamepadEvent,
-    GamepadInput, GamepadRumbleRequest, GamepadSettings, RawGamepadAxisChangedEvent,
-    RawGamepadButtonChangedEvent, RawGamepadEvent,
+    gamepad_connection_system, gamepad_event_processing_system, GamepadAxisChangedEvent,
+    GamepadButtonChangedEvent, GamepadButtonStateChangedEvent, GamepadConnectionEvent,
+    GamepadEvent, GamepadRumbleRequest, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+    RawGamepadEvent,
 };
+#[cfg(feature = "bevy_reflect")]
+use gamepad::{GamepadAxis, GamepadButton, GamepadConnection, GamepadInput, GamepadSettings};
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};

@@ -7,7 +7,7 @@ use core::any::type_name;
 use disqualified::ShortName;
 
 #[cfg(not(feature = "debug"))]
-const FEATURE_DISABLED: &'static str = "Enable the debug feature to see the name";
+const FEATURE_DISABLED: &str = "Enable the debug feature to see the name";
 
 /// Wrapper to help debugging ECS issues. This is used to display the names of systems, components, ...
 ///
@@ -36,7 +36,13 @@ impl DebugName {
     /// Create a new `DebugName` from a `&str`
     ///
     /// The value will be ignored if the `debug` feature is not enabled
-    #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
+    #[cfg_attr(
+        not(feature = "debug"),
+        expect(
+            unused_variables,
+            reason = "The value will be ignored if the `debug` feature is not enabled"
+        )
+    )]
     pub fn borrowed(value: &'static str) -> Self {
         DebugName {
             #[cfg(feature = "debug")]
@@ -48,7 +54,13 @@ impl DebugName {
         /// Create a new `DebugName` from a `String`
         ///
         /// The value will be ignored if the `debug` feature is not enabled
-        #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
+        #[cfg_attr(
+            not(feature = "debug"),
+            expect(
+                unused_variables,
+                reason = "The value will be ignored if the `debug` feature is not enabled"
+            )
+        )]
         pub fn owned(value: String) -> Self {
             DebugName {
                 #[cfg(feature = "debug")]
@@ -88,7 +100,13 @@ impl DebugName {
 
 cfg::alloc! {
     impl From<Cow<'static, str>> for DebugName {
-        #[cfg_attr(not(feature = "debug"), expect(unused_variables))]
+        #[cfg_attr(
+            not(feature = "debug"),
+            expect(
+                unused_variables,
+                reason = "The value will be ignored if the `debug` feature is not enabled"
+            )
+        )]
         fn from(value: Cow<'static, str>) -> Self {
             Self {
                 #[cfg(feature = "debug")]
