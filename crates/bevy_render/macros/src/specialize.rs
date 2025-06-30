@@ -475,7 +475,7 @@ pub fn impl_specialize_key(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ident = ast.ident;
     TokenStream::from(quote!(
-        impl #specialize_path::SpecializeKey for #ident {
+        impl #specialize_path::SpecializationKey for #ident {
             const IS_CANONICAL: bool = true;
             type Canonical = Self;
         }
