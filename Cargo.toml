@@ -623,7 +623,7 @@ nonmax = "0.5"
 smol = "2"
 smol-macros = "0.1"
 smol-hyper = "0.1"
-# ureq = { version = "3", features = ["json"] }
+ureq = { version = "3", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
