@@ -55,19 +55,25 @@ pub struct LatePrepassNode;
 
 impl ViewNode for LatePrepassNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static ExtractedView,
-        &'static ViewDepthTexture,
-        &'static ViewPrepassTextures,
-        &'static ViewUniformOffset,
-        Option<&'static DeferredPrepass>,
-        Option<&'static RenderSkyboxPrepassPipeline>,
-        Option<&'static SkyboxPrepassBindGroup>,
-        Option<&'static PreviousViewUniformOffset>,
-        Option<&'static MainPassResolutionOverride>,
-        Has<OcclusionCulling>,
-        Has<NoIndirectDrawing>,
-        Has<DeferredPrepass>,
+        (
+            &'static ExtractedCamera,
+            &'static ExtractedView,
+            &'static ViewDepthTexture,
+            &'static ViewPrepassTextures,
+            &'static ViewUniformOffset,
+        ),
+        (
+            Option<&'static DeferredPrepass>,
+            Option<&'static RenderSkyboxPrepassPipeline>,
+            Option<&'static SkyboxPrepassBindGroup>,
+            Option<&'static PreviousViewUniformOffset>,
+            Option<&'static MainPassResolutionOverride>,
+        ),
+        (
+            Has<OcclusionCulling>,
+            Has<NoIndirectDrawing>,
+            Has<DeferredPrepass>,
+        ),
     );
 
     fn run<'w>(
@@ -79,7 +85,7 @@ impl ViewNode for LatePrepassNode {
     ) -> Result<(), NodeRunError> {
         // We only need a late prepass if we have occlusion culling and indirect
         // drawing.
-        let (.., occlusion_culling, no_indirect_drawing, _) = query;
+        let (_, _, (occlusion_culling, no_indirect_drawing, _)) = query;
         if !occlusion_culling || no_indirect_drawing {
             return Ok(());
         }
@@ -101,19 +107,15 @@ fn run_prepass<'w>(
     graph: &mut RenderGraphContext,
     render_context: &mut RenderContext<'w>,
     (
-        camera,
-        extracted_view,
-        view_depth_texture,
-        view_prepass_textures,
-        view_uniform_offset,
-        deferred_prepass,
-        skybox_prepass_pipeline,
-        skybox_prepass_bind_group,
-        view_prev_uniform_offset,
-        resolution_override,
-        _,
-        _,
-        has_deferred,
+        (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
+        (
+            deferred_prepass,
+            skybox_prepass_pipeline,
+            skybox_prepass_bind_group,
+            view_prev_uniform_offset,
+            resolution_override,
+        ),
+        (_, _, has_deferred),
     ): QueryItem<'w, '_, <LatePrepassNode as ViewNode>::ViewQuery>,
     world: &'w World,
     label: &'static str,
