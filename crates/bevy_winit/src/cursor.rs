@@ -22,8 +22,8 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    lifecycle::OnRemove,
-    observer::Trigger,
+    lifecycle::Remove,
+    observer::On,
     query::With,
     reflect::ReflectComponent,
     system::{Commands, Local, Query},
@@ -192,10 +192,10 @@ fn update_cursors(
 }
 
 /// Resets the cursor to the default icon when `CursorIcon` is removed.
-fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
+fn on_remove_cursor_icon(trigger: On<Remove, CursorIcon>, mut commands: Commands) {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
-        .entity(trigger.target().unwrap())
+        .entity(trigger.target())
         .try_insert(PendingCursor(Some(CursorSource::System(
             convert_system_cursor_icon(SystemCursorIcon::Default),
         ))));

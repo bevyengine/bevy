@@ -1043,9 +1043,11 @@ pub enum BoxSizing {
     /// Length styles like width and height refer to the "content box" size (size excluding padding and border)
     ContentBox,
 }
+
 impl BoxSizing {
     pub const DEFAULT: Self = Self::BorderBox;
 }
+
 impl Default for BoxSizing {
     fn default() -> Self {
         Self::DEFAULT
@@ -2244,6 +2246,11 @@ pub struct CalculatedClip {
     pub clip: Rect,
 }
 
+/// UI node entities with this component will ignore any clipping rect they inherit,
+/// the node will not be clipped regardless of its ancestors' `Overflow` setting.
+#[derive(Component)]
+pub struct OverrideClip;
+
 /// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
 /// of sibling nodes with a lower z-index.
@@ -2871,26 +2878,6 @@ impl ComputedNodeTarget {
 
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
-    }
-}
-
-/// Adds a shadow behind text
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, Default, Debug, Clone, PartialEq)]
-pub struct TextShadow {
-    /// Shadow displacement in logical pixels
-    /// With a value of zero the shadow will be hidden directly behind the text
-    pub offset: Vec2,
-    /// Color of the shadow
-    pub color: Color,
-}
-
-impl Default for TextShadow {
-    fn default() -> Self {
-        Self {
-            offset: Vec2::splat(4.),
-            color: Color::linear_rgba(0., 0., 0., 0.75),
-        }
     }
 }
 

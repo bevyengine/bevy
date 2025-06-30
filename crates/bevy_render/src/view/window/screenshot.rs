@@ -22,7 +22,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
-use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
@@ -39,7 +39,7 @@ use std::{
 use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
-#[derive(Event, Deref, DerefMut, Reflect, Debug)]
+#[derive(Event, EntityEvent, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ScreenshotCaptured(pub Image);
 
@@ -122,7 +122,7 @@ struct RenderScreenshotsPrepared(EntityHashMap<ScreenshotPreparedState>);
 struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 
 /// Saves the captured screenshot to disk at the provided path.
-pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCaptured>) {
+pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
     move |trigger| {
         let img = trigger.event().deref().clone();
@@ -321,11 +321,7 @@ fn prepare_screenshots(
                     continue;
                 };
                 let format = manual_texture_view.format;
-                let size = Extent3d {
-                    width: manual_texture_view.size.x,
-                    height: manual_texture_view.size.y,
-                    ..default()
-                };
+                let size = manual_texture_view.size.to_extents();
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
                     format,

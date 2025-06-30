@@ -6,6 +6,7 @@ mod relationship_source_collection;
 
 use alloc::format;
 
+use bevy_utils::prelude::DebugName;
 pub use related_methods::*;
 pub use relationship_query::*;
 pub use relationship_source_collection::*;
@@ -13,7 +14,7 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
-    error::{ignore, CommandWithEntity, HandleError},
+    error::CommandWithEntity,
     lifecycle::HookContext,
     world::{DeferredWorld, EntityWorldMut},
 };
@@ -81,6 +82,20 @@ pub trait Relationship: Component + Sized {
     /// Creates this [`Relationship`] from the given `entity`.
     fn from(entity: Entity) -> Self;
 
+    /// Changes the current [`Entity`] ID of the entity containing the [`RelationshipTarget`] to another one.
+    ///
+    /// This is useful for updating the relationship without overwriting other fields stored in `Self`.
+    ///
+    /// # Warning
+    ///
+    /// This should generally not be called by user code, as modifying the related entity could invalidate the
+    /// relationship. If this method is used, then the hooks [`on_replace`](Relationship::on_replace) have to
+    /// run before and [`on_insert`](Relationship::on_insert) after it.
+    /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
+    ///
+    /// Prefer to use regular means of insertions when possible.
+    fn set_risky(&mut self, entity: Entity);
+
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     fn on_insert(
         mut world: DeferredWorld,
@@ -105,8 +120,8 @@ pub trait Relationship: Component + Sized {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
-                core::any::type_name::<Self>(),
-                core::any::type_name::<Self>()
+                DebugName::type_name::<Self>(),
+                DebugName::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
             return;
@@ -125,8 +140,8 @@ pub trait Relationship: Component + Sized {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
-                core::any::type_name::<Self>(),
-                core::any::type_name::<Self>()
+                DebugName::type_name::<Self>(),
+                DebugName::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
         }
@@ -172,7 +187,7 @@ pub trait Relationship: Component + Sized {
 
                     world
                         .commands()
-                        .queue(command.with_entity(target_entity).handle_error_with(ignore));
+                        .queue_silenced(command.with_entity(target_entity));
                 }
             }
         }
@@ -229,7 +244,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
         for source_entity in relationship_target.iter() {
             commands
                 .entity(source_entity)
-                .remove::<Self::Relationship>();
+                .try_remove::<Self::Relationship>();
         }
     }
 
@@ -240,7 +255,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            commands.entity(source_entity).despawn();
+            commands.entity(source_entity).try_despawn();
         }
     }
 
