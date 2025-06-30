@@ -1,0 +1,19 @@
+---
+title: HTTP Assets
+authors: ["@johanhelsing", "@mrchantey", "@jf908"]
+pull_requests: [17889]
+---
+
+Bevy now supports downloading assets over http and https.
+Use the new `http` and `https` features to enable `http://` and `https://` URLs as asset paths.
+This functionality is powered by the [`ureq`](https://github.com/algesten/ureq) crate on native platforms and the fetch API on wasm.
+
+```rust
+let image = asset_server.load("https://example.com/image.png");
+commands.spawn(Sprite::from_image(image));
+```
+
+By default these assets aren’t saved anywhere but you can enable the `http_source` feature to cache assets on your file system.
+
+The implementation has changed quite a bit but this feature originally started out as an upstreaming of the [`bevy_web_asset`](https://github.com/johanhelsing/bevy_web_asset) crate.
+Special thanks to @johanhelsing and bevy_web_asset's contributors!
