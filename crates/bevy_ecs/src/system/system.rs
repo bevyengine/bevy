@@ -420,10 +420,9 @@ impl Display for RunSystemError {
         match self {
             Self::Skipped(err) => write!(
                 f,
-                "System did not run due to failed parameter validation: {}",
-                err
+                "System did not run due to failed parameter validation: {err}"
             ),
-            Self::Failed(err) => write!(f, "{}", err),
+            Self::Failed(err) => write!(f, "{err}"),
         }
     }
 }
