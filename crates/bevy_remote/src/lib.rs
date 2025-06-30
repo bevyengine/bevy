@@ -157,7 +157,7 @@
 //! To use the query API and retrieve all [`bevy_transform::components::transform::Transform`] objects on all entities you would
 //! use this query:
 //!
-//! //! ```json
+//! ```json
 //! {
 //!     "jsonrpc": "2.0",
 //!     "method": "bevy/query",
@@ -178,7 +178,7 @@
 //! ```
 //!
 //!
-//! To query all entities and all of their Reflectable components (and retrieve their values), you can pass and empty array for `components` and `option`:
+//! To query all entities and all of their Reflectable components (and retrieve their values), you can pass and empty array for components and option:
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",

@@ -839,8 +839,8 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
 }
 
 /// Serializes the specified components for an entity.
-/// The iterator yields (type_id, Option<component_id>).
-fn serialize_components<'a>(
+/// The iterator yields (`type_id`, `Option<component_id>`).
+fn serialize_components(
     entity_ref: EntityRef,
     type_registry: &TypeRegistry,
     components: impl Iterator<Item = (TypeId, Option<ComponentId>)>,
