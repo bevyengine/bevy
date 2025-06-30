@@ -323,44 +323,15 @@ impl Default for ComputedNode {
 
 /// The scroll position of the node.
 ///
-/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
+/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount in logical pixels.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
 /// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct ScrollPosition {
-    /// How far across the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to right)
-    pub offset_x: f32,
-    /// How far down the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to top)
-    pub offset_y: f32,
-}
+pub struct ScrollPosition(pub Vec2);
 
 impl ScrollPosition {
-    pub const DEFAULT: Self = Self {
-        offset_x: 0.0,
-        offset_y: 0.0,
-    };
-}
-
-impl Default for ScrollPosition {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl From<&ScrollPosition> for Vec2 {
-    fn from(scroll_pos: &ScrollPosition) -> Self {
-        Vec2::new(scroll_pos.offset_x, scroll_pos.offset_y)
-    }
-}
-
-impl From<Vec2> for ScrollPosition {
-    fn from(vec: Vec2) -> Self {
-        ScrollPosition {
-            offset_x: vec.x,
-            offset_y: vec.y,
-        }
-    }
+    pub const DEFAULT: Self = Self(Vec2::ZERO);
 }
 
 /// The base component for UI entities. It describes UI layout and style properties.
