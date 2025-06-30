@@ -6,9 +6,7 @@ use argh::FromArgs;
 use bevy::{
     log::info,
     remote::{
-        builtin_methods::{
-            BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_ALL_METHOD, BRP_QUERY_METHOD,
-        },
+        builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_METHOD},
         http::{DEFAULT_ADDR, DEFAULT_PORT},
         BrpRequest,
     },
@@ -81,13 +79,17 @@ fn main() -> AnyhowResult<()> {
     /// component values.
     let query_all_req = BrpRequest {
         jsonrpc: String::from("2.0"),
-        method: String::from(BRP_QUERY_ALL_METHOD),
+        method: String::from(BRP_QUERY_METHOD),
         id: Some(serde_json::to_value(1)?),
         params: Some(
-            serde_json::to_value(BrpQueryAllParams {
+            serde_json::to_value(BrpQueryParams {
+                data: BrpQuery {
+                    components: Vec::default(),
+                    option: Vec::default(),
+                    has: Vec::default(),
+                },
                 filter: BrpQueryFilter::default(),
-                root_only: false,
-                entities: Vec::default(),
+                strict: false,
             })
             .expect("Unable to convert query parameters to a valid JSON value"),
         ),

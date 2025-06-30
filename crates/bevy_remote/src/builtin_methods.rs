@@ -7,14 +7,14 @@ use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
     event::EventCursor,
-    hierarchy::{ChildOf, Children},
+    hierarchy::ChildOf,
     lifecycle::RemovedComponentEntity,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     GetPath, PartialReflect, TypeRegistration, TypeRegistry,
@@ -767,18 +767,6 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         query.with_id(with);
     }
 
-    // At this point, we can safely unify `components` and `option`, since we only retrieved
-    // entities that actually have all the `components` already.
-    //
-    // We also will just collect the `ReflectComponent` values from the type registry all
-    // at once so that we can reuse them between components.
-    let paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = components
-        .into_iter()
-        .chain(option)
-        .map(|(type_id, _)| reflect_component_from_id(type_id, &type_registry))
-        .collect::<AnyhowResult<Vec<(&str, &ReflectComponent)>>>()
-        .map_err(BrpError::component_error)?;
-
     // ... and the analogous construction for `has`:
     let has_paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = has
         .into_iter()
@@ -789,13 +777,43 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     let mut response = BrpQueryResponse::default();
     let mut query = query.build();
     for row in query.iter(world) {
-        // The map of component values:
-        let components_map = build_components_map(
-            row.clone(),
-            paths_and_reflect_components.iter().copied(),
-            &type_registry,
-        )
-        .map_err(BrpError::component_error)?;
+        let entity_id = row.id();
+        let entity_ref = world.get_entity(entity_id).expect("Entity should exist");
+
+        let mut components_map = HashMap::new();
+        if components.is_empty() {
+            for component_id in entity_ref.archetype().components() {
+                let info = match world.components().get_info(component_id) {
+                    Some(info) => info,
+                    None => continue, // Skip if info is missing
+                };
+                let type_id = match info.type_id() {
+                    Some(type_id) => type_id,
+                    None => continue, // Skip if type_id is missing
+                };
+                let type_registration = match type_registry.get(type_id) {
+                    Some(reg) => reg,
+                    None => continue, // Skip if not registered for reflection
+                };
+                if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
+                    if let Some(reflected) = reflect_component.reflect(entity_ref) {
+                        let reflect_serializer =
+                            ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
+                        if let Ok(Value::Object(obj)) = serde_json::to_value(&reflect_serializer) {
+                            components_map.extend(obj);
+                        } else {
+                            // If serialization fails, skip this component, but log an error.
+                            println!(
+                                "Failed to serialize component `{}` for entity {:?}",
+                                info.name(),
+                                entity_id
+                            );
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
 
         // The map of boolean-valued component presences:
         let has_map = build_has_map(
@@ -803,123 +821,14 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
             has_paths_and_reflect_components.iter().copied(),
             &unregistered_in_has,
         );
-        response.push(BrpQueryRow {
+
+        let query_row = BrpQueryRow {
             entity: row.id(),
             components: components_map,
             has: has_map,
-        });
-    }
+        };
 
-    serde_json::to_value(response).map_err(BrpError::internal)
-}
-
-/// Parameters for the `bevy/query_all` request.
-#[derive(Deserialize)]
-pub struct BrpQueryAllParams {
-    /// The filter to apply to the query.
-    #[serde(default)]
-    filter: BrpQueryFilter,
-    /// If true, only root entities (entities without children) will be returned.
-    #[serde(default)]
-    root_only: bool,
-    /// The list of entity IDs to query. If empty, all entities will be queried.
-    #[serde(default)]
-    entities: Vec<Entity>,
-}
-
-/// Handles a `bevy/query_all` request coming from a client.
-/// Returns all entities and all their components (with values), with optional filtering.
-/// This is a more expensive operation than `bevy/query`.
-/// You can specify a filter like below:
-///
-///
-/// {
-///   "filter": { "with": ["SomeComponent"] },
-///   "root_only": false,
-///   "entities": [123, 456]
-/// }
-pub fn process_remote_query_all_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
-    let BrpQueryAllParams {
-        filter,
-        root_only,
-        entities,
-    } = params
-        .map(|v| serde_json::from_value(v).map_err(BrpError::internal))
-        .transpose()?
-        .unwrap_or(BrpQueryAllParams {
-            filter: BrpQueryFilter::default(),
-            root_only: false,
-            entities: Vec::new(),
-        });
-
-    let app_type_registry = world.resource::<AppTypeRegistry>();
-    let type_registry = app_type_registry.read();
-
-    // Prepare filter sets
-    let with_set: HashSet<_> = filter.with.iter().cloned().collect();
-    let without_set: HashSet<_> = filter.without.iter().cloned().collect();
-
-    let mut response = BrpQueryResponse::default();
-    // If no entities are specified, query all entities in the world.
-    let filter_entities = !entities.is_empty();
-
-    'entity: for entity_ref in world.iter_entities() {
-        // If entities filter is set, skip if not in the list
-        if filter_entities && !entities.contains(&entity_ref.id()) {
-            continue 'entity;
-        }
-
-        // Filtering: skip entities that don't match the filter
-        let mut present_types = HashSet::new();
-        for component_id in entity_ref.archetype().components() {
-            if let Some(component_info) = world.components().get_info(component_id) {
-                let type_name = component_info.name().to_string();
-                present_types.insert(type_name);
-            }
-        }
-        // Must have all "with"
-        if !with_set.is_subset(&present_types) {
-            continue 'entity;
-        }
-        // Must have none of "without"
-        if !without_set.is_disjoint(&present_types) {
-            continue 'entity;
-        }
-
-        // If root_only is set, skip entities without children
-        if root_only && entity_ref.get::<Children>().is_none() {
-            continue 'entity;
-        }
-
-        let entity = entity_ref.id();
-        let mut components_map = HashMap::new();
-
-        for component_id in entity_ref.archetype().components() {
-            let Some(component_info) = world.components().get_info(component_id) else {
-                continue;
-            };
-            let type_path = component_info.name().to_string();
-            if let Some(type_registration) = type_registry.get_with_type_path(type_path.as_str()) {
-                // Reflect the component value and serialize it.
-                if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-                    if let Some(reflected) = reflect_component.reflect(entity_ref.clone()) {
-                        let reflect_serializer =
-                            ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
-                        if let Ok(Value::Object(serialized_object)) =
-                            serde_json::to_value(&reflect_serializer)
-                        {
-                            components_map.extend(serialized_object.into_iter());
-                        }
-                    }
-                }
-            }
-        }
-
-        response.push(BrpQueryRow {
-            entity,
-            components: components_map,
-            has: HashMap::new(),
-        });
+        response.push(query_row);
     }
 
     serde_json::to_value(response).map_err(BrpError::internal)
@@ -1441,36 +1350,6 @@ fn get_component_ids(
     }
 
     Ok((component_ids, unregistered_components))
-}
-
-/// Given an entity (`entity_ref`) and a list of reflected component information
-/// (`paths_and_reflect_components`), return a map which associates each component to
-/// its serialized value from the entity.
-///
-/// This is intended to be used on an entity which has already been filtered; components
-/// where the value is not present on an entity are simply skipped.
-fn build_components_map<'a>(
-    entity_ref: FilteredEntityRef,
-    paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
-    type_registry: &TypeRegistry,
-) -> AnyhowResult<HashMap<String, Value>> {
-    let mut serialized_components_map = <HashMap<_, _>>::default();
-
-    for (type_path, reflect_component) in paths_and_reflect_components {
-        let Some(reflected) = reflect_component.reflect(entity_ref.clone()) else {
-            continue;
-        };
-
-        let reflect_serializer =
-            ReflectSerializer::new(reflected.as_partial_reflect(), type_registry);
-        let Value::Object(serialized_object) = serde_json::to_value(&reflect_serializer)? else {
-            return Err(anyhow!("Component `{}` could not be serialized", type_path));
-        };
-
-        serialized_components_map.extend(serialized_object.into_iter());
-    }
-
-    Ok(serialized_components_map)
 }
 
 /// Given an entity (`entity_ref`),
