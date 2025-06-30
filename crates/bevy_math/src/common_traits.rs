@@ -5,7 +5,7 @@ use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
-use rand_distr::weighted::Weight;
+use rand::distr::weighted::Weight;
 use variadics_please::all_tuples_enumerated;
 
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
