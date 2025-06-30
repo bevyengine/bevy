@@ -1,4 +1,5 @@
 use core::fmt;
+use indexmap::IndexSet;
 use proc_macro2::Span;
 
 use crate::{
@@ -607,9 +608,12 @@ impl<'a> ReflectStruct<'a> {
 
     /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<Type> {
+        // Collect via `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
-            .collect()
+            .collect::<IndexSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API.
@@ -851,9 +855,12 @@ impl<'a> ReflectEnum<'a> {
 
     /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<Type> {
+        // Collect via `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
-            .collect()
+            .collect::<IndexSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API
