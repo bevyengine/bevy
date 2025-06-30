@@ -274,11 +274,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
         .chunks(4)
         .map(|pixel| {
             images.add(Image::new_fill(
-                Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
+                Extent3d::default(),
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,

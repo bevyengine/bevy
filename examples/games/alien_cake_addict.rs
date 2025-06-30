@@ -25,7 +25,6 @@ fn main() {
             TimerMode::Repeating,
         )))
         .init_state::<GameState>()
-        .enable_state_scoped_entities::<GameState>()
         .add_systems(Startup, setup_cameras)
         .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(
@@ -204,7 +203,7 @@ fn move_player(
     mut transforms: Query<&mut Transform>,
     time: Res<Time>,
 ) {
-    if game.player.move_cooldown.tick(time.delta()).finished() {
+    if game.player.move_cooldown.tick(time.delta()).is_finished() {
         let mut moved = false;
         let mut rotation = 0.0;
 
@@ -315,7 +314,7 @@ fn spawn_bonus(
     mut rng: ResMut<Random>,
 ) {
     // make sure we wait enough time before spawning the next cake
-    if !timer.0.tick(time.delta()).finished() {
+    if !timer.0.tick(time.delta()).is_finished() {
         return;
     }
 

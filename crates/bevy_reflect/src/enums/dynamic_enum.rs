@@ -13,9 +13,12 @@ use derive_more::derive::From;
 /// A dynamic representation of an enum variant.
 #[derive(Debug, Default, From)]
 pub enum DynamicVariant {
+    /// A unit variant.
     #[default]
     Unit,
+    /// A tuple variant.
     Tuple(DynamicTuple),
+    /// A struct variant.
     Struct(DynamicStruct),
 }
 
@@ -114,8 +117,7 @@ impl DynamicEnum {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Enum(_)),
-                "expected TypeInfo::Enum but received: {:?}",
-                represented_type
+                "expected TypeInfo::Enum but received: {represented_type:?}",
             );
         }
 

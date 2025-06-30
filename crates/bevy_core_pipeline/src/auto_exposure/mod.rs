@@ -1,12 +1,12 @@
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_asset::{embedded_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssetPlugin,
     render_graph::RenderGraphApp,
     render_resource::{
-        Buffer, BufferDescriptor, BufferUsages, PipelineCache, Shader, SpecializedComputePipelines,
+        Buffer, BufferDescriptor, BufferUsages, PipelineCache, SpecializedComputePipelines,
     },
     renderer::RenderDevice,
     ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -21,9 +21,7 @@ mod settings;
 use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers};
 pub use compensation_curve::{AutoExposureCompensationCurve, AutoExposureCompensationCurveError};
 use node::AutoExposureNode;
-use pipeline::{
-    AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline, METERING_SHADER_HANDLE,
-};
+use pipeline::{AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline};
 pub use settings::AutoExposure;
 
 use crate::{
@@ -43,12 +41,7 @@ struct AutoExposureResources {
 
 impl Plugin for AutoExposurePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            METERING_SHADER_HANDLE,
-            "auto_exposure.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "auto_exposure.wgsl");
 
         app.add_plugins(RenderAssetPlugin::<GpuAutoExposureCompensationCurve>::default())
             .register_type::<AutoExposureCompensationCurve>()
