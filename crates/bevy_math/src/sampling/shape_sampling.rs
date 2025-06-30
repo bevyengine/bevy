@@ -42,7 +42,11 @@ use core::f32::consts::{PI, TAU};
 
 use crate::{ops, primitives::*, NormedVectorSpace, ScalarField, Vec2, Vec3};
 use rand::{
-    distr::{uniform::SampleUniform, weighted::{Weight, WeightedIndex}, Distribution},
+    distr::{
+        uniform::SampleUniform,
+        weighted::{Weight, WeightedIndex},
+        Distribution,
+    },
     Rng,
 };
 
