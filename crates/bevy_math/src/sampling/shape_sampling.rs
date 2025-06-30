@@ -42,10 +42,9 @@ use core::f32::consts::{PI, TAU};
 
 use crate::{ops, primitives::*, NormedVectorSpace, ScalarField, Vec2, Vec3};
 use rand::{
-    distr::{weighted::WeightedIndex, Distribution},
+    distr::{uniform::SampleUniform, weighted::WeightedIndex, Distribution},
     Rng,
 };
-use rand_distr::uniform::SampleUniform;
 
 /// Exposes methods to uniformly sample a variety of primitive shapes.
 pub trait ShapeSample {
