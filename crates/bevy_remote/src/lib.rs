@@ -179,7 +179,6 @@
 //!
 //!
 //! To query all entities and all of their Reflectable components (and retrieve their values), you can pass and empty array for `components` and `option`:
-//!
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
