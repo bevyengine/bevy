@@ -716,9 +716,20 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
             option,
             has,
         },
-        filter: BrpQueryFilter { without, with },
+        filter,
         strict,
-    } = parse_some(params)?;
+    } = match params {
+        Some(params) => parse_some(Some(params))?,
+        None => BrpQueryParams {
+            data: BrpQuery {
+                components: Vec::new(),
+                option: Vec::new(),
+                has: Vec::new(),
+            },
+            filter: BrpQueryFilter::default(),
+            strict: false,
+        },
+    };
 
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
@@ -730,6 +741,11 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         .map_err(BrpError::component_error)?;
     let (has, unregistered_in_has) =
         get_component_ids(&type_registry, world, has, strict).map_err(BrpError::component_error)?;
+
+    // Extract filter "without" and filter "with" for use below
+    let without = filter.without.clone();
+    let with = filter.with.clone();
+
     let (without, _) = get_component_ids(&type_registry, world, without, strict)
         .map_err(BrpError::component_error)?;
     let (with, unregistered_in_with) = get_component_ids(&type_registry, world, with, strict)
@@ -778,37 +794,30 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         let entity_id = row.id();
         let entity_ref = world.get_entity(entity_id).expect("Entity should exist");
 
-        let mut components_map = HashMap::new();
-        if components.is_empty() {
-            for component_id in entity_ref.archetype().components() {
-                let Some(info) = world.components().get_info(component_id) else {
-                    continue;
-                };
-                let Some(type_id) = info.type_id() else {
-                    continue;
-                };
-                let Some(type_registration) = type_registry.get(type_id) else {
-                    continue;
-                };
-                if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-                    if let Some(reflected) = reflect_component.reflect(entity_ref) {
-                        let reflect_serializer =
-                            ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
-                        if let Ok(Value::Object(obj)) = serde_json::to_value(&reflect_serializer) {
-                            components_map.extend(obj);
-                        } else {
-                            // If serialization fails, skip this component, but log an error.
-                            warn_once!(
-                                "Failed to serialize component `{}` for entity {:?}",
-                                info.name(),
-                                entity_id
-                            );
-                            continue;
-                        }
-                    }
-                }
-            }
-        }
+        let components_map = if components.is_empty() {
+            // All reflectable components present on the entity
+            serialize_components(
+                entity_ref,
+                &type_registry,
+                entity_ref
+                    .archetype()
+                    .components()
+                    .filter_map(|component_id| {
+                        let info = world.components().get_info(component_id)?;
+                        let type_id = info.type_id()?;
+                        Some((type_id, Some(component_id)))
+                    }),
+            )
+        } else {
+            // Only the requested components
+            serialize_components(
+                entity_ref,
+                &type_registry,
+                components
+                    .iter()
+                    .map(|(type_id, component_id)| (*type_id, Some(*component_id))),
+            )
+        };
 
         // The map of boolean-valued component presences:
         let has_map = build_has_map(
@@ -827,6 +836,43 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     }
 
     serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+/// Serializes the specified components for an entity.
+/// The iterator yields (type_id, Option<component_id>).
+fn serialize_components<'a>(
+    entity_ref: EntityRef,
+    type_registry: &TypeRegistry,
+    components: impl Iterator<Item = (TypeId, Option<ComponentId>)>,
+) -> HashMap<String, Value> {
+    let mut components_map = HashMap::new();
+    for (type_id, component_id_opt) in components {
+        let Some(type_registration) = type_registry.get(type_id) else {
+            continue;
+        };
+        if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
+            // If a component_id is provided, check if the entity has it
+            if let Some(component_id) = component_id_opt {
+                if !entity_ref.contains_id(component_id) {
+                    continue;
+                }
+            }
+            if let Some(reflected) = reflect_component.reflect(entity_ref) {
+                let reflect_serializer =
+                    ReflectSerializer::new(reflected.as_partial_reflect(), type_registry);
+                if let Ok(Value::Object(obj)) = serde_json::to_value(&reflect_serializer) {
+                    components_map.extend(obj);
+                } else {
+                    warn_once!(
+                        "Failed to serialize component `{}` for entity {:?}",
+                        type_registration.type_info().type_path(),
+                        entity_ref.id()
+                    );
+                }
+            }
+        }
+    }
+    components_map
 }
 
 /// Handles a `bevy/spawn` request coming from a client.

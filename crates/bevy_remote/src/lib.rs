@@ -154,8 +154,31 @@
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
 //! ### Example
-//! To query all entities and all of their Reflectable components (and retrieve their values), you can pass
-//! something like this in the JSON:
+//! To use the query API and retrieve all [`bevy_transform::components::transform::Transform`] objects on all entities you would
+//! use this query:
+//!
+//! //! ```json
+//! {
+//!     "jsonrpc": "2.0",
+//!     "method": "bevy/query",
+//!     "id": 0,
+//!     "params": {
+//!         "data": {
+//!             "components": ["bevy_transform::components::transform::Transform"]
+//!             "option": [],
+//!             "has": []
+//!        },
+//!        "filter": {
+//!           "with": [],
+//!           "without": []
+//!         },
+//!         "strict": false
+//!     }
+//! }
+//! ```
+//!
+//!
+//! To query all entities and all of their Reflectable components (and retrieve their values), you can pass and empty array for `components` and `option`:
 //!
 //! ```json
 //! {
