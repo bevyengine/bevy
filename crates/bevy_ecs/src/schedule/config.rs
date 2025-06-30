@@ -2,8 +2,6 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use variadics_please::all_tuples;
 
 use crate::{
-    error::Result,
-    never::Never,
     schedule::{
         auto_insert_apply_deferred::IgnoreDeferred,
         condition::{BoxedCondition, SystemCondition},
@@ -11,11 +9,11 @@ use crate::{
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },
-    system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
+    system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
 };
 
-fn new_condition<M, Out>(condition: impl SystemCondition<M, (), Out>) -> BoxedCondition {
-    let condition_system = condition.into_condition_system();
+fn new_condition<M>(condition: impl SystemCondition<M>) -> BoxedCondition {
+    let condition_system = IntoSystem::into_system(condition);
     assert!(
         condition_system.is_send(),
         "SystemCondition `{}` accesses `NonSend` resources. This is not currently supported.",
@@ -447,7 +445,7 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Use [`distributive_run_if`](IntoScheduleConfigs::distributive_run_if) if you want the
     /// condition to be evaluated for each individual system, right before one is run.
-    fn run_if<M, Out>(self, condition: impl SystemCondition<M, (), Out>) -> ScheduleConfigs<T> {
+    fn run_if<M>(self, condition: impl SystemCondition<M>) -> ScheduleConfigs<T> {
         self.into_configs().run_if(condition)
     }
 
@@ -535,7 +533,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
         self
     }
 
-    fn run_if<M, Out>(mut self, condition: impl SystemCondition<M, (), Out>) -> ScheduleConfigs<T> {
+    fn run_if<M>(mut self, condition: impl SystemCondition<M>) -> ScheduleConfigs<T> {
         self.run_if_dyn(new_condition(condition));
         self
     }
@@ -560,37 +558,9 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
     }
 }
 
-/// Marker component to allow for conflicting implementations of [`IntoScheduleConfigs`]
-#[doc(hidden)]
-pub struct Infallible;
-
-impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Infallible, Marker)> for F
+impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, Marker> for F
 where
     F: IntoSystem<(), (), Marker>,
-{
-    fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
-        let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
-        ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(Box::new(wrapper)))
-    }
-}
-
-impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Never, Marker)> for F
-where
-    F: IntoSystem<(), Never, Marker>,
-{
-    fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
-        let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
-        ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(Box::new(wrapper)))
-    }
-}
-
-/// Marker component to allow for conflicting implementations of [`IntoScheduleConfigs`]
-#[doc(hidden)]
-pub struct Fallible;
-
-impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Fallible, Marker)> for F
-where
-    F: IntoSystem<(), Result, Marker>,
 {
     fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
         let boxed_system = Box::new(IntoSystem::into_system(self));
@@ -598,7 +568,7 @@ where
     }
 }
 
-impl IntoScheduleConfigs<ScheduleSystem, ()> for BoxedSystem<(), Result> {
+impl IntoScheduleConfigs<ScheduleSystem, ()> for BoxedSystem<(), ()> {
     fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
         ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(self))
     }

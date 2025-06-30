@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 
-use super::{IntoSystem, ReadOnlySystem, System, SystemParamValidationError};
+use super::{IntoSystem, ReadOnlySystem, RunSystemError, System, SystemParamValidationError};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -14,7 +14,7 @@ use crate::{
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{Adapt, AdapterSystem};
+/// use bevy_ecs::system::{Adapt, AdapterSystem, RunSystemError};
 ///
 /// // A system adapter that inverts the result of a system.
 /// // NOTE: Instead of manually implementing this, you can just use `bevy_ecs::schedule::common_conditions::not`.
@@ -34,15 +34,16 @@ use crate::{
 ///     fn adapt(
 ///         &mut self,
 ///         input: <Self::In as SystemInput>::Inner<'_>,
-///         run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-///     ) -> Self::Out {
-///         !run_system(input)
+///         run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+///     ) -> Result<Self::Out, RunSystemError> {
+///         let result = run_system(input)?;
+///         Ok(!result)
 ///     }
 /// }
 /// # let mut world = World::new();
 /// # let mut system = NotSystem::new(NotMarker, IntoSystem::into_system(|| false), "".into());
 /// # system.initialize(&mut world);
-/// # assert!(system.run((), &mut world));
+/// # assert!(system.run((), &mut world).unwrap());
 /// ```
 #[diagnostic::on_unimplemented(
     message = "`{Self}` can not adapt a system of type `{S}`",
@@ -59,8 +60,8 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out;
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError>;
 }
 
 /// An [`IntoSystem`] creating an instance of [`AdapterSystem`].
@@ -138,7 +139,7 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
         self.func.adapt(input, |input| unsafe {
             self.system.run_unsafe(input, world)
@@ -213,8 +214,8 @@ where
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Out {
-        self(run_system(input))
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        run_system(input).map(self)
     }
 }

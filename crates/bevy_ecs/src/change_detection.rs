@@ -188,10 +188,10 @@ pub trait DetectChangesMut: DetectChanges {
     /// #
     /// # // first time `reset_score` runs, the score is changed.
     /// # schedule.run(&mut world);
-    /// # assert!(score_changed.run((), &mut world));
+    /// # assert!(score_changed.run((), &mut world).unwrap());
     /// # // second time `reset_score` runs, the score is not changed.
     /// # schedule.run(&mut world);
-    /// # assert!(!score_changed.run((), &mut world));
+    /// # assert!(!score_changed.run((), &mut world).unwrap());
     /// ```
     #[inline]
     #[track_caller]
@@ -263,12 +263,12 @@ pub trait DetectChangesMut: DetectChanges {
     /// #
     /// # // first time `reset_score` runs, the score is changed.
     /// # schedule.run(&mut world);
-    /// # assert!(score_changed.run((), &mut world));
-    /// # assert!(score_changed_event.run((), &mut world));
+    /// # assert!(score_changed.run((), &mut world).unwrap());
+    /// # assert!(score_changed_event.run((), &mut world).unwrap());
     /// # // second time `reset_score` runs, the score is not changed.
     /// # schedule.run(&mut world);
-    /// # assert!(!score_changed.run((), &mut world));
-    /// # assert!(!score_changed_event.run((), &mut world));
+    /// # assert!(!score_changed.run((), &mut world).unwrap());
+    /// # assert!(!score_changed_event.run((), &mut world).unwrap());
     /// ```
     #[inline]
     #[must_use = "If you don't need to handle the previous value, use `set_if_neq` instead."]
@@ -315,10 +315,10 @@ pub trait DetectChangesMut: DetectChanges {
     /// #
     /// # // first time `reset_score` runs, the score is changed.
     /// # schedule.run(&mut world);
-    /// # assert!(message_changed.run((), &mut world));
+    /// # assert!(message_changed.run((), &mut world).unwrap());
     /// # // second time `reset_score` runs, the score is not changed.
     /// # schedule.run(&mut world);
-    /// # assert!(!message_changed.run((), &mut world));
+    /// # assert!(!message_changed.run((), &mut world).unwrap());
     /// ```
     fn clone_from_if_neq<T>(&mut self, value: &T) -> bool
     where
@@ -1566,7 +1566,7 @@ mod tests {
 
         // world: 1, system last ran: 0, component changed: 1
         // The spawn will be detected since it happened after the system "last ran".
-        assert!(change_detected_system.run((), &mut world));
+        assert!(change_detected_system.run((), &mut world).unwrap());
 
         // world: 1 + MAX_CHANGE_AGE
         let change_tick = world.change_tick.get_mut();
@@ -1576,7 +1576,7 @@ mod tests {
         // Since we clamp things to `MAX_CHANGE_AGE` for determinism,
         // `ComponentTicks::is_changed` will now see `MAX_CHANGE_AGE > MAX_CHANGE_AGE`
         // and return `false`.
-        assert!(!change_expired_system.run((), &mut world));
+        assert!(!change_expired_system.run((), &mut world).unwrap());
     }
 
     #[test]
