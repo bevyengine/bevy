@@ -28,13 +28,45 @@ use bevy_text::Motion;
 use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
 use bevy_text::TextInputBuffer;
+use bevy_text::TextInputSize;
 use bevy_text::TextPipeline;
 use bevy_time::Time;
 
 /// Main text input component
 #[derive(Component, Debug, Default)]
-#[require(Node, TextInputModifiers, TextInputMultiClickCounter)]
+#[require(
+    Node,
+    TextInputModifiers,
+    TextInputMultiClickCounter,
+    TextInputBuffer,
+    TextInputSize,
+    TextInputActions
+)]
+#[component(
+    on_add = on_add_text_input_node,
+    on_remove = on_remove_input_focus,
+)]
 pub struct TextInputNode {}
+
+fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
+    for mut observer in [
+        Observer::new(on_text_input_dragged),
+        Observer::new(on_text_input_pressed),
+        Observer::new(on_multi_click_set_selection),
+        Observer::new(on_move_clear_multi_click),
+        Observer::new(on_focused_keyboard_input),
+    ] {
+        observer.watch_entity(context.entity);
+        world.commands().spawn(observer);
+    }
+}
+
+fn on_remove_input_focus(mut world: DeferredWorld, context: HookContext) {
+    let mut input_focus = world.resource_mut::<InputFocus>();
+    if input_focus.0 == Some(context.entity) {
+        input_focus.0 = None;
+    }
+}
 
 /// Text input modifiers
 #[derive(Component, Debug, Default)]
@@ -53,19 +85,6 @@ const MULTI_CLICK_PERIOD: f32 = 0.5; // seconds
 pub struct TextInputMultiClickCounter {
     last_click_time: f32,
     click_count: usize,
-}
-
-fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
-    for mut observer in [
-        Observer::new(on_text_input_dragged),
-        Observer::new(on_text_input_pressed),
-        Observer::new(on_multi_click_set_selection),
-        Observer::new(on_move_clear_multi_click),
-        Observer::new(on_focused_keyboard_input),
-    ] {
-        observer.watch_entity(context.entity);
-        world.commands().spawn(observer);
-    }
 }
 
 fn on_text_input_pressed(
