@@ -323,6 +323,11 @@ impl Default for ComputedNode {
 
 /// The scroll position of the node. Values are in logical pixels, increasing from top-left to bottom-right.
 ///
+/// Increasing the x-coordinate causes the scrolled content to visibly move left on the screen, while increasing the y-coordinate causes the scrolled content to move up. 
+/// This might seem backwards, however what's really happening is that 
+/// the scroll position is moving the visible "window" in the local coordinate system of the scrolled content - 
+/// moving the window down causes the content to move up.
+///
 /// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount in logical pixels.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
 /// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
