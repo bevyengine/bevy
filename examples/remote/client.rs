@@ -11,7 +11,7 @@ use std::any::type_name;
 
 use anyhow::Result as AnyhowResult;
 use bevy::{
-    ecs::hierarchy::Children,
+    ecs::hierarchy::ChildOf,
     remote::{
         builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_METHOD},
         http::{DEFAULT_ADDR, DEFAULT_PORT},
@@ -98,7 +98,7 @@ fn run_query_root_entities(url: &str) -> Result<(), anyhow::Error> {
                 },
                 strict: false,
                 filter: BrpQueryFilter {
-                    without: vec![type_name::<Children>().to_string()],
+                    without: vec![type_name::<ChildOf>().to_string()],
                     with: Vec::default(),
                 },
             })
