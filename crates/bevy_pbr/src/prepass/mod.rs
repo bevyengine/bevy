@@ -338,7 +338,10 @@ impl FromWorld for PrepassPipeline {
 
         let depth_clip_control_supported = render_device
             .features()
-            .contains(WgpuFeatures::DEPTH_CLIP_CONTROL);
+            .contains(WgpuFeatures::DEPTH_CLIP_CONTROL)
+            // force unclipped depth emulation on webgpu as unclipped depth support
+            // may be declared but is not actually supported
+            && cfg!(not(all(feature = "webgpu", target_arch = "wasm32")));
         let internal = PrepassPipelineInternal {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
