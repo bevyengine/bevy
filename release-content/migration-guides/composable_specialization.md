@@ -4,11 +4,11 @@ pull_requests: [17373]
 ---
 
 The existing pipeline specialization APIs (`SpecializedRenderPipeline` etc.) have
-been replaced with a single `Specialize` trait and `SpecializedCache` collection:
+been replaced with a single `Specializer` trait and `SpecializedCache` collection:
 
 ```rs
-pub trait Specialize<T: Specializable>: Send + Sync + 'static {
-    type Key: SpecializeKey;
+pub trait Specializer<T: Specializable>: Send + Sync + 'static {
+    type Key: SpecializerKey;
     fn specialize(
         &self,
         key: Self::Key,
@@ -16,20 +16,19 @@ pub trait Specialize<T: Specializable>: Send + Sync + 'static {
     ) -> Result<Canonical<Self::Key>, BevyError>;
 }
 
-pub struct Specializer<T: Specializable, S: Specialize<T>>{ ... };
+pub struct SpecializedCache<T: Specializable, S: Specializer<T>>{ ... };
 ```
 
 The main difference is the change from *producing* a pipeline descriptor to
-*mutating* one based on a key. The "base descriptor" that the `Specializer`
-passes to the `Specialize` implementation can either be specified manually
-with `Specializer::new` or by implementing `GetBaseDescriptor`. Also, there's
-a new key for specialization keys, `SpecializeKey`, that can be derived with
-the included macro in most cases.
+*mutating* one based on a key. The "base descriptor" that the `SpecializedCache`
+passes to the `Specializer` can either be specified manually with `Specializer::new`
+or by implementing `GetBaseDescriptor`. There's also a new trait for specialization
+keys, `SpecializeKey`, that can be derived with the included macro in most cases.
 
-Composing multiple different specializers together with the `derive(Specialize)`
+Composing multiple different specializers together with the `derive(Specializer)`
 macro can be a lot more powerful (see the `Specialize` docs), but migrating
 individual specializers is fairly simple. All static parts of the pipeline
-should be specified in the base descriptor, while the `Specialize` impl
+should be specified in the base descriptor, while the `Specializer` impl
 should mutate the key as little as necessary to match the key.
 
 ```rs
@@ -43,7 +42,8 @@ pub struct MySpecializer {
 // before
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 // after
-#[derive(Clone, Copy, PartialEq, Eq, Hash, SpecializeKey)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, SpecializerKey)]
+
 pub struct MyKey {
     blend_state: BlendState,
     msaa: Msaa,
@@ -100,7 +100,7 @@ impl SpecializedRenderPipeline for MySpecializer {
 app.init_resource::<SpecializedRenderPipelines<MySpecializer>>();
 
 // after
-impl Specialize<RenderPipeline> for MySpecializer {
+impl Specializer<RenderPipeline> for MySpecializer {
     type Key = MyKey;
 
     fn specialize(
@@ -149,5 +149,5 @@ impl GetBaseDescriptor for MySpecializer {
     }
 }
 
-app.init_resource::<Specializer<RenderPipeline, MySpecializer>>();
+app.init_resource::<SpecializedCache<RenderPipeline, MySpecializer>>();
 ```

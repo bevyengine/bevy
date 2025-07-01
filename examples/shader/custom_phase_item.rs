@@ -27,7 +27,7 @@ use bevy::{
             BufferUsages, Canonical, ColorTargetState, ColorWrites, CompareFunction,
             DepthStencilState, FragmentState, GetBaseDescriptor, IndexFormat, MultisampleState,
             PipelineCache, PrimitiveState, RawBufferVec, RenderPipeline, RenderPipelineDescriptor,
-            Specialize, SpecializedCache, SpecializerKey, TextureFormat, VertexAttribute,
+            SpecializedCache, Specializer, SpecializerKey, TextureFormat, VertexAttribute,
             VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
@@ -294,7 +294,7 @@ impl FromWorld for CustomPhaseSpecializer {
 #[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializerKey)]
 struct CustomPhaseKey(Msaa);
 
-impl Specialize<RenderPipeline> for CustomPhaseSpecializer {
+impl Specializer<RenderPipeline> for CustomPhaseSpecializer {
     type Key = CustomPhaseKey;
 
     fn specialize(

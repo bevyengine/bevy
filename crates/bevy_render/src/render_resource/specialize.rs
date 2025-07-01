@@ -70,8 +70,8 @@ impl Specializable for ComputePipeline {
 /// pipelines, i.e. specifying shader defs and binding layout based on the key,
 /// the result of which can then be cached and accessed quickly later.
 ///
-/// This trait can be derived with `#[derive(Specialize)]` for structs whose
-/// fields all implement [`Specialize`]. The key type will be tuple of the keys
+/// This trait can be derived with `#[derive(Specializer)]` for structs whose
+/// fields all implement [`Specializer`]. The key type will be tuple of the keys
 /// of each field, and their specialization logic will be applied in field
 /// order. Since derive macros can't have generic parameters, the derive macro
 /// requires an additional `#[specialize(..targets)]` attribute to specify a
@@ -97,17 +97,17 @@ impl Specializable for ComputePipeline {
 /// #[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializerKey)]
 /// struct BKey;
 ///
-/// impl Specialize<RenderPipeline> for A {
+/// impl Specializer<RenderPipeline> for A {
 ///     type Key = ();
 ///
-///     fn specialize(&self, key: (), descriptor: &mut RenderPipelineDescriptor) -> Result<(), BevyError>  {
+///     fn specializer(&self, key: (), descriptor: &mut RenderPipelineDescriptor) -> Result<(), BevyError>  {
 /// #       let _ = (key, descriptor);
 ///         //...
 ///         Ok(())
 ///     }
 /// }
 ///
-/// impl Specialize<RenderPipeline> for B {
+/// impl Specializer<RenderPipeline> for B {
 ///     type Key = BKey;
 ///
 ///     fn specialize(&self, _key: Bkey, _descriptor: &mut RenderPipelineDescriptor) -> Result<BKey, BevyError> {
@@ -117,7 +117,7 @@ impl Specializable for ComputePipeline {
 ///     }
 /// }
 ///
-/// #[derive(Specialize)]
+/// #[derive(Specializer)]
 /// #[specialize(RenderPipeline)]
 /// struct C {
 ///     #[key(default)]
@@ -127,7 +127,7 @@ impl Specializable for ComputePipeline {
 ///
 /// /*
 /// The generated implementation:
-/// impl Specialize<RenderPipeline> for C {
+/// impl Specializer<RenderPipeline> for C {
 ///     type Key = BKey;
 ///     fn specialize(
 ///         &self,
@@ -141,7 +141,7 @@ impl Specializable for ComputePipeline {
 /// }
 /// */
 /// ```
-pub trait Specialize<T: Specializable>: Send + Sync + 'static {
+pub trait Specializer<T: Specializable>: Send + Sync + 'static {
     type Key: SpecializerKey;
     fn specialize(
         &self,
@@ -175,7 +175,7 @@ pub trait SpecializerKey: Clone + Hash + Eq {
 
 pub type Canonical<T> = <T as SpecializerKey>::Canonical;
 
-impl<T: Specializable> Specialize<T> for () {
+impl<T: Specializable> Specializer<T> for () {
     type Key = ();
 
     fn specialize(
@@ -187,7 +187,7 @@ impl<T: Specializable> Specialize<T> for () {
     }
 }
 
-impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V> {
+impl<T: Specializable, V: Send + Sync + 'static> Specializer<T> for PhantomData<V> {
     type Key = ();
 
     fn specialize(
@@ -212,23 +212,22 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 
 /// Defines a specializer that can also provide a "base descriptor".
 ///
-/// In order to be composable, [`Specialize`] implementers don't create full
-/// descriptors, only transform them. However, [`Specializer`]s need a "base
-/// descriptor" at creation time in order to have something for the
-/// [`Specialize`] implementation to work off of. This trait allows
-/// [`Specializer`] to impl [`FromWorld`] for [`Specialize`] implementationss
-/// that also satisfy [`FromWorld`] and [`GetBaseDescriptor`].
+/// In order to be composable, [`Specializer`] implementers don't create full
+/// descriptors, only transform them. However, [`SpecializedCache`]s need a
+/// "base descriptor" at creation time in order to have something for the
+/// [`Specializer`] implementation to work off of. This trait allows
+/// [`SpecializedCache`] to impl [`FromWorld`] for [`Specializer`]
+/// implementations that also satisfy [`FromWorld`] and [`GetBaseDescriptor`].
 ///
-/// This trait can be also derived with `#[derive(Specialize)]`, by marking
-/// a field with `#[base_descriptor]` to use its base [`GetBaseDescriptor`]
-/// implementation.
+/// This trait can be also derived with `#[derive(Specializer)]`, by marking
+/// a field with `#[base_descriptor]` to use its [`GetBaseDescriptor`] implementation.
 ///
 /// Example:
 /// ```rs
 /// struct A;
 /// struct B;
 ///
-/// impl Specialize<RenderPipeline> for A {
+/// impl Specializer<RenderPipeline> for A {
 ///     type Key = ();
 ///
 ///     fn specialize(&self, _key: (), _descriptor: &mut RenderPipelineDescriptor) {
@@ -236,7 +235,7 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 ///     }
 /// }
 ///
-/// impl Specialize<RenderPipeline> for B {
+/// impl Specializer<RenderPipeline> for B {
 ///     type Key = u32;
 ///
 ///     fn specialize(&self, _key: u32, _descriptor: &mut RenderPipelineDescriptor) {
@@ -252,7 +251,7 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 /// }
 ///
 ///
-/// #[derive(Specialize)]
+/// #[derive(Specializer)]
 /// #[specialize(RenderPipeline)]
 /// struct C {
 ///     #[key(default)]
@@ -270,34 +269,34 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 /// }
 /// */
 /// ```
-pub trait GetBaseDescriptor<T: Specializable>: Specialize<T> {
+pub trait GetBaseDescriptor<T: Specializable>: Specializer<T> {
     fn get_base_descriptor(&self) -> T::Descriptor;
 }
 
-pub type SpecializeFn<T, S> =
-    fn(<S as Specialize<T>>::Key, &mut <T as Specializable>::Descriptor) -> Result<(), BevyError>;
+pub type SpecializerFn<T, S> =
+    fn(<S as Specializer<T>>::Key, &mut <T as Specializable>::Descriptor) -> Result<(), BevyError>;
 
 /// A cache for specializable resources. For a given key type the resulting
 /// resource will only be created if it is missing, retrieving it from the
 /// cache otherwise.
 #[derive(Resource)]
-pub struct SpecializedCache<T: Specializable, S: Specialize<T>> {
+pub struct SpecializedCache<T: Specializable, S: Specializer<T>> {
     specializer: S,
-    user_specializer: Option<SpecializeFn<T, S>>,
+    user_specializer: Option<SpecializerFn<T, S>>,
     base_descriptor: T::Descriptor,
     primary_cache: HashMap<S::Key, T::CachedId>,
     secondary_cache: HashMap<Canonical<S::Key>, T::CachedId>,
 }
 
-impl<T: Specializable, S: Specialize<T>> SpecializedCache<T, S> {
-    /// Creates a new [`SpecializedCache`] from a [`Specialize`] implementation,
-    /// an optional "user specializer", and a base descriptor. The user
-    /// specializer is applied after the [`Specialize`] implementation, with
+impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
+    /// Creates a new [`SpecializedCache`] from a [`Specializer`],
+    /// an optional "user specializer", and a base descriptor. The
+    /// user specializer is applied after the [`Specializer`], with
     /// the same key.
     #[inline]
     pub fn new(
         specializer: S,
-        user_specializer: Option<SpecializeFn<T, S>>,
+        user_specializer: Option<SpecializerFn<T, S>>,
         base_descriptor: T::Descriptor,
     ) -> Self {
         Self {
@@ -309,7 +308,7 @@ impl<T: Specializable, S: Specialize<T>> SpecializedCache<T, S> {
         }
     }
 
-    /// Specializes a resource given the [`Specialize`] implementation's key type.
+    /// Specializes a resource given the [`Specializer`]'s key type.
     #[inline]
     pub fn specialize(
         &mut self,
@@ -334,7 +333,7 @@ impl<T: Specializable, S: Specialize<T>> SpecializedCache<T, S> {
     #[cold]
     fn specialize_slow(
         specializer: &S,
-        user_specializer: Option<SpecializeFn<T, S>>,
+        user_specializer: Option<SpecializerFn<T, S>>,
         base_descriptor: T::Descriptor,
         pipeline_cache: &PipelineCache,
         key: S::Key,
@@ -362,9 +361,9 @@ impl<T: Specializable, S: Specialize<T>> SpecializedCache<T, S> {
                         <T as Specializable>::get_descriptor(pipeline_cache, entry.get().clone());
                     if &descriptor != stored_descriptor {
                         error!(
-                            "Invalid Specialize<{}> impl for {}: the cached descriptor \
+                            "Invalid Specializer<{}> impl for {}: the cached descriptor \
                             is not equal to the generated descriptor for the given key. \
-                            This means the Specialize implementation uses unused information \
+                            This means the Specializer implementation uses unused information \
                             from the key to specialize the pipeline. This is not allowed \
                             because it would invalidate the cache.",
                             core::any::type_name::<T>(),
@@ -384,14 +383,14 @@ impl<T: Specializable, S: Specialize<T>> SpecializedCache<T, S> {
     }
 }
 
-/// [`SpecializedCache`] implements [`FromWorld`] for [`Specialize`] implementations
-/// that also satisfy [`FromWorld`] and [`GetBaseDescriptor`]. This will create
-/// a [`SpecializedCache`] with no user specializer, and the base descriptor taken
-/// from the [`Specialize`] implementation.
+/// [`SpecializedCache`] implements [`FromWorld`] for [`Specializer`]s
+/// that also satisfy [`FromWorld`] and [`GetBaseDescriptor`]. This will
+/// create a [`SpecializedCache`] with no user specializer, and the base
+/// descriptor take from the specializer's [`GetBaseDescriptor`] implementation.
 impl<T, S> FromWorld for SpecializedCache<T, S>
 where
     T: Specializable,
-    S: FromWorld + Specialize<T> + GetBaseDescriptor<T>,
+    S: FromWorld + Specializer<T> + GetBaseDescriptor<T>,
 {
     fn from_world(world: &mut World) -> Self {
         let specializer = S::from_world(world);
