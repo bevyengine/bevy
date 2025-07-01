@@ -607,13 +607,11 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<Type> {
-        // Collect via `IndexSet` to eliminate duplicate types.
+    pub fn active_types(&self) -> IndexSet<Type> {
+        // Collect into an `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
             .collect::<IndexSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API.
@@ -636,7 +634,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
+        WhereClauseOptions::new_with_types(self.meta(), self.active_types())
     }
 
     /// Generates a `TokenStream` for `TypeInfo::Struct` or `TypeInfo::TupleStruct` construction.
@@ -854,13 +852,11 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<Type> {
-        // Collect via `IndexSet` to eliminate duplicate types.
+    pub fn active_types(&self) -> IndexSet<Type> {
+        // Collect into an `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
             .collect::<IndexSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API
@@ -869,7 +865,7 @@ impl<'a> ReflectEnum<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
+        WhereClauseOptions::new_with_types(self.meta(), self.active_types())
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.

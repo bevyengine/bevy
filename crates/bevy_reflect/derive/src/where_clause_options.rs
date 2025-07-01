@@ -1,5 +1,6 @@
 use crate::derive_data::ReflectMeta;
 use bevy_macro_utils::fq_std::{FQAny, FQSend, FQSync};
+use indexmap::IndexSet;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{punctuated::Punctuated, Token, Type, WhereClause};
@@ -7,22 +8,19 @@ use syn::{punctuated::Punctuated, Token, Type, WhereClause};
 /// Options defining how to extend the `where` clause for reflection.
 pub(crate) struct WhereClauseOptions<'a, 'b> {
     meta: &'a ReflectMeta<'b>,
-    active_fields: Box<[Type]>,
+    active_types: IndexSet<Type>,
 }
 
 impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     pub fn new(meta: &'a ReflectMeta<'b>) -> Self {
         Self {
             meta,
-            active_fields: Box::new([]),
+            active_types: IndexSet::new(),
         }
     }
 
-    pub fn new_with_fields(meta: &'a ReflectMeta<'b>, active_fields: Box<[Type]>) -> Self {
-        Self {
-            meta,
-            active_fields,
-        }
+    pub fn new_with_types(meta: &'a ReflectMeta<'b>, active_types: IndexSet<Type>) -> Self {
+        Self { meta, active_types }
     }
 
     /// Extends the `where` clause for a type with additional bounds needed for the reflection impls.
@@ -157,7 +155,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
             // construct `NamedField` and `UnnamedField` instances for the `Typed` impl.
             // Likewise, `GetTypeRegistration` is always required for active fields since
             // they are used to register the type's dependencies.
-            Some(self.active_fields.iter().map(move |ty| {
+            Some(self.active_types.iter().map(move |ty| {
                 quote!(
                     #ty : #reflect_bound
                         + #bevy_reflect_path::TypePath
