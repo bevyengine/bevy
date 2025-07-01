@@ -1,4 +1,4 @@
-//! Here we use shape primitives to generate meshes for 3d objects, attaching a runtime-generated patterned texture to each 3d object.
+//! Here we use shape primitives to generate meshes for 3d objects as well as attaching a runtime-generated patterned texture to each 3d object.
 //!
 //! "Shape primitives" here are just the mathematical definition of certain shapes, they're not meshes on their own! A sphere with radius `1.0` can be defined with [`Sphere::new(1.0)`][Sphere::new] but all this does is store the radius. So we need to turn these descriptions of shapes into meshes.
 //!
