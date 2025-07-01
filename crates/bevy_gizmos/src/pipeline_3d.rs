@@ -1,8 +1,8 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
-    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystems, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup,
+    init_line_gizmo_uniform_bind_group_layout, line_gizmo_vertex_buffer_layouts,
+    line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo, DrawLineJointGizmo, GizmoRenderSystems,
+    GpuLineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
@@ -53,7 +53,8 @@ impl Plugin for LineGizmo3dPlugin {
             )
             .add_systems(
                 RenderStartup,
-                (init_line_gizmo_pipeline, init_line_joint_gizmo_pipeline),
+                (init_line_gizmo_pipeline, init_line_joint_gizmo_pipeline)
+                    .after(init_line_gizmo_uniform_bind_group_layout),
             )
             .add_systems(
                 Render,
