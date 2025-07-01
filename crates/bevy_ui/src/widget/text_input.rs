@@ -3,10 +3,12 @@ use crate::Node;
 use crate::UiGlobalTransform;
 use crate::UiScale;
 use bevy_app::Plugin;
+use bevy_app::PostUpdate;
 use bevy_ecs::component::Component;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::observer::Observer;
 use bevy_ecs::observer::On;
+use bevy_ecs::query::With;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
@@ -38,7 +40,14 @@ pub struct TextInputNodePlugin;
 
 impl Plugin for TextInputNodePlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.init_resource::<TextInputModifiers>();
+        app.init_resource::<TextInputModifiers>()
+            .add_systems(PostUpdate, update_size);
+    }
+}
+
+fn update_size(mut text_input_node_query: Query<(&ComputedNode, &mut TextInputSize)>) {
+    for (node, size) in text_input_node_query.iter_mut() {
+        size.0 = node.size();
     }
 }
 

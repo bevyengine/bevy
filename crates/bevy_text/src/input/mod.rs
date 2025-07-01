@@ -4,10 +4,13 @@ use bevy_app::Plugin;
 use bevy_app::PostUpdate;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
+use bevy_derive::Deref;
+use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::query::Changed;
+use bevy_ecs::schedule::SystemSet;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
@@ -51,6 +54,9 @@ use crate::TextPipeline;
 
 pub struct TextInputPlugin;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct TextInputSystems;
+
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
@@ -78,10 +84,10 @@ impl Default for TextInputBuffer {
     }
 }
 
-#[derive(Component, Debug, Default)]
-pub struct TextInputSize {
-    width: f32,
-    height: f32,
+#[derive(Component, PartialEq, Debug, Default)]
+pub struct TextInputTarget {
+    pub size: Vec2,
+    pub scale_factor: f32,
 }
 
 #[derive(Component)]
