@@ -4,7 +4,7 @@
 mod as_bind_group;
 mod extract_component;
 mod extract_resource;
-mod specialize;
+mod specializer;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
@@ -112,13 +112,13 @@ pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
 /// This only works for structs whose members all implement `Specialize`
 #[proc_macro_derive(Specialize, attributes(specialize, key, base_descriptor))]
 pub fn derive_specialize(input: TokenStream) -> TokenStream {
-    specialize::impl_specialize(input)
+    specializer::impl_specialize(input)
 }
 
 /// Derive macro generating the most common impl of the trait `SpecializerKey`
 #[proc_macro_derive(SpecializerKey)]
 pub fn derive_specializer_key(input: TokenStream) -> TokenStream {
-    specialize::impl_specializer_key(input)
+    specializer::impl_specializer_key(input)
 }
 
 #[proc_macro_derive(ShaderLabel)]
