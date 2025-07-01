@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+use bevy_app::Plugin;
+use bevy_app::PostUpdate;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
 use bevy_ecs::change_detection::DetectChanges;
@@ -46,6 +48,21 @@ use crate::TextError;
 use crate::TextFont;
 use crate::TextLayoutInfo;
 use crate::TextPipeline;
+
+pub struct TextInputPlugin;
+
+impl Plugin for TextInputPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.add_systems(
+            PostUpdate,
+            (
+                apply_text_input_actions,
+                update_text_input_buffers,
+                update_text_input_layouts,
+            ),
+        );
+    }
+}
 
 /// Text input buffer
 #[derive(Component, Debug)]
@@ -333,7 +350,7 @@ pub fn update_text_input_buffers(
 }
 
 /// Update text input buffers
-pub fn update_text_input_layout(
+pub fn update_text_input_layouts(
     mut textures: ResMut<Assets<Image>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut text_query: Query<(&mut TextLayoutInfo, &mut TextInputBuffer, &mut TextFont)>,

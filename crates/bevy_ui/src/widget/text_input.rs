@@ -2,10 +2,12 @@ use crate::ComputedNode;
 use crate::Node;
 use crate::UiGlobalTransform;
 use crate::UiScale;
+use bevy_app::Plugin;
 use bevy_ecs::component::Component;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::observer::Observer;
 use bevy_ecs::observer::On;
+use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
@@ -32,11 +34,18 @@ use bevy_text::TextInputSize;
 use bevy_text::TextPipeline;
 use bevy_time::Time;
 
+pub struct TextInputNodePlugin;
+
+impl Plugin for TextInputNodePlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.init_resource::<TextInputModifiers>();
+    }
+}
+
 /// Main text input component
 #[derive(Component, Debug, Default)]
 #[require(
     Node,
-    TextInputModifiers,
     TextInputMultiClickCounter,
     TextInputBuffer,
     TextInputSize,
@@ -68,8 +77,8 @@ fn on_remove_input_focus(mut world: DeferredWorld, context: HookContext) {
     }
 }
 
-/// Text input modifiers
-#[derive(Component, Debug, Default)]
+/// Global text input modifiers
+#[derive(Resource, Debug, Default)]
 pub struct TextInputModifiers {
     /// true if shift is held down
     pub shift: bool,
@@ -238,13 +247,10 @@ fn on_move_clear_multi_click(move_event: On<Pointer<Move>>, mut commands: Comman
 
 fn on_focused_keyboard_input(
     trigger: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<(
-        &TextInputNode,
-        &mut TextInputActions,
-        &mut TextInputModifiers,
-    )>,
+    mut query: Query<(&TextInputNode, &mut TextInputActions)>,
+    mut modifiers: ResMut<TextInputModifiers>,
 ) {
-    if let Ok((input, mut actions, mut modifiers)) = query.get_mut(trigger.target()) {
+    if let Ok((input, mut actions)) = query.get_mut(trigger.target()) {
         let keyboard_input = &trigger.event().input;
         match keyboard_input.logical_key {
             Key::Shift => {
