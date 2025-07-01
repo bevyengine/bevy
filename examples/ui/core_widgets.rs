@@ -3,10 +3,10 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider, CoreSliderDragState,
-        CoreSliderThumb, CoreWidgetsPlugin, SliderRange, SliderValue, TrackClick,
+        Callback, CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider,
+        CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugin, SliderRange, SliderValue,
+        TrackClick,
     },
-    ecs::system::SystemId,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
@@ -146,17 +146,17 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn(demo_root(
         &assets,
-        on_click,
-        on_change_value,
-        on_change_radio,
+        Callback::System(on_click),
+        Callback::System(on_change_value),
+        Callback::System(on_change_radio),
     ));
 }
 
 fn demo_root(
     asset_server: &AssetServer,
-    on_click: SystemId,
-    on_change_value: SystemId<In<f32>>,
-    on_change_radio: SystemId<In<Entity>>,
+    on_click: Callback,
+    on_change_value: Callback<In<f32>>,
+    on_change_radio: Callback<In<Entity>>,
 ) -> impl Bundle {
     (
         Node {
@@ -172,15 +172,15 @@ fn demo_root(
         TabGroup::default(),
         children![
             button(asset_server, on_click),
-            slider(0.0, 100.0, 50.0, Some(on_change_value)),
-            checkbox(asset_server, "Checkbox", None),
-            radio_group(asset_server, Some(on_change_radio)),
+            slider(0.0, 100.0, 50.0, on_change_value),
+            checkbox(asset_server, "Checkbox", Callback::Ignore),
+            radio_group(asset_server, on_change_radio),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
 }
 
-fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
+fn button(asset_server: &AssetServer, on_click: Callback) -> impl Bundle {
     (
         Node {
             width: Val::Px(150.0),
@@ -192,7 +192,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
         },
         DemoButton,
         CoreButton {
-            on_click: Some(on_click),
+            on_activate: on_click,
         },
         Hovered::default(),
         TabIndex(0),
@@ -323,7 +323,7 @@ fn set_button_style(
 }
 
 /// Create a demo slider
-fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) -> impl Bundle {
+fn slider(min: f32, max: f32, value: f32, on_change: Callback<In<f32>>) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -468,7 +468,7 @@ fn thumb_color(disabled: bool, hovered: bool) -> Color {
 fn checkbox(
     asset_server: &AssetServer,
     caption: &str,
-    on_change: Option<SystemId<In<bool>>>,
+    on_change: Callback<In<bool>>,
 ) -> impl Bundle {
     (
         Node {
@@ -661,7 +661,7 @@ fn set_checkbox_or_radio_style(
 }
 
 /// Create a demo radio group
-fn radio_group(asset_server: &AssetServer, on_change: Option<SystemId<In<Entity>>>) -> impl Bundle {
+fn radio_group(asset_server: &AssetServer, on_change: Callback<In<Entity>>) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
