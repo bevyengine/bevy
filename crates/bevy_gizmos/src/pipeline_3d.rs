@@ -73,10 +73,10 @@ struct LineGizmoPipeline {
 }
 
 fn init_line_gizmo_pipeline(
+    mut commands: Commands,
     mesh_pipeline: Res<MeshPipeline>,
     uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
     asset_server: Res<AssetServer>,
-    mut commands: Commands,
 ) {
     commands.insert_resource(LineGizmoPipeline {
         mesh_pipeline: mesh_pipeline.clone(),
@@ -170,10 +170,10 @@ struct LineJointGizmoPipeline {
 }
 
 fn init_line_joint_gizmo_pipeline(
+    mut commands: Commands,
     mesh_pipeline: Res<MeshPipeline>,
     uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
     asset_server: Res<AssetServer>,
-    mut commands: Commands,
 ) {
     commands.insert_resource(LineJointGizmoPipeline {
         mesh_pipeline: mesh_pipeline.clone(),

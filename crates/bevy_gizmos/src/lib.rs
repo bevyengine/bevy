@@ -399,8 +399,8 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
 
 #[cfg(feature = "bevy_render")]
 fn init_line_gizmo_uniform_bind_group_layout(
-    render_device: Res<RenderDevice>,
     mut commands: Commands,
+    render_device: Res<RenderDevice>,
 ) {
     let line_layout = render_device.create_bind_group_layout(
         "LineGizmoUniform layout",
