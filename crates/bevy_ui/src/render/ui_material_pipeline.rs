@@ -583,11 +583,12 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
         (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let bind_group_data = material.bind_group_data();
         match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
             Ok(prepared) => Ok(PreparedUiMaterial {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
-                key: prepared.data,
+                key: bind_group_data,
             }),
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
@@ -637,7 +638,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &ui_material_pipeline,
             UiMaterialKey {
                 hdr: view.hdr,
-                bind_group_data: material.key.clone(),
+                bind_group_data: material.key,
             },
         );
         if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {

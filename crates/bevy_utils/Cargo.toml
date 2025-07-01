@@ -18,7 +18,7 @@ parallel = ["bevy_platform/std", "dep:thread_local"]
 
 std = ["disqualified/alloc"]
 
-debug = []
+debug = ["bevy_platform/alloc"]
 
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false }

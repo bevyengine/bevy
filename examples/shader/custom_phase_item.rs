@@ -24,11 +24,11 @@ use bevy::{
             ViewBinnedRenderPhases,
         },
         render_resource::{
-            BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
-            FragmentState, IndexFormat, MultisampleState, PipelineCache, PrimitiveState,
-            RawBufferVec, RenderPipelineDescriptor, SpecializedRenderPipeline,
-            SpecializedRenderPipelines, TextureFormat, VertexAttribute, VertexBufferLayout,
-            VertexFormat, VertexState, VertexStepMode,
+            BufferUsages, Canonical, ColorTargetState, ColorWrites, CompareFunction,
+            DepthStencilState, FragmentState, GetBaseDescriptor, IndexFormat, MultisampleState,
+            PipelineCache, PrimitiveState, RawBufferVec, RenderPipeline, RenderPipelineDescriptor,
+            SpecializedCache, Specializer, SpecializerKey, TextureFormat, VertexAttribute,
+            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
         view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},
@@ -48,14 +48,6 @@ use bytemuck::{Pod, Zeroable};
 #[require(VisibilityClass)]
 #[component(on_add = view::add_visibility_class::<CustomRenderedEntity>)]
 struct CustomRenderedEntity;
-
-/// Holds a reference to our shader.
-///
-/// This is loaded at app creation time.
-#[derive(Resource)]
-struct CustomPhasePipeline {
-    shader: Handle<Shader>,
-}
 
 /// A [`RenderCommand`] that binds the vertex and index buffers and issues the
 /// draw command for our custom phase item.
@@ -175,8 +167,7 @@ fn main() {
     // We make sure to add these to the render app, not the main app.
     app.get_sub_app_mut(RenderApp)
         .unwrap()
-        .init_resource::<CustomPhasePipeline>()
-        .init_resource::<SpecializedRenderPipelines<CustomPhasePipeline>>()
+        .init_resource::<SpecializedCache<RenderPipeline, CustomPhaseSpecializer>>()
         .add_render_command::<Opaque3d, DrawCustomPhaseItemCommands>()
         .add_systems(
             Render,
@@ -221,10 +212,9 @@ fn prepare_custom_phase_item_buffers(mut commands: Commands) {
 /// the opaque render phases of each view.
 fn queue_custom_phase_item(
     pipeline_cache: Res<PipelineCache>,
-    custom_phase_pipeline: Res<CustomPhasePipeline>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<CustomPhasePipeline>>,
+    mut specializer: ResMut<SpecializedCache<RenderPipeline, CustomPhaseSpecializer>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
     mut next_tick: Local<Tick>,
 ) {
@@ -247,11 +237,10 @@ fn queue_custom_phase_item(
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
             // with the exception of number of MSAA samples.
-            let pipeline_id = specialized_render_pipelines.specialize(
-                &pipeline_cache,
-                &custom_phase_pipeline,
-                *msaa,
-            );
+            let Ok(pipeline_id) = specializer.specialize(&pipeline_cache, CustomPhaseKey(*msaa))
+            else {
+                continue;
+            };
 
             // Bump the change tick in order to force Bevy to rebuild the bin.
             let this_tick = next_tick.get() + 1;
@@ -286,10 +275,40 @@ fn queue_custom_phase_item(
     }
 }
 
-impl SpecializedRenderPipeline for CustomPhasePipeline {
-    type Key = Msaa;
+/// Holds a reference to our shader.
+///
+/// This is loaded at app creation time.
+struct CustomPhaseSpecializer {
+    shader: Handle<Shader>,
+}
 
-    fn specialize(&self, msaa: Self::Key) -> RenderPipelineDescriptor {
+impl FromWorld for CustomPhaseSpecializer {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.resource::<AssetServer>();
+        Self {
+            shader: asset_server.load("shaders/custom_phase_item.wgsl"),
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializerKey)]
+struct CustomPhaseKey(Msaa);
+
+impl Specializer<RenderPipeline> for CustomPhaseSpecializer {
+    type Key = CustomPhaseKey;
+
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        descriptor.multisample.count = key.0.samples();
+        Ok(key)
+    }
+}
+
+impl GetBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
+    fn get_base_descriptor(&self) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("custom render pipeline".into()),
             layout: vec![],
@@ -340,7 +359,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 bias: default(),
             }),
             multisample: MultisampleState {
-                count: msaa.samples(),
+                count: 0,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -372,17 +391,6 @@ impl FromWorld for CustomPhaseItemBuffers {
         CustomPhaseItemBuffers {
             vertices: vbo,
             indices: ibo,
-        }
-    }
-}
-
-impl FromWorld for CustomPhasePipeline {
-    fn from_world(world: &mut World) -> Self {
-        // Load and compile the shader in the background.
-        let asset_server = world.resource::<AssetServer>();
-
-        CustomPhasePipeline {
-            shader: asset_server.load("shaders/custom_phase_item.wgsl"),
         }
     }
 }
