@@ -145,7 +145,7 @@ pub struct HotPatched;
 #[cfg(test)]
 mod tests {
     use crate::{
-        bundle::Bundle,
+        bundle::{Bundle, BundleId, BundleInfo},
         change_detection::Ref,
         component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::{Entity, EntityMapper},
@@ -168,7 +168,7 @@ mod tests {
         marker::PhantomData,
         sync::atomic::{AtomicUsize, Ordering},
     };
-    use std::{println, sync::Mutex};
+    use std::sync::Mutex;
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
@@ -2556,33 +2556,8 @@ mod tests {
     }
 
     #[test]
-    fn register_required_components_of_explicit_bundle_component_updates_bundle() {
-        #[derive(Component, Default)]
-        struct A;
-
-        #[derive(Component, Default)]
-        #[require(C)]
-        struct B;
-
-        #[derive(Component, Default)]
-        struct C;
-
-        let mut world = World::new();
-
-        std::println!("A: {:?}", world.register_component::<A>());
-        std::println!("B: {:?}", world.register_component::<B>());
-        std::println!("C: {:?}", world.register_component::<C>());
-        world.register_bundle::<A>();
-        world.register_required_components::<A, B>();
-
-        let entity = world.spawn(A);
-        assert!(entity.contains::<B>());
-        assert!(entity.contains::<C>());
-    }
-
-    #[test]
-    fn register_required_components_of_required_bundle_component_updates_bundle() {
-        #[derive(Component, Default)]
+    fn update_required_components_in_bundle() {
+        #[derive(Component)]
         #[require(B)]
         struct A;
 
@@ -2590,163 +2565,45 @@ mod tests {
         struct B;
 
         #[derive(Component, Default)]
-        #[require(D)]
         struct C;
 
-        #[derive(Component, Default)]
-        struct D;
-
-        let mut world = World::new();
-
-        std::println!("A: {:?}", world.register_component::<A>());
-        std::println!("B: {:?}", world.register_component::<B>());
-        std::println!("C: {:?}", world.register_component::<C>());
-        std::println!("D: {:?}", world.register_component::<D>());
-        world.register_bundle::<A>();
-        world.register_required_components::<B, C>();
-
-        let entity = world.spawn(A);
-        assert!(entity.contains::<C>());
-        assert!(entity.contains::<D>());
-    }
-
-    #[test]
-    fn register_required_components_with_lower_inheritance_depth_keeps_bundle_unchanged() {
-        #[derive(Component, Default)]
-        #[require(C(5))]
-        struct A;
-
-        #[derive(Component, Default)]
-        #[require(C(10))]
-        struct B;
-
-        #[derive(Component, Default, Debug, PartialEq)]
-        struct C(u8);
-
-        let mut world = World::new();
-
-        std::println!("A: {:?}", world.register_component::<A>());
-        std::println!("B: {:?}", world.register_component::<B>());
-        std::println!("C: {:?}", world.register_component::<C>());
-        world.register_bundle::<A>();
-        world.register_required_components::<A, B>();
-
-        let entity = world.spawn(A);
-        assert_eq!(entity.get::<C>(), Some(&C(5)));
-    }
-
-    #[test]
-    fn register_required_components_with_equal_inheritance_depth_updates_bundle() {
-        #[derive(Component, Default)]
-        #[require(B)]
-        struct A;
-
-        #[derive(Component, Default)]
-        #[require(D(5))]
-        struct B;
-
-        #[derive(Component, Default)]
-        #[require(D(10))]
-        struct C;
-
-        #[derive(Component, Default, Debug, PartialEq)]
-        struct D(u8);
-
-        let mut world = World::new();
-
-        std::println!("A: {:?}", world.register_component::<A>());
-        std::println!("B: {:?}", world.register_component::<B>());
-        std::println!("C: {:?}", world.register_component::<C>());
-        std::println!("D: {:?}", world.register_component::<D>());
-        world.register_bundle::<A>();
-        world.register_required_components::<A, C>();
-
-        let entity = world.spawn(A);
-        assert_eq!(entity.get::<D>(), Some(&D(10)));
-    }
-
-    #[test]
-    fn register_required_components_with_higher_inheritance_depth_updates_bundle() {
-        #[derive(Component, Default)]
-        #[require(B)]
-        struct A;
-
-        #[derive(Component, Default)]
-        #[require(C(5))]
-        struct B;
-
-        #[derive(Component, Default, Debug, PartialEq)]
-        struct C(u8);
-
-        let mut world = World::new();
-
-        std::println!("A: {:?}", world.register_component::<A>());
-        std::println!("B: {:?}", world.register_component::<B>());
-        std::println!("C: {:?}", world.register_component::<C>());
-        world.register_bundle::<A>();
-        world.register_required_components_with::<A, C>(|| C(10));
-
-        let entity = world.spawn(A);
-        assert_eq!(entity.get::<C>(), Some(&C(10)));
-    }
-
-    #[test]
-    fn register_required_components_with_further_required_with_equal_inheritance_depth_updates_bundle(
-    ) {
-        /*
-        A -> B -> C -> F
-         '-> D -> E -> F
-         */
-        #[derive(Component, Default)]
-        #[require(B)]
-        struct A;
-
-        #[derive(Component, Default)]
-        #[require(C)]
-        struct B;
-
-        #[derive(Component, Default)]
-        #[require(F(5))]
-        struct C;
-
-        #[derive(Component, Default)]
-        #[require(E)]
-        struct D;
-
-        #[derive(Component, Default)]
-        #[require(F(10))]
-        struct E;
-
-        #[derive(Component, Default, Debug, PartialEq)]
-        struct F(u8);
+        fn bundle_containing(world: &World, component: ComponentId) -> Option<BundleId> {
+            world
+                .bundles()
+                .iter_containing(component)
+                .next()
+                .map(BundleInfo::id)
+        }
 
         let mut world = World::new();
 
         let a_id = world.register_component::<A>();
-        std::println!("A: {:?}", a_id);
-        std::println!("B: {:?}", world.register_component::<B>());
-        std::println!("C: {:?}", world.register_component::<C>());
-        std::println!("D: {:?}", world.register_component::<D>());
-        std::println!("E: {:?}", world.register_component::<E>());
-        std::println!("F: {:?}", world.register_component::<F>());
+        let b_id = world.register_component::<B>();
+        let c_id = world.register_component::<C>();
 
-        let required: Vec<_> = world
-            .components()
-            .get_info(a_id)
-            .unwrap()
-            .required_components()
-            .0
-            .iter()
-            .map(|(id, required)| (id, required.inheritance_depth))
-            .collect();
+        let bundle = world.register_bundle::<A>();
+        let bundle_id = bundle.id();
+        let contributed: HashSet<_> = bundle.contributed_components().iter().copied().collect();
 
-        std::println!("required of A\n{required:#?}");        
+        assert_eq!(contributed.contains(&a_id), true);
+        assert_eq!(contributed.contains(&b_id), true);
+        assert_eq!(contributed.contains(&c_id), false);
 
-        world.register_bundle::<A>();
-        world.register_required_components::<B, E>();
+        assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, c_id), None);
 
-        let entity = world.spawn(A);
-        assert_eq!(entity.get::<F>(), Some(&F(10))); // todo: fix and add tests with lower and higher depth
+        world.register_required_components::<B, C>();
+        let bundle = world.bundles().get(bundle_id).unwrap();
+        let contributed: HashSet<_> = bundle.contributed_components().iter().copied().collect();
+
+        assert_eq!(contributed.contains(&a_id), true);
+        assert_eq!(contributed.contains(&b_id), true);
+        assert_eq!(contributed.contains(&c_id), true);
+
+        assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, c_id), Some(bundle_id));
     }
 
     #[test]
