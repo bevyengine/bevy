@@ -170,6 +170,11 @@ fn radio_group_on_button_click(
             }
         };
 
+        // Radio button is disabled.
+        if q_radio.get(radio_id).unwrap().1 {
+            return;
+        }
+
         // Gather all the enabled radio group descendants for exclusion.
         let radio_buttons = q_children
             .iter_descendants(ev.target())
