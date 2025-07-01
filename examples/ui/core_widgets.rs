@@ -3,8 +3,8 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider, CoreSliderThumb,
-        CoreWidgetsPlugin, SliderRange, SliderValue, TrackClick,
+        CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider, CoreSliderDragState,
+        CoreSliderThumb, CoreWidgetsPlugin, SliderRange, SliderValue, TrackClick,
     },
     ecs::system::SystemId,
     input_focus::{
@@ -398,6 +398,7 @@ fn update_slider_style(
             &SliderValue,
             &SliderRange,
             &Hovered,
+            &CoreSliderDragState,
             Has<InteractionDisabled>,
         ),
         (
@@ -405,6 +406,7 @@ fn update_slider_style(
                 Changed<SliderValue>,
                 Changed<SliderRange>,
                 Changed<Hovered>,
+                Changed<CoreSliderDragState>,
                 Added<InteractionDisabled>,
             )>,
             With<DemoSlider>,
@@ -413,12 +415,12 @@ fn update_slider_style(
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, &mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    for (slider_ent, value, range, hovered, disabled) in sliders.iter() {
+    for (slider_ent, value, range, hovered, drag_state, disabled) in sliders.iter() {
         for child in children.iter_descendants(slider_ent) {
             if let Ok((mut thumb_node, mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
                 if is_thumb {
                     thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
-                    thumb_bg.0 = thumb_color(disabled, hovered.0);
+                    thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
                 }
             }
         }
@@ -426,17 +428,25 @@ fn update_slider_style(
 }
 
 fn update_slider_style2(
-    sliders: Query<(Entity, &Hovered, Has<InteractionDisabled>), With<DemoSlider>>,
+    sliders: Query<
+        (
+            Entity,
+            &Hovered,
+            &CoreSliderDragState,
+            Has<InteractionDisabled>,
+        ),
+        With<DemoSlider>,
+    >,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
 ) {
     removed_disabled.read().for_each(|entity| {
-        if let Ok((slider_ent, hovered, disabled)) = sliders.get(entity) {
+        if let Ok((slider_ent, hovered, drag_state, disabled)) = sliders.get(entity) {
             for child in children.iter_descendants(slider_ent) {
                 if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
                     if is_thumb {
-                        thumb_bg.0 = thumb_color(disabled, hovered.0);
+                        thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
                     }
                 }
             }

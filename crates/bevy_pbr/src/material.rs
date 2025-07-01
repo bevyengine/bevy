@@ -37,6 +37,7 @@ use bevy_render::erased_render_asset::{
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
+use bevy_render::RenderStartup;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
@@ -371,42 +372,38 @@ where
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                ExtractSchedule,
-                (
-                    extract_mesh_materials::<M>.in_set(MaterialExtractionSystems),
-                    early_sweep_material_instances::<M>
-                        .after(MaterialExtractionSystems)
-                        .before(late_sweep_material_instances),
-                    extract_entities_needs_specialization::<M>.after(extract_cameras),
-                ),
-            );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.world_mut().resource_scope(
-            |world, mut bind_group_allocators: Mut<MaterialBindGroupAllocators>| {
-                let render_device = world.resource::<RenderDevice>();
-                bind_group_allocators.insert(
-                    TypeId::of::<M>(),
-                    MaterialBindGroupAllocator::new(
-                        render_device,
-                        M::label(),
-                        material_uses_bindless_resources::<M>(render_device)
-                            .then(|| M::bindless_descriptor())
-                            .flatten(),
-                        M::bind_group_layout(render_device),
-                        M::bindless_slot_count(),
+            render_app
+                .add_systems(RenderStartup, setup_render_app::<M>)
+                .add_systems(
+                    ExtractSchedule,
+                    (
+                        extract_mesh_materials::<M>.in_set(MaterialExtractionSystems),
+                        early_sweep_material_instances::<M>
+                            .after(MaterialExtractionSystems)
+                            .before(late_sweep_material_instances),
+                        extract_entities_needs_specialization::<M>.after(extract_cameras),
                     ),
                 );
-            },
-        );
+        }
     }
+}
+
+fn setup_render_app<M: Material>(
+    render_device: Res<RenderDevice>,
+    mut bind_group_allocators: ResMut<MaterialBindGroupAllocators>,
+) {
+    bind_group_allocators.insert(
+        TypeId::of::<M>(),
+        MaterialBindGroupAllocator::new(
+            &render_device,
+            M::label(),
+            material_uses_bindless_resources::<M>(&render_device)
+                .then(|| M::bindless_descriptor())
+                .flatten(),
+            M::bind_group_layout(&render_device),
+            M::bindless_slot_count(),
+        ),
+    );
 }
 
 /// A dummy [`AssetId`] that we use as a placeholder whenever a mesh doesn't
@@ -1300,8 +1297,11 @@ pub struct MaterialProperties {
     pub reads_view_transmission_texture: bool,
     pub render_phase_type: RenderPhaseType,
     pub material_layout: Option<BindGroupLayout>,
-    pub draw_functions: HashMap<InternedDrawFunctionLabel, DrawFunctionId>,
-    pub shaders: HashMap<InternedShaderLabel, Handle<Shader>>,
+    /// Backing array is a size of 4 because the `StandardMaterial` needs 4 draw functions by default
+    pub draw_functions: SmallVec<[(InternedDrawFunctionLabel, DrawFunctionId); 4]>,
+    /// Backing array is a size of 3 because the `StandardMaterial` has 3 custom shaders (`frag`, `prepass_frag`, `deferred_frag`) which is the
+    /// most common use case
+    pub shaders: SmallVec<[(InternedShaderLabel, Handle<Shader>); 3]>,
     /// Whether this material *actually* uses bindless resources, taking the
     /// platform support (or lack thereof) of bindless resources into account.
     pub bindless: bool,
@@ -1320,27 +1320,31 @@ pub struct MaterialProperties {
 
 impl MaterialProperties {
     pub fn get_shader(&self, label: impl ShaderLabel) -> Option<Handle<Shader>> {
-        self.shaders.get(&label.intern()).cloned()
+        self.shaders
+            .iter()
+            .find(|(inner_label, _)| inner_label == &label.intern())
+            .map(|(_, shader)| shader)
+            .cloned()
     }
 
-    pub fn add_shader(
-        &mut self,
-        label: impl ShaderLabel,
-        shader: Handle<Shader>,
-    ) -> Option<Handle<Shader>> {
-        self.shaders.insert(label.intern(), shader)
+    pub fn add_shader(&mut self, label: impl ShaderLabel, shader: Handle<Shader>) {
+        self.shaders.push((label.intern(), shader));
     }
 
     pub fn get_draw_function(&self, label: impl DrawFunctionLabel) -> Option<DrawFunctionId> {
-        self.draw_functions.get(&label.intern()).copied()
+        self.draw_functions
+            .iter()
+            .find(|(inner_label, _)| inner_label == &label.intern())
+            .map(|(_, shader)| shader)
+            .cloned()
     }
 
     pub fn add_draw_function(
         &mut self,
         label: impl DrawFunctionLabel,
         draw_function: DrawFunctionId,
-    ) -> Option<DrawFunctionId> {
-        self.draw_functions.insert(label.intern(), draw_function)
+    ) {
+        self.draw_functions.push((label.intern(), draw_function));
     }
 }
 
@@ -1472,19 +1476,19 @@ where
             _ => None,
         };
 
-        let mut draw_functions = HashMap::new();
-        draw_functions.insert(MaterialDrawFunction.intern(), draw_function_id);
+        let mut draw_functions = SmallVec::new();
+        draw_functions.push((MaterialDrawFunction.intern(), draw_function_id));
         if let Some(prepass_draw_function_id) = prepass_draw_function_id {
-            draw_functions.insert(PrepassDrawFunction.intern(), prepass_draw_function_id);
+            draw_functions.push((PrepassDrawFunction.intern(), prepass_draw_function_id));
         }
         if let Some(deferred_draw_function_id) = deferred_draw_function_id {
-            draw_functions.insert(DeferredDrawFunction.intern(), deferred_draw_function_id);
+            draw_functions.push((DeferredDrawFunction.intern(), deferred_draw_function_id));
         }
         if let Some(shadow_draw_function_id) = shadow_draw_function_id {
-            draw_functions.insert(ShadowsDrawFunction.intern(), shadow_draw_function_id);
+            draw_functions.push((ShadowsDrawFunction.intern(), shadow_draw_function_id));
         }
 
-        let mut shaders = HashMap::new();
+        let mut shaders = SmallVec::new();
         let mut add_shader = |label: InternedShaderLabel, shader_ref: ShaderRef| {
             let mayber_shader = match shader_ref {
                 ShaderRef::Default => None,
@@ -1492,7 +1496,7 @@ where
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             };
             if let Some(shader) = mayber_shader {
-                shaders.insert(label, shader);
+                shaders.push((label, shader));
             }
         };
         add_shader(MaterialVertexShader.intern(), M::vertex_shader());

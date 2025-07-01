@@ -23,9 +23,9 @@ pub fn dds_buffer_to_image(
         Ok(format) => (format, None),
         Err(TextureError::FormatRequiresTranscodingError(TranscodeFormat::Rgb8)) => {
             let format = if is_srgb {
-                TextureFormat::Bgra8UnormSrgb
+                TextureFormat::Rgba8UnormSrgb
             } else {
-                TextureFormat::Bgra8Unorm
+                TextureFormat::Rgba8Unorm
             };
             (format, Some(TranscodeFormat::Rgb8))
         }

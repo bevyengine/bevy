@@ -217,9 +217,29 @@ pub enum RenderSystems {
     PostCleanup,
 }
 
+/// The schedule that contains the app logic that is evaluated each tick
+///
+/// This is highly inspired by [`bevy_app::Main`]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct MainRender;
+impl MainRender {
+    pub fn run(world: &mut World, mut run_at_least_once: Local<bool>) {
+        if !*run_at_least_once {
+            let _ = world.try_run_schedule(RenderStartup);
+            *run_at_least_once = true;
+        }
+
+        let _ = world.try_run_schedule(Render);
+    }
+}
+
 /// Deprecated alias for [`RenderSystems`].
 #[deprecated(since = "0.17.0", note = "Renamed to `RenderSystems`.")]
 pub type RenderSet = RenderSystems;
+
+/// The startup schedule of the [`RenderApp`]
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct RenderStartup;
 
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -531,7 +551,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = SubApp::new();
-    render_app.update_schedule = Some(Render.intern());
+    render_app.update_schedule = Some(MainRender.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     // We skip applying any commands during the ExtractSchedule
@@ -546,6 +566,7 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
         .init_resource::<render_graph::RenderGraph>()
+        .add_systems(MainRender, MainRender::run)
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(
