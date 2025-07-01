@@ -207,7 +207,7 @@ impl<A: Asset> core::fmt::Debug for Handle<A> {
                     handle.path
                 )
             }
-            Handle::Uuid(uuid, ..) => write!(f, "UuidHandle<{name}>({:?})", uuid),
+            Handle::Uuid(uuid, ..) => write!(f, "UuidHandle<{name}>({uuid:?})"),
         }
     }
 }
