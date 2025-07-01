@@ -378,9 +378,9 @@ impl Plugin for SmaaPlugin {
 }
 
 pub fn init_smaa_pipelines(
+    mut commands: Commands,
     render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,
-    mut commands: Commands,
 ) {
     // Create the postprocess bind group layout (all passes, bind group 0).
     let postprocess_bind_group_layout = render_device.create_bind_group_layout(

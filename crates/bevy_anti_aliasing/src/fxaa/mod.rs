@@ -129,10 +129,10 @@ pub struct FxaaPipeline {
 }
 
 pub fn init_fxaa_pipeline(
+    mut commands: Commands,
     render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
-    mut commands: Commands,
 ) {
     let texture_bind_group = render_device.create_bind_group_layout(
         "fxaa_texture_bind_group_layout",

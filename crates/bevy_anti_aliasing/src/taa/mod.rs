@@ -236,10 +236,10 @@ struct TaaPipeline {
 }
 
 fn init_taa_pipeline(
+    mut commands: Commands,
     render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
-    mut commands: Commands,
 ) {
     let nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
         label: Some("taa_nearest_sampler"),
