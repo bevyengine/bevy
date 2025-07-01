@@ -2246,6 +2246,11 @@ pub struct CalculatedClip {
     pub clip: Rect,
 }
 
+/// UI node entities with this component will ignore any clipping rect they inherit,
+/// the node will not be clipped regardless of its ancestors' `Overflow` setting.
+#[derive(Component)]
+pub struct OverrideClip;
+
 /// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
 /// of sibling nodes with a lower z-index.

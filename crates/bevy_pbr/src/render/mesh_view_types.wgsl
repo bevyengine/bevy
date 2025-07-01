@@ -17,10 +17,10 @@ struct ClusterableObject {
     pad: f32,
 };
 
-const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u;
-const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32                  = 2u;
-const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 4u;
-const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 8u;
+const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u << 0u;
+const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32                  = 1u << 1u;
+const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
+const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -42,9 +42,9 @@ struct DirectionalLight {
     depth_texture_base_index: u32,
 };
 
-const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u;
-const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 2u;
-const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 4u;
+const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u << 0u;
+const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 1u << 1u;
+const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 1u << 2u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs

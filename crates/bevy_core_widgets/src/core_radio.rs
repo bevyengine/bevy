@@ -15,7 +15,7 @@ use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
 use bevy_picking::events::{Click, Pointer};
-use bevy_ui::{Checked, InteractionDisabled};
+use bevy_ui::{Checkable, Checked, InteractionDisabled};
 
 /// Headless widget implementation for a "radio button group". This component is used to group
 /// multiple [`CoreRadio`] components together, allowing them to behave as a single unit. It
@@ -46,7 +46,7 @@ pub struct CoreRadioGroup {
 /// but rather the enclosing group should be focusable.
 /// See <https://www.w3.org/WAI/ARIA/apg/patterns/radio>/
 #[derive(Component, Debug)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::RadioButton)), Checked)]
+#[require(AccessibilityNode(accesskit::Node::new(Role::RadioButton)), Checkable)]
 pub struct CoreRadio;
 
 fn radio_group_on_key_input(

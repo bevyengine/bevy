@@ -481,22 +481,27 @@ impl Deref for BindGroup {
 ///     is_shaded: bool,
 /// }
 ///
-/// #[derive(Copy, Clone, Hash, Eq, PartialEq)]
+/// // Materials keys are intended to be small, cheap to hash, and
+/// // uniquely identify a specific material permutation, which
+/// // is why they are required to be `bytemuck::Pod` and `bytemuck::Zeroable`
+/// // when using the `AsBindGroup` derive macro.
+/// #[repr(C)]
+/// #[derive(Copy, Clone, Hash, Eq, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 /// struct CoolMaterialKey {
-///     is_shaded: bool,
+///     is_shaded: u32,
 /// }
 ///
 /// impl From<&CoolMaterial> for CoolMaterialKey {
 ///     fn from(material: &CoolMaterial) -> CoolMaterialKey {
 ///         CoolMaterialKey {
-///             is_shaded: material.is_shaded,
+///             is_shaded: material.is_shaded as u32,
 ///         }
 ///     }
 /// }
 /// ```
 pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
-    type Data: Send + Sync;
+    type Data: bytemuck::Pod + bytemuck::Zeroable + Send + Sync;
 
     type Param: SystemParam + 'static;
 
@@ -531,8 +536,8 @@ pub trait AsBindGroup {
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
-    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
-        let UnpreparedBindGroup { bindings, data } =
+    ) -> Result<PreparedBindGroup, AsBindGroupError> {
+        let UnpreparedBindGroup { bindings } =
             Self::unprepared_bind_group(self, layout, render_device, param, false)?;
 
         let entries = bindings
@@ -548,9 +553,10 @@ pub trait AsBindGroup {
         Ok(PreparedBindGroup {
             bindings,
             bind_group,
-            data,
         })
     }
+
+    fn bind_group_data(&self) -> Self::Data;
 
     /// Returns a vec of (binding index, `OwnedBindingResource`).
     ///
@@ -569,7 +575,7 @@ pub trait AsBindGroup {
         render_device: &RenderDevice,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
         force_no_bindless: bool,
-    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
+    ) -> Result<UnpreparedBindGroup, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by
     /// [`AsBindGroup::as_bind_group`]
@@ -613,16 +619,14 @@ pub enum AsBindGroupError {
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
-pub struct PreparedBindGroup<T> {
+pub struct PreparedBindGroup {
     pub bindings: BindingResources,
     pub bind_group: BindGroup,
-    pub data: T,
 }
 
 /// a map containing `OwnedBindingResource`s, keyed by the target binding index
-pub struct UnpreparedBindGroup<T> {
+pub struct UnpreparedBindGroup {
     pub bindings: BindingResources,
-    pub data: T,
 }
 
 /// A pair of binding index and binding resource, used as part of
