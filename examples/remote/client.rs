@@ -23,7 +23,7 @@ use bevy::{
 /// The application entry point.
 fn main() -> AnyhowResult<()> {
     // Create the URL. We're going to need it to issue the HTTP request.
-    let host_part = format!("{}:{}", DEFAULT_ADDR, DEFAULT_PORT);
+    let host_part = format!("{DEFAULT_ADDR}:{DEFAULT_PORT}");
     let url = format!("http://{host_part}/");
     // Creates a request to get all Transform components from the remote Bevy app.
     // This request will return all entities that have a Transform component.
@@ -41,15 +41,15 @@ fn main() -> AnyhowResult<()> {
     Ok(())
 }
 
-fn run_query_all_components_and_entities(url: &String) -> Result<(), anyhow::Error> {
+fn run_query_all_components_and_entities(url: &str) -> Result<(), anyhow::Error> {
     let query_all_req = BrpRequest {
         jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
         id: Some(serde_json::to_value(1)?),
         params: None,
     };
-    println!("query_all req: {:#?}", query_all_req);
-    let query_all_res = ureq::post(url.as_str())
+    println!("query_all req: {query_all_req:#?}");
+    let query_all_res = ureq::post(url)
         .send_json(query_all_req)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
@@ -57,7 +57,7 @@ fn run_query_all_components_and_entities(url: &String) -> Result<(), anyhow::Err
     Ok(())
 }
 
-fn run_transform_only_query(url: &String) -> Result<(), anyhow::Error> {
+fn run_transform_only_query(url: &str) -> Result<(), anyhow::Error> {
     let get_transform_request = BrpRequest {
         jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
@@ -76,15 +76,15 @@ fn run_transform_only_query(url: &String) -> Result<(), anyhow::Error> {
         ),
     };
     println!("transform request: {get_transform_request:#?}");
-    let res = ureq::post(url.as_str())
+    let res = ureq::post(url)
         .send_json(get_transform_request)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
-    println!("{:#}", res);
+    println!("{res:#}");
     Ok(())
 }
 
-fn run_query_root_entities(url: &String) -> Result<(), anyhow::Error> {
+fn run_query_root_entities(url: &str) -> Result<(), anyhow::Error> {
     let get_transform_request = BrpRequest {
         jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
@@ -106,10 +106,10 @@ fn run_query_root_entities(url: &String) -> Result<(), anyhow::Error> {
         ),
     };
     println!("transform request: {get_transform_request:#?}");
-    let res = ureq::post(url.as_str())
+    let res = ureq::post(url)
         .send_json(get_transform_request)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
-    println!("{:#}", res);
+    println!("{res:#}");
     Ok(())
 }
