@@ -18,8 +18,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
-    SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    TextureViewDescriptor,
+    SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureUsages, TextureViewDescriptor,
 };
 
 /// Trait used to provide default values for Bevy-external types that
@@ -337,6 +337,28 @@ impl ImageFormat {
     }
 }
 
+pub trait ToExtents {
+    fn to_extents(self) -> Extent3d;
+}
+impl ToExtents for UVec2 {
+    fn to_extents(self) -> Extent3d {
+        Extent3d {
+            width: self.x,
+            height: self.y,
+            depth_or_array_layers: 1,
+        }
+    }
+}
+impl ToExtents for UVec3 {
+    fn to_extents(self) -> Extent3d {
+        Extent3d {
+            width: self.x,
+            height: self.y,
+            depth_or_array_layers: self.z,
+        }
+    }
+}
+
 #[derive(Asset, Debug, Clone)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -350,6 +372,10 @@ pub struct Image {
     /// CPU, then this should be `None`.
     /// Otherwise, it should always be `Some`.
     pub data: Option<Vec<u8>>,
+    /// For texture data with layers and mips, this field controls how wgpu interprets the buffer layout.
+    ///
+    /// Use [`TextureDataOrder::default()`] for all other cases.
+    pub data_order: TextureDataOrder,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
@@ -742,6 +768,7 @@ impl Image {
     ) -> Self {
         Image {
             data: None,
+            data_order: TextureDataOrder::default(),
             texture_descriptor: TextureDescriptor {
                 size,
                 format,
@@ -772,11 +799,7 @@ impl Image {
         debug_assert!(format.pixel_size() == 4);
         let data = vec![255, 255, 255, 0];
         Image::new(
-            Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            Extent3d::default(),
             TextureDimension::D2,
             data,
             format,
@@ -786,11 +809,7 @@ impl Image {
     /// Creates a new uninitialized 1x1x1 image
     pub fn default_uninit() -> Image {
         Image::new_uninit(
-            Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            Extent3d::default(),
             TextureDimension::D2,
             TextureFormat::bevy_default(),
             RenderAssetUsages::default(),
@@ -818,8 +837,7 @@ impl Image {
         );
         debug_assert!(
             pixel.len() <= byte_len,
-            "Fill data must fit within pixel buffer (expected {}B).",
-            byte_len,
+            "Fill data must fit within pixel buffer (expected {byte_len}B).",
         );
         let data = pixel.iter().copied().cycle().take(byte_len).collect();
         Image::new(size, dimension, data, format, asset_usage)
@@ -1540,11 +1558,11 @@ pub enum DataFormat {
 pub enum TranscodeFormat {
     Etc1s,
     Uastc(DataFormat),
-    // Has to be transcoded to R8Unorm for use with `wgpu`.
+    /// Has to be transcoded from `R8UnormSrgb` to `R8Unorm` for use with `wgpu`.
     R8UnormSrgb,
-    // Has to be transcoded to R8G8Unorm for use with `wgpu`.
+    /// Has to be transcoded from `Rg8UnormSrgb` to `R8G8Unorm` for use with `wgpu`.
     Rg8UnormSrgb,
-    // Has to be transcoded to Rgba8 for use with `wgpu`.
+    /// Has to be transcoded from `Rgb8` to `Rgba8` for use with `wgpu`.
     Rgb8,
 }
 

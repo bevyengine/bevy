@@ -111,6 +111,17 @@ impl Viewport {
             }
         }
     }
+
+    pub fn with_override(
+        &self,
+        main_pass_resolution_override: Option<&MainPassResolutionOverride>,
+    ) -> Self {
+        let mut viewport = self.clone();
+        if let Some(override_size) = main_pass_resolution_override {
+            viewport.physical_size = **override_size;
+        }
+        viewport
+    }
 }
 
 /// Settings to define a camera sub view.
@@ -1365,6 +1376,19 @@ impl TemporalJitter {
 #[derive(Component, Reflect, Clone)]
 #[reflect(Default, Component)]
 pub struct MipBias(pub f32);
+
+/// Override the resolution a 3d camera's main pass is rendered at.
+///
+/// Does not affect post processing.
+///
+/// ## Usage
+///
+/// * Insert this component on a 3d camera entity in the render world.
+/// * The resolution override must be smaller than the camera's viewport size.
+/// * The resolution override is specified in physical pixels.
+#[derive(Component, Reflect, Deref)]
+#[reflect(Component)]
+pub struct MainPassResolutionOverride(pub UVec2);
 
 impl Default for MipBias {
     fn default() -> Self {

@@ -43,6 +43,8 @@ ktx2 = ["bevy_image/ktx2", "bevy_render/ktx2"]
 # For ktx2 supercompression
 zlib = ["bevy_image/zlib"]
 zstd = ["bevy_image/zstd"]
+zstd_rust = ["bevy_image/zstd_rust"]
+zstd_c = ["bevy_image/zstd_c"]
 
 # Image format support (PNG enabled by default)
 bmp = ["bevy_image/bmp"]
@@ -353,6 +355,10 @@ web = [
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
+gltf_convert_coordinates_default = [
+  "bevy_gltf?/gltf_convert_coordinates_default",
+]
+
 debug = ["bevy_utils/debug"]
 
 [dependencies]
@@ -410,6 +416,7 @@ bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.17.
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.17.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.17.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.17.0-dev" }
+bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.17.0-dev" }
 bevy_input_focus = { path = "../bevy_input_focus", optional = true, version = "0.17.0-dev", default-features = false, features = [
   "bevy_reflect",
