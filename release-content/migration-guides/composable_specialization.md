@@ -4,7 +4,7 @@ pull_requests: [17373]
 ---
 
 The existing pipeline specialization APIs (`SpecializedRenderPipeline` etc.) have
-been replaced with a single `Specialize` trait and `Specializer` collection:
+been replaced with a single `Specialize` trait and `SpecializedCache` collection:
 
 ```rs
 pub trait Specialize<T: Specializable>: Send + Sync + 'static {

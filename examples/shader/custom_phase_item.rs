@@ -27,7 +27,7 @@ use bevy::{
             BufferUsages, Canonical, ColorTargetState, ColorWrites, CompareFunction,
             DepthStencilState, FragmentState, GetBaseDescriptor, IndexFormat, MultisampleState,
             PipelineCache, PrimitiveState, RawBufferVec, RenderPipeline, RenderPipelineDescriptor,
-            SpecializationKey, Specialize, Specializer, TextureFormat, VertexAttribute,
+            Specialize, SpecializedCache, SpecializerKey, TextureFormat, VertexAttribute,
             VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
@@ -167,7 +167,7 @@ fn main() {
     // We make sure to add these to the render app, not the main app.
     app.get_sub_app_mut(RenderApp)
         .unwrap()
-        .init_resource::<Specializer<RenderPipeline, CustomPhaseSpecializer>>()
+        .init_resource::<SpecializedCache<RenderPipeline, CustomPhaseSpecializer>>()
         .add_render_command::<Opaque3d, DrawCustomPhaseItemCommands>()
         .add_systems(
             Render,
@@ -214,7 +214,7 @@ fn queue_custom_phase_item(
     pipeline_cache: Res<PipelineCache>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    mut specializer: ResMut<Specializer<RenderPipeline, CustomPhaseSpecializer>>,
+    mut specializer: ResMut<SpecializedCache<RenderPipeline, CustomPhaseSpecializer>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
     mut next_tick: Local<Tick>,
 ) {
@@ -291,7 +291,7 @@ impl FromWorld for CustomPhaseSpecializer {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializationKey)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializerKey)]
 struct CustomPhaseKey(Msaa);
 
 impl Specialize<RenderPipeline> for CustomPhaseSpecializer {

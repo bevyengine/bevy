@@ -464,7 +464,7 @@ fn impl_get_base_descriptor_all(
     })
 }
 
-pub fn impl_specialization_key(input: TokenStream) -> TokenStream {
+pub fn impl_specializer_key(input: TokenStream) -> TokenStream {
     let bevy_render_path: Path = crate::bevy_render_path();
     let specialize_path = {
         let mut path = bevy_render_path.clone();
@@ -475,7 +475,7 @@ pub fn impl_specialization_key(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ident = ast.ident;
     TokenStream::from(quote!(
-        impl #specialize_path::SpecializationKey for #ident {
+        impl #specialize_path::SpecializerKey for #ident {
             const IS_CANONICAL: bool = true;
             type Canonical = Self;
         }
