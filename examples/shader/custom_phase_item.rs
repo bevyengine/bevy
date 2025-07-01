@@ -25,10 +25,10 @@ use bevy::{
         },
         render_resource::{
             BufferUsages, Canonical, ColorTargetState, ColorWrites, CompareFunction,
-            DepthStencilState, FragmentState, GetBaseDescriptor, IndexFormat, MultisampleState,
-            PipelineCache, PrimitiveState, RawBufferVec, RenderPipeline, RenderPipelineDescriptor,
-            SpecializedCache, Specializer, SpecializerKey, TextureFormat, VertexAttribute,
-            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            DepthStencilState, FragmentState, GetBaseDescriptor, IndexFormat, PipelineCache,
+            RawBufferVec, RenderPipeline, RenderPipelineDescriptor, SpecializedCache, Specializer,
+            SpecializerKey, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat,
+            VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
         view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},
@@ -311,12 +311,8 @@ impl GetBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
     fn get_base_descriptor(&self) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("custom render pipeline".into()),
-            layout: vec![],
-            push_constant_ranges: vec![],
             vertex: VertexState {
                 shader: self.shader.clone(),
-                shader_defs: vec![],
-                entry_point: "vertex".into(),
                 buffers: vec![VertexBufferLayout {
                     array_stride: size_of::<Vertex>() as u64,
                     step_mode: VertexStepMode::Vertex,
@@ -334,11 +330,10 @@ impl GetBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
                         },
                     ],
                 }],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     // Ordinarily, you'd want to check whether the view has the
                     // HDR format and substitute the appropriate texture format
@@ -347,8 +342,8 @@ impl GetBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
             // Note that if your view has no depth buffer this will need to be
             // changed.
             depth_stencil: Some(DepthStencilState {
@@ -358,12 +353,7 @@ impl GetBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
                 stencil: default(),
                 bias: default(),
             }),
-            multisample: MultisampleState {
-                count: 0,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
