@@ -560,7 +560,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_pixel_space_point_for_zero_scale_sprite() {
+    fn compute_pixel_space_point_for_sprite_with_zero_custom_size() {
         let mut image_assets = Assets::<Image>::default();
         let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
 
