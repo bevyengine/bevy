@@ -147,6 +147,30 @@ For profiling GPU work, you should use the tool corresponding to your GPU's vend
 
 Note that while RenderDoc is a great debugging tool, it is _not_ a profiler, and should not be used for this purpose.
 
+#### Xcode's Metal debugger
+
+Follow the steps below to start GPU debugging on macOS. There is no need to create an Xcode project.
+
+1. In the menu bar click on Debug > Debug Executable…
+
+![Xcode's menu bar open to Debug > Debug Executable...](https://github.com/user-attachments/assets/efdc5037-0957-4227-b29d-9a789ba17a0a)
+
+2. Select your executable from your project’s target folder.
+3. The Scheme Editor will open, click Close because all the defaults are fine.
+4. Click the play button in the top left and this should start your bevy app.
+
+![A cursor hovering over the play button in XCode](https://github.com/user-attachments/assets/859580e2-779b-4db8-8ea6-73cf4ef696c9)
+
+5. Go back to Xcode and click on the Metal icon in the bottom drawer and then Capture in the following the popup menu.
+
+![A cursor hovering over the Capture button in the Metal debugging popup menu](https://github.com/user-attachments/assets/c0ce1591-0a53-499b-bd1b-4d89538ea248)
+
+6. Start debugging and profiling!
+
+![Xcode open to the Performance tab in the Debug Navigator.](https://github.com/user-attachments/assets/52732391-9306-44a9-ae01-dcf4573f77ab)
+
+These instructions were created for Xcode 16.4.
+
 ### Tracy RenderQueue
 
 While it doesn't provide as much detail as vendor-specific tooling, Tracy can also be used to coarsely measure GPU performance.
