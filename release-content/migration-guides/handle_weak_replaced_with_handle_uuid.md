@@ -18,6 +18,20 @@ const IMAGE: Handle<Image> = weak_handle!("b20988e9-b1b9-4176-b5f3-a6fa73aa617f"
 const IMAGE: Handle<Image> = uuid_handle!("b20988e9-b1b9-4176-b5f3-a6fa73aa617f");
 ```
 
+Users using `Handle::clone_weak` can (most likely) just call `Handle::clone` instead.
+
+```rust
+// Somewhere in some startup system.
+let my_sprite_image = asset_server.load("monster.png");
+
+// In game code...
+// This sprite could be unloaded even if the sprite is still using it!
+commands.spawn(Sprite::from_image(my_sprite_image.clone_weak()));
+
+// Just do this instead!
+commands.spawn(Sprite::from_image(my_sprite_image.clone()));
+```
+
 Users using the `Handle::Weak` variant directly should consider replacing it with `AssetId` instead,
 accessible through `Handle::id`. These situations are very case-by-case migrations.
 
