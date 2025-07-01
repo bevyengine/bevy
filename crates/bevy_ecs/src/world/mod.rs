@@ -542,13 +542,19 @@ impl World {
         let required = self.register_component::<R>();
 
         // SAFETY: We just created the `required` and `requiree` components.
-        let required = unsafe {
+        unsafe {
             self.components
-                .register_required_components::<R>(requiree, required, constructor)?
-        };
+                .register_required_components::<R>(requiree, required, constructor)?;
+        }
 
-        self.bundles
-            .register_required_components(requiree, &required);
+        // SAFETY: all bundles are created with Self::storages and Self::components
+        unsafe {
+            self.bundles.refresh_required_components(
+                &mut self.storages,
+                &self.components,
+                requiree,
+            );
+        }
 
         Ok(())
     }
