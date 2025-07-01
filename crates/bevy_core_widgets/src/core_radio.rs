@@ -9,13 +9,15 @@ use bevy_ecs::{
     entity::Entity,
     observer::On,
     query::With,
-    system::{Commands, Query, SystemId},
+    system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
 use bevy_picking::events::{Click, Pointer};
 use bevy_ui::{Checkable, Checked, InteractionDisabled};
+
+use crate::{Callback, Notify};
 
 /// Headless widget implementation for a "radio button group". This component is used to group
 /// multiple [`CoreRadio`] components together, allowing them to behave as a single unit. It
@@ -36,7 +38,7 @@ use bevy_ui::{Checkable, Checked, InteractionDisabled};
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)))]
 pub struct CoreRadioGroup {
     /// Callback which is called when the selected radio button changes.
-    pub on_change: Option<SystemId<In<Entity>>>,
+    pub on_change: Callback<In<Entity>>,
 }
 
 /// Headless widget implementation for radio buttons. These should be enclosed within a
@@ -131,9 +133,7 @@ fn radio_group_on_key_input(
             let (next_id, _) = radio_buttons[next_index];
 
             // Trigger the on_change event for the newly checked radio button
-            if let Some(on_change) = on_change {
-                commands.run_system_with(*on_change, next_id);
-            }
+            commands.notify_with(on_change, next_id);
         }
     }
 }
@@ -196,9 +196,7 @@ fn radio_group_on_button_click(
         }
 
         // Trigger the on_change event for the newly checked radio button
-        if let Some(on_change) = on_change {
-            commands.run_system_with(*on_change, radio_id);
-        }
+        commands.notify_with(on_change, radio_id);
     }
 }
 
