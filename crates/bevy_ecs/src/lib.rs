@@ -2585,9 +2585,9 @@ mod tests {
         let bundle_id = bundle.id();
         let contributed: HashSet<_> = bundle.contributed_components().iter().copied().collect();
 
-        assert_eq!(contributed.contains(&a_id), true);
-        assert_eq!(contributed.contains(&b_id), true);
-        assert_eq!(contributed.contains(&c_id), false);
+        assert!(contributed.contains(&a_id));
+        assert!(contributed.contains(&b_id));
+        assert!(!contributed.contains(&c_id));
 
         assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
         assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
@@ -2597,9 +2597,9 @@ mod tests {
         let bundle = world.bundles().get(bundle_id).unwrap();
         let contributed: HashSet<_> = bundle.contributed_components().iter().copied().collect();
 
-        assert_eq!(contributed.contains(&a_id), true);
-        assert_eq!(contributed.contains(&b_id), true);
-        assert_eq!(contributed.contains(&c_id), true);
+        assert!(contributed.contains(&a_id));
+        assert!(contributed.contains(&b_id));
+        assert!(contributed.contains(&c_id));
 
         assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
         assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
