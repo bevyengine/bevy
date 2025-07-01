@@ -104,16 +104,16 @@ fn on_text_input_pressed(
         return;
     }
 
-    let Ok((node, transform, mut buffer, input, mut edits)) = node_query.get_mut(trigger.target)
+    let Ok((node, transform, mut buffer, input, mut edits)) = node_query.get_mut(trigger.target())
     else {
         return;
     };
 
     if !input_focus
         .get()
-        .is_some_and(|active_input| active_input == trigger.target)
+        .is_some_and(|active_input| active_input == trigger.target())
     {
-        input_focus.set(trigger.target);
+        input_focus.set(trigger.target());
     }
 
     let rect = Rect::from_center_size(transform.translation, node.size());
@@ -143,12 +143,12 @@ fn on_text_input_dragged(
 
     if !input_focus
         .0
-        .is_some_and(|input_focus_entity| input_focus_entity == trigger.target)
+        .is_some_and(|input_focus_entity| input_focus_entity == trigger.target())
     {
         return;
     }
 
-    let Ok((node, transform, mut buffer, input, mut edits)) = node_query.get_mut(trigger.target)
+    let Ok((node, transform, mut buffer, input, mut edits)) = node_query.get_mut(trigger.target())
     else {
         return;
     };
@@ -184,17 +184,14 @@ fn on_multi_click_set_selection(
         return;
     }
 
-    let Some(entity) = click.target() else {
-        return;
-    };
-
-    let Ok((input, mut edits, mut buffer, transform, node)) = text_input_nodes.get_mut(entity)
+    let Ok((input, mut edits, mut buffer, transform, node)) =
+        text_input_nodes.get_mut(click.target())
     else {
         return;
     };
 
     let now = time.elapsed_secs();
-    if let Ok(mut multi_click_data) = multi_click_datas.get_mut(entity) {
+    if let Ok(mut multi_click_data) = multi_click_datas.get_mut(click.target()) {
         if now - multi_click_data.last_click_time
             <= MULTI_CLICK_PERIOD * multi_click_data.click_count as f32
         {
@@ -216,7 +213,7 @@ fn on_multi_click_set_selection(
                 }
                 2 => {
                     edits.queue(TextInputAction::SelectLine);
-                    if let Ok(mut entity) = commands.get_entity(entity) {
+                    if let Ok(mut entity) = commands.get_entity(click.target()) {
                         entity.try_remove::<TextInputMultiClickCounter>();
                     }
                     return;
@@ -225,7 +222,7 @@ fn on_multi_click_set_selection(
             }
         }
     }
-    if let Ok(mut entity) = commands.get_entity(entity) {
+    if let Ok(mut entity) = commands.get_entity(click.target()) {
         entity.try_insert(TextInputMultiClickCounter {
             last_click_time: now,
             click_count: 1,
@@ -233,11 +230,8 @@ fn on_multi_click_set_selection(
     }
 }
 
-fn on_move_clear_multi_click(move_: On<Pointer<Move>>, mut commands: Commands) {
-    if let Some(mut entity) = move_
-        .target()
-        .and_then(|entity| commands.get_entity(entity).ok())
-    {
+fn on_move_clear_multi_click(move_event: On<Pointer<Move>>, mut commands: Commands) {
+    if let Ok(mut entity) = commands.get_entity(move_event.target()) {
         entity.try_remove::<TextInputMultiClickCounter>();
     }
 }
@@ -250,10 +244,7 @@ fn on_focused_keyboard_input(
         &mut TextInputModifiers,
     )>,
 ) {
-    if let Some((input, mut actions, mut modifiers)) = trigger
-        .target()
-        .and_then(|entity| query.get_mut(entity).ok())
-    {
+    if let Ok((input, mut actions, mut modifiers)) = query.get_mut(trigger.target()) {
         let keyboard_input = &trigger.event().input;
         match keyboard_input.logical_key {
             Key::Shift => {
