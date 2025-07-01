@@ -11,6 +11,7 @@ use std::any::type_name;
 
 use anyhow::Result as AnyhowResult;
 use bevy::{
+    ecs::hierarchy::Children,
     remote::{
         builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_METHOD},
         http::{DEFAULT_ADDR, DEFAULT_PORT},
@@ -18,7 +19,6 @@ use bevy::{
     },
     transform::components::Transform,
 };
-use bevy_ecs::hierarchy::Children;
 
 /// The application entry point.
 fn main() -> AnyhowResult<()> {
