@@ -1,3 +1,4 @@
+use crate::{GpuLights, LightMeta};
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_core_pipeline::{core_3d::Camera3d, FullscreenShader};
 use bevy_ecs::{
@@ -19,7 +20,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
 use bevy_utils::default;
-use crate::{GpuLights, LightMeta};
 
 use super::{Atmosphere, AtmosphereSettings};
 

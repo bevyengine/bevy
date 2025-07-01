@@ -1,3 +1,4 @@
+use super::OitBuffers;
 use crate::{oit::OrderIndependentTransparencySettings, FullscreenShader};
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
@@ -12,16 +13,15 @@ use bevy_render::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
         BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
-        FragmentState, PipelineCache, RenderPipelineDescriptor,
-        ShaderDefVal, ShaderStages, TextureFormat,
+        FragmentState, PipelineCache, RenderPipelineDescriptor, ShaderDefVal, ShaderStages,
+        TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
-use tracing::warn;
 use bevy_utils::default;
-use super::OitBuffers;
+use tracing::warn;
 
 /// Contains the render node used to run the resolve pass.
 pub mod node;

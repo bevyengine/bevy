@@ -33,8 +33,8 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
-use tracing::error;
 use bevy_utils::default;
+use tracing::error;
 
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {

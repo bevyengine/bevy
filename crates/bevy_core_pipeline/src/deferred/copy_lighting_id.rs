@@ -15,13 +15,13 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 
+use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
 };
 use bevy_utils::default;
-use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
 pub struct CopyDeferredLightingIdPlugin;
 

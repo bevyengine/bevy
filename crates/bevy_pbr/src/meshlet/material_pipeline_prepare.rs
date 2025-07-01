@@ -17,8 +17,8 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
-use core::any::{Any, TypeId};
 use bevy_utils::default;
+use core::any::{Any, TypeId};
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
 #[derive(Component, Deref, DerefMut, Default)]

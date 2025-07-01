@@ -4,6 +4,7 @@ use core::{
     ops::Range,
 };
 
+use super::shader_flags::BORDER_ALL;
 use crate::*;
 use bevy_asset::*;
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -30,9 +31,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::BorderRect;
-use bytemuck::{Pod, Zeroable};
 use bevy_utils::default;
-use super::shader_flags::BORDER_ALL;
+use bytemuck::{Pod, Zeroable};
 
 pub struct GradientPlugin;
 

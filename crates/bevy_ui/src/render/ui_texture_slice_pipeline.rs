@@ -26,9 +26,9 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
+use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
-use bevy_utils::default;
 use widget::ImageNode;
 
 pub struct UiTextureSlicerPlugin;

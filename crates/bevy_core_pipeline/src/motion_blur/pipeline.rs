@@ -1,3 +1,4 @@
+use crate::FullscreenShader;
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{
     component::Component,
@@ -16,16 +17,14 @@ use bevy_render::{
             texture_depth_2d_multisampled, uniform_buffer_sized,
         },
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
-        ColorWrites, FragmentState, PipelineCache,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderDefVal, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, ViewTarget},
 };
 use bevy_utils::default;
-use crate::FullscreenShader;
 
 use super::MotionBlurUniform;
 

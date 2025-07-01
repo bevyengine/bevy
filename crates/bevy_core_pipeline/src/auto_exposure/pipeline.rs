@@ -10,8 +10,8 @@ use bevy_render::{
     renderer::RenderDevice,
     view::ViewUniform,
 };
-use core::num::NonZero;
 use bevy_utils::default;
+use core::num::NonZero;
 
 #[derive(Resource)]
 pub struct AutoExposurePipeline {

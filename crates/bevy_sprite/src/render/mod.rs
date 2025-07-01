@@ -40,9 +40,9 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
-use bevy_utils::default;
 
 #[derive(Resource)]
 pub struct SpritePipeline {

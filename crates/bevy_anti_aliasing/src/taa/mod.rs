@@ -25,11 +25,11 @@ use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations, PipelineCache,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
     sync_component::SyncComponentPlugin,
@@ -38,8 +38,8 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
-use tracing::warn;
 use bevy_utils::default;
+use tracing::warn;
 
 /// Plugin for temporal anti-aliasing.
 ///

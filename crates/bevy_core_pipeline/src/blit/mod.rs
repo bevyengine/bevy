@@ -1,3 +1,4 @@
+use crate::FullscreenShader;
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_ecs::prelude::*;
@@ -10,7 +11,6 @@ use bevy_render::{
     RenderApp,
 };
 use bevy_utils::default;
-use crate::FullscreenShader;
 
 /// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
 pub struct BlitPlugin;

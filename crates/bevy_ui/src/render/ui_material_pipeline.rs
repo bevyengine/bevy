@@ -23,9 +23,9 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::BorderRect;
+use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use core::{hash::Hash, marker::PhantomData, ops::Range};
-use bevy_utils::default;
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given
 /// [`UiMaterial`] asset type (which includes [`UiMaterial`] types).

@@ -66,8 +66,8 @@ use bevy_render::{
     view::RenderVisibleEntities,
     RenderSystems::{PrepareAssets, PrepareResources},
 };
-use core::marker::PhantomData;
 use bevy_utils::default;
+use core::marker::PhantomData;
 
 /// Sets up everything required to use the prepass pipeline.
 ///

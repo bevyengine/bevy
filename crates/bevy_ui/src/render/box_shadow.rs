@@ -2,6 +2,7 @@
 
 use core::{hash::Hash, ops::Range};
 
+use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 use crate::prelude::UiGlobalTransform;
 use crate::{
     BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystems,
@@ -30,9 +31,8 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bytemuck::{Pod, Zeroable};
 use bevy_utils::default;
-use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use bytemuck::{Pod, Zeroable};
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;

@@ -46,9 +46,9 @@ use bevy_render::{
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
     Render, RenderApp, RenderSystems,
 };
+use bevy_utils::default;
 use bitflags::bitflags;
 use tracing::debug;
-use bevy_utils::default;
 
 /// Identifies the `downsample_depth.wgsl` shader.
 pub const DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
