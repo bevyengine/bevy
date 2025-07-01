@@ -12,10 +12,10 @@ Users using the `weak_handle!` macro should switch to the `uuid_handle!` macro.
 
 ```rust
 // Before
-const IMAGE: Handle<Image> = weak_handle!("12345678-9abc-def0-1234-56789abcdef0");
+const IMAGE: Handle<Image> = weak_handle!("b20988e9-b1b9-4176-b5f3-a6fa73aa617f");
 
 // After
-const IMAGE: Handle<Image> = uuid_handle!("12345678-9abc-def0-1234-56789abcdef0");
+const IMAGE: Handle<Image> = uuid_handle!("b20988e9-b1b9-4176-b5f3-a6fa73aa617f");
 ```
 
 Users using the `Handle::Weak` variant directly should consider replacing it with `AssetId` instead,
