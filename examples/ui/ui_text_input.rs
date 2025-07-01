@@ -1,12 +1,14 @@
 //! minimal text input example
 
 use bevy::color::palettes::css::NAVY;
+use bevy::input_focus::tab_navigation::TabNavigationPlugin;
+use bevy::input_focus::InputDispatchPlugin;
 use bevy::prelude::*;
 use bevy::ui::widget::TextInputNode;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, InputDispatchPlugin, TabNavigationPlugin))
         .add_systems(Startup, setup)
         .run();
 }
