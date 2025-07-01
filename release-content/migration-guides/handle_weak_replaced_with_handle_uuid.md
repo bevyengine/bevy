@@ -11,10 +11,10 @@ The primary remaining use for `Handle::Weak` is to store asset UUIDs initialized
 Users using the `weak_handle!` macro should switch to the `uuid_handle!` macro.
 
 ```rust
-# Before
+// Before
 const IMAGE: Handle<Image> = weak_handle!("12345678-9abc-def0-1234-56789abcdef0");
 
-# After
+// After
 const IMAGE: Handle<Image> = uuid_handle!("12345678-9abc-def0-1234-56789abcdef0");
 ```
 
