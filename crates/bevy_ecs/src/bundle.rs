@@ -1993,9 +1993,9 @@ impl Bundles {
             .get(component.index())
             .into_iter()
             .flatten()
-            .map(|id| unsafe {
+            .map(|id| {
                 // SAFETY: components_in_bundles contains only valid ids
-                self.bundle_infos.get(id.index()).debug_checked_unwrap()
+                unsafe { self.bundle_infos.get(id.index()).debug_checked_unwrap() }
             })
     }
 
