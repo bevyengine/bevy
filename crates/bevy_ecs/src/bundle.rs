@@ -591,7 +591,6 @@ impl BundleInfo {
         components_in_bundles: &mut Vec<Vec<BundleId>>,
         components_in_bundles_filter: impl Fn(ComponentId) -> bool,
     ) {
-        // todo: wrong at second call, would add bundleid duplicates!
         let mut components_in_bundles_push = |component: ComponentId| {
             if !components_in_bundles_filter(component) {
                 return;
