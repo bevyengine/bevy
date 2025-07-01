@@ -4,11 +4,11 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs,
     skin, DeferredDrawFunction, DeferredFragmentShader, DeferredVertexShader, DrawMesh,
-    EntitySpecializationTicks, ErasedMaterialPipelineKey, MaterialPipeline, MaterialProperties,
-    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
-    PrepassDrawFunction, PrepassFragmentShader, PrepassVertexShader, RenderLightmaps,
-    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
-    SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
+    EntitySpecializationTicks, ErasedMaterialPipelineKey, Material, MaterialPipeline,
+    MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod,
+    PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader, PrepassVertexShader,
+    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
+    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -58,13 +58,15 @@ use crate::meshlet::{
 
 use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
-use bevy_ecs::system::SystemChangeTick;
+use bevy_ecs::{component::Tick, system::SystemChangeTick};
 use bevy_platform::collections::HashMap;
-use bevy_render::erased_render_asset::ErasedRenderAssets;
-use bevy_render::sync_world::MainEntityHashMap;
-use bevy_render::view::RenderVisibleEntities;
-use bevy_render::RenderSystems::{PrepareAssets, PrepareResources};
+use bevy_render::{
+    erased_render_asset::ErasedRenderAssets,
+    sync_world::MainEntityHashMap,
+    view::RenderVisibleEntities,
+    RenderSystems::{PrepareAssets, PrepareResources},
+};
+use core::marker::PhantomData;
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -185,6 +187,16 @@ impl Plugin for PrepassPlugin {
                 .before(queue_material_meshlet_meshes)
                 .run_if(resource_exists::<InstanceManager>),
         );
+    }
+}
+
+/// Marker resource for whether prepass is enabled globally for this material type
+#[derive(Resource, Debug)]
+pub struct PrepassEnabled<M: Material>(PhantomData<M>);
+
+impl<M: Material> Default for PrepassEnabled<M> {
+    fn default() -> Self {
+        PrepassEnabled(PhantomData)
     }
 }
 
@@ -911,6 +923,11 @@ pub fn specialize_prepass_material_meshes(
             let Some(material) = render_materials.get(material_instance.asset_id) else {
                 continue;
             };
+            if !material.properties.prepass_enabled && !material.properties.shadows_enabled {
+                // If the material was previously specialized for prepass, remove it
+                view_specialized_material_pipeline_cache.remove(visible_entity);
+                continue;
+            }
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
