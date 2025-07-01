@@ -422,7 +422,7 @@ fn apply_pbr_lighting(
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
 
-        let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse);
+        let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse, true);
         direct_light += light_contrib * shadow;
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
@@ -442,7 +442,7 @@ fn apply_pbr_lighting(
         }
 
         let transmitted_light_contrib =
-            lighting::point_light(light_id, &transmissive_lighting_input, enable_diffuse);
+            lighting::point_light(light_id, &transmissive_lighting_input, enable_diffuse, true);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }

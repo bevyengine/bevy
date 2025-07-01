@@ -487,6 +487,12 @@ shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
+# Enable support for Clustered Decals
+pbr_clustered_decals = ["bevy_internal/pbr_clustered_decals"]
+
+# Enable support for Light Textures
+pbr_light_textures = ["bevy_internal/pbr_light_textures"]
+
 # Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_multi_layer_material_textures = [
   "bevy_internal/pbr_multi_layer_material_textures",
@@ -4428,6 +4434,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "light_textures"
+path = "examples/3d/light_textures.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.light_textures]
+name = "Light Textures"
+description = "Demonstrates light textures"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "occlusion_culling"
 path = "examples/3d/occlusion_culling.rs"
 doc-scrape-examples = true
@@ -4527,6 +4544,17 @@ doc-scrape-examples = true
 [package.metadata.example.core_widgets_observers]
 name = "Core Widgets (w/Observers)"
 description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "scrollbars"
+path = "examples/ui/scrollbars.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scrollbars]
+name = "Scrollbars"
+description = "Demonstrates use of core scrollbar in Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
