@@ -136,23 +136,13 @@ fn scrollbar_on_pointer_down(
             ControlOrientation::Horizontal => {
                 if node.size().x > 0. {
                     let click_pos = local_pos.x * content_size.x / node.size().x;
-                    adjust_scroll_pos(
-                        &mut scroll_pos.offset_x,
-                        click_pos,
-                        visible_size.x,
-                        max_range.x,
-                    );
+                    adjust_scroll_pos(&mut scroll_pos.x, click_pos, visible_size.x, max_range.x);
                 }
             }
             ControlOrientation::Vertical => {
                 if node.size().y > 0. {
                     let click_pos = local_pos.y * content_size.y / node.size().y;
-                    adjust_scroll_pos(
-                        &mut scroll_pos.offset_y,
-                        click_pos,
-                        visible_size.y,
-                        max_range.y,
-                    );
+                    adjust_scroll_pos(&mut scroll_pos.y, click_pos, visible_size.y, max_range.y);
                 }
             }
         }
@@ -171,8 +161,8 @@ fn scrollbar_on_drag_start(
             if let Ok(scroll_area) = q_scroll_area.get(scrollbar.target) {
                 drag.dragging = true;
                 drag.drag_origin = match scrollbar.orientation {
-                    ControlOrientation::Horizontal => scroll_area.offset_x,
-                    ControlOrientation::Vertical => scroll_area.offset_y,
+                    ControlOrientation::Horizontal => scroll_area.x,
+                    ControlOrientation::Vertical => scroll_area.y,
                 };
             }
         }
@@ -204,13 +194,13 @@ fn scrollbar_on_drag(
                 match scrollbar.orientation {
                     ControlOrientation::Horizontal => {
                         let range = (content_size.x - visible_size.x).max(0.);
-                        scroll_pos.offset_x = (drag.drag_origin
+                        scroll_pos.x = (drag.drag_origin
                             + (distance.x * content_size.x) / scrollbar_size.x)
                             .clamp(0., range);
                     }
                     ControlOrientation::Vertical => {
                         let range = (content_size.y - visible_size.y).max(0.);
-                        scroll_pos.offset_y = (drag.drag_origin
+                        scroll_pos.y = (drag.drag_origin
                             + (distance.y * content_size.y) / scrollbar_size.y)
                             .clamp(0., range);
                     }
@@ -296,7 +286,7 @@ fn update_scrollbar_thumb(
                             visible_size.x,
                             track_length.x,
                             scrollbar.min_thumb_length,
-                            scroll_area.0.offset_x,
+                            scroll_area.0.x,
                         );
 
                         thumb.top = Val::Px(0.);
@@ -310,7 +300,7 @@ fn update_scrollbar_thumb(
                             visible_size.y,
                             track_length.y,
                             scrollbar.min_thumb_length,
-                            scroll_area.0.offset_y,
+                            scroll_area.0.y,
                         );
 
                         thumb.left = Val::Px(0.);

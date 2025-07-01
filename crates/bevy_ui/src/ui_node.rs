@@ -339,6 +339,12 @@ impl ScrollPosition {
     pub const DEFAULT: Self = Self(Vec2::ZERO);
 }
 
+impl From<Vec2> for ScrollPosition {
+    fn from(value: Vec2) -> Self {
+        Self(value)
+    }
+}
+
 /// The base component for UI entities. It describes UI layout and style properties.
 ///
 /// When defining new types of UI entities, require [`Node`] to make them behave like UI nodes.
