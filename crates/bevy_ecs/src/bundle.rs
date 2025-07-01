@@ -580,7 +580,7 @@ impl BundleInfo {
     /// Update [`Self::component_ids`] to contain all required components, updates [`Self::required_components`] alongside.
     ///
     /// The filter `components_in_bundles_filter` determines for which components [`Self::id`] is added to `components_in_bundles`.
-    /// 
+    ///
     /// # Safety
     ///
     /// `Self` must be constructed from [`Self::new`] with the same `storages` and `components`.
@@ -634,7 +634,7 @@ impl BundleInfo {
     }
 
     /// Updates required components for new runtime-added components.
-    /// 
+    ///
     /// # Safety
     ///
     /// `Self` must be constructed from [`Self::new`] with the same `storages` and `components`.
