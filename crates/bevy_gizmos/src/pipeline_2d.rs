@@ -55,8 +55,7 @@ impl Plugin for LineGizmo2dPlugin {
             )
             .add_systems(
                 RenderStartup,
-                (init_line_gizmo_pipeline, init_line_joint_gizmo_pipeline)
-                    .after(init_line_gizmo_uniform_bind_group_layout),
+                init_line_gizmo_pipelines.after(init_line_gizmo_uniform_bind_group_layout),
             )
             .add_systems(
                 Render,
@@ -74,7 +73,7 @@ struct LineGizmoPipeline {
     shader: Handle<Shader>,
 }
 
-fn init_line_gizmo_pipeline(
+fn init_line_gizmo_pipelines(
     mut commands: Commands,
     mesh_2d_pipeline: Res<Mesh2dPipeline>,
     uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
@@ -84,6 +83,11 @@ fn init_line_gizmo_pipeline(
         mesh_pipeline: mesh_2d_pipeline.clone(),
         uniform_layout: uniform_bind_group_layout.layout.clone(),
         shader: load_embedded_asset!(asset_server.as_ref(), "lines.wgsl"),
+    });
+    commands.insert_resource(LineJointGizmoPipeline {
+        mesh_pipeline: mesh_2d_pipeline.clone(),
+        uniform_layout: uniform_bind_group_layout.layout.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wgsl"),
     });
 }
 
@@ -172,19 +176,6 @@ struct LineJointGizmoPipeline {
     mesh_pipeline: Mesh2dPipeline,
     uniform_layout: BindGroupLayout,
     shader: Handle<Shader>,
-}
-
-fn init_line_joint_gizmo_pipeline(
-    mut commands: Commands,
-    mesh_2d_pipeline: Res<Mesh2dPipeline>,
-    uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
-    asset_server: Res<AssetServer>,
-) {
-    commands.insert_resource(LineJointGizmoPipeline {
-        mesh_pipeline: mesh_2d_pipeline.clone(),
-        uniform_layout: uniform_bind_group_layout.layout.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wgsl"),
-    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
