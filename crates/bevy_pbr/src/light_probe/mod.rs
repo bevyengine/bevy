@@ -365,7 +365,8 @@ impl Plugin for LightProbePlugin {
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>();
+            .register_type::<IrradianceVolume>()
+            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
     }
 
     fn finish(&self, app: &mut App) {
@@ -374,7 +375,6 @@ impl Plugin for LightProbePlugin {
         };
 
         render_app
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
