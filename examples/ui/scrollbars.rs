@@ -86,10 +86,7 @@ fn scroll_area_demo() -> impl Bundle {
                         ..default()
                     },
                     BackgroundColor(colors::GRAY1.into()),
-                    ScrollPosition {
-                        offset_x: 0.0,
-                        offset_y: 10.0,
-                    },
+                    ScrollPosition(Vec2::new(0.0, 10.0)),
                     Children::spawn((
                         // The actual content of the scrolling area
                         Spawn(text_row("Alpha Wolf")),
