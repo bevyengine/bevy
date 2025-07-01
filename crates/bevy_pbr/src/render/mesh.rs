@@ -2039,7 +2039,7 @@ impl GetFullBatchData for MeshPipeline {
 }
 
 bitflags::bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
@@ -2557,6 +2557,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if self.clustered_decals_are_usable {
             shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
+            if cfg!(feature = "pbr_light_textures") {
+                shader_defs.push("LIGHT_TEXTURES".into());
+            }
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {

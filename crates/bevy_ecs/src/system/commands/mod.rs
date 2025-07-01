@@ -19,7 +19,7 @@ use crate::{
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
-    error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
+    error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::{BufferedEvent, EntityEvent, Event},
     observer::{Observer, TriggerTargets},
     resource::Resource,
@@ -639,6 +639,11 @@ impl<'w, 's> Commands<'w, 's> {
         error_handler: fn(BevyError, ErrorContext),
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
+    }
+
+    /// Pushes a generic [`Command`] to the queue like [`Commands::queue_handled`], but instead silently ignores any errors.
+    pub fn queue_silenced<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+        self.queue_internal(command.ignore_error());
     }
 
     fn queue_internal(&mut self, command: impl Command) {
@@ -1466,12 +1471,11 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        self.queue_handled(
+        self.queue_silenced(
             // SAFETY:
             // - `ComponentId` safety is ensured by the caller.
             // - `T` safety is ensured by the caller.
             unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
-            ignore,
         )
     }
 
@@ -1523,7 +1527,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle, InsertMode::Replace), ignore)
+        self.queue_silenced(entity_command::insert(bundle, InsertMode::Replace))
     }
 
     /// Adds a [`Bundle`] of components to the entity if the predicate returns true.
@@ -1579,7 +1583,7 @@ impl<'a> EntityCommands<'a> {
     /// the resulting error will be ignored.
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle, InsertMode::Keep), ignore)
+        self.queue_silenced(entity_command::insert(bundle, InsertMode::Keep))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1724,7 +1728,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     pub fn try_remove<B: Bundle>(&mut self) -> &mut Self {
-        self.queue_handled(entity_command::remove::<B>(), ignore)
+        self.queue_silenced(entity_command::remove::<B>())
     }
 
     /// Removes a [`Bundle`] of components from the entity,
@@ -1818,7 +1822,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     pub fn try_despawn(&mut self) {
-        self.queue_handled(entity_command::despawn(), ignore);
+        self.queue_silenced(entity_command::despawn());
     }
 
     /// Pushes an [`EntityCommand`] to the queue,
@@ -1904,6 +1908,18 @@ impl<'a> EntityCommands<'a> {
     ) -> &mut Self {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);
+        self
+    }
+
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// Unlike [`EntityCommands::queue_handled`], this will completely ignore any errors that occur.
+    pub fn queue_silenced<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
+        &mut self,
+        command: C,
+    ) -> &mut Self {
+        self.commands
+            .queue_silenced(command.with_entity(self.entity));
         self
     }
 
