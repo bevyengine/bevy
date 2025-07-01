@@ -135,6 +135,8 @@ impl Plugin for TextPlugin {
             )
             .add_systems(Last, trim_cosmic_cache);
 
+        app.add_plugins(TextInputPlugin);
+
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 ExtractSchedule,

@@ -24,6 +24,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
+use bevy_log::info_once;
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::load_shader_library;
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
@@ -166,6 +167,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
                 extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                 extract_text_sections.in_set(RenderUiSystems::ExtractText),
+                extract_text_input_nodes.in_set(RenderUiSystems::ExtractText),
                 #[cfg(feature = "bevy_ui_debug")]
                 debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
             ),
@@ -884,6 +886,88 @@ pub fn extract_text_sections(
                     )
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    stack_index: uinode.stack_index,
+                    color,
+                    image: atlas_info.texture.id(),
+                    clip: clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    rect,
+                    item: ExtractedUiItem::Glyphs { range: start..end },
+                    main_entity: entity.into(),
+                });
+                start = end;
+            }
+
+            end += 1;
+        }
+    }
+}
+
+pub fn extract_text_input_nodes(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedNodeTarget,
+            &TextLayoutInfo,
+            &TextColor,
+        )>,
+    >,
+    camera_map: Extract<UiCameraMap>,
+) {
+    info_once!("extract text input!");
+    let mut start = extracted_uinodes.glyphs.len();
+    let mut end = start + 1;
+
+    let mut camera_mapper = camera_map.get_mapper();
+    for (entity, uinode, transform, inherited_visibility, clip, camera, text_layout_info, color) in
+        &uinode_query
+    {
+        info_once!("found text input node!");
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
+        let color = color.to_linear();
+        info_once!("visible text input node!");
+        for (
+            i,
+            PositionedGlyph {
+                position,
+                atlas_info,
+                span_index,
+                ..
+            },
+        ) in text_layout_info.glyphs.iter().enumerate()
+        {
+            info_once!("with glyphs!");
+            let rect = texture_atlases
+                .get(&atlas_info.texture_atlas)
+                .unwrap()
+                .textures[atlas_info.location.glyph_index]
+                .as_rect();
+            extracted_uinodes.glyphs.push(ExtractedGlyph {
+                transform: transform * Affine2::from_translation(*position),
+                rect,
+            });
+
+            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+                info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
+            }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     stack_index: uinode.stack_index,

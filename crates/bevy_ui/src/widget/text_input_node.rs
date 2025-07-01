@@ -1,15 +1,19 @@
+#![allow(missing_docs)]
+
 use crate::ComputedNode;
 use crate::Node;
 use crate::UiGlobalTransform;
 use crate::UiScale;
+use crate::UiSystems;
 use bevy_app::Plugin;
 use bevy_app::PostUpdate;
+use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::observer::Observer;
 use bevy_ecs::observer::On;
-use bevy_ecs::query::With;
 use bevy_ecs::resource::Resource;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
@@ -29,25 +33,45 @@ use bevy_picking::events::Pointer;
 use bevy_picking::events::Press;
 use bevy_picking::pointer::PointerButton;
 use bevy_text::Motion;
+use bevy_text::TextColor;
 use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
+use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
-use bevy_text::TextInputSize;
+use bevy_text::TextInputSystems;
+use bevy_text::TextInputTarget;
+use bevy_text::TextLayoutInfo;
 use bevy_text::TextPipeline;
 use bevy_time::Time;
+use tracing::info;
 
 pub struct TextInputNodePlugin;
 
 impl Plugin for TextInputNodePlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.init_resource::<TextInputModifiers>()
-            .add_systems(PostUpdate, update_size);
+        app.init_resource::<TextInputModifiers>().add_systems(
+            PostUpdate,
+            update_targets
+                .after(UiSystems::Layout)
+                .before(TextInputSystems)
+                .before(bevy_text::update_text_input_buffers),
+        );
     }
 }
 
-fn update_size(mut text_input_node_query: Query<(&ComputedNode, &mut TextInputSize)>) {
-    for (node, size) in text_input_node_query.iter_mut() {
-        size.0 = node.size();
+fn update_targets(mut text_input_node_query: Query<(&ComputedNode, &mut TextInputTarget)>) {
+    bevy_log::info_once!("update targets");
+    for (node, mut target) in text_input_node_query.iter_mut() {
+        let new_target = TextInputTarget {
+            size: node.size(),
+            scale_factor: node.inverse_scale_factor.recip(),
+        };
+
+        if new_target != *target {
+            info!("new target = {:#?}", new_target);
+        }
+
+        target.set_if_neq(new_target);
     }
 }
 
@@ -55,10 +79,13 @@ fn update_size(mut text_input_node_query: Query<(&ComputedNode, &mut TextInputSi
 #[derive(Component, Debug, Default)]
 #[require(
     Node,
+    TextColor,
     TextInputMultiClickCounter,
     TextInputBuffer,
-    TextInputSize,
-    TextInputActions
+    TextInputTarget,
+    TextInputAttributes,
+    TextInputActions,
+    TextLayoutInfo
 )]
 #[component(
     on_add = on_add_text_input_node,
@@ -118,6 +145,7 @@ fn on_text_input_pressed(
     mut input_focus: ResMut<InputFocus>,
     ui_scale: Res<UiScale>,
 ) {
+    info!("text input pressed observer");
     if trigger.button != PointerButton::Primary {
         return;
     }
@@ -127,12 +155,7 @@ fn on_text_input_pressed(
         return;
     };
 
-    if !input_focus
-        .get()
-        .is_some_and(|active_input| active_input == trigger.target())
-    {
-        input_focus.set(trigger.target());
-    }
+    input_focus.set(trigger.target());
 
     let rect = Rect::from_center_size(transform.translation, node.size());
 
@@ -230,7 +253,7 @@ fn on_multi_click_set_selection(
                     return;
                 }
                 2 => {
-                    edits.queue(TextInputAction::SelectLine);
+                    edits.queue(TextInputAction::TripleClick(position.as_ivec2()));
                     if let Ok(mut entity) = commands.get_entity(click.target()) {
                         entity.try_remove::<TextInputMultiClickCounter>();
                     }

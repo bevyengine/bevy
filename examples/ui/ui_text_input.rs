@@ -1,8 +1,10 @@
 //! minimal text input example
 
 use bevy::color::palettes::css::NAVY;
+use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
+use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::ui::widget::TextInputNode;
 
@@ -16,6 +18,19 @@ fn main() {
 fn setup(mut commands: Commands) {
     // UI camera
     commands.spawn(Camera2d);
+    let id = commands
+        .spawn((
+            TextInputNode::default(),
+            TabIndex(0),
+            Node {
+                width: Val::Percent(50.),
+                height: Val::Percent(50.),
+                ..default()
+            },
+            BackgroundColor(NAVY.into()),
+        ))
+        .id();
+
     commands
         .spawn(Node {
             width: Val::Percent(100.),
@@ -26,13 +41,7 @@ fn setup(mut commands: Commands) {
             row_gap: Val::Px(10.),
             ..Default::default()
         })
-        .with_child((
-            TextInputNode::default(),
-            Node {
-                width: Val::Px(500.),
-                height: Val::Px(250.),
-                ..default()
-            },
-            BackgroundColor(NAVY.into()),
-        ));
+        .add_child(id);
+
+    commands.insert_resource(InputFocus(Some(id)));
 }

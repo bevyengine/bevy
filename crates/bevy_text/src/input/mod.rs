@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::collections::VecDeque;
 
 use bevy_app::Plugin;
@@ -10,6 +12,8 @@ use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::query::Changed;
+use bevy_ecs::query::Or;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::schedule::SystemSet;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
@@ -18,6 +22,7 @@ use bevy_ecs::system::ResMut;
 use bevy_ecs::world::Ref;
 use bevy_image::Image;
 use bevy_image::TextureAtlasLayout;
+use bevy_log::info_once;
 use bevy_math::IVec2;
 use bevy_math::Rect;
 use bevy_math::UVec2;
@@ -33,6 +38,7 @@ pub use cosmic_text::Motion;
 use cosmic_text::Selection;
 use cosmic_text::SwashCache;
 use cosmic_text::Wrap;
+use tracing::info;
 
 use crate::buffer_dimensions;
 use crate::input;
@@ -62,10 +68,12 @@ impl Plugin for TextInputPlugin {
         app.add_systems(
             PostUpdate,
             (
-                apply_text_input_actions,
                 update_text_input_buffers,
+                apply_text_input_actions,
                 update_text_input_layouts,
-            ),
+            )
+                .chain()
+                .in_set(TextInputSystems),
         );
     }
 }
@@ -91,14 +99,26 @@ pub struct TextInputTarget {
 }
 
 #[derive(Component)]
-pub struct TextInputData {
-    width: f32,
-    height: f32,
+pub struct TextInputAttributes {
     font: Handle<Font>,
     font_size: f32,
     line_height: f32,
     wrap: LineBreak,
     justify: Justify,
+    font_smoothing: FontSmoothing,
+}
+
+impl Default for TextInputAttributes {
+    fn default() -> Self {
+        Self {
+            font: Default::default(),
+            font_size: 20.,
+            line_height: 1.2,
+            font_smoothing: Default::default(),
+            justify: Default::default(),
+            wrap: Default::default(),
+        }
+    }
 }
 
 /// Text input commands queue
@@ -109,11 +129,13 @@ pub struct TextInputActions {
 
 impl TextInputActions {
     pub fn queue(&mut self, command: TextInputAction) {
+        info!("queue action: {:?}", command);
         self.queue.push_back(command);
     }
 }
 
 /// Text input commands
+#[derive(Debug)]
 pub enum TextInputAction {
     Submit,
     Copy,
@@ -186,6 +208,7 @@ pub fn apply_text_input_actions(
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_input_query: Query<(Entity, &mut TextInputBuffer, &mut TextInputActions)>,
 ) {
+    info_once!("apply_text_input_actions");
     for (entity, mut buffer, mut text_input_actions) in text_input_query.iter_mut() {
         let mut editor = buffer.editor.borrow_with(&mut font_system);
 
@@ -301,57 +324,68 @@ pub fn apply_text_input_actions(
 
 /// update editor
 pub fn update_text_input_buffers(
-    mut text_input_query: Query<(&mut TextInputBuffer, &TextInputData), Changed<TextInputData>>,
+    mut text_input_query: Query<(
+        &mut TextInputBuffer,
+        Ref<TextInputTarget>,
+        Ref<TextInputAttributes>,
+    )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_pipeline: ResMut<TextPipeline>,
     fonts: Res<Assets<Font>>,
 ) {
+    info_once!(" update_text_input_buffers");
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
-    for (mut input_buffer, data) in text_input_query.iter_mut() {
-        let _ = input_buffer.editor.with_buffer_mut(|buffer| {
-            let metrics = Metrics::new(data.font_size, data.line_height);
+    for (mut input_buffer, target, attributes) in text_input_query.iter_mut() {
+        if target.is_changed() || attributes.is_changed() {
+            let _ = input_buffer.editor.with_buffer_mut(|buffer| {
+                let metrics = Metrics::relative(attributes.font_size, attributes.line_height)
+                    .scale(target.scale_factor);
 
-            buffer.set_metrics_and_size(font_system, metrics, Some(data.width), Some(data.height));
-            buffer.set_wrap(font_system, data.wrap.into());
+                buffer.set_metrics_and_size(
+                    font_system,
+                    metrics,
+                    Some(target.size.x),
+                    Some(target.size.y),
+                );
+                buffer.set_wrap(font_system, attributes.wrap.into());
 
-            if !fonts.contains(data.font.id()) {
-                return Err(TextError::NoSuchFont);
-            }
+                if !fonts.contains(attributes.font.id()) {
+                    return Err(TextError::NoSuchFont);
+                }
 
-            let face_info =
-                load_font_to_fontdb(data.font.clone(), font_system, font_id_map, &fonts);
+                let face_info =
+                    load_font_to_fontdb(attributes.font.clone(), font_system, font_id_map, &fonts);
 
-            let attrs = cosmic_text::Attrs::new()
-                .metadata(0)
-                .family(cosmic_text::Family::Name(&face_info.family_name))
-                .stretch(face_info.stretch)
-                .style(face_info.style)
-                .weight(face_info.weight)
-                .metrics(metrics);
+                let attrs = cosmic_text::Attrs::new()
+                    .metadata(0)
+                    .family(cosmic_text::Family::Name(&face_info.family_name))
+                    .stretch(face_info.stretch)
+                    .style(face_info.style)
+                    .weight(face_info.weight)
+                    .metrics(metrics);
 
-            let text = buffer
-                .lines
-                .iter()
-                .map(|buffer_line| buffer_line.text())
-                .fold(String::new(), |mut out, line| {
-                    if !out.is_empty() {
-                        out.push('\n');
-                    }
-                    out.push_str(line);
-                    out
-                });
-            buffer.set_text(font_system, &text, &attrs, cosmic_text::Shaping::Advanced);
-            let align = Some(data.justify.into());
-            for buffer_line in buffer.lines.iter_mut() {
-                buffer_line.set_align(align);
-            }
+                let text = buffer
+                    .lines
+                    .iter()
+                    .map(|buffer_line| buffer_line.text())
+                    .fold(String::new(), |mut out, line| {
+                        if !out.is_empty() {
+                            out.push('\n');
+                        }
+                        out.push_str(line);
+                        out
+                    });
+                buffer.set_text(font_system, &text, &attrs, cosmic_text::Shaping::Advanced);
+                let align = Some(attributes.justify.into());
+                for buffer_line in buffer.lines.iter_mut() {
+                    buffer_line.set_align(align);
+                }
 
-            buffer.set_redraw(true);
-            Ok(())
-        });
-
-        input_buffer.editor.shape_as_needed(font_system, false);
+                buffer.set_redraw(true);
+                Ok(())
+            });
+        }
     }
 }
 
@@ -359,23 +393,31 @@ pub fn update_text_input_buffers(
 pub fn update_text_input_layouts(
     mut textures: ResMut<Assets<Image>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut text_query: Query<(&mut TextLayoutInfo, &mut TextInputBuffer, &mut TextFont)>,
+    mut text_query: Query<(
+        &mut TextLayoutInfo,
+        &mut TextInputBuffer,
+        &mut TextInputAttributes,
+    )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
 ) {
+    info_once!(" update_text_input_layouts");
     let font_system = &mut font_system.0;
-    for (mut layout_info, mut buffer, text_font) in text_query.iter_mut() {
+    for (mut layout_info, mut buffer, attributes) in text_query.iter_mut() {
         let editor = &mut buffer.editor;
         let selection = editor.selection_bounds();
+        editor.shape_as_needed(font_system, false);
 
         if editor.redraw() {
+            info!("** redraw editor **");
             layout_info.glyphs.clear();
             layout_info.section_rects.clear();
             layout_info.selection_rects.clear();
 
             let result = editor.with_buffer_mut(|buffer| {
                 let box_size = buffer_dimensions(buffer);
+                info!("box_size = {}", box_size);
                 let result = buffer.layout_runs().try_for_each(|run| {
                     if let Some(selection) = selection {
                         if let Some((x0, w)) = run.highlight(selection.0, selection.1) {
@@ -394,8 +436,8 @@ pub fn update_text_input_layouts(
                         .try_for_each(|(layout_glyph, line_y, line_i)| {
                             let mut temp_glyph;
                             let span_index = layout_glyph.metadata;
-                            let font_id = text_font.font.id();
-                            let font_smoothing = text_font.font_smoothing;
+                            let font_id = attributes.font.id();
+                            let font_smoothing = attributes.font_smoothing;
 
                             let layout_glyph = if font_smoothing == FontSmoothing::None {
                                 // If font smoothing is disabled, round the glyph positions and sizes,
