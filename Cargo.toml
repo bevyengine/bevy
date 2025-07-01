@@ -872,13 +872,14 @@ category = "2D Rendering"
 wasm = false
 
 [[example]]
-name = "tilemap_chunk"
-path = "examples/2d/tilemap_chunk.rs"
+name = "tilemap"
+path = "examples/2d/tilemap.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
-[package.metadata.example.tilemap_chunk]
-name = "Tilemap Chunk"
-description = "Renders a tilemap chunk"
+[package.metadata.example.tilemap]
+name = "Tilemap"
+description = "Renders a tilemap"
 category = "2D Rendering"
 wasm = true
 
