@@ -1,9 +1,11 @@
 //! This example shows off the various Bevy Feathers widgets.
 
 use bevy::{
-    core_widgets::{Callback, CoreWidgetsPlugin, SliderStep},
+    core_widgets::{Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugin, SliderStep},
     feathers::{
-        controls::{button, slider, ButtonProps, ButtonVariant, SliderProps},
+        controls::{
+            button, checkbox, radio, slider, ButtonProps, ButtonVariant, CheckboxProps, SliderProps,
+        },
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
@@ -14,7 +16,7 @@ use bevy::{
         InputDispatchPlugin,
     },
     prelude::*,
-    ui::InteractionDisabled,
+    ui::{Checked, InteractionDisabled},
     winit::WinitSettings,
 };
 
@@ -42,6 +44,19 @@ fn setup(mut commands: Commands) {
 }
 
 fn demo_root(commands: &mut Commands) -> impl Bundle {
+    // Update radio button states based on notification from radio group.
+    let radio_exclusion = commands.register_system(
+        |ent: In<Entity>, q_radio: Query<Entity, With<CoreRadio>>, mut commands: Commands| {
+            for radio in q_radio.iter() {
+                if radio == *ent {
+                    commands.entity(radio).insert(Checked);
+                } else {
+                    commands.entity(radio).remove::<Checked>();
+                }
+            }
+        },
+    );
+
     (
         Node {
             width: Val::Percent(100.0),
@@ -165,6 +180,47 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     },
                     (),
                     Spawn((Text::new("Button"), ThemedText))
+                ),
+                checkbox(
+                    CheckboxProps {
+                        on_change: Callback::Ignore,
+                    },
+                    Checked,
+                    Spawn((Text::new("Checkbox"), ThemedText))
+                ),
+                checkbox(
+                    CheckboxProps {
+                        on_change: Callback::Ignore,
+                    },
+                    InteractionDisabled,
+                    Spawn((Text::new("Disabled"), ThemedText))
+                ),
+                checkbox(
+                    CheckboxProps {
+                        on_change: Callback::Ignore,
+                    },
+                    (InteractionDisabled, Checked),
+                    Spawn((Text::new("Disabled+Checked"), ThemedText))
+                ),
+                (
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(4.0),
+                        ..default()
+                    },
+                    CoreRadioGroup {
+                        on_change: Callback::System(radio_exclusion),
+                    },
+                    children![
+                        radio(Checked, Spawn((Text::new("One"), ThemedText))),
+                        radio((), Spawn((Text::new("Two"), ThemedText))),
+                        radio((), Spawn((Text::new("Three"), ThemedText))),
+                        radio(
+                            InteractionDisabled,
+                            Spawn((Text::new("Disabled"), ThemedText))
+                        ),
+                    ]
                 ),
                 slider(
                     SliderProps {

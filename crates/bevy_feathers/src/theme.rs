@@ -73,12 +73,18 @@ pub struct ThemedText;
 
 pub(crate) fn update_theme(
     mut q_background: Query<(&mut BackgroundColor, &ThemeBackgroundColor)>,
+    mut q_border: Query<(&mut BorderColor, &ThemeBorderColor)>,
     theme: Res<UiTheme>,
 ) {
     if theme.is_changed() {
         // Update all background colors
         for (mut bg, theme_bg) in q_background.iter_mut() {
             bg.0 = theme.color(theme_bg.0);
+        }
+
+        // Update all border colors
+        for (mut border, theme_border) in q_border.iter_mut() {
+            border.set_all(theme.color(theme_border.0));
         }
     }
 }
@@ -94,6 +100,17 @@ pub(crate) fn on_changed_background(
     // Update background colors where the design token has changed.
     if let Ok((mut bg, theme_bg)) = q_background.get_mut(ev.target()) {
         bg.0 = theme.color(theme_bg.0);
+    }
+}
+
+pub(crate) fn on_changed_border(
+    ev: On<Insert, ThemeBorderColor>,
+    mut q_border: Query<(&mut BorderColor, &ThemeBorderColor), Changed<ThemeBorderColor>>,
+    theme: Res<UiTheme>,
+) {
+    // Update background colors where the design token has changed.
+    if let Ok((mut border, theme_border)) = q_border.get_mut(ev.target()) {
+        border.set_all(theme.color(theme_border.0));
     }
 }
 
