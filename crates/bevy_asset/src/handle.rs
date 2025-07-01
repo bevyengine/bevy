@@ -399,11 +399,7 @@ impl core::fmt::Debug for UntypedHandle {
                 )
             }
             UntypedHandle::Uuid { type_id, uuid } => {
-                write!(
-                    f,
-                    "UuidHandle{{ type_id: {:?}, uuid: {:?} }}",
-                    type_id, uuid
-                )
+                write!(f, "UuidHandle{{ type_id: {type_id:?}, uuid: {uuid:?} }}",)
             }
         }
     }
