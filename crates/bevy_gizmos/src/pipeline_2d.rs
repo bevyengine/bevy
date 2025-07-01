@@ -5,19 +5,17 @@ use crate::{
     SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
     prelude::Entity,
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::FloatOrd;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -28,6 +26,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
+use bevy_render::{sync_world::MainEntity, RenderStartup};
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use tracing::error;
 
@@ -55,20 +54,15 @@ impl Plugin for LineGizmo2dPlugin {
                     ),
             )
             .add_systems(
+                RenderStartup,
+                (init_line_gizmo_pipeline, init_line_joint_gizmo_pipeline),
+            )
+            .add_systems(
                 Render,
                 (queue_line_gizmos_2d, queue_line_joint_gizmos_2d)
                     .in_set(GizmoRenderSystems::QueueLineGizmos2d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<LineGizmoPipeline>();
-        render_app.init_resource::<LineJointGizmoPipeline>();
     }
 }
 
@@ -79,17 +73,17 @@ struct LineGizmoPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for LineGizmoPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        LineGizmoPipeline {
-            mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
-            uniform_layout: render_world
-                .resource::<LineGizmoUniformBindgroupLayout>()
-                .layout
-                .clone(),
-            shader: load_embedded_asset!(render_world, "lines.wgsl"),
-        }
-    }
+fn init_line_gizmo_pipeline(
+    mesh_2d_pipeline: Res<Mesh2dPipeline>,
+    uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    commands.insert_resource(LineGizmoPipeline {
+        mesh_pipeline: mesh_2d_pipeline.clone(),
+        uniform_layout: uniform_bind_group_layout.layout.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "lines.wgsl"),
+    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -179,17 +173,17 @@ struct LineJointGizmoPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for LineJointGizmoPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        LineJointGizmoPipeline {
-            mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
-            uniform_layout: render_world
-                .resource::<LineGizmoUniformBindgroupLayout>()
-                .layout
-                .clone(),
-            shader: load_embedded_asset!(render_world, "line_joints.wgsl"),
-        }
-    }
+fn init_line_joint_gizmo_pipeline(
+    mesh_2d_pipeline: Res<Mesh2dPipeline>,
+    uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    commands.insert_resource(LineJointGizmoPipeline {
+        mesh_pipeline: mesh_2d_pipeline.clone(),
+        uniform_layout: uniform_bind_group_layout.layout.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wgsl"),
+    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
