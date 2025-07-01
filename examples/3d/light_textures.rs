@@ -155,12 +155,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Error out if the light textures feature isn't enabled
-    if !cfg!(feature = "pbr_light_textures") {
-        eprintln!("Bevy was compiled without light texture support. Run with `--features=pbr_light_textures` to enable.");
-        process::exit(1);
-    }
-
     // Error out if clustered decals (and so light textures) aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         eprintln!("Light textures aren't usable on this platform.");
