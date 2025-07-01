@@ -11,6 +11,7 @@ use bevy_render::{
     view::ViewUniform,
 };
 use core::num::NonZero;
+use bevy_utils::default;
 
 #[derive(Resource)]
 pub struct AutoExposurePipeline {
@@ -82,12 +83,11 @@ impl SpecializedComputePipeline for AutoExposurePipeline {
             layout: vec![self.histogram_layout.clone()],
             shader: self.histogram_shader.clone(),
             shader_defs: vec![],
-            entry_point: match pass {
+            entry_point: Some(match pass {
                 AutoExposurePass::Histogram => "compute_histogram".into(),
                 AutoExposurePass::Average => "compute_average".into(),
-            },
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            }),
+            ..default()
         }
     }
 }

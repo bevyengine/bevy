@@ -48,6 +48,7 @@ use bevy_render::{
 };
 use bitflags::bitflags;
 use tracing::debug;
+use bevy_utils::default;
 
 /// Identifies the `downsample_depth.wgsl` shader.
 pub const DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
@@ -492,12 +493,12 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
             }],
             shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
             shader_defs,
-            entry_point: if key.contains(DownsampleDepthPipelineKey::SECOND_PHASE) {
+            entry_point: Some(if key.contains(DownsampleDepthPipelineKey::SECOND_PHASE) {
                 "downsample_depth_second".into()
             } else {
                 "downsample_depth_first".into()
-            },
-            zero_initialize_workgroup_memory: false,
+            }),
+            ..default()
         }
     }
 }

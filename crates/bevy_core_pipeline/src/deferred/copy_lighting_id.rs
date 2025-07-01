@@ -20,7 +20,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
 };
-
+use bevy_utils::default;
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
 pub struct CopyDeferredLightingIdPlugin;
@@ -142,11 +142,8 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                     vertex: vertex_state,
                     fragment: Some(FragmentState {
                         shader,
-                        shader_defs: vec![],
-                        entry_point: "fragment".into(),
-                        targets: vec![],
+                        ..default()
                     }),
-                    primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
                         format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
                         depth_write_enabled: true,
@@ -154,9 +151,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                         stencil: StencilState::default(),
                         bias: DepthBiasState::default(),
                     }),
-                    multisample: MultisampleState::default(),
-                    push_constant_ranges: vec![],
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 });
 
         Self {

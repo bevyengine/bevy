@@ -67,6 +67,7 @@ use bevy_render::{
     RenderSystems::{PrepareAssets, PrepareResources},
 };
 use core::marker::PhantomData;
+use bevy_utils::default;
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -584,9 +585,9 @@ impl PrepassPipelineInternal {
 
             FragmentState {
                 shader: frag_shader_handle,
-                entry_point: "fragment".into(),
                 shader_defs: shader_defs.clone(),
                 targets,
+                ..default()
             }
         });
 
@@ -605,20 +606,16 @@ impl PrepassPipelineInternal {
         let descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: vert_shader_handle,
-                entry_point: "vertex".into(),
                 shader_defs,
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment,
             layout: bind_group_layouts,
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
-                strip_index_format: None,
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
                 unclipped_depth,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
+                ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
@@ -641,9 +638,8 @@ impl PrepassPipelineInternal {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            push_constant_ranges: vec![],
             label: Some("prepass_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         };
         Ok(descriptor)
     }

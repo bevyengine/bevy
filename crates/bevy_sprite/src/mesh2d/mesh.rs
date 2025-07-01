@@ -54,6 +54,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use nonmax::NonMaxU32;
 use tracing::error;
+use bevy_utils::default;
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
@@ -646,22 +647,21 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
-            push_constant_ranges: vec![],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -693,7 +693,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some(label.into()),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         })
     }
 }

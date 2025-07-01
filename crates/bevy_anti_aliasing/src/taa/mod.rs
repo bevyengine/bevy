@@ -25,8 +25,8 @@ use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, FilterMode, FragmentState, MultisampleState, Operations,
-        PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
+        ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations,
+        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
@@ -39,6 +39,7 @@ use bevy_render::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use tracing::warn;
+use bevy_utils::default;
 
 /// Plugin for temporal anti-aliasing.
 ///
@@ -320,7 +321,6 @@ impl SpecializedRenderPipeline for TaaPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "taa".into(),
                 targets: vec![
                     Some(ColorTargetState {
                         format,
@@ -333,12 +333,9 @@ impl SpecializedRenderPipeline for TaaPipeline {
                         write_mask: ColorWrites::ALL,
                     }),
                 ],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

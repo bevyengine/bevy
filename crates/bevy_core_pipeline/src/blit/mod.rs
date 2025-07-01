@@ -9,7 +9,7 @@ use bevy_render::{
     renderer::RenderDevice,
     RenderApp,
 };
-
+use bevy_utils::default;
 use crate::FullscreenShader;
 
 /// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
@@ -85,22 +85,18 @@ impl SpecializedRenderPipeline for BlitPipeline {
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                shader_defs: vec![],
-                entry_point: "fs_main".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
                     blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
             multisample: MultisampleState {
                 count: key.samples,
-                ..Default::default()
+                ..default()
             },
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

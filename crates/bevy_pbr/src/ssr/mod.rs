@@ -548,7 +548,6 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.is_hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -558,12 +557,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            push_constant_ranges: vec![],
-            primitive: default(),
-            depth_stencil: None,
-            multisample: default(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

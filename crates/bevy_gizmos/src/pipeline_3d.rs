@@ -34,6 +34,7 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 use tracing::error;
+use bevy_utils::default;
 
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
@@ -132,14 +133,14 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: fragment_entry_point.into(),
+                entry_point: Some(fragment_entry_point.into()),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
@@ -147,7 +148,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 })],
             }),
             layout,
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
@@ -161,8 +161,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("LineGizmo 3d Pipeline".into()),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -232,22 +231,21 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                entry_point: entry_point.into(),
+                entry_point: Some(entry_point.into()),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout,
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
@@ -261,8 +259,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("LineJointGizmo 3d Pipeline".into()),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

@@ -64,8 +64,8 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
-        DynamicUniformBuffer, FilterMode, FragmentState, LoadOp, MultisampleState, Operations,
-        PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+        DynamicUniformBuffer, FilterMode, FragmentState, LoadOp, Operations,
+        PipelineCache, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, SamplerBindingType,
         SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilOperation,
@@ -482,21 +482,19 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
             vertex: VertexState {
                 shader: self.shader.clone(),
                 shader_defs: shader_defs.clone(),
-                entry_point: "edge_detection_vertex_main".into(),
+                entry_point: Some("edge_detection_vertex_main".into()),
                 buffers: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "luma_edge_detection_fragment_main".into(),
+                entry_point: Some("luma_edge_detection_fragment_main".into()),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::Rg8Unorm,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            push_constant_ranges: vec![],
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
                 depth_write_enabled: false,
@@ -509,8 +507,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 },
                 bias: default(),
             }),
-            multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -542,21 +539,19 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
             vertex: VertexState {
                 shader: self.shader.clone(),
                 shader_defs: shader_defs.clone(),
-                entry_point: "blending_weight_calculation_vertex_main".into(),
+                entry_point: Some("blending_weight_calculation_vertex_main".into()),
                 buffers: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "blending_weight_calculation_fragment_main".into(),
+                entry_point: Some("blending_weight_calculation_fragment_main".into()),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::Rgba8Unorm,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            push_constant_ranges: vec![],
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
                 depth_write_enabled: false,
@@ -569,8 +564,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 },
                 bias: default(),
             }),
-            multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -590,24 +584,20 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
             vertex: VertexState {
                 shader: self.shader.clone(),
                 shader_defs: shader_defs.clone(),
-                entry_point: "neighborhood_blending_vertex_main".into(),
+                entry_point: Some("neighborhood_blending_vertex_main".into()),
                 buffers: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "neighborhood_blending_fragment_main".into(),
+                entry_point: Some("neighborhood_blending_fragment_main".into()),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            push_constant_ranges: vec![],
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

@@ -12,7 +12,7 @@ use bevy_render::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
         BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
-        FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
+        FragmentState, PipelineCache, RenderPipelineDescriptor,
         ShaderDefVal, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
@@ -20,7 +20,7 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 use tracing::warn;
-
+use bevy_utils::default;
 use super::OitBuffers;
 
 /// Contains the render node used to run the resolve pass.
@@ -213,7 +213,6 @@ fn specialize_oit_resolve_pipeline(
             resolve_pipeline.oit_depth_bind_group_layout.clone(),
         ],
         fragment: Some(FragmentState {
-            entry_point: "fragment".into(),
             shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
             shader_defs: vec![ShaderDefVal::UInt(
                 "LAYER_COUNT".into(),
@@ -227,13 +226,10 @@ fn specialize_oit_resolve_pipeline(
                 }),
                 write_mask: ColorWrites::ALL,
             })],
+            ..default()
         }),
         vertex: fullscreen_shader.to_vertex_state(),
-        primitive: PrimitiveState::default(),
-        depth_stencil: None,
-        multisample: MultisampleState::default(),
-        push_constant_ranges: vec![],
-        zero_initialize_workgroup_memory: false,
+        ..default()
     }
 }
 
