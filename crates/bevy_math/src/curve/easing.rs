@@ -22,11 +22,11 @@
 //! ```
 //!
 //! Finally, each function has a dedicated struct that interpolates between zero
-//! and one, for example [`SmoothStep`].
+//! and one, for example [`SmoothStepCurve`].
 //!
 //! ```
 //! # use bevy_math::prelude::*;
-//! let interpolated = SmoothStep.sample(0.2);
+//! let interpolated = SmoothStepCurve.sample(0.2);
 //! ```
 
 use crate::{
@@ -635,7 +635,7 @@ pub enum EaseFunction {
 ///
 #[doc = include_str!("../../images/easefunction/Linear.svg")]
 #[derive(Copy, Clone)]
-pub struct Linear;
+pub struct LinearCurve;
 
 /// `f(t) = t²`
 ///
@@ -646,7 +646,7 @@ pub struct Linear;
 ///
 #[doc = include_str!("../../images/easefunction/QuadraticIn.svg")]
 #[derive(Copy, Clone)]
-pub struct QuadraticIn;
+pub struct QuadraticInCurve;
 
 /// `f(t) = -(t * (t - 2.0))`
 ///
@@ -657,17 +657,17 @@ pub struct QuadraticIn;
 ///
 #[doc = include_str!("../../images/easefunction/QuadraticOut.svg")]
 #[derive(Copy, Clone)]
-pub struct QuadraticOut;
+pub struct QuadraticOutCurve;
 
 /// Behaves as `QuadraticIn` for t < 0.5 and as `QuadraticOut` for t >= 0.5
 ///
 /// A quadratic has too low of a degree to be both an `InOut` and C²,
-/// so consider using at least a cubic (such as [`SmoothStep`])
+/// so consider using at least a cubic (such as [`SmoothStepCurve`])
 /// if you want the acceleration to be continuous.
 ///
 #[doc = include_str!("../../images/easefunction/QuadraticInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct QuadraticInOut;
+pub struct QuadraticInOutCurve;
 
 /// `f(t) = t³`
 ///
@@ -679,83 +679,83 @@ pub struct QuadraticInOut;
 ///
 #[doc = include_str!("../../images/easefunction/CubicIn.svg")]
 #[derive(Copy, Clone)]
-pub struct CubicIn;
+pub struct CubicInCurve;
 
 /// `f(t) = (t - 1.0)³ + 1.0`
 ///
 #[doc = include_str!("../../images/easefunction/CubicOut.svg")]
 #[derive(Copy, Clone)]
-pub struct CubicOut;
+pub struct CubicOutCurve;
 
 /// Behaves as `CubicIn` for t < 0.5 and as `CubicOut` for t >= 0.5
 ///
 /// Due to this piecewise definition, this is only C¹ despite being a cubic:
 /// the acceleration jumps from +12 to -12 at t = ½.
 ///
-/// Consider using [`SmoothStep`] instead, which is also cubic,
-/// or [`SmootherStep`] if you picked this because you wanted
+/// Consider using [`SmoothStepCurve`] instead, which is also cubic,
+/// or [`SmootherStepCurve`] if you picked this because you wanted
 /// the acceleration at the endpoints to also be zero.
 ///
 #[doc = include_str!("../../images/easefunction/CubicInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct CubicInOut;
+pub struct CubicInOutCurve;
 
 /// `f(t) = t⁴`
 ///
 #[doc = include_str!("../../images/easefunction/QuarticIn.svg")]
 #[derive(Copy, Clone)]
-pub struct QuarticIn;
+pub struct QuarticInCurve;
 
 /// `f(t) = (t - 1.0)³ * (1.0 - t) + 1.0`
 ///
 #[doc = include_str!("../../images/easefunction/QuarticOut.svg")]
 #[derive(Copy, Clone)]
-pub struct QuarticOut;
+pub struct QuarticOutCurve;
 
 /// Behaves as `QuarticIn` for t < 0.5 and as `QuarticOut` for t >= 0.5
 ///
 #[doc = include_str!("../../images/easefunction/QuarticInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct QuarticInOut;
+pub struct QuarticInOutCurve;
 
 /// `f(t) = t⁵`
 ///
 #[doc = include_str!("../../images/easefunction/QuinticIn.svg")]
 #[derive(Copy, Clone)]
-pub struct QuinticIn;
+pub struct QuinticInCurve;
 
 /// `f(t) = (t - 1.0)⁵ + 1.0`
 ///
 #[doc = include_str!("../../images/easefunction/QuinticOut.svg")]
 #[derive(Copy, Clone)]
-pub struct QuinticOut;
+pub struct QuinticOutCurve;
 
 /// Behaves as `QuinticIn` for t < 0.5 and as `QuinticOut` for t >= 0.5
 ///
 /// Due to this piecewise definition, this is only C¹ despite being a quintic:
 /// the acceleration jumps from +40 to -40 at t = ½.
 ///
-/// Consider using [`SmootherStep`] instead, which is also quintic.
+/// Consider using [`SmootherStepCurve`] instead, which is also quintic.
 ///
 #[doc = include_str!("../../images/easefunction/QuinticInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct QuinticInOut;
+pub struct QuinticInOutCurve;
 
-/// Behaves as the first half of [`SmoothStep`].
+/// Behaves as the first half of [`SmoothStepCurve`].
 ///
-/// This has f″(1) = 0, unlike [`QuadraticIn`] which starts similarly.
+/// This has f″(1) = 0, unlike [`QuadraticInCurve`] which starts similarly.
 ///
 #[doc = include_str!("../../images/easefunction/SmoothStepIn.svg")]
 #[derive(Copy, Clone)]
-pub struct SmoothStepIn;
+pub struct SmoothStepInCurve;
 
-/// Behaves as the second half of [`SmoothStep`].
+/// Behaves as the second half of [`SmoothStepCurve`].
 ///
-/// This has f″(0) = 0, unlike [`QuadraticOut`] which ends similarly.
+/// This has f″(0) = 0, unlike [`QuadraticOutCurve`] which ends similarly.
 ///
 #[doc = include_str!("../../images/easefunction/SmoothStepOut.svg")]
 #[derive(Copy, Clone)]
-pub struct SmoothStepOut;
+pub struct SmoothStepOutCurve;
 
 /// `f(t) = 2t³ + 3t²`
 ///
@@ -771,23 +771,23 @@ pub struct SmoothStepOut;
 ///
 #[doc = include_str!("../../images/easefunction/SmoothStep.svg")]
 #[derive(Copy, Clone)]
-pub struct SmoothStep;
+pub struct SmoothStepCurve;
 
-/// Behaves as the first half of [`SmootherStep`].
+/// Behaves as the first half of [`SmootherStepCurve`].
 ///
-/// This has f″(1) = 0, unlike [`CubicIn`] which starts similarly.
+/// This has f″(1) = 0, unlike [`CubicInCurve`] which starts similarly.
 ///
 #[doc = include_str!("../../images/easefunction/SmootherStepIn.svg")]
 #[derive(Copy, Clone)]
-pub struct SmootherStepIn;
+pub struct SmootherStepInCurve;
 
-/// Behaves as the second half of [`SmootherStep`].
+/// Behaves as the second half of [`SmootherStepCurve`].
 ///
-/// This has f″(0) = 0, unlike [`CubicOut`] which ends similarly.
+/// This has f″(0) = 0, unlike [`CubicOutCurve`] which ends similarly.
 ///
 #[doc = include_str!("../../images/easefunction/SmootherStepOut.svg")]
 #[derive(Copy, Clone)]
-pub struct SmootherStepOut;
+pub struct SmootherStepOutCurve;
 
 /// `f(t) = 6t⁵ - 15t⁴ + 10t³`
 ///
@@ -801,43 +801,43 @@ pub struct SmootherStepOut;
 ///
 #[doc = include_str!("../../images/easefunction/SmootherStep.svg")]
 #[derive(Copy, Clone)]
-pub struct SmootherStep;
+pub struct SmootherStepCurve;
 
 /// `f(t) = 1.0 - cos(t * π / 2.0)`
 ///
 #[doc = include_str!("../../images/easefunction/SineIn.svg")]
 #[derive(Copy, Clone)]
-pub struct SineIn;
+pub struct SineInCurve;
 
 /// `f(t) = sin(t * π / 2.0)`
 ///
 #[doc = include_str!("../../images/easefunction/SineOut.svg")]
 #[derive(Copy, Clone)]
-pub struct SineOut;
+pub struct SineOutCurve;
 
 /// Behaves as `SineIn` for t < 0.5 and as `SineOut` for t >= 0.5
 ///
 #[doc = include_str!("../../images/easefunction/SineInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct SineInOut;
+pub struct SineInOutCurve;
 
 /// `f(t) = 1.0 - sqrt(1.0 - t²)`
 ///
 #[doc = include_str!("../../images/easefunction/CircularIn.svg")]
 #[derive(Copy, Clone)]
-pub struct CircularIn;
+pub struct CircularInCurve;
 
 /// `f(t) = sqrt((2.0 - t) * t)`
 ///
 #[doc = include_str!("../../images/easefunction/CircularOut.svg")]
 #[derive(Copy, Clone)]
-pub struct CircularOut;
+pub struct CircularOutCurve;
 
 /// Behaves as `CircularIn` for t < 0.5 and as `CircularOut` for t >= 0.5
 ///
 #[doc = include_str!("../../images/easefunction/CircularInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct CircularInOut;
+pub struct CircularInOutCurve;
 
 /// `f(t) ≈ 2.0^(10.0 * (t - 1.0))`
 ///
@@ -846,7 +846,7 @@ pub struct CircularInOut;
 ///
 #[doc = include_str!("../../images/easefunction/ExponentialIn.svg")]
 #[derive(Copy, Clone)]
-pub struct ExponentialIn;
+pub struct ExponentialInCurve;
 
 /// `f(t) ≈ 1.0 - 2.0^(-10.0 * t)`
 ///
@@ -855,80 +855,80 @@ pub struct ExponentialIn;
 ///
 #[doc = include_str!("../../images/easefunction/ExponentialOut.svg")]
 #[derive(Copy, Clone)]
-pub struct ExponentialOut;
+pub struct ExponentialOutCurve;
 
 /// Behaves as `ExponentialIn` for t < 0.5 and as `ExponentialOut` for t >= 0.5
 ///
 #[doc = include_str!("../../images/easefunction/ExponentialInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct ExponentialInOut;
+pub struct ExponentialInOutCurve;
 
 /// `f(t) = -2.0^(10.0 * t - 10.0) * sin((t * 10.0 - 10.75) * 2.0 * π / 3.0)`
 ///
 #[doc = include_str!("../../images/easefunction/ElasticIn.svg")]
 #[derive(Copy, Clone)]
-pub struct ElasticIn;
+pub struct ElasticInCurve;
 
 /// `f(t) = 2.0^(-10.0 * t) * sin((t * 10.0 - 0.75) * 2.0 * π / 3.0) + 1.0`
 ///
 #[doc = include_str!("../../images/easefunction/ElasticOut.svg")]
 #[derive(Copy, Clone)]
-pub struct ElasticOut;
+pub struct ElasticOutCurve;
 
 /// Behaves as `ElasticIn` for t < 0.5 and as `ElasticOut` for t >= 0.5
 ///
 #[doc = include_str!("../../images/easefunction/ElasticInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct ElasticInOut;
+pub struct ElasticInOutCurve;
 
 /// `f(t) = 2.70158 * t³ - 1.70158 * t²`
 ///
 #[doc = include_str!("../../images/easefunction/BackIn.svg")]
 #[derive(Copy, Clone)]
-pub struct BackIn;
+pub struct BackInCurve;
 
 /// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ - 1.70158 * (t - 1.0)²`
 ///
 #[doc = include_str!("../../images/easefunction/BackOut.svg")]
 #[derive(Copy, Clone)]
-pub struct BackOut;
+pub struct BackOutCurve;
 
 /// Behaves as `BackIn` for t < 0.5 and as `BackOut` for t >= 0.5
 ///
 #[doc = include_str!("../../images/easefunction/BackInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct BackInOut;
+pub struct BackInOutCurve;
 
 /// bouncy at the start!
 ///
 #[doc = include_str!("../../images/easefunction/BounceIn.svg")]
 #[derive(Copy, Clone)]
-pub struct BounceIn;
+pub struct BounceInCurve;
 
 /// bouncy at the end!
 ///
 #[doc = include_str!("../../images/easefunction/BounceOut.svg")]
 #[derive(Copy, Clone)]
-pub struct BounceOut;
+pub struct BounceOutCurve;
 
 /// Behaves as `BounceIn` for t < 0.5 and as `BounceOut` for t >= 0.5
 ///
 #[doc = include_str!("../../images/easefunction/BounceInOut.svg")]
 #[derive(Copy, Clone)]
-pub struct BounceInOut;
+pub struct BounceInOutCurve;
 
 /// `n` steps connecting the start and the end. Jumping behavior is customizable via
 /// [`JumpAt`]. See [`JumpAt`] for all the options and visual examples.
 #[derive(Copy, Clone)]
-pub struct Steps(usize, JumpAt);
+pub struct StepsCurve(usize, JumpAt);
 
 /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
 ///
 #[doc = include_str!("../../images/easefunction/Elastic.svg")]
 #[derive(Copy, Clone)]
-pub struct Elastic(f32);
+pub struct ElasticCurve(f32);
 
-/// Implements `Curve<f32>` for the given function in `easing_functions`.
+/// Implements `Curve<f32>` for a unit struct using a function in `easing_functions`.
 macro_rules! impl_ease_unit_struct {
     ($ty: ty, $fn: ident) => {
         impl Curve<f32> for $ty {
@@ -945,45 +945,45 @@ macro_rules! impl_ease_unit_struct {
     };
 }
 
-impl_ease_unit_struct!(Linear, linear);
-impl_ease_unit_struct!(QuadraticIn, quadratic_in);
-impl_ease_unit_struct!(QuadraticOut, quadratic_out);
-impl_ease_unit_struct!(QuadraticInOut, quadratic_in_out);
-impl_ease_unit_struct!(CubicIn, cubic_in);
-impl_ease_unit_struct!(CubicOut, cubic_out);
-impl_ease_unit_struct!(CubicInOut, cubic_in_out);
-impl_ease_unit_struct!(QuarticIn, quartic_in);
-impl_ease_unit_struct!(QuarticOut, quartic_out);
-impl_ease_unit_struct!(QuarticInOut, quartic_in_out);
-impl_ease_unit_struct!(QuinticIn, quintic_in);
-impl_ease_unit_struct!(QuinticOut, quintic_out);
-impl_ease_unit_struct!(QuinticInOut, quintic_in_out);
-impl_ease_unit_struct!(SmoothStepIn, smoothstep_in);
-impl_ease_unit_struct!(SmoothStepOut, smoothstep_out);
-impl_ease_unit_struct!(SmoothStep, smoothstep);
-impl_ease_unit_struct!(SmootherStepIn, smootherstep_in);
-impl_ease_unit_struct!(SmootherStepOut, smootherstep_out);
-impl_ease_unit_struct!(SmootherStep, smootherstep);
-impl_ease_unit_struct!(SineIn, sine_in);
-impl_ease_unit_struct!(SineOut, sine_out);
-impl_ease_unit_struct!(SineInOut, sine_in_out);
-impl_ease_unit_struct!(CircularIn, circular_in);
-impl_ease_unit_struct!(CircularOut, circular_out);
-impl_ease_unit_struct!(CircularInOut, circular_in_out);
-impl_ease_unit_struct!(ExponentialIn, exponential_in);
-impl_ease_unit_struct!(ExponentialOut, exponential_out);
-impl_ease_unit_struct!(ExponentialInOut, exponential_in_out);
-impl_ease_unit_struct!(ElasticIn, elastic_in);
-impl_ease_unit_struct!(ElasticOut, elastic_out);
-impl_ease_unit_struct!(ElasticInOut, elastic_in_out);
-impl_ease_unit_struct!(BackIn, back_in);
-impl_ease_unit_struct!(BackOut, back_out);
-impl_ease_unit_struct!(BackInOut, back_in_out);
-impl_ease_unit_struct!(BounceIn, bounce_in);
-impl_ease_unit_struct!(BounceOut, bounce_out);
-impl_ease_unit_struct!(BounceInOut, bounce_in_out);
+impl_ease_unit_struct!(LinearCurve, linear);
+impl_ease_unit_struct!(QuadraticInCurve, quadratic_in);
+impl_ease_unit_struct!(QuadraticOutCurve, quadratic_out);
+impl_ease_unit_struct!(QuadraticInOutCurve, quadratic_in_out);
+impl_ease_unit_struct!(CubicInCurve, cubic_in);
+impl_ease_unit_struct!(CubicOutCurve, cubic_out);
+impl_ease_unit_struct!(CubicInOutCurve, cubic_in_out);
+impl_ease_unit_struct!(QuarticInCurve, quartic_in);
+impl_ease_unit_struct!(QuarticOutCurve, quartic_out);
+impl_ease_unit_struct!(QuarticInOutCurve, quartic_in_out);
+impl_ease_unit_struct!(QuinticInCurve, quintic_in);
+impl_ease_unit_struct!(QuinticOutCurve, quintic_out);
+impl_ease_unit_struct!(QuinticInOutCurve, quintic_in_out);
+impl_ease_unit_struct!(SmoothStepInCurve, smoothstep_in);
+impl_ease_unit_struct!(SmoothStepOutCurve, smoothstep_out);
+impl_ease_unit_struct!(SmoothStepCurve, smoothstep);
+impl_ease_unit_struct!(SmootherStepInCurve, smootherstep_in);
+impl_ease_unit_struct!(SmootherStepOutCurve, smootherstep_out);
+impl_ease_unit_struct!(SmootherStepCurve, smootherstep);
+impl_ease_unit_struct!(SineInCurve, sine_in);
+impl_ease_unit_struct!(SineOutCurve, sine_out);
+impl_ease_unit_struct!(SineInOutCurve, sine_in_out);
+impl_ease_unit_struct!(CircularInCurve, circular_in);
+impl_ease_unit_struct!(CircularOutCurve, circular_out);
+impl_ease_unit_struct!(CircularInOutCurve, circular_in_out);
+impl_ease_unit_struct!(ExponentialInCurve, exponential_in);
+impl_ease_unit_struct!(ExponentialOutCurve, exponential_out);
+impl_ease_unit_struct!(ExponentialInOutCurve, exponential_in_out);
+impl_ease_unit_struct!(ElasticInCurve, elastic_in);
+impl_ease_unit_struct!(ElasticOutCurve, elastic_out);
+impl_ease_unit_struct!(ElasticInOutCurve, elastic_in_out);
+impl_ease_unit_struct!(BackInCurve, back_in);
+impl_ease_unit_struct!(BackOutCurve, back_out);
+impl_ease_unit_struct!(BackInOutCurve, back_in_out);
+impl_ease_unit_struct!(BounceInCurve, bounce_in);
+impl_ease_unit_struct!(BounceOutCurve, bounce_out);
+impl_ease_unit_struct!(BounceInOutCurve, bounce_in_out);
 
-impl Curve<f32> for Steps {
+impl Curve<f32> for StepsCurve {
     #[inline]
     fn domain(&self) -> Interval {
         Interval::UNIT
@@ -995,7 +995,7 @@ impl Curve<f32> for Steps {
     }
 }
 
-impl Curve<f32> for Elastic {
+impl Curve<f32> for ElasticCurve {
     #[inline]
     fn domain(&self) -> Interval {
         Interval::UNIT
@@ -1582,7 +1582,7 @@ mod tests {
         // Test that the various ways to build an ease function are all
         // equivalent.
 
-        let f0 = SmoothStep;
+        let f0 = SmoothStepCurve;
         let f1 = EaseFunction::SmoothStep;
         let f2 = EasingCurve::new(0.0, 1.0, EaseFunction::SmoothStep);
 
@@ -1610,60 +1610,59 @@ mod tests {
 
     #[test]
     fn unit_structs_match_function() {
-        // Test that the unit structs match `EaseFunction`.
+        // Test that the unit structs and `EaseFunction` correctly match each
+        // other and implement `Curve<f32>`.
 
-        macro_rules! test {
-            ($f: ident, $t: expr) => {
-                assert_eq!($f.sample($t), EaseFunction::$f.sample($t));
-            };
+        fn test(f1: impl Curve<f32>, f2: impl Curve<f32>, t: f32) {
+            assert_eq!(f1.sample(t), f2.sample(t));
         }
 
         for t in [-1.0, 0.0, 0.25, 0.5, 0.75, 1.0, 2.0] {
-            test!(Linear, t);
-            test!(QuadraticIn, t);
-            test!(QuadraticOut, t);
-            test!(QuadraticInOut, t);
-            test!(CubicIn, t);
-            test!(CubicOut, t);
-            test!(CubicInOut, t);
-            test!(QuarticIn, t);
-            test!(QuarticOut, t);
-            test!(QuarticInOut, t);
-            test!(QuinticIn, t);
-            test!(QuinticOut, t);
-            test!(QuinticInOut, t);
-            test!(SmoothStepIn, t);
-            test!(SmoothStepOut, t);
-            test!(SmoothStep, t);
-            test!(SmootherStepIn, t);
-            test!(SmootherStepOut, t);
-            test!(SmootherStep, t);
-            test!(SineIn, t);
-            test!(SineOut, t);
-            test!(SineInOut, t);
-            test!(CircularIn, t);
-            test!(CircularOut, t);
-            test!(CircularInOut, t);
-            test!(ExponentialIn, t);
-            test!(ExponentialOut, t);
-            test!(ExponentialInOut, t);
-            test!(ElasticIn, t);
-            test!(ElasticOut, t);
-            test!(ElasticInOut, t);
-            test!(BackIn, t);
-            test!(BackOut, t);
-            test!(BackInOut, t);
-            test!(BounceIn, t);
-            test!(BounceOut, t);
-            test!(BounceInOut, t);
+            test(LinearCurve, EaseFunction::Linear, t);
+            test(QuadraticInCurve, EaseFunction::QuadraticIn, t);
+            test(QuadraticOutCurve, EaseFunction::QuadraticOut, t);
+            test(QuadraticInOutCurve, EaseFunction::QuadraticInOut, t);
+            test(CubicInCurve, EaseFunction::CubicIn, t);
+            test(CubicOutCurve, EaseFunction::CubicOut, t);
+            test(CubicInOutCurve, EaseFunction::CubicInOut, t);
+            test(QuarticInCurve, EaseFunction::QuarticIn, t);
+            test(QuarticOutCurve, EaseFunction::QuarticOut, t);
+            test(QuarticInOutCurve, EaseFunction::QuarticInOut, t);
+            test(QuinticInCurve, EaseFunction::QuinticIn, t);
+            test(QuinticOutCurve, EaseFunction::QuinticOut, t);
+            test(QuinticInOutCurve, EaseFunction::QuinticInOut, t);
+            test(SmoothStepInCurve, EaseFunction::SmoothStepIn, t);
+            test(SmoothStepOutCurve, EaseFunction::SmoothStepOut, t);
+            test(SmoothStepCurve, EaseFunction::SmoothStep, t);
+            test(SmootherStepInCurve, EaseFunction::SmootherStepIn, t);
+            test(SmootherStepOutCurve, EaseFunction::SmootherStepOut, t);
+            test(SmootherStepCurve, EaseFunction::SmootherStep, t);
+            test(SineInCurve, EaseFunction::SineIn, t);
+            test(SineOutCurve, EaseFunction::SineOut, t);
+            test(SineInOutCurve, EaseFunction::SineInOut, t);
+            test(CircularInCurve, EaseFunction::CircularIn, t);
+            test(CircularOutCurve, EaseFunction::CircularOut, t);
+            test(CircularInOutCurve, EaseFunction::CircularInOut, t);
+            test(ExponentialInCurve, EaseFunction::ExponentialIn, t);
+            test(ExponentialOutCurve, EaseFunction::ExponentialOut, t);
+            test(ExponentialInOutCurve, EaseFunction::ExponentialInOut, t);
+            test(ElasticInCurve, EaseFunction::ElasticIn, t);
+            test(ElasticOutCurve, EaseFunction::ElasticOut, t);
+            test(ElasticInOutCurve, EaseFunction::ElasticInOut, t);
+            test(BackInCurve, EaseFunction::BackIn, t);
+            test(BackOutCurve, EaseFunction::BackOut, t);
+            test(BackInOutCurve, EaseFunction::BackInOut, t);
+            test(BounceInCurve, EaseFunction::BounceIn, t);
+            test(BounceOutCurve, EaseFunction::BounceOut, t);
+            test(BounceInOutCurve, EaseFunction::BounceInOut, t);
 
             assert_eq!(
-                Steps(4, JumpAt::Start).sample(t),
+                StepsCurve(4, JumpAt::Start).sample(t),
                 EaseFunction::Steps(4, JumpAt::Start).sample(t)
             );
 
             assert_eq!(
-                Elastic(50.0).sample(t),
+                ElasticCurve(50.0).sample(t),
                 EaseFunction::Elastic(50.0).sample(t)
             );
         }
