@@ -138,7 +138,7 @@ pub struct FragmentState {
 }
 
 /// Describes a compute pipeline.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<BindGroupLayout>,

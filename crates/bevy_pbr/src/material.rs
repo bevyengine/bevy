@@ -37,6 +37,7 @@ use bevy_render::erased_render_asset::{
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
+use bevy_render::RenderStartup;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
@@ -371,42 +372,45 @@ where
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                ExtractSchedule,
-                (
-                    extract_mesh_materials::<M>.in_set(MaterialExtractionSystems),
-                    early_sweep_material_instances::<M>
-                        .after(MaterialExtractionSystems)
-                        .before(late_sweep_material_instances),
-                    extract_entities_needs_specialization::<M>.after(extract_cameras),
-                ),
-            );
-        }
-    }
+            if self.prepass_enabled {
+                render_app.init_resource::<PrepassEnabled<M>>();
+            }
+            if self.shadows_enabled {
+                render_app.init_resource::<ShadowsEnabled<M>>();
+            }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.world_mut().resource_scope(
-            |world, mut bind_group_allocators: Mut<MaterialBindGroupAllocators>| {
-                let render_device = world.resource::<RenderDevice>();
-                bind_group_allocators.insert(
-                    TypeId::of::<M>(),
-                    MaterialBindGroupAllocator::new(
-                        render_device,
-                        M::label(),
-                        material_uses_bindless_resources::<M>(render_device)
-                            .then(|| M::bindless_descriptor())
-                            .flatten(),
-                        M::bind_group_layout(render_device),
-                        M::bindless_slot_count(),
+            render_app
+                .add_systems(RenderStartup, setup_render_app::<M>)
+                .add_systems(
+                    ExtractSchedule,
+                    (
+                        extract_mesh_materials::<M>.in_set(MaterialExtractionSystems),
+                        early_sweep_material_instances::<M>
+                            .after(MaterialExtractionSystems)
+                            .before(late_sweep_material_instances),
+                        extract_entities_needs_specialization::<M>.after(extract_cameras),
                     ),
                 );
-            },
-        );
+        }
     }
+}
+
+fn setup_render_app<M: Material>(
+    render_device: Res<RenderDevice>,
+    mut bind_group_allocators: ResMut<MaterialBindGroupAllocators>,
+) {
+    bind_group_allocators.insert(
+        TypeId::of::<M>(),
+        MaterialBindGroupAllocator::new(
+            &render_device,
+            M::label(),
+            material_uses_bindless_resources::<M>(&render_device)
+                .then(|| M::bindless_descriptor())
+                .flatten(),
+            M::bind_group_layout(&render_device),
+            M::bindless_slot_count(),
+        ),
+    );
 }
 
 /// A dummy [`AssetId`] that we use as a placeholder whenever a mesh doesn't
@@ -1319,6 +1323,10 @@ pub struct MaterialProperties {
     /// The key for this material, typically a bitfield of flags that are used to modify
     /// the pipeline descriptor used for this material.
     pub material_key: SmallVec<[u8; 8]>,
+    /// Whether shadows are enabled for this material
+    pub shadows_enabled: bool,
+    /// Whether prepass is enabled for this material
+    pub prepass_enabled: bool,
 }
 
 impl MaterialProperties {
@@ -1397,7 +1405,11 @@ where
         SRes<DrawFunctions<AlphaMask3dDeferred>>,
         SRes<DrawFunctions<Shadow>>,
         SRes<AssetServer>,
-        M::Param,
+        (
+            Option<SRes<ShadowsEnabled<M>>>,
+            Option<SRes<PrepassEnabled<M>>>,
+            M::Param,
+        ),
     );
 
     fn prepare_asset(
@@ -1418,10 +1430,14 @@ where
             alpha_mask_deferred_draw_functions,
             shadow_draw_functions,
             asset_server,
-            material_param,
+            (shadows_enabled, prepass_enabled, material_param),
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
         let material_layout = M::bind_group_layout(render_device);
+
+        let shadows_enabled = shadows_enabled.is_some();
+        let prepass_enabled = prepass_enabled.is_some();
+
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial>();
@@ -1587,6 +1603,8 @@ where
                         bindless,
                         specialize: Some(specialize::<M>),
                         material_key,
+                        shadows_enabled,
+                        prepass_enabled,
                     }),
                 })
             }
@@ -1624,6 +1642,8 @@ where
                                 bindless,
                                 specialize: Some(specialize::<M>),
                                 material_key,
+                                shadows_enabled,
+                                prepass_enabled,
                             }),
                         })
                     }
