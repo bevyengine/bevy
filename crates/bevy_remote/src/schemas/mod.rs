@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
-    prelude::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize, TypeData,
+    prelude::ReflectDefault, FromType, Reflect, ReflectDeserialize, ReflectSerialize, TypeData,
     TypeRegistration,
 };
 use core::any::TypeId;
@@ -25,6 +25,16 @@ pub mod reflect_info;
 pub struct SchemaTypesMetadata {
     /// Type Data id mapping to human-readable type names.
     pub type_data_map: HashMap<TypeId, Cow<'static, str>>,
+}
+
+/// Reflect-compatible custom JSON Schema for this type
+#[derive(Clone)]
+pub struct ReflectJsonSchemaForceAsArray;
+
+impl<T: Reflect> FromType<T> for ReflectJsonSchemaForceAsArray {
+    fn from_type() -> Self {
+        ReflectJsonSchemaForceAsArray
+    }
 }
 
 /// Reflect-compatible custom JSON Schema for this type

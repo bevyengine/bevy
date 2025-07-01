@@ -5,7 +5,13 @@ use bevy_reflect::{FromType, Reflect};
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
-use crate::{schemas::ReflectJsonSchema, RemoteMethods};
+use crate::{
+    schemas::{
+        reflect_info::{ReferenceLocation, TypeReferencePath},
+        ReflectJsonSchema,
+    },
+    RemoteMethods,
+};
 
 use super::json_schema::JsonSchemaBevyType;
 
@@ -26,12 +32,13 @@ pub struct OpenRpcDocument {
 impl FromType<OpenRpcDocument> for ReflectJsonSchema {
     fn from_type() -> Self {
         JsonSchemaBevyType {
-            ref_type: Some(
-                "https://raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json".into(),
-            ),
+            ref_type: Some(TypeReferencePath::new_ref(
+                ReferenceLocation::Url,
+                "raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json",
+            )),
             description: Some(
                 "Represents an `OpenRPC` document as defined by the `OpenRPC` specification."
-                    .to_string(),
+                    .into(),
             ),
             ..default()
         }

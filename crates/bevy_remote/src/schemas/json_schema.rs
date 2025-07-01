@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::schemas::{
-    reflect_info::{SchemaInfoReflect, SchemaNumber},
+    reflect_info::{SchemaNumber, TypeReferenceId, TypeReferencePath},
     ReflectJsonSchema, SchemaTypesMetadata,
 };
 
@@ -82,8 +82,7 @@ impl TryFrom<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
         if let Some(s) = reg.data::<ReflectJsonSchema>() {
             return Ok(s.0.clone());
         }
-        let type_info = reg.type_info();
-        let base_schema = type_info.build_schema();
+        let base_schema = super::reflect_info::build_schema(reg);
 
         let JsonSchemaVariant::Schema(mut typed_schema) = base_schema else {
             return Err(InvalidJsonSchema::InvalidType);
@@ -126,7 +125,7 @@ pub struct JsonSchemaBevyType {
     /// This keyword is used to reference a statically identified schema.
     #[serde(rename = "$ref")]
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub ref_type: Option<Cow<'static, str>>,
+    pub ref_type: Option<TypeReferencePath>,
     /// Bevy specific field, short path of the type.
     #[serde(skip_serializing_if = "str::is_empty", default)]
     pub short_path: Cow<'static, str>,
@@ -144,16 +143,22 @@ pub struct JsonSchemaBevyType {
     pub reflect_type_data: Vec<Cow<'static, str>>,
     /// Bevy specific field, [`TypeInfo`] type mapping.
     pub kind: SchemaKind,
-    /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
-    ///
-    /// It contains type info of key of the Map.
+    /// JSON Schema specific field.
+    /// This keyword is used to reference a constant value.
+    #[serde(rename = "const")]
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub key_type: Option<JsonSchemaVariant>,
+    #[reflect(ignore)]
+    pub const_value: Option<Value>,
     /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
     ///
     /// It contains type info of value of the Map.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value_type: Option<JsonSchemaVariant>,
+    /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
+    ///
+    /// It contains type info of key of the Map.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub key_type: Option<JsonSchemaVariant>,
     /// The type keyword is fundamental to JSON Schema. It specifies the data type for a schema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     #[serde(rename = "type")]
@@ -231,11 +236,16 @@ pub struct JsonSchemaBevyType {
     pub exclusive_maximum: Option<SchemaNumber>,
     /// Type description
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub description: Option<String>,
+    pub description: Option<Cow<'static, str>>,
     /// Default value for the schema.
     #[serde(skip_serializing_if = "Option::is_none", default, rename = "default")]
     #[reflect(ignore)]
     pub default_value: Option<Value>,
+    /// Definitions for the schema.
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
+    #[reflect(ignore)]
+    #[serde(rename = "$defs")]
+    pub definitions: HashMap<TypeReferenceId, Box<JsonSchemaVariant>>,
 }
 
 /// Represents different types of JSON Schema values that can be used in schema definitions.
@@ -250,46 +260,11 @@ pub enum JsonSchemaVariant {
     /// This is commonly used for properties like `additionalProperties` where
     /// a boolean true/false indicates whether additional properties are allowed.
     BoolValue(bool),
-    /// A constant value with an optional description.
-    ///
-    /// This variant represents a JSON Schema `const` keyword, which specifies
-    /// that a value must be exactly equal to the given constant value.
-    Const {
-        /// The constant value that must be matched exactly.
-        #[reflect(ignore)]
-        #[serde(rename = "const")]
-        value: Value,
-        /// Optional human-readable description of the constant value.
-        #[serde(skip_serializing_if = "Option::is_none", default)]
-        description: Option<String>,
-    },
     /// A full JSON Schema definition.
     ///
     /// This variant contains a complete schema object that defines the structure,
     /// validation rules, and metadata for a particular type or property.
     Schema(#[reflect(ignore)] Box<JsonSchemaBevyType>),
-}
-
-impl JsonSchemaVariant {
-    /// Creates a new constant value variant from any serializable type.
-    ///
-    /// This is a convenience constructor that serializes the provided value
-    /// to JSON and wraps it in the `Const` variant with an optional description.
-    ///
-    /// # Arguments
-    ///
-    /// * `serializable` - Any value that implements `Serialize`
-    /// * `description` - Optional description for the constant value
-    ///
-    /// # Returns
-    ///
-    /// A new `JsonSchemaVariant::Const` with the serialized value
-    pub fn const_value(serializable: impl Serialize, description: Option<String>) -> Self {
-        Self::Const {
-            value: serde_json::to_value(serializable).unwrap_or_default(),
-            description,
-        }
-    }
 }
 
 /// Kind of json schema, maps [`TypeInfo`] type
@@ -312,7 +287,7 @@ pub enum SchemaKind {
     TupleStruct,
     /// Set of unique values
     Set,
-    /// Single value, eg. primitive types
+    /// Single value, eg. primitive types or enum variant
     Value,
     /// Opaque type
     Opaque,
@@ -336,10 +311,29 @@ pub enum SchemaTypeVariant {
     Multiple(Vec<SchemaType>),
 }
 
+impl SchemaTypeVariant {
+    /// Adds a new type to the variant.
+    pub fn with(self, new: SchemaType) -> Self {
+        match self {
+            Self::Single(t) => match t.eq(&new) {
+                true => Self::Single(t),
+                false => Self::Multiple(vec![t, new]),
+            },
+            Self::Multiple(mut types) => match types.contains(&new) {
+                true => Self::Multiple(types),
+                false => {
+                    types.push(new);
+                    Self::Multiple(types)
+                }
+            },
+        }
+    }
+}
+
 /// Type of json schema
 /// More [here](https://json-schema.org/draft-07/draft-handrews-json-schema-01#rfc.section.4.2.1)
 #[derive(
-    Debug, Serialize, Deserialize, Clone, PartialEq, Reflect, Default, Eq, PartialOrd, Ord,
+    Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Reflect, Default, Eq, PartialOrd, Ord,
 )]
 #[serde(rename_all = "lowercase")]
 pub enum SchemaType {
@@ -403,7 +397,7 @@ impl SchemaType {
     /// Returns the primitive type corresponding to the given type ID, if it exists.
     pub fn try_get_primitive_type_from_type_id(type_id: TypeId) -> Option<Self> {
         let schema_type: SchemaType = type_id.into();
-        if schema_type.eq(&Self::Object) {
+        if schema_type.eq(&Self::Object) || schema_type.eq(&Self::Array) {
             None
         } else {
             Some(schema_type)
@@ -413,6 +407,8 @@ impl SchemaType {
 
 #[cfg(test)]
 mod tests {
+    use crate::schemas::reflect_info::ReferenceLocation;
+
     use super::*;
     use bevy_ecs::prelude::ReflectComponent;
     use bevy_ecs::prelude::ReflectResource;
@@ -434,10 +430,6 @@ mod tests {
         else {
             panic!("Failed to export JSON schema for Foo");
         };
-        eprintln!(
-            "{}",
-            serde_json::to_string_pretty(&schema).expect("Failed to serialize schema")
-        );
         schema
     }
 
@@ -482,12 +474,13 @@ mod tests {
         #[derive(Reflect, Component, Default, Deserialize, Serialize)]
         #[reflect(Component, Default, Serialize, Deserialize)]
         enum EnumComponent {
-            ValueOne(i32),
+            ValueOne(Option<i32>, i32),
             ValueTwo {
                 #[reflect(@111..5555i32)]
                 test: i32,
             },
             #[default]
+            /// default option
             NoValue,
         }
         let schema = export_type::<EnumComponent>();
@@ -540,7 +533,7 @@ mod tests {
         #[derive(Reflect, Default, Deserialize, Serialize)]
         #[reflect(Default)]
         enum EnumComponent {
-            ValueOne(i32),
+            ValueOne(i32, #[reflect(@..155i16)] i16),
             ValueTwo {
                 test: i32,
             },
@@ -569,6 +562,7 @@ mod tests {
         let schema = type_registry
             .export_type_json_schema::<EnumComponent>(&metadata)
             .expect("Failed to export schema");
+
         assert!(
             !metadata.has_type_data::<ReflectComponent>(&schema.reflect_type_data),
             "Should not be a component"
@@ -597,11 +591,11 @@ mod tests {
         impl bevy_reflect::FromType<SomeType> for ReflectJsonSchema {
             fn from_type() -> Self {
                 JsonSchemaBevyType {
-                    ref_type: Some(
-                        "https://raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json"
-                            .into(),
-                    ),
-                    description: Some("Custom type for testing purposes.".to_string()),
+                    ref_type: Some(TypeReferencePath::new_ref(
+                        ReferenceLocation::Url,
+                        "raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json",
+                    )),
+                    description: Some("Custom type for testing purposes.".into()),
                     ..Default::default()
                 }
                 .into()
@@ -625,7 +619,7 @@ mod tests {
             "Should not be a component"
         );
         assert!(
-            schema.ref_type.is_some_and(|t| !t.is_empty()),
+            schema.ref_type.is_some_and(|t| !t.to_string().is_empty()),
             "Should have a reference type"
         );
         assert!(
