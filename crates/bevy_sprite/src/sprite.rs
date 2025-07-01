@@ -123,7 +123,7 @@ impl Sprite {
         if !self.flip_y {
             point_relative_to_sprite_center.y *= -1.0;
         }
-        
+
         if sprite_size.x == 0.0 || sprite_size.y == 0.0 {
             return Err(point_relative_to_sprite_center);
         }
@@ -581,7 +581,10 @@ mod tests {
             )
         };
         assert_eq!(compute(Vec2::new(30.0, 15.0)), Err(Vec2::new(30.0, -15.0)));
-        assert_eq!(compute(Vec2::new(-10.0, -15.0)), Err(Vec2::new(-10.0, 15.0)));
+        assert_eq!(
+            compute(Vec2::new(-10.0, -15.0)),
+            Err(Vec2::new(-10.0, 15.0))
+        );
         // The pixel is outside the texture atlas, but is still a valid pixel in the image.
         assert_eq!(compute(Vec2::new(0.0, 35.0)), Err(Vec2::new(0.0, -35.0)));
     }
