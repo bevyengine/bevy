@@ -865,7 +865,7 @@ impl<'a> ReflectEnum<'a> {
         crate::registration::impl_get_type_registration(
             where_clause_options,
             None,
-            Some(self.active_fields().map(StructField::reflected_type)),
+            Some(self.active_types().iter()),
         )
     }
 
