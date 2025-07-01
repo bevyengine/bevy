@@ -5,7 +5,7 @@ use tracing::warn;
 use super::{IntoRenderNodeArray, Node, RenderGraph, RenderLabel, RenderSubGraph};
 
 /// Adds common [`RenderGraph`] operations to [`SubApp`] (and [`App`]).
-pub trait RenderGraphApp {
+pub trait RenderGraphExt {
     // Add a sub graph to the [`RenderGraph`]
     fn add_render_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self;
     /// Add a [`Node`] to the [`RenderGraph`]:
@@ -32,7 +32,7 @@ pub trait RenderGraphApp {
     ) -> &mut Self;
 }
 
-impl RenderGraphApp for SubApp {
+impl RenderGraphExt for SubApp {
     fn add_render_graph_node<T: Node + FromWorld>(
         &mut self,
         sub_graph: impl RenderSubGraph,
@@ -101,7 +101,7 @@ impl RenderGraphApp for SubApp {
     }
 }
 
-impl RenderGraphApp for App {
+impl RenderGraphExt for App {
     fn add_render_graph_node<T: Node + FromWorld>(
         &mut self,
         sub_graph: impl RenderSubGraph,
