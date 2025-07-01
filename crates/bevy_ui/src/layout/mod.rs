@@ -311,12 +311,12 @@ with UI components as a child of an entity without UI components, your UI layout
                 .map(|scroll_pos| {
                     Vec2::new(
                         if style.overflow.x == OverflowAxis::Scroll {
-                            scroll_pos.offset_x
+                            scroll_pos.x
                         } else {
                             0.0
                         },
                         if style.overflow.y == OverflowAxis::Scroll {
-                            scroll_pos.offset_y
+                            scroll_pos.y
                         } else {
                             0.0
                         },
@@ -333,7 +333,7 @@ with UI components as a child of an entity without UI components, your UI layout
             if clamped_scroll_position != scroll_position {
                 commands
                     .entity(entity)
-                    .insert(ScrollPosition::from(clamped_scroll_position));
+                    .insert(ScrollPosition(clamped_scroll_position));
             }
 
             let physical_scroll_position =
