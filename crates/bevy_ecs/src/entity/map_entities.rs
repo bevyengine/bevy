@@ -1,5 +1,5 @@
 pub use bevy_ecs_macros::MapEntities;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 
 use crate::{
     entity::{hash_map::EntityHashMap, Entity},
@@ -7,10 +7,10 @@ use crate::{
 };
 
 use alloc::{
-    collections::{BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     vec::Vec,
 };
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::{HashMap, HashSet};
 use core::{hash::BuildHasher, mem};
 use smallvec::SmallVec;
 
@@ -72,6 +72,21 @@ impl<T: MapEntities> MapEntities for Option<T> {
     }
 }
 
+impl<K: MapEntities + Eq + core::hash::Hash, V: MapEntities, S: BuildHasher + Default> MapEntities
+    for HashMap<K, V, S>
+{
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = self
+            .drain()
+            .map(|(mut key_entities, mut value_entities)| {
+                key_entities.map_entities(entity_mapper);
+                value_entities.map_entities(entity_mapper);
+                (key_entities, value_entities)
+            })
+            .collect();
+    }
+}
+
 impl<T: MapEntities + Eq + core::hash::Hash, S: BuildHasher + Default> MapEntities
     for HashSet<T, S>
 {
@@ -81,6 +96,21 @@ impl<T: MapEntities + Eq + core::hash::Hash, S: BuildHasher + Default> MapEntiti
             .map(|mut entities| {
                 entities.map_entities(entity_mapper);
                 entities
+            })
+            .collect();
+    }
+}
+
+impl<K: MapEntities + Eq + core::hash::Hash, V: MapEntities, S: BuildHasher + Default> MapEntities
+    for IndexMap<K, V, S>
+{
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = self
+            .drain(..)
+            .map(|(mut key_entities, mut value_entities)| {
+                key_entities.map_entities(entity_mapper);
+                value_entities.map_entities(entity_mapper);
+                (key_entities, value_entities)
             })
             .collect();
     }
@@ -109,6 +139,19 @@ impl MapEntities for EntityIndexSet {
     }
 }
 
+impl<K: MapEntities + Ord, V: MapEntities> MapEntities for BTreeMap<K, V> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = mem::take(self)
+            .into_iter()
+            .map(|(mut key_entities, mut value_entities)| {
+                key_entities.map_entities(entity_mapper);
+                value_entities.map_entities(entity_mapper);
+                (key_entities, value_entities)
+            })
+            .collect();
+    }
+}
+
 impl<T: MapEntities + Ord> MapEntities for BTreeSet<T> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
         *self = mem::take(self)
@@ -118,6 +161,14 @@ impl<T: MapEntities + Ord> MapEntities for BTreeSet<T> {
                 entities
             })
             .collect();
+    }
+}
+
+impl<T: MapEntities, const N: usize> MapEntities for [T; N] {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        for entities in self.iter_mut() {
+            entities.map_entities(entity_mapper);
+        }
     }
 }
 
