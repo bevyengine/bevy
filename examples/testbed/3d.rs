@@ -318,29 +318,12 @@ mod gizmos {
             .sphere(Isometry3d::from_translation(Vec3::X * -3.5), 0.75, GREEN)
             .resolution(30_000 / 3);
 
-        fn grid_position(row: usize, col: usize) -> Vec3 {
-            Vec3::new(1.5 * col as f32, (1.0 - row as f32) * 1.25, 0.)
-        }
-
-        // Display 2d and 3d grids with all variations of outer edges on or off
-        for i in 0..4 {
-            let mut grid = gizmos.grid(
-                grid_position(0, i),
-                UVec2::new(5, 4),
-                Vec2::splat(0.175),
-                Color::WHITE,
-            );
-            if i & 1 > 0 {
-                grid = grid.outer_edges_x();
-            }
-            if i & 2 > 0 {
-                grid.outer_edges_y();
-            }
-        }
-
+        // 3d grids with all variations of outer edges on or off
         for i in 0..8 {
+            let x = 1.5 * (i % 4) as f32;
+            let y = 1.0 * (0.5 - (i / 4) as f32);
             let mut grid = gizmos.grid_3d(
-                Isometry3d::new(grid_position(1 + i / 4, i % 4), Quat::IDENTITY),
+                Isometry3d::from_translation(Vec3::new(x, y, 0.0)),
                 UVec3::new(5, 4, 3),
                 Vec3::splat(0.175),
                 Color::WHITE,
