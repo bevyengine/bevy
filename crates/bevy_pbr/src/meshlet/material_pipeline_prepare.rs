@@ -351,12 +351,9 @@ pub fn prepare_material_meshlet_meshes_prepass(
             shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
 
             let view_layout = if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
-                prepass_pipeline.internal.view_layout_motion_vectors.clone()
+                prepass_pipeline.view_layout_motion_vectors.clone()
             } else {
-                prepass_pipeline
-                    .internal
-                    .view_layout_no_motion_vectors
-                    .clone()
+                prepass_pipeline.view_layout_no_motion_vectors.clone()
             };
 
             let fragment_shader = if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
@@ -381,7 +378,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 label: material_pipeline_descriptor.label,
                 layout: vec![
                     view_layout,
-                    prepass_pipeline.internal.empty_layout.clone(),
+                    prepass_pipeline.empty_layout.clone(),
                     resource_manager.material_shade_bind_group_layout.clone(),
                     material
                         .properties
