@@ -7,8 +7,9 @@
 //! ```
 //! This example assumes that the `server` example is running on the same machine.
 
+use std::any::type_name;
+
 use anyhow::Result as AnyhowResult;
-use argh::FromArgs;
 use bevy::{
     remote::{
         builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_METHOD},
@@ -17,30 +18,30 @@ use bevy::{
     },
     transform::components::Transform,
 };
+use bevy_ecs::hierarchy::Children;
 
 /// The application entry point.
 fn main() -> AnyhowResult<()> {
     // Create the URL. We're going to need it to issue the HTTP request.
     let host_part = format!("{}:{}", DEFAULT_ADDR, DEFAULT_PORT);
     let url = format!("http://{host_part}/");
-
     // Creates a request to get all Transform components from the remote Bevy app.
     // This request will return all entities that have a Transform component.
     run_transform_only_query(&url)?;
 
-    // Create a query_all request to send to the remote Bevy app.
-    // This request will return all entities in the app, their components, and their
-    // component values.
-    run_query_all_components_and_entities(url)?;
-
     // Create a query that only returns root entities - ie, entities that do not
     // have any children.
-    run_query_root_entities(url)?;
+    run_query_root_entities(&url)?;
+
+    // Create a query all request to send to the remote Bevy app.
+    // This request will return all entities in the app, their components, and their
+    // component values.
+    run_query_all_components_and_entities(&url)?;
 
     Ok(())
 }
 
-fn run_query_all_components_and_entities(url: String) -> Result<(), anyhow::Error> {
+fn run_query_all_components_and_entities(url: &String) -> Result<(), anyhow::Error> {
     let query_all_req = BrpRequest {
         jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
@@ -48,7 +49,7 @@ fn run_query_all_components_and_entities(url: String) -> Result<(), anyhow::Erro
         params: None,
     };
     println!("query_all req: {:#?}", query_all_req);
-    let query_all_res = ureq::post(&url)
+    let query_all_res = ureq::post(url.as_str())
         .send_json(query_all_req)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
@@ -64,7 +65,7 @@ fn run_transform_only_query(url: &String) -> Result<(), anyhow::Error> {
         params: Some(
             serde_json::to_value(BrpQueryParams {
                 data: BrpQuery {
-                    components: vec![Transform::type_id()],
+                    components: vec![type_name::<Transform>().to_string()],
                     option: Vec::default(),
                     has: Vec::default(),
                 },
@@ -75,8 +76,38 @@ fn run_transform_only_query(url: &String) -> Result<(), anyhow::Error> {
         ),
     };
     println!("transform request: {get_transform_request:#?}");
-    let res = ureq::post(url)
-        .send_json(req)?
+    let res = ureq::post(url.as_str())
+        .send_json(get_transform_request)?
+        .body_mut()
+        .read_json::<serde_json::Value>()?;
+    println!("{:#}", res);
+    Ok(())
+}
+
+fn run_query_root_entities(url: &String) -> Result<(), anyhow::Error> {
+    let get_transform_request = BrpRequest {
+        jsonrpc: String::from("2.0"),
+        method: String::from(BRP_QUERY_METHOD),
+        id: Some(serde_json::to_value(1)?),
+        params: Some(
+            serde_json::to_value(BrpQueryParams {
+                data: BrpQuery {
+                    components: Vec::default(),
+                    option: Vec::default(),
+                    has: Vec::default(),
+                },
+                strict: false,
+                filter: BrpQueryFilter {
+                    without: vec![type_name::<Children>().to_string()],
+                    with: Vec::default(),
+                },
+            })
+            .expect("Unable to convert query parameters to a valid JSON value"),
+        ),
+    };
+    println!("transform request: {get_transform_request:#?}");
+    let res = ureq::post(url.as_str())
+        .send_json(get_transform_request)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
     println!("{:#}", res);
