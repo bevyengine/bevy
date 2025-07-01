@@ -490,20 +490,28 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
     }
 }
 
-/// Creates a weak [`Handle`] from a string literal containing a UUID.
+/// Creates a [`Handle`] from a string literal containing a UUID.
 ///
 /// # Examples
 ///
 /// ```
-/// # use bevy_asset::{Handle, weak_handle};
+/// # use bevy_asset::{Handle, uuid_handle};
 /// # type Shader = ();
-/// const SHADER: Handle<Shader> = weak_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");
+/// const SHADER: Handle<Shader> = uuid_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");
 /// ```
 #[macro_export]
-macro_rules! weak_handle {
+macro_rules! uuid_handle {
     ($uuid:expr) => {{
         $crate::Handle::Uuid($crate::uuid::uuid!($uuid), core::marker::PhantomData)
     }};
+}
+
+#[deprecated = "Use uuid_handle! instead"]
+#[macro_export]
+macro_rules! weak_handle {
+    ($uuid:expr) => {
+        uuid_handle!($uuid)
+    };
 }
 
 /// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
