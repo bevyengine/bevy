@@ -3,8 +3,8 @@ title: `Handle::Weak` has been replaced by `Handle::Uuid`.
 pull_requests: [19896]
 ---
 
-`Handle::Weak` has some weird behavior. It allows for a sprite to be given a handle that is dropped
-**while the sprite is still using it**. This also results in more complexity in the asset system.
+`Handle::Weak` had some weird behavior. It allowed for a sprite to be given a handle that is dropped
+**while the sprite is still using it**. This also resulted in more complexity in the asset system.
 The primary remaining use for `Handle::Weak` is to store asset UUIDs initialized through the
 `weak_handle!` macro. To address this, `Handle::Weak` has been replaced by `Handle::Uuid`!
 
