@@ -50,7 +50,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::{BevyDefault, Image, ToExtents};
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -64,14 +64,13 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
-        DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, LoadOp, MultisampleState,
-        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
-        RenderPassDepthStencilAttachment, RenderPassDescriptor, RenderPipeline,
-        RenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        StencilFaceState, StencilOperation, StencilState, StoreOp, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
-        VertexState,
+        DynamicUniformBuffer, FilterMode, FragmentState, LoadOp, MultisampleState, Operations,
+        PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+        RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilOperation,
+        StencilState, StoreOp, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureView, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, GpuImage, TextureCache},
@@ -704,18 +703,12 @@ fn prepare_smaa_textures(
             continue;
         };
 
-        let texture_size = Extent3d {
-            width: texture_size.x,
-            height: texture_size.y,
-            depth_or_array_layers: 1,
-        };
-
         // Create the two-channel RG texture for phase 1 (edge detection).
         let edge_detection_color_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
                 label: Some("SMAA edge detection color texture"),
-                size: texture_size,
+                size: texture_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -730,7 +723,7 @@ fn prepare_smaa_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("SMAA edge detection stencil texture"),
-                size: texture_size,
+                size: texture_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -746,7 +739,7 @@ fn prepare_smaa_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("SMAA blend texture"),
-                size: texture_size,
+                size: texture_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,

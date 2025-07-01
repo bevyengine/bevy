@@ -193,6 +193,7 @@ struct ComputeNodeLabel;
 /// The node that will execute the compute shader
 #[derive(Default)]
 struct ComputeNode {}
+
 impl render_graph::Node for ComputeNode {
     fn run(
         &self,

@@ -1,68 +1,17 @@
+//! Logic to track observers when cloning entities.
+
 use crate::{
-    component::{Component, ComponentCloneBehavior, Mutable, StorageType},
-    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
-    lifecycle::{ComponentHook, HookContext},
+    component::ComponentCloneBehavior,
+    entity::{
+        CloneByFilter, ComponentCloneCtx, EntityClonerBuilder, EntityMapper, SourceComponent,
+    },
+    observer::ObservedBy,
     world::World,
 };
-use alloc::vec::Vec;
-
-#[cfg(feature = "bevy_reflect")]
-use crate::prelude::ReflectComponent;
 
 use super::Observer;
 
-/// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
-#[derive(Default, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, Debug))]
-pub struct ObservedBy(pub(crate) Vec<Entity>);
-
-impl ObservedBy {
-    /// Provides a read-only reference to the list of entities observing this entity.
-    pub fn get(&self) -> &[Entity] {
-        &self.0
-    }
-}
-
-impl Component for ObservedBy {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-    type Mutability = Mutable;
-
-    fn on_remove() -> Option<ComponentHook> {
-        Some(|mut world, HookContext { entity, .. }| {
-            let observed_by = {
-                let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
-                core::mem::take(&mut component.0)
-            };
-            for e in observed_by {
-                let (total_entities, despawned_watched_entities) = {
-                    let Ok(mut entity_mut) = world.get_entity_mut(e) else {
-                        continue;
-                    };
-                    let Some(mut state) = entity_mut.get_mut::<Observer>() else {
-                        continue;
-                    };
-                    state.despawned_watched_entities += 1;
-                    (
-                        state.descriptor.entities.len(),
-                        state.despawned_watched_entities as usize,
-                    )
-                };
-
-                // Despawn Observer if it has no more active sources.
-                if total_entities == despawned_watched_entities {
-                    world.commands().entity(e).despawn();
-                }
-            }
-        })
-    }
-
-    fn clone_behavior() -> ComponentCloneBehavior {
-        ComponentCloneBehavior::Ignore
-    }
-}
-
-impl EntityClonerBuilder<'_> {
+impl<Filter: CloneByFilter> EntityClonerBuilder<'_, Filter> {
     /// Sets the option to automatically add cloned entities to the observers targeting source entity.
     pub fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {
@@ -151,7 +100,7 @@ mod tests {
         world.trigger_targets(E, e);
 
         let e_clone = world.spawn_empty().id();
-        EntityCloner::build(&mut world)
+        EntityCloner::build_opt_out(&mut world)
             .add_observers(true)
             .clone_entity(e, e_clone);
 

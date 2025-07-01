@@ -332,7 +332,7 @@ pub(crate) fn changed_windows(
                             &monitor_selection,
                         )
                         .unwrap_or_else(|| {
-                            panic!("Could not find monitor for {:?}", monitor_selection)
+                            panic!("Could not find monitor for {monitor_selection:?}")
                         });
 
                         if let Some(video_mode) = get_selected_videomode(monitor, &video_mode_selection)

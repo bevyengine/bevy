@@ -190,11 +190,16 @@ impl WinitWindows {
         bevy_log::debug!("{display_info}");
 
         #[cfg(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd",
+            all(
+                any(feature = "wayland", feature = "x11"),
+                any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd",
+                )
+            ),
             target_os = "windows"
         ))]
         if let Some(name) = &window.name {
@@ -285,7 +290,7 @@ impl WinitWindows {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
                     winit_window_attributes = winit_window_attributes.with_canvas(canvas);
                 } else {
-                    panic!("Cannot find element: {}.", selector);
+                    panic!("Cannot find element: {selector}.");
                 }
             }
 
@@ -529,7 +534,7 @@ impl core::fmt::Display for DisplayInfo {
         let millihertz = self.refresh_rate_millihertz.unwrap_or(0);
         let hertz = millihertz / 1000;
         let extra_millihertz = millihertz % 1000;
-        write!(f, "  Refresh rate (Hz): {}.{:03}", hertz, extra_millihertz)?;
+        write!(f, "  Refresh rate (Hz): {hertz}.{extra_millihertz:03}")?;
         Ok(())
     }
 }

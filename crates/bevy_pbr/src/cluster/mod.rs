@@ -162,8 +162,8 @@ pub struct GpuClusterableObject {
     pub(crate) spot_light_tan_angle: f32,
     pub(crate) soft_shadow_size: f32,
     pub(crate) shadow_map_near_z: f32,
-    pub(crate) pad_a: f32,
-    pub(crate) pad_b: f32,
+    pub(crate) decal_index: u32,
+    pub(crate) pad: f32,
 }
 
 pub enum GpuClusterableObjects {
@@ -535,12 +535,12 @@ pub fn extract_clusters(
             continue;
         }
 
-        let num_entities: usize = clusters
+        let entity_count: usize = clusters
             .clusterable_objects
             .iter()
             .map(|l| l.entities.len())
             .sum();
-        let mut data = Vec::with_capacity(clusters.clusterable_objects.len() + num_entities);
+        let mut data = Vec::with_capacity(clusters.clusterable_objects.len() + entity_count);
         for cluster_objects in &clusters.clusterable_objects {
             data.push(ExtractedClusterableObjectElement::ClusterHeader(
                 cluster_objects.counts,
