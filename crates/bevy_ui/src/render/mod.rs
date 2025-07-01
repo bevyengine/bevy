@@ -862,7 +862,7 @@ pub fn extract_text_sections(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             let rect = texture_atlases
-                .get(&atlas_info.texture_atlas)
+                .get(atlas_info.texture_atlas)
                 .unwrap()
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
@@ -888,7 +888,7 @@ pub fn extract_text_sections(
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     stack_index: uinode.stack_index,
                     color,
-                    image: atlas_info.texture.id(),
+                    image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
                     extracted_camera_entity,
                     rect,
@@ -953,7 +953,7 @@ pub fn extract_text_shadows(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             let rect = texture_atlases
-                .get(&atlas_info.texture_atlas)
+                .get(atlas_info.texture_atlas)
                 .unwrap()
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
@@ -969,7 +969,7 @@ pub fn extract_text_shadows(
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     stack_index: uinode.stack_index,
                     color: shadow.color.into(),
-                    image: atlas_info.texture.id(),
+                    image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
                     extracted_camera_entity,
                     rect,

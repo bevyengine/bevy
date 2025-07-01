@@ -172,8 +172,8 @@ impl FontAtlasSet {
                         .get_glyph_index(cache_key)
                         .map(|location| GlyphAtlasInfo {
                             location,
-                            texture_atlas: atlas.texture_atlas.clone(),
-                            texture: atlas.texture.clone(),
+                            texture_atlas: atlas.texture_atlas.id(),
+                            texture: atlas.texture.id(),
                         })
                 })
             })
