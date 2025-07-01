@@ -1610,8 +1610,8 @@ mod tests {
 
     #[test]
     fn unit_structs_match_function() {
-        // Test that the unit structs and `EaseFunction` correctly match each
-        // other and implement `Curve<f32>`.
+        // Test that the unit structs and `EaseFunction` match each other and
+        // implement `Curve<f32>`.
 
         fn test(f1: impl Curve<f32>, f2: impl Curve<f32>, t: f32) {
             assert_eq!(f1.sample(t), f2.sample(t));
@@ -1656,15 +1656,13 @@ mod tests {
             test(BounceOutCurve, EaseFunction::BounceOut, t);
             test(BounceInOutCurve, EaseFunction::BounceInOut, t);
 
-            assert_eq!(
-                StepsCurve(4, JumpAt::Start).sample(t),
-                EaseFunction::Steps(4, JumpAt::Start).sample(t)
+            test(
+                StepsCurve(4, JumpAt::Start),
+                EaseFunction::Steps(4, JumpAt::Start),
+                t,
             );
 
-            assert_eq!(
-                ElasticCurve(50.0).sample(t),
-                EaseFunction::Elastic(50.0).sample(t)
-            );
+            test(ElasticCurve(50.0), EaseFunction::Elastic(50.0), t);
         }
     }
 }
