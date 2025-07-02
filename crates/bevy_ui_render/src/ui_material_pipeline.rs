@@ -1,3 +1,4 @@
+use crate::ui_material::{MaterialNode, UiMaterial, UiMaterialKey};
 use crate::*;
 use bevy_asset::*;
 use bevy_ecs::{
@@ -11,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_render::RenderApp;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     load_shader_library,
@@ -22,7 +24,6 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderApp};
 use bevy_sprite::BorderRect;
 use bytemuck::{Pod, Zeroable};
 use core::{hash::Hash, marker::PhantomData, ops::Range};

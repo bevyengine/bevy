@@ -15,7 +15,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
-use bevy_render::sync_world::MainEntity;
+use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::RenderApp;
 use bevy_render::{
     render_phase::*,
@@ -24,9 +24,13 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
+use bevy_ui::{
+    BoxShadow, CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius,
+    UiGlobalTransform, Val,
+};
 use bytemuck::{Pod, Zeroable};
 
-use crate::{RenderUiSystems, TransparentUi};
+use crate::{BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap};
 
 use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
@@ -253,8 +257,7 @@ pub fn extract_shadows(
             continue;
         };
 
-        let ui_physical_viewport_size = camera.physical_size.as_vec2();
-
+        let ui_physical_viewport_size = camera.physical_size().as_vec2();
         let scale_factor = uinode.inverse_scale_factor.recip();
 
         for drop_shadow in box_shadow.iter() {

@@ -1,6 +1,5 @@
 use core::{hash::Hash, ops::Range};
 
-use crate::prelude::UiGlobalTransform;
 use crate::*;
 use bevy_asset::*;
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -25,6 +24,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
+use bevy_ui::widget;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 
