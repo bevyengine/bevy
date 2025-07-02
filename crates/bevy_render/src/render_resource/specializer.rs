@@ -74,7 +74,7 @@ impl Specializable for ComputePipeline {
 ///
 /// <div class="warning">
 /// Because specialization is designed for use with render and compute
-/// pipelines, specializers act on descriptors of <code>T</code> rather
+/// pipelines, specializers act on <i>descriptors</i> of <code>T</code> rather
 /// than produce <code>T</code> itself, but the above comparison is still valid.
 /// </div>
 ///
@@ -188,7 +188,7 @@ pub trait Specializer<T: Specializable>: Send + Sync + 'static {
 /// Defines a type that is able to be used as a key for [`Specializer`]s
 ///
 /// <div class = "warning">
-/// <strong>Most types should implement this trait with the included derive macro.</strong>
+/// <strong>Most types should implement this trait with the included derive macro.</strong> <br/>
 /// This generates a "canonical" key type, with <code>IS_CANONICAL = true</code>, and <code>Canonical = Self</code>
 /// </div>
 ///
