@@ -400,10 +400,7 @@ impl<A: Asset> Assets<A> {
     pub fn add(&mut self, asset: impl Into<A>) -> Handle<A> {
         let index = self.dense_storage.allocator.reserve();
         self.insert_with_index(index, asset.into()).unwrap();
-        Handle::Strong(
-            self.handle_provider
-                .get_handle(index.into(), false, None, None),
-        )
+        Handle::Strong(self.handle_provider.get_handle(index, false, None, None))
     }
 
     /// Upgrade an `AssetId` into a strong `Handle` that will prevent asset drop.
@@ -416,7 +413,7 @@ impl<A: Asset> Assets<A> {
             return None;
         }
         let index = match id {
-            AssetId::Index { index, .. } => index.into(),
+            AssetId::Index { index, .. } => index,
             // We don't support strong handles for Uuid assets.
             AssetId::Uuid { .. } => return None,
         };
