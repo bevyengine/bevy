@@ -2482,12 +2482,10 @@ mod tests {
 
         let mut world = World::new();
 
-        let _a_id = world.register_component::<A>();
-        world.spawn(B).remove_with_requires::<A>();
-
         // This should fail, removing A from an archetype with only B was previously noop
         // and register_required_components cannot trivially update the edge to now cause
         // a move to an archetype without A
+        world.spawn(B).remove_with_requires::<A>();
         assert!(matches!(
             world.try_register_required_components::<A, B>(),
             Err(RequiredComponentsError::RemovedFromArchetype(_a_id))
