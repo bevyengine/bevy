@@ -30,7 +30,7 @@ use bevy::{
             IndirectParametersIndexed,
         },
         experimental::occlusion_culling::OcclusionCulling,
-        render_graph::{self, NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel},
+        render_graph::{self, NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel},
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
         renderer::{RenderContext, RenderDevice},
         settings::WgpuFeatures,

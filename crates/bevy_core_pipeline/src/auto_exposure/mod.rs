@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssetPlugin,
-    render_graph::RenderGraphApp,
+    render_graph::RenderGraphExt,
     render_resource::{
         Buffer, BufferDescriptor, BufferUsages, PipelineCache, SpecializedComputePipelines,
     },
