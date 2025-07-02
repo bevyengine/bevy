@@ -1,4 +1,7 @@
-use core::{any::type_name, marker::PhantomData};
+use core::{
+    any::{type_name, Any, TypeId},
+    marker::PhantomData,
+};
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_diagnostic::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
@@ -6,7 +9,7 @@ use bevy_ecs::{resource::Resource, system::Res};
 use bevy_platform::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use bevy_render::{Extract, ExtractSchedule, RenderApp};
 
-use crate::{Material, MaterialBindGroupAllocator};
+use crate::{Material, MaterialBindGroupAllocators};
 
 pub struct MaterialAllocatorDiagnosticPlugin<M: Material> {
     suffix: &'static str,
@@ -103,17 +106,19 @@ fn add_material_allocator_measurement<M: Material>(
     );
 }
 
-fn measure_allocator<M: Material>(
+fn measure_allocator<M: Material + Any>(
     measurements: Extract<Res<MaterialAllocatorMeasurements<M>>>,
-    allocator: Res<MaterialBindGroupAllocator<M>>,
+    allocators: Res<MaterialBindGroupAllocators>,
 ) {
-    measurements
-        .slabs
-        .store(allocator.slab_count(), Ordering::Relaxed);
-    measurements
-        .slabs_size
-        .store(allocator.slabs_size(), Ordering::Relaxed);
-    measurements
-        .allocations
-        .store(allocator.allocations(), Ordering::Relaxed);
+    if let Some(allocator) = allocators.get(&TypeId::of::<M>()) {
+        measurements
+            .slabs
+            .store(allocator.slab_count(), Ordering::Relaxed);
+        measurements
+            .slabs_size
+            .store(allocator.slabs_size(), Ordering::Relaxed);
+        measurements
+            .allocations
+            .store(allocator.allocations(), Ordering::Relaxed);
+    }
 }
