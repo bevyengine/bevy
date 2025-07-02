@@ -1,6 +1,7 @@
 //! minimal text input example
 
 use bevy::color::palettes::css::NAVY;
+use bevy::color::palettes::css::RED;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
@@ -15,13 +16,20 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
     let id = commands
         .spawn((
             TextInputNode::default(),
             TabIndex(0),
+            TextColor(RED.into()),
+            TextFont {
+                font: asset_server.load("fonts/Orbitron-Medium.ttf"),
+                font_size: 30.,
+                line_height: bevy::text::LineHeight::RelativeToFont(2.),
+                ..Default::default()
+            },
             Node {
                 width: Val::Percent(50.),
                 height: Val::Percent(50.),
