@@ -89,6 +89,12 @@ pub mod graph {
     }
 }
 
+pub mod prelude {
+    pub use crate::{
+        ui_material::*, ui_material_pipeline::UiMaterialPlugin, BoxShadowSamples, UiAntiAlias,
+    };
+}
+
 /// Local Z offsets of "extracted nodes" for a given entity. These exist to allow rendering multiple "extracted nodes"
 /// for a given source entity (ex: render both a background color _and_ a custom material for a given node).
 ///
