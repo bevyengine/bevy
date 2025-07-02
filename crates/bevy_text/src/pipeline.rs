@@ -452,11 +452,14 @@ pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
     /// Rects bounding the text block's text sections.
-    /// A text section spanning more than one line will have multiple bounding rects.
+    /// A text section spanning more than one line will have multiple bounding rects
     pub section_rects: Vec<(Entity, Rect)>,
+    /// Rects bounding the selected text
     pub selection_rects: Vec<Rect>,
     /// The glyphs resulting size
     pub size: Vec2,
+    /// Cursor position and size
+    pub cursor: Option<(Vec2, Vec2)>,
 }
 
 /// Size information for a corresponding [`ComputedTextBlock`] component.
