@@ -92,6 +92,24 @@ impl Default for TextInputBuffer {
     }
 }
 
+impl TextInputBuffer {
+    pub fn get_text(&self) -> String {
+        self.editor.with_buffer(|buffer| {
+            buffer
+                .lines
+                .iter()
+                .map(|buffer_line| buffer_line.text())
+                .fold(String::new(), |mut out, line| {
+                    if !out.is_empty() {
+                        out.push('\n');
+                    }
+                    out.push_str(line);
+                    out
+                })
+        })
+    }
+}
+
 #[derive(Component, PartialEq, Debug, Default)]
 pub struct TextInputTarget {
     pub size: Vec2,
