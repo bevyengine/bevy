@@ -57,7 +57,7 @@ pub struct WgpuSettings {
     /// want to use this unless you are debugging or testing in CI.
     pub force_fallback_adapter: bool,
     /// The name of the adapter to use.
-    pub adapter_name : Option<String>,
+    pub adapter_name: Option<String>,
 }
 
 impl Default for WgpuSettings {
