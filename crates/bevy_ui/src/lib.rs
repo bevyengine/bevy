@@ -87,6 +87,7 @@ pub use stack::UiStack;
 use update::{update_clipping_system, update_ui_context_system};
 
 /// The basic plugin for Bevy UI
+#[derive(Default)]
 pub struct UiPlugin;
 
 /// The label enum labeling the types of systems in the Bevy UI
