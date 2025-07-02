@@ -1,6 +1,6 @@
 use crate::{
     resource::Resource,
-    schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
+    schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel, SystemKey},
     system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
@@ -173,7 +173,7 @@ impl Stepping {
         state
             .node_ids
             .get(self.cursor.system)
-            .map(|node_id| (*label, *node_id))
+            .map(|node_id| (*label, NodeId::System(*node_id)))
     }
 
     /// Enable stepping for the provided schedule
@@ -606,7 +606,7 @@ struct ScheduleState {
     /// This is a cached copy of `SystemExecutable::system_ids`. We need it
     /// available here to be accessed by [`Stepping::cursor()`] so we can return
     /// [`NodeId`]s to the caller.
-    node_ids: Vec<NodeId>,
+    node_ids: Vec<SystemKey>,
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::skipped_systems()`] is called
@@ -662,15 +662,15 @@ impl ScheduleState {
         // updates for the system TypeId.
         // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
         // system scan here
-        for (node_id, system) in schedule.systems().unwrap() {
+        for (key, system) in schedule.systems().unwrap() {
             let behavior = self.behavior_updates.get(&system.type_id());
             match behavior {
                 None => continue,
                 Some(None) => {
-                    self.behaviors.remove(&node_id);
+                    self.behaviors.remove(&NodeId::System(key));
                 }
                 Some(Some(behavior)) => {
-                    self.behaviors.insert(node_id, *behavior);
+                    self.behaviors.insert(NodeId::System(key), *behavior);
                 }
             }
         }
@@ -703,8 +703,8 @@ impl ScheduleState {
 
         // if we don't have a first system set, set it now
         if self.first.is_none() {
-            for (i, (node_id, _)) in schedule.systems().unwrap().enumerate() {
-                match self.behaviors.get(&node_id) {
+            for (i, (key, _)) in schedule.systems().unwrap().enumerate() {
+                match self.behaviors.get(&NodeId::System(key)) {
                     Some(SystemBehavior::AlwaysRun | SystemBehavior::NeverRun) => continue,
                     Some(_) | None => {
                         self.first = Some(i);
@@ -717,10 +717,10 @@ impl ScheduleState {
         let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
         let mut pos = start;
 
-        for (i, (node_id, _system)) in schedule.systems().unwrap().enumerate() {
+        for (i, (key, _system)) in schedule.systems().unwrap().enumerate() {
             let behavior = self
                 .behaviors
-                .get(&node_id)
+                .get(&NodeId::System(key))
                 .unwrap_or(&SystemBehavior::Continue);
 
             #[cfg(test)]
