@@ -368,6 +368,10 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                 })],
                 ..default()
             }),
+            multisample: MultisampleState {
+                count: key.msaa_samples,
+                ..default()
+            },
             ..default()
         }
     }
