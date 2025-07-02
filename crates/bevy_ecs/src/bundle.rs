@@ -2187,7 +2187,8 @@ mod tests {
             })
             .id();
 
-        assert!(world.entity(id).get::<Children>().is_some());
+        assert!(world.entity(id).get::<B>().is_some());
+        assert!(world.entity(id).get::<Children>().is_none());
     }
 
     #[test]
