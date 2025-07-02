@@ -23,7 +23,6 @@ use bevy::{
     },
     prelude::*,
     ui::{Checked, InteractionDisabled},
-    winit::WinitSettings,
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -54,7 +53,7 @@ fn main() {
             hsl_color: palettes::tailwind::AMBER_800.into(),
         })
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
+        // .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
         .run();

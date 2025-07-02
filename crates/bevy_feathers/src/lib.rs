@@ -18,7 +18,7 @@
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
 
-use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate, PropagateSet};
+use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate, PreUpdate, PropagateSet};
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
 use bevy_text::{TextColor, TextFont};
@@ -43,6 +43,7 @@ pub mod palette;
 pub mod rounded_corners;
 pub mod theme;
 pub mod tokens;
+mod transition;
 
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
 pub struct FeathersPlugin;
@@ -87,5 +88,13 @@ impl Plugin for FeathersPlugin {
             .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
+        app.add_systems(
+            PreUpdate,
+            (
+                transition::animate_transition::<transition::BackgroundColorTransition>,
+                transition::animate_transition::<transition::LeftPercentTransition>,
+            )
+                .in_set(UiSystems::Prepare),
+        );
     }
 }
