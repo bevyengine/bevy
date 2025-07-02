@@ -6,14 +6,15 @@
 )]
 
 pub mod box_shadow;
+mod gradient;
 mod pipeline;
 mod render_pass;
+pub mod ui_material;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
-mod gradient;
 
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;

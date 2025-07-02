@@ -1,9 +1,12 @@
 use crate::Node;
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::extract_component::ExtractComponent;
+use bevy_render::{
+    extract_component::ExtractComponent,
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+};
 use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
