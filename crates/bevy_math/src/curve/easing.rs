@@ -1,33 +1,70 @@
-//! Module containing different easing functions to control the transition between two values.
+//! Module containing different easing functions.
 //!
-//! There are several ways to use the easing functions. The most general is
-//! [`EasingCurve`], which can interpolate between any two values via an
-//! [`EaseFunction`] chosen at runtime or compile time.
+//! An easing function is a [`Curve`] that's used to transition between two
+//! values. It takes a time parameter, where a time of zero means the start of
+//! the transition and a time of one means the end.
 //!
-//! ```
-//! # use bevy_math::prelude::*;
-//! let f = EaseFunction::SmoothStep;
-//! let c = EasingCurve::new(Vec2::new(1.0, 2.0), Vec2::new(5.0, 10.0), f);
+//! Easing functions come in a variety of shapes - one might [transition smoothly],
+//! while another might have a [bouncing motion].
 //!
-//! let interpolated = c.sample(0.2);
-//! ```
-//!
-//! [`EaseFunction`] can also be used directly to interpolate between zero and one.
+//! There are several ways to use easing functions. The simplest option is a
+//! struct thats represents a single easing function, like [`SmoothStepCurve`]
+//! and [`StepsCurve`]. These structs can only transition from a value of zero
+//! to a value of one.
 //!
 //! ```
 //! # use bevy_math::prelude::*;
-//! let f = EaseFunction::SmoothStep;
-//!
-//! let interpolated = f.sample(0.2);
+//! # let time = 0.0;
+//! let smoothed_value = SmoothStepCurve.sample(time);
 //! ```
-//!
-//! Finally, each function has a dedicated struct that interpolates between zero
-//! and one, for example [`SmoothStepCurve`].
 //!
 //! ```
 //! # use bevy_math::prelude::*;
-//! let interpolated = SmoothStepCurve.sample(0.2);
+//! # let time = 0.0;
+//! let stepped_value = StepsCurve(5, JumpAt::Start).sample(time);
 //! ```
+//!
+//! Another option is [`EaseFunction`]. Unlike the single function structs,
+//! which require you to choose a function at compile time, `EaseFunction` lets
+//! you choose at runtime. It can also be serialized.
+//!
+//! ```
+//! # use bevy_math::prelude::*;
+//! # let time = 0.0;
+//! # let make_it_smooth = false;
+//! let mut curve = EaseFunction::Linear;
+//!
+//! if make_it_smooth {
+//!     curve = EaseFunction::SmoothStep;
+//! }
+//!
+//! let value = curve.sample(time);
+//! ```
+//!
+//! The final option is [`EasingCurve`]. This lets you transition between any
+//! two values - not just zero to one. `EasingCurve` can use any value that
+//! implements the [`Ease`] trait, including vectors and directions.
+//!
+//! ```
+//! # use bevy_math::prelude::*;
+//! # let time = 0.0;
+//! // Make a curve that smoothly transitions between two positions.
+//! let start_position = vec2(1.0, 2.0);
+//! let end_position = vec2(5.0, 10.0);
+//! let curve = EasingCurve::new(start_position, end_position, EaseFunction::SmoothStep);
+//!
+//! let smoothed_position = curve.sample(time);
+//! ```
+//!
+//! Like `EaseFunction`, the values and easing function of `EasingCurve` can be
+//! chosen at runtime and serialized.
+//!
+//! [transition smoothly]: `SmoothStepCurve`
+//! [bouncing motion]: `BounceInCurve`
+//! [`sample`]: `Curve::sample`
+//! [`sample_clamped`]: `Curve::sample_clamped`
+//! [`sample_unchecked`]: `Curve::sample_unchecked`
+//!
 
 use crate::{
     curve::{Curve, CurveExt, FunctionCurve, Interval},
