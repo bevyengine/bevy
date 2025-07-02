@@ -564,10 +564,12 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// see full explanation on `EntityEvent` trait docs.
 ///
 /// ```ignore
+/// #[derive(Event, EntityEvent)]
 /// /// Traversal component
 /// #[entity_event(traversal = &'static ChildOf)]
 /// /// Always propagate
 /// #[entity_event(auto_propagate)]
+/// struct MyEvent;
 /// ```
 #[proc_macro_derive(EntityEvent, attributes(entity_event))]
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
@@ -591,17 +593,22 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 ///
 /// ## Immutability
 /// ```ignore
+/// #[derive(Component)]
 /// #[component(immutable)]
+/// struct MyComponent;
 /// ```
 ///
 /// ## Sparse instead of table-based storage
 /// ```ignore
+/// #[derive(Component)]
 /// #[component(storage = "SparseSet")]
+/// struct MyComponent;
 /// ```
 ///
 /// ## Required Components
 ///
 /// ```ignore
+/// #[derive(Component)]
 /// #[require(
 ///     // `Default::default()`
 ///     A,
@@ -621,6 +628,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 ///     // arbitrary expressions
 ///     G = make(1, 2, 3)
 /// )]
+/// struct MyComponent;
 /// ```
 ///
 /// ## Relationships
@@ -641,12 +649,16 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 ///
 /// On despawn, also despawn all related entities:
 /// ```ignore
+/// #[derive(Component)]
 /// #[relationship_target(relationship_target = Children, linked_spawn)]
+/// pub struct Children(Vec<Entity>);
 /// ```
 ///
 /// ## Hooks
 /// ```ignore
+/// #[derive(Component)]
 /// #[component(hook_name = function)]
+/// struct MyComponent;
 /// ```
 /// where `hook_name` is `on_add`, `on_insert`, `on_replace` or `on_remove`;  
 /// `function` can be either a path, e.g. `some_function::<Self>`,
@@ -655,7 +667,9 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 ///
 /// ## Ignore this component when cloning an entity
 /// ```ignore
+/// #[derive(Component)]
 /// #[component(clone_behavior = Ignore)]
+/// struct MyComponent;
 /// ```
 #[proc_macro_derive(
     Component,
