@@ -132,11 +132,11 @@ fn build_ui(
             return;
         };
 
-        for (node_id, system) in systems {
+        for (key, system) in systems {
             // skip bevy default systems; we don't want to step those
             #[cfg(feature = "debug")]
             if system.name().as_string().starts_with("bevy") {
-                always_run.push((*label, node_id));
+                always_run.push((*label, NodeId::System(key)));
                 continue;
             }
 
@@ -145,7 +145,7 @@ fn build_ui(
             // we add plus 1 to account for the empty root span
             state
                 .systems
-                .push((*label, NodeId::System(node_id), text_spans.len() + 1));
+                .push((*label, NodeId::System(key), text_spans.len() + 1));
 
             // Add a text section for displaying the cursor for this system
             text_spans.push((
@@ -164,7 +164,7 @@ fn build_ui(
     }
 
     for (label, node) in always_run.drain(..) {
-        stepping.always_run_node(label, NodeId::System(node));
+        stepping.always_run_node(label, node);
     }
 
     commands.spawn((

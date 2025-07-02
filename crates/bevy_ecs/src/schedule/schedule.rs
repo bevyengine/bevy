@@ -1126,14 +1126,20 @@ impl ScheduleGraph {
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
         for &set in &graph_info.hierarchy {
-            if let NodeId::Set(key) = id {
-                if self.system_set_ids.get(&set).is_some_and(|set| *set == key) {
-                    return Err(ScheduleBuildError::HierarchyLoop(
-                        self.get_node_name(&NodeId::Set(key)),
-                    ));
+            if let Some(&set_id) = self.system_set_ids.get(&set) {
+                if let NodeId::Set(key) = id
+                    && set_id == key
+                {
+                    {
+                        return Err(ScheduleBuildError::HierarchyLoop(
+                            self.get_node_name(&NodeId::Set(key)),
+                        ));
+                    }
                 }
+            } else {
+                // If the set is not in the graph, we add it
+                self.add_set(set);
             }
-            self.add_set(set);
         }
 
         Ok(())
@@ -1147,14 +1153,18 @@ impl ScheduleGraph {
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
         for Dependency { set, .. } in &graph_info.dependencies {
-            if let NodeId::Set(key) = id {
-                if self.system_set_ids.get(set).is_some_and(|set| *set == key) {
+            if let Some(&set_id) = self.system_set_ids.get(set) {
+                if let NodeId::Set(key) = id
+                    && set_id == key
+                {
                     return Err(ScheduleBuildError::DependencyLoop(
                         self.get_node_name(&NodeId::Set(key)),
                     ));
                 }
+            } else {
+                // If the set is not in the graph, we add it
+                self.add_set(*set);
             }
-            self.add_set(*set);
         }
 
         Ok(())
