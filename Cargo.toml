@@ -280,6 +280,7 @@ bevy_ui = [
   "bevy_anti_aliasing",
 ]
 
+# Provides rendering functionality for bevy_ui
 bevy_ui_render = ["bevy_internal/bevy_ui_render", "bevy_render", "bevy_ui"]
 
 # Windowing layer
