@@ -482,7 +482,7 @@ pub fn extract_uinode_background_colors(
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
-                border_radius: uinode.border_radius().into(),
+                border_radius: uinode.border_radius(),
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
