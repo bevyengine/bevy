@@ -117,7 +117,7 @@ use bevy_utils::WgpuWrapper;
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
-use tracing::{debug, info, warn};
+use tracing::debug;
 
 /// Inline shader as an `embedded_asset` and load it permanently.
 ///
@@ -402,20 +402,12 @@ impl Plugin for RenderPlugin {
                         // Check env for force_fallback_adapter
                         let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
                             .map_or(settings.force_fallback_adapter, |v| {
-                                info!(
-                                    "WGPU_FORCE_FALLBACK_ADAPTER is set to '{}'.",
-                                    v
-                                );
                                 !(v.is_empty() || v == "0" || v == "false")
                             });
 
                         let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
                             .as_deref()
                             .map_or(settings.adapter_name.clone(), |x| Some(x.to_lowercase()));
-
-                        if desired_adapter_name.is_some() && force_fallback_adapter {
-                            warn!("WGPU_ADAPTER_NAME is set, but WGPU_FORCE_FALLBACK_ADAPTER is also set. This will force the fallback adapter to be used, ignoring the desired adapter name.");
-                        }
 
                         let request_adapter_options = wgpu::RequestAdapterOptions {
                             power_preference: settings.power_preference,

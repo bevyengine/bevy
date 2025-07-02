@@ -154,7 +154,7 @@ pub async fn initialize_renderer(
     desired_adapter_name: Option<String>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
     let mut selected_adapter = None;
-    if let Some(adapter_name) = &desired_adapter_name && !options.force_fallback_adapter {
+    if let Some(adapter_name) = &desired_adapter_name  {
         debug!("Searching for adapter with name: {}", adapter_name);
         for adapter in instance.enumerate_adapters(options.backends.expect("The `backends` field of `WgpuSettings` must be set to use a specific adapter.")) {
             trace!("Checking adapter: {:?}", adapter.get_info());
@@ -166,7 +166,7 @@ pub async fn initialize_renderer(
                 }
             }
 
-            if info.name.to_lowercase().contains(adapter_name) {
+            if info.name.to_lowercase().contains(&adapter_name.to_lowercase()) {
                 selected_adapter  = Some(adapter);
                 break;
             }
