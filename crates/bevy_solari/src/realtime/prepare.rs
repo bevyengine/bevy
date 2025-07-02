@@ -18,13 +18,13 @@ use bevy_render::{
 };
 
 /// Size of a Reservoir shader struct in bytes.
-const RESERVOIR_STRUCT_SIZE: u64 = 32;
+const DI_RESERVOIR_STRUCT_SIZE: u64 = 32;
 
 /// Internal rendering resources used for Solari lighting.
 #[derive(Component)]
 pub struct SolariLightingResources {
-    pub reservoirs_a: Buffer,
-    pub reservoirs_b: Buffer,
+    pub di_reservoirs_a: Buffer,
+    pub di_reservoirs_b: Buffer,
     pub previous_gbuffer: (Texture, TextureView),
     pub previous_depth: (Texture, TextureView),
     pub view_size: UVec2,
@@ -47,17 +47,17 @@ pub fn prepare_solari_lighting_resources(
             continue;
         }
 
-        let size = (view_size.x * view_size.y) as u64 * RESERVOIR_STRUCT_SIZE;
+        let size = (view_size.x * view_size.y) as u64 * DI_RESERVOIR_STRUCT_SIZE;
 
-        let reservoirs_a = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_reservoirs_a"),
+        let di_reservoirs_a = render_device.create_buffer(&BufferDescriptor {
+            label: Some("solari_lighting_di_reservoirs_a"),
             size,
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
-        let reservoirs_b = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_reservoirs_b"),
+        let di_reservoirs_b = render_device.create_buffer(&BufferDescriptor {
+            label: Some("solari_lighting_di_reservoirs_b"),
             size,
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
@@ -88,8 +88,8 @@ pub fn prepare_solari_lighting_resources(
         let previous_depth_view = previous_depth.create_view(&TextureViewDescriptor::default());
 
         commands.entity(entity).insert(SolariLightingResources {
-            reservoirs_a,
-            reservoirs_b,
+            di_reservoirs_a,
+            di_reservoirs_b,
             previous_gbuffer: (previous_gbuffer, previous_gbuffer_view),
             previous_depth: (previous_depth, previous_depth_view),
             view_size,

@@ -15,6 +15,17 @@ fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<
     return vec3(x, y, z);
 }
 
+// https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#UniformlySamplingaHemisphere
+fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
+    let cos_theta = rand_f(rng);
+    let phi = PI_2 * rand_f(rng);
+    let sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
+    let x = sin_theta * cos(phi);
+    let y = sin_theta * sin(phi);
+    let z = cos_theta;
+    return build_orthonormal_basis(normal) * vec3(x, y, z);
+}
+
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294
 fn sample_disk(disk_radius: f32, rng: ptr<function, u32>) -> vec2<f32> {
     let ab = 2.0 * rand_vec2f(rng) - 1.0;

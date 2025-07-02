@@ -28,6 +28,7 @@ pub struct SolariLightingPlugin;
 impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "restir_di.wgsl");
+        embedded_asset!(app, "restir_gi.wgsl");
 
         app.register_type::<SolariLighting>()
             .insert_resource(DefaultOpaqueRendererMethod::deferred());
