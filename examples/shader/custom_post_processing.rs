@@ -19,7 +19,7 @@ use bevy::{
             UniformComponentPlugin,
         },
         render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+            NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
         },
         render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
@@ -264,23 +264,16 @@ fn setup_pipeline(
             vertex: vertex_state,
             fragment: Some(FragmentState {
                 shader,
-                shader_defs: vec![],
                 // Make sure this matches the entry point of your shader.
                 // It can be anything as long as it matches here and in the shader.
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            // All of the following properties are not important for this effect so just use the default values.
-            // This struct doesn't have the Default trait implemented because not all fields can have a default value.
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         });
     commands.insert_resource(PostProcessPipeline {
         layout,
