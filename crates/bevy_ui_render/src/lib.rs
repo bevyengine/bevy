@@ -215,6 +215,7 @@ impl Plugin for UiRenderPlugin {
         }
 
         app.add_plugins(UiTextureSlicerPlugin);
+        app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
     }
 
@@ -222,10 +223,7 @@ impl Plugin for UiRenderPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-    app.add_plugins(UiTextureSlicerPlugin);
-    app.add_plugins(GradientPlugin);
-    app.add_plugins(BoxShadowPlugin);
+    }
 }
 
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
