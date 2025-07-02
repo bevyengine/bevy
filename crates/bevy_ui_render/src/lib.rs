@@ -141,8 +141,8 @@ pub enum RenderUiSystems {
     ExtractGradient,
 }
 
-/// Marker for controlling whether Ui is rendered with or without anti-aliasing
-/// in a camera. By default, Ui is always anti-aliased.
+/// Marker for controlling whether UI is rendered with or without anti-aliasing
+/// in a camera. By default, UI is always anti-aliased.
 ///
 /// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
 ///
@@ -150,12 +150,12 @@ pub enum RenderUiSystems {
 /// use bevy_core_pipeline::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
-/// use bevy_render::prelude::*;
+/// use bevy_ui_render::prelude::*;
 ///
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
 ///         Camera2d,
-///         // This will cause all Ui in this camera to be rendered without
+///         // This will cause all UI in this camera to be rendered without
 ///         // anti-aliasing
 ///         UiAntiAlias::Off,
 ///     ));
@@ -179,7 +179,7 @@ pub enum UiAntiAlias {
 /// use bevy_core_pipeline::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
-/// use bevy_render::prelude::*;
+/// use bevy_ui_render::prelude::*;
 ///
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
