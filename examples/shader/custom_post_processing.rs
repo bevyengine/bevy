@@ -19,7 +19,7 @@ use bevy::{
             UniformComponentPlugin,
         },
         render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+            NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
         },
         render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},

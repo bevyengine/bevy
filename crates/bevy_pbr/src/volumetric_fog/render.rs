@@ -2,7 +2,7 @@
 
 use core::array;
 
-use bevy_asset::{load_embedded_asset, weak_handle, AssetId, Handle};
+use bevy_asset::{load_embedded_asset, uuid_handle, AssetId, Handle};
 use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -82,14 +82,14 @@ bitflags! {
 ///
 /// This mesh is simply stretched to the size of the framebuffer, as when the
 /// camera is inside a fog volume it's essentially a full-screen effect.
-pub const PLANE_MESH: Handle<Mesh> = weak_handle!("92523617-c708-4fd0-b42f-ceb4300c930b");
+pub const PLANE_MESH: Handle<Mesh> = uuid_handle!("92523617-c708-4fd0-b42f-ceb4300c930b");
 
 /// The cube mesh, which is used to render a fog volume that the camera is
 /// outside.
 ///
 /// Note that only the front faces of this cuboid will be rasterized in
 /// hardware. The back faces will be calculated in the shader via raytracing.
-pub const CUBE_MESH: Handle<Mesh> = weak_handle!("4a1dd661-2d91-4377-a17a-a914e21e277e");
+pub const CUBE_MESH: Handle<Mesh> = uuid_handle!("4a1dd661-2d91-4377-a17a-a914e21e277e");
 
 /// The total number of bind group layouts.
 ///

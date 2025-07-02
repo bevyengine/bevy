@@ -23,7 +23,7 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     load_shader_library,
     prelude::Camera,
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{
             sampler, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,

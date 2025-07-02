@@ -6,7 +6,7 @@
 //! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
-    asset::weak_handle,
+    asset::uuid_handle,
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::{ops, FloatOrd},
@@ -280,7 +280,7 @@ pub struct ColoredMesh2dPlugin;
 
 /// Handle to the custom shader with a unique random ID
 pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("f48b148f-7373-4638-9900-392b3b3ccc66");
+    uuid_handle!("f48b148f-7373-4638-9900-392b3b3ccc66");
 
 /// Our custom pipeline needs its own instance storage
 #[derive(Resource, Deref, DerefMut, Default)]
