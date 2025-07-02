@@ -261,6 +261,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     },
                     SliderStep(10.)
                 ),
+                color_swatch(())
             ]
         ),],
     )

@@ -22,14 +22,17 @@ use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;
 use bevy_ecs::query::With;
 use bevy_text::{TextColor, TextFont};
+use bevy_ui::UiMaterialPlugin;
 use bevy_winit::cursor::CursorIcon;
 
 use crate::{
+    alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursorIcon},
     theme::{ThemedText, UiTheme},
 };
 
+mod alpha_pattern;
 pub mod constants;
 pub mod controls;
 pub mod cursor;
@@ -48,17 +51,22 @@ impl Plugin for FeathersPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<UiTheme>();
 
+        // Embedded font
         embedded_asset!(app, "assets/fonts/FiraSans-Bold.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-BoldItalic.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
         embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
 
+        // Embedded shader
+        embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
+
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::default(),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::default(),
+            UiMaterialPlugin::<AlphaPatternMaterial>::default(),
         ));
 
         app.insert_resource(DefaultCursorIcon(CursorIcon::System(
@@ -70,5 +78,7 @@ impl Plugin for FeathersPlugin {
             .add_observer(theme::on_changed_border)
             .add_observer(theme::on_changed_font_color)
             .add_observer(font_styles::on_changed_font);
+
+        app.init_resource::<AlphaPatternResource>();
     }
 }
