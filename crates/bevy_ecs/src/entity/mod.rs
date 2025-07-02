@@ -54,7 +54,7 @@
 //!
 //! - Entities are spawned through methods like [`World::spawn`](crate::world::World::spawn), which return an [`Entity`] id for the new entity.
 //! - Once spawned, they can be accessed and modified through [`Query`]s and other apis.
-//! - You can get the [`Entity`] id of an entity through [`Query`]s, so loosing an [`Entity`] id is not a problem.
+//! - You can get the [`Entity`] id of an entity through [`Query`]s, so losing an [`Entity`] id is not a problem.
 //! - Entities can have components inserted and removed via [`World::entity_mut`](crate::world::World::entity_mut) and [`Commands::entity`](crate::system::Commands::entity).
 //! - Entities are eventually despawned, destroying the entity and causing its [`Entity`] id to no longer refer to an entity.
 //! - Not all [`Entity`] ids point to actual entities, which makes many entity methods fallible.
@@ -69,12 +69,12 @@
 //! To understand these ids, picture the ecs [`World`] as a spreadsheet.
 //! Each kind of component is represented by a column in the spreadsheet and each entity is a row.
 //! That's what the `row` does in [`Entity`]; it identifies where in the spreadsheet to find component values.
-//! If an entity doesn't have a component, picture leaving the cell at the that entity row and component column blank or `None`.
+//! If an entity doesn't have a component, picture leaving the cell at that entity row and component column blank or `None`.
 //! To find the component values of an entity, Bevy searches through the spreadsheet at the [`EntityRow`] for the entity and the [`ComponentId`](crate::component::ComponentId) for the component.
 //!
 //! An [`EntityRow`] always references exactly 1 entity in the [`World`].
 //! Think about it, even if the spreadsheet only *uses* rows 1, 2, and 12, it still *has* millions of rows.
-//! In the spreadsheet analogy, you can think of each row in one of 3 states:
+//! In the spreadsheet analogy, you can think of each row as being in one of 3 states:
 //!
 //!  1. The row is not used.
 //!     Think of this as graying out the row or otherwise hiding it.
@@ -107,13 +107,13 @@
 //! However, not all these entities are usable or stored in memory; Bevy doesn't store information for rows that have always been *null* (never been constructed).
 //!
 //! Rows can be repeatedly constructed and destructed.
-//! Each construction and destruction corresponds to a [`EntityGeneration`].
+//! Each construction and destruction corresponds to an [`EntityGeneration`].
 //! The first time a row is constructed, it has a generation of 0, and when it is destructed, it gets a generation of 1.
 //! This differentiates each construction of that [`EntityRow`].
-//! Again, all an [`Entity`] id is is a [`EntityRow`] (where to find the component values) and a [`EntityGeneration`] (which version of that row it references).
+//! Again, all an [`Entity`] id is is an [`EntityRow`] (where to find the component values) and an [`EntityGeneration`] (which version of that row it references).
 //! When an [`Entity`] id is invalid, it just means that that generation of its row has been destructed.
 //! It could still be null or it could have since been constructed again.
-//! Either way, that entity, that row-generation pair no longer exists.
+//! Either way, that row-generation pair no longer exists.
 //!
 //! As mentioned, once an [`EntityRow`] is destructed, it is not discoverable until it is constructed again.
 //! To prevent these rows from being forgotten, bevy tracks them in an [`EntitiesAllocator`].
@@ -126,7 +126,7 @@
 //! Of course, to make that entity usable, it will need to be passed to [`World::construct`](crate::world::World::construct).
 //! Managing entity ids manually is advanced but can be very useful for concurrency, custom entity allocators, etc.
 //! But there are risks when used improperly:
-//! Loosing a null entity row without returning it to bevy's allocator will cause that row to be unreachable, effectively a memory leak.
+//! Losing a null entity row without returning it to bevy's allocator will cause that row to be unreachable, effectively a memory leak.
 //! Further, constructing an arbitrary [`EntityRow`] can cause problems if that same row is queued for reuse in the allocator.
 //! Use this powerfully but with caution.
 //!
@@ -406,7 +406,7 @@ impl EntityGeneration {
 /// This uniquely identifies an entity in a [`World`].
 /// Note that this is just an id, not the entity itself.
 /// Further, the entity this id refers to may no longer exist in the [`World`].
-/// For more information about entities, their ids, and how to use them, see the module docs.
+/// For more information about entities, their ids, and how to use them, see the module [docs](crate::entity).
 ///
 /// # Aliasing
 ///
@@ -928,7 +928,7 @@ impl Entities {
                     Err(ConstructedEntityDoesNotExistError::DidNotExist(
                         EntityDoesNotExistError {
                             entity,
-                            current_generation: EntityGeneration::FIRST,
+                            current_generation: meta.generation,
                         },
                     ))
                 } else {
@@ -1075,7 +1075,7 @@ impl Entities {
         self.update(row, location)
     }
 
-    /// Ensures row is valid as an index in [`Self::meta`].
+    /// Ensures the row is within the bounds of [`Self::meta`], expanding it if necessary.
     #[inline]
     fn ensure_row_index_is_valid(&mut self, row: EntityRow) {
         #[cold] // to help with branch prediction

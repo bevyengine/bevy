@@ -1069,12 +1069,12 @@ impl World {
     /// It can not be queried, and it has no [`EntityLocation`](crate::entity::EntityLocation).
     /// See [entity docs](crate::entity) for more information about null entities and construction.
     ///
-    /// This is different from empty entities, which do exist in the world;
-    /// they just happen to have no components.
+    /// This is different from empty entities, which do exist in the world and
+    /// just happen to have no components.
     ///
     /// This is particularly useful when spawning entities in special ways.
-    /// For example, commands uses this to allocate an entity and [`construct`](Self::construct) it later.
-    /// Note that since this entity is not queryable and its id is not discoverable, loosing the returned [`Entity`] effectively leaks it, never to be used again!
+    /// For example, [`Commands`] uses this to allocate an entity and [`construct`](Self::construct) it later.
+    /// Note that since this entity is not queryable and its id is not discoverable, losing the returned [`Entity`] effectively leaks it, never to be used again!
     ///
     /// # Example
     ///
@@ -1566,7 +1566,7 @@ impl World {
     }
 
     /// Destructs the given `entity`, if it exists. This will also remove all of the entity's
-    /// [`Components`](Component).
+    /// [`Component`]s.
     /// The *only* difference between destructing and despawning an entity is that destructing does not release the `entity` to be reused.
     /// It is up to the caller to either re-construct or fully despawn the `entity`; otherwise, the [`EntityRow`](crate::entity::EntityRow) will not be able to be reused.
     /// In general, [`despawn`](Self::despawn) should be used instead, which automatically allows the row to be reused.
