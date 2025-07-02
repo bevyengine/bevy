@@ -10,6 +10,7 @@
   - [Perf flame graph](#perf-flame-graph)
 - [GPU runtime](#gpu-runtime)
   - [Vendor tools](#vendor-tools)
+    - [Xcode's Metal debugger](#xcodes-metal-debugger)
   - [Tracy RenderQueue](#tracy-renderqueue)
 - [Compile time](#compile-time)
 
