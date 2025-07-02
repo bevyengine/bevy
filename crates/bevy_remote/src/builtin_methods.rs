@@ -22,7 +22,7 @@ use bevy_reflect::{
 };
 use serde::{
     de::DeserializeSeed as _,
-    de::{Deserializer, Error as DeError, SeqAccess, Visitor},
+    de::{Deserializer, SeqAccess, Visitor},
     ser::Serializer,
     Deserialize, Serialize,
 };
