@@ -183,6 +183,7 @@ fn setup(
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(50000.0, 50000.0))),
         MeshMaterial2d(materials.add(Color::linear_rgb(0.01, 0.01, 0.01))),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -200.0)),
+        Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+        bevy::sprite::ZIndex(-1),
     ));
 }

@@ -5,11 +5,12 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
+use bevy::core_pipeline::core_2d::Transparent2dSortKey;
 use bevy::{
     asset::uuid_handle,
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
-    math::{ops, FloatOrd},
+    math::ops,
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute, RenderMesh},
@@ -367,6 +368,9 @@ pub fn extract_colored_mesh2d(
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: false,
                 tag: 0,
+                z_index: None,
+                y_sort: false,
+                sort_bias: None,
             },
         );
     }
@@ -404,7 +408,6 @@ pub fn queue_colored_mesh2d(
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh2d>() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
-                let mesh2d_transforms = &mesh_instance.transforms;
                 // Get our specialized pipeline
                 let mut mesh2d_key = mesh_key;
                 let Some(mesh) = render_meshes.get(mesh2d_handle) else {
@@ -415,14 +418,12 @@ pub fn queue_colored_mesh2d(
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
-                let mesh_z = mesh2d_transforms.world_from_local.translation.z;
                 transparent_phase.add(Transparent2d {
                     entity: (*render_entity, *visible_entity),
                     draw_function: draw_colored_mesh2d,
                     pipeline: pipeline_id,
-                    // The 2d render items are sorted according to their z value before rendering,
-                    // in order to get correct transparency
-                    sort_key: FloatOrd(mesh_z),
+                    // Transparent 2d items are sorted by a combination of z-index and sort bias
+                    sort_key: Transparent2dSortKey::new(0, None),
                     // This material is not batched
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,

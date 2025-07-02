@@ -126,6 +126,7 @@ Example | Description
 [Sprite Scale](../examples/2d/sprite_scale.rs) | Shows how a sprite can be scaled into a rectangle while keeping the aspect ratio
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
 [Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
+[Sprite Sorting](../examples/2d/sprite_sorting.rs) | Demonstrates how to sort sprites
 [Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites

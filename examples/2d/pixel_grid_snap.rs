@@ -54,7 +54,8 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
     // The sample sprite that will be rendered to the pixel-perfect canvas
     commands.spawn((
         Sprite::from_image(asset_server.load("pixel/bevy_pixel_dark.png")),
-        Transform::from_xyz(-45., 20., 2.),
+        Transform::from_xyz(-45., 20., 0.),
+        bevy::sprite::ZIndex(2),
         Rotate,
         PIXEL_PERFECT_LAYERS,
     ));
@@ -62,7 +63,8 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
     // The sample sprite that will be rendered to the high-res "outer world"
     commands.spawn((
         Sprite::from_image(asset_server.load("pixel/bevy_pixel_light.png")),
-        Transform::from_xyz(-45., -20., 2.),
+        Transform::from_xyz(-45., -20., 0.),
+        bevy::sprite::ZIndex(2),
         Rotate,
         HIGH_RES_LAYERS,
     ));
@@ -77,7 +79,8 @@ fn setup_mesh(
     commands.spawn((
         Mesh2d(meshes.add(Capsule2d::default())),
         MeshMaterial2d(materials.add(Color::BLACK)),
-        Transform::from_xyz(25., 0., 2.).with_scale(Vec3::splat(32.)),
+        Transform::from_xyz(25., 0., 0.).with_scale(Vec3::splat(32.)),
+        bevy::sprite::ZIndex(2),
         Rotate,
         PIXEL_PERFECT_LAYERS,
     ));
