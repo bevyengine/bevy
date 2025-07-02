@@ -12,7 +12,7 @@ use crate::core_3d::{
     prepare_core_3d_depth_textures,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{load_internal_asset, uuid_handle, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -30,7 +30,7 @@ use bevy_render::{
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
@@ -51,7 +51,7 @@ use tracing::debug;
 
 /// Identifies the `downsample_depth.wgsl` shader.
 pub const DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("a09a149e-5922-4fa4-9170-3c1a13065364");
+    uuid_handle!("a09a149e-5922-4fa4-9170-3c1a13065364");
 
 /// The maximum number of mip levels that we can produce.
 ///

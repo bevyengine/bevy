@@ -3,7 +3,7 @@
 //! Currently, this consists only of chromatic aberration.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, weak_handle, Assets, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, uuid_handle, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -23,7 +23,7 @@ use bevy_render::{
     load_shader_library,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{
-        NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
+        NodeRunError, RenderGraphContext, RenderGraphExt as _, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -52,7 +52,7 @@ use crate::{
 /// This is just a 3x1 image consisting of one red pixel, one green pixel, and
 /// one blue pixel, in that order.
 const DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE: Handle<Image> =
-    weak_handle!("dc3e3307-40a1-49bb-be6d-e0634e8836b2");
+    uuid_handle!("dc3e3307-40a1-49bb-be6d-e0634e8836b2");
 
 /// The default chromatic aberration intensity amount, in a fraction of the
 /// window size.
