@@ -32,7 +32,7 @@
 use bevy_app::{App, Plugin};
 #[cfg(feature = "smaa_luts")]
 use bevy_asset::load_internal_binary_asset;
-use bevy_asset::{embedded_asset, load_embedded_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, uuid_handle, Handle};
 #[cfg(not(feature = "smaa_luts"))]
 use bevy_core_pipeline::tonemapping::lut_placeholder;
 use bevy_core_pipeline::{
@@ -81,10 +81,10 @@ use bevy_utils::prelude::default;
 
 /// The handle of the area LUT, a KTX2 format texture that SMAA uses internally.
 const SMAA_AREA_LUT_TEXTURE_HANDLE: Handle<Image> =
-    weak_handle!("569c4d67-c7fa-4958-b1af-0836023603c0");
+    uuid_handle!("569c4d67-c7fa-4958-b1af-0836023603c0");
 /// The handle of the search LUT, a KTX2 format texture that SMAA uses internally.
 const SMAA_SEARCH_LUT_TEXTURE_HANDLE: Handle<Image> =
-    weak_handle!("43b97515-252e-4c8a-b9af-f2fc528a1c27");
+    uuid_handle!("43b97515-252e-4c8a-b9af-f2fc528a1c27");
 
 /// Adds support for subpixel morphological antialiasing, or SMAA.
 pub struct SmaaPlugin;
