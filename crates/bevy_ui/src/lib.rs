@@ -12,7 +12,6 @@
 
 pub mod interaction_states;
 pub mod measurement;
-pub mod ui_material;
 pub mod update;
 pub mod widget;
 
@@ -66,11 +65,10 @@ pub mod prelude {
         crate::{
             geometry::*,
             gradients::*,
-            ui_material::*,
             ui_node::*,
             ui_transform::*,
             widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
-            Interaction, MaterialNode, UiMaterialPlugin, UiScale,
+            Interaction, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
@@ -81,7 +79,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, AnimationSystems};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
-use bevy_render::{camera::CameraUpdateSystems, RenderApp};
+use bevy_render::camera::CameraUpdateSystems;
 use bevy_transform::TransformSystems;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
@@ -89,19 +87,7 @@ pub use stack::UiStack;
 use update::{update_clipping_system, update_ui_context_system};
 
 /// The basic plugin for Bevy UI
-pub struct UiPlugin {
-    /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
-    /// The layout and interaction components will still be updated as normal.
-    pub enable_rendering: bool,
-}
-
-impl Default for UiPlugin {
-    fn default() -> Self {
-        Self {
-            enable_rendering: true,
-        }
-    }
-}
+pub struct UiPlugin;
 
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -182,8 +168,6 @@ impl Plugin for UiPlugin {
             .register_type::<ZIndex>()
             .register_type::<GlobalZIndex>()
             .register_type::<Outline>()
-            .register_type::<BoxShadowSamples>()
-            .register_type::<UiAntiAlias>()
             .register_type::<ColorStop>()
             .register_type::<AngularColorStop>()
             .register_type::<UiPosition>()
@@ -256,17 +240,6 @@ impl Plugin for UiPlugin {
         );
 
         build_text_interop(app);
-
-        if !self.enable_rendering {
-            return;
-        }
-
-        app.add_plugins(UiRenderPlugin);
-
-        add_ui_extraction_schedule(app);
-
-        #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<debug_overlay::UiDebugOptions>();
     }
 }
 
