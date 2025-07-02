@@ -75,7 +75,7 @@ impl Specializable for ComputePipeline {
 /// <div class="warning">
 /// Because specialization is designed for use with render and compute
 /// pipelines, specializers act on descriptors of <code>T</code> rather
-/// than produce <code>T</code itself, but the above comparison is still valid.
+/// than produce <code>T</code> itself, but the above comparison is still valid.
 /// </div>
 ///
 /// Since compiling render and compute pipelines can be so slow,
