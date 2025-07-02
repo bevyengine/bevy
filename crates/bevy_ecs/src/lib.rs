@@ -2473,6 +2473,28 @@ mod tests {
     }
 
     #[test]
+    fn runtime_required_components_of_remove_with_requires_bundle() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        let mut world = World::new();
+
+        let _a_id = world.register_component::<A>();
+        world.spawn(B).remove_with_requires::<A>();
+
+        // This should fail, removing A from an archetype with only B was previously noop
+        // and register_required_components cannot trivially update the edge to now cause
+        // a move to an archetype without A
+        assert!(matches!(
+            world.try_register_required_components::<A, B>(),
+            Err(RequiredComponentsError::RemovedFromArchetype(_a_id))
+        ));
+    }
+
+    #[test]
     fn required_components_inheritance_depth() {
         // Test that inheritance depths are computed correctly for requirements.
         //
@@ -2604,25 +2626,6 @@ mod tests {
         assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
         assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
         assert_eq!(bundle_containing(&world, c_id), Some(bundle_id));
-    }
-
-    #[test]
-    fn update_required_components_in_bundle_fails() {
-        #[derive(Component)]
-        struct A;
-
-        #[derive(Component, Default)]
-        struct B;
-
-        let mut world = World::new();
-
-        let a_id = world.register_component::<A>();
-        world.spawn(B).remove_with_requires::<A>();
-
-        match world.try_register_required_components::<A, B>() {
-            Err(RequiredComponentsError::RemovedFromArchetype(id)) => assert_eq!(id, a_id),
-            _ => panic!(),
-        }
     }
 
     #[test]
