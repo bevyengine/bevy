@@ -4,11 +4,11 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs,
     skin, DeferredDrawFunction, DeferredFragmentShader, DeferredVertexShader, DrawMesh,
-    EntitySpecializationTicks, ErasedMaterialPipelineKey, MaterialPipeline, MaterialProperties,
-    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
-    PrepassDrawFunction, PrepassFragmentShader, PrepassVertexShader, RenderLightmaps,
-    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
-    SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
+    EntitySpecializationTicks, ErasedMaterialPipelineKey, Material, MaterialPipeline,
+    MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod,
+    PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader, PrepassVertexShader,
+    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
+    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -58,13 +58,15 @@ use crate::meshlet::{
 
 use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
-use bevy_ecs::system::SystemChangeTick;
+use bevy_ecs::{component::Tick, system::SystemChangeTick};
 use bevy_platform::collections::HashMap;
-use bevy_render::erased_render_asset::ErasedRenderAssets;
-use bevy_render::sync_world::MainEntityHashMap;
-use bevy_render::view::RenderVisibleEntities;
-use bevy_render::RenderSystems::{PrepareAssets, PrepareResources};
+use bevy_render::{
+    erased_render_asset::ErasedRenderAssets,
+    sync_world::MainEntityHashMap,
+    view::RenderVisibleEntities,
+    RenderSystems::{PrepareAssets, PrepareResources},
+};
+use core::marker::PhantomData;
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -188,6 +190,16 @@ impl Plugin for PrepassPlugin {
     }
 }
 
+/// Marker resource for whether prepass is enabled globally for this material type
+#[derive(Resource, Debug)]
+pub struct PrepassEnabled<M: Material>(PhantomData<M>);
+
+impl<M: Material> Default for PrepassEnabled<M> {
+    fn default() -> Self {
+        PrepassEnabled(PhantomData)
+    }
+}
+
 #[derive(Resource)]
 struct AnyPrepassPluginLoaded;
 
@@ -242,14 +254,6 @@ pub fn update_mesh_previous_global_transforms(
 
 #[derive(Resource, Clone)]
 pub struct PrepassPipeline {
-    pub internal: PrepassPipelineInternal,
-    pub material_pipeline: MaterialPipeline,
-}
-
-/// Internal fields of the `PrepassPipeline` that don't need the generic bound
-/// This is done as an optimization to not recompile the same code multiple time
-#[derive(Clone)]
-pub struct PrepassPipelineInternal {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layouts: MeshLayouts,
@@ -265,6 +269,7 @@ pub struct PrepassPipelineInternal {
     /// Whether binding arrays (a.k.a. bindless textures) are usable on the
     /// current render device.
     pub binding_arrays_are_usable: bool,
+    pub material_pipeline: MaterialPipeline,
 }
 
 impl FromWorld for PrepassPipeline {
@@ -327,7 +332,7 @@ impl FromWorld for PrepassPipeline {
         let depth_clip_control_supported = render_device
             .features()
             .contains(WgpuFeatures::DEPTH_CLIP_CONTROL);
-        let internal = PrepassPipelineInternal {
+        PrepassPipeline {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
             mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
@@ -336,9 +341,6 @@ impl FromWorld for PrepassPipeline {
             depth_clip_control_supported,
             binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
             empty_layout: render_device.create_bind_group_layout("prepass_empty_layout", &[]),
-        };
-        PrepassPipeline {
-            internal,
             material_pipeline: world.resource::<MaterialPipeline>().clone(),
         }
     }
@@ -361,12 +363,9 @@ impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
         if self.properties.bindless {
             shader_defs.push("BINDLESS".into());
         }
-        let mut descriptor = self.pipeline.internal.specialize(
-            key.mesh_key,
-            shader_defs,
-            layout,
-            &self.properties,
-        )?;
+        let mut descriptor =
+            self.pipeline
+                .specialize(key.mesh_key, shader_defs, layout, &self.properties)?;
 
         // This is a bit risky because it's possible to change something that would
         // break the prepass but be fine in the main pass.
@@ -384,7 +383,7 @@ impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
     }
 }
 
-impl PrepassPipelineInternal {
+impl PrepassPipeline {
     fn specialize(
         &self,
         mesh_key: MeshPipelineKey,
@@ -714,7 +713,7 @@ impl FromWorld for PrepassViewBindGroup {
         let render_device = world.resource::<RenderDevice>();
         let empty_bind_group = render_device.create_bind_group(
             "prepass_view_empty_bind_group",
-            &pipeline.internal.empty_layout,
+            &pipeline.empty_layout,
             &[],
         );
         PrepassViewBindGroup {
@@ -741,7 +740,7 @@ pub fn prepare_prepass_view_bind_group(
     ) {
         prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
-            &prepass_pipeline.internal.view_layout_no_motion_vectors,
+            &prepass_pipeline.view_layout_no_motion_vectors,
             &BindGroupEntries::with_indices((
                 (0, view_binding.clone()),
                 (1, globals_binding.clone()),
@@ -752,7 +751,7 @@ pub fn prepare_prepass_view_bind_group(
         if let Some(previous_view_uniforms_binding) = previous_view_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
-                &prepass_pipeline.internal.view_layout_motion_vectors,
+                &prepass_pipeline.view_layout_motion_vectors,
                 &BindGroupEntries::with_indices((
                     (0, view_binding),
                     (1, globals_binding),
@@ -911,6 +910,11 @@ pub fn specialize_prepass_material_meshes(
             let Some(material) = render_materials.get(material_instance.asset_id) else {
                 continue;
             };
+            if !material.properties.prepass_enabled && !material.properties.shadows_enabled {
+                // If the material was previously specialized for prepass, remove it
+                view_specialized_material_pipeline_cache.remove(visible_entity);
+                continue;
+            }
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };

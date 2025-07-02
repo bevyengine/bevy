@@ -372,6 +372,13 @@ where
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            if self.prepass_enabled {
+                render_app.init_resource::<PrepassEnabled<M>>();
+            }
+            if self.shadows_enabled {
+                render_app.init_resource::<ShadowsEnabled<M>>();
+            }
+
             render_app
                 .add_systems(RenderStartup, setup_render_app::<M>)
                 .add_systems(
@@ -1316,6 +1323,10 @@ pub struct MaterialProperties {
     /// The key for this material, typically a bitfield of flags that are used to modify
     /// the pipeline descriptor used for this material.
     pub material_key: SmallVec<[u8; 8]>,
+    /// Whether shadows are enabled for this material
+    pub shadows_enabled: bool,
+    /// Whether prepass is enabled for this material
+    pub prepass_enabled: bool,
 }
 
 impl MaterialProperties {
@@ -1394,7 +1405,11 @@ where
         SRes<DrawFunctions<AlphaMask3dDeferred>>,
         SRes<DrawFunctions<Shadow>>,
         SRes<AssetServer>,
-        M::Param,
+        (
+            Option<SRes<ShadowsEnabled<M>>>,
+            Option<SRes<PrepassEnabled<M>>>,
+            M::Param,
+        ),
     );
 
     fn prepare_asset(
@@ -1415,10 +1430,14 @@ where
             alpha_mask_deferred_draw_functions,
             shadow_draw_functions,
             asset_server,
-            material_param,
+            (shadows_enabled, prepass_enabled, material_param),
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
         let material_layout = M::bind_group_layout(render_device);
+
+        let shadows_enabled = shadows_enabled.is_some();
+        let prepass_enabled = prepass_enabled.is_some();
+
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial>();
@@ -1584,6 +1603,8 @@ where
                         bindless,
                         specialize: Some(specialize::<M>),
                         material_key,
+                        shadows_enabled,
+                        prepass_enabled,
                     }),
                 })
             }
@@ -1621,6 +1642,8 @@ where
                                 bindless,
                                 specialize: Some(specialize::<M>),
                                 material_key,
+                                shadows_enabled,
+                                prepass_enabled,
                             }),
                         })
                     }

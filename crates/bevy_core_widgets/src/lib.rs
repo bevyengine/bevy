@@ -14,6 +14,7 @@
 // styled/opinionated widgets that use them. Components which are directly exposed to users above
 // the widget level, like `SliderValue`, should not have the `Core` prefix.
 
+mod callback;
 mod core_button;
 mod core_checkbox;
 mod core_radio;
@@ -22,6 +23,7 @@ mod core_slider;
 
 use bevy_app::{App, Plugin};
 
+pub use callback::{Callback, Notify};
 pub use core_button::{CoreButton, CoreButtonPlugin};
 pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
 pub use core_radio::{CoreRadio, CoreRadioGroup, CoreRadioGroupPlugin};
