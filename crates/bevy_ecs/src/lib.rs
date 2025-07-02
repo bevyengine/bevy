@@ -2488,7 +2488,7 @@ mod tests {
         world.spawn(B).remove_with_requires::<A>();
         assert!(matches!(
             world.try_register_required_components::<A, B>(),
-            Err(RequiredComponentsError::RemovedFromArchetype(_a_id))
+            Err(RequiredComponentsError::RemovedFromArchetype(_))
         ));
     }
 
