@@ -1,8 +1,11 @@
-//! Animation transitions.
-//!
-//! Please note that this is an unstable temporary API. It may be replaced by a
-//! state machine in the future.
+//! Animation Transitioning logic goes here!
+//! This struct should in the later run be responsible for handling multi-state Animation Graph nodes.
 
+use crate::{
+    graph::{AnimationGraphHandle, AnimationNodeIndex},
+    ActiveAnimation, AnimationPlayer,
+};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     reflect::ReflectComponent,
@@ -10,151 +13,181 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
-use core::time::Duration;
+use core::{f32, time::Duration};
 
-use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
-
-/// Manages fade-out of animation blend factors, allowing for smooth transitions
-/// between animations.
+/// Component responsible for managing transitions between multiple nodes or states.
 ///
-/// To use this component, place it on the same entity as the
-/// [`AnimationPlayer`] and [`AnimationGraphHandle`](crate::AnimationGraphHandle). It'll take
-/// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
-/// to fade out animations smoothly.
+/// It supports multiple independent "flows", where each flow represents a distinct active
+/// animation or state machine. A flow tracks the transition between two states over time.
 ///
-/// When using an [`AnimationTransitions`] component, you should play all
-/// animations through the [`AnimationTransitions::play`] method, rather than by
-/// directly manipulating the [`AnimationPlayer`]. Playing animations through
-/// the [`AnimationPlayer`] directly will cause the [`AnimationTransitions`]
-/// component to get confused about which animation is the "main" animation, and
-/// transitions will usually be incorrect as a result.
-#[derive(Component, Default, Reflect)]
-#[reflect(Component, Default, Clone)]
+/// In the simplest case, `flow_amount` should be set to `1`, indicating a single flow.
+/// However, if multiple state machines or simultaneous animations are needed, `flow_amount`
+/// should be increased accordingly.
+///
+/// Is worth mentioning, that when using `AnimationTransitions`, you should avoid messing around with player!
+/// As he will do the heavy lifting for you! All you need to worry about is transitioning your flows!
+/// If you do play an additional animation directly via player  this WILL BREAK!
+///
+/// It is also the user's responsibility to track which flow they are currently operating on
+/// when triggering transitions.
+/// Ex: Flow 0 - Plays idle,walks and so on. Affect whole body
+/// Flow 1 - Plays close hands - Affects only hand bones.
+#[derive(Component, Default, Reflect, Deref, DerefMut)]
+#[reflect(Component, Default)]
+#[require(AnimationGraphHandle, AnimationPlayer)]
 pub struct AnimationTransitions {
-    main_animation: Option<AnimationNodeIndex>,
+    #[deref]
     transitions: Vec<AnimationTransition>,
+    /// Flows represent sequences of animation states.
+    /// For example, in cases such as masked or additive animation scenarios, a user can easily define transitions between previous and new states.
+    /// This concept is similar to "main" animations, but instead of one sole `ActiveAnimation`, we might have multiple active animation being controlled!
+    flows: Vec<Option<AnimationNodeIndex>>,
 }
 
-// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
-impl Clone for AnimationTransitions {
-    fn clone(&self) -> Self {
+/// An animation node that is being faded out as part of a transition, note this controls the animations being played!
+#[derive(Debug, Reflect, Clone)]
+pub struct AnimationTransition {
+    /// How much weight we will decrease according to the given user value
+    duration: Duration,
+    /// Node to transition from
+    old_node: AnimationNodeIndex,
+    /// Node to transition into
+    new_node: AnimationNodeIndex,
+    /// Acts similarly to a local variable, tracks how far into the transition are we, should start from 1. and go to 0
+    weight: f32,
+}
+impl AnimationTransitions {
+    /// Initializes the [`AnimationTransitions`] component, with ONE SINGLE flow meaning. It is expected to play only one animation at once
+    pub fn new() -> Self {
         Self {
-            main_animation: self.main_animation,
-            transitions: self.transitions.clone(),
+            flows: vec![None; 1_usize],
+            transitions: Vec::new(),
         }
     }
 
-    fn clone_from(&mut self, source: &Self) {
-        self.main_animation = source.main_animation;
-        self.transitions.clone_from(&source.transitions);
-    }
-}
-
-/// An animation that is being faded out as part of a transition
-#[derive(Debug, Clone, Copy, Reflect)]
-#[reflect(Clone)]
-pub struct AnimationTransition {
-    /// The current weight. Starts at 1.0 and goes to 0.0 during the fade-out.
-    current_weight: f32,
-    /// How much to decrease `current_weight` per second
-    weight_decline_per_sec: f32,
-    /// The animation that is being faded out
-    animation: AnimationNodeIndex,
-}
-
-impl AnimationTransitions {
-    /// Creates a new [`AnimationTransitions`] component, ready to be added to
-    /// an entity with an [`AnimationPlayer`].
-    pub fn new() -> AnimationTransitions {
-        AnimationTransitions::default()
+    /// Define your flow amount and initializes your component, renember `flow_amount` is the amount of animation you want to be playing at once
+    pub fn new_with_flow(flow_amount: usize) -> Self {
+        Self {
+            flows: vec![None; flow_amount],
+            // Default transitions are instantaniously cleared
+            transitions: Vec::new(),
+        }
     }
 
-    /// Plays a new animation on the given [`AnimationPlayer`], fading out any
-    /// existing animations that were already playing over the
-    /// `transition_duration`.
+    /// Transitions the specified flow from its current node to a new node over a given duration.
     ///
-    /// Pass [`Duration::ZERO`] to instantly switch to a new animation, avoiding
-    /// any transition.
-    pub fn play<'p>(
+    /// This method manages transitions within one single flow.
+    pub fn transition<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
-        new_animation: AnimationNodeIndex,
-        transition_duration: Duration,
+        new_node: AnimationNodeIndex,
+        duration: Duration,
     ) -> &'p mut ActiveAnimation {
-        if let Some(old_animation_index) = self.main_animation.replace(new_animation) {
-            if let Some(old_animation) = player.animation_mut(old_animation_index) {
-                if !old_animation.is_paused() {
-                    self.transitions.push(AnimationTransition {
-                        current_weight: old_animation.weight,
-                        weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-                        animation: old_animation_index,
-                    });
-                }
-            }
+        if let Some(old_node) = self.flows.get_mut(0) {
+            // If is first time playing, just say old node equals new node
+            let previous_node = old_node.unwrap_or(new_node);
+            self.transitions.push(AnimationTransition {
+                duration,
+                old_node: previous_node,
+                new_node,
+                weight: 1.0,
+            });
+            *old_node = Some(new_node);
+
+            // Starts new animation, note we wont clear AnimationPlayer active animation hashmap here!
+            player.start(new_node)
+        } else {
+            panic!("Flow position 0 is out of bounds!");
         }
-
-        // If already transitioning away from this animation, cancel the transition.
-        // Otherwise the transition ending would incorrectly stop the new animation.
-        self.transitions
-            .retain(|transition| transition.animation != new_animation);
-
-        player.start(new_animation)
     }
 
-    /// Obtain the currently playing main animation.
-    pub fn get_main_animation(&self) -> Option<AnimationNodeIndex> {
-        self.main_animation
+    /// Transitions the specified flow from its current node to a new node over a given duration.
+    ///
+    /// This method manages transitions within a specific flow, allowing multiple independent
+    /// state machines or animation layers to transition separately. If the flow has no previous node,
+    /// it will treat the `new_node` as both the old and new node during the transition.
+    pub fn transition_flows<'p>(
+        &mut self,
+        player: &'p mut AnimationPlayer,
+        new_node: AnimationNodeIndex,
+        flow_position: usize,
+        duration: Duration,
+    ) -> &'p mut ActiveAnimation {
+        // Check if flow exists
+        if let Some(old_node) = self.flows.get_mut(flow_position) {
+            // If is first time playing, just say old node equals new node
+            let previous_node = old_node.unwrap_or(new_node);
+            self.transitions.push(AnimationTransition {
+                duration,
+                old_node: previous_node,
+                new_node,
+                weight: 1.0,
+            });
+            *old_node = Some(new_node);
+
+            // Starts new animation, note we wont clear AnimationPlayer active animation hashmap here!
+            player.start(new_node)
+        } else {
+            panic!("Flow position {flow_position} is out of bounds!");
+        }
     }
 }
 
-/// A system that alters the weight of currently-playing transitions based on
-/// the current time and decline amount.
-pub fn advance_transitions(
+/// System responsible for handling [`AnimationTransitions`] transitioning nodes among each other. According to the pacing defined by user.
+pub fn handle_node_transition(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
     time: Res<Time>,
 ) {
-    // We use a "greedy layer" system here. The top layer (most recent
-    // transition) gets as much as weight as it wants, and the remaining amount
-    // is divided between all the other layers, eventually culminating in the
-    // currently-playing animation receiving whatever's left. This results in a
-    // nicely normalized weight.
-    for (mut animation_transitions, mut player) in query.iter_mut() {
+    for (mut animation_transitions, mut animation_player) in query.iter_mut() {
         let mut remaining_weight = 1.0;
-
-        for transition in &mut animation_transitions.transitions.iter_mut().rev() {
-            // Decrease weight.
-            transition.current_weight = (transition.current_weight
-                - transition.weight_decline_per_sec * time.delta_secs())
+        for transition in animation_transitions.iter_mut() {
+            // How much to transition per tick!
+            transition.weight = (transition.weight
+                - 1. / transition.duration.as_secs_f32() * time.delta_secs())
             .max(0.0);
 
-            // Update weight.
-            let Some(ref mut animation) = player.animation_mut(transition.animation) else {
-                continue;
-            };
-            animation.weight = transition.current_weight * remaining_weight;
-            remaining_weight -= animation.weight;
-        }
+            // Handles edge case when duration is zero
+            if transition.duration == Duration::ZERO {
+                transition.weight = 0.0;
+            }
 
-        if let Some(main_animation_index) = animation_transitions.main_animation {
-            if let Some(ref mut animation) = player.animation_mut(main_animation_index) {
-                animation.weight = remaining_weight;
+            // Handles edge case first flow
+            if transition.old_node.eq(&transition.new_node) {
+                if let Some(old_node) = animation_player.animation_mut(transition.old_node) {
+                    remaining_weight -= transition.weight * remaining_weight;
+                    old_node.weight = remaining_weight;
+                }
+                continue;
+            }
+
+            if let Some(old_node) = animation_player.animation_mut(transition.old_node) {
+                old_node.weight = transition.weight * remaining_weight;
+                remaining_weight -= old_node.weight;
+            }
+
+            if let Some(new_node) = animation_player.animation_mut(transition.new_node) {
+                new_node.weight = remaining_weight;
             }
         }
     }
 }
 
-/// A system that removed transitions that have completed from the
+/// A system that removes transitions that have completed from the
 /// [`AnimationTransitions`] object.
 pub fn expire_completed_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
 ) {
-    for (mut animation_transitions, mut player) in query.iter_mut() {
-        animation_transitions.transitions.retain(|transition| {
-            let expire = transition.current_weight <= 0.0;
-            if expire {
-                player.stop(transition.animation);
+    for (mut animation_transitions, mut animation_player) in query.iter_mut() {
+        animation_transitions.retain(|transition| {
+            let should_expire = transition.weight <= 0.0;
+            let first_init = transition.new_node.eq(&transition.old_node);
+            //We need to handle the edge case of first initialization, we shouldnt stop in that case!
+            if should_expire && !first_init {
+                animation_player.stop(transition.old_node);
+                false
+            } else {
+                !(should_expire && first_init)
             }
-            !expire
         });
     }
 }
