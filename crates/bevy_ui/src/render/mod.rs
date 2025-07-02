@@ -9,7 +9,7 @@ mod debug_overlay;
 mod gradient;
 
 use crate::prelude::UiGlobalTransform;
-use crate::widget::{ImageNode, TextShadow, ViewportNode};
+use crate::widget::{ImageNode, TextCursorBlinkTimer, TextCursorStyle, TextShadow, ViewportNode};
 
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
@@ -921,6 +921,8 @@ pub fn extract_text_input_nodes(
             &ComputedNodeTarget,
             &TextLayoutInfo,
             &TextColor,
+            &TextCursorStyle,
+            &TextCursorBlinkTimer,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -930,8 +932,18 @@ pub fn extract_text_input_nodes(
     let mut end = start + 1;
 
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, text_layout_info, color) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        text_layout_info,
+        color,
+        cursor_style,
+        blink_timer,
+    ) in &uinode_query
     {
         info_once!("found text input node!");
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -985,8 +997,39 @@ pub fn extract_text_input_nodes(
                 });
                 start = end;
             }
-
             end += 1;
+        }
+
+        if blink_timer
+            .0
+            .is_none_or(|t| cursor_style.blink_interval < t)
+        {
+            continue;
+        }
+
+        if let Some((position, size)) = text_layout_info.cursor {
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: cursor_style.color.into(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: size,
+                },
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    transform: transform * Affine2::from_translation(position + 0.5 * size),
+                    flip_x: false,
+                    flip_y: false,
+                    border: uinode.border(),
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
         }
     }
 }

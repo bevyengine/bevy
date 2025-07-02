@@ -6,6 +6,8 @@ use bevy_app::Plugin;
 use bevy_app::PostUpdate;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
+use bevy_color::palettes::tailwind::GRAY_400;
+use bevy_color::Color;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
@@ -474,10 +476,18 @@ pub fn update_text_input_layouts(
             layout_info.glyphs.clear();
             layout_info.section_rects.clear();
             layout_info.selection_rects.clear();
+            let cursor_position = editor.cursor_position();
 
             let result = editor.with_buffer_mut(|buffer| {
                 let box_size = buffer_dimensions(buffer);
                 //info!("box_size = {}", box_size);
+                if let Some((x, y)) = cursor_position {
+                    let line_height = buffer.metrics().line_height;
+
+                    layout_info.cursor =
+                        Some((IVec2::new(x, y).as_vec2(), Vec2::new(2., line_height)));
+                }
+
                 let result = buffer.layout_runs().try_for_each(|run| {
                     if let Some(selection) = selection {
                         if let Some((x0, w)) = run.highlight(selection.0, selection.1) {

@@ -7,8 +7,11 @@ use crate::UiScale;
 use crate::UiSystems;
 use bevy_app::Plugin;
 use bevy_app::PostUpdate;
+use bevy_color::palettes::tailwind::GRAY_400;
+use bevy_color::Color;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
+use bevy_ecs::entity::Entity;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::observer::Observer;
 use bevy_ecs::observer::On;
@@ -53,7 +56,7 @@ impl Plugin for TextInputNodePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<TextInputModifiers>().add_systems(
             PostUpdate,
-            (update_targets, update_attributes)
+            (update_targets, update_attributes, update_cursor_visibility)
                 .after(UiSystems::Layout)
                 .before(TextInputSystems)
                 .before(bevy_text::update_text_input_buffers),
@@ -104,7 +107,9 @@ fn update_attributes(
     TextLayout,
     TextInputAttributes,
     TextInputActions,
-    TextLayoutInfo
+    TextCursorStyle,
+    TextLayoutInfo,
+    TextCursorBlinkTimer
 )]
 #[component(
     on_add = on_add_text_input_node,
@@ -129,6 +134,57 @@ fn on_remove_input_focus(mut world: DeferredWorld, context: HookContext) {
     let mut input_focus = world.resource_mut::<InputFocus>();
     if input_focus.0 == Some(context.entity) {
         input_focus.0 = None;
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct TextCursorStyle {
+    pub color: Color,
+    pub width: f32,
+    pub height: f32,
+    pub blink_interval: f32,
+}
+
+impl Default for TextCursorStyle {
+    fn default() -> Self {
+        Self {
+            color: GRAY_400.into(),
+            width: 0.1,
+            height: 1.,
+            blink_interval: 0.5,
+        }
+    }
+}
+
+/// Controls cursor blinking.
+/// If the value is none or greater than the `blink_interval` in `TextCursorStyle` then the cursor
+/// is not displayed.
+#[derive(Component, Debug, Default)]
+pub struct TextCursorBlinkTimer(pub Option<f32>);
+
+pub fn update_cursor_visibility(
+    time: Res<Time>,
+    input_focus: Res<InputFocus>,
+    mut query: Query<(
+        Entity,
+        &TextCursorStyle,
+        &TextInputActions,
+        &mut TextCursorBlinkTimer,
+    )>,
+) {
+    for (entity, style, actions, mut timer) in query.iter_mut() {
+        timer.0 = if input_focus
+            .0
+            .is_some_and(|focused_entity| focused_entity == entity)
+        {
+            Some(if actions.queue.is_empty() {
+                (timer.0.unwrap_or(0.) + time.delta_secs()).rem_euclid(style.blink_interval * 2.)
+            } else {
+                0.
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -237,7 +293,7 @@ fn on_multi_click_set_selection(
         &ComputedNode,
     )>,
     mut multi_click_datas: Query<&mut TextInputMultiClickCounter>,
-    mut text_input_pipeline: ResMut<TextPipeline>,
+    mut text_pipeline: ResMut<TextPipeline>,
     mut commands: Commands,
 ) {
     if click.button != PointerButton::Primary {
