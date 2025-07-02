@@ -146,6 +146,8 @@ jobs:
       - name: Run examples
         shell: bash
         run: |
+          nuget install Microsoft.Direct3D.WARP -Version 1.0.14.2 -OutputDirectory . -Source https://api.nuget.org/v3/index.json
+          cp Microsoft.Direct3D.WARP.1.0.14.2/build/native/bin/x64/d3d10warp.dll ./target/debug/examples/
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo -n $example_name > last_example_run
