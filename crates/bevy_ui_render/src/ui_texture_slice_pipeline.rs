@@ -25,6 +25,7 @@ use bevy_render::{
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_ui::widget;
+use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 

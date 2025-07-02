@@ -28,6 +28,7 @@ use bevy_ui::{
     BoxShadow, CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius,
     UiGlobalTransform, Val,
 };
+use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
 use crate::{BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap};

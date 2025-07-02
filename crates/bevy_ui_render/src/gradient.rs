@@ -35,6 +35,7 @@ use bevy_ui::{
     BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,
     InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
 };
+use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
 pub struct GradientPlugin;
