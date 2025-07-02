@@ -23,6 +23,8 @@ pub use bevy_render_macros::{Specialize, SpecializerKey};
 /// Defines a type that is able to be "specialized" and cached by creating and transforming
 /// its descriptor type. This is implemented for [`RenderPipeline`] and [`ComputePipeline`], and
 /// likely will not have much utility for other types.
+///
+/// See docs on [`Specializer`] for more info.
 pub trait Specializable {
     type Descriptor: PartialEq + Clone + Send + Sync;
     type CachedId: Clone + Send + Sync;
@@ -63,30 +65,36 @@ impl Specializable for ComputePipeline {
     }
 }
 
-/// Defines a type that is able to transform descriptors for a specializable
-/// type T, based on a hashable key type.
+/// Defines a type capable of "specializing" values of a type T.
 ///
-/// This is mainly used when "specializing" render
-/// pipelines, i.e. specifying shader defs and binding layout based on the key,
-/// the result of which can then be cached and accessed quickly later.
+/// Specialization is the process of generating variants of a type T
+/// from small hashable keys, and specializers themselves can be
+/// thought of as [pure functions] from the key type to `T`, that
+/// [memoize] their results based on the key.
+///
+/// > !NOTE
+/// > Because specialization is designed for use with `wgpu`'s
+/// > [`RenderPipeline`] and [`ComputePipeline`] types, specializers
+/// > act on *descriptors* of `T` rather than produce `T` itself, but
+/// > the above comparison is still valid.
+///
+/// Since compiling render and compute pipelines can be so slow,
+/// specialization allows a Bevy app to detect when it would compile
+/// a duplicate pipeline and reuse what's already in the cache. While
+/// pipelines could all be memoized hashing each whole descriptor, this
+/// would be much slower and could still create duplicates. In contrast,
+/// memoizing groups of *related* pipelines based on a small hashable
+/// key is much faster. See the docs on [`SpecializerKey`] for more info.
+///
+/// ## Composing Specializers
 ///
 /// This trait can be derived with `#[derive(Specializer)]` for structs whose
-/// fields all implement [`Specializer`]. The key type will be tuple of the keys
-/// of each field, and their specialization logic will be applied in field
-/// order. Since derive macros can't have generic parameters, the derive macro
-/// requires an additional `#[specialize(..targets)]` attribute to specify a
-/// list of types to target for the implementation. `#[specialize(all)]` is
-/// also allowed, and will generate a fully generic implementation at the cost
-/// of slightly worse error messages.
+/// fields all implement [`Specializer`]. This allows for composing multiple
+/// specializers together, and makes encapsulation and separating concerns
+/// between specializers much nicer. One could make individual specializers
+/// for common operations and place them in entirely separate modules, then
+/// compose them together with a single `#[derive]`
 ///
-/// Additionally, each field can optionally take a `#[key]` attribute to
-/// specify a "key override". This will "hide" that field's key from being
-/// exposed by the wrapper, and always use the value given by the attribute.
-/// Values for this attribute may either be `default` which will use the key's
-/// [`Default`] implementation, or a valid rust
-/// expression of the key type.
-///
-/// Example:
 /// ```rs
 /// # use super::RenderPipeline;
 /// # use super::RenderPipelineDescriptor;
@@ -95,14 +103,18 @@ impl Specializable for ComputePipeline {
 /// struct A;
 /// struct B;
 /// #[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializerKey)]
-/// struct BKey;
+/// struct BKey { contrived_number: u32 };
 ///
 /// impl Specializer<RenderPipeline> for A {
 ///     type Key = ();
 ///
-///     fn specializer(&self, key: (), descriptor: &mut RenderPipelineDescriptor) -> Result<(), BevyError>  {
+///     fn specializer(
+///         &self,
+///         key: (),
+///         descriptor: &mut RenderPipelineDescriptor
+///     ) -> Result<(), BevyError>  {
 /// #       let _ = (key, descriptor);
-///         //...
+///         // mutate the descriptor here
 ///         Ok(())
 ///     }
 /// }
@@ -110,9 +122,13 @@ impl Specializable for ComputePipeline {
 /// impl Specializer<RenderPipeline> for B {
 ///     type Key = BKey;
 ///
-///     fn specialize(&self, _key: Bkey, _descriptor: &mut RenderPipelineDescriptor) -> Result<BKey, BevyError> {
+///     fn specialize(
+///         &self,
+///         key: Bkey,
+///         descriptor: &mut RenderPipelineDescriptor
+///     ) -> Result<BKey, BevyError> {
 /// #       let _ = (key, descriptor);
-///         //...
+///         // mutate the descriptor here
 ///         Ok(BKey)
 ///     }
 /// }
@@ -141,6 +157,23 @@ impl Specializable for ComputePipeline {
 /// }
 /// */
 /// ```
+///
+/// The key type for a composed specializer will be tuple of the keys
+/// of each field, and their specialization logic will be applied in field
+/// order. Since derive macros can't have generic parameters, the derive macro
+/// requires an additional `#[specialize(..targets)]` attribute to specify a
+/// list of types to target for the implementation. `#[specialize(all)]` is
+/// also allowed, and will generate a fully generic implementation at the cost
+/// of slightly worse error messages.
+///
+/// Additionally, each field can optionally take a `#[key]` attribute to
+/// specify a "key override". This will "hide" that field's key from being
+/// exposed by the wrapper, and always use the value given by the attribute.
+/// Values for this attribute may either be `default` which will use the key's
+/// [`Default`] implementation, or a valid rust expression of the key type.
+///
+/// [pure functions]: https://en.wikipedia.org/wiki/Pure_function
+/// [memoize]: https://en.wikipedia.org/wiki/Memoization
 pub trait Specializer<T: Specializable>: Send + Sync + 'static {
     type Key: SpecializerKey;
     fn specialize(
@@ -150,20 +183,34 @@ pub trait Specializer<T: Specializable>: Send + Sync + 'static {
     ) -> Result<Canonical<Self::Key>, BevyError>;
 }
 
-/// Defines a type that is able to be used as a key for types that `impl Specialize`
+// TODO: update docs for `SpecializerKey` with a more concrete example
+// once we've migrated mesh layout specialization
+
+/// Defines a type that is able to be used as a key for [`Specializer`]s
 ///
-/// **Most types should implement this trait with `IS_CANONICAL = true` and `Canonical = Self`**.
-/// This is the implementation generated by `#[derive(SpecializerKey)]`
+/// > !NOTE
+/// > **Most types should implement this trait with `IS_CANONICAL = true` and `Canonical = Self`**.
+/// > This is the implementation generated by `#[derive(SpecializerKey)]`
 ///
-/// In this case, "canonical" means that each unique value of this type will produce
-/// a unique specialized result, which isn't true in general. `MeshVertexBufferLayout`
-/// is a good example of a type that's `Eq + Hash`, but that isn't canonical: vertex
-/// attributes could be specified in any order, or there could be more attributes
-/// provided than the specialized pipeline requires. Its `Canonical` key type would
-/// be `VertexBufferLayout`, the final layout required by the pipeline.
+/// ## What's a "canonical" key?
 ///
-/// Processing keys into canonical keys this way allows the `SpecializedCache` to reuse
-/// resources more eagerly where possible.
+/// The specialization API memoizes pipelines based on the hash of each key, but this
+/// can still produce duplicates. For example, if one used a list of vertex attributes
+/// as a key, even if all the same attributes were present they could be in any order.
+/// In each case, though the keys would be "different" they would produce the same
+/// pipeline.
+///
+/// To address this, during specialization keys are processed into a [`canonical`]
+/// (or "standard") form that represents the actual descriptor that was produced. In
+/// the previous example, that would be the final `VertexBufferLayout` contained by the
+/// pipeline descriptor. This new key is used by [`SpecializedCache`] to perform additional
+/// checks for duplicates, but only if required. If a key is canonical from the start,
+/// then there's no need.
+///
+/// For implementors: the main property of a canonical key is that if two keys hash
+/// differently, they should nearly always produce different descriptors.
+///
+/// [canonical]: https://en.wikipedia.org/wiki/Canonicalization
 pub trait SpecializerKey: Clone + Hash + Eq {
     /// Denotes whether this key is canonical or not. This should only be `true`
     /// if and only if `Canonical = Self`.
