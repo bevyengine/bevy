@@ -17,6 +17,7 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
+use bevy_utils::default;
 use core::any::{Any, TypeId};
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
@@ -351,12 +352,9 @@ pub fn prepare_material_meshlet_meshes_prepass(
             shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
 
             let view_layout = if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
-                prepass_pipeline.internal.view_layout_motion_vectors.clone()
+                prepass_pipeline.view_layout_motion_vectors.clone()
             } else {
-                prepass_pipeline
-                    .internal
-                    .view_layout_no_motion_vectors
-                    .clone()
+                prepass_pipeline.view_layout_no_motion_vectors.clone()
             };
 
             let fragment_shader = if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
@@ -374,14 +372,14 @@ pub fn prepare_material_meshlet_meshes_prepass(
             let entry_point = if fragment_shader == meshlet_pipelines.meshlet_mesh_material {
                 material_fragment.entry_point.clone()
             } else {
-                "prepass_fragment".into()
+                None
             };
 
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout: vec![
                     view_layout,
-                    prepass_pipeline.internal.empty_layout.clone(),
+                    prepass_pipeline.empty_layout.clone(),
                     resource_manager.material_shade_bind_group_layout.clone(),
                     material
                         .properties
@@ -390,12 +388,11 @@ pub fn prepare_material_meshlet_meshes_prepass(
                         .unwrap()
                         .clone(),
                 ],
-                push_constant_ranges: vec![],
                 vertex: VertexState {
                     shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
-                    buffers: Vec::new(),
+                    ..default()
                 },
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
@@ -405,14 +402,13 @@ pub fn prepare_material_meshlet_meshes_prepass(
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),
-                multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: fragment_shader,
                     shader_defs,
                     entry_point,
                     targets: material_fragment.targets,
                 }),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             };
 
             let material_id = instance_manager.get_material_id(material_id);

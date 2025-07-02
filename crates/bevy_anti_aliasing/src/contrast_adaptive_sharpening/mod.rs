@@ -11,7 +11,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     prelude::Camera,
-    render_graph::RenderGraphApp,
+    render_graph::RenderGraphExt,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
@@ -20,6 +20,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_utils::default;
 
 mod node;
 
@@ -214,18 +215,14 @@ impl SpecializedRenderPipeline for CasPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

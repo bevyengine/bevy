@@ -39,7 +39,7 @@ use bevy::{
         mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
         render_asset::RenderAssets,
         render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+            NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
         },
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
@@ -47,10 +47,10 @@ use bevy::{
             SortedRenderPhasePlugin, ViewSortedRenderPhases,
         },
         render_resource::{
-            CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, RenderPassDescriptor,
-            RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-            SpecializedMeshPipelines, TextureFormat, VertexState,
+            CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState,
+            PipelineCache, PrimitiveState, RenderPassDescriptor, RenderPipelineDescriptor,
+            SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+            TextureFormat, VertexState,
         },
         renderer::RenderContext,
         sync_world::MainEntity,
@@ -209,35 +209,28 @@ impl SpecializedMeshPipeline for StencilPipeline {
                 // Bind group 2 is the mesh uniform
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
-            push_constant_ranges: vec![],
             vertex: VertexState {
                 shader: self.shader_handle.clone(),
-                shader_defs: vec![],
-                entry_point: "vertex".into(),
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
-                front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
-                polygon_mode: PolygonMode::Fill,
                 ..default()
             },
-            depth_stencil: None,
             // It's generally recommended to specialize your pipeline for MSAA,
             // but it's not always possible
-            multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         })
     }
 }
