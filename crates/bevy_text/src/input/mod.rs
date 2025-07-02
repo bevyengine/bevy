@@ -116,14 +116,15 @@ pub struct TextInputTarget {
     pub scale_factor: f32,
 }
 
-#[derive(Component)]
+/// Common text input attributes
+#[derive(Component, Debug, PartialEq)]
 pub struct TextInputAttributes {
-    font: Handle<Font>,
-    font_size: f32,
-    line_height: f32,
-    wrap: LineBreak,
-    justify: Justify,
-    font_smoothing: FontSmoothing,
+    pub font: Handle<Font>,
+    pub font_size: f32,
+    pub line_height: LineHeight,
+    pub line_break: LineBreak,
+    pub justify: Justify,
+    pub font_smoothing: FontSmoothing,
 }
 
 impl Default for TextInputAttributes {
@@ -131,10 +132,10 @@ impl Default for TextInputAttributes {
         Self {
             font: Default::default(),
             font_size: 20.,
-            line_height: 1.2,
+            line_height: LineHeight::RelativeToFont(1.2),
             font_smoothing: Default::default(),
             justify: Default::default(),
-            wrap: Default::default(),
+            line_break: Default::default(),
         }
     }
 }
@@ -397,8 +398,9 @@ pub fn update_text_input_buffers(
     for (mut input_buffer, target, attributes) in text_input_query.iter_mut() {
         if target.is_changed() || attributes.is_changed() {
             let _ = input_buffer.editor.with_buffer_mut(|buffer| {
-                let metrics = Metrics::relative(attributes.font_size, attributes.line_height)
-                    .scale(target.scale_factor);
+                let line_height = attributes.line_height.eval(attributes.font_size);
+                let metrics =
+                    Metrics::new(attributes.font_size, line_height).scale(target.scale_factor);
 
                 buffer.set_metrics_and_size(
                     font_system,
@@ -406,7 +408,7 @@ pub fn update_text_input_buffers(
                     Some(target.size.x),
                     Some(target.size.y),
                 );
-                buffer.set_wrap(font_system, attributes.wrap.into());
+                buffer.set_wrap(font_system, attributes.line_break.into());
 
                 if !fonts.contains(attributes.font.id()) {
                     return Err(TextError::NoSuchFont);
@@ -468,14 +470,14 @@ pub fn update_text_input_layouts(
         editor.shape_as_needed(font_system, false);
 
         if editor.redraw() {
-            info!("** redraw editor **");
+            //info!("** redraw editor **");
             layout_info.glyphs.clear();
             layout_info.section_rects.clear();
             layout_info.selection_rects.clear();
 
             let result = editor.with_buffer_mut(|buffer| {
                 let box_size = buffer_dimensions(buffer);
-                info!("box_size = {}", box_size);
+                //info!("box_size = {}", box_size);
                 let result = buffer.layout_runs().try_for_each(|run| {
                     if let Some(selection) = selection {
                         if let Some((x0, w)) = run.highlight(selection.0, selection.1) {
