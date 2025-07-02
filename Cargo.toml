@@ -272,7 +272,6 @@ bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 # A custom ECS-driven UI framework
 bevy_ui = [
   "bevy_internal/bevy_ui",
-  "bevy_ui_render",
   "bevy_core_pipeline",
   "bevy_text",
   "bevy_sprite",
