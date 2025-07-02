@@ -53,8 +53,7 @@ pub struct WgpuSettings {
     pub instance_flags: InstanceFlags,
     /// This hints to the WGPU device about the preferred memory allocation strategy.
     pub memory_hints: MemoryHints,
-    /// If true, will force wgpu to use a software renderer, if available. You probably do not
-    /// want to use this unless you are debugging or testing in CI.
+    /// If true, will force wgpu to use a software renderer, if available.
     pub force_fallback_adapter: bool,
     /// The name of the adapter to use.
     pub adapter_name: Option<String>,

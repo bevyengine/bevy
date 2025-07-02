@@ -399,7 +399,6 @@ impl Plugin for RenderPlugin {
                             }
                         });
 
-                        // Check env for force_fallback_adapter
                         let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
                             .map_or(settings.force_fallback_adapter, |v| {
                                 !(v.is_empty() || v == "0" || v == "false")
