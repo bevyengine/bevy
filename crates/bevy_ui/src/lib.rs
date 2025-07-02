@@ -50,14 +50,8 @@ use widget::{ImageNode, ImageNodeSize, ViewportNode};
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::debug_overlay::UiDebugOptions;
     #[cfg(feature = "bevy_ui_picking_backend")]
-    #[doc(hidden)]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::render::UiDebugOptions;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
     #[doc(hidden)]

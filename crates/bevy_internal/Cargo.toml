@@ -274,7 +274,7 @@ bevy_sprite_picking_backend = [
 bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]
 
 # Provides a UI debug overlay
-bevy_ui_debug = ["bevy_ui?/bevy_ui_debug"]
+bevy_ui_debug = ["bevy_ui_render?/bevy_ui_debug"]
 
 # Enable built in global state machines
 bevy_state = ["dep:bevy_state"]

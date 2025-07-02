@@ -54,7 +54,6 @@ serialize = [
   "bevy_render/serialize",
 ]
 bevy_ui_picking_backend = ["bevy_picking", "dep:uuid"]
-bevy_ui_debug = []
 
 # Experimental features
 ghost_nodes = []

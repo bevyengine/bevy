@@ -90,6 +90,9 @@ pub mod graph {
 }
 
 pub mod prelude {
+    #[cfg(feature = "bevy_ui_debug")]
+    pub use crate::debug_overlay::UiDebugOptions;
+
     pub use crate::{
         ui_material::*, ui_material_pipeline::UiMaterialPlugin, BoxShadowSamples, UiAntiAlias,
     };
