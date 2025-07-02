@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prelude::Camera3d,
@@ -13,7 +13,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::vec2;
@@ -36,7 +36,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
 use tracing::warn;
@@ -59,6 +59,7 @@ impl Plugin for TemporalAntiAliasPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
+            .add_systems(RenderStartup, init_taa_pipeline)
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
                 Render,
@@ -79,14 +80,6 @@ impl Plugin for TemporalAntiAliasPlugin {
                     Node3d::Tonemapping,
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<TaaPipeline>();
     }
 }
 
@@ -243,52 +236,53 @@ struct TaaPipeline {
     fragment_shader: Handle<Shader>,
 }
 
-impl FromWorld for TaaPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+fn init_taa_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: Some("taa_nearest_sampler"),
+        mag_filter: FilterMode::Nearest,
+        min_filter: FilterMode::Nearest,
+        ..SamplerDescriptor::default()
+    });
+    let linear_sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: Some("taa_linear_sampler"),
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        ..SamplerDescriptor::default()
+    });
 
-        let nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("taa_nearest_sampler"),
-            mag_filter: FilterMode::Nearest,
-            min_filter: FilterMode::Nearest,
-            ..SamplerDescriptor::default()
-        });
-        let linear_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("taa_linear_sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..SamplerDescriptor::default()
-        });
-
-        let taa_bind_group_layout = render_device.create_bind_group_layout(
-            "taa_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // View target (read)
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // TAA History (read)
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Motion Vectors
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Depth
-                    texture_depth_2d(),
-                    // Nearest sampler
-                    sampler(SamplerBindingType::NonFiltering),
-                    // Linear sampler
-                    sampler(SamplerBindingType::Filtering),
-                ),
+    let taa_bind_group_layout = render_device.create_bind_group_layout(
+        "taa_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // View target (read)
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // TAA History (read)
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Motion Vectors
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Depth
+                texture_depth_2d(),
+                // Nearest sampler
+                sampler(SamplerBindingType::NonFiltering),
+                // Linear sampler
+                sampler(SamplerBindingType::Filtering),
             ),
-        );
+        ),
+    );
 
-        TaaPipeline {
-            taa_bind_group_layout,
-            nearest_sampler,
-            linear_sampler,
-            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "taa.wgsl"),
-        }
-    }
+    commands.insert_resource(TaaPipeline {
+        taa_bind_group_layout,
+        nearest_sampler,
+        linear_sampler,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "taa.wgsl"),
+    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
