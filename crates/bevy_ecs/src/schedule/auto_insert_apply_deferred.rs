@@ -2,9 +2,11 @@ use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 
 use bevy_platform::collections::HashMap;
 
-use crate::schedule::SystemSetKey;
-use crate::world::World;
-use crate::{schedule::SystemKey, system::IntoSystem};
+use crate::{
+    schedule::{SystemKey, SystemSetKey},
+    system::IntoSystem,
+    world::World,
+};
 
 use super::{
     is_apply_deferred, ApplyDeferred, DiGraph, Direction, NodeId, ReportCycles, ScheduleBuildError,
