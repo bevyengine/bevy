@@ -99,7 +99,6 @@ impl Specializable for ComputePipeline {
 /// # use super::RenderPipeline;
 /// # use super::RenderPipelineDescriptor;
 /// # use bevy_ecs::error::BevyError;
-///
 /// struct A;
 /// struct B;
 /// #[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializerKey)]
