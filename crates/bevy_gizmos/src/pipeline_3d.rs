@@ -1,11 +1,11 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
-    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystems, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup,
+    init_line_gizmo_uniform_bind_group_layout, line_gizmo_vertex_buffer_layouts,
+    line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo, DrawLineJointGizmo, GizmoRenderSystems,
+    GpuLineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
     oit::OrderIndependentTransparencySettings,
@@ -17,12 +17,10 @@ use bevy_ecs::{
     query::Has,
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::BevyDefault as _;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -33,6 +31,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
+use bevy_render::{sync_world::MainEntity, RenderStartup};
 use bevy_utils::default;
 use tracing::error;
 
@@ -54,20 +53,15 @@ impl Plugin for LineGizmo3dPlugin {
                 GizmoRenderSystems::QueueLineGizmos3d.in_set(RenderSystems::Queue),
             )
             .add_systems(
+                RenderStartup,
+                init_line_gizmo_pipelines.after(init_line_gizmo_uniform_bind_group_layout),
+            )
+            .add_systems(
                 Render,
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
                     .in_set(GizmoRenderSystems::QueueLineGizmos3d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<LineGizmoPipeline>();
-        render_app.init_resource::<LineJointGizmoPipeline>();
     }
 }
 
@@ -78,17 +72,22 @@ struct LineGizmoPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for LineGizmoPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        LineGizmoPipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            uniform_layout: render_world
-                .resource::<LineGizmoUniformBindgroupLayout>()
-                .layout
-                .clone(),
-            shader: load_embedded_asset!(render_world, "lines.wgsl"),
-        }
-    }
+fn init_line_gizmo_pipelines(
+    mut commands: Commands,
+    mesh_pipeline: Res<MeshPipeline>,
+    uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(LineGizmoPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        uniform_layout: uniform_bind_group_layout.layout.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "lines.wgsl"),
+    });
+    commands.insert_resource(LineJointGizmoPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        uniform_layout: uniform_bind_group_layout.layout.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wgsl"),
+    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -171,19 +170,6 @@ struct LineJointGizmoPipeline {
     mesh_pipeline: MeshPipeline,
     uniform_layout: BindGroupLayout,
     shader: Handle<Shader>,
-}
-
-impl FromWorld for LineJointGizmoPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        LineJointGizmoPipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            uniform_layout: render_world
-                .resource::<LineGizmoUniformBindgroupLayout>()
-                .layout
-                .clone(),
-            shader: load_embedded_asset!(render_world, "line_joints.wgsl"),
-        }
-    }
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
