@@ -318,7 +318,7 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
     pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
         let camera_entity = computed_target.camera()?;
         if self.camera_entity != camera_entity {
-            let Ok(new_render_camera_entity) = self.mapping.get(camera_entity)?;
+            let new_render_camera_entity = self.mapping.get(camera_entity).ok()?;
             self.render_entity = new_render_camera_entity;
             self.camera_entity = camera_entity;
         }
@@ -466,7 +466,7 @@ pub fn extract_uinode_background_colors(
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
-                border_radius: uinode.border_radius(),
+                border_radius: uinode.border_radius().into(),
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
@@ -550,7 +550,7 @@ pub fn extract_uinode_images(
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 border: uinode.border,
-                border_radius: uinode.border_radius,
+                border_radius: uinode.border_radius.into(),
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
@@ -650,7 +650,7 @@ pub fn extract_uinode_borders(
                             flip_x: false,
                             flip_y: false,
                             border: computed_node.border(),
-                            border_radius: computed_node.border_radius(),
+                            border_radius: computed_node.border_radius().into(),
                             node_type: NodeType::Border(border_flags),
                         },
                         main_entity: entity.into(),
@@ -684,7 +684,7 @@ pub fn extract_uinode_borders(
                     flip_x: false,
                     flip_y: false,
                     border: BorderRect::all(computed_node.outline_width()),
-                    border_radius: computed_node.outline_radius(),
+                    border_radius: computed_node.outline_radius().into(),
                     node_type: NodeType::Border(shader_flags::BORDER_ALL),
                 },
                 main_entity: entity.into(),
@@ -875,7 +875,7 @@ pub fn extract_viewport_nodes(
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
-                border_radius: uinode.border_radius(),
+                border_radius: uinode.border_radius().into(),
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),

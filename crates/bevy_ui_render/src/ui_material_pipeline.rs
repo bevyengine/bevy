@@ -392,7 +392,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 max: computed_node.size(),
             },
             border: computed_node.border(),
-            border_radius: computed_node.border_radius(),
+            border_radius: computed_node.border_radius().into(),
             clip: clip.map(|clip| clip.clip),
             extracted_camera_entity,
             main_entity: entity.into(),
