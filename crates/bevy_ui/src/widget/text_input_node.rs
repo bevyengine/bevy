@@ -34,12 +34,14 @@ use bevy_picking::events::Press;
 use bevy_picking::pointer::PointerButton;
 use bevy_text::Motion;
 use bevy_text::TextColor;
+use bevy_text::TextFont;
 use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
 use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
 use bevy_text::TextInputSystems;
 use bevy_text::TextInputTarget;
+use bevy_text::TextLayout;
 use bevy_text::TextLayoutInfo;
 use bevy_text::TextPipeline;
 use bevy_time::Time;
@@ -51,7 +53,7 @@ impl Plugin for TextInputNodePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<TextInputModifiers>().add_systems(
             PostUpdate,
-            update_targets
+            (update_targets, update_attributes)
                 .after(UiSystems::Layout)
                 .before(TextInputSystems)
                 .before(bevy_text::update_text_input_buffers),
@@ -75,14 +77,31 @@ fn update_targets(mut text_input_node_query: Query<(&ComputedNode, &mut TextInpu
     }
 }
 
+fn update_attributes(
+    mut text_input_node_query: Query<(&TextFont, &TextLayout, &mut TextInputAttributes)>,
+) {
+    for (font, layout, mut attributes) in text_input_node_query.iter_mut() {
+        attributes.set_if_neq(TextInputAttributes {
+            font: font.font.clone(),
+            font_size: font.font_size,
+            font_smoothing: font.font_smoothing,
+            justify: layout.justify,
+            line_break: layout.linebreak,
+            line_height: font.line_height,
+        });
+    }
+}
+
 /// Main text input component
 #[derive(Component, Debug, Default)]
 #[require(
     Node,
+    TextFont,
     TextColor,
     TextInputMultiClickCounter,
     TextInputBuffer,
     TextInputTarget,
+    TextLayout,
     TextInputAttributes,
     TextInputActions,
     TextLayoutInfo
