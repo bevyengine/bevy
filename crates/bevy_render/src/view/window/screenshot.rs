@@ -461,29 +461,24 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
             label: Some(Cow::Borrowed("screenshot-to-screen")),
             layout: vec![self.bind_group_layout.clone()],
             vertex: VertexState {
-                buffers: vec![],
-                shader_defs: vec![],
-                entry_point: Cow::Borrowed("vs_main"),
                 shader: self.shader.clone(),
+                ..default()
             },
             primitive: wgpu::PrimitiveState {
                 cull_mode: Some(wgpu::Face::Back),
                 ..Default::default()
             },
-            depth_stencil: None,
             multisample: Default::default(),
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                entry_point: Cow::Borrowed("fs_main"),
-                shader_defs: vec![],
                 targets: vec![Some(wgpu::ColorTargetState {
                     format: key,
                     blend: None,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

@@ -138,10 +138,10 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
 }
 
 pub(crate) fn impl_typed(
-    meta: &ReflectMeta,
     where_clause_options: &WhereClauseOptions,
     type_info_generator: TokenStream,
 ) -> TokenStream {
+    let meta = where_clause_options.meta();
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
 

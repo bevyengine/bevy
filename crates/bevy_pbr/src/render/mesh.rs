@@ -2039,7 +2039,7 @@ impl GetFullBatchData for MeshPipeline {
 }
 
 bitflags::bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
@@ -2557,6 +2557,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if self.clustered_decals_are_usable {
             shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
+            if cfg!(feature = "pbr_light_textures") {
+                shader_defs.push("LIGHT_TEXTURES".into());
+            }
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -2578,30 +2581,26 @@ impl SpecializedMeshPipeline for MeshPipeline {
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout: bind_group_layout,
-            push_constant_ranges: vec![],
             primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
                 topology: key.primitive_topology(),
-                strip_index_format: None,
+                ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
@@ -2625,7 +2624,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 alpha_to_coverage_enabled,
             },
             label: Some(label),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         })
     }
 }

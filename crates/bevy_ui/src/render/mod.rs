@@ -9,11 +9,11 @@ mod debug_overlay;
 mod gradient;
 
 use crate::prelude::UiGlobalTransform;
-use crate::widget::{ImageNode, ViewportNode};
+use crate::widget::{ImageNode, TextShadow, ViewportNode};
 
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
-    ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
+    ComputedNodeTarget, Outline, ResolvedBorderRadius, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetId, Assets};
@@ -81,7 +81,7 @@ pub mod graph {
     }
 }
 
-/// Z offsets of "extracted nodes" for a given entity. These exist to allow rendering multiple "extracted nodes"
+/// Local Z offsets of "extracted nodes" for a given entity. These exist to allow rendering multiple "extracted nodes"
 /// for a given source entity (ex: render both a background color _and_ a custom material for a given node).
 ///
 /// When possible these offsets should be defined in _this_ module to ensure z-index coordination across contexts.
@@ -97,10 +97,13 @@ pub mod graph {
 /// a positive offset on a node below.
 pub mod stack_z_offsets {
     pub const BOX_SHADOW: f32 = -0.1;
-    pub const TEXTURE_SLICE: f32 = 0.0;
-    pub const NODE: f32 = 0.0;
-    pub const GRADIENT: f32 = 0.1;
-    pub const MATERIAL: f32 = 0.18267;
+    pub const BACKGROUND_COLOR: f32 = 0.0;
+    pub const BORDER: f32 = 0.01;
+    pub const GRADIENT: f32 = 0.02;
+    pub const BORDER_GRADIENT: f32 = 0.03;
+    pub const IMAGE: f32 = 0.04;
+    pub const MATERIAL: f32 = 0.05;
+    pub const TEXT: f32 = 0.06;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -213,7 +216,7 @@ fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
 }
 
 pub struct ExtractedUiNode {
-    pub stack_index: u32,
+    pub z_order: f32,
     pub color: LinearRgba,
     pub rect: Rect,
     pub image: AssetId<Image>,
@@ -374,7 +377,7 @@ pub fn extract_uinode_background_colors(
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: uinode.stack_index,
+            z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
             color: background_color.0.into(),
             rect: Rect {
                 min: Vec2::ZERO,
@@ -460,8 +463,8 @@ pub fn extract_uinode_images(
         };
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
+            z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: uinode.stack_index,
             color: image.color.into(),
             rect,
             clip: clip.map(|clip| clip.clip),
@@ -558,7 +561,7 @@ pub fn extract_uinode_borders(
                     completed_flags |= border_flags;
 
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
-                        stack_index: computed_node.stack_index,
+                        z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
                         color,
                         rect: Rect {
                             max: computed_node.size(),
@@ -591,8 +594,8 @@ pub fn extract_uinode_borders(
         {
             let outline_size = computed_node.outlined_node_size();
             extracted_uinodes.uinodes.push(ExtractedUiNode {
+                z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                stack_index: computed_node.stack_index,
                 color: outline.color.into(),
                 rect: Rect {
                     max: outline_size,
@@ -782,8 +785,8 @@ pub fn extract_viewport_nodes(
         };
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
+            z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: uinode.stack_index,
             color: LinearRgba::WHITE,
             rect: Rect {
                 min: Vec2::ZERO,
@@ -862,7 +865,7 @@ pub fn extract_text_sections(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             let rect = texture_atlases
-                .get(&atlas_info.texture_atlas)
+                .get(atlas_info.texture_atlas)
                 .unwrap()
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
@@ -885,10 +888,10 @@ pub fn extract_text_sections(
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    stack_index: uinode.stack_index,
                     color,
-                    image: atlas_info.texture.id(),
+                    image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
                     extracted_camera_entity,
                     rect,
@@ -953,7 +956,7 @@ pub fn extract_text_shadows(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             let rect = texture_atlases
-                .get(&atlas_info.texture_atlas)
+                .get(atlas_info.texture_atlas)
                 .unwrap()
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
@@ -966,10 +969,10 @@ pub fn extract_text_shadows(
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    stack_index: uinode.stack_index,
                     color: shadow.color.into(),
-                    image: atlas_info.texture.id(),
+                    image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
                     extracted_camera_entity,
                     rect,
@@ -1023,8 +1026,8 @@ pub fn extract_text_background_colors(
             };
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
+                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                stack_index: uinode.stack_index,
                 color: text_background_color.0.to_linear(),
                 rect: Rect {
                     min: Vec2::ZERO,
@@ -1167,7 +1170,7 @@ pub fn queue_uinodes(
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::NODE),
+            sort_key: FloatOrd(extracted_uinode.z_order),
             index,
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,

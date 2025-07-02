@@ -321,45 +321,27 @@ impl Default for ComputedNode {
     }
 }
 
-/// The scroll position of the node.
+/// The scroll position of the node. Values are in logical pixels, increasing from top-left to bottom-right.
 ///
-/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
+/// Increasing the x-coordinate causes the scrolled content to visibly move left on the screen, while increasing the y-coordinate causes the scrolled content to move up.
+/// This might seem backwards, however what's really happening is that
+/// the scroll position is moving the visible "window" in the local coordinate system of the scrolled content -
+/// moving the window down causes the content to move up.
+///
+/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount in logical pixels.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
 /// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct ScrollPosition {
-    /// How far across the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to right)
-    pub offset_x: f32,
-    /// How far down the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to top)
-    pub offset_y: f32,
-}
+pub struct ScrollPosition(pub Vec2);
 
 impl ScrollPosition {
-    pub const DEFAULT: Self = Self {
-        offset_x: 0.0,
-        offset_y: 0.0,
-    };
-}
-
-impl Default for ScrollPosition {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl From<&ScrollPosition> for Vec2 {
-    fn from(scroll_pos: &ScrollPosition) -> Self {
-        Vec2::new(scroll_pos.offset_x, scroll_pos.offset_y)
-    }
+    pub const DEFAULT: Self = Self(Vec2::ZERO);
 }
 
 impl From<Vec2> for ScrollPosition {
-    fn from(vec: Vec2) -> Self {
-        ScrollPosition {
-            offset_x: vec.x,
-            offset_y: vec.y,
-        }
+    fn from(value: Vec2) -> Self {
+        Self(value)
     }
 }
 
@@ -2246,6 +2228,11 @@ pub struct CalculatedClip {
     pub clip: Rect,
 }
 
+/// UI node entities with this component will ignore any clipping rect they inherit,
+/// the node will not be clipped regardless of its ancestors' `Overflow` setting.
+#[derive(Component)]
+pub struct OverrideClip;
+
 /// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
 /// of sibling nodes with a lower z-index.
@@ -2873,28 +2860,6 @@ impl ComputedNodeTarget {
 
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
-    }
-}
-
-/// Adds a shadow behind text
-///
-/// Not supported by `Text2d`
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, Default, Debug, Clone, PartialEq)]
-pub struct TextShadow {
-    /// Shadow displacement in logical pixels
-    /// With a value of zero the shadow will be hidden directly behind the text
-    pub offset: Vec2,
-    /// Color of the shadow
-    pub color: Color,
-}
-
-impl Default for TextShadow {
-    fn default() -> Self {
-        Self {
-            offset: Vec2::splat(4.),
-            color: Color::linear_rgba(0., 0., 0., 0.75),
-        }
     }
 }
 
