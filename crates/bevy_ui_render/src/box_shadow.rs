@@ -2,11 +2,6 @@
 
 use core::{hash::Hash, ops::Range};
 
-use crate::prelude::UiGlobalTransform;
-use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystems,
-    ResolvedBorderRadius, TransparentUi, Val,
-};
 use bevy_app::prelude::*;
 use bevy_asset::*;
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -30,7 +25,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bytemuck::{Pod, Zeroable};
-use core::{hash::Hash, ops::Range};
+
+use crate::{RenderUiSystems, TransparentUi};
 
 use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 

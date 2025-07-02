@@ -15,13 +15,11 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 mod gradient;
 
-use crate::prelude::UiGlobalTransform;
-use crate::widget::{ImageNode, TextShadow, ViewportNode};
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
+use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
+use bevy_ui::{ComputedNodeTarget, UiGlobalTransform};
 
-use crate::{
-    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
-    ComputedNodeTarget, Outline, ResolvedBorderRadius, UiAntiAlias,
-};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -29,6 +27,7 @@ use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::load_shader_library;
@@ -37,7 +36,7 @@ use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::renderer::RenderContext;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::view::{Hdr, RetainedViewEntity};
+use bevy_render::view::{Hdr, InheritedVisibility, RetainedViewEntity};
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
@@ -59,7 +58,6 @@ use bevy_sprite::{BorderRect, SpriteAssetEvents};
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
 
-use crate::{Display, Node};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
@@ -74,10 +72,6 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
-
-pub mod prelude {
-    pub use crate::box_shadow::BoxShadowSamples;
-}
 
 pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
@@ -132,66 +126,126 @@ pub enum RenderUiSystems {
     ExtractGradient,
 }
 
+/// Marker for controlling whether Ui is rendered with or without anti-aliasing
+/// in a camera. By default, Ui is always anti-aliased.
+///
+/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         // This will cause all Ui in this camera to be rendered without
+///         // anti-aliasing
+///         UiAntiAlias::Off,
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component, Default, PartialEq, Clone)]
+pub enum UiAntiAlias {
+    /// UI will render with anti-aliasing
+    #[default]
+    On,
+    /// UI will render without anti-aliasing
+    Off,
+}
+
+/// Number of shadow samples.
+/// A larger value will result in higher quality shadows.
+/// Default is 4, values higher than ~10 offer diminishing returns.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         BoxShadowSamples(6),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component, Default, PartialEq, Clone)]
+pub struct BoxShadowSamples(pub u32);
+
+impl Default for BoxShadowSamples {
+    fn default() -> Self {
+        Self(4)
+    }
+}
+
 /// Deprecated alias for [`RenderUiSystems`].
 #[deprecated(since = "0.17.0", note = "Renamed to `RenderUiSystems`.")]
 pub type RenderUiSystem = RenderUiSystems;
 
-pub fn build_ui_render(app: &mut App) {
-    load_shader_library!(app, "ui.wgsl");
+#[derive(Default)]
+pub struct UiRenderPlugin;
 
 impl Plugin for UiRenderPlugin {
     fn build(&self, app: &mut App) {
+        load_shader_library!(app, "ui.wgsl");
         app.register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>();
 
-    render_app
-        .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
-        .init_resource::<ImageNodeBindGroups>()
-        .init_resource::<UiMeta>()
-        .init_resource::<ExtractedUiNodes>()
-        .allow_ambiguous_resource::<ExtractedUiNodes>()
-        .init_resource::<DrawFunctions<TransparentUi>>()
-        .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
-        .add_render_command::<TransparentUi, DrawUi>()
-        .configure_sets(
-            ExtractSchedule,
-            (
-                RenderUiSystems::ExtractCameraViews,
-                RenderUiSystems::ExtractBoxShadows,
-                RenderUiSystems::ExtractBackgrounds,
-                RenderUiSystems::ExtractImages,
-                RenderUiSystems::ExtractTextureSlice,
-                RenderUiSystems::ExtractBorders,
-                RenderUiSystems::ExtractTextBackgrounds,
-                RenderUiSystems::ExtractTextShadows,
-                RenderUiSystems::ExtractText,
-                RenderUiSystems::ExtractDebug,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
+            .init_resource::<ImageNodeBindGroups>()
+            .init_resource::<UiMeta>()
+            .init_resource::<ExtractedUiNodes>()
+            .allow_ambiguous_resource::<ExtractedUiNodes>()
+            .init_resource::<DrawFunctions<TransparentUi>>()
+            .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
+            .add_render_command::<TransparentUi, DrawUi>()
+            .configure_sets(
+                ExtractSchedule,
+                (
+                    RenderUiSystems::ExtractCameraViews,
+                    RenderUiSystems::ExtractBoxShadows,
+                    RenderUiSystems::ExtractBackgrounds,
+                    RenderUiSystems::ExtractImages,
+                    RenderUiSystems::ExtractTextureSlice,
+                    RenderUiSystems::ExtractBorders,
+                    RenderUiSystems::ExtractTextBackgrounds,
+                    RenderUiSystems::ExtractTextShadows,
+                    RenderUiSystems::ExtractText,
+                    RenderUiSystems::ExtractDebug,
+                )
+                    .chain(),
             )
-                .chain(),
-        )
-        .add_systems(
-            ExtractSchedule,
-            (
-                extract_ui_camera_view.in_set(RenderUiSystems::ExtractCameraViews),
-                extract_uinode_background_colors.in_set(RenderUiSystems::ExtractBackgrounds),
-                extract_uinode_images.in_set(RenderUiSystems::ExtractImages),
-                extract_uinode_borders.in_set(RenderUiSystems::ExtractBorders),
-                extract_viewport_nodes.in_set(RenderUiSystems::ExtractViewportNodes),
-                extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
-                extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
-                extract_text_sections.in_set(RenderUiSystems::ExtractText),
-                #[cfg(feature = "bevy_ui_debug")]
-                debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
-            ),
-        )
-        .add_systems(
-            Render,
-            (
-                queue_uinodes.in_set(RenderSystems::Queue),
-                sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
-                prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
-            ),
-        );
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_ui_camera_view.in_set(RenderUiSystems::ExtractCameraViews),
+                    extract_uinode_background_colors.in_set(RenderUiSystems::ExtractBackgrounds),
+                    extract_uinode_images.in_set(RenderUiSystems::ExtractImages),
+                    extract_uinode_borders.in_set(RenderUiSystems::ExtractBorders),
+                    extract_viewport_nodes.in_set(RenderUiSystems::ExtractViewportNodes),
+                    extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
+                    extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
+                    extract_text_sections.in_set(RenderUiSystems::ExtractText),
+                    #[cfg(feature = "bevy_ui_debug")]
+                    debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
+                ),
+            )
+            .add_systems(
+                Render,
+                (
+                    queue_uinodes.in_set(RenderSystems::Queue),
+                    sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
+                    prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
+                ),
+            );
 
         // Render graph
         let ui_graph_2d = get_ui_graph(render_app);
@@ -231,6 +285,48 @@ fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
     let mut ui_graph = RenderGraph::default();
     ui_graph.add_node(NodeUi::UiPass, ui_pass_node);
     ui_graph
+}
+
+#[derive(SystemParam)]
+pub struct UiCameraMap<'w, 's> {
+    mapping: Query<'w, 's, RenderEntity>,
+}
+
+impl<'w, 's> UiCameraMap<'w, 's> {
+    /// Get the default camera and create the mapper
+    pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
+        UiCameraMapper {
+            mapping: &self.mapping,
+            camera_entity: Entity::PLACEHOLDER,
+            render_entity: Entity::PLACEHOLDER,
+        }
+    }
+}
+
+pub struct UiCameraMapper<'w, 's> {
+    mapping: &'w Query<'w, 's, RenderEntity>,
+    camera_entity: Entity,
+    render_entity: Entity,
+}
+
+impl<'w, 's> UiCameraMapper<'w, 's> {
+    /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
+    pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
+        let camera_entity = computed_target.camera;
+        if self.camera_entity != camera_entity {
+            let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
+                return None;
+            };
+            self.render_entity = new_render_camera_entity;
+            self.camera_entity = camera_entity;
+        }
+
+        Some(self.render_entity)
+    }
+
+    pub fn current_camera(&self) -> Entity {
+        self.camera_entity
+    }
 }
 
 pub struct ExtractedUiNode {
