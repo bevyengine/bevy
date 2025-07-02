@@ -136,7 +136,7 @@
 //!   - `components` (optional): An array of [fully-qualified type names] of components to fetch,
 //!     see _below_ example for a query to list all the type names in **your** project.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
-//!     to fetch all reflectable components, you can pass in the string `"all"`.
+//!     to fetch all reflectable components, you can pass in the string `"All"`.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
 //!     reported as boolean values.
 //! - `filter` (optional):
@@ -188,7 +188,7 @@
 //!     "params": {
 //!         "data": {
 //!             "components": []
-//!             "option": "all",
+//!             "option": "All",
 //!             "has": []
 //!        },
 //!        "filter": {

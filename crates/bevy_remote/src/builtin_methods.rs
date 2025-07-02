@@ -1,6 +1,6 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
-use core::{any::TypeId, fmt};
+use core::any::TypeId;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
@@ -20,12 +20,7 @@ use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     GetPath, PartialReflect, TypeRegistration, TypeRegistry,
 };
-use serde::{
-    de::DeserializeSeed as _,
-    de::{Deserializer, SeqAccess, Visitor},
-    ser::Serializer,
-    Deserialize, Serialize,
-};
+use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::{
@@ -723,63 +718,18 @@ fn reflect_component(
 /// `bevy_transform::components::transform::Transform`, not just
 /// `Transform`.
 ///
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ComponentSelector {
-    /// A list of component paths to select as optional components.
-    Paths(Vec<String>),
     /// An "all" selector that indicates all components should be selected.
     All,
+    /// A list of component paths to select as optional components.
+    #[serde(untagged)]
+    Paths(Vec<String>),
 }
 
 impl Default for ComponentSelector {
     fn default() -> Self {
-        ComponentSelector::Paths(Vec::new())
-    }
-}
-
-impl Serialize for ComponentSelector {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            ComponentSelector::Paths(paths) => paths.serialize(serializer),
-            ComponentSelector::All => serializer.serialize_str("all"),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for ComponentSelector {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct CSVisitor;
-        impl<'de> Visitor<'de> for CSVisitor {
-            type Value = ComponentSelector;
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "a string \"all\" or an array of strings")
-            }
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                if v == "all" {
-                    Ok(ComponentSelector::All)
-                } else {
-                    Err(E::custom(format!("unexpected string: {v}")))
-                }
-            }
-            fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let paths =
-                    Deserialize::deserialize(serde::de::value::SeqAccessDeserializer::new(seq))?;
-                Ok(ComponentSelector::Paths(paths))
-            }
-        }
-        deserializer.deserialize_any(CSVisitor)
+        Self::Paths(Vec::default())
     }
 }
 
