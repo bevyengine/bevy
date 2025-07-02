@@ -63,7 +63,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{
         Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
-        RequiredComponents, StorageType, Tick,
+        RequiredComponents, RequiredComponentsError, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     lifecycle::{ADD, INSERT, REMOVE, REPLACE},
@@ -2167,15 +2167,32 @@ impl Bundles {
         storages: &mut Storages,
         components: &Components,
         requiree: ComponentId,
-    ) {
-        let Some(taken_bundles_with_requiree) = self
+    ) -> Result<(), RequiredComponentsError> {
+        let Some(bundles_with_requiree) = self
             .components_in_bundles
             .get_mut(requiree.index())
             .filter(|bundles| !bundles.is_empty())
-            .map(core::mem::take)
         else {
-            return;
+            // no bundle with `requiree` exists
+            return Ok(());
         };
+
+        // `EntityWorldMut::remove_with_requires` generate edges between archetypes where the required
+        // components matter for the the target archetype. These bundles cannot receive new required
+        // components as that would invalidate these edges.
+        // The mechanism is using `Self::contributed_bundle_ids` to track the bundles so we check here if it
+        // has any overlapping `BundleId`s with `bundles_with_requiree`.
+        // TODO: Remove this error and update archetype edges accordingly when required components are added
+        if bundles_with_requiree.iter().any(|bundles_with_requiree| {
+            self.contributed_bundle_ids
+                .values()
+                .any(|bundle: &BundleId| bundles_with_requiree == bundle)
+        }) {
+            return Err(RequiredComponentsError::RemovedFromArchetype(requiree));
+        }
+
+        // take it to update `Self::bundles_with_requiree` while iterating this vector
+        let taken_bundles_with_requiree = core::mem::take(bundles_with_requiree);
 
         for bundle_id in taken_bundles_with_requiree.iter() {
             let bundle_info = self.bundle_infos.get_mut(bundle_id.index());
@@ -2200,6 +2217,8 @@ impl Bundles {
         let replaced = unsafe { replaced.debug_checked_unwrap() };
 
         *replaced = taken_bundles_with_requiree;
+
+        Ok(())
     }
 }
 

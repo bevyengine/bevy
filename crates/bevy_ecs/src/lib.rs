@@ -2607,6 +2607,25 @@ mod tests {
     }
 
     #[test]
+    fn update_required_components_in_bundle_fails() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        let mut world = World::new();
+
+        let a_id = world.register_component::<A>();
+        world.spawn(B).remove_with_requires::<A>();
+
+        match world.try_register_required_components::<A, B>() {
+            Err(RequiredComponentsError::RemovedFromArchetype(id)) => assert_eq!(id, a_id),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
     fn required_components_inheritance_depth_bias() {
         #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
         struct MyRequired(bool);
