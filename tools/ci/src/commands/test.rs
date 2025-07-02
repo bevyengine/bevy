@@ -14,13 +14,13 @@ impl Prepare for TestCommand {
         let test_threads = args.test_threads();
 
         vec![PreparedCommand::new::<Self>(
-                cmd!(
-                    sh,
-                    // `--benches` runs each benchmark once in order to verify that they behave
-                    // correctly and do not panic.
-                    "cargo test --workspace --lib --bins --tests --benches {no_fail_fast...} {jobs...} -- {test_threads...}"
-                ),
-                "Please fix failing tests in output above.",
+            cmd!(
+                sh,
+                // `--benches` runs each benchmark once in order to verify that they behave
+                // correctly and do not panic.
+                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast...} {jobs...} -- {test_threads...}"
+            ),
+            "Please fix failing tests in output above.",
         )]
     }
 }
