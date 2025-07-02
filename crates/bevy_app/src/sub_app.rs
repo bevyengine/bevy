@@ -177,13 +177,13 @@ impl SubApp {
     /// ```
     /// # use bevy_app::SubApp;
     /// # let mut app = SubApp::new();
-    /// let default_fn = app.take_extract();
+    /// let mut default_fn = app.take_extract();
     /// app.set_extract(move |main, render| {
     ///     // Do pre-extract custom logic
     ///     // [...]
     ///
     ///     // Call Bevy's default, which executes the Extract phase
-    ///     if let Some(f) = default_fn.as_ref() {
+    ///     if let Some(f) = default_fn.as_mut() {
     ///         f(main, render);
     ///     }
     ///
