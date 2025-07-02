@@ -150,6 +150,7 @@ pub enum RenderUiSystems {
 /// use bevy_core_pipeline::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
+/// use bevy_render::prelude::*;
 ///
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
@@ -178,6 +179,7 @@ pub enum UiAntiAlias {
 /// use bevy_core_pipeline::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
+/// use bevy_render::prelude::*;
 ///
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
