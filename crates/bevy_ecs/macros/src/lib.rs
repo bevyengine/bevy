@@ -560,7 +560,17 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
 
-/// Implement the `EntityEvent` trait.
+/// Cheat sheet for derive syntax,
+/// see full explanation on `EntityEvent` trait docs.
+///
+/// ```ignore
+/// #[derive(Event, EntityEvent)]
+/// /// Traversal component
+/// #[entity_event(traversal = &'static ChildOf)]
+/// /// Always propagate
+/// #[entity_event(auto_propagate)]
+/// struct MyEvent;
+/// ```
 #[proc_macro_derive(EntityEvent, attributes(entity_event))]
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     component::derive_entity_event(input)
@@ -578,7 +588,89 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
-/// Implement the `Component` trait.
+/// Cheat sheet for derive syntax,
+/// see full explanation and examples on the `Component` trait doc.
+///
+/// ## Immutability
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(immutable)]
+/// struct MyComponent;
+/// ```
+///
+/// ## Sparse instead of table-based storage
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(storage = "SparseSet")]
+/// struct MyComponent;
+/// ```
+///
+/// ## Required Components
+///
+/// ```ignore
+/// #[derive(Component)]
+/// #[require(
+///     // `Default::default()`
+///     A,
+///     // tuple structs
+///     B(1),
+///     // named-field structs
+///     C {
+///         x: 1,
+///         ..default()
+///     },
+///     // unit structs/variants
+///     D::One,
+///     // associated consts
+///     E::ONE,
+///     // constructors
+///     F::new(1),
+///     // arbitrary expressions
+///     G = make(1, 2, 3)
+/// )]
+/// struct MyComponent;
+/// ```
+///
+/// ## Relationships
+/// ```ignore
+/// #[derive(Component)]
+/// #[relationship(relationship_target = Children)]
+/// pub struct ChildOf {
+///     // Marking the field is not necessary if there is only one.
+///     #[relationship]
+///     pub parent: Entity,
+///     internal: u8,
+/// };
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship = ChildOf)]
+/// pub struct Children(Vec<Entity>);
+/// ```
+///
+/// On despawn, also despawn all related entities:
+/// ```ignore
+/// #[derive(Component)]
+/// #[relationship_target(relationship_target = Children, linked_spawn)]
+/// pub struct Children(Vec<Entity>);
+/// ```
+///
+/// ## Hooks
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(hook_name = function)]
+/// struct MyComponent;
+/// ```
+/// where `hook_name` is `on_add`, `on_insert`, `on_replace` or `on_remove`;  
+/// `function` can be either a path, e.g. `some_function::<Self>`,
+/// or a function call that returns a function that can be turned into
+/// a `ComponentHook`, e.g. `get_closure("Hi!")`.
+///
+/// ## Ignore this component when cloning an entity
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(clone_behavior = Ignore)]
+/// struct MyComponent;
+/// ```
 #[proc_macro_derive(
     Component,
     attributes(component, require, relationship, relationship_target, entities)
