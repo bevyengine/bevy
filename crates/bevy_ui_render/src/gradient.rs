@@ -30,6 +30,10 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::BorderRect;
+use bevy_ui::{
+    BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,
+    InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
+};
 use bytemuck::{Pod, Zeroable};
 
 use super::shader_flags::BORDER_ALL;
@@ -447,9 +451,9 @@ pub fn extract_gradients(
 
                         compute_color_stops(
                             stops,
-                            target.scale_factor,
+                            target.scale_factor(),
                             length,
-                            target.physical_size.as_vec2(),
+                            target.physical_size().as_vec2(),
                             &mut sorted_stops,
                             &mut extracted_color_stops.0,
                         );
@@ -480,16 +484,16 @@ pub fn extract_gradients(
                         stops,
                     }) => {
                         let c = center.resolve(
-                            target.scale_factor,
+                            target.scale_factor(),
                             uinode.size,
-                            target.physical_size.as_vec2(),
+                            target.physical_size().as_vec2(),
                         );
 
                         let size = shape.resolve(
                             c,
-                            target.scale_factor,
+                            target.scale_factor(),
                             uinode.size,
-                            target.physical_size.as_vec2(),
+                            target.physical_size().as_vec2(),
                         );
 
                         let length = size.x;
@@ -497,9 +501,9 @@ pub fn extract_gradients(
                         let range_start = extracted_color_stops.0.len();
                         compute_color_stops(
                             stops,
-                            target.scale_factor,
+                            target.scale_factor(),
                             length,
-                            target.physical_size.as_vec2(),
+                            target.physical_size().as_vec2(),
                             &mut sorted_stops,
                             &mut extracted_color_stops.0,
                         );

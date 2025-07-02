@@ -18,7 +18,10 @@ mod gradient;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
-use bevy_ui::{ComputedNodeTarget, UiGlobalTransform};
+use bevy_ui::{
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
+    Outline, UiGlobalTransform,
+};
 
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetId, Assets};
