@@ -54,6 +54,7 @@ use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
+use tracing::info;
 
 use crate::{Display, Node};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -876,6 +877,7 @@ pub fn extract_text_sections(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
+                info!("Nothing!");
                 let color = text_styles
                     .get(
                         computed_block
@@ -943,6 +945,7 @@ pub fn extract_text_input_nodes(
 
         let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
         let color = color.to_linear();
+
         info_once!("visible text input node!");
         for (
             i,
@@ -968,6 +971,7 @@ pub fn extract_text_input_nodes(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
+                info!("color = {color:#?}");
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     stack_index: uinode.stack_index,
