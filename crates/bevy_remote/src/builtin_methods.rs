@@ -1,6 +1,6 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
-use core::any::TypeId;
+use core::{any::TypeId, fmt};
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
@@ -20,7 +20,12 @@ use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     GetPath, PartialReflect, TypeRegistration, TypeRegistry,
 };
-use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
+use serde::{
+    de::DeserializeSeed as _,
+    de::{Deserializer, Error as DeError, SeqAccess, Visitor},
+    ser::Serializer,
+    Deserialize, Serialize,
+};
 use serde_json::{Map, Value};
 
 use crate::{
@@ -314,7 +319,7 @@ pub struct BrpQuery {
     ///
     /// [full path]: bevy_reflect::TypePath::type_path
     #[serde(default)]
-    pub option: Vec<String>,
+    pub option: ComponentSelector,
 
     /// The [full path] of the type name of each component that is to be checked
     /// for presence.
@@ -708,6 +713,76 @@ fn reflect_component(
     Ok(serialized_object)
 }
 
+/// A selector for components in a query.
+///
+/// This can either be a list of component paths or an "all" selector that
+/// indicates that all components should be selected.
+/// The "all" selector is useful when you want to retrieve all components
+/// present on an entity without specifying each one individually.
+/// The paths in the `Paths` variant must be the [full type paths]: e.g.
+/// `bevy_transform::components::transform::Transform`, not just
+/// `Transform`.
+///
+#[derive(Debug, Clone, PartialEq)]
+pub enum ComponentSelector {
+    /// A list of component paths to select as optional components.
+    Paths(Vec<String>),
+    /// An "all" selector that indicates all components should be selected.
+    All,
+}
+
+impl Default for ComponentSelector {
+    fn default() -> Self {
+        ComponentSelector::Paths(Vec::new())
+    }
+}
+
+impl Serialize for ComponentSelector {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            ComponentSelector::Paths(paths) => paths.serialize(serializer),
+            ComponentSelector::All => serializer.serialize_str("all"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ComponentSelector {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct CSVisitor;
+        impl<'de> Visitor<'de> for CSVisitor {
+            type Value = ComponentSelector;
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "a string \"all\" or an array of strings")
+            }
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                if v == "all" {
+                    Ok(ComponentSelector::All)
+                } else {
+                    Err(E::custom(format!("unexpected string: {}", v)))
+                }
+            }
+            fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let paths =
+                    Deserialize::deserialize(serde::de::value::SeqAccessDeserializer::new(seq))?;
+                Ok(ComponentSelector::Paths(paths))
+            }
+        }
+        deserializer.deserialize_any(CSVisitor)
+    }
+}
+
 /// Handles a `bevy/query` request coming from a client.
 pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
     let BrpQueryParams {
@@ -723,7 +798,7 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         None => BrpQueryParams {
             data: BrpQuery {
                 components: Vec::new(),
-                option: Vec::new(),
+                option: ComponentSelector::default(),
                 has: Vec::new(),
             },
             filter: BrpQueryFilter::default(),
@@ -734,42 +809,51 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let (components, unregistered_in_components) =
-        get_component_ids(&type_registry, world, components, strict)
+    // Required components: must be present
+    let (required, unregistered_in_required) =
+        get_component_ids(&type_registry, world, components.clone(), strict)
             .map_err(BrpError::component_error)?;
-    let (option, _) = get_component_ids(&type_registry, world, option, strict)
-        .map_err(BrpError::component_error)?;
-    let (has, unregistered_in_has) =
+
+    // Optional components: Option<&T> or all reflectable if "all"
+    let (optional, _) = match &option {
+        ComponentSelector::Paths(paths) => {
+            get_component_ids(&type_registry, world, paths.clone(), strict)
+                .map_err(BrpError::component_error)?
+        }
+        ComponentSelector::All => (Vec::new(), Vec::new()),
+    };
+
+    // Has components: presence check
+    let (has_ids, unregistered_in_has) =
         get_component_ids(&type_registry, world, has, strict).map_err(BrpError::component_error)?;
 
-    // Extract filter "without" and filter "with" for use below
-    let without = filter.without.clone();
-    let with = filter.with.clone();
-
-    let (without, _) = get_component_ids(&type_registry, world, without, strict)
+    // Filters
+    let (without, _) = get_component_ids(&type_registry, world, filter.without.clone(), strict)
         .map_err(BrpError::component_error)?;
-    let (with, unregistered_in_with) = get_component_ids(&type_registry, world, with, strict)
-        .map_err(BrpError::component_error)?;
+    let (with, unregistered_in_with) =
+        get_component_ids(&type_registry, world, filter.with.clone(), strict)
+            .map_err(BrpError::component_error)?;
 
     // When "strict" is false:
     // - Unregistered components in "option" and "without" are ignored.
     // - Unregistered components in "has" are considered absent from the entity.
     // - Unregistered components in "components" and "with" result in an empty
     // response since they specify hard requirements.
-    if !unregistered_in_components.is_empty() || !unregistered_in_with.is_empty() {
+    // If strict, fail if any required or with components are unregistered
+    if !unregistered_in_required.is_empty() || !unregistered_in_with.is_empty() {
         return serde_json::to_value(BrpQueryResponse::default()).map_err(BrpError::internal);
     }
 
     let mut query = QueryBuilder::<FilteredEntityRef>::new(world);
-    for (_, component) in &components {
+    for (_, component) in &required {
         query.ref_id(*component);
     }
-    for (_, option) in &option {
+    for (_, option) in &optional {
         query.optional(|query| {
             query.ref_id(*option);
         });
     }
-    for (_, has) in &has {
+    for (_, has) in &has_ids {
         query.optional(|query| {
             query.ref_id(*has);
         });
@@ -781,43 +865,67 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         query.with_id(with);
     }
 
-    // ... and the analogous construction for `has`:
-    let has_paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = has
-        .into_iter()
-        .map(|(type_id, _)| reflect_component_from_id(type_id, &type_registry))
+    // Prepare has reflect info
+    let has_paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = has_ids
+        .iter()
+        .map(|(type_id, _)| reflect_component_from_id(*type_id, &type_registry))
         .collect::<AnyhowResult<Vec<(&str, &ReflectComponent)>>>()
         .map_err(BrpError::component_error)?;
 
     let mut response = BrpQueryResponse::default();
     let mut query = query.build();
+
     for row in query.iter(world) {
         let entity_id = row.id();
         let entity_ref = world.get_entity(entity_id).expect("Entity should exist");
 
-        let components_map = if components.is_empty() {
-            // All reflectable components present on the entity
-            serialize_components(
-                entity_ref,
-                &type_registry,
-                entity_ref
-                    .archetype()
-                    .components()
-                    .filter_map(|component_id| {
-                        let info = world.components().get_info(component_id)?;
-                        let type_id = info.type_id()?;
-                        Some((type_id, Some(component_id)))
-                    }),
-            )
-        } else {
-            // Only the requested components
-            serialize_components(
-                entity_ref,
-                &type_registry,
-                components
-                    .iter()
-                    .map(|(type_id, component_id)| (*type_id, Some(*component_id))),
-            )
-        };
+        // Required components
+        let mut components_map = serialize_components(
+            entity_ref,
+            &type_registry,
+            required
+                .iter()
+                .map(|(type_id, component_id)| (*type_id, Some(*component_id))),
+        );
+
+        // Optional components
+        match &option {
+            ComponentSelector::All => {
+                // Add all reflectable components present on the entity (as Option<&T>)
+                let all_optionals =
+                    entity_ref
+                        .archetype()
+                        .components()
+                        .filter_map(|component_id| {
+                            let info = world.components().get_info(component_id)?;
+                            let type_id = info.type_id()?;
+                            // Skip required components (already included)
+                            if required.iter().any(|(_, cid)| cid == &component_id) {
+                                return None;
+                            }
+                            Some((type_id, Some(component_id)))
+                        });
+                components_map.extend(serialize_components(
+                    entity_ref,
+                    &type_registry,
+                    all_optionals,
+                ));
+            }
+            ComponentSelector::Paths(_) => {
+                // Add only the requested optional components (as Option<&T>)
+                let optionals = optional.iter().filter(|(_, component_id)| {
+                    // Skip required components (already included)
+                    !required.iter().any(|(_, cid)| cid == component_id)
+                });
+                components_map.extend(serialize_components(
+                    entity_ref,
+                    &type_registry,
+                    optionals
+                        .clone()
+                        .map(|(type_id, component_id)| (*type_id, Some(*component_id))),
+                ));
+            }
+        }
 
         // The map of boolean-valued component presences:
         let has_map = build_has_map(

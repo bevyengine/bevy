@@ -13,7 +13,9 @@ use anyhow::Result as AnyhowResult;
 use bevy::{
     ecs::hierarchy::ChildOf,
     remote::{
-        builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_METHOD},
+        builtin_methods::{
+            BrpQuery, BrpQueryFilter, BrpQueryParams, ComponentSelector, BRP_QUERY_METHOD,
+        },
         http::{DEFAULT_ADDR, DEFAULT_PORT},
         BrpRequest,
     },
@@ -46,7 +48,18 @@ fn run_query_all_components_and_entities(url: &str) -> Result<(), anyhow::Error>
         jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
         id: Some(serde_json::to_value(1)?),
-        params: None,
+        params: Some(
+            serde_json::to_value(BrpQueryParams {
+                data: BrpQuery {
+                    components: Vec::default(),
+                    option: ComponentSelector::All,
+                    has: Vec::default(),
+                },
+                strict: false,
+                filter: BrpQueryFilter::default(),
+            })
+            .expect("Unable to convert query parameters to a valid JSON value"),
+        ),
     };
     println!("query_all req: {query_all_req:#?}");
     let query_all_res = ureq::post(url)
@@ -66,8 +79,7 @@ fn run_transform_only_query(url: &str) -> Result<(), anyhow::Error> {
             serde_json::to_value(BrpQueryParams {
                 data: BrpQuery {
                     components: vec![type_name::<Transform>().to_string()],
-                    option: Vec::default(),
-                    has: Vec::default(),
+                    ..Default::default()
                 },
                 strict: false,
                 filter: BrpQueryFilter::default(),
@@ -93,7 +105,7 @@ fn run_query_root_entities(url: &str) -> Result<(), anyhow::Error> {
             serde_json::to_value(BrpQueryParams {
                 data: BrpQuery {
                     components: Vec::default(),
-                    option: Vec::default(),
+                    option: ComponentSelector::All,
                     has: Vec::default(),
                 },
                 strict: false,

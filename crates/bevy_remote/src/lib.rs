@@ -136,6 +136,7 @@
 //!   - `components` (optional): An array of [fully-qualified type names] of components to fetch,
 //!     see _below_ example for a query to list all the type names in **your** project.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
+//!     to fetch all reflectable components, you can pass in the string `"all"`.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
 //!     reported as boolean values.
 //! - `filter` (optional):
@@ -154,7 +155,7 @@
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
 //! ### Example
-//! To use the query API and retrieve all Transform components on all entities you would
+//! To use the query API and retrieve Transform data for all entities that have a Transform
 //! use this query:
 //!
 //! ```json
@@ -178,7 +179,7 @@
 //! ```
 //!
 //!
-//! To query all entities and all of their Reflectable components (and retrieve their values), you can pass and empty array for components and option:
+//! To query all entities and all of their Reflectable components (and retrieve their values), you can pass in "all" for the option field:
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
@@ -187,7 +188,7 @@
 //!     "params": {
 //!         "data": {
 //!             "components": []
-//!             "option": [],
+//!             "option": "all",
 //!             "has": []
 //!        },
 //!        "filter": {
