@@ -35,14 +35,12 @@ mod layout;
 mod stack;
 mod ui_node;
 
-use bevy_ui_render::UiRenderPlugin;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
 pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
 pub use layout::*;
 pub use measurement::*;
-pub use render::*;
 pub use ui_node::*;
 pub use ui_transform::*;
 

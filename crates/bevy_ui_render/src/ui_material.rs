@@ -4,7 +4,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::extract_component::ExtractComponent;
-use bevy_ui_render::UiMaterial;
 use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
