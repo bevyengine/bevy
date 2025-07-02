@@ -21,7 +21,7 @@ use bevy_reflect::Reflect;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
-    Outline, UiGlobalTransform,
+    Outline, ResolvedBorderRadius, UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
@@ -276,12 +276,6 @@ impl Plugin for UiRenderPlugin {
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
     }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-    }
 }
 
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
@@ -359,7 +353,7 @@ pub enum ExtractedUiItem {
         flip_y: bool,
         /// Border radius of the UI node.
         /// Ordering: top left, top right, bottom right, bottom left.
-        border_radius: [f32; 4],
+        border_radius: ResolvedBorderRadius,
         /// Border thickness of the UI node.
         /// Ordering: left, top, right, bottom.
         border: BorderRect,
@@ -550,7 +544,7 @@ pub fn extract_uinode_images(
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 border: uinode.border,
-                border_radius: uinode.border_radius.into(),
+                border_radius: uinode.border_radius,
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
@@ -650,7 +644,7 @@ pub fn extract_uinode_borders(
                             flip_x: false,
                             flip_y: false,
                             border: computed_node.border(),
-                            border_radius: computed_node.border_radius().into(),
+                            border_radius: computed_node.border_radius(),
                             node_type: NodeType::Border(border_flags),
                         },
                         main_entity: entity.into(),
@@ -684,7 +678,7 @@ pub fn extract_uinode_borders(
                     flip_x: false,
                     flip_y: false,
                     border: BorderRect::all(computed_node.outline_width()),
-                    border_radius: computed_node.outline_radius().into(),
+                    border_radius: computed_node.outline_radius(),
                     node_type: NodeType::Border(shader_flags::BORDER_ALL),
                 },
                 main_entity: entity.into(),
@@ -875,7 +869,7 @@ pub fn extract_viewport_nodes(
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
-                border_radius: uinode.border_radius().into(),
+                border_radius: uinode.border_radius(),
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
@@ -1513,7 +1507,7 @@ pub fn prepare_uinodes(
                                     uv: uvs[i].into(),
                                     color,
                                     flags: flags | shader_flags::CORNERS[i],
-                                    radius: *border_radius,
+                                    radius: (*border_radius).into(),
                                     border: [border.left, border.top, border.right, border.bottom],
                                     size: rect_size.into(),
                                     point: points[i].into(),

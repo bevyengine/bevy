@@ -4,7 +4,7 @@ use core::{hash::Hash, ops::Range};
 
 use bevy_app::prelude::*;
 use bevy_asset::*;
-use bevy_color::{ColorToComponents, LinearRgba};
+use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
     prelude::Component,
@@ -216,7 +216,7 @@ pub struct ExtractedBoxShadow {
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
-    pub radius: [f32; 4],
+    pub radius: ResolvedBorderRadius,
     pub blur_radius: f32,
     pub size: Vec2,
     pub main_entity: MainEntity,
@@ -486,7 +486,7 @@ pub fn prepare_shadows(
                             uvs: uvs[i].into(),
                             vertex_color: box_shadow.color.to_f32_array(),
                             size: box_shadow.size.into(),
-                            radius: box_shadow.radius,
+                            radius: box_shadow.radius.into(),
                             blur: box_shadow.blur_radius,
                             bounds: rect_size.into(),
                         });
