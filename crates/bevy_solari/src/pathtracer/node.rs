@@ -17,6 +17,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
+use bevy_utils::default;
 
 pub mod graph {
     use bevy_render::render_graph::RenderLabel;
@@ -119,11 +120,8 @@ impl FromWorld for PathtracerNode {
                 scene_bindings.bind_group_layout.clone(),
                 bind_group_layout.clone(),
             ],
-            push_constant_ranges: vec![],
             shader: load_embedded_asset!(world, "pathtracer.wgsl"),
-            shader_defs: vec![],
-            entry_point: "pathtrace".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         });
 
         Self {

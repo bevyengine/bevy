@@ -46,6 +46,7 @@ use bevy_render::{
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
     Render, RenderApp, RenderSystems,
 };
+use bevy_utils::default;
 use bitflags::bitflags;
 use tracing::debug;
 
@@ -492,12 +493,12 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
             }],
             shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
             shader_defs,
-            entry_point: if key.contains(DownsampleDepthPipelineKey::SECOND_PHASE) {
+            entry_point: Some(if key.contains(DownsampleDepthPipelineKey::SECOND_PHASE) {
                 "downsample_depth_second".into()
             } else {
                 "downsample_depth_first".into()
-            },
-            zero_initialize_workgroup_memory: false,
+            }),
+            ..default()
         }
     }
 }

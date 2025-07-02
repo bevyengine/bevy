@@ -223,18 +223,14 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 view_layout.empty_layout.clone(),
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
-            push_constant_ranges: vec![],
             vertex: VertexState {
                 shader: self.shader_handle.clone(),
-                shader_defs: vec![],
-                entry_point: "vertex".into(),
                 // Customize how to store the meshes' vertex attributes in the vertex buffer
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     // This isn't required, but bevy supports HDR and non-HDR rendering
                     // so it's generally recommended to specialize the pipeline for that
@@ -248,6 +244,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
@@ -269,9 +266,10 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             // but it's not always possible
             multisample: MultisampleState {
                 count: mesh_key.msaa_samples(),
-                ..MultisampleState::default()
+                ..default()
             },
-            zero_initialize_workgroup_memory: false,
+
+            ..default()
         })
     }
 }
