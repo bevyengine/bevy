@@ -920,13 +920,13 @@ pub struct BounceInOutCurve;
 /// `n` steps connecting the start and the end. Jumping behavior is customizable via
 /// [`JumpAt`]. See [`JumpAt`] for all the options and visual examples.
 #[derive(Copy, Clone)]
-pub struct StepsCurve(usize, JumpAt);
+pub struct StepsCurve(pub usize, pub JumpAt);
 
 /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
 ///
 #[doc = include_str!("../../images/easefunction/Elastic.svg")]
 #[derive(Copy, Clone)]
-pub struct ElasticCurve(f32);
+pub struct ElasticCurve(pub f32);
 
 /// Implements `Curve<f32>` for a unit struct using a function in `easing_functions`.
 macro_rules! impl_ease_unit_struct {
