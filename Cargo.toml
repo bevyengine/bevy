@@ -151,6 +151,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_ui_render",
   "bevy_window",
   "bevy_winit",
   "custom_cursor",
