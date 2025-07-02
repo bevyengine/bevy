@@ -767,7 +767,7 @@ impl<'de> Deserialize<'de> for ComponentSelector {
                 if v == "all" {
                     Ok(ComponentSelector::All)
                 } else {
-                    Err(E::custom(format!("unexpected string: {}", v)))
+                    Err(E::custom(format!("unexpected string: {v}")))
                 }
             }
             fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
