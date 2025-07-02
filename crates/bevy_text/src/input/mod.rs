@@ -191,7 +191,7 @@ pub enum TextInputAction {
     /// Clear the text input buffer.
     Clear,
     /// Set the contents of the text input buffer. The existing contents is discarded.
-    SetContents(String),
+    SetText(String),
 }
 
 impl TextInputAction {
@@ -346,7 +346,7 @@ pub fn apply_text_input_actions(
                     editor.action(Action::Motion(Motion::BufferEnd));
                     editor.action(Action::Delete);
                 }
-                TextInputAction::SetContents(text) => {
+                TextInputAction::SetText(text) => {
                     editor.action(Action::Motion(Motion::Home));
                     let cursor = editor.cursor();
                     editor.set_selection(Selection::Normal(cursor));
