@@ -198,6 +198,9 @@ impl Plugin for UiRenderPlugin {
         app.register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>();
 
+        #[cfg(feature = "bevy_ui_debug")]
+        app.init_resource::<UiDebugOptions>();
+
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -275,6 +278,14 @@ impl Plugin for UiRenderPlugin {
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.init_resource::<UiPipeline>();
     }
 }
 
