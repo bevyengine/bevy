@@ -391,7 +391,7 @@ fn on_focused_keyboard_input(
                     Key::Enter => {
                         //match (modifiers.shift, input_mode) {
                         //(false, TextInputMode::MultiLine { .. }) => {
-                        actions.queue(TextInputAction::Enter);
+                        actions.queue(TextInputAction::NewLine);
                         // }
                         // _ => {
                         //     actions.queue(TextInputAction::Submit);

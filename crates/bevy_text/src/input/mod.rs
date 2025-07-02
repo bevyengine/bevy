@@ -137,34 +137,61 @@ impl TextInputActions {
 /// Text input commands
 #[derive(Debug)]
 pub enum TextInputAction {
-    Submit,
+    /// Copy the selected text into the clipboard. Does nothing if no text selected.
     Copy,
+    /// Copy the selected text into the clipboard, then delete the selected text. Does nothing if no text selected.
     Cut,
+    /// Insert the contents of the clipboard at the current cursor position. Does nothing if the clipboard is empty.
     Paste,
-    /// Move the cursor with some motion
+    /// Move the cursor with some motion.
     Motion {
+        /// The motion to perform.
         motion: Motion,
+        /// Select the text from the initial cursor position to the end of the motion.
         with_select: bool,
     },
+    /// Insert a character at the cursor. If there is a selection, replaces the selection with the character instead.
     Insert(char),
+    /// Set the character at the cursor, overwriting the previous character. Inserts if cursor is at the end of a line.
+    /// If there is a selection, replaces the selection with the character instead.
     Overwrite(char),
-    Enter,
+    /// Start a new line.
+    NewLine,
+    /// Delete the character behind the cursor.
+    /// If there is a selection, deletes the selection instead.
     Backspace,
+    /// Delete the character a the cursor.
+    /// If there is a selection, deletes the selection instead.
     Delete,
+    /// Indent at the cursor.
     Indent,
+    /// Unindent at the cursor.
     Unindent,
+    /// Moves the cursor to the character at the given position.
     Click(IVec2),
+    /// Selects the word at the given position.
     DoubleClick(IVec2),
+    /// Selects the line at the given position.
     TripleClick(IVec2),
+    /// Select the text up to the given position
     Drag(IVec2),
-    Scroll {
-        lines: i32,
-    },
+    /// Scroll vertically by the given number of lines.
+    /// Negative values scroll upwards towards the start of the text, positive downwards to the end of the text.
+    Scroll { lines: i32 },
+    /// Undo the previous action.
     Undo,
+    /// Redo an undone action. Must directly follow an Undo.
     Redo,
+    /// Select the entire contents of the text input buffer.
     SelectAll,
+    /// Select the line at the cursor.
     SelectLine,
+    /// Clear any selection.
     Escape,
+    /// Clear the text input buffer.
+    Clear,
+    /// Set the contents of the text input buffer. The existing contents is discarded.
+    SetContents(String),
 }
 
 impl TextInputAction {
@@ -216,7 +243,6 @@ pub fn apply_text_input_actions(
             editor.start_change();
 
             match action {
-                TextInputAction::Submit => {}
                 TextInputAction::Copy => {}
                 TextInputAction::Cut => {}
                 TextInputAction::Paste => {}
@@ -246,7 +272,7 @@ pub fn apply_text_input_actions(
                         _ => editor.action(Action::Insert(ch)),
                     }
                 }
-                TextInputAction::Enter => {
+                TextInputAction::NewLine => {
                     editor.action(Action::Enter);
                 }
                 TextInputAction::Backspace => {
@@ -312,6 +338,20 @@ pub fn apply_text_input_actions(
                 }
                 TextInputAction::Escape => {
                     editor.set_selection(Selection::None);
+                }
+                TextInputAction::Clear => {
+                    editor.action(Action::Motion(Motion::BufferStart));
+                    let cursor = editor.cursor();
+                    editor.set_selection(Selection::Normal(cursor));
+                    editor.action(Action::Motion(Motion::BufferEnd));
+                    editor.action(Action::Delete);
+                }
+                TextInputAction::SetContents(text) => {
+                    editor.action(Action::Motion(Motion::Home));
+                    let cursor = editor.cursor();
+                    editor.set_selection(Selection::Normal(cursor));
+                    editor.action(Action::Motion(Motion::End));
+                    editor.insert_string(&text, None);
                 }
             }
 
