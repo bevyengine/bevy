@@ -1,7 +1,14 @@
+use super::ExtractedUiItem;
+use super::ExtractedUiNode;
+use super::ExtractedUiNodes;
+use super::NodeType;
+use super::UiCameraMap;
+use crate::shader_flags;
 use crate::ui_node::ComputedNodeTarget;
+use crate::ui_transform::UiGlobalTransform;
 use crate::CalculatedClip;
 use crate::ComputedNode;
-use crate::UiCameraMap;
+use crate::UiStack;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -16,11 +23,6 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
-use bevy_transform::components::GlobalTransform;
-use bevy_ui_render::ExtractedUiItem;
-use bevy_ui_render::ExtractedUiNode;
-use bevy_ui_render::ExtractedUiNodes;
-use bevy_ui_render::NodeType;
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]
@@ -60,12 +62,13 @@ pub fn extract_debug_overlay(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &GlobalTransform,
             &ComputedNodeTarget,
         )>,
     >,
+    ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     if !debug_options.enabled {
@@ -74,7 +77,7 @@ pub fn extract_debug_overlay(
 
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, visibility, maybe_clip, transform, computed_target) in &uinode_query {
+    for (entity, uinode, transform, visibility, maybe_clip, computed_target) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
@@ -87,7 +90,7 @@ pub fn extract_debug_overlay(
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             // Add a large number to the UI node's stack index so that the overlay is always drawn on top
-            stack_index: uinode.stack_index + u32::MAX / 2,
+            z_order: (ui_stack.uinodes.len() as u32 + uinode.stack_index()) as f32,
             color: Hsla::sequential_dispersed(entity.index()).into(),
             rect: Rect {
                 min: Vec2::ZERO,
@@ -100,12 +103,12 @@ pub fn extract_debug_overlay(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
-                transform: transform.compute_matrix(),
+                transform: transform.into(),
                 flip_x: false,
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
-                border_radius: uinode.border_radius.into(),
-                node_type: NodeType::Border,
+                border_radius: uinode.border_radius(),
+                node_type: NodeType::Border(shader_flags::BORDER_ALL),
             },
             main_entity: entity.into(),
         });

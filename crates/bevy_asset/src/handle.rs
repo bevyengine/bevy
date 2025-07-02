@@ -11,7 +11,6 @@ use core::{
 use crossbeam_channel::{Receiver, Sender};
 use disqualified::ShortName;
 use thiserror::Error;
-use uuid::Uuid;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
 /// This should _only_ be used for one specific asset type.
@@ -149,14 +148,6 @@ impl<T: Asset> Clone for Handle<T> {
 }
 
 impl<A: Asset> Handle<A> {
-    /// Create a new [`Handle::Weak`] with the given [`u128`] encoding of a [`Uuid`].
-    #[deprecated = "use the `weak_handle!` macro with a UUID string instead"]
-    pub const fn weak_from_u128(value: u128) -> Self {
-        Handle::Weak(AssetId::Uuid {
-            uuid: Uuid::from_u128(value),
-        })
-    }
-
     /// Returns the [`AssetId`] of this [`Asset`].
     #[inline]
     pub fn id(&self) -> AssetId<A> {
@@ -289,7 +280,7 @@ impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
 /// to be stored together and compared.
 ///
 /// See [`Handle`] for more information.
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
 pub enum UntypedHandle {
     /// A strong handle, which will keep the referenced [`Asset`] alive until all strong handles are dropped.
     Strong(Arc<StrongHandle>),
@@ -548,9 +539,10 @@ pub enum UntypedAssetConversionError {
 #[cfg(test)]
 mod tests {
     use alloc::boxed::Box;
-    use bevy_platform_support::hash::FixedHasher;
+    use bevy_platform::hash::FixedHasher;
     use bevy_reflect::PartialReflect;
     use core::hash::BuildHasher;
+    use uuid::Uuid;
 
     use super::*;
 

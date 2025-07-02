@@ -32,7 +32,7 @@ pub enum UvChannel {
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[data(0, StandardMaterialUniform, binding_array(10))]
-#[bindless]
+#[bindless(index_table(range(0..31)))]
 #[reflect(Default, Debug, Clone)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
@@ -1185,7 +1185,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
 bitflags! {
     /// The pipeline key for `StandardMaterial`, packed into 64 bits.
-    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    #[repr(C)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, bytemuck::Pod, bytemuck::Zeroable)]
     pub struct StandardMaterialKey: u64 {
         const CULL_FRONT               = 0x000001;
         const CULL_BACK                = 0x000002;
@@ -1345,7 +1346,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 
 impl Material for StandardMaterial {
     fn fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
     }
 
     #[inline]
@@ -1381,11 +1382,11 @@ impl Material for StandardMaterial {
     }
 
     fn prepass_fragment_shader() -> ShaderRef {
-        PBR_PREPASS_SHADER_HANDLE.into()
+        shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wgsl"))
     }
 
     fn deferred_fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
     }
 
     #[cfg(feature = "meshlet")]
@@ -1404,7 +1405,7 @@ impl Material for StandardMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,

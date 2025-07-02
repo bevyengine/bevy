@@ -1,7 +1,7 @@
 use core::{fmt::Write, hint::black_box, iter, time::Duration};
 
 use benches::bench;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{DynamicMap, Map};
 use criterion::{
     criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
@@ -142,7 +142,7 @@ fn concrete_map_apply(criterion: &mut Criterion) {
 
 fn u64_to_n_byte_key(k: u64, n: usize) -> String {
     let mut key = String::with_capacity(n);
-    write!(&mut key, "{}", k).unwrap();
+    write!(&mut key, "{k}").unwrap();
 
     // Pad key to n bytes.
     key.extend(iter::repeat_n('\0', n - key.len()));

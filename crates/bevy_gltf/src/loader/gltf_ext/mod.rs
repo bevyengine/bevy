@@ -5,7 +5,7 @@ pub mod mesh;
 pub mod scene;
 pub mod texture;
 
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 
 use fixedbitset::FixedBitSet;
 use gltf::{Document, Gltf};

@@ -28,6 +28,7 @@ pub mod graph {
         MainTransmissivePass,
         MainTransparentPass,
         EndMainPass,
+        Wireframe,
         LateDownsampleDepth,
         Taa,
         MotionBlur,
@@ -84,9 +85,9 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault;
+use bevy_image::{BevyDefault, ToExtents};
 use bevy_math::FloatOrd;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -98,14 +99,14 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        CachedRenderPipelineId, FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
 use tracing::warn;
@@ -166,14 +167,14 @@ impl Plugin for Core3dPlugin {
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Transmissive3d>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<Transmissive3d>.in_set(RenderSystems::PhaseSort),
+                    sort_phase_system::<Transparent3d>.in_set(RenderSystems::PhaseSort),
                     configure_occlusion_culling_view_targets
                         .after(prepare_view_targets)
-                        .in_set(RenderSet::ManageViews),
-                    prepare_core_3d_depth_textures.in_set(RenderSet::PrepareResources),
-                    prepare_core_3d_transmission_textures.in_set(RenderSet::PrepareResources),
-                    prepare_prepass_textures.in_set(RenderSet::PrepareResources),
+                        .in_set(RenderSystems::ManageViews),
+                    prepare_core_3d_depth_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_core_3d_transmission_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_prepass_textures.in_set(RenderSystems::PrepareResources),
                 ),
             );
 
@@ -810,20 +811,14 @@ pub fn prepare_core_3d_depth_textures(
         let cached_texture = textures
             .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
-                // The size of the depth texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let usage = *render_target_usage
                     .get(&camera.target.clone())
                     .expect("The depth texture usage should already exist for this target");
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
-                    size,
+                    // The size of the depth texture
+                    size: physical_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
@@ -896,13 +891,6 @@ pub fn prepare_core_3d_transmission_textures(
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
-                // The size of the transmission texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let format = if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
@@ -911,7 +899,8 @@ pub fn prepare_core_3d_transmission_textures(
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
-                    size,
+                    // The size of the transmission texture
+                    size: physical_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
@@ -1022,11 +1011,7 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let size = Extent3d {
-            depth_or_array_layers: 1,
-            width: physical_target_size.x,
-            height: physical_target_size.y,
-        };
+        let size = physical_target_size.to_extents();
 
         let cached_depth_texture = depth_prepass.then(|| {
             depth_textures
@@ -1041,7 +1026,8 @@ pub fn prepare_prepass_textures(
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
-                            | TextureUsages::TEXTURE_BINDING,
+                            | TextureUsages::TEXTURE_BINDING
+                            | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC, double buffer instead (for bevy_solari)
                         view_formats: &[],
                     };
                     texture_cache.get(&render_device, descriptor)
@@ -1107,7 +1093,8 @@ pub fn prepare_prepass_textures(
                             dimension: TextureDimension::D2,
                             format: DEFERRED_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
+                                | TextureUsages::TEXTURE_BINDING
+                                | TextureUsages::COPY_SRC, // TODO: Remove COPY_SRC, double buffer instead (for bevy_solari)
                             view_formats: &[],
                         },
                     )

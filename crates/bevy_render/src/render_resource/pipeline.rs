@@ -1,12 +1,12 @@
 use super::ShaderDefVal;
 use crate::mesh::VertexBufferLayout;
-use crate::renderer::WgpuWrapper;
 use crate::{
     define_atomic_id,
     render_resource::{BindGroupLayout, Shader},
 };
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
+use bevy_utils::WgpuWrapper;
 use core::ops::Deref;
 use wgpu::{
     ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
@@ -138,7 +138,7 @@ pub struct FragmentState {
 }
 
 /// Describes a compute pipeline.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<BindGroupLayout>,

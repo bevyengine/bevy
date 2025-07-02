@@ -1,7 +1,7 @@
 use core::ops::Range;
 
-use crate::{ComputedTextureSlices, ScalingMode, Sprite, SPRITE_SHADER_HANDLE};
-use bevy_asset::{AssetEvent, AssetId, Assets};
+use crate::{Anchor, ComputedTextureSlices, ScalingMode, Sprite};
+use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -18,7 +18,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -47,6 +47,7 @@ use fixedbitset::FixedBitSet;
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
+    shader: Handle<Shader>,
     pub dummy_white_gpu_image: GpuImage,
 }
 
@@ -62,18 +63,12 @@ impl FromWorld for SpritePipeline {
         let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
         let view_layout = render_device.create_bind_group_layout(
             "sprite_view_layout",
-            &BindGroupLayoutEntries::with_indices(
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
-                    (0, uniform_buffer::<ViewUniform>(true)),
-                    (
-                        1,
-                        tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
-                    ),
-                    (
-                        2,
-                        tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
-                    ),
+                    uniform_buffer::<ViewUniform>(true),
+                    tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                    tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
                 ),
             ),
         );
@@ -124,6 +119,7 @@ impl FromWorld for SpritePipeline {
             view_layout,
             material_layout,
             dummy_white_gpu_image,
+            shader: load_embedded_asset!(world, "sprite.wgsl"),
         }
     }
 }
@@ -267,13 +263,13 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: SPRITE_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![instance_rate_vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: SPRITE_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -394,13 +390,14 @@ pub fn extract_sprites(
             &ViewVisibility,
             &Sprite,
             &GlobalTransform,
+            &Anchor,
             Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
     extracted_slices.slices.clear();
-    for (main_entity, render_entity, view_visibility, sprite, transform, slices) in
+    for (main_entity, render_entity, view_visibility, sprite, transform, anchor, slices) in
         sprite_query.iter()
     {
         if !view_visibility.get() {
@@ -411,7 +408,7 @@ pub fn extract_sprites(
             let start = extracted_slices.slices.len();
             extracted_slices
                 .slices
-                .extend(slices.extract_slices(sprite));
+                .extend(slices.extract_slices(sprite, anchor.as_vec()));
             let end = extracted_slices.slices.len();
             extracted_sprites.sprites.push(ExtractedSprite {
                 main_entity,
@@ -451,7 +448,7 @@ pub fn extract_sprites(
                 flip_y: sprite.flip_y,
                 image_handle_id: sprite.image.id(),
                 kind: ExtractedSpriteKind::Single {
-                    anchor: sprite.anchor.as_vec(),
+                    anchor: anchor.as_vec(),
                     rect,
                     scaling_mode: sprite.image_mode.scale(),
                     // Pass the custom size
@@ -633,11 +630,7 @@ pub fn prepare_sprite_view_bind_groups(
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &sprite_pipeline.view_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, lut_bindings.0),
-                (2, lut_bindings.1),
-            )),
+            &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
         );
 
         commands.entity(entity).insert(SpriteViewBindGroup {
@@ -905,7 +898,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 
     fn render<'w>(
         _item: &P,
-        (view_uniform, sprite_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
+        (view_uniform, sprite_view_bind_group): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -922,7 +915,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewQuery>,
+        view: ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         (image_bind_groups, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -952,7 +945,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewQuery>,
+        view: ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         (sprite_meta, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,

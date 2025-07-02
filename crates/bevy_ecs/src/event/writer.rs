@@ -1,9 +1,9 @@
 use bevy_ecs::{
-    event::{Event, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EventId, Events, SendBatchIds},
     system::{ResMut, SystemParam},
 };
 
-/// Sends events of type `T`.
+/// Sends [`BufferedEvent`]s of type `T`.
 ///
 /// # Usage
 ///
@@ -11,7 +11,7 @@ use bevy_ecs::{
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
-/// #[derive(Event)]
+/// #[derive(Event, BufferedEvent)]
 /// pub struct MyEvent; // Custom event type.
 /// fn my_system(mut writer: EventWriter<MyEvent>) {
 ///     writer.write(MyEvent);
@@ -21,8 +21,8 @@ use bevy_ecs::{
 /// ```
 /// # Observers
 ///
-/// "Buffered" Events, such as those sent directly in [`Events`] or written using [`EventWriter`], do _not_ automatically
-/// trigger any [`Observer`]s watching for that event, as each [`Event`] has different requirements regarding _if_ it will
+/// "Buffered" events, such as those sent directly in [`Events`] or written using [`EventWriter`], do _not_ automatically
+/// trigger any [`Observer`]s watching for that event, as each [`BufferedEvent`] has different requirements regarding _if_ it will
 /// be triggered, and if so, _when_ it will be triggered in the schedule.
 ///
 /// # Concurrency
@@ -38,7 +38,7 @@ use bevy_ecs::{
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, event::Events};
-/// # #[derive(Event)]
+/// # #[derive(Event, BufferedEvent)]
 /// # pub struct MyEvent;
 /// fn send_untyped(mut commands: Commands) {
 ///     // Send an event of a specific type without having to declare that
@@ -59,12 +59,12 @@ use bevy_ecs::{
 ///
 /// [`Observer`]: crate::observer::Observer
 #[derive(SystemParam)]
-pub struct EventWriter<'w, E: Event> {
-    #[system_param(validation_message = "Event not initialized")]
+pub struct EventWriter<'w, E: BufferedEvent> {
+    #[system_param(validation_message = "BufferedEvent not initialized")]
     events: ResMut<'w, Events<E>>,
 }
 
-impl<'w, E: Event> EventWriter<'w, E> {
+impl<'w, E: BufferedEvent> EventWriter<'w, E> {
     /// Writes an `event`, which can later be read by [`EventReader`](super::EventReader)s.
     /// This method returns the [ID](`EventId`) of the written `event`.
     ///
@@ -97,39 +97,5 @@ impl<'w, E: Event> EventWriter<'w, E> {
         E: Default,
     {
         self.events.send_default()
-    }
-
-    /// Sends an `event`, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This method returns the [ID](`EventId`) of the sent `event`.
-    ///
-    /// See [`Events`] for details.
-    #[deprecated(since = "0.16.0", note = "Use `EventWriter::write` instead.")]
-    #[track_caller]
-    pub fn send(&mut self, event: E) -> EventId<E> {
-        self.write(event)
-    }
-
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than sending each event individually.
-    /// This method returns the [IDs](`EventId`) of the sent `events`.
-    ///
-    /// See [`Events`] for details.
-    #[deprecated(since = "0.16.0", note = "Use `EventWriter::write_batch` instead.")]
-    #[track_caller]
-    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
-        self.write_batch(events)
-    }
-
-    /// Sends the default value of the event. Useful when the event is an empty struct.
-    /// This method returns the [ID](`EventId`) of the sent `event`.
-    ///
-    /// See [`Events`] for details.
-    #[deprecated(since = "0.16.0", note = "Use `EventWriter::write_default` instead.")]
-    #[track_caller]
-    pub fn send_default(&mut self) -> EventId<E>
-    where
-        E: Default,
-    {
-        self.write_default()
     }
 }
