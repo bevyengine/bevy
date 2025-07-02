@@ -5,6 +5,8 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+//! Provides rendering functionality for `bevy_ui`.
+
 pub mod box_shadow;
 mod gradient;
 mod pipeline;
