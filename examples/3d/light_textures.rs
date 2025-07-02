@@ -2,7 +2,6 @@
 
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, PI};
 use std::fmt::{self, Formatter};
-use std::process;
 
 use bevy::{
     color::palettes::css::{SILVER, YELLOW},
@@ -157,8 +156,8 @@ fn setup(
 ) {
     // Error out if clustered decals (and so light textures) aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
-        eprintln!("Light textures aren't usable on this platform.");
-        process::exit(1);
+        error!("Light textures aren't usable on this platform.");
+        commands.send_event(AppExit::error());
     }
 
     spawn_cubes(&mut commands, &mut meshes, &mut materials);
