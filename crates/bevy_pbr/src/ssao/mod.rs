@@ -412,11 +412,8 @@ impl FromWorld for SsaoPipelines {
                     preprocess_depth_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
                 ],
-                push_constant_ranges: vec![],
                 shader: load_embedded_asset!(world, "preprocess_depth.wgsl"),
-                shader_defs: Vec::new(),
-                entry_point: "preprocess_depth".into(),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             });
 
         let spatial_denoise_pipeline =
@@ -426,11 +423,8 @@ impl FromWorld for SsaoPipelines {
                     spatial_denoise_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
                 ],
-                push_constant_ranges: vec![],
                 shader: load_embedded_asset!(world, "spatial_denoise.wgsl"),
-                shader_defs: Vec::new(),
-                entry_point: "spatial_denoise".into(),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             });
 
         Self {
@@ -481,11 +475,9 @@ impl SpecializedComputePipeline for SsaoPipelines {
                 self.ssao_bind_group_layout.clone(),
                 self.common_bind_group_layout.clone(),
             ],
-            push_constant_ranges: vec![],
             shader: self.shader.clone(),
             shader_defs,
-            entry_point: "ssao".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

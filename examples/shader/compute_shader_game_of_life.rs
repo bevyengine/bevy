@@ -173,22 +173,16 @@ impl FromWorld for GameOfLifePipeline {
         let shader = world.load_asset(SHADER_ASSET_PATH);
         let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: None,
             layout: vec![texture_bind_group_layout.clone()],
-            push_constant_ranges: Vec::new(),
             shader: shader.clone(),
-            shader_defs: vec![],
-            entry_point: Cow::from("init"),
-            zero_initialize_workgroup_memory: false,
+            entry_point: Some(Cow::from("init")),
+            ..default()
         });
         let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: None,
             layout: vec![texture_bind_group_layout.clone()],
-            push_constant_ranges: Vec::new(),
             shader,
-            shader_defs: vec![],
-            entry_point: Cow::from("update"),
-            zero_initialize_workgroup_memory: false,
+            entry_point: Some(Cow::from("update")),
+            ..default()
         });
 
         GameOfLifePipeline {

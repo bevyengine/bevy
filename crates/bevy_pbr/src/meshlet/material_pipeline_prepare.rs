@@ -17,6 +17,7 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
+use bevy_utils::default;
 use core::any::{Any, TypeId};
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
@@ -371,7 +372,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
             let entry_point = if fragment_shader == meshlet_pipelines.meshlet_mesh_material {
                 material_fragment.entry_point.clone()
             } else {
-                "prepass_fragment".into()
+                None
             };
 
             let pipeline_descriptor = RenderPipelineDescriptor {
@@ -387,12 +388,11 @@ pub fn prepare_material_meshlet_meshes_prepass(
                         .unwrap()
                         .clone(),
                 ],
-                push_constant_ranges: vec![],
                 vertex: VertexState {
                     shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
-                    buffers: Vec::new(),
+                    ..default()
                 },
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
@@ -402,14 +402,13 @@ pub fn prepare_material_meshlet_meshes_prepass(
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),
-                multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: fragment_shader,
                     shader_defs,
                     entry_point,
                     targets: material_fragment.targets,
                 }),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             };
 
             let material_id = instance_manager.get_material_id(material_id);

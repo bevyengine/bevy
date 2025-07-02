@@ -4,6 +4,7 @@ use core::{
     ops::Range,
 };
 
+use super::shader_flags::BORDER_ALL;
 use crate::*;
 use bevy_asset::*;
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -35,8 +36,6 @@ use bevy_ui::{
     InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
 };
 use bytemuck::{Pod, Zeroable};
-
-use super::shader_flags::BORDER_ALL;
 
 pub struct GradientPlugin;
 
@@ -202,14 +201,13 @@ impl SpecializedRenderPipeline for GradientPipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -219,26 +217,11 @@ impl SpecializedRenderPipeline for GradientPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout: vec![self.view_layout.clone()],
-            push_constant_ranges: Vec::new(),
-            primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
             label: Some("ui_gradient_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

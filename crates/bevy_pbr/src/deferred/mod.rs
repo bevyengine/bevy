@@ -31,6 +31,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
+use bevy_utils::default;
 
 pub struct DeferredPbrLightingPlugin;
 
@@ -358,13 +359,11 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             vertex: VertexState {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs: shader_defs.clone(),
-                entry_point: "vertex".into(),
-                buffers: Vec::new(),
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.contains(MeshPipelineKey::HDR) {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -374,8 +373,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
                 depth_write_enabled: false,
@@ -392,9 +391,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                     clamp: 0.0,
                 },
             }),
-            multisample: MultisampleState::default(),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
