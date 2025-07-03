@@ -265,9 +265,9 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 /// In order to be composable, [`Specializer`] implementers don't create full
 /// descriptors, only transform them. However, [`SpecializedCache`]s need a
 /// "base descriptor" at creation time in order to have something for the
-/// [`Specializer`] implementation to work off of. This trait allows
-/// [`SpecializedCache`] to impl [`FromWorld`] for [`Specializer`]
-/// implementations that also satisfy [`FromWorld`] and [`GetBaseDescriptor`].
+/// [`Specializer`] to work off of. This trait allows [`SpecializedCache`]
+/// to impl [`FromWorld`] for [`Specializer`]s that also satisfy [`FromWorld`]
+/// and [`GetBaseDescriptor`].
 ///
 /// This trait can be also derived with `#[derive(Specializer)]`, by marking
 /// a field with `#[base_descriptor]` to use its [`GetBaseDescriptor`] implementation.
