@@ -48,7 +48,6 @@ use bevy_text::TextInputTarget;
 use bevy_text::TextLayout;
 use bevy_text::TextLayoutInfo;
 use bevy_time::Time;
-use tracing::info;
 
 pub struct TextInputNodePlugin;
 
