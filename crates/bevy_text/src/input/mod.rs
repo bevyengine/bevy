@@ -141,6 +141,12 @@ impl Default for TextInputAttributes {
     }
 }
 
+#[derive(Component)]
+pub struct TextInputPasswordMask {
+    pub mask_char: char,
+    pub editor: Editor<'static>,
+}
+
 /// Text input commands queue
 #[derive(Component, Default)]
 pub struct TextInputActions {
