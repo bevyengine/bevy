@@ -188,7 +188,7 @@
 //!     "params": {
 //!         "data": {
 //!             "components": []
-//!             "option": "All",
+//!             "option": "all",
 //!             "has": []
 //!        },
 //!        "filter": {
