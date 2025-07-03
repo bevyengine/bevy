@@ -1,4 +1,6 @@
-use alloc::{borrow::ToOwned, format, string::String};
+#[cfg(feature = "std")]
+use alloc::format;
+use alloc::{borrow::ToOwned, string::String};
 use core::num::NonZero;
 
 use bevy_ecs::{
@@ -703,15 +705,13 @@ impl WindowResizeConstraints {
         min_height = min_height.max(1.);
         if max_width < min_width {
             warn!(
-                "The given maximum width {} is smaller than the minimum width {}",
-                max_width, min_width
+                "The given maximum width {max_width} is smaller than the minimum width {min_width}"
             );
             max_width = min_width;
         }
         if max_height < min_height {
             warn!(
-                "The given maximum height {} is smaller than the minimum height {}",
-                max_height, min_height
+                "The given maximum height {max_height} is smaller than the minimum height {min_height}",
             );
             max_height = min_height;
         }
@@ -752,9 +752,10 @@ pub struct CursorOptions {
     /// ## Platform-specific
     ///
     /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
+    /// - **`X11`** doesn't support [`CursorGrabMode::Locked`]
     /// - **`iOS/Android`** don't have cursors.
     ///
-    /// Since `macOS` doesn't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+    /// Since `macOS` and `X11` don't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub grab_mode: CursorGrabMode,
 
     /// Set whether or not mouse events within *this* window are captured or fall through to the Window below.
@@ -1064,9 +1065,10 @@ impl From<DVec2> for WindowResolution {
 /// ## Platform-specific
 ///
 /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
+/// - **`X11`** doesn't support [`CursorGrabMode::Locked`]
 /// - **`iOS/Android`** don't have cursors.
 ///
-/// Since `macOS` doesn't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+/// Since `macOS` and `X11` don't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -1471,7 +1473,8 @@ pub struct ClosingWindow;
 /// - Only used on iOS.
 ///
 /// [`winit::platform::ios::ScreenEdge`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/struct.ScreenEdge.html
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum ScreenEdge {
     #[default]

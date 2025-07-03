@@ -23,6 +23,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::BorderRect;
+use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use core::{hash::Hash, marker::PhantomData, ops::Range};
 
@@ -152,14 +153,13 @@ where
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.vertex_shader.clone(),
-                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -169,26 +169,10 @@ where
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            layout: vec![],
-            push_constant_ranges: Vec::new(),
-            primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
             label: Some("ui_material_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         };
 
         descriptor.layout = vec![self.view_layout.clone(), self.ui_layout.clone()];
@@ -583,11 +567,12 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
         (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let bind_group_data = material.bind_group_data();
         match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
             Ok(prepared) => Ok(PreparedUiMaterial {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
-                key: prepared.data,
+                key: bind_group_data,
             }),
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
@@ -637,7 +622,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &ui_material_pipeline,
             UiMaterialKey {
                 hdr: view.hdr,
-                bind_group_data: material.key.clone(),
+                bind_group_data: material.key,
             },
         );
         if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {

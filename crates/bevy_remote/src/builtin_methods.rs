@@ -526,7 +526,7 @@ pub fn process_remote_get_resource_request(
     else {
         return Err(BrpError {
             code: error_codes::RESOURCE_ERROR,
-            message: format!("Resource `{}` could not be serialized", resource_path),
+            message: format!("Resource `{resource_path}` could not be serialized"),
             data: None,
         });
     };
@@ -700,7 +700,7 @@ fn reflect_component(
     else {
         return Err(BrpError {
             code: error_codes::COMPONENT_ERROR,
-            message: format!("Component `{}` could not be serialized", component_path),
+            message: format!("Component `{component_path}` could not be serialized"),
             data: None,
         });
     };

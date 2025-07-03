@@ -278,10 +278,10 @@ impl From<Vec2> for Anchor {
 mod tests {
     use bevy_asset::{Assets, RenderAssetUsages};
     use bevy_color::Color;
-    use bevy_image::Image;
+    use bevy_image::{Image, ToExtents};
     use bevy_image::{TextureAtlas, TextureAtlasLayout};
     use bevy_math::{Rect, URect, UVec2, Vec2};
-    use bevy_render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    use bevy_render::render_resource::{TextureDimension, TextureFormat};
 
     use crate::Anchor;
 
@@ -290,11 +290,7 @@ mod tests {
     /// Makes a new image of the specified size.
     fn make_image(size: UVec2) -> Image {
         Image::new_fill(
-            Extent3d {
-                width: size.x,
-                height: size.y,
-                depth_or_array_layers: 1,
-            },
+            size.to_extents(),
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,

@@ -4,6 +4,7 @@ use core::{
     ops::Range,
 };
 
+use super::shader_flags::BORDER_ALL;
 use crate::*;
 use bevy_asset::*;
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -30,9 +31,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::BorderRect;
+use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
-
-use super::shader_flags::BORDER_ALL;
 
 pub struct GradientPlugin;
 
@@ -198,14 +198,13 @@ impl SpecializedRenderPipeline for GradientPipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -215,26 +214,11 @@ impl SpecializedRenderPipeline for GradientPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout: vec![self.view_layout.clone()],
-            push_constant_ranges: Vec::new(),
-            primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
             label: Some("ui_gradient_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -408,7 +392,11 @@ pub fn extract_gradients(
                 if let Some(color) = gradient.get_single() {
                     // With a single color stop there's no gradient, fill the node with the color
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
-                        stack_index: uinode.stack_index,
+                        z_order: uinode.stack_index as f32
+                            + match node_type {
+                                NodeType::Rect => stack_z_offsets::GRADIENT,
+                                NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
+                            },
                         color: color.into(),
                         rect: Rect {
                             min: Vec2::ZERO,
@@ -629,7 +617,13 @@ pub fn queue_gradient(
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
-            sort_key: FloatOrd(gradient.stack_index as f32 + stack_z_offsets::GRADIENT),
+            sort_key: FloatOrd(
+                gradient.stack_index as f32
+                    + match gradient.node_type {
+                        NodeType::Rect => stack_z_offsets::GRADIENT,
+                        NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
+                    },
+            ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             index,
