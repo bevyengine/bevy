@@ -12,6 +12,7 @@ use std::any::type_name;
 use anyhow::Result as AnyhowResult;
 use bevy::{
     ecs::hierarchy::ChildOf,
+    prelude::info,
     remote::{
         builtin_methods::{
             BrpQuery, BrpQueryFilter, BrpQueryParams, ComponentSelector, BRP_QUERY_METHOD,
@@ -87,7 +88,7 @@ fn run_transform_only_query(url: &str) -> Result<(), anyhow::Error> {
             .expect("Unable to convert query parameters to a valid JSON value"),
         ),
     };
-    println!("transform request: {get_transform_request:#?}");
+    info!("transform request: {get_transform_request:#?}");
     let res = ureq::post(url)
         .send_json(get_transform_request)?
         .body_mut()
@@ -117,7 +118,7 @@ fn run_query_root_entities(url: &str) -> Result<(), anyhow::Error> {
             .expect("Unable to convert query parameters to a valid JSON value"),
         ),
     };
-    println!("transform request: {get_transform_request:#?}");
+    info!("transform request: {get_transform_request:#?}");
     let res = ureq::post(url)
         .send_json(get_transform_request)?
         .body_mut()
