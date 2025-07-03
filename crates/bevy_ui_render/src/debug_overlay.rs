@@ -4,11 +4,6 @@ use super::ExtractedUiNodes;
 use super::NodeType;
 use super::UiCameraMap;
 use crate::shader_flags;
-use crate::ui_node::ComputedNodeTarget;
-use crate::ui_transform::UiGlobalTransform;
-use crate::CalculatedClip;
-use crate::ComputedNode;
-use crate::UiStack;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -23,6 +18,11 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
+use bevy_ui::ui_transform::UiGlobalTransform;
+use bevy_ui::CalculatedClip;
+use bevy_ui::ComputedNode;
+use bevy_ui::ComputedNodeTarget;
+use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]

@@ -1,3 +1,4 @@
+use crate::ui_material::{MaterialNode, UiMaterial, UiMaterialKey};
 use crate::*;
 use bevy_asset::*;
 use bevy_ecs::{
@@ -7,11 +8,12 @@ use bevy_ecs::{
         lifetimeless::{Read, SRes},
         *,
     },
+    world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_render::RenderApp;
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
     load_shader_library,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -47,9 +49,9 @@ where
         embedded_asset!(app, "ui_material.wgsl");
 
         app.init_asset::<M>()
-            .register_type::<MaterialNode<M>>()
+            //.register_type::<MaterialNode<M>>()
             .add_plugins((
-                ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
+                //ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
                 RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
             ));
 
@@ -304,7 +306,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub transform: Affine2,
     pub rect: Rect,
     pub border: BorderRect,
-    pub border_radius: ResolvedBorderRadius,
+    pub border_radius: [f32; 4],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
     // Camera to render this UI node to. By the time it is extracted,
@@ -312,7 +314,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // Nodes with ambiguous camera will be ignored.
     pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
-    render_entity: Entity,
+    pub render_entity: Entity,
 }
 
 #[derive(Resource)]
@@ -374,7 +376,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 max: computed_node.size(),
             },
             border: computed_node.border(),
-            border_radius: computed_node.border_radius(),
+            border_radius: computed_node.border_radius().into(),
             clip: clip.map(|clip| clip.clip),
             extracted_camera_entity,
             main_entity: entity.into(),
@@ -520,12 +522,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
                             size: extracted_uinode.rect.size().into(),
-                            radius: [
-                                extracted_uinode.border_radius.top_left,
-                                extracted_uinode.border_radius.top_right,
-                                extracted_uinode.border_radius.bottom_right,
-                                extracted_uinode.border_radius.bottom_left,
-                            ],
+                            radius: extracted_uinode.border_radius,
                             border: [
                                 extracted_uinode.border.left,
                                 extracted_uinode.border.top,

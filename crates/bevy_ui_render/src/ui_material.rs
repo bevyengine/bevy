@@ -7,7 +7,6 @@ use bevy_render::{
     extract_component::ExtractComponent,
     render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
 };
-use core::hash::Hash;
 use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
@@ -35,6 +34,7 @@ use derive_more::derive::From;
 /// # use bevy_render::render_resource::{AsBindGroup, ShaderRef};
 /// # use bevy_color::LinearRgba;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
+/// # use bevy_ui_render::prelude::*;
 ///
 /// #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
 /// pub struct CustomMaterial {
@@ -148,7 +148,7 @@ where
 
 impl<M: UiMaterial> core::hash::Hash for UiMaterialKey<M>
 where
-    M::Data: Hash,
+    M::Data: core::hash::Hash,
 {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.hdr.hash(state);
