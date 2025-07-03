@@ -92,7 +92,7 @@ fn run_transform_only_query(url: &str) -> Result<(), anyhow::Error> {
         .send_json(get_transform_request)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
-    println!("{res:#}");
+    info!("{res:#}");
     Ok(())
 }
 
