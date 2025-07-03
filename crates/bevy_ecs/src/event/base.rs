@@ -425,25 +425,16 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
     pub event: E,
 }
 
-/// # Warning
+/// A unique identifier for an [`Event`], used by [observers].
 ///
-/// This struct should only be instantiated internally to this crate.
+/// You can look up the key for your event by calling the [`Event::event_key`] method.
 ///
-/// [`EventKey`]s are created in:
-/// - `crate::observer::trigger_dynamic_ref_with_caller`
-/// - `crate::observer::trigger_dynamic_ref_with_caller`
-/// - `crate::observer::observer_multiple_events`
-/// - `crate::observer::observer_dynamic_trigger`
-/// - `crate::observer::runner::hook_on_add`
+/// [observers]: crate::observer
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
 
 impl EventKey {
-    /// Returns id of the underlying [`Event`].
-    /// Used internally in:
-    /// - [`crate::event::register_event`]
-    /// - [`crate::event::run_updates`]
-    /// - [`crate::event::deregister_events`]
+    /// Returns the internal [`ComponentId`].
     #[inline]
     pub(crate) fn component_id(&self) -> ComponentId {
         self.0
