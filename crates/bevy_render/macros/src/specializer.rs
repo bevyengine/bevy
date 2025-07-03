@@ -94,7 +94,7 @@ impl FieldInfo {
     fn key_ty(&self, specialize_path: &Path, target_path: &Path) -> Option<Type> {
         let ty = &self.ty;
         matches!(self.key, Key::Whole | Key::Index(_))
-            .then_some(parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::Key))
+            .then_some(parse_quote!(<#ty as #specialize_path::Specializer<#target_path>>::Key))
     }
 
     fn key_ident(&self, ident: Ident) -> Option<Ident> {
@@ -106,15 +106,15 @@ impl FieldInfo {
             ty, member, key, ..
         } = &self;
         let key_expr = key.expr();
-        parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::specialize(&self.#member, #key_expr, descriptor))
+        parse_quote!(<#ty as #specialize_path::Specializer<#target_path>>::specialize(&self.#member, #key_expr, descriptor))
     }
 
     fn specialize_predicate(&self, specialize_path: &Path, target_path: &Path) -> WherePredicate {
         let ty = &self.ty;
         if matches!(&self.key, Key::Default) {
-            parse_quote!(#ty: #specialize_path::Specialize<#target_path, Key: #FQDefault>)
+            parse_quote!(#ty: #specialize_path::Specializer<#target_path, Key: #FQDefault>)
         } else {
-            parse_quote!(#ty: #specialize_path::Specialize<#target_path>)
+            parse_quote!(#ty: #specialize_path::Specializer<#target_path>)
         }
     }
 
