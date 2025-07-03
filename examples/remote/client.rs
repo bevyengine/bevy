@@ -32,7 +32,7 @@ fn main() -> AnyhowResult<()> {
     run_transform_only_query(&url)?;
 
     // Create a query that only returns root entities - ie, entities that do not
-    // have any children.
+    // have a parent.
     run_query_root_entities(&url)?;
 
     // Create a query all request to send to the remote Bevy app.
