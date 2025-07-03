@@ -20,6 +20,7 @@ use bevy_app::PostUpdate;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
 use bevy_ecs::change_detection::DetectChanges;
+use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -43,6 +44,7 @@ use cosmic_text::Editor;
 use cosmic_text::Metrics;
 pub use cosmic_text::Motion;
 use cosmic_text::Selection;
+use tracing::info;
 
 pub struct TextInputPlugin;
 
@@ -56,6 +58,7 @@ impl Plugin for TextInputPlugin {
             (
                 update_text_input_buffers,
                 apply_text_input_actions,
+                update_password_masks,
                 update_text_input_layouts,
             )
                 .chain()
@@ -64,10 +67,32 @@ impl Plugin for TextInputPlugin {
     }
 }
 
+fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
+    buffer
+        .lines
+        .iter()
+        .map(|buffer_line| buffer_line.text())
+        .fold(String::new(), |mut out, line| {
+            if !out.is_empty() {
+                out.push('\n');
+            }
+            out.push_str(line);
+            out
+        })
+}
+
 /// Text input buffer
 #[derive(Component, Debug)]
 pub struct TextInputBuffer {
     pub editor: Editor<'static>,
+}
+
+impl Default for TextInputBuffer {
+    fn default() -> Self {
+        Self {
+            editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
+        }
+    }
 }
 
 /// Component containing the change history for a text input.
@@ -85,29 +110,9 @@ impl TextInputHistory {
     }
 }
 
-impl Default for TextInputBuffer {
-    fn default() -> Self {
-        Self {
-            editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
-        }
-    }
-}
-
 impl TextInputBuffer {
     pub fn get_text(&self) -> String {
-        self.editor.with_buffer(|buffer| {
-            buffer
-                .lines
-                .iter()
-                .map(|buffer_line| buffer_line.text())
-                .fold(String::new(), |mut out, line| {
-                    if !out.is_empty() {
-                        out.push('\n');
-                    }
-                    out.push_str(line);
-                    out
-                })
-        })
+        self.editor.with_buffer(get_cosmic_text_buffer_contents)
     }
 }
 
@@ -141,10 +146,21 @@ impl Default for TextInputAttributes {
     }
 }
 
+/// Add this component to hide the text input buffer contents
+/// by replacing the characters with `mask_char`.
 #[derive(Component)]
 pub struct TextInputPasswordMask {
     pub mask_char: char,
-    pub editor: Editor<'static>,
+    editor: Editor<'static>,
+}
+
+impl Default for TextInputPasswordMask {
+    fn default() -> Self {
+        Self {
+            mask_char: '*',
+            editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
+        }
+    }
 }
 
 /// Text input commands queue
@@ -502,6 +518,32 @@ pub fn update_text_input_buffers(
     }
 }
 
+pub fn update_password_masks(
+    mut text_input_query: Query<(&mut TextInputBuffer, &mut TextInputPasswordMask)>,
+    mut cosmic_font_system: ResMut<CosmicFontSystem>,
+) {
+    let font_system = &mut cosmic_font_system.0;
+    for (mut buffer, mut mask) in text_input_query.iter_mut() {
+        if buffer.is_changed() || mask.is_changed() {
+            buffer.editor.shape_as_needed(font_system, false);
+            let mask_text: String = buffer.get_text().chars().map(|_| mask.mask_char).collect();
+            mask.editor = buffer.editor.clone();
+            let mut editor = mask.editor.borrow_with(font_system);
+            let selection = editor.selection();
+            let cursor = editor.cursor();
+            editor.action(Action::Motion(Motion::BufferStart));
+            let start = editor.cursor();
+            editor.set_selection(Selection::Normal(start));
+            editor.action(Action::Motion(Motion::BufferEnd));
+            editor.action(Action::Delete);
+            editor.insert_string(&mask_text, None);
+            editor.set_selection(selection);
+            editor.set_cursor(cursor);
+            editor.set_redraw(true);
+        }
+    }
+}
+
 /// Update text input buffers
 pub fn update_text_input_layouts(
     mut textures: ResMut<Assets<Image>>,
@@ -510,20 +552,25 @@ pub fn update_text_input_layouts(
         &mut TextLayoutInfo,
         &mut TextInputBuffer,
         &mut TextInputAttributes,
+        Option<&mut TextInputPasswordMask>,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
 ) {
-    info_once!(" update_text_input_layouts");
+    info!(" update_text_input_layouts");
     let font_system = &mut font_system.0;
-    for (mut layout_info, mut buffer, attributes) in text_query.iter_mut() {
-        let editor = &mut buffer.editor;
-        let selection = editor.selection_bounds();
+    for (mut layout_info, mut buffer, attributes, mut maybe_password_mask) in text_query.iter_mut()
+    {
+        let editor = if let Some(password_mask) = maybe_password_mask.as_mut() {
+            &mut password_mask.bypass_change_detection().editor
+        } else {
+            &mut buffer.editor
+        };
         editor.shape_as_needed(font_system, false);
+        let selection = editor.selection_bounds();
 
         if editor.redraw() {
-            //info!("** redraw editor **");
             layout_info.glyphs.clear();
             layout_info.section_rects.clear();
             layout_info.selection_rects.clear();
@@ -531,7 +578,6 @@ pub fn update_text_input_layouts(
 
             let result = editor.with_buffer_mut(|buffer| {
                 let box_size = buffer_dimensions(buffer);
-                //info!("box_size = {}", box_size);
                 if let Some((x, y)) = cursor_position {
                     let line_height = buffer.metrics().line_height;
 

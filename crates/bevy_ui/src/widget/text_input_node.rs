@@ -43,6 +43,7 @@ use bevy_text::TextInputActions;
 use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
 use bevy_text::TextInputHistory;
+use bevy_text::TextInputPasswordMask;
 use bevy_text::TextInputSystems;
 use bevy_text::TextInputTarget;
 use bevy_text::TextLayout;
@@ -109,7 +110,8 @@ pub struct TextInputOverwriteMode(pub bool);
     TextCursorStyle,
     TextLayoutInfo,
     TextCursorBlinkTimer,
-    TextInputHistory
+    TextInputHistory,
+    TextInputPasswordMask
 )]
 #[component(
     on_add = on_add_text_input_node,
