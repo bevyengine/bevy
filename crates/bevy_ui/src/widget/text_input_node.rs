@@ -47,7 +47,6 @@ use bevy_text::TextInputSystems;
 use bevy_text::TextInputTarget;
 use bevy_text::TextLayout;
 use bevy_text::TextLayoutInfo;
-use bevy_text::TextPipeline;
 use bevy_time::Time;
 use tracing::info;
 

@@ -2,22 +2,28 @@
 
 use std::collections::VecDeque;
 
+use crate::buffer_dimensions;
+use crate::load_font_to_fontdb;
+use crate::CosmicFontSystem;
+use crate::Font;
+use crate::FontAtlasSets;
+use crate::FontSmoothing;
+use crate::Justify;
+use crate::LineBreak;
+use crate::LineHeight;
+use crate::PositionedGlyph;
+use crate::TextError;
+use crate::TextLayoutInfo;
+use crate::TextPipeline;
 use bevy_app::Plugin;
 use bevy_app::PostUpdate;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
-use bevy_color::palettes::tailwind::GRAY_400;
-use bevy_color::Color;
-use bevy_derive::Deref;
-use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
-use bevy_ecs::query::Changed;
-use bevy_ecs::query::Or;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::schedule::SystemSet;
-use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
@@ -39,26 +45,6 @@ use cosmic_text::Metrics;
 pub use cosmic_text::Motion;
 use cosmic_text::Selection;
 use cosmic_text::SwashCache;
-use cosmic_text::Wrap;
-use tracing::info;
-
-use crate::buffer_dimensions;
-use crate::input;
-use crate::load_font_to_fontdb;
-use crate::CosmicFontSystem;
-use crate::Font;
-use crate::FontAtlas;
-use crate::FontAtlasSets;
-use crate::FontSmoothing;
-use crate::Justify;
-use crate::LineBreak;
-use crate::LineHeight;
-use crate::PositionedGlyph;
-use crate::TextBounds;
-use crate::TextError;
-use crate::TextFont;
-use crate::TextLayoutInfo;
-use crate::TextPipeline;
 
 pub struct TextInputPlugin;
 
@@ -165,7 +151,6 @@ pub struct TextInputActions {
 
 impl TextInputActions {
     pub fn queue(&mut self, command: TextInputAction) {
-        info!("queue action: {:?}", command);
         self.queue.push_back(command);
     }
 }
@@ -431,7 +416,6 @@ pub fn apply_text_input_actions(
                 .filter(|change| !change.items.is_empty())
             {
                 if let Some(undo) = maybe_history.as_mut() {
-                    info!("push change");
                     undo.changes.push(change);
                 }
 
