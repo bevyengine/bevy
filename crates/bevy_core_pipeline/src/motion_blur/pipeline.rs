@@ -1,3 +1,4 @@
+use crate::FullscreenShader;
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{
     component::Component,
@@ -16,16 +17,14 @@ use bevy_render::{
             texture_depth_2d_multisampled, uniform_buffer_sized,
         },
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
-        ColorWrites, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderDefVal, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, ViewTarget},
 };
-
-use crate::FullscreenShader;
+use bevy_utils::default;
 
 use super::MotionBlurUniform;
 
@@ -139,7 +138,6 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -149,12 +147,9 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

@@ -60,6 +60,14 @@ pub const SLIDER_TEXT_DISABLED: &str = "feathers.slider.text.disabled";
 
 // Checkbox
 
+/// Checkbox background around the checkmark
+pub const CHECKBOX_BG: &str = "feathers.checkbox.bg";
+/// Checkbox border around the checkmark (disabled)
+pub const CHECKBOX_BG_DISABLED: &str = "feathers.checkbox.bg.disabled";
+/// Checkbox background around the checkmark
+pub const CHECKBOX_BG_CHECKED: &str = "feathers.checkbox.bg.checked";
+/// Checkbox border around the checkmark (disabled)
+pub const CHECKBOX_BG_CHECKED_DISABLED: &str = "feathers.checkbox.bg.checked.disabled";
 /// Checkbox border around the checkmark
 pub const CHECKBOX_BORDER: &str = "feathers.checkbox.border";
 /// Checkbox border around the checkmark (hovered)
@@ -74,3 +82,41 @@ pub const CHECKBOX_MARK_DISABLED: &str = "feathers.checkbox.mark.disabled";
 pub const CHECKBOX_TEXT: &str = "feathers.checkbox.text";
 /// Checkbox label text (disabled)
 pub const CHECKBOX_TEXT_DISABLED: &str = "feathers.checkbox.text.disabled";
+
+// Radio button
+
+/// Radio border around the checkmark
+pub const RADIO_BORDER: &str = "feathers.radio.border";
+/// Radio border around the checkmark (hovered)
+pub const RADIO_BORDER_HOVER: &str = "feathers.radio.border.hover";
+/// Radio border around the checkmark (disabled)
+pub const RADIO_BORDER_DISABLED: &str = "feathers.radio.border.disabled";
+/// Radio check mark
+pub const RADIO_MARK: &str = "feathers.radio.mark";
+/// Radio check mark (disabled)
+pub const RADIO_MARK_DISABLED: &str = "feathers.radio.mark.disabled";
+/// Radio label text
+pub const RADIO_TEXT: &str = "feathers.radio.text";
+/// Radio label text (disabled)
+pub const RADIO_TEXT_DISABLED: &str = "feathers.radio.text.disabled";
+
+// Toggle Switch
+
+/// Switch background around the checkmark
+pub const SWITCH_BG: &str = "feathers.switch.bg";
+/// Switch border around the checkmark (disabled)
+pub const SWITCH_BG_DISABLED: &str = "feathers.switch.bg.disabled";
+/// Switch background around the checkmark
+pub const SWITCH_BG_CHECKED: &str = "feathers.switch.bg.checked";
+/// Switch border around the checkmark (disabled)
+pub const SWITCH_BG_CHECKED_DISABLED: &str = "feathers.switch.bg.checked.disabled";
+/// Switch border around the checkmark
+pub const SWITCH_BORDER: &str = "feathers.switch.border";
+/// Switch border around the checkmark (hovered)
+pub const SWITCH_BORDER_HOVER: &str = "feathers.switch.border.hover";
+/// Switch border around the checkmark (disabled)
+pub const SWITCH_BORDER_DISABLED: &str = "feathers.switch.border.disabled";
+/// Switch slide
+pub const SWITCH_SLIDE: &str = "feathers.switch.slide";
+/// Switch slide (disabled)
+pub const SWITCH_SLIDE_DISABLED: &str = "feathers.switch.slide.disabled";
