@@ -98,7 +98,9 @@ impl Specializable for ComputePipeline {
 /// ```rust
 /// # use bevy_ecs::error::BevyError;
 /// # use bevy_render::render_resource::Specializer;
+/// # use bevy_render_macros::Specializer;
 /// # use bevy_render::render_resource::SpecializerKey;
+/// # use bevy_render_macros::SpecializerKey;
 /// # use bevy_render::render_resource::RenderPipeline;
 /// # use bevy_render::render_resource::RenderPipelineDescriptor;
 /// struct A;
@@ -109,7 +111,7 @@ impl Specializable for ComputePipeline {
 /// impl Specializer<RenderPipeline> for A {
 ///     type Key = ();
 ///
-///     fn specializer(
+///     fn specialize(
 ///         &self,
 ///         key: (),
 ///         descriptor: &mut RenderPipelineDescriptor
@@ -276,6 +278,8 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 /// ```rust
 /// # use bevy_ecs::error::BevyError;
 /// # use bevy_render::render_resource::Specializer;
+/// # use bevy_render_macros::Specializer;
+/// # use bevy_render::render_resource::GetBaseDescriptor;
 /// # use bevy_render::render_resource::SpecializerKey;
 /// # use bevy_render::render_resource::RenderPipeline;
 /// # use bevy_render::render_resource::RenderPipelineDescriptor;
@@ -288,10 +292,8 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 /// #   fn specialize(
 /// #       &self,
 /// #       key: (),
-/// #       descriptor: &mut RenderPipelineDescriptor
+/// #       _descriptor: &mut RenderPipelineDescriptor
 /// #   ) -> Result<(), BevyError> {
-/// #       let _ = (key, descriptor);
-/// #       // mutate the descriptor here
 /// #       Ok(key)
 /// #   }
 ///     // ...
@@ -303,10 +305,8 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 /// #   fn specialize(
 /// #       &self,
 /// #       key: (),
-/// #       descriptor: &mut RenderPipelineDescriptor
+/// #       _descriptor: &mut RenderPipelineDescriptor
 /// #   ) -> Result<(), BevyError> {
-/// #       let _ = (key, descriptor);
-/// #       // mutate the descriptor here
 /// #       Ok(key)
 /// #   }
 ///     // ...
@@ -323,7 +323,6 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 /// #[derive(Specializer)]
 /// #[specialize(RenderPipeline)]
 /// struct C {
-///     #[key(default)]
 ///     a: A,
 ///     #[base_descriptor]
 ///     b: B,
