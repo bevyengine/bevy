@@ -482,7 +482,6 @@ impl<'a> ReflectMeta<'a> {
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
-            self,
             where_clause_options,
             None,
             Option::<core::iter::Empty<&Type>>::None,
@@ -599,7 +598,6 @@ impl<'a> ReflectStruct<'a> {
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
-            self.meta(),
             where_clause_options,
             self.serialization_data(),
             Some(self.active_types().iter()),
@@ -880,7 +878,6 @@ impl<'a> ReflectEnum<'a> {
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
-            self.meta(),
             where_clause_options,
             None,
             Some(self.active_fields().map(StructField::reflected_type)),

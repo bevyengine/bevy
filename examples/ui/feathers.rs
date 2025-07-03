@@ -4,7 +4,8 @@ use bevy::{
     core_widgets::{Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugin, SliderStep},
     feathers::{
         controls::{
-            button, checkbox, radio, slider, ButtonProps, ButtonVariant, CheckboxProps, SliderProps,
+            button, checkbox, radio, slider, toggle_switch, ButtonProps, ButtonVariant,
+            CheckboxProps, SliderProps, ToggleSwitchProps,
         },
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
@@ -219,6 +220,36 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         radio(
                             InteractionDisabled,
                             Spawn((Text::new("Disabled"), ThemedText))
+                        ),
+                    ]
+                ),
+                (
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Start,
+                        column_gap: Val::Px(8.0),
+                        ..default()
+                    },
+                    children![
+                        toggle_switch(
+                            ToggleSwitchProps {
+                                on_change: Callback::Ignore,
+                            },
+                            (),
+                        ),
+                        toggle_switch(
+                            ToggleSwitchProps {
+                                on_change: Callback::Ignore,
+                            },
+                            InteractionDisabled,
+                        ),
+                        toggle_switch(
+                            ToggleSwitchProps {
+                                on_change: Callback::Ignore,
+                            },
+                            (InteractionDisabled, Checked),
                         ),
                     ]
                 ),
