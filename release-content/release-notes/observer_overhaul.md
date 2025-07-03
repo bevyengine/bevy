@@ -45,3 +45,7 @@ This was handy! We've enabled this functionality for all entity-events: simply c
 
 The name of the Observer's system is now accessible through `Observer::system_name`,
 this opens up the possibility for the debug tools to show more meaningful names for observers.
+
+## ComponentId -> EventKey
+
+TODO!
