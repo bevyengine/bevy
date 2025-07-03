@@ -257,6 +257,7 @@ macro_rules! impl_specialization_key_tuple {
     };
 }
 
+// TODO: How to we fake_variadics this?
 all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 
 /// Defines a specializer that can also provide a "base descriptor".
