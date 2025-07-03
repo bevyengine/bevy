@@ -419,7 +419,7 @@ fn impl_get_base_descriptor_specific(
     TokenStream::from(quote!(
         impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
             fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
-                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
+                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::get_base_descriptor(&self.#field_member)
             }
         }
     ))
@@ -450,7 +450,7 @@ fn impl_get_base_descriptor_all(
     TokenStream::from(quote! {
         impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
             fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
-                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
+                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::get_base_descriptor(&self.#field_member)
             }
         }
     })
