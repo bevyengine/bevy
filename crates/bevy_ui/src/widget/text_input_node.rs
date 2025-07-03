@@ -211,24 +211,15 @@ pub struct TextInputMultiClickCounter {
 
 fn on_text_input_pressed(
     trigger: On<Pointer<Press>>,
-    mut node_query: Query<(
-        &ComputedNode,
-        &UiGlobalTransform,
-        &mut TextInputBuffer,
-        &TextInputNode,
-        &mut TextInputActions,
-    )>,
-    mut text_input_pipeline: ResMut<TextPipeline>,
+    mut node_query: Query<(&ComputedNode, &UiGlobalTransform, &mut TextInputActions)>,
     mut input_focus: ResMut<InputFocus>,
     ui_scale: Res<UiScale>,
 ) {
-    info!("text input pressed observer");
     if trigger.button != PointerButton::Primary {
         return;
     }
 
-    let Ok((node, transform, mut buffer, input, mut edits)) = node_query.get_mut(trigger.target())
-    else {
+    let Ok((node, transform, mut actions)) = node_query.get_mut(trigger.target()) else {
         return;
     };
 
@@ -240,19 +231,12 @@ fn on_text_input_pressed(
         / ui_scale.0
         - rect.min;
 
-    edits.queue(TextInputAction::Click(position.as_ivec2()));
+    actions.queue(TextInputAction::Click(position.as_ivec2()));
 }
 
 fn on_text_input_dragged(
     trigger: On<Pointer<Drag>>,
-    mut node_query: Query<(
-        &ComputedNode,
-        &UiGlobalTransform,
-        &mut TextInputBuffer,
-        &TextInputNode,
-        &mut TextInputActions,
-    )>,
-    mut text_input_pipeline: ResMut<TextPipeline>,
+    mut node_query: Query<(&ComputedNode, &UiGlobalTransform, &mut TextInputActions)>,
     input_focus: Res<InputFocus>,
 ) {
     if trigger.button != PointerButton::Primary {
@@ -266,8 +250,7 @@ fn on_text_input_dragged(
         return;
     }
 
-    let Ok((node, transform, mut buffer, input, mut edits)) = node_query.get_mut(trigger.target())
-    else {
+    let Ok((node, transform, mut actions)) = node_query.get_mut(trigger.target()) else {
         return;
     };
 
@@ -281,30 +264,21 @@ fn on_text_input_dragged(
         y: position.y as i32,
     };
 
-    edits.queue(TextInputAction::Drag(target));
+    actions.queue(TextInputAction::Drag(target));
 }
 
 fn on_multi_click_set_selection(
     click: On<Pointer<Click>>,
     time: Res<Time>,
-    mut text_input_nodes: Query<(
-        &TextInputNode,
-        &mut TextInputActions,
-        &mut TextInputBuffer,
-        &UiGlobalTransform,
-        &ComputedNode,
-    )>,
+    mut text_input_nodes: Query<(&ComputedNode, &UiGlobalTransform, &mut TextInputActions)>,
     mut multi_click_datas: Query<&mut TextInputMultiClickCounter>,
-    mut text_pipeline: ResMut<TextPipeline>,
     mut commands: Commands,
 ) {
     if click.button != PointerButton::Primary {
         return;
     }
 
-    let Ok((input, mut edits, mut buffer, transform, node)) =
-        text_input_nodes.get_mut(click.target())
-    else {
+    let Ok((node, transform, mut actions)) = text_input_nodes.get_mut(click.target()) else {
         return;
     };
 
@@ -326,11 +300,11 @@ fn on_multi_click_set_selection(
                     multi_click_data.click_count += 1;
                     multi_click_data.last_click_time = now;
 
-                    edits.queue(TextInputAction::DoubleClick(position.as_ivec2()));
+                    actions.queue(TextInputAction::DoubleClick(position.as_ivec2()));
                     return;
                 }
                 2 => {
-                    edits.queue(TextInputAction::TripleClick(position.as_ivec2()));
+                    actions.queue(TextInputAction::TripleClick(position.as_ivec2()));
                     if let Ok(mut entity) = commands.get_entity(click.target()) {
                         entity.try_remove::<TextInputMultiClickCounter>();
                     }
@@ -359,7 +333,7 @@ fn on_focused_keyboard_input(
     mut query: Query<(&TextInputNode, &mut TextInputActions)>,
     mut modifiers: ResMut<TextInputModifiers>,
 ) {
-    if let Ok((input, mut actions)) = query.get_mut(trigger.target()) {
+    if let Ok((_input, mut actions)) = query.get_mut(trigger.target()) {
         let keyboard_input = &trigger.event().input;
         match keyboard_input.logical_key {
             Key::Shift => {
