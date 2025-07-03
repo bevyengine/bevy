@@ -202,7 +202,6 @@
 //!
 //! This should return you something like the below (in a larger list):
 //! ```json
-//!
 //! {
 //!      "components": {
 //!        "bevy_core_pipeline::core_3d::camera_3d::Camera3d": {
