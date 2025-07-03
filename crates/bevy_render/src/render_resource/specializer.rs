@@ -157,7 +157,7 @@ impl Specializable for ComputePipeline {
 /// */
 /// ```
 ///
-/// The key type for a composed specializer will be tuple of the keys
+/// The key type for a composed specializer will be a tuple of the keys
 /// of each field, and their specialization logic will be applied in field
 /// order. Since derive macros can't have generic parameters, the derive macro
 /// requires an additional `#[specialize(..targets)]` attribute to specify a
