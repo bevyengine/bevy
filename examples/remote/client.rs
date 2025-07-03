@@ -66,7 +66,7 @@ fn run_query_all_components_and_entities(url: &str) -> Result<(), anyhow::Error>
         .send_json(query_all_req)?
         .body_mut()
         .read_json::<serde_json::Value>()?;
-    println!("{query_all_res:#}");
+    info!("{query_all_res:#}");
     Ok(())
 }
 
