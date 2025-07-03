@@ -61,7 +61,7 @@ fn run_query_all_components_and_entities(url: &str) -> Result<(), anyhow::Error>
             .expect("Unable to convert query parameters to a valid JSON value"),
         ),
     };
-    println!("query_all req: {query_all_req:#?}");
+    info!("query_all req: {query_all_req:#?}");
     let query_all_res = ureq::post(url)
         .send_json(query_all_req)?
         .body_mut()
