@@ -239,7 +239,7 @@ macro_rules! guard {
     };
 }
 
-pub fn impl_specialize(input: TokenStream) -> TokenStream {
+pub fn impl_specializer(input: TokenStream) -> TokenStream {
     let bevy_render_path: Path = crate::bevy_render_path();
     let specialize_path = {
         let mut path = bevy_render_path.clone();

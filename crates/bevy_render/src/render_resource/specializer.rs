@@ -18,7 +18,7 @@ use core::{hash::Hash, marker::PhantomData};
 use tracing::error;
 use variadics_please::all_tuples;
 
-pub use bevy_render_macros::{Specialize, SpecializerKey};
+pub use bevy_render_macros::{Specializer, SpecializerKey};
 
 /// Defines a type that is able to be "specialized" and cached by creating and transforming
 /// its descriptor type. This is implemented for [`RenderPipeline`] and [`ComputePipeline`], and
@@ -98,9 +98,7 @@ impl Specializable for ComputePipeline {
 /// ```rust
 /// # use bevy_ecs::error::BevyError;
 /// # use bevy_render::render_resource::Specializer;
-/// # use bevy_render_macros::Specializer;
 /// # use bevy_render::render_resource::SpecializerKey;
-/// # use bevy_render_macros::SpecializerKey;
 /// # use bevy_render::render_resource::RenderPipeline;
 /// # use bevy_render::render_resource::RenderPipelineDescriptor;
 /// struct A;
@@ -116,7 +114,7 @@ impl Specializable for ComputePipeline {
 ///         key: (),
 ///         descriptor: &mut RenderPipelineDescriptor
 ///     ) -> Result<(), BevyError>  {
-/// #       let _ = (key, descriptor);
+/// #       let _ = descriptor;
 ///         // mutate the descriptor here
 ///         Ok(key)
 ///     }
@@ -130,7 +128,7 @@ impl Specializable for ComputePipeline {
 ///         key: BKey,
 ///         descriptor: &mut RenderPipelineDescriptor
 ///     ) -> Result<BKey, BevyError> {
-/// #       let _ = (key, descriptor);
+/// #       let _ = descriptor;
 ///         // mutate the descriptor here
 ///         Ok(key)
 ///     }
@@ -278,7 +276,6 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 /// ```rust
 /// # use bevy_ecs::error::BevyError;
 /// # use bevy_render::render_resource::Specializer;
-/// # use bevy_render_macros::Specializer;
 /// # use bevy_render::render_resource::GetBaseDescriptor;
 /// # use bevy_render::render_resource::SpecializerKey;
 /// # use bevy_render::render_resource::RenderPipeline;
