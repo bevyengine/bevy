@@ -1,14 +1,17 @@
-use bevy_macro_utils::fq_std::{FQDefault, FQResult};
+use bevy_macro_utils::{
+    fq_std::{FQDefault, FQResult},
+    get_struct_fields,
+};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse,
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote,
+    punctuated::Punctuated,
     spanned::Spanned,
-    Data, DataStruct, DeriveInput, Expr, Fields, Ident, Index, Member, Meta, MetaList, Pat, Path,
-    Token, Type, WherePredicate,
+    DeriveInput, Expr, Field, Ident, Index, Member, Meta, MetaList, Pat, Path, Token, Type,
+    WherePredicate,
 };
 
 const SPECIALIZE_ATTR_IDENT: &str = "specialize";
@@ -91,7 +94,7 @@ impl FieldInfo {
     fn key_ty(&self, specialize_path: &Path, target_path: &Path) -> Option<Type> {
         let ty = &self.ty;
         matches!(self.key, Key::Whole | Key::Index(_))
-            .then_some(parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::Key))
+            .then_some(parse_quote!(<#ty as #specialize_path::Specializer<#target_path>>::Key))
     }
 
     fn key_ident(&self, ident: Ident) -> Option<Ident> {
@@ -103,15 +106,15 @@ impl FieldInfo {
             ty, member, key, ..
         } = &self;
         let key_expr = key.expr();
-        parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::specialize(&self.#member, #key_expr, descriptor))
+        parse_quote!(<#ty as #specialize_path::Specializer<#target_path>>::specialize(&self.#member, #key_expr, descriptor))
     }
 
     fn specialize_predicate(&self, specialize_path: &Path, target_path: &Path) -> WherePredicate {
         let ty = &self.ty;
         if matches!(&self.key, Key::Default) {
-            parse_quote!(#ty: #specialize_path::Specialize<#target_path, Key: #FQDefault>)
+            parse_quote!(#ty: #specialize_path::Specializer<#target_path, Key: #FQDefault>)
         } else {
-            parse_quote!(#ty: #specialize_path::Specialize<#target_path>)
+            parse_quote!(#ty: #specialize_path::Specializer<#target_path>)
         }
     }
 
@@ -125,7 +128,10 @@ impl FieldInfo {
     }
 }
 
-fn get_field_info(fields: &Fields, targets: &SpecializeImplTargets) -> syn::Result<Vec<FieldInfo>> {
+fn get_field_info(
+    fields: &Punctuated<Field, Token![,]>,
+    targets: &SpecializeImplTargets,
+) -> syn::Result<Vec<FieldInfo>> {
     let mut field_info: Vec<FieldInfo> = Vec::new();
     let mut used_count = 0;
     let mut single_index = 0;
@@ -153,7 +159,7 @@ fn get_field_info(fields: &Fields, targets: &SpecializeImplTargets) -> syn::Resu
                 }
                 Meta::List(MetaList { path, tokens, .. }) if path.is_ident(&KEY_ATTR_IDENT) => {
                     let owned_tokens = tokens.clone().into();
-                    let Ok(parsed_key) = parse::<Key>(owned_tokens) else {
+                    let Ok(parsed_key) = syn::parse::<Key>(owned_tokens) else {
                         return Err(syn::Error::new(
                             attr.span(),
                             "Invalid key override attribute",
@@ -195,20 +201,6 @@ fn get_field_info(fields: &Fields, targets: &SpecializeImplTargets) -> syn::Resu
     Ok(field_info)
 }
 
-fn get_struct_fields<'a>(ast: &'a DeriveInput, derive_name: &str) -> syn::Result<&'a Fields> {
-    match &ast.data {
-        Data::Struct(DataStruct { fields, .. }) => Ok(fields),
-        Data::Enum(data_enum) => Err(syn::Error::new(
-            data_enum.enum_token.span(),
-            format!("#[derive({derive_name})] only supports structs."),
-        )),
-        Data::Union(data_union) => Err(syn::Error::new(
-            data_union.union_token.span(),
-            format!("#[derive({derive_name})] only supports structs."),
-        )),
-    }
-}
-
 fn get_specialize_targets(
     ast: &DeriveInput,
     derive_name: &str,
@@ -227,7 +219,7 @@ fn get_specialize_targets(
             format!("#[derive({derive_name})] must be accompanied by #[specialize(..targets)].\n Example usages: #[specialize(RenderPipeline)], #[specialize(all)]")
         ));
     };
-    parse::<SpecializeImplTargets>(specialize_meta_list.tokens.clone().into())
+    syn::parse::<SpecializeImplTargets>(specialize_meta_list.tokens.clone().into())
 }
 
 macro_rules! guard {
@@ -239,7 +231,7 @@ macro_rules! guard {
     };
 }
 
-pub fn impl_specialize(input: TokenStream) -> TokenStream {
+pub fn impl_specializer(input: TokenStream) -> TokenStream {
     let bevy_render_path: Path = crate::bevy_render_path();
     let specialize_path = {
         let mut path = bevy_render_path.clone();
@@ -250,8 +242,8 @@ pub fn impl_specialize(input: TokenStream) -> TokenStream {
     let ecs_path = crate::bevy_ecs_path();
 
     let ast = parse_macro_input!(input as DeriveInput);
-    let targets = guard!(get_specialize_targets(&ast, "Specialize"));
-    let fields = guard!(get_struct_fields(&ast, "Specialize"));
+    let targets = guard!(get_specialize_targets(&ast, "Specializer"));
+    let fields = guard!(get_struct_fields(&ast.data, "Specializer"));
     let field_info = guard!(get_field_info(fields, &targets));
 
     let key_idents: Vec<Option<Ident>> = field_info
@@ -362,7 +354,7 @@ fn impl_specialize_all(
     let (impl_generics, _, where_clause) = &generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics #specialize_path::Specialize<#target_path> for #struct_name #type_generics #where_clause {
+        impl #impl_generics #specialize_path::Specializer<#target_path> for #struct_name #type_generics #where_clause {
             type Key = (#(#key_elems),*);
 
             fn specialize(
@@ -399,7 +391,7 @@ fn impl_specialize_specific(
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics #specialize_path::Specialize<#target_path> for #struct_name #type_generics #where_clause {
+        impl #impl_generics #specialize_path::Specializer<#target_path> for #struct_name #type_generics #where_clause {
             type Key = (#(#key_elems),*);
 
             fn specialize(
@@ -427,7 +419,7 @@ fn impl_get_base_descriptor_specific(
     TokenStream::from(quote!(
         impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
             fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
-                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
+                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::get_base_descriptor(&self.#field_member)
             }
         }
     ))
@@ -458,7 +450,7 @@ fn impl_get_base_descriptor_all(
     TokenStream::from(quote! {
         impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
             fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
-                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::base_descriptor(&self.#field_member)
+                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::get_base_descriptor(&self.#field_member)
             }
         }
     })
