@@ -82,12 +82,12 @@ impl TryFrom<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
         if let Some(s) = reg.data::<ReflectJsonSchema>() {
             return Ok(s.0.clone());
         }
-        let (_, mut typed_schema) = TypeInformation::from(reg)
+        let mut schema: JsonSchemaBevyType = TypeInformation::from(reg)
             .to_schema_type_info()
-            .to_definition();
-
-        typed_schema.reflect_type_data = metadata.get_registered_reflect_types(reg);
-        Ok(typed_schema)
+            .to_definition()
+            .into();
+        schema.reflect_type_data = metadata.get_registered_reflect_types(reg);
+        Ok(schema)
     }
 }
 
