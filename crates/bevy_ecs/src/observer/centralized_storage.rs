@@ -37,11 +37,11 @@ pub struct Observers {
     remove: CachedObservers,
     despawn: CachedObservers,
     // Map from trigger type to set of observers listening to that trigger
-    cache: HashMap<ComponentId, CachedObservers>,
+    cache: HashMap<EventKey, CachedObservers>,
 }
 
 impl Observers {
-    pub(crate) fn get_observers_mut(&mut self, event_type: ComponentId) -> &mut CachedObservers {
+    pub(crate) fn get_observers_mut(&mut self, event_type: EventKey) -> &mut CachedObservers {
         use crate::lifecycle::*;
 
         match event_type {
@@ -57,8 +57,8 @@ impl Observers {
     /// Attempts to get the observers for the given `event_type`.
     ///
     /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Replace`], [`Remove`], and [`Despawn`],
-    /// use the [`ComponentId`] constants from the [`lifecycle`](crate::lifecycle) module.
-    pub fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
+    /// use the [`EventKey`] constants from the [`lifecycle`](crate::lifecycle) module.
+    pub fn try_get_observers(&self, event_type: EventKey) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 
         match event_type {
@@ -74,7 +74,7 @@ impl Observers {
     /// This will run the observers of the given `event_type`, targeting the given `entity` and `components`.
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
-        event_type: ComponentId,
+        event_type: EventKey,
         current_target: Option<Entity>,
         original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
@@ -145,7 +145,7 @@ impl Observers {
         });
     }
 
-    pub(crate) fn is_archetype_cached(event_type: ComponentId) -> Option<ArchetypeFlags> {
+    pub(crate) fn is_archetype_cached(event_type: EventKey) -> Option<ArchetypeFlags> {
         use crate::lifecycle::*;
 
         match event_type {
