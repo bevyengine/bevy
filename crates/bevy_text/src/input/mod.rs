@@ -40,11 +40,9 @@ use cosmic_text::BorrowedWithFontSystem;
 use cosmic_text::Buffer;
 use cosmic_text::Edit;
 use cosmic_text::Editor;
-use cosmic_text::FontSystem;
 use cosmic_text::Metrics;
 pub use cosmic_text::Motion;
 use cosmic_text::Selection;
-use cosmic_text::SwashCache;
 
 pub struct TextInputPlugin;
 

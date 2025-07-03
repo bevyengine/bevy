@@ -54,27 +54,24 @@ pub struct TextInputNodePlugin;
 
 impl Plugin for TextInputNodePlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.init_resource::<TextInputModifiers>().add_systems(
-            PostUpdate,
-            (update_targets, update_attributes, update_cursor_visibility)
-                .after(UiSystems::Layout)
-                .before(TextInputSystems)
-                .before(bevy_text::update_text_input_buffers),
-        );
+        app.init_resource::<TextInputModifiers>()
+            .init_resource::<TextInputOverwriteMode>()
+            .add_systems(
+                PostUpdate,
+                (update_targets, update_attributes, update_cursor_visibility)
+                    .after(UiSystems::Layout)
+                    .before(TextInputSystems)
+                    .before(bevy_text::update_text_input_buffers),
+            );
     }
 }
 
 fn update_targets(mut text_input_node_query: Query<(&ComputedNode, &mut TextInputTarget)>) {
-    bevy_log::info_once!("update targets");
     for (node, mut target) in text_input_node_query.iter_mut() {
         let new_target = TextInputTarget {
             size: node.size(),
             scale_factor: node.inverse_scale_factor.recip(),
         };
-
-        if new_target != *target {
-            info!("new target = {:#?}", new_target);
-        }
 
         target.set_if_neq(new_target);
     }
@@ -94,6 +91,9 @@ fn update_attributes(
         });
     }
 }
+
+#[derive(Resource, Default)]
+pub struct TextInputOverwriteMode(pub bool);
 
 /// Main text input component
 #[derive(Component, Debug, Default)]
@@ -331,6 +331,7 @@ fn on_focused_keyboard_input(
     trigger: On<FocusedInput<KeyboardInput>>,
     mut query: Query<(&TextInputNode, &mut TextInputActions)>,
     mut modifiers: ResMut<TextInputModifiers>,
+    mut overwrite_mode: ResMut<TextInputOverwriteMode>,
 ) {
     if let Ok((_input, mut actions)) = query.get_mut(trigger.target()) {
         let keyboard_input = &trigger.event().input;
@@ -435,7 +436,11 @@ fn on_focused_keyboard_input(
                             " ".chars()
                         };
                         for char in str {
-                            actions.queue(TextInputAction::Insert(char));
+                            actions.queue(if overwrite_mode.0 {
+                                TextInputAction::Overwrite(char)
+                            } else {
+                                TextInputAction::Insert(char)
+                            });
                         }
                     }
                     Key::Enter => {
@@ -494,9 +499,12 @@ fn on_focused_keyboard_input(
                         //    }
                     }
                     Key::Insert => {
-                        // if !modifiers.shift {
-                        //     *overwrite_mode = !*overwrite_mode;
-                        // }
+                        if modifiers.shift {
+                            overwrite_mode.0 = !overwrite_mode.0;
+                        } else {
+                            // paste
+                            actions.queue(TextInputAction::Paste);
+                        }
                     }
                     _ => {}
                 }
