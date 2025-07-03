@@ -96,9 +96,11 @@ impl Specializable for ComputePipeline {
 /// compose them together with a single `#[derive]`
 ///
 /// ```rust
-/// # use super::RenderPipeline;
-/// # use super::RenderPipelineDescriptor;
 /// # use bevy_ecs::error::BevyError;
+/// # use bevy_render::render_resource::Specializer;
+/// # use bevy_render::render_resource::SpecializerKey;
+/// # use bevy_render::render_resource::RenderPipeline;
+/// # use bevy_render::render_resource::RenderPipelineDescriptor;
 /// struct A;
 /// struct B;
 /// #[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializerKey)]
@@ -123,7 +125,7 @@ impl Specializable for ComputePipeline {
 ///
 ///     fn specialize(
 ///         &self,
-///         key: Bkey,
+///         key: BKey,
 ///         descriptor: &mut RenderPipelineDescriptor
 ///     ) -> Result<BKey, BevyError> {
 /// #       let _ = (key, descriptor);
@@ -271,29 +273,48 @@ all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 ///
 /// Example:
 /// ```rust
+/// # use bevy_ecs::error::BevyError;
+/// # use bevy_render::render_resource::Specializer;
+/// # use bevy_render::render_resource::SpecializerKey;
+/// # use bevy_render::render_resource::RenderPipeline;
+/// # use bevy_render::render_resource::RenderPipelineDescriptor;
 /// struct A;
 /// struct B;
 ///
 /// impl Specializer<RenderPipeline> for A {
-///     type Key = ();
-///
-///     fn specialize(&self, _key: (), _descriptor: &mut RenderPipelineDescriptor) {
-///         //...
-///     }
+/// #   type Key = ();
+/// #
+/// #   fn specialize(
+/// #       &self,
+/// #       key: (),
+/// #       descriptor: &mut RenderPipelineDescriptor
+/// #   ) -> Result<(), BevyError> {
+/// #       let _ = (key, descriptor);
+/// #       // mutate the descriptor here
+/// #       Ok(key)
+/// #   }
+///     // ...
 /// }
 ///
 /// impl Specializer<RenderPipeline> for B {
-///     type Key = u32;
-///
-///     fn specialize(&self, _key: u32, _descriptor: &mut RenderPipelineDescriptor) {
-///         //...
-///     }
+/// #   type Key = ();
+/// #
+/// #   fn specialize(
+/// #       &self,
+/// #       key: (),
+/// #       descriptor: &mut RenderPipelineDescriptor
+/// #   ) -> Result<(), BevyError> {
+/// #       let _ = (key, descriptor);
+/// #       // mutate the descriptor here
+/// #       Ok(key)
+/// #   }
+///     // ...
 /// }
 ///
 /// impl GetBaseDescriptor<RenderPipeline> for B {
 ///     fn get_base_descriptor(&self) -> RenderPipelineDescriptor {
 /// #       todo!()
-///         //...
+///         // ...
 ///     }
 /// }
 ///
