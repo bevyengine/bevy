@@ -43,7 +43,6 @@ pub(crate) fn impl_get_type_registration<'a>(
     });
 
     quote! {
-        #[allow(unused_mut)]
         impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_path #ty_generics #where_reflect_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
                 let mut registration = #bevy_reflect_path::TypeRegistration::of::<Self>();
