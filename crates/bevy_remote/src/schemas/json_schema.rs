@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::schemas::{
-    reflect_info::{SchemaNumber, TypeReferenceId, TypeReferencePath},
+    reflect_info::{SchemaNumber, TypeInformation, TypeReferenceId, TypeReferencePath},
     ReflectJsonSchema, SchemaTypesMetadata,
 };
 
@@ -82,13 +82,12 @@ impl TryFrom<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
         if let Some(s) = reg.data::<ReflectJsonSchema>() {
             return Ok(s.0.clone());
         }
-        let base_schema = super::reflect_info::build_schema(reg);
+        let (_, mut typed_schema) = TypeInformation::from(reg)
+            .to_schema_type_info()
+            .to_definition();
 
-        let JsonSchemaVariant::Schema(mut typed_schema) = base_schema else {
-            return Err(InvalidJsonSchema::InvalidType);
-        };
         typed_schema.reflect_type_data = metadata.get_registered_reflect_types(reg);
-        Ok(*typed_schema)
+        Ok(typed_schema)
     }
 }
 
@@ -142,7 +141,8 @@ pub struct JsonSchemaBevyType {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub reflect_type_data: Vec<Cow<'static, str>>,
     /// Bevy specific field, [`TypeInfo`] type mapping.
-    pub kind: SchemaKind,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub kind: Option<SchemaKind>,
     /// JSON Schema specific field.
     /// This keyword is used to reference a constant value.
     #[serde(rename = "const")]
@@ -245,7 +245,7 @@ pub struct JsonSchemaBevyType {
     #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     #[reflect(ignore)]
     #[serde(rename = "$defs")]
-    pub definitions: HashMap<TypeReferenceId, Box<JsonSchemaVariant>>,
+    pub definitions: HashMap<TypeReferenceId, JsonSchemaVariant>,
 }
 
 /// Represents different types of JSON Schema values that can be used in schema definitions.
@@ -265,6 +265,12 @@ pub enum JsonSchemaVariant {
     /// This variant contains a complete schema object that defines the structure,
     /// validation rules, and metadata for a particular type or property.
     Schema(#[reflect(ignore)] Box<JsonSchemaBevyType>),
+}
+
+impl From<JsonSchemaBevyType> for JsonSchemaVariant {
+    fn from(value: JsonSchemaBevyType) -> Self {
+        JsonSchemaVariant::Schema(Box::new(value))
+    }
 }
 
 /// Kind of json schema, maps [`TypeInfo`] type
@@ -372,9 +378,7 @@ impl From<TypeId> for SchemaType {
             || value.eq(&TypeId::of::<u64>())
             || value.eq(&TypeId::of::<u128>())
             || value.eq(&TypeId::of::<usize>())
-        {
-            Self::Integer
-        } else if value.eq(&TypeId::of::<i8>())
+            || value.eq(&TypeId::of::<i8>())
             || value.eq(&TypeId::of::<i16>())
             || value.eq(&TypeId::of::<i32>())
             || value.eq(&TypeId::of::<i64>())
@@ -679,12 +683,9 @@ mod tests {
           "additionalProperties": false,
           "properties": {
             "a": {
-              "kind": "Value",
               "maximum": 65535,
               "minimum": 0,
-              "type": "integer",
-              "shortPath": "u16",
-              "typePath": "u16",
+              "type": "integer"
             },
           },
           "required": [
