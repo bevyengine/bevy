@@ -114,7 +114,7 @@ impl Specializable for ComputePipeline {
 ///     ) -> Result<(), BevyError>  {
 /// #       let _ = (key, descriptor);
 ///         // mutate the descriptor here
-///         Ok(())
+///         Ok(key)
 ///     }
 /// }
 ///
@@ -128,7 +128,7 @@ impl Specializable for ComputePipeline {
 ///     ) -> Result<BKey, BevyError> {
 /// #       let _ = (key, descriptor);
 ///         // mutate the descriptor here
-///         Ok(BKey)
+///         Ok(key)
 ///     }
 /// }
 ///
