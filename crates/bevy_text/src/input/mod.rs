@@ -572,7 +572,6 @@ pub fn update_text_input_layouts(
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
 ) {
-    info!(" update_text_input_layouts");
     let font_system = &mut font_system.0;
     for (mut layout_info, mut buffer, attributes, mut maybe_password_mask) in text_query.iter_mut()
     {
