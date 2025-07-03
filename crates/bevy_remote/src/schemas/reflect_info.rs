@@ -524,7 +524,7 @@ impl Serialize for TypeReferencePath {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&format!("{}", self))
+        serializer.serialize_str(&format!("{self}"))
     }
 }
 
@@ -1167,7 +1167,7 @@ impl SchemaTypeInfo {
             };
         let schema_id = id
             .as_ref()
-            .map(|id| Cow::Owned(format!("urn:bevy:{}", id)))
+            .map(|id| Cow::Owned(format!("urn:bevy:{id}")))
             .unwrap_or_default();
         let mut schema = JsonSchemaBevyType {
             id: schema_id,
