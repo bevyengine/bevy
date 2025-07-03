@@ -4,8 +4,9 @@ use bevy::{
     core_widgets::{Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugin, SliderStep},
     feathers::{
         controls::{
-            button, checkbox, radio, slider, toggle_switch, ButtonProps, ButtonVariant,
-            CheckboxProps, SliderProps, ToggleSwitchProps,
+            button, checkbox, color_slider, color_swatch, radio, slider, toggle_switch,
+            ButtonProps, ButtonVariant, CheckboxProps, ColorChannel, ColorSliderProps, SliderProps,
+            ToggleSwitchProps,
         },
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
@@ -261,7 +262,80 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     },
                     SliderStep(10.)
                 ),
-                color_swatch(())
+                (
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Row,
+                        justify_content: JustifyContent::SpaceBetween,
+                        ..default()
+                    },
+                    children![Text("Srgba".to_owned()), color_swatch(()),]
+                ),
+                color_slider(
+                    ColorSliderProps {
+                        value: 0.5,
+                        on_change: Callback::Ignore,
+                        channel: ColorChannel::Red
+                    },
+                    ()
+                ),
+                color_slider(
+                    ColorSliderProps {
+                        value: 0.5,
+                        on_change: Callback::Ignore,
+                        channel: ColorChannel::Green
+                    },
+                    ()
+                ),
+                color_slider(
+                    ColorSliderProps {
+                        value: 0.5,
+                        on_change: Callback::Ignore,
+                        channel: ColorChannel::Blue
+                    },
+                    ()
+                ),
+                color_slider(
+                    ColorSliderProps {
+                        value: 0.5,
+                        on_change: Callback::Ignore,
+                        channel: ColorChannel::Alpha
+                    },
+                    ()
+                ),
+                (
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Row,
+                        justify_content: JustifyContent::SpaceBetween,
+                        ..default()
+                    },
+                    children![Text("Oklcha".to_owned()), color_swatch(()),]
+                ),
+                color_slider(
+                    ColorSliderProps {
+                        value: 0.5,
+                        on_change: Callback::Ignore,
+                        channel: ColorChannel::Hue
+                    },
+                    ()
+                ),
+                color_slider(
+                    ColorSliderProps {
+                        value: 0.5,
+                        on_change: Callback::Ignore,
+                        channel: ColorChannel::Chroma
+                    },
+                    ()
+                ),
+                color_slider(
+                    ColorSliderProps {
+                        value: 0.5,
+                        on_change: Callback::Ignore,
+                        channel: ColorChannel::Lightness
+                    },
+                    ()
+                )
             ]
         ),],
     )
