@@ -4,6 +4,7 @@ use bevy_app::Plugin;
 mod button;
 mod checkbox;
 mod color_swatch;
+mod gradient_slider;
 mod radio;
 mod slider;
 mod toggle_switch;
