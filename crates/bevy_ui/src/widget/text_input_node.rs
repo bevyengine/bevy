@@ -110,8 +110,7 @@ pub struct TextInputOverwriteMode(pub bool);
     TextCursorStyle,
     TextLayoutInfo,
     TextCursorBlinkTimer,
-    TextInputHistory,
-    TextInputPasswordMask
+    TextInputHistory
 )]
 #[component(
     on_add = on_add_text_input_node,
