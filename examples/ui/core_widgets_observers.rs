@@ -3,12 +3,12 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        CoreButton, CoreCheckbox, CoreSlider, CoreSliderThumb, CoreWidgetsPlugin, SliderRange,
-        SliderValue,
+        Callback, CoreButton, CoreCheckbox, CoreSlider, CoreSliderThumb, CoreWidgetsPlugin,
+        SliderRange, SliderValue,
     },
     ecs::system::SystemId,
     input_focus::{
-        tab_navigation::{TabGroup, TabIndex},
+        tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
     },
     picking::hover::Hovered,
@@ -19,7 +19,12 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CoreWidgetsPlugin, InputDispatchPlugin))
+        .add_plugins((
+            DefaultPlugins,
+            CoreWidgetsPlugin,
+            InputDispatchPlugin,
+            TabNavigationPlugin,
+        ))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .insert_resource(DemoWidgetStates { slider_value: 50.0 })
@@ -115,15 +120,15 @@ fn demo_root(
         },
         TabGroup::default(),
         children![
-            button(asset_server, on_click),
-            slider(0.0, 100.0, 50.0, Some(on_change_value)),
-            checkbox(asset_server, "Checkbox", None),
+            button(asset_server, Callback::System(on_click)),
+            slider(0.0, 100.0, 50.0, Callback::System(on_change_value)),
+            checkbox(asset_server, "Checkbox", Callback::Ignore),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
 }
 
-fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
+fn button(asset_server: &AssetServer, on_click: Callback) -> impl Bundle {
     (
         Node {
             width: Val::Px(150.0),
@@ -135,7 +140,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
         },
         DemoButton,
         CoreButton {
-            on_click: Some(on_click),
+            on_activate: on_click,
         },
         Hovered::default(),
         TabIndex(0),
@@ -346,7 +351,7 @@ fn set_button_style(
 }
 
 /// Create a demo slider
-fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) -> impl Bundle {
+fn slider(min: f32, max: f32, value: f32, on_change: Callback<In<f32>>) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -512,7 +517,7 @@ fn thumb_color(disabled: bool, hovered: bool) -> Color {
 fn checkbox(
     asset_server: &AssetServer,
     caption: &str,
-    on_change: Option<SystemId<In<bool>>>,
+    on_change: Callback<In<bool>>,
 ) -> impl Bundle {
     (
         Node {

@@ -7,12 +7,18 @@ use super::{
     MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
     MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
 };
+#[cfg(feature = "serialize")]
+use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
+#[cfg(feature = "serialize")]
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bytemuck::cast_slice;
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::warn;
 use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
@@ -104,7 +110,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
 ///   which means that Bevy would *only* render the "front" of each triangle, which
 ///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
-#[derive(Asset, Debug, Clone, Reflect)]
+#[derive(Asset, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone)]
 pub struct Mesh {
     #[reflect(ignore, clone)]
@@ -206,6 +212,10 @@ impl Mesh {
     /// The format of this attribute is [`VertexFormat::Uint16x4`].
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
+
+    /// The first index that can be used for custom vertex attributes.
+    /// Only the attributes with an index below this are used by Bevy.
+    pub const FIRST_AVAILABLE_CUSTOM_ATTRIBUTE: u64 = 8;
 
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
@@ -1252,6 +1262,133 @@ impl core::ops::Mul<Mesh> for Transform {
     }
 }
 
+/// A version of [`Mesh`] suitable for serializing for short-term transfer.
+///
+/// [`Mesh`] does not implement [`Serialize`] / [`Deserialize`] because it is made with the renderer in mind.
+/// It is not a general-purpose mesh implementation, and its internals are subject to frequent change.
+/// As such, storing a [`Mesh`] on disk is highly discouraged.
+///
+/// But there are still some valid use cases for serializing a [`Mesh`], namely transferring meshes between processes.
+/// To support this, you can create a [`SerializedMesh`] from a [`Mesh`] with [`SerializedMesh::from_mesh`],
+/// and then deserialize it with [`SerializedMesh::deserialize`]. The caveats are:
+/// - The mesh representation is not valid across different versions of Bevy.
+/// - This conversion is lossy. Only the following information is preserved:
+///   - Primitive topology
+///   - Vertex attributes
+///   - Indices
+/// - Custom attributes that were not specified with [`MeshDeserializer::add_custom_vertex_attribute`] will be ignored while deserializing.
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializedMesh {
+    primitive_topology: PrimitiveTopology,
+    attributes: Vec<(MeshVertexAttributeId, SerializedMeshAttributeData)>,
+    indices: Option<Indices>,
+}
+
+#[cfg(feature = "serialize")]
+impl SerializedMesh {
+    /// Create a [`SerializedMesh`] from a [`Mesh`]. See the documentation for [`SerializedMesh`] for caveats.
+    pub fn from_mesh(mesh: Mesh) -> Self {
+        Self {
+            primitive_topology: mesh.primitive_topology,
+            attributes: mesh
+                .attributes
+                .into_iter()
+                .map(|(id, data)| {
+                    (
+                        id,
+                        SerializedMeshAttributeData::from_mesh_attribute_data(data),
+                    )
+                })
+                .collect(),
+            indices: mesh.indices,
+        }
+    }
+
+    /// Create a [`Mesh`] from a [`SerializedMesh`]. See the documentation for [`SerializedMesh`] for caveats.
+    ///
+    /// Use [`MeshDeserializer`] if you need to pass extra options to the deserialization process, such as specifying custom vertex attributes.
+    pub fn into_mesh(self) -> Mesh {
+        MeshDeserializer::default().deserialize(self)
+    }
+}
+
+/// Use to specify extra options when deserializing a [`SerializedMesh`] into a [`Mesh`].
+#[cfg(feature = "serialize")]
+pub struct MeshDeserializer {
+    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+}
+
+#[cfg(feature = "serialize")]
+impl Default for MeshDeserializer {
+    fn default() -> Self {
+        // Written like this so that the compiler can validate that we use all the built-in attributes.
+        // If you just added a new attribute and got a compile error, please add it to this list :)
+        const BUILTINS: [MeshVertexAttribute; Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE as usize] = [
+            Mesh::ATTRIBUTE_POSITION,
+            Mesh::ATTRIBUTE_NORMAL,
+            Mesh::ATTRIBUTE_UV_0,
+            Mesh::ATTRIBUTE_UV_1,
+            Mesh::ATTRIBUTE_TANGENT,
+            Mesh::ATTRIBUTE_COLOR,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+        ];
+        Self {
+            custom_vertex_attributes: BUILTINS
+                .into_iter()
+                .map(|attribute| (attribute.name.into(), attribute))
+                .collect(),
+        }
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl MeshDeserializer {
+    /// Create a new [`MeshDeserializer`].
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a custom vertex attribute to the deserializer. Custom vertex attributes that were not added with this method will be ignored while deserializing.
+    pub fn add_custom_vertex_attribute(
+        &mut self,
+        name: &str,
+        attribute: MeshVertexAttribute,
+    ) -> &mut Self {
+        self.custom_vertex_attributes.insert(name.into(), attribute);
+        self
+    }
+
+    /// Deserialize a [`SerializedMesh`] into a [`Mesh`].
+    ///
+    /// See the documentation for [`SerializedMesh`] for caveats.
+    pub fn deserialize(&self, serialized_mesh: SerializedMesh) -> Mesh {
+        Mesh {
+            attributes:
+                serialized_mesh
+                .attributes
+                .into_iter()
+                .filter_map(|(id, data)| {
+                    let attribute = data.attribute.clone();
+                    let Some(data) =
+                        data.try_into_mesh_attribute_data(&self.custom_vertex_attributes)
+                    else {
+                        warn!(
+                            "Deserialized mesh contains custom vertex attribute {attribute:?} that \
+                            was not specified with `MeshDeserializer::add_custom_vertex_attribute`. Ignoring."
+                        );
+                        return None;
+                    };
+                    Some((id, data))
+                })
+                .collect(),
+            indices: serialized_mesh.indices,
+            ..Mesh::new(serialized_mesh.primitive_topology, RenderAssetUsages::default())
+        }
+    }
+}
+
 /// Error that can occur when calling [`Mesh::merge`].
 #[derive(Error, Debug, Clone)]
 #[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
@@ -1263,6 +1400,8 @@ pub struct MergeMeshError {
 #[cfg(test)]
 mod tests {
     use super::Mesh;
+    #[cfg(feature = "serialize")]
+    use super::SerializedMesh;
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use crate::PrimitiveTopology;
     use bevy_asset::RenderAssetUsages;
@@ -1566,5 +1705,27 @@ mod tests {
             ],
             mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
         );
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn serialize_deserialize_mesh() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [2., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        );
+        mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
+
+        let serialized_mesh = SerializedMesh::from_mesh(mesh.clone());
+        let serialized_string = serde_json::to_string(&serialized_mesh).unwrap();
+        let serialized_mesh_from_string: SerializedMesh =
+            serde_json::from_str(&serialized_string).unwrap();
+        let deserialized_mesh = serialized_mesh_from_string.into_mesh();
+        assert_eq!(mesh, deserialized_mesh);
     }
 }

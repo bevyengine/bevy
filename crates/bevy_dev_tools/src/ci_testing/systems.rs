@@ -21,6 +21,19 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
                 world.send_event(AppExit::Success);
                 info!("Exiting after {} frames. Test successful!", *current_frame);
             }
+            CiTestingEvent::ScreenshotAndExit => {
+                let this_frame = *current_frame;
+                world.spawn(Screenshot::primary_window()).observe(
+                    move |captured: On<bevy_render::view::screenshot::ScreenshotCaptured>,
+                          mut exit_event: EventWriter<AppExit>| {
+                        let path = format!("./screenshot-{this_frame}.png");
+                        save_to_disk(path)(captured);
+                        info!("Exiting. Test successful!");
+                        exit_event.write(AppExit::Success);
+                    },
+                );
+                info!("Took a screenshot at frame {}.", *current_frame);
+            }
             CiTestingEvent::Screenshot => {
                 let path = format!("./screenshot-{}.png", *current_frame);
                 world
@@ -29,7 +42,7 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
                 info!("Took a screenshot at frame {}.", *current_frame);
             }
             CiTestingEvent::NamedScreenshot(name) => {
-                let path = format!("./screenshot-{}.png", name);
+                let path = format!("./screenshot-{name}.png");
                 world
                     .spawn(Screenshot::primary_window())
                     .observe(save_to_disk(path));
