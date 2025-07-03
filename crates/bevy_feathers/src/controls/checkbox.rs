@@ -37,6 +37,10 @@ pub struct CheckboxProps {
     pub on_change: Callback<In<bool>>,
 }
 
+/// Marker for the checkbox frame (contains both checkbox and label)
+#[derive(Component, Default, Clone)]
+struct CheckboxFrame;
+
 /// Marker for the checkbox outline
 #[derive(Component, Default, Clone)]
 struct CheckboxOutline;
@@ -68,6 +72,7 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         CoreCheckbox {
             on_change: props.on_change,
         },
+        CheckboxFrame,
         Hovered::default(),
         CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
@@ -124,7 +129,7 @@ fn update_checkbox_styles(
             &ThemeFontColor,
         ),
         (
-            With<CoreCheckbox>,
+            With<CheckboxFrame>,
             Or<(Changed<Hovered>, Added<Checked>, Added<InteractionDisabled>)>,
         ),
     >,
@@ -173,7 +178,7 @@ fn update_checkbox_styles_remove(
             &Hovered,
             &ThemeFontColor,
         ),
-        With<CoreCheckbox>,
+        With<CheckboxFrame>,
     >,
     q_children: Query<&Children>,
     mut q_outline: Query<(&ThemeBackgroundColor, &ThemeBorderColor), With<CheckboxOutline>>,
