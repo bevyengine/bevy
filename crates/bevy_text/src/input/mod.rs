@@ -457,8 +457,8 @@ pub fn update_text_input_buffers(
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
     for (mut input_buffer, target, attributes) in text_input_query.iter_mut() {
-        if target.is_changed() || attributes.is_changed() {
-            let _ = input_buffer.editor.with_buffer_mut(|buffer| {
+        let _ = input_buffer.editor.with_buffer_mut(|buffer| {
+            if target.is_changed() {
                 let line_height = attributes.line_height.eval(attributes.font_size);
                 let metrics =
                     Metrics::new(attributes.font_size, line_height).scale(target.scale_factor);
@@ -469,6 +469,10 @@ pub fn update_text_input_buffers(
                     Some(target.size.x),
                     Some(target.size.y),
                 );
+                buffer.set_redraw(true);
+            }
+
+            if attributes.is_changed() {
                 buffer.set_wrap(font_system, attributes.line_break.into());
 
                 if !fonts.contains(attributes.font.id()) {
@@ -483,8 +487,7 @@ pub fn update_text_input_buffers(
                     .family(cosmic_text::Family::Name(&face_info.family_name))
                     .stretch(face_info.stretch)
                     .style(face_info.style)
-                    .weight(face_info.weight)
-                    .metrics(metrics);
+                    .weight(face_info.weight);
 
                 let text = buffer
                     .lines
@@ -504,9 +507,10 @@ pub fn update_text_input_buffers(
                 }
 
                 buffer.set_redraw(true);
-                Ok(())
-            });
-        }
+            }
+
+            Ok(())
+        });
     }
 }
 
