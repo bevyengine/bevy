@@ -20,7 +20,7 @@ pub mod reflect_info;
 
 /// Holds mapping of reflect [type data](TypeData) to human-readable type names,
 /// later on used in Bevy Json Schema.
-#[derive(Debug, Resource, Reflect)]
+#[derive(Debug, Resource, Reflect, Clone)]
 #[reflect(Resource)]
 pub struct SchemaTypesMetadata {
     /// Type Data id mapping to human-readable type names.

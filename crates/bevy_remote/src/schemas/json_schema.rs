@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::schemas::{
     reflect_info::{SchemaNumber, TypeInformation, TypeReferenceId, TypeReferencePath},
-    ReflectJsonSchema, SchemaTypesMetadata,
+    SchemaTypesMetadata,
 };
 
 /// Helper trait for converting `TypeRegistration` to `JsonSchemaBevyType`
@@ -43,7 +43,7 @@ impl TypeRegistrySchemaReader for TypeRegistry {
     ) -> Option<JsonSchemaBevyType> {
         let type_reg = self.get(type_id)?;
         let mut schema: JsonSchemaBevyType = (type_reg, extra_info).try_into().ok()?;
-        schema.schema = Some(SchemaMarker::default());
+        schema.schema = Some(SchemaMarker.into());
         schema.default_value = self.try_get_default_value_for_type_id(type_id);
 
         Some(schema)
@@ -79,11 +79,11 @@ impl TryFrom<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
 
     fn try_from(value: (&TypeRegistration, &SchemaTypesMetadata)) -> Result<Self, Self::Error> {
         let (reg, metadata) = value;
-        if let Some(s) = reg.data::<ReflectJsonSchema>() {
-            return Ok(s.0.clone());
-        }
+        // if let Some(s) = reg.data::<ReflectJsonSchema>() {
+        //     return Ok(s.0.clone());
+        // }
         let mut schema: JsonSchemaBevyType = TypeInformation::from(reg)
-            .to_schema_type_info()
+            .to_schema_type_info_with_metadata(metadata)
             .to_definition()
             .into();
         schema.reflect_type_data = metadata.get_registered_reflect_types(reg);
@@ -101,11 +101,21 @@ impl TryFrom<&TypeRegistration> for JsonSchemaBevyType {
 
 /// Identifies the JSON Schema version used in the schema.
 #[derive(Deserialize, Serialize, Debug, Reflect, PartialEq, Clone)]
-pub struct SchemaMarker(Cow<'static, str>);
+pub struct SchemaMarker;
 
-impl Default for SchemaMarker {
-    fn default() -> Self {
-        Self("https://json-schema.org/draft/2020-12/schema".into())
+impl SchemaMarker {
+    const DEFAULT_SCHEMA: &'static str = "https://json-schema.org/draft/2020-12/schema";
+}
+
+impl From<SchemaMarker> for &'static str {
+    fn from(_: SchemaMarker) -> Self {
+        SchemaMarker::DEFAULT_SCHEMA
+    }
+}
+
+impl From<SchemaMarker> for Cow<'static, str> {
+    fn from(_: SchemaMarker) -> Self {
+        Cow::Borrowed(SchemaMarker::DEFAULT_SCHEMA)
     }
 }
 
@@ -116,10 +126,15 @@ impl Default for SchemaMarker {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, Reflect)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonSchemaBevyType {
+    /// JSON Schema specific field.
+    /// This keyword declares an identifier for the schema resource.
+    #[serde(skip_serializing_if = "str::is_empty", default)]
+    #[serde(rename = "$id")]
+    pub id: Cow<'static, str>,
     /// Identifies the JSON Schema version used in the schema.
     #[serde(rename = "$schema")]
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub schema: Option<SchemaMarker>,
+    pub schema: Option<Cow<'static, str>>,
     /// JSON Schema specific field.
     /// This keyword is used to reference a statically identified schema.
     #[serde(rename = "$ref")]
@@ -245,7 +260,7 @@ pub struct JsonSchemaBevyType {
     #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     #[reflect(ignore)]
     #[serde(rename = "$defs")]
-    pub definitions: HashMap<TypeReferenceId, JsonSchemaVariant>,
+    pub definitions: HashMap<TypeReferenceId, Box<JsonSchemaBevyType>>,
 }
 
 /// Represents different types of JSON Schema values that can be used in schema definitions.
@@ -411,7 +426,9 @@ impl SchemaType {
 
 #[cfg(test)]
 mod tests {
+    use crate::schemas::open_rpc::OpenRpcDocument;
     use crate::schemas::reflect_info::ReferenceLocation;
+    use crate::schemas::ReflectJsonSchema;
 
     use super::*;
     use bevy_ecs::prelude::ReflectComponent;
@@ -588,6 +605,35 @@ mod tests {
     }
 
     #[test]
+    fn reflect_struct_with_custom_schema() {
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<OpenRpcDocument>();
+            register.register_type_data::<OpenRpcDocument, ReflectJsonSchema>();
+        }
+        let type_registry = atr.read();
+        let schema = type_registry
+            .export_type_json_schema::<OpenRpcDocument>(&SchemaTypesMetadata::default())
+            .expect("Failed to export schema");
+        assert_eq!(
+            schema.ref_type,
+            Some(TypeReferencePath::new_ref(
+                ReferenceLocation::Url,
+                "raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json",
+            ))
+        );
+        assert_eq!(
+            schema.description,
+            Some(
+                "Represents an `OpenRPC` document as defined by the `OpenRPC` specification."
+                    .into()
+            )
+        );
+        assert!(schema.properties.is_empty());
+    }
+
+    #[test]
     fn reflect_export_with_custom_schema() {
         #[derive(Reflect, Component)]
         struct SomeType;
@@ -666,6 +712,7 @@ mod tests {
         let schema = export_type::<Foo>();
         let schema_as_value = serde_json::to_value(&schema).expect("Failed to serialize schema");
         let mut value = json!({
+          "$id": "urn:bevy:bevy_remote-schemas-json_schema-tests-Foo",
           "shortPath": "Foo",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "typePath": "bevy_remote::schemas::json_schema::tests::Foo",
