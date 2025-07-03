@@ -321,9 +321,7 @@ impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
 
     fn construct_field(&self, field: VariantField) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
-
         let field_ty = field.field.reflected_type();
-
         let alias = field.alias;
         let alias = match &field.field.attrs.remote {
             Some(wrapper_ty) => {
@@ -337,18 +335,7 @@ impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
         match &field.field.attrs.clone {
             CloneBehavior::Default => {
                 quote! {
-                    #bevy_reflect_path::PartialReflect::reflect_clone(#alias)?
-                        .take()
-                        .map_err(|value| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
-                            expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(
-                                <#field_ty as #bevy_reflect_path::TypePath>::type_path()
-                            ),
-                            received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
-                                #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(
-                                    #bevy_reflect_path::DynamicTypePath::reflect_type_path(&*value)
-                                )
-                            ),
-                        })?
+                    <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#alias)?
                 }
             }
             CloneBehavior::Trait => {
