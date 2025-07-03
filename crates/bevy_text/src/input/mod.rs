@@ -86,6 +86,21 @@ pub struct TextInputBuffer {
     pub editor: Editor<'static>,
 }
 
+/// Component containing the change history for a text input.
+/// Text input entities without this component will ignore undo and redo actions.
+#[derive(Component, Debug, Default)]
+pub struct TextInputHistory {
+    /// The commands to undo and undo
+    pub changes: cosmic_undo_2::Commands<cosmic_text::Change>,
+}
+
+impl TextInputHistory {
+    /// Clear the history for the text input
+    pub fn clear(&mut self) {
+        self.changes.clear();
+    }
+}
+
 impl Default for TextInputBuffer {
     fn default() -> Self {
         Self {
@@ -252,12 +267,35 @@ pub fn cursor_at_line_end(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bo
     })
 }
 
+fn apply_action<'a>(
+    editor: &mut BorrowedWithFontSystem<Editor<'a>>,
+    action: cosmic_undo_2::Action<&cosmic_text::Change>,
+) {
+    match action {
+        cosmic_undo_2::Action::Do(change) => {
+            editor.apply_change(change);
+        }
+        cosmic_undo_2::Action::Undo(change) => {
+            let mut reversed = change.clone();
+            reversed.reverse();
+            editor.apply_change(&reversed);
+        }
+    }
+    editor.set_redraw(true);
+}
+
 pub fn apply_text_input_actions(
     mut font_system: ResMut<CosmicFontSystem>,
-    mut text_input_query: Query<(Entity, &mut TextInputBuffer, &mut TextInputActions)>,
+    mut text_input_query: Query<(
+        Entity,
+        &mut TextInputBuffer,
+        &mut TextInputActions,
+        Option<&mut TextInputHistory>,
+    )>,
 ) {
-    info_once!("apply_text_input_actions");
-    for (entity, mut buffer, mut text_input_actions) in text_input_query.iter_mut() {
+    for (_entity, mut buffer, mut text_input_actions, mut maybe_history) in
+        text_input_query.iter_mut()
+    {
         let mut editor = buffer.editor.borrow_with(&mut font_system);
 
         while let Some(action) = text_input_actions.queue.pop_front() {
@@ -343,8 +381,20 @@ pub fn apply_text_input_actions(
                 TextInputAction::Scroll { lines } => {
                     editor.action(Action::Scroll { lines });
                 }
-                TextInputAction::Undo => {}
-                TextInputAction::Redo => {}
+                TextInputAction::Undo => {
+                    if let Some(history) = maybe_history.as_mut() {
+                        for action in history.changes.undo() {
+                            apply_action(&mut editor, action)
+                        }
+                    }
+                }
+                TextInputAction::Redo => {
+                    if let Some(history) = maybe_history.as_mut() {
+                        for action in history.changes.redo() {
+                            apply_action(&mut editor, action)
+                        }
+                    }
+                }
                 TextInputAction::SelectAll => {
                     editor.action(Action::Motion(Motion::BufferStart));
                     let cursor = editor.cursor();
@@ -376,7 +426,16 @@ pub fn apply_text_input_actions(
                 }
             }
 
-            if let Some(_change) = editor.finish_change() {
+            if let Some(change) = editor
+                .finish_change()
+                .filter(|change| !change.items.is_empty())
+            {
+                if let Some(undo) = maybe_history.as_mut() {
+                    info!("push change");
+                    undo.changes.push(change);
+                }
+
+                // Set redraw manually, sometimes the editor doesn't set it automatically.
                 editor.set_redraw(true);
             }
         }
