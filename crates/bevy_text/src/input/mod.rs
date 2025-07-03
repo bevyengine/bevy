@@ -95,6 +95,20 @@ impl Default for TextInputBuffer {
     }
 }
 
+/// Text input buffer that only supports single line editing
+#[derive(Component, Debug)]
+pub struct SingleLineTextInputBuffer {
+    pub editor: Editor<'static>,
+}
+
+impl Default for SingleLineTextInputBuffer {
+    fn default() -> Self {
+        Self {
+            editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
+        }
+    }
+}
+
 /// Component containing the change history for a text input.
 /// Text input entities without this component will ignore undo and redo actions.
 #[derive(Component, Debug, Default)]
