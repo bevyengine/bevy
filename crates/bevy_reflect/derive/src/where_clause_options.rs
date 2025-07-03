@@ -33,7 +33,10 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// impls.
     ///
     /// The default bounds added are as follows:
-    /// - `Self` has the bounds `Any + Send + Sync`
+    /// - `Self` has:
+    ///   - `Any + Send + Sync` bounds, if generic over types
+    ///   - An `Any` bound, if generic over lifetimes but not types
+    ///   - No bounds, if generic over neither types nor lifetimes
     /// - Any given bounds in a `where` clause on the type
     /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is
     ///   present
@@ -106,8 +109,16 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         // Bounds on `Self`. We would normally just use `Self`, but that won't work for generating
         // things like assertion functions and trait impls for a type's reference (e.g. `impl
         // FromArg for &MyType`).
-        let this = self.meta.type_path().true_type();
-        generic_where_clause.extend(quote! { #this: #FQAny + #FQSend + #FQSync, });
+        let generics = self.meta.type_path().generics();
+        if generics.type_params().next().is_some() {
+            // Generic over types? We need `Any + Send + Sync`.
+            let this = self.meta.type_path().true_type();
+            generic_where_clause.extend(quote! { #this: #FQAny + #FQSend + #FQSync, });
+        } else if generics.lifetimes().next().is_some() {
+            // Generic only over lifetimes? We need `'static`.
+            let this = self.meta.type_path().true_type();
+            generic_where_clause.extend(quote! { #this: 'static, });
+        }
 
         // Maintain existing where clause bounds, if any.
         if let Some(where_clause) = where_clause {
