@@ -945,7 +945,6 @@ pub fn extract_text_input_nodes(
         blink_timer,
     ) in &uinode_query
     {
-        info_once!("found text input node!");
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -958,7 +957,6 @@ pub fn extract_text_input_nodes(
         let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
         let color = color.to_linear();
 
-        info_once!("visible text input node!");
         for (
             i,
             PositionedGlyph {
@@ -969,7 +967,6 @@ pub fn extract_text_input_nodes(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            info_once!("with glyphs!");
             let rect = texture_atlases
                 .get(&atlas_info.texture_atlas)
                 .unwrap()
@@ -983,7 +980,6 @@ pub fn extract_text_input_nodes(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
-                info!("color = {color:#?}");
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     stack_index: uinode.stack_index,
