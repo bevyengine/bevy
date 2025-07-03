@@ -39,12 +39,11 @@ impl AutoInsertApplyDeferredPass {
         self.auto_sync_node_ids
             .get(&distance)
             .copied()
-            .or_else(|| {
+            .unwrap_or_else(|| {
                 let node_id = NodeId::System(self.add_auto_sync(graph));
                 self.auto_sync_node_ids.insert(distance, node_id);
-                Some(node_id)
+                node_id
             })
-            .unwrap()
     }
     /// add an [`ApplyDeferred`] system with no config
     fn add_auto_sync(&mut self, graph: &mut ScheduleGraph) -> SystemKey {
@@ -128,7 +127,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         // Determine the distance for every node and collect the explicit sync points.
         for node in &topo {
             let &NodeId::System(key) = node else {
-                continue;
+                panic!("Encountered a non-system node in the flattened dependency graph: {node:?}");
             };
 
             let (node_distance, mut node_needs_sync) = distances_and_pending_sync
@@ -154,7 +153,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
                 let NodeId::System(target) = target else {
-                    continue;
+                    panic!("Encountered a non-system node in the flattened dependency graph: {target:?}");
                 };
                 let (target_distance, target_pending_sync) =
                     distances_and_pending_sync.entry(target).or_default();
@@ -190,7 +189,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         // there is a sync point between them.
         for node in &topo {
             let &NodeId::System(key) = node else {
-                continue;
+                panic!("Encountered a non-system node in the flattened dependency graph: {node:?}");
             };
             let (node_distance, _) = distances_and_pending_sync
                 .get(&key)
@@ -199,7 +198,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
                 let NodeId::System(target) = target else {
-                    continue;
+                    panic!("Encountered a non-system node in the flattened dependency graph: {target:?}");
                 };
                 let (target_distance, _) = distances_and_pending_sync
                     .get(&target)

@@ -882,8 +882,7 @@ impl ScheduleGraph {
     pub fn system_sets(
         &self,
     ) -> impl Iterator<Item = (SystemSetKey, &dyn SystemSet, &[ConditionWithAccess])> {
-        self.system_set_ids.iter().filter_map(|(_, &key)| {
-            let set_node = self.system_sets.get(key)?;
+        self.system_sets.iter().filter_map(|(key, set_node)| {
             let set = &*set_node.inner;
             let conditions = self.system_set_conditions.get(key)?.as_slice();
             Some((key, set, conditions))
@@ -1483,10 +1482,14 @@ impl ScheduleGraph {
             }
 
             let NodeId::System(a) = a else {
-                continue;
+                panic!(
+                    "Encountered a non-system node in the flattened disconnected results: {a:?}"
+                );
             };
             let NodeId::System(b) = b else {
-                continue;
+                panic!(
+                    "Encountered a non-system node in the flattened disconnected results: {b:?}"
+                );
             };
             let system_a = self.systems[a].get().unwrap();
             let system_b = self.systems[b].get().unwrap();
@@ -1543,7 +1546,7 @@ impl ScheduleGraph {
             .iter()
             .cloned()
             .enumerate()
-            .filter(|&(_i, id)| id.is_system())
+            .filter_map(|(i, id)| Some((i, id.as_system()?)))
             .collect::<Vec<_>>();
 
         let (hg_set_with_conditions_idxs, hg_set_ids): (Vec<_>, Vec<_>) = self
@@ -1593,10 +1596,7 @@ impl ScheduleGraph {
             vec![FixedBitSet::with_capacity(sys_count); set_with_conditions_count];
         for (i, &row) in hg_set_with_conditions_idxs.iter().enumerate() {
             let bitset = &mut systems_in_sets_with_conditions[i];
-            for &(col, sys_id) in &hg_systems {
-                let NodeId::System(sys_key) = sys_id else {
-                    continue;
-                };
+            for &(col, sys_key) in &hg_systems {
                 let idx = dg_system_idx_map[&sys_key];
                 let is_descendant = hier_results_reachable[index(row, col, hg_node_count)];
                 bitset.set(idx, is_descendant);
@@ -1605,10 +1605,7 @@ impl ScheduleGraph {
 
         let mut sets_with_conditions_of_systems =
             vec![FixedBitSet::with_capacity(set_with_conditions_count); sys_count];
-        for &(col, sys_id) in &hg_systems {
-            let NodeId::System(sys_key) = sys_id else {
-                continue;
-            };
+        for &(col, sys_key) in &hg_systems {
             let i = dg_system_idx_map[&sys_key];
             let bitset = &mut sets_with_conditions_of_systems[i];
             for (idx, &row) in hg_set_with_conditions_idxs
