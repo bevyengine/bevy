@@ -28,45 +28,6 @@ use crate::schemas::ReflectJsonSchemaForceAsArray;
 
 #[derive(
     Debug,
-    Copy,
-    Default,
-    Clone,
-    PartialEq,
-    Reflect,
-    Hash,
-    Eq,
-    Ord,
-    PartialOrd,
-    Serialize,
-    Deserialize,
-)]
-/// Controls how JSON schema definitions are generated for complex types.
-///
-/// This enum determines the strategy used when building JSON schemas,
-/// particularly for handling nested type definitions and references.
-pub enum SchemaDefinitionMode {
-    /// Generate all type definitions inline at their point of use.
-    ///
-    /// This creates self-contained schemas but may result in duplication
-    /// if the same type is used multiple times.
-    #[default]
-    GenerateAllDefinitionsInPlace,
-
-    /// Generate field definitions in a separate definitions section.
-    ///
-    /// This creates a cleaner schema structure with reusable type definitions
-    /// stored in a `$defs` or `definitions` section, reducing duplication.
-    GenerateFieldsDefinitionsInDefs,
-
-    /// Generate only references to type definitions.
-    ///
-    /// This results in minimal schemas that only include basic type information
-    /// without detailed field definitions for complex types.
-    GenerateReferenceOnly,
-}
-
-#[derive(
-    Debug,
     Clone,
     PartialEq,
     Default,
