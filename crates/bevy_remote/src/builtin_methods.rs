@@ -719,6 +719,7 @@ fn reflect_component(
 /// `Transform`.
 ///
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ComponentSelector {
     /// An "all" selector that indicates all components should be selected.
     All,
