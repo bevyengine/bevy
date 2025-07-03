@@ -88,7 +88,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
-    #[cfg(feature = "http_source_cache")]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "http_source_cache"))]
     if let Some(data) = http_asset_cache::try_load_from_cache(str_path).await? {
         return Ok(Box::new(VecReader::new(data)));
     }
@@ -104,7 +104,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer)?;
 
-            #[cfg(feature = "http_source_cache")]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "http_source_cache"))]
             http_asset_cache::save_to_cache(str_path, &buffer).await?;
 
             Ok(Box::new(VecReader::new(buffer)))
@@ -156,7 +156,7 @@ impl AssetReader for HttpSourceAssetReader {
 /// A naive implementation of an HTTP asset cache that never invalidates.
 /// `ureq` currently does not support caching, so this is a simple workaround.
 /// It should eventually be replaced by `http-cache` or similar, see [tracking issue](https://github.com/06chaynes/http-cache/issues/91)
-#[cfg(feature = "http_source_cache")]
+#[cfg(all(not(target_arch = "wasm32"), feature = "http_source_cache"))]
 mod http_asset_cache {
     use alloc::string::String;
     use alloc::vec::Vec;
