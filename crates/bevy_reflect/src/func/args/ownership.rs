@@ -1,21 +1,5 @@
 use core::fmt::{Display, Formatter};
 
-/// A trait for getting the ownership of a type.
-///
-/// This trait exists so that [`TypedFunction`] can automatically generate
-/// [`FunctionInfo`] containing the proper [`Ownership`] for its [argument] types.
-///
-/// This trait is automatically implemented when using the `Reflect` [derive macro].
-///
-/// [`TypedFunction`]: crate::func::TypedFunction
-/// [`FunctionInfo`]: crate::func::FunctionInfo
-/// [argument]: crate::func::args::Arg
-/// [derive macro]: derive@crate::Reflect
-pub trait GetOwnership {
-    /// Returns the ownership of [`Self`].
-    fn ownership() -> Ownership;
-}
-
 /// The ownership of a type.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Ownership {
@@ -34,6 +18,39 @@ impl Display for Ownership {
             Self::Mut => write!(f, "mutable reference"),
             Self::Owned => write!(f, "owned"),
         }
+    }
+}
+
+/// A trait for getting the ownership of a type.
+///
+/// This trait exists so that [`TypedFunction`] can automatically generate
+/// [`FunctionInfo`] containing the proper [`Ownership`] for its [argument] types.
+///
+/// This trait is automatically implemented for non-reference types when using the `Reflect`
+/// [derive macro]. Blanket impls cover `&T` and `&mut T`.
+///
+/// [`TypedFunction`]: crate::func::TypedFunction
+/// [`FunctionInfo`]: crate::func::FunctionInfo
+/// [argument]: crate::func::args::Arg
+/// [derive macro]: derive@crate::Reflect
+pub trait GetOwnership {
+    /// Returns the ownership of [`Self`].
+    fn ownership() -> Ownership {
+        Ownership::Owned
+    }
+}
+
+// Blanket impl.
+impl<T> GetOwnership for &'_ T {
+    fn ownership() -> Ownership {
+        Ownership::Ref
+    }
+}
+
+// Blanket impl.
+impl<T> GetOwnership for &'_ mut T {
+    fn ownership() -> Ownership {
+        Ownership::Mut
     }
 }
 
@@ -70,39 +87,7 @@ macro_rules! impl_get_ownership {
             where
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
-        {
-            fn ownership() -> $crate::func::args::Ownership {
-                $crate::func::args::Ownership::Owned
-            }
-        }
-
-        impl <
-            $($($T $(: $T1 $(+ $T2)*)?),*)?
-            $(, $(const $N : $size),*)?
-        > $crate::func::args::GetOwnership for &'_ $ty
-        $(
-            where
-                $($U $(: $U1 $(+ $U2)*)?),*
-        )?
-        {
-            fn ownership() -> $crate::func::args::Ownership {
-                $crate::func::args::Ownership::Ref
-            }
-        }
-
-        impl <
-            $($($T $(: $T1 $(+ $T2)*)?),*)?
-            $(, $(const $N : $size),*)?
-        > $crate::func::args::GetOwnership for &'_ mut $ty
-        $(
-            where
-                $($U $(: $U1 $(+ $U2)*)?),*
-        )?
-        {
-            fn ownership() -> $crate::func::args::Ownership {
-                $crate::func::args::Ownership::Mut
-            }
-        }
+        {}
     };
 }
 
