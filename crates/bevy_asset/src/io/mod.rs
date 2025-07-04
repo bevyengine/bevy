@@ -763,11 +763,16 @@ impl Reader for SliceReader<'_> {
     }
 }
 
-/// Appends `.meta` to the given path.
+/// Appends `.meta` to the given path:
+/// - `foo` becomes `foo.meta`
+/// - `foo.bar` becomes `foo.bar.meta`
 pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     let mut meta_path = path.to_path_buf();
     let mut extension = path.extension().unwrap_or_default().to_os_string();
-    extension.push(".meta");
+    if !extension.is_empty() {
+        extension.push(".");
+    }
+    extension.push("meta");
     meta_path.set_extension(extension);
     meta_path
 }
@@ -782,5 +787,26 @@ impl Stream for EmptyPathStream {
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_meta_path_no_extension() {
+        assert_eq!(
+            get_meta_path(Path::new("foo")).to_str().unwrap(),
+            "foo.meta"
+        );
+    }
+
+    #[test]
+    fn get_meta_path_with_extension() {
+        assert_eq!(
+            get_meta_path(Path::new("foo.bar")).to_str().unwrap(),
+            "foo.bar.meta"
+        );
     }
 }

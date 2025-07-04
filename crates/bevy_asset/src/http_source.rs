@@ -57,11 +57,8 @@ impl HttpSourceAssetReader {
 
     /// See [`crate::io::get_meta_path`]
     fn make_meta_uri(&self, path: &Path) -> PathBuf {
-        let mut uri = self.make_uri(path);
-        let mut extension = path.extension().unwrap_or_default().to_os_string();
-        extension.push(".meta");
-        uri.set_extension(extension);
-        uri
+        let meta_path = crate::io::get_meta_path(path);
+        self.make_uri(&meta_path)
     }
 }
 
