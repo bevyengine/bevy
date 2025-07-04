@@ -393,7 +393,9 @@ pub fn apply_text_input_actions(
                     });
                 }
                 TextInputAction::Scroll { lines } => {
-                    editor.action(Action::Scroll { lines });
+                    if !is_single_line_input {
+                        editor.action(Action::Scroll { lines });
+                    }
                 }
                 TextInputAction::Undo => {
                     if let Some(history) = maybe_history.as_mut() {
