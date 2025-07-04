@@ -2622,9 +2622,12 @@ pub enum RequiredComponentsError {
     /// The component is already a directly required component for the requiree.
     #[error("Component {0:?} already directly requires component {1:?}")]
     DuplicateRegistration(ComponentId, ComponentId),
-    /// An archetype with the component that requires other components already exists
+    /// An archetype with the component that requires other components already exists.
     #[error("An archetype with the component {0:?} that requires other components already exists")]
     ArchetypeExists(ComponentId),
+    /// A bundle with the component that requires other components was removed via [`crate::world::EntityWorldMut::remove_with_requires`].
+    #[error("A bundle with the component {0:?} that requires other components was removed including required components previously")]
+    RemovedFromArchetype(ComponentId),
 }
 
 /// A Required Component constructor. See [`Component`] for details.
