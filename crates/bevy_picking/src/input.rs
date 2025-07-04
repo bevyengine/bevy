@@ -22,7 +22,7 @@ use bevy_input::{
 use bevy_math::Vec2;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
-use bevy_render::camera::RenderTarget;
+use bevy_render::camera::{RenderTarget, ToNormalizedRenderTarget as _};
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
 use tracing::debug;
 

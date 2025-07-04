@@ -1,13 +1,11 @@
-use bevy_math::Vec3;
+use bevy_camera::visibility::VisibilitySystems;
 pub use bevy_mesh::*;
 use morph::{MeshMorphWeights, MorphWeights};
 pub mod allocator;
 use crate::{
-    primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_resource::TextureView,
     texture::GpuImage,
-    view::VisibilitySystems,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
@@ -108,26 +106,6 @@ pub fn inherit_weights(
             child_weight.clear_weights();
             child_weight.extend_weights(parent_weights.weights());
         }
-    }
-}
-
-pub trait MeshAabb {
-    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
-    ///
-    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
-    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    fn compute_aabb(&self) -> Option<Aabb>;
-}
-
-impl MeshAabb for Mesh {
-    fn compute_aabb(&self) -> Option<Aabb> {
-        let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
-        else {
-            return None;
-        };
-
-        Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
     }
 }
 

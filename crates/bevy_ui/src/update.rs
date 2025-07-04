@@ -221,8 +221,8 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::UVec2;
     use bevy_render::camera::Camera;
-    use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::RenderTarget;
+    use bevy_render::texture::ManualTextureViews;
     use bevy_utils::default;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
