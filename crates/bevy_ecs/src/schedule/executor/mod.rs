@@ -449,7 +449,11 @@ mod tests {
         }
 
         // This system should be skipped when run due to no matching entity
-        fn pipe_in(_input: In<u8>, _single: When<Single<&TestComponent>>, mut counter: ResMut<Counter>) {
+        fn pipe_in(
+            _input: In<u8>,
+            _single: When<Single<&TestComponent>>,
+            mut counter: ResMut<Counter>,
+        ) {
             counter.0 += 1;
         }
 
