@@ -2,7 +2,28 @@ use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
+
+pub trait MeshAabb {
+    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
+    ///
+    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
+    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
+    fn compute_aabb(&self) -> Option<Aabb>;
+}
+
+impl MeshAabb for Mesh {
+    fn compute_aabb(&self) -> Option<Aabb> {
+        let Some(VertexAttributeValues::Float32x3(values)) =
+            self.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            return None;
+        };
+
+        Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
+    }
+}
 
 /// An axis-aligned bounding box, defined by:
 /// - a center,
@@ -24,10 +45,10 @@ use bevy_reflect::prelude::*;
 /// It won't be updated automatically if the space occupied by the entity changes,
 /// for example if the vertex positions of a [`Mesh3d`] are updated.
 ///
-/// [`Camera`]: crate::camera::Camera
-/// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
-/// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
-/// [`Mesh3d`]: crate::mesh::Mesh
+/// [`Camera`]: crate::Camera
+/// [`NoFrustumCulling`]: crate::visibility::NoFrustumCulling
+/// [`CalculateBounds`]: crate::visibility::VisibilitySystems::CalculateBounds
+/// [`Mesh3d`]: bevy_mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Aabb {
@@ -56,7 +77,7 @@ impl Aabb {
     ///
     /// ```
     /// # use bevy_math::{Vec3, Vec3A};
-    /// # use bevy_render::primitives::Aabb;
+    /// # use bevy_camera::primitives::Aabb;
     /// let bb = Aabb::enclosing([Vec3::X, Vec3::Z * 2.0, Vec3::Y * -0.5]).unwrap();
     /// assert_eq!(bb.min(), Vec3A::new(0.0, -0.5, 0.0));
     /// assert_eq!(bb.max(), Vec3A::new(1.0, 0.0, 2.0));
@@ -218,10 +239,10 @@ impl HalfSpace {
 /// It is usually updated automatically by [`update_frusta`] from the
 /// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
 ///
-/// [`Camera`]: crate::camera::Camera
-/// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
-/// [`update_frusta`]: crate::view::visibility::update_frusta
-/// [`CameraProjection`]: crate::camera::CameraProjection
+/// [`Camera`]: crate::Camera
+/// [`NoFrustumCulling`]: crate::visibility::NoFrustumCulling
+/// [`update_frusta`]: crate::visibility::update_frusta
+/// [`CameraProjection`]: crate::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -356,7 +377,7 @@ mod tests {
     use bevy_math::{ops, Quat};
     use bevy_transform::components::GlobalTransform;
 
-    use crate::camera::{CameraProjection, PerspectiveProjection};
+    use crate::{CameraProjection, PerspectiveProjection};
 
     use super::*;
 

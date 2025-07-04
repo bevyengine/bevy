@@ -38,7 +38,6 @@ pub mod gpu_readback;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
-pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;
@@ -50,6 +49,7 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
+pub use bevy_camera::primitives;
 
 /// The render prelude.
 ///
@@ -58,18 +58,21 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        camera::{
-            Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
-            Projection,
-        },
+        camera::ToNormalizedRenderTarget as _,
         mesh::{
             morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
             Mesh3d,
         },
         render_resource::Shader,
-        texture::ImagePlugin,
+        texture::{ImagePlugin, ManualTextureViews},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
         ExtractSchedule,
+    };
+    // TODO: Remove this in a follow-up
+    #[doc(hidden)]
+    pub use bevy_camera::{
+        Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
+        Projection,
     };
 }
 use batching::gpu_preprocessing::BatchingPlugin;
@@ -481,10 +484,6 @@ impl Plugin for RenderPlugin {
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
             .register_type::<bevy_color::Color>()
-            .register_type::<primitives::Aabb>()
-            .register_type::<primitives::CascadesFrusta>()
-            .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>()
             .register_type::<RenderEntity>()
             .register_type::<TemporaryRenderEntity>()
             .register_type::<MainEntity>()

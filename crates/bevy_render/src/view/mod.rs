@@ -1,28 +1,26 @@
 pub mod visibility;
 pub mod window;
 
+use bevy_camera::{
+    primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
+};
 use bevy_diagnostic::FrameCount;
-use bevy_mesh::{Mesh2d, Mesh3d};
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{
-        CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
-        ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
-    },
+    camera::{ExtractedCamera, MipBias, NormalizedRenderTarget, TemporalJitter},
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     load_shader_library,
-    primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
-        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
-        TextureCache,
+        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
+        OutputColorAttachment, TextureCache,
     },
     Render, RenderApp, RenderSystems,
 };
@@ -101,33 +99,16 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "view.wgsl");
 
-        app.register_type::<InheritedVisibility>()
-            .register_type::<ViewVisibility>()
-            .register_type::<Msaa>()
-            .register_type::<NoFrustumCulling>()
-            .register_type::<RenderLayers>()
-            .register_type::<Visibility>()
-            .register_type::<VisibleEntities>()
+        app.register_type::<Msaa>()
             .register_type::<ColorGrading>()
             .register_type::<OcclusionCulling>()
-            .register_required_components::<Mesh3d, Visibility>()
-            .register_required_components::<Mesh3d, VisibilityClass>()
-            .register_required_components::<Mesh2d, Visibility>()
-            .register_required_components::<Mesh2d, VisibilityClass>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
                 ExtractComponentPlugin::<Hdr>::default(),
                 ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
-                VisibilityPlugin,
-                VisibilityRangePlugin,
+                RenderVisibilityRangePlugin,
             ));
-        app.world_mut()
-            .register_component_hooks::<Mesh3d>()
-            .on_add(add_visibility_class::<Mesh3d>);
-        app.world_mut()
-            .register_component_hooks::<Mesh2d>()
-            .on_add(add_visibility_class::<Mesh2d>);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
@@ -739,9 +720,6 @@ impl From<ColorGrading> for ColorGradingUniform {
 /// or removing after spawn can result in unspecified behavior.
 #[derive(Component, Default)]
 pub struct NoIndirectDrawing;
-
-#[derive(Component, Default)]
-pub struct NoCpuCulling;
 
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;

@@ -368,7 +368,7 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
-    use bevy_render::{camera::ManualTextureViews, prelude::Camera};
+    use bevy_render::{prelude::Camera, texture::ManualTextureViews};
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
