@@ -38,8 +38,8 @@ use thiserror::Error;
 #[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
     /// Path not found.
-    #[error("Path not found: {}", _0.display())]
-    NotFound(PathBuf),
+    #[error("Path not found: {}", _0)]
+    NotFound(alloc::string::String),
 
     /// Encountered an I/O error while loading an asset.
     #[error("Encountered an I/O error while loading asset: {0}")]
