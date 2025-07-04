@@ -105,8 +105,8 @@ pub trait Event: Send + Sync + 'static {
     /// # Warning
     ///
     /// This method should not be overridden by implementers,
-    /// and should always correspond to the implementation of [`event_type`](Event::event_type).
-    fn register_event_type(world: &mut World) -> EventKey {
+    /// and should always correspond to the implementation of [`event_key`](Event::event_key).
+    fn register_event_key(world: &mut World) -> EventKey {
         EventKey(world.register_component::<EventWrapperComponent<Self>>())
     }
 
@@ -120,8 +120,8 @@ pub trait Event: Send + Sync + 'static {
     ///
     /// This method should not be overridden by implementers,
     /// and should always correspond to the implementation of
-    /// [`register_event_type`](Event::register_event_type).
-    fn event_type(world: &World) -> Option<EventKey> {
+    /// [`register_event_key`](Event::register_event_key).
+    fn event_key(world: &World) -> Option<EventKey> {
         world
             .component_id::<EventWrapperComponent<Self>>()
             .map(EventKey)
