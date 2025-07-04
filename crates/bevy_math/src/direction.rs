@@ -4,6 +4,7 @@ use crate::{
 };
 
 use core::f32::consts::FRAC_1_SQRT_2;
+use core::fmt;
 use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
@@ -325,6 +326,16 @@ impl core::ops::Mul<Dir2> for Rot2 {
     }
 }
 
+impl fmt::Display for Dir2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(p) = f.precision() {
+            write!(f, "[{:.*}, {:.*}]", p, self.x, p, self.y)
+        } else {
+            write!(f, "[{}, {}]", self.x, self.y)
+        }
+    }
+}
+
 #[cfg(any(feature = "approx", test))]
 impl approx::AbsDiffEq for Dir2 {
     type Epsilon = f32;
@@ -587,6 +598,16 @@ impl core::ops::Mul<Dir3> for Quat {
     }
 }
 
+impl fmt::Display for Dir3 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(p) = f.precision() {
+            write!(f, "[{:.*}, {:.*}, {:.*}]", p, self.x, p, self.y, p, self.z)
+        } else {
+            write!(f, "[{}, {}, {}]", self.x, self.y, self.z)
+        }
+    }
+}
+
 #[cfg(feature = "approx")]
 impl approx::AbsDiffEq for Dir3 {
     type Epsilon = f32;
@@ -834,6 +855,16 @@ impl core::ops::Mul<Dir3A> for Quat {
     }
 }
 
+impl fmt::Display for Dir3A {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(p) = f.precision() {
+            write!(f, "[{:.*}, {:.*}, {:.*}]", p, self.x, p, self.y, p, self.z)
+        } else {
+            write!(f, "[{}, {}, {}]", self.x, self.y, self.z)
+        }
+    }
+}
+
 #[cfg(feature = "approx")]
 impl approx::AbsDiffEq for Dir3A {
     type Epsilon = f32;
@@ -1019,6 +1050,16 @@ impl core::ops::Mul<Dir4> for f32 {
     type Output = Vec4;
     fn mul(self, rhs: Dir4) -> Self::Output {
         self * rhs.0
+    }
+}
+
+impl fmt::Display for Dir4 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(p) = f.precision() {
+            write!(f, "[{:.*}, {:.*}, {:.*}, {:.*}]", p, self.x, p, self.y, p, self.z, p, self.w)
+        } else {
+            write!(f, "[{}, {}, {}, {}]", self.x, self.y, self.z, self.w)
+        }
     }
 }
 
