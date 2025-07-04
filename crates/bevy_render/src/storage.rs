@@ -116,6 +116,7 @@ impl RenderAsset for GpuShaderStorageBuffer {
         source_asset: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match source_asset.data {
             Some(data) => {

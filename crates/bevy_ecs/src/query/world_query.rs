@@ -42,7 +42,7 @@ use variadics_please::all_tuples;
 /// [`QueryFilter`]: crate::query::QueryFilter
 pub unsafe trait WorldQuery {
     /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](crate::query::QueryData::Item) for each entity.
-    type Fetch<'a>: Clone;
+    type Fetch<'w>: Clone;
 
     /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
     /// so it is best to move as much data / computation here as possible to reduce the cost of
@@ -62,9 +62,9 @@ pub unsafe trait WorldQuery {
     ///   in to this function.
     /// - `world` must have the **right** to access any access registered in `update_component_access`.
     /// - There must not be simultaneous resource access conflicting with readonly resource access registered in [`WorldQuery::update_component_access`].
-    unsafe fn init_fetch<'w>(
+    unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
-        state: &Self::State,
+        state: &'s Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> Self::Fetch<'w>;
@@ -87,9 +87,9 @@ pub unsafe trait WorldQuery {
     /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `table` must correspond to `archetype`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_archetype<'w>(
+    unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
-        state: &Self::State,
+        state: &'s Self::State,
         archetype: &'w Archetype,
         table: &'w Table,
     );
@@ -101,7 +101,11 @@ pub unsafe trait WorldQuery {
     ///
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
+    unsafe fn set_table<'w, 's>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &'s Self::State,
+        table: &'w Table,
+    );
 
     /// Adds any component accesses used by this [`WorldQuery`] to `access`.
     ///
@@ -166,7 +170,7 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
                 ($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*)
@@ -175,9 +179,9 @@ macro_rules! impl_tuple_world_query {
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             #[inline]
-            unsafe fn set_archetype<'w>(
+            unsafe fn set_archetype<'w, 's>(
                 fetch: &mut Self::Fetch<'w>,
-                state: &Self::State,
+                state: &'s Self::State,
                 archetype: &'w Archetype,
                 table: &'w Table
             ) {
@@ -188,7 +192,7 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.

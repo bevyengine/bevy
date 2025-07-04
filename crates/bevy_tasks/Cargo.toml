@@ -1,6 +1,6 @@
 [package]
 name = "bevy_tasks"
-version = "0.16.0-dev"
+version = "0.17.0-dev"
 edition = "2024"
 description = "A task executor for Bevy Engine"
 homepage = "https://bevy.org"
@@ -47,7 +47,7 @@ web = [
 ]
 
 [dependencies]
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "alloc",
 ] }
 
@@ -55,7 +55,7 @@ futures-lite = { version = "2.0.1", default-features = false, features = [
   "alloc",
 ] }
 async-task = { version = "4.4.0", default-features = false }
-derive_more = { version = "1", default-features = false, features = [
+derive_more = { version = "2", default-features = false, features = [
   "deref",
   "deref_mut",
 ] }

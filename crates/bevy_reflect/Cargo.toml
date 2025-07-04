@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.16.0-dev"
+version = "0.17.0-dev"
 edition = "2024"
 description = "Dynamically interact with rust types"
 homepage = "https://bevy.org"
@@ -74,10 +74,10 @@ web = ["bevy_platform/web", "uuid?/js"]
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "derive", version = "0.16.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
-bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
+bevy_reflect_derive = { path = "derive", version = "0.17.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", default-features = false }
+bevy_ptr = { path = "../bevy_ptr", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "alloc",
   "serialize",
 ] }
@@ -93,14 +93,14 @@ erased-serde = { version = "0.4", default-features = false, features = [
 disqualified = { version = "1.0", default-features = false }
 downcast-rs = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1.11", default-features = false, optional = true }
 glam = { version = "0.29.3", default-features = false, features = [
   "serde",
 ], optional = true }
-petgraph = { version = "0.7", features = ["serde-1"], optional = true }
+petgraph = { version = "0.8", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }
@@ -109,12 +109,12 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "24", features = [
+wgpu-types = { version = "25", features = [
   "serde",
 ], optional = true, default-features = false }
 
 [dev-dependencies]
-ron = "0.8.0"
+ron = "0.10"
 rmp-serde = "1.1"
 bincode = { version = "2.0", features = ["serde"] }
 serde_json = "1.0.140"

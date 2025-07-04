@@ -5,7 +5,7 @@
 use super::{ClearColorConfig, Projection};
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
+    camera::{ManualTextureViewHandle, ManualTextureViews},
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
@@ -110,6 +110,17 @@ impl Viewport {
                 self.physical_size.y = 0;
             }
         }
+    }
+
+    pub fn with_override(
+        &self,
+        main_pass_resolution_override: Option<&MainPassResolutionOverride>,
+    ) -> Self {
+        let mut viewport = self.clone();
+        if let Some(override_size) = main_pass_resolution_override {
+            viewport.physical_size = **override_size;
+        }
+        viewport
     }
 }
 
@@ -311,8 +322,8 @@ pub enum ViewportConversionError {
     #[error("computed coordinate beyond `Camera`'s far plane")]
     PastFarPlane,
     /// The Normalized Device Coordinates could not be computed because the `camera_transform`, the
-    /// `world_position`, or the projection matrix defined by [`CameraProjection`] contained `NAN`
-    /// (see [`world_to_ndc`][Camera::world_to_ndc] and [`ndc_to_world`][Camera::ndc_to_world]).
+    /// `world_position`, or the projection matrix defined by [`Projection`] contained `NAN` (see
+    /// [`world_to_ndc`][Camera::world_to_ndc] and [`ndc_to_world`][Camera::ndc_to_world]).
     #[error("found NaN while computing NDC")]
     InvalidData,
 }
@@ -490,7 +501,7 @@ impl Camera {
             .map(|t: &RenderTargetInfo| t.scale_factor)
     }
 
-    /// The projection matrix computed using this camera's [`CameraProjection`].
+    /// The projection matrix computed using this camera's [`Projection`].
     #[inline]
     pub fn clip_from_view(&self) -> Mat4 {
         self.computed.clip_from_view
@@ -601,8 +612,7 @@ impl Camera {
         rect_relative.y = 1.0 - rect_relative.y;
 
         let ndc = rect_relative * 2. - Vec2::ONE;
-        let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
+        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
         let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
@@ -656,7 +666,7 @@ impl Camera {
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`Projection`] contain `NAN`.
     ///
     /// # Panics
     ///
@@ -668,7 +678,7 @@ impl Camera {
     ) -> Option<Vec3> {
         // Build a transformation matrix to convert from world space to NDC using camera data
         let clip_from_world: Mat4 =
-            self.computed.clip_from_view * camera_transform.compute_matrix().inverse();
+            self.computed.clip_from_view * camera_transform.to_matrix().inverse();
         let ndc_space_coords: Vec3 = clip_from_world.project_point3(world_position);
 
         (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
@@ -682,15 +692,14 @@ impl Camera {
     /// To get the world space coordinates with the viewport position, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`Projection`] contain `NAN`.
     ///
     /// # Panics
     ///
     /// Will panic if the projection matrix is invalid (has a determinant of 0) and `glam_assert` is enabled.
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
-        let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
+        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
 
         let world_space_coords = ndc_to_world.project_point3(ndc);
 
@@ -1367,6 +1376,19 @@ impl TemporalJitter {
 #[derive(Component, Reflect, Clone)]
 #[reflect(Default, Component)]
 pub struct MipBias(pub f32);
+
+/// Override the resolution a 3d camera's main pass is rendered at.
+///
+/// Does not affect post processing.
+///
+/// ## Usage
+///
+/// * Insert this component on a 3d camera entity in the render world.
+/// * The resolution override must be smaller than the camera's viewport size.
+/// * The resolution override is specified in physical pixels.
+#[derive(Component, Reflect, Deref)]
+#[reflect(Component)]
+pub struct MainPassResolutionOverride(pub UVec2);
 
 impl Default for MipBias {
     fn default() -> Self {

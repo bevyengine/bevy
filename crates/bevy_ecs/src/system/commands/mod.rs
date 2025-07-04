@@ -18,9 +18,9 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
-    entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
-    error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::Event,
+    entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
+    error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
+    event::{BufferedEvent, EntityEvent, Event},
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -476,7 +476,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     // Return from the system successfully.
     ///     Ok(())
     /// }
-    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// # bevy_ecs::system::assert_is_system::<(), (), _>(example_system);
     /// ```
     ///
     /// # See also
@@ -639,6 +639,11 @@ impl<'w, 's> Commands<'w, 's> {
         error_handler: fn(BevyError, ErrorContext),
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
+    }
+
+    /// Pushes a generic [`Command`] to the queue like [`Commands::queue_handled`], but instead silently ignores any errors.
+    pub fn queue_silenced<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+        self.queue_internal(command.ignore_error());
     }
 
     fn queue_internal(&mut self, command: impl Command) {
@@ -1078,7 +1083,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
-    /// Sends a global [observer](Observer) [`Event`] without any targets.
+    /// Sends a global [`Event`] without any targets.
     ///
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     #[track_caller]
@@ -1086,13 +1091,13 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger(event));
     }
 
-    /// Sends an [observer](Observer) [`Event`] for the given targets.
+    /// Sends an [`EntityEvent`] for the given targets.
     ///
-    /// This will run any [`Observer`] of the given [`Event`] watching those targets.
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
     #[track_caller]
     pub fn trigger_targets(
         &mut self,
-        event: impl Event,
+        event: impl EntityEvent,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
         self.queue(command::trigger_targets(event, targets));
@@ -1119,7 +1124,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.spawn(Observer::new(observer))
     }
 
-    /// Sends an arbitrary [`Event`].
+    /// Sends an arbitrary [`BufferedEvent`].
     ///
     /// This is a convenience method for sending events
     /// without requiring an [`EventWriter`](crate::event::EventWriter).
@@ -1132,7 +1137,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// If these events are performance-critical or very frequently sent,
     /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
     #[track_caller]
-    pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
         self.queue(command::send_event(event));
         self
     }
@@ -1464,12 +1469,11 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        self.queue_handled(
+        self.queue_silenced(
             // SAFETY:
             // - `ComponentId` safety is ensured by the caller.
             // - `T` safety is ensured by the caller.
             unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
-            ignore,
         )
     }
 
@@ -1521,7 +1525,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle, InsertMode::Replace), ignore)
+        self.queue_silenced(entity_command::insert(bundle, InsertMode::Replace))
     }
 
     /// Adds a [`Bundle`] of components to the entity if the predicate returns true.
@@ -1577,7 +1581,7 @@ impl<'a> EntityCommands<'a> {
     /// the resulting error will be ignored.
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle, InsertMode::Keep), ignore)
+        self.queue_silenced(entity_command::insert(bundle, InsertMode::Keep))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1722,7 +1726,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     pub fn try_remove<B: Bundle>(&mut self) -> &mut Self {
-        self.queue_handled(entity_command::remove::<B>(), ignore)
+        self.queue_silenced(entity_command::remove::<B>())
     }
 
     /// Removes a [`Bundle`] of components from the entity,
@@ -1816,7 +1820,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     pub fn try_despawn(&mut self) {
-        self.queue_handled(entity_command::despawn(), ignore);
+        self.queue_silenced(entity_command::despawn());
     }
 
     /// Pushes an [`EntityCommand`] to the queue,
@@ -1905,6 +1909,18 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// Unlike [`EntityCommands::queue_handled`], this will completely ignore any errors that occur.
+    pub fn queue_silenced<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
+        &mut self,
+        command: C,
+    ) -> &mut Self {
+        self.commands
+            .queue_silenced(command.with_entity(self.entity));
+        self
+    }
+
     /// Removes all components except the given [`Bundle`] from the entity.
     ///
     /// # Example
@@ -1957,16 +1973,16 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Sends an [observer](Observer) [`Event`] targeting the entity.
+    /// Sends an [`EntityEvent`] targeting the entity.
     ///
-    /// This will run any [`Observer`] of the given [`Event`] watching this entity.
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching this entity.
     #[track_caller]
-    pub fn trigger(&mut self, event: impl Event) -> &mut Self {
+    pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
         self.queue(entity_command::trigger(event))
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
@@ -1976,8 +1992,9 @@ impl<'a> EntityCommands<'a> {
     /// Clones parts of an entity (components, observers, etc.) onto another entity,
     /// configured through [`EntityClonerBuilder`].
     ///
-    /// By default, the other entity will receive all the components of the original that implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    /// The other entity will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) except those that are
+    /// [denied](EntityClonerBuilder::deny) in the `config`.
     ///
     /// # Panics
     ///
@@ -1985,7 +2002,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Example
     ///
-    /// Configure through [`EntityClonerBuilder`] as follows:
+    /// Configure through [`EntityClonerBuilder<OptOut>`] as follows:
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Component, Clone)]
@@ -2000,8 +2017,8 @@ impl<'a> EntityCommands<'a> {
     ///     // Create a new entity and keep its EntityCommands.
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
-    ///     // Clone only ComponentA onto the target.
-    ///     entity.clone_with(target, |builder| {
+    ///     // Clone ComponentA but not ComponentB onto the target.
+    ///     entity.clone_with_opt_out(target, |builder| {
     ///         builder.deny::<ComponentB>();
     ///     });
     /// }
@@ -2009,12 +2026,57 @@ impl<'a> EntityCommands<'a> {
     /// ```
     ///
     /// See [`EntityClonerBuilder`] for more options.
-    pub fn clone_with(
+    pub fn clone_with_opt_out(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
     ) -> &mut Self {
-        self.queue(entity_command::clone_with(target, config))
+        self.queue(entity_command::clone_with_opt_out(target, config))
+    }
+
+    /// Clones parts of an entity (components, observers, etc.) onto another entity,
+    /// configured through [`EntityClonerBuilder`].
+    ///
+    /// The other entity will receive only the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) and are
+    /// [allowed](EntityClonerBuilder::allow) in the `config`.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the target entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// Configure through [`EntityClonerBuilder<OptIn>`] as follows:
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create an empty entity.
+    ///     let target = commands.spawn_empty().id();
+    ///
+    ///     // Create a new entity and keep its EntityCommands.
+    ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
+    ///
+    ///     // Clone ComponentA but not ComponentB onto the target.
+    ///     entity.clone_with_opt_in(target, |builder| {
+    ///         builder.allow::<ComponentA>();
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
+    ///
+    /// See [`EntityClonerBuilder`] for more options.
+    pub fn clone_with_opt_in(
+        &mut self,
+        target: Entity,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.queue(entity_command::clone_with_opt_in(target, config))
     }
 
     /// Spawns a clone of this entity and returns the [`EntityCommands`] of the clone.
@@ -2023,7 +2085,8 @@ impl<'a> EntityCommands<'a> {
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
     /// To configure cloning behavior (such as only cloning certain components),
-    /// use [`EntityCommands::clone_and_spawn_with`].
+    /// use [`EntityCommands::clone_and_spawn_with_opt_out`]/
+    /// [`opt_out`](EntityCommands::clone_and_spawn_with_opt_out).
     ///
     /// # Note
     ///
@@ -2043,25 +2106,22 @@ impl<'a> EntityCommands<'a> {
     ///     // Create a new entity and store its EntityCommands.
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
-    ///     // Create a clone of the first entity.
+    ///     // Create a clone of the entity.
     ///     let mut entity_clone = entity.clone_and_spawn();
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     pub fn clone_and_spawn(&mut self) -> EntityCommands<'_> {
-        self.clone_and_spawn_with(|_| {})
+        self.clone_and_spawn_with_opt_out(|_| {})
     }
 
     /// Spawns a clone of this entity and allows configuring cloning behavior
     /// using [`EntityClonerBuilder`], returning the [`EntityCommands`] of the clone.
     ///
-    /// By default, the clone will receive all the components of the original that implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    /// The clone will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) except those that are
+    /// [denied](EntityClonerBuilder::deny) in the `config`.
     ///
-    /// To exclude specific components, use [`EntityClonerBuilder::deny`].
-    /// To only include specific components, use [`EntityClonerBuilder::deny_all`]
-    /// followed by [`EntityClonerBuilder::allow`].
-    ///
-    /// See the methods on [`EntityClonerBuilder`] for more options.
+    /// See the methods on [`EntityClonerBuilder<OptOut>`] for more options.
     ///
     /// # Note
     ///
@@ -2081,18 +2141,63 @@ impl<'a> EntityCommands<'a> {
     ///     // Create a new entity and store its EntityCommands.
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
-    ///     // Create a clone of the first entity, but without ComponentB.
-    ///     let mut entity_clone = entity.clone_and_spawn_with(|builder| {
+    ///     // Create a clone of the entity with ComponentA but without ComponentB.
+    ///     let mut entity_clone = entity.clone_and_spawn_with_opt_out(|builder| {
     ///         builder.deny::<ComponentB>();
     ///     });
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone_and_spawn_with(
+    pub fn clone_and_spawn_with_opt_out(
         &mut self,
-        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
         let entity_clone = self.commands().spawn_empty().id();
-        self.clone_with(entity_clone, config);
+        self.clone_with_opt_out(entity_clone, config);
+        EntityCommands {
+            commands: self.commands_mut().reborrow(),
+            entity: entity_clone,
+        }
+    }
+
+    /// Spawns a clone of this entity and allows configuring cloning behavior
+    /// using [`EntityClonerBuilder`], returning the [`EntityCommands`] of the clone.
+    ///
+    /// The clone will receive only the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) and are
+    /// [allowed](EntityClonerBuilder::allow) in the `config`.
+    ///
+    /// See the methods on [`EntityClonerBuilder<OptIn>`] for more options.
+    ///
+    /// # Note
+    ///
+    /// If the original entity does not exist when this command is applied,
+    /// the returned entity will have no components.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity and store its EntityCommands.
+    ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
+    ///
+    ///     // Create a clone of the entity with ComponentA but without ComponentB.
+    ///     let mut entity_clone = entity.clone_and_spawn_with_opt_in(|builder| {
+    ///         builder.allow::<ComponentA>();
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    pub fn clone_and_spawn_with_opt_in(
+        &mut self,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
+    ) -> EntityCommands<'_> {
+        let entity_clone = self.commands().spawn_empty().id();
+        self.clone_with_opt_in(entity_clone, config);
         EntityCommands {
             commands: self.commands_mut().reborrow(),
             entity: entity_clone,
@@ -2340,7 +2445,7 @@ mod tests {
             .spawn((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
-        assert_eq!(world.entities().len(), 1);
+        assert_eq!(world.entity_count(), 1);
         let results = world
             .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)

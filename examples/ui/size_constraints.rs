@@ -35,7 +35,7 @@ enum Constraint {
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
 
-#[derive(Event)]
+#[derive(Event, BufferedEvent)]
 struct ButtonActivatedEvent(Entity);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

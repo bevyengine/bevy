@@ -96,9 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     .observe(
                                         |trigger: On<Pointer<Press>>, mut commands: Commands| {
                                             if trigger.event().button == PointerButton::Primary {
-                                                commands
-                                                    .entity(trigger.target().unwrap())
-                                                    .despawn();
+                                                commands.entity(trigger.target()).despawn();
                                             }
                                         },
                                     );
@@ -340,8 +338,8 @@ pub fn update_scroll_position(
         for (_pointer, pointer_map) in hover_map.iter() {
             for (entity, _hit) in pointer_map.iter() {
                 if let Ok(mut scroll_position) = scrolled_node_query.get_mut(*entity) {
-                    scroll_position.offset_x -= dx;
-                    scroll_position.offset_y -= dy;
+                    scroll_position.x -= dx;
+                    scroll_position.y -= dy;
                 }
             }
         }

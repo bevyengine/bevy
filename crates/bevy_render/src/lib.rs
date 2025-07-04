@@ -26,6 +26,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
+pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
 pub mod extract_instances;
@@ -216,9 +217,29 @@ pub enum RenderSystems {
     PostCleanup,
 }
 
+/// The schedule that contains the app logic that is evaluated each tick
+///
+/// This is highly inspired by [`bevy_app::Main`]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct MainRender;
+impl MainRender {
+    pub fn run(world: &mut World, mut run_at_least_once: Local<bool>) {
+        if !*run_at_least_once {
+            let _ = world.try_run_schedule(RenderStartup);
+            *run_at_least_once = true;
+        }
+
+        let _ = world.try_run_schedule(Render);
+    }
+}
+
 /// Deprecated alias for [`RenderSystems`].
 #[deprecated(since = "0.17.0", note = "Renamed to `RenderSystems`.")]
 pub type RenderSet = RenderSystems;
+
+/// The startup schedule of the [`RenderApp`]
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct RenderStartup;
 
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -352,10 +373,12 @@ impl Plugin for RenderPlugin {
                             backend_options: wgpu::BackendOptions {
                                 gl: wgpu::GlBackendOptions {
                                     gles_minor_version: settings.gles3_minor_version,
+                                    fence_behavior: wgpu::GlFenceBehavior::Normal,
                                 },
                                 dx12: wgpu::Dx12BackendOptions {
                                     shader_compiler: settings.dx12_shader_compiler.clone(),
                                 },
+                                noop: wgpu::NoopBackendOptions { enable: false },
                             },
                         });
 
@@ -376,10 +399,19 @@ impl Plugin for RenderPlugin {
                             }
                         });
 
+                        let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
+                            .map_or(settings.force_fallback_adapter, |v| {
+                                !(v.is_empty() || v == "0" || v == "false")
+                            });
+
+                        let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
+                            .as_deref()
+                            .map_or(settings.adapter_name.clone(), |x| Some(x.to_lowercase()));
+
                         let request_adapter_options = wgpu::RequestAdapterOptions {
                             power_preference: settings.power_preference,
                             compatible_surface: surface.as_ref(),
-                            ..Default::default()
+                            force_fallback_adapter,
                         };
 
                         let (device, queue, adapter_info, render_adapter) =
@@ -387,6 +419,7 @@ impl Plugin for RenderPlugin {
                                 &instance,
                                 &settings,
                                 &request_adapter_options,
+                                desired_adapter_name,
                             )
                             .await;
                         debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
@@ -528,7 +561,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = SubApp::new();
-    render_app.update_schedule = Some(Render.intern());
+    render_app.update_schedule = Some(MainRender.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     // We skip applying any commands during the ExtractSchedule
@@ -543,6 +576,7 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
         .init_resource::<render_graph::RenderGraph>()
+        .add_systems(MainRender, MainRender::run)
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(

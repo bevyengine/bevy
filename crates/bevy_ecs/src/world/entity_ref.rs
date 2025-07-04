@@ -11,12 +11,12 @@ use crate::{
     },
     entity::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
-        EntityIdLocation, EntityLocation,
+        EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
-    event::Event,
+    event::EntityEvent,
     lifecycle::{DESPAWN, REMOVE, REPLACE},
     observer::Observer,
-    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
+    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
     relationship::RelationshipHookMode,
     resource::Resource,
     system::IntoObserverSystem,
@@ -279,14 +279,16 @@ impl<'w> EntityRef<'w> {
     /// # Panics
     ///
     /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'w> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'w, 'static> {
         self.get_components::<Q>()
             .expect("Query does not match the current entity")
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+        &self,
+    ) -> Option<Q::Item<'w, 'static>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.cell.get_components::<Q>() }
     }
@@ -546,13 +548,15 @@ impl<'w> EntityMut<'w> {
     /// # Panics
     ///
     /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
         self.as_readonly().components::<Q>()
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+        &self,
+    ) -> Option<Q::Item<'_, 'static>> {
         self.as_readonly().get_components::<Q>()
     }
 
@@ -1310,7 +1314,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity does not have the components required by the query `Q` or if the entity
     /// has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
         self.as_readonly().components::<Q>()
     }
 
@@ -1321,7 +1325,9 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+        &self,
+    ) -> Option<Q::Item<'_, 'static>> {
         self.as_readonly().get_components::<Q>()
     }
 
@@ -2626,7 +2632,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
-    pub fn trigger(&mut self, event: impl Event) -> &mut Self {
+    pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
         self.assert_not_despawned();
         self.world.trigger_targets(event, self.entity);
         self.world.flush();
@@ -2643,14 +2649,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the given system is an exclusive system.
     #[track_caller]
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
-    pub(crate) fn observe_with_caller<E: Event, B: Bundle, M>(
+    pub(crate) fn observe_with_caller<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
         caller: MaybeLocation,
@@ -2666,10 +2672,12 @@ impl<'w> EntityWorldMut<'w> {
     /// Clones parts of an entity (components, observers, etc.) onto another entity,
     /// configured through [`EntityClonerBuilder`].
     ///
-    /// By default, the other entity will receive all the components of the original that implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    /// The other entity will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) except those that are
+    /// [denied](EntityClonerBuilder::deny) in the `config`.
     ///
-    /// Configure through [`EntityClonerBuilder`] as follows:
+    /// # Example
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Component, Clone, PartialEq, Debug)]
@@ -2679,27 +2687,76 @@ impl<'w> EntityWorldMut<'w> {
     /// # let mut world = World::new();
     /// # let entity = world.spawn((ComponentA, ComponentB)).id();
     /// # let target = world.spawn_empty().id();
-    /// world.entity_mut(entity).clone_with(target, |builder| {
-    ///     builder.deny::<ComponentB>();
+    /// // Clone all components except ComponentA onto the target.
+    /// world.entity_mut(entity).clone_with_opt_out(target, |builder| {
+    ///     builder.deny::<ComponentA>();
     /// });
-    /// # assert_eq!(world.get::<ComponentA>(target), Some(&ComponentA));
-    /// # assert_eq!(world.get::<ComponentB>(target), None);
+    /// # assert_eq!(world.get::<ComponentA>(target), None);
+    /// # assert_eq!(world.get::<ComponentB>(target), Some(&ComponentB));
     /// ```
     ///
-    /// See [`EntityClonerBuilder`] for more options.
+    /// See [`EntityClonerBuilder<OptOut>`] for more options.
     ///
     /// # Panics
     ///
     /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the target entity does not exist.
-    pub fn clone_with(
+    pub fn clone_with_opt_out(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
     ) -> &mut Self {
         self.assert_not_despawned();
 
-        let mut builder = EntityCloner::build(self.world);
+        let mut builder = EntityCloner::build_opt_out(self.world);
+        config(&mut builder);
+        builder.clone_entity(self.entity, target);
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
+    /// Clones parts of an entity (components, observers, etc.) onto another entity,
+    /// configured through [`EntityClonerBuilder`].
+    ///
+    /// The other entity will receive only the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) and are
+    /// [allowed](EntityClonerBuilder::allow) in the `config`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// # let target = world.spawn_empty().id();
+    /// // Clone only ComponentA onto the target.
+    /// world.entity_mut(entity).clone_with_opt_in(target, |builder| {
+    ///     builder.allow::<ComponentA>();
+    /// });
+    /// # assert_eq!(world.get::<ComponentA>(target), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(target), None);
+    /// ```
+    ///
+    /// See [`EntityClonerBuilder<OptIn>`] for more options.
+    ///
+    /// # Panics
+    ///
+    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the target entity does not exist.
+    pub fn clone_with_opt_in(
+        &mut self,
+        target: Entity,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.assert_not_despawned();
+
+        let mut builder = EntityCloner::build_opt_in(self.world);
         config(&mut builder);
         builder.clone_entity(self.entity, target);
 
@@ -2714,52 +2771,104 @@ impl<'w> EntityWorldMut<'w> {
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
     /// To configure cloning behavior (such as only cloning certain components),
-    /// use [`EntityWorldMut::clone_and_spawn_with`].
+    /// use [`EntityWorldMut::clone_and_spawn_with_opt_out`]/
+    /// [`opt_in`](`EntityWorldMut::clone_and_spawn_with_opt_in`).
     ///
     /// # Panics
     ///
     /// If this entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn clone_and_spawn(&mut self) -> Entity {
-        self.clone_and_spawn_with(|_| {})
+        self.clone_and_spawn_with_opt_out(|_| {})
     }
 
     /// Spawns a clone of this entity and allows configuring cloning behavior
     /// using [`EntityClonerBuilder`], returning the [`Entity`] of the clone.
     ///
-    /// By default, the clone will receive all the components of the original that implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    /// The clone will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) except those that are
+    /// [denied](EntityClonerBuilder::deny) in the `config`.
     ///
-    /// Configure through [`EntityClonerBuilder`] as follows:
+    /// # Example
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
     /// # #[derive(Component, Clone, PartialEq, Debug)]
     /// # struct ComponentA;
     /// # #[derive(Component, Clone, PartialEq, Debug)]
     /// # struct ComponentB;
-    /// # let mut world = World::new();
-    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
-    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with(|builder| {
-    ///     builder.deny::<ComponentB>();
+    /// // Create a clone of an entity but without ComponentA.
+    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with_opt_out(|builder| {
+    ///     builder.deny::<ComponentA>();
     /// });
-    /// # assert_eq!(world.get::<ComponentA>(entity_clone), Some(&ComponentA));
-    /// # assert_eq!(world.get::<ComponentB>(entity_clone), None);
+    /// # assert_eq!(world.get::<ComponentA>(entity_clone), None);
+    /// # assert_eq!(world.get::<ComponentB>(entity_clone), Some(&ComponentB));
     /// ```
     ///
-    /// See [`EntityClonerBuilder`] for more options.
+    /// See [`EntityClonerBuilder<OptOut>`] for more options.
     ///
     /// # Panics
     ///
     /// If this entity has been despawned while this `EntityWorldMut` is still alive.
-    pub fn clone_and_spawn_with(
+    pub fn clone_and_spawn_with_opt_out(
         &mut self,
-        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
     ) -> Entity {
         self.assert_not_despawned();
 
         let entity_clone = self.world.entities.reserve_entity();
         self.world.flush();
 
-        let mut builder = EntityCloner::build(self.world);
+        let mut builder = EntityCloner::build_opt_out(self.world);
+        config(&mut builder);
+        builder.clone_entity(self.entity, entity_clone);
+
+        self.world.flush();
+        self.update_location();
+        entity_clone
+    }
+
+    /// Spawns a clone of this entity and allows configuring cloning behavior
+    /// using [`EntityClonerBuilder`], returning the [`Entity`] of the clone.
+    ///
+    /// The clone will receive only the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect) and are
+    /// [allowed](EntityClonerBuilder::allow) in the `config`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// // Create a clone of an entity but only with ComponentA.
+    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with_opt_in(|builder| {
+    ///     builder.allow::<ComponentA>();
+    /// });
+    /// # assert_eq!(world.get::<ComponentA>(entity_clone), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(entity_clone), None);
+    /// ```
+    ///
+    /// See [`EntityClonerBuilder<OptIn>`] for more options.
+    ///
+    /// # Panics
+    ///
+    /// If this entity has been despawned while this `EntityWorldMut` is still alive.
+    pub fn clone_and_spawn_with_opt_in(
+        &mut self,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
+    ) -> Entity {
+        self.assert_not_despawned();
+
+        let entity_clone = self.world.entities.reserve_entity();
+        self.world.flush();
+
+        let mut builder = EntityCloner::build_opt_in(self.world);
         config(&mut builder);
         builder.clone_entity(self.entity, entity_clone);
 
@@ -2780,8 +2889,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
-        EntityCloner::build(self.world)
-            .deny_all()
+        EntityCloner::build_opt_in(self.world)
             .allow::<B>()
             .clone_entity(self.entity, target);
 
@@ -2803,8 +2911,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
-        EntityCloner::build(self.world)
-            .deny_all()
+        EntityCloner::build_opt_in(self.world)
             .allow::<B>()
             .move_components(true)
             .clone_entity(self.entity, target);
@@ -5739,7 +5846,7 @@ mod tests {
         assert_eq!((&mut X(8), &mut Y(9)), (x_component, y_component));
     }
 
-    #[derive(Event)]
+    #[derive(Event, EntityEvent)]
     struct TestEvent;
 
     #[test]
@@ -5748,9 +5855,7 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|trigger: On<TestEvent>, mut commands: Commands| {
-                commands
-                    .entity(trigger.target().unwrap())
-                    .insert(TestComponent(0));
+                commands.entity(trigger.target()).insert(TestComponent(0));
             })
             .id();
 
@@ -5769,7 +5874,7 @@ mod tests {
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
         world.add_observer(|trigger: On<Add, TestComponent>, mut commands: Commands| {
-            commands.entity(trigger.target().unwrap()).despawn();
+            commands.entity(trigger.target()).despawn();
         });
         let entity = world.spawn_empty().id();
         let mut a = world.entity_mut(entity);
@@ -5994,12 +6099,12 @@ mod tests {
     #[test]
     fn entity_world_mut_clone_with_move_and_require() {
         #[derive(Component, Clone, PartialEq, Debug)]
-        #[require(B)]
+        #[require(B(3))]
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
         #[require(C(3))]
-        struct B;
+        struct B(u32);
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
         #[require(D)]
@@ -6009,22 +6114,25 @@ mod tests {
         struct D;
 
         let mut world = World::new();
-        let entity_a = world.spawn(A).id();
+        let entity_a = world.spawn((A, B(5))).id();
         let entity_b = world.spawn_empty().id();
 
-        world.entity_mut(entity_a).clone_with(entity_b, |builder| {
-            builder
-                .move_components(true)
-                .without_required_components(|builder| {
-                    builder.deny::<A>();
-                });
-        });
+        world
+            .entity_mut(entity_a)
+            .clone_with_opt_in(entity_b, |builder| {
+                builder
+                    .move_components(true)
+                    .allow::<C>()
+                    .without_required_components(|builder| {
+                        builder.allow::<A>();
+                    });
+            });
 
-        assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
-        assert_eq!(world.entity(entity_b).get::<A>(), None);
+        assert_eq!(world.entity(entity_a).get::<A>(), None);
+        assert_eq!(world.entity(entity_b).get::<A>(), Some(&A));
 
-        assert_eq!(world.entity(entity_a).get::<B>(), None);
-        assert_eq!(world.entity(entity_b).get::<B>(), Some(&B));
+        assert_eq!(world.entity(entity_a).get::<B>(), Some(&B(5)));
+        assert_eq!(world.entity(entity_b).get::<B>(), Some(&B(3)));
 
         assert_eq!(world.entity(entity_a).get::<C>(), None);
         assert_eq!(world.entity(entity_b).get::<C>(), Some(&C(3)));

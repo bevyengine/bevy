@@ -1,5 +1,7 @@
 use crate::{
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
+    error::{BevyError, Result},
+    never::Never,
     prelude::FromWorld,
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
@@ -11,6 +13,7 @@ use crate::{
 };
 
 use alloc::{borrow::Cow, vec, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -18,13 +21,14 @@ use variadics_please::all_tuples;
 use tracing::{info_span, Span};
 
 use super::{
-    IntoSystem, ReadOnlySystem, SystemParamBuilder, SystemParamValidationError, SystemStateFlags,
+    IntoSystem, ReadOnlySystem, RunSystemError, SystemParamBuilder, SystemParamValidationError,
+    SystemStateFlags,
 };
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
 pub struct SystemMeta {
-    pub(crate) name: Cow<'static, str>,
+    pub(crate) name: DebugName,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     flags: SystemStateFlags,
@@ -37,21 +41,21 @@ pub struct SystemMeta {
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
-        let name = core::any::type_name::<T>();
+        let name = DebugName::type_name::<T>();
         Self {
-            name: name.into(),
+            #[cfg(feature = "trace")]
+            system_span: info_span!("system", name = name.clone().as_string()),
+            #[cfg(feature = "trace")]
+            commands_span: info_span!("system_commands", name = name.clone().as_string()),
+            name,
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
-            #[cfg(feature = "trace")]
-            system_span: info_span!("system", name = name),
-            #[cfg(feature = "trace")]
-            commands_span: info_span!("system_commands", name = name),
         }
     }
 
     /// Returns the system's name
     #[inline]
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &DebugName {
         &self.name
     }
 
@@ -67,7 +71,7 @@ impl SystemMeta {
             self.system_span = info_span!("system", name = name);
             self.commands_span = info_span!("system_commands", name = name);
         }
-        self.name = new_name;
+        self.name = new_name.into();
     }
 
     /// Returns true if the system is [`Send`].
@@ -131,7 +135,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(Event)]
+/// # #[derive(Event, BufferedEvent)]
 /// # struct MyEvent;
 /// # #[derive(Resource)]
 /// # struct MyResource(u32);
@@ -164,7 +168,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(Event)]
+/// # #[derive(Event, BufferedEvent)]
 /// # struct MyEvent;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
@@ -209,15 +213,16 @@ macro_rules! impl_build_system {
             /// This method signature allows type inference of closure parameters for a system with no input.
             /// You can use [`SystemState::build_system_with_input()`] if you have input, or [`SystemState::build_any_system()`] if you don't need type inference.
             pub fn build_system<
+                InnerOut: IntoResult<Out>,
                 Out: 'static,
                 Marker,
-                F: FnMut($(SystemParamItem<$param>),*) -> Out
-                    + SystemParamFunction<Marker, Param = ($($param,)*), In = (), Out = Out>
+                F: FnMut($(SystemParamItem<$param>),*) -> InnerOut
+                    + SystemParamFunction<Marker, Param = ($($param,)*), In = (), Out = InnerOut>
             >
             (
                 self,
                 func: F,
-            ) -> FunctionSystem<Marker, F>
+            ) -> FunctionSystem<Marker, Out, F>
             {
                 self.build_any_system(func)
             }
@@ -227,14 +232,15 @@ macro_rules! impl_build_system {
             /// You can use [`SystemState::build_system()`] if you have no input, or [`SystemState::build_any_system()`] if you don't need type inference.
             pub fn build_system_with_input<
                 Input: SystemInput,
+                InnerOut: IntoResult<Out>,
                 Out: 'static,
                 Marker,
-                F: FnMut(Input, $(SystemParamItem<$param>),*) -> Out
-                    + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = Out>,
+                F: FnMut(Input, $(SystemParamItem<$param>),*) -> InnerOut
+                    + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = InnerOut>,
             >(
                 self,
                 func: F,
-            ) -> FunctionSystem<Marker, F> {
+            ) -> FunctionSystem<Marker, Out, F> {
                 self.build_any_system(func)
             }
         }
@@ -285,10 +291,10 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Create a [`FunctionSystem`] from a [`SystemState`].
     /// This method signature allows any system function, but the compiler will not perform type inference on closure parameters.
     /// You can use [`SystemState::build_system()`] or [`SystemState::build_system_with_input()`] to get type inference on parameters.
-    pub fn build_any_system<Marker, F: SystemParamFunction<Marker, Param = Param>>(
-        self,
-        func: F,
-    ) -> FunctionSystem<Marker, F> {
+    pub fn build_any_system<Marker, Out, F>(self, func: F) -> FunctionSystem<Marker, Out, F>
+    where
+        F: SystemParamFunction<Marker, Param = Param, Out: IntoResult<Out>>,
+    {
         FunctionSystem {
             func,
             #[cfg(feature = "hotpatching")]
@@ -501,7 +507,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// The [`Clone`] implementation for [`FunctionSystem`] returns a new instance which
 /// is NOT initialized. The cloned system must also be `.initialized` before it can be run.
-pub struct FunctionSystem<Marker, F>
+pub struct FunctionSystem<Marker, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -511,7 +517,7 @@ where
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> Marker>,
+    marker: PhantomData<fn() -> (Marker, Out)>,
 }
 
 /// The state of a [`FunctionSystem`], which must be initialized with
@@ -526,7 +532,7 @@ struct FunctionSystemState<P: SystemParam> {
     world_id: WorldId,
 }
 
-impl<Marker, F> FunctionSystem<Marker, F>
+impl<Marker, Out, F> FunctionSystem<Marker, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -540,7 +546,7 @@ where
 }
 
 // De-initializes the cloned system.
-impl<Marker, F> Clone for FunctionSystem<Marker, F>
+impl<Marker, Out, F> Clone for FunctionSystem<Marker, Out, F>
 where
     F: SystemParamFunction<Marker> + Clone,
 {
@@ -561,12 +567,13 @@ where
 #[doc(hidden)]
 pub struct IsFunctionSystem;
 
-impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
+impl<Marker, Out, F> IntoSystem<F::In, Out, (IsFunctionSystem, Marker)> for F
 where
+    Out: 'static,
     Marker: 'static,
-    F: SystemParamFunction<Marker>,
+    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
 {
-    type System = FunctionSystem<Marker, F>;
+    type System = FunctionSystem<Marker, Out, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,
@@ -580,7 +587,48 @@ where
     }
 }
 
-impl<Marker, F> FunctionSystem<Marker, F>
+/// A type that may be converted to the output of a [`System`].
+/// This is used to allow systems to return either a plain value or a [`Result`].
+pub trait IntoResult<Out>: Sized {
+    /// Converts this type into the system output type.
+    fn into_result(self) -> Result<Out, RunSystemError>;
+}
+
+impl<T> IntoResult<T> for T {
+    fn into_result(self) -> Result<T, RunSystemError> {
+        Ok(self)
+    }
+}
+
+impl<T> IntoResult<T> for Result<T, RunSystemError> {
+    fn into_result(self) -> Result<T, RunSystemError> {
+        self
+    }
+}
+
+impl<T> IntoResult<T> for Result<T, BevyError> {
+    fn into_result(self) -> Result<T, RunSystemError> {
+        Ok(self?)
+    }
+}
+
+// The `!` impl can't be generic in `Out`, since that would overlap with
+// `impl<T> IntoResult<T> for T` when `T` = `!`.
+// Use explicit impls for `()` and `bool` so diverging functions
+// can be used for systems and conditions.
+impl IntoResult<()> for Never {
+    fn into_result(self) -> Result<(), RunSystemError> {
+        self
+    }
+}
+
+impl IntoResult<bool> for Never {
+    fn into_result(self) -> Result<bool, RunSystemError> {
+        self
+    }
+}
+
+impl<Marker, Out, F> FunctionSystem<Marker, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -591,16 +639,17 @@ where
         "System's state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<Marker, F> System for FunctionSystem<Marker, F>
+impl<Marker, Out, F> System for FunctionSystem<Marker, Out, F>
 where
     Marker: 'static,
-    F: SystemParamFunction<Marker>,
+    Out: 'static,
+    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
 {
     type In = F::In;
-    type Out = F::Out;
+    type Out = Out;
 
     #[inline]
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.system_meta.name.clone()
     }
 
@@ -614,7 +663,7 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
 
@@ -644,7 +693,7 @@ where
         let out = self.func.run(input, params);
 
         self.system_meta.last_run = change_tick;
-        out
+        IntoResult::into_result(out)
     }
 
     #[cfg(feature = "hotpatching")]
@@ -708,11 +757,11 @@ where
     }
 
     #[inline]
-    fn check_change_tick(&mut self, change_tick: Tick) {
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
         check_system_change_tick(
             &mut self.system_meta.last_run,
-            change_tick,
-            self.system_meta.name.as_ref(),
+            check,
+            self.system_meta.name.clone(),
         );
     }
 
@@ -731,10 +780,11 @@ where
 }
 
 /// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
-unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<Marker, F>
+unsafe impl<Marker, Out, F> ReadOnlySystem for FunctionSystem<Marker, Out, F>
 where
     Marker: 'static,
-    F: SystemParamFunction<Marker>,
+    Out: 'static,
+    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
     F::Param: ReadOnlySystemParam,
 {
 }
@@ -784,7 +834,7 @@ where
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
 ///     piped_system.initialize(&mut world);
-///     assert_eq!(piped_system.run((), &mut world), Some(42));
+///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }
 ///
 /// #[derive(Resource)]

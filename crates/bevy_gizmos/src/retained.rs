@@ -149,7 +149,7 @@ pub(crate) fn extract_linegizmos(
                 line_style: gizmo.line_config.style,
                 line_joints: gizmo.line_config.joints,
                 render_layers: render_layers.cloned().unwrap_or_default(),
-                handle: gizmo.handle.clone_weak(),
+                handle: gizmo.handle.clone(),
             },
             MainEntity::from(entity),
             TemporaryRenderEntity,

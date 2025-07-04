@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.16.0-dev"
+version = "0.17.0-dev"
 edition = "2024"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevy.org"
@@ -35,7 +35,7 @@ backtrace = ["std"]
 
 ## Enables `tracing` integration, allowing spans and other metrics to be reported
 ## through that framework.
-trace = ["std", "dep:tracing"]
+trace = ["std", "dep:tracing", "bevy_utils/debug"]
 
 ## Enables a more detailed set of traces which may be noisy if left on by default.
 detailed_trace = ["trace"]
@@ -63,9 +63,9 @@ std = [
   "bevy_reflect?/std",
   "bevy_tasks/std",
   "bevy_utils/parallel",
+  "bevy_utils/std",
   "bitflags/std",
   "concurrent-queue/std",
-  "disqualified/alloc",
   "fixedbitset/std",
   "indexmap/std",
   "serde?/std",
@@ -86,26 +86,25 @@ critical-section = [
 hotpatching = ["dep:subsecond"]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
+bevy_ptr = { path = "../bevy_ptr", version = "0.17.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", features = [
   "smallvec",
 ], default-features = false, optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
-bevy_ecs_macros = { path = "macros", version = "0.16.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
+bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", default-features = false }
+bevy_ecs_macros = { path = "macros", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "alloc",
 ] }
 
 bitflags = { version = "2.3", default-features = false }
-disqualified = { version = "1.0", default-features = false }
 fixedbitset = { version = "0.5", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",
   "serde_derive",
 ], optional = true }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = [
+derive_more = { version = "2", default-features = false, features = [
   "from",
   "display",
   "into",
@@ -120,6 +119,7 @@ tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
 subsecond = { version = "0.7.0-alpha.1", optional = true }
+slotmap = { version = "1.0.7", default-features = false }
 
 concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
