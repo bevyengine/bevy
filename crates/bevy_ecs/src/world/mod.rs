@@ -304,6 +304,7 @@ impl World {
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
     ///
     /// Will panic if `T` exists in any archetypes.
+    #[must_use]
     pub fn register_component_hooks<T: Component>(&mut self) -> &mut ComponentHooks {
         let index = self.register_component::<T>();
         assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if {} may already be in use", core::any::type_name::<T>());
