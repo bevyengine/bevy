@@ -23,6 +23,7 @@ use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::query::Has;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::schedule::SystemSet;
 use bevy_ecs::system::Query;
@@ -44,7 +45,6 @@ use cosmic_text::Editor;
 use cosmic_text::Metrics;
 pub use cosmic_text::Motion;
 use cosmic_text::Selection;
-use tracing::info;
 
 pub struct TextInputPlugin;
 
@@ -95,19 +95,9 @@ impl Default for TextInputBuffer {
     }
 }
 
-/// Text input buffer that only supports single line editing
+/// Marks a text input buffer as only supporting single line editing
 #[derive(Component, Debug)]
-pub struct SingleLineTextInputBuffer {
-    pub editor: Editor<'static>,
-}
-
-impl Default for SingleLineTextInputBuffer {
-    fn default() -> Self {
-        Self {
-            editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
-        }
-    }
-}
+pub struct SingleLineTextInput;
 
 /// Component containing the change history for a text input.
 /// Text input entities without this component will ignore undo and redo actions.
@@ -312,9 +302,10 @@ pub fn apply_text_input_actions(
         &mut TextInputBuffer,
         &mut TextInputActions,
         Option<&mut TextInputHistory>,
+        Has<SingleLineTextInput>,
     )>,
 ) {
-    for (_entity, mut buffer, mut text_input_actions, mut maybe_history) in
+    for (_entity, mut buffer, mut text_input_actions, mut maybe_history, is_single_line_input) in
         text_input_query.iter_mut()
     {
         let mut editor = buffer.editor.borrow_with(&mut font_system);
@@ -353,7 +344,9 @@ pub fn apply_text_input_actions(
                     }
                 }
                 TextInputAction::NewLine => {
-                    editor.action(Action::Enter);
+                    if !is_single_line_input {
+                        editor.action(Action::Enter);
+                    }
                 }
                 TextInputAction::Backspace => {
                     if editor.delete_selection() {
