@@ -328,11 +328,7 @@ impl core::ops::Mul<Dir2> for Rot2 {
 
 impl fmt::Display for Dir2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(p) = f.precision() {
-            write!(f, "[{:.*}, {:.*}]", p, self.x, p, self.y)
-        } else {
-            write!(f, "[{}, {}]", self.x, self.y)
-        }
+        write!(f, "{}", self.0)
     }
 }
 
@@ -600,11 +596,7 @@ impl core::ops::Mul<Dir3> for Quat {
 
 impl fmt::Display for Dir3 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(p) = f.precision() {
-            write!(f, "[{:.*}, {:.*}, {:.*}]", p, self.x, p, self.y, p, self.z)
-        } else {
-            write!(f, "[{}, {}, {}]", self.x, self.y, self.z)
-        }
+        write!(f, "{}", self.0)
     }
 }
 
@@ -857,11 +849,7 @@ impl core::ops::Mul<Dir3A> for Quat {
 
 impl fmt::Display for Dir3A {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(p) = f.precision() {
-            write!(f, "[{:.*}, {:.*}, {:.*}]", p, self.x, p, self.y, p, self.z)
-        } else {
-            write!(f, "[{}, {}, {}]", self.x, self.y, self.z)
-        }
+        write!(f, "{}", self.0)
     }
 }
 
@@ -1055,15 +1043,7 @@ impl core::ops::Mul<Dir4> for f32 {
 
 impl fmt::Display for Dir4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(p) = f.precision() {
-            write!(
-                f,
-                "[{:.*}, {:.*}, {:.*}, {:.*}]",
-                p, self.x, p, self.y, p, self.z, p, self.w
-            )
-        } else {
-            write!(f, "[{}, {}, {}, {}]", self.x, self.y, self.z, self.w)
-        }
+        write!(f, "{}", self.0)
     }
 }
 
