@@ -313,9 +313,9 @@ where
         })
     }
 
-    /// For a type implementing `PartialReflect`, combines `reflect_clone` and
+    /// For a type implementing [`PartialReflect`], combines `reflect_clone` and
     /// `take` in a useful fashion, automatically constructing an appropriate
-    /// `ReflectCloneError` if the downcast fails.
+    /// [`ReflectCloneError`] if the downcast fails.
     ///
     /// This is an associated function, rather than a method, because methods
     /// with generic types prevent dyn-compatibility.
