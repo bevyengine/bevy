@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.86.0"
+rust-version = "1.88.0"
 
 [workspace]
 resolver = "2"
@@ -151,6 +151,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_ui_render",
   "bevy_window",
   "bevy_winit",
   "custom_cursor",
@@ -278,6 +279,9 @@ bevy_ui = [
   "bevy_color",
   "bevy_anti_aliasing",
 ]
+
+# Provides rendering functionality for bevy_ui
+bevy_ui_render = ["bevy_internal/bevy_ui_render", "bevy_render", "bevy_ui"]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
@@ -2089,12 +2093,6 @@ doc-scrape-examples = true
 [package.metadata.example.ecs_guide]
 name = "ECS Guide"
 description = "Full guide to Bevy's ECS"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[package.metadata.example.apply_deferred]
-name = "Apply System Buffers"
-description = "Show how to use `ApplyDeferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 

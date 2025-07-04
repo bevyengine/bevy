@@ -119,6 +119,7 @@ tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
 subsecond = { version = "0.7.0-alpha.1", optional = true }
+slotmap = { version = "1.0.7", default-features = false }
 
 concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]

@@ -717,7 +717,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
@@ -728,7 +728,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
         {
             fn system(query: Query<(Option<&A>, &B)>) {
@@ -741,7 +741,7 @@ mod tests {
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world).unwrap();
         }
     }
 

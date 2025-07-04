@@ -2,12 +2,6 @@
 
 use core::{hash::Hash, ops::Range};
 
-use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
-use crate::prelude::UiGlobalTransform;
-use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystems,
-    ResolvedBorderRadius, TransparentUi, Val,
-};
 use bevy_app::prelude::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -21,18 +15,25 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
-use bevy_render::sync_world::MainEntity;
+use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::RenderApp;
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::TemporaryRenderEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
+use bevy_ui::{
+    BoxShadow, CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius,
+    UiGlobalTransform, Val,
+};
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
+
+use crate::{BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap};
+
+use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
@@ -241,8 +242,7 @@ pub fn extract_shadows(
             continue;
         };
 
-        let ui_physical_viewport_size = camera.physical_size.as_vec2();
-
+        let ui_physical_viewport_size = camera.physical_size().as_vec2();
         let scale_factor = uinode.inverse_scale_factor.recip();
 
         for drop_shadow in box_shadow.iter() {
@@ -448,13 +448,6 @@ pub fn prepare_shadows(
                         }
                     }
 
-                    let radius = [
-                        box_shadow.radius.top_left,
-                        box_shadow.radius.top_right,
-                        box_shadow.radius.bottom_right,
-                        box_shadow.radius.bottom_left,
-                    ];
-
                     let uvs = [
                         Vec2::new(positions_diff[0].x, positions_diff[0].y),
                         Vec2::new(
@@ -478,7 +471,7 @@ pub fn prepare_shadows(
                             uvs: uvs[i].into(),
                             vertex_color: box_shadow.color.to_f32_array(),
                             size: box_shadow.size.into(),
-                            radius,
+                            radius: box_shadow.radius.into(),
                             blur: box_shadow.blur_radius,
                             bounds: rect_size.into(),
                         });
