@@ -145,6 +145,7 @@ pub struct TextInputAttributes {
     pub line_break: LineBreak,
     pub justify: Justify,
     pub font_smoothing: FontSmoothing,
+    pub max_chars: Option<usize>,
 }
 
 impl Default for TextInputAttributes {
@@ -156,6 +157,7 @@ impl Default for TextInputAttributes {
             font_smoothing: Default::default(),
             justify: Default::default(),
             line_break: Default::default(),
+            max_chars: None,
         }
     }
 }
@@ -507,7 +509,7 @@ pub fn update_text_input_buffers(
                     .style(face_info.style)
                     .weight(face_info.weight);
 
-                let text = buffer
+                let mut text = buffer
                     .lines
                     .iter()
                     .map(|buffer_line| buffer_line.text())
@@ -518,6 +520,11 @@ pub fn update_text_input_buffers(
                         out.push_str(line);
                         out
                     });
+
+                if let Some(max_chars) = attributes.max_chars {
+                    text.truncate(max_chars);
+                }
+
                 buffer.set_text(font_system, &text, &attrs, cosmic_text::Shaping::Advanced);
                 let align = Some(attributes.justify.into());
                 for buffer_line in buffer.lines.iter_mut() {
