@@ -127,7 +127,11 @@ pub trait Relationship: Component + Sized {
             return;
         }
 
-        // Deferring is necessary for batch mode
+        // We defer the insertion of RelationshipTarget in the target. Otherwise this is problematic
+        // when inserting in batch if the target doesn't have the component yet. In that case, since
+        // the hooks run with no flush in between, we end up deferring a batch of commands all
+        // inserting RelationshipTarget with a single entity, each command overwriting the previous
+        // one when applied, resulting in the target having an only child instead of the whole batch.
         world.commands().queue(move |world: &mut World| {
             if let Ok(mut target_entity_world) = world.get_entity_mut(target_entity) {
                 target_entity_world
