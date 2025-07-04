@@ -298,7 +298,29 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Despawns entities that relate to this one via the given [`RelationshipTarget`].
     /// This entity will not be despawned.
+    ///
+    /// # Panics
+    /// This method will panic if a related entity was already despawned by other means this update.
+    /// Use [Self::try_despawn_related] if you want to avoid panicking.
     pub fn despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
+        if let Some(sources) = self.take::<S>() {
+            self.world_scope(|world| {
+                for entity in sources.iter() {
+                    if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                        entity_mut.despawn();
+                    }
+                }
+            });
+        }
+        self
+    }
+
+    /// Tries to despawn entities that relate to this one via the given [`RelationshipTarget`].
+    /// This entity will not be despawned.
+    ///
+    /// Unlike [`Self::despawn_related`],
+    /// this will not panic if a related entity was already despawned by other means this update.
+    pub fn try_despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
         if let Some(sources) = self.take::<S>() {
             self.world_scope(|world| {
                 for entity in sources.iter() {
@@ -315,11 +337,23 @@ impl<'w> EntityWorldMut<'w> {
     /// This entity will not be despawned.
     ///
     /// This is a specialization of [`despawn_related`](EntityWorldMut::despawn_related), a more general method for despawning via relationships.
+    /// # Panics
+    /// This method will panic if a child was already despawned by other means this update.
+    /// Use [`Self::try_despawn_children`] if you want to avoid panicking.
     pub fn despawn_children(&mut self) -> &mut Self {
         self.despawn_related::<Children>();
         self
     }
 
+    /// Tries to despawn the children of this entity.
+    /// This entity will not be despawned.
+    ///
+    /// This is a specialization of [`despawn_related`](EntityWorldMut::despawn_related), a more general method for despawning via relationships.
+    /// Unlike [`Self::despawn_children`], this method will not panic if a child was already despawned by other means this update.
+    pub fn try_despawn_children(&mut self) -> &mut Self {
+        self.try_despawn_related::<Children>();
+        self
+    }
     /// Inserts a component or bundle of components into the entity and all related entities,
     /// traversing the relationship tracked in `S` in a breadth-first manner.
     ///
