@@ -1056,7 +1056,11 @@ impl core::ops::Mul<Dir4> for f32 {
 impl fmt::Display for Dir4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(p) = f.precision() {
-            write!(f, "[{:.*}, {:.*}, {:.*}, {:.*}]", p, self.x, p, self.y, p, self.z, p, self.w)
+            write!(
+                f,
+                "[{:.*}, {:.*}, {:.*}, {:.*}]",
+                p, self.x, p, self.y, p, self.z, p, self.w
+            )
         } else {
             write!(f, "[{}, {}, {}, {}]", self.x, self.y, self.z, self.w)
         }
