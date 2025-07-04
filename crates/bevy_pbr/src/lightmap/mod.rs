@@ -32,14 +32,14 @@
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
+use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    lifecycle::RemovedComponents,
     query::{Changed, Or},
     reflect::ReflectComponent,
-    removal_detection::RemovedComponents,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},
@@ -50,8 +50,9 @@ use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    load_shader_library,
     render_asset::RenderAssets,
-    render_resource::{Sampler, Shader, TextureView, WgpuSampler, WgpuTextureView},
+    render_resource::{Sampler, TextureView, WgpuSampler, WgpuTextureView},
     renderer::RenderAdapter,
     sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
@@ -64,11 +65,7 @@ use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 use tracing::error;
 
-use crate::{binding_arrays_are_usable, ExtractMeshesSet};
-
-/// The ID of the lightmap shader.
-pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("fc28203f-f258-47f3-973c-ce7d1dd70e59");
+use crate::{binding_arrays_are_usable, MeshExtractionSystems};
 
 /// The number of lightmaps that we store in a single slab, if bindless textures
 /// are in use.
@@ -188,12 +185,7 @@ pub struct LightmapSlotIndex(pub(crate) NonMaxU16);
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            LIGHTMAP_SHADER_HANDLE,
-            "lightmap.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "lightmap.wgsl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -201,9 +193,10 @@ impl Plugin for LightmapPlugin {
             return;
         };
 
-        render_app
-            .init_resource::<RenderLightmaps>()
-            .add_systems(ExtractSchedule, extract_lightmaps.after(ExtractMeshesSet));
+        render_app.init_resource::<RenderLightmaps>().add_systems(
+            ExtractSchedule,
+            extract_lightmaps.after(MeshExtractionSystems),
+        );
     }
 }
 

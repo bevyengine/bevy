@@ -1,17 +1,17 @@
-use alloc::{borrow::Cow, format, vec::Vec};
+use alloc::{format, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 
 use crate::{
-    archetype::ArchetypeComponentId,
-    component::{ComponentId, Tick},
+    component::{CheckChangeTicks, ComponentId, Tick},
     prelude::World,
-    query::Access,
+    query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn, SystemParamValidationError},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{IntoSystem, ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 
 /// Customizes the behavior of a [`CombinatorSystem`].
 ///
@@ -19,7 +19,7 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{CombinatorSystem, Combine};
+/// use bevy_ecs::system::{CombinatorSystem, Combine, RunSystemError};
 ///
 /// // A system combinator that performs an exclusive-or (XOR)
 /// // operation on the output of two systems.
@@ -38,10 +38,10 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///
 ///     fn combine(
 ///         _input: Self::In,
-///         a: impl FnOnce(A::In) -> A::Out,
-///         b: impl FnOnce(B::In) -> B::Out,
-///     ) -> Self::Out {
-///         a(()) ^ b(())
+///         a: impl FnOnce(A::In) -> Result<A::Out, RunSystemError>,
+///         b: impl FnOnce(B::In) -> Result<B::Out, RunSystemError>,
+///     ) -> Result<Self::Out, RunSystemError> {
+///         Ok(a(())? ^ b(())?)
 ///     }
 /// }
 ///
@@ -56,7 +56,7 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///     IntoSystem::into_system(resource_equals(A(1))),
 ///     IntoSystem::into_system(resource_equals(B(1))),
 ///     // The name of the combined system.
-///     std::borrow::Cow::Borrowed("a ^ b"),
+///     "a ^ b".into(),
 /// )));
 /// # fn my_system(mut flag: ResMut<RanFlag>) { flag.0 = true; }
 /// #
@@ -101,9 +101,9 @@ pub trait Combine<A: System, B: System> {
     /// See the trait-level docs for [`Combine`] for an example implementation.
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out;
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, B>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError>;
 }
 
 /// A [`System`] defined by combining two other systems.
@@ -113,23 +113,19 @@ pub struct CombinatorSystem<Func, A, B> {
     _marker: PhantomData<fn() -> Func>,
     a: A,
     b: B,
-    name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
-    archetype_component_access: Access<ArchetypeComponentId>,
+    name: DebugName,
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
     /// Creates a new system that combines two inner systems.
     ///
     /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
-    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+    pub fn new(a: A, b: B, name: DebugName) -> Self {
         Self {
             _marker: PhantomData,
             a,
             b,
             name,
-            component_access: Access::new(),
-            archetype_component_access: Access::new(),
         }
     }
 }
@@ -143,35 +139,20 @@ where
     type In = Func::In;
     type Out = Func::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.name.clone()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
-    }
-
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
-    fn is_send(&self) -> bool {
-        self.a.is_send() && self.b.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.a.is_exclusive() || self.b.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.a.has_deferred() || self.b.has_deferred()
+    #[inline]
+    fn flags(&self) -> super::SystemStateFlags {
+        self.a.flags() | self.b.flags()
     }
 
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         Func::combine(
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
@@ -179,12 +160,22 @@ where
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
             // Since these closures are `!Send + !Sync + !'static`, they can never be called
             // in parallel, so their world accesses will not conflict with each other.
-            // Additionally, `update_archetype_component_access` has been called,
-            // which forwards to the implementations for `self.a` and `self.b`.
             |input| unsafe { self.a.run_unsafe(input, world) },
+            // `Self::validate_param_unsafe` already validated the first system,
+            // but we still need to validate the second system once the first one runs.
             // SAFETY: See the comment above.
-            |input| unsafe { self.b.run_unsafe(input, world) },
+            |input| unsafe {
+                self.b.validate_param_unsafe(world)?;
+                self.b.run_unsafe(input, world)
+            },
         )
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.a.refresh_hotpatch();
+        self.b.refresh_hotpatch();
     }
 
     #[inline]
@@ -204,30 +195,24 @@ where
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
+        // We only validate parameters for the first system,
+        // since it may make changes to the world that affect
+        // whether the second system has valid parameters.
+        // The second system will be validated in `Self::run_unsafe`.
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.a.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.a.initialize(world);
-        self.b.initialize(world);
-        self.component_access.extend(self.a.component_access());
-        self.component_access.extend(self.b.component_access());
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        let mut a_access = self.a.initialize(world);
+        let b_access = self.b.initialize(world);
+        a_access.extend(b_access);
+        a_access
     }
 
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.a.update_archetype_component_access(world);
-        self.b.update_archetype_component_access(world);
-
-        self.archetype_component_access
-            .extend(self.a.archetype_component_access());
-        self.archetype_component_access
-            .extend(self.b.archetype_component_access());
-    }
-
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.a.check_change_tick(change_tick);
-        self.b.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.a.check_change_tick(check);
+        self.b.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
@@ -296,7 +281,7 @@ where
         let system_a = IntoSystem::into_system(this.a);
         let system_b = IntoSystem::into_system(this.b);
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
-        PipeSystem::new(system_a, system_b, Cow::Owned(name))
+        PipeSystem::new(system_a, system_b, DebugName::owned(name))
     }
 }
 
@@ -325,7 +310,7 @@ where
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = IntoSystem::into_system(parse_message_system.pipe(filter_system));
 ///     piped_system.initialize(&mut world);
-///     assert_eq!(piped_system.run((), &mut world), Some(42));
+///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }
 ///
 /// #[derive(Resource)]
@@ -342,9 +327,7 @@ where
 pub struct PipeSystem<A, B> {
     a: A,
     b: B,
-    name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
-    archetype_component_access: Access<ArchetypeComponentId>,
+    name: DebugName,
 }
 
 impl<A, B> PipeSystem<A, B>
@@ -354,14 +337,8 @@ where
     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
     /// Creates a new system that pipes two inner systems.
-    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
-        Self {
-            a,
-            b,
-            name,
-            component_access: Access::new(),
-            archetype_component_access: Access::new(),
-        }
+    pub fn new(a: A, b: B, name: DebugName) -> Self {
+        Self { a, b, name }
     }
 }
 
@@ -374,37 +351,32 @@ where
     type In = A::In;
     type Out = B::Out;
 
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> DebugName {
         self.name.clone()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
-    }
-
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
-    fn is_send(&self) -> bool {
-        self.a.is_send() && self.b.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.a.is_exclusive() || self.b.is_exclusive()
-    }
-
-    fn has_deferred(&self) -> bool {
-        self.a.has_deferred() || self.b.has_deferred()
+    #[inline]
+    fn flags(&self) -> super::SystemStateFlags {
+        self.a.flags() | self.b.flags()
     }
 
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
-        let value = self.a.run_unsafe(input, world);
+    ) -> Result<Self::Out, RunSystemError> {
+        let value = self.a.run_unsafe(input, world)?;
+        // `Self::validate_param_unsafe` already validated the first system,
+        // but we still need to validate the second system once the first one runs.
+        self.b.validate_param_unsafe(world)?;
         self.b.run_unsafe(value, world)
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.a.refresh_hotpatch();
+        self.b.refresh_hotpatch();
     }
 
     fn apply_deferred(&mut self, world: &mut World) {
@@ -417,49 +389,28 @@ where
         self.b.queue_deferred(world);
     }
 
-    /// This method uses "early out" logic: if the first system fails validation,
-    /// the second system is not validated.
-    ///
-    /// Because the system validation is performed upfront, this can lead to situations
-    /// where later systems pass validation, but fail at runtime due to changes made earlier
-    /// in the piped systems.
-    // TODO: ensure that systems are only validated just before they are run.
-    // Fixing this will require fundamentally rethinking how piped systems work:
-    // they're currently treated as a single system from the perspective of the scheduler.
-    // See https://github.com/bevyengine/bevy/issues/18796
     unsafe fn validate_param_unsafe(
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
+        // We only validate parameters for the first system,
+        // since it may make changes to the world that affect
+        // whether the second system has valid parameters.
+        // The second system will be validated in `Self::run_unsafe`.
         // SAFETY: Delegate to the `System` implementation for `a`.
-        unsafe { self.a.validate_param_unsafe(world) }?;
-
-        // SAFETY: Delegate to the `System` implementation for `b`.
-        unsafe { self.b.validate_param_unsafe(world) }?;
-
-        Ok(())
+        unsafe { self.a.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.a.initialize(world);
-        self.b.initialize(world);
-        self.component_access.extend(self.a.component_access());
-        self.component_access.extend(self.b.component_access());
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        let mut a_access = self.a.initialize(world);
+        let b_access = self.b.initialize(world);
+        a_access.extend(b_access);
+        a_access
     }
 
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.a.update_archetype_component_access(world);
-        self.b.update_archetype_component_access(world);
-
-        self.archetype_component_access
-            .extend(self.a.archetype_component_access());
-        self.archetype_component_access
-            .extend(self.b.archetype_component_access());
-    }
-
-    fn check_change_tick(&mut self, change_tick: Tick) {
-        self.a.check_change_tick(change_tick);
-        self.b.check_change_tick(change_tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.a.check_change_tick(check);
+        self.b.check_change_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {

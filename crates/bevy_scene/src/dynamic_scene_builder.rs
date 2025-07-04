@@ -350,7 +350,7 @@ impl<'w> DynamicSceneBuilder<'w> {
         let original_world_dqf_id = self
             .original_world
             .components()
-            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
+            .get_valid_resource_id(TypeId::of::<DefaultQueryFilters>());
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
@@ -509,10 +509,10 @@ mod tests {
         let mut entities = builder.build().entities.into_iter();
 
         // Assert entities are ordered
-        assert_eq!(entity_a, entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_b, entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_c, entities.next().map(|e| e.entity).unwrap());
         assert_eq!(entity_d, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_c, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_b, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_a, entities.next().map(|e| e.entity).unwrap());
     }
 
     #[test]
@@ -539,7 +539,7 @@ mod tests {
         assert_eq!(scene.entities.len(), 2);
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a_b, entity_a]);
+        assert_eq!(scene_entities, [entity_a, entity_a_b]);
     }
 
     #[test]
@@ -621,9 +621,9 @@ mod tests {
             .build();
 
         assert_eq!(scene.entities.len(), 3);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
+        assert!(scene.entities[2].components[0].represents::<ComponentA>());
         assert!(scene.entities[1].components[0].represents::<ComponentA>());
-        assert_eq!(scene.entities[2].components.len(), 0);
+        assert_eq!(scene.entities[0].components.len(), 0);
     }
 
     #[test]

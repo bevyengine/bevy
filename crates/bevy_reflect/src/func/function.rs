@@ -63,12 +63,6 @@ pub trait Function: PartialReflect + Debug {
     /// Call this function with the given arguments.
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a>;
 
-    /// Clone this function into a [`DynamicFunction`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_function` instead")]
-    fn clone_dynamic(&self) -> DynamicFunction<'static> {
-        self.to_dynamic_function()
-    }
-
     /// Creates a new [`DynamicFunction`] from this function.
     fn to_dynamic_function(&self) -> DynamicFunction<'static>;
 }

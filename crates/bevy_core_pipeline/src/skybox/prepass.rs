@@ -1,6 +1,6 @@
 //! Adds motion vector support to skyboxes. See [`SkyboxPrepassPipeline`] for details.
 
-use bevy_asset::{weak_handle, Handle};
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -27,11 +27,8 @@ use crate::{
         prepass_target_descriptors, MotionVectorPrepass, NormalPrepass, PreviousViewData,
         PreviousViewUniforms,
     },
-    Skybox,
+    FullscreenShader, Skybox,
 };
-
-pub const SKYBOX_PREPASS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("7a292435-bfe6-4ed9-8d30-73bf7aa673b0");
 
 /// This pipeline writes motion vectors to the prepass for all [`Skybox`]es.
 ///
@@ -41,6 +38,8 @@ pub const SKYBOX_PREPASS_SHADER_HANDLE: Handle<Shader> =
 #[derive(Resource)]
 pub struct SkyboxPrepassPipeline {
     bind_group_layout: BindGroupLayout,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 /// Used to specialize the [`SkyboxPrepassPipeline`].
@@ -75,6 +74,8 @@ impl FromWorld for SkyboxPrepassPipeline {
                     ),
                 ),
             ),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(world, "skybox_prepass.wgsl"),
         }
     }
 }
@@ -86,9 +87,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
         RenderPipelineDescriptor {
             label: Some("skybox_prepass_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
-            vertex: crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
-            primitive: default(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
@@ -102,12 +101,11 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: Some(FragmentState {
-                shader: SKYBOX_PREPASS_SHADER_HANDLE,
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
+                shader: self.fragment_shader.clone(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
+                ..default()
             }),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

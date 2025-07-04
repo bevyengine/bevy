@@ -12,7 +12,7 @@ pub use projection::*;
 
 use crate::{
     extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin,
-    render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
+    render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -29,6 +29,7 @@ impl Plugin for CameraPlugin {
             .register_type::<Exposure>()
             .register_type::<TemporalJitter>()
             .register_type::<MipBias>()
+            .register_type::<MainPassResolutionOverride>()
             .init_resource::<ManualTextureViews>()
             .init_resource::<ClearColor>()
             .add_plugins((
@@ -42,7 +43,7 @@ impl Plugin for CameraPlugin {
             render_app
                 .init_resource::<SortedCameras>()
                 .add_systems(ExtractSchedule, extract_cameras)
-                .add_systems(Render, sort_cameras.in_set(RenderSet::ManageViews));
+                .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
             let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
             let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
             render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
