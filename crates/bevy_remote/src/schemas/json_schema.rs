@@ -155,7 +155,7 @@ pub struct JsonSchemaBevyType {
     /// Bevy specific field, names of the types that type reflects. Mapping of the names to the data types is provided by [`SchemaTypesMetadata`].
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub reflect_type_data: Vec<Cow<'static, str>>,
-    /// Bevy specific field, [`TypeInfo`] type mapping.
+    /// Bevy specific field, [`bevy_reflect::TypeInfo`] type mapping.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub kind: Option<SchemaKind>,
     /// JSON Schema specific field.
@@ -288,7 +288,7 @@ impl From<JsonSchemaBevyType> for JsonSchemaVariant {
     }
 }
 
-/// Kind of json schema, maps [`TypeInfo`] type
+/// Kind of json schema, maps [`bevy_reflect::TypeInfo`] type
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, Reflect)]
 pub enum SchemaKind {
     /// Struct

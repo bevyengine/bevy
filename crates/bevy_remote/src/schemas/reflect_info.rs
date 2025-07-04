@@ -849,11 +849,11 @@ pub enum InternalSchemaType {
     EnumVariant(VariantInfo),
     /// Holds named fields for struct, tuple, and tuple struct types.
     FieldsHolder(FieldsInformation),
-    /// Represents an Optional type (e.g., Option<T>).
+    /// Represents an Optional type (e.g., `Option<T>`).
     Optional {
-        /// Generic information about the wrapped type T in Option<T>.
+        /// Generic information about the wrapped type `T` in `Option<T>`.
         generic: GenericInfo,
-        /// Schema type information for the wrapped type T in Option<T>.
+        /// Schema type information for the wrapped type `T` in `Option<T>`.
         schema_type_info: Box<SchemaTypeInfo>,
     },
     /// Represents a Map type (e.g., `HashMap`<K, V>).
