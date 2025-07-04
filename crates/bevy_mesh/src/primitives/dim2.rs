@@ -1,14 +1,13 @@
-use core::f32::consts::FRAC_PI_2;
-
 use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment};
 use bevy_asset::RenderAssetUsages;
+use core::f32::consts::FRAC_PI_2;
 
 use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{
     ops,
     primitives::{
-        Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
-        Rectangle, RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
+        AnnularSector, Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon,
+        Ellipse, Rectangle, RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
     },
     FloatExt, Vec2,
 };
@@ -766,6 +765,196 @@ impl Meshable for Annulus {
 impl From<Annulus> for Mesh {
     fn from(annulus: Annulus) -> Self {
         annulus.mesh().build()
+    }
+}
+
+/// Specifies how to generate UV-mappings for the [`AnnularSector`] shape
+/// The u-coord is always radial, and by default the v-coord goes from 0-1 over the extent of the sector.
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum AnnularSectorMeshUvMode {
+    /// Scales the uv's v-coord so that the annular sector always maps to a range of 0-1, and thus
+    /// the v-extent of the sector will always be 1.
+    #[default]
+    ArcExtent,
+    /// Scales the uv's v-coord so that a full circle always maps to a range of 0-1, and thus
+    /// an annular sector v-coord will be a fraction of that depending on the sector's angular extent.
+    CircularExtent,
+}
+
+/// A builder for creating a [`Mesh`] with an [`AnnularSector`] shape.
+pub struct AnnularSectorMeshBuilder {
+    /// The [`AnnularSector`] shape.
+    pub annular_sector: AnnularSector,
+    /// The number of vertices used in constructing each concentric circle of the annulus mesh.
+    /// The default is `32`.
+    pub resolution: u32,
+    /// The uv mapping mode
+    pub uv_mode: AnnularSectorMeshUvMode,
+}
+
+impl AnnularSectorMeshBuilder {
+    /// Create an [`AnnularSectorMeshBuilder`] with the given inner radius, outer radius, half angle, and angular vertex count.
+    #[inline]
+    pub fn new(inner_radius: f32, outer_radius: f32, half_angle: f32) -> Self {
+        Self {
+            annular_sector: AnnularSector::new(inner_radius, outer_radius, half_angle),
+            resolution: 32,
+            uv_mode: AnnularSectorMeshUvMode::default(),
+        }
+    }
+    /// Sets the uv mode used for the mesh
+    #[inline]
+    pub fn uv_mode(mut self, uv_mode: AnnularSectorMeshUvMode) -> Self {
+        self.uv_mode = uv_mode;
+        self
+    }
+    /// Sets the number of vertices used in constructing the concentric circles of the annulus mesh.
+    #[inline]
+    pub fn resolution(mut self, resolution: u32) -> Self {
+        self.resolution = resolution;
+        self
+    }
+    /// Calculates the v-coord based on the uv mode.
+    fn calc_uv_v(&self, i: usize, resolution: usize, arc_extent: f32) -> f32 {
+        let base_v = i as f32 / resolution as f32;
+        match self.uv_mode {
+            AnnularSectorMeshUvMode::ArcExtent => base_v,
+            AnnularSectorMeshUvMode::CircularExtent => {
+                base_v * (core::f32::consts::TAU / arc_extent)
+            }
+        }
+    }
+}
+
+impl MeshBuilder for AnnularSectorMeshBuilder {
+    fn build(&self) -> Mesh {
+        let inner_radius = self.annular_sector.annulus.inner_circle.radius;
+        let outer_radius = self.annular_sector.annulus.outer_circle.radius;
+        let resolution = self.resolution as usize;
+        let mut positions = Vec::with_capacity((resolution + 1) * 2);
+        let mut uvs = Vec::with_capacity((resolution + 1) * 2);
+        let normals = vec![[0.0, 0.0, 1.0]; (resolution + 1) * 2];
+        let mut indices = Vec::with_capacity(resolution * 6);
+
+        // Angular range: we center around Vec2::Y (FRAC_PI_2) and extend by the half_angle on both sides.
+        let start_angle = FRAC_PI_2 - self.annular_sector.half_angle;
+        let end_angle = FRAC_PI_2 + self.annular_sector.half_angle;
+
+        let arc_extent = end_angle - start_angle;
+        let step = arc_extent / self.resolution as f32;
+
+        // Create vertices (each step creates an inner and an outer vertex).
+        for i in 0..=resolution {
+            // For a full circle we wrap the index to duplicate the first vertex at the end.
+            let theta = if self.annular_sector.half_angle == FRAC_PI_2 {
+                start_angle + ((i % resolution) as f32) * step
+            } else {
+                start_angle + i as f32 * step
+            };
+
+            let (sin, cos) = ops::sin_cos(theta);
+            let inner_pos = [cos * inner_radius, sin * inner_radius, 0.0];
+            let outer_pos = [cos * outer_radius, sin * outer_radius, 0.0];
+            positions.push(inner_pos);
+            positions.push(outer_pos);
+
+            // The first UV direction is radial and the second is angular
+            let v = self.calc_uv_v(i, resolution, arc_extent);
+            uvs.push([0.0, v]);
+            uvs.push([1.0, v]);
+        }
+
+        // Adjacent pairs of vertices form two triangles with each other; here,
+        // we are just making sure that they both have the right orientation,
+        // which is the CCW order of
+        // `inner_vertex` -> `outer_vertex` -> `next_outer` -> `next_inner`
+        for i in 0..self.resolution {
+            let inner_vertex = 2 * i;
+            let outer_vertex = 2 * i + 1;
+            let next_inner = inner_vertex + 2;
+            let next_outer = outer_vertex + 2;
+            indices.extend_from_slice(&[inner_vertex, outer_vertex, next_outer]);
+            indices.extend_from_slice(&[next_outer, next_inner, inner_vertex]);
+        }
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Extrudable for AnnularSectorMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        // Number of vertex pairs along each arc.
+        let num_pairs = (self.resolution as usize) + 1;
+        // Outer vertices: odd indices: 1, 3, 5, ..., (2*num_pairs - 1)
+        let outer_indices: Vec<u32> = (0..num_pairs).map(|i| (2 * i + 1) as u32).collect();
+        // Inner vertices: even indices: 0, 2, 4, ..., (2*num_pairs - 2)
+        let inner_indices: Vec<u32> = (0..num_pairs).map(|i| (2 * i) as u32).collect();
+
+        // Endpoint angles.
+        let left_angle = FRAC_PI_2 - self.annular_sector.half_angle;
+        let right_angle = FRAC_PI_2 + self.annular_sector.half_angle;
+
+        // Outer arc: traverse from left to right.
+        let (left_sin, left_cos) = ops::sin_cos(left_angle);
+        let (right_sin, right_cos) = ops::sin_cos(right_angle);
+        let outer_first_normal = Vec2::new(left_cos, left_sin);
+        let outer_last_normal = Vec2::new(right_cos, right_sin);
+        let outer_arc = PerimeterSegment::Smooth {
+            first_normal: outer_first_normal,
+            last_normal: outer_last_normal,
+            indices: outer_indices,
+        };
+
+        // Inner arc: traverse from right to left.
+        // Reversing the inner vertices so that when walking along the segment,
+        // the donut-hole is on the right.
+        let mut inner_indices_rev = inner_indices;
+        inner_indices_rev.reverse();
+        let (right_sin, right_cos) = ops::sin_cos(-right_angle);
+        let (left_sin, left_cos) = ops::sin_cos(-left_angle);
+        let inner_first_normal = Vec2::new(right_cos, right_sin);
+        let inner_last_normal = Vec2::new(left_cos, left_sin);
+        let inner_arc = PerimeterSegment::Smooth {
+            first_normal: inner_first_normal,
+            last_normal: inner_last_normal,
+            indices: inner_indices_rev,
+        };
+
+        // Radial segments are the flat sections connecting the inner and outer arc vertices.
+        let left_radial = PerimeterSegment::Flat {
+            indices: vec![0, 1],
+        };
+        let right_radial = PerimeterSegment::Flat {
+            indices: vec![(2 * self.resolution + 1), (2 * self.resolution)],
+        };
+
+        vec![outer_arc, inner_arc, left_radial, right_radial]
+    }
+}
+
+impl Meshable for AnnularSector {
+    type Output = AnnularSectorMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        AnnularSectorMeshBuilder {
+            annular_sector: *self,
+            resolution: 32,
+            uv_mode: AnnularSectorMeshUvMode::default(),
+        }
+    }
+}
+
+impl From<AnnularSector> for Mesh {
+    fn from(annular_sector: AnnularSector) -> Self {
+        annular_sector.mesh().build()
     }
 }
 
