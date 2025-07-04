@@ -202,6 +202,18 @@ pub enum TypeInformation {
 }
 
 impl TypeInformation {
+    /// Try to get a regex pattern for the type.
+    pub fn try_get_regex_for_type(&self) -> Option<Cow<'static, str>> {
+        let primitive_type = self.try_get_primitive_type()?;
+        let pattern: Option<Cow<'static, str>> = match primitive_type {
+            SchemaType::String => Some(".*".into()),
+            SchemaType::Number => Some("\\d+(?:\\.'\\d+)?".into()),
+            SchemaType::Integer => Some("^(0|-*[1-9]+[0-9]*)$".into()),
+            _ => None,
+        };
+        pattern
+    }
+
     /// Checks for custom schema.
     pub fn try_get_custom_schema(&self) -> Option<&super::ReflectJsonSchema> {
         if let Self::TypeRegistration(reg) = self {
@@ -210,6 +222,13 @@ impl TypeInformation {
             None
         }
     }
+
+    /// Builds a `TypeReferencePath` from the type identifier.
+    pub fn try_get_path_id(&self) -> Option<TypeReferencePath> {
+        self.try_get_type_reference_id()
+            .map(|id| TypeReferencePath::new_ref(ReferenceLocation::Urn, id))
+    }
+
     /// Builds a `TypeReferenceId` from the type path.
     pub fn try_get_type_reference_id(&self) -> Option<TypeReferenceId> {
         if let Some(schema) = self.try_get_custom_schema() {
@@ -242,11 +261,11 @@ impl TypeInformation {
     }
     /// Converts the type information into a schema type information.
     pub fn to_schema_type_info(self) -> SchemaTypeInfo {
-        let stored_fields = (&self).into();
+        let internal_schema_type = (&self).into();
         SchemaTypeInfo {
             ty_info: self,
             field_data: None,
-            stored_fields,
+            internal_schema_type,
             reflect_type_data: None,
         }
     }
@@ -255,16 +274,16 @@ impl TypeInformation {
         self,
         metadata: &SchemaTypesMetadata,
     ) -> SchemaTypeInfo {
-        let stored_fields = (&self).into();
         let reflect_type_data = if let Self::TypeRegistration(reg) = &self {
             Some(metadata.get_registered_reflect_types(reg))
         } else {
             None
         };
+        let internal_schema_type = (&self).into();
         SchemaTypeInfo {
             ty_info: self,
             field_data: None,
-            stored_fields,
+            internal_schema_type,
             reflect_type_data,
         }
     }
@@ -585,6 +604,8 @@ pub enum ReferenceLocation {
     Components,
     /// used by schemas
     Url,
+    /// Used by JSON Schema
+    Urn,
 }
 
 impl Display for ReferenceLocation {
@@ -593,6 +614,7 @@ impl Display for ReferenceLocation {
             ReferenceLocation::Definitions => write!(f, "#/$defs/"),
             ReferenceLocation::Components => write!(f, "#/components/"),
             ReferenceLocation::Url => write!(f, "https://"),
+            ReferenceLocation::Urn => write!(f, "urn:"),
         }
     }
 }
@@ -731,10 +753,27 @@ pub struct MinMaxValues {
     pub max: Option<BoundValue>,
 }
 
+impl From<&JsonSchemaBevyType> for MinMaxValues {
+    fn from(value: &JsonSchemaBevyType) -> Self {
+        let min = match (&value.exclusive_minimum, &value.minimum) {
+            (Some(ex), None) => Some(BoundValue::Exclusive(ex.clone())),
+            (_, Some(inclusive)) => Some(BoundValue::Inclusive(inclusive.clone())),
+            _ => None,
+        };
+        let max = match (&value.exclusive_maximum, &value.maximum) {
+            (Some(ex), None) => Some(BoundValue::Exclusive(ex.clone())),
+            (_, Some(inclusive)) => Some(BoundValue::Inclusive(inclusive.clone())),
+            _ => None,
+        };
+        MinMaxValues { min, max }
+    }
+}
+
 impl MinMaxValues {
     /// Checks if a given value falls within the defined range constraints.
     /// Returns true if the value is within bounds, false otherwise.
-    pub fn in_range(&self, value: SchemaNumber) -> bool {
+    pub fn in_range(&self, value: impl Into<SchemaNumber>) -> bool {
+        let value = value.into();
         if let Some(min) = self.min {
             if let Some(min_value) = min.get_inclusive() {
                 if value < min_value {
@@ -873,6 +912,10 @@ pub enum InternalSchemaType {
 }
 impl From<&TypeInformation> for InternalSchemaType {
     fn from(value: &TypeInformation) -> Self {
+        let field_information: Option<FieldsInformation> = value.into();
+        if let Some(fields_info) = field_information {
+            return InternalSchemaType::FieldsHolder(fields_info);
+        }
         if let Some(type_info) = value.try_get_type_info() {
             match type_info {
                 TypeInfo::Struct(struct_info) => {
@@ -940,15 +983,6 @@ impl From<&TypeInformation> for InternalSchemaType {
         }
     }
 }
-impl From<&SchemaTypeInfo> for InternalSchemaType {
-    fn from(value: &SchemaTypeInfo) -> Self {
-        if let Some(s) = &value.stored_fields {
-            InternalSchemaType::FieldsHolder(s.clone())
-        } else {
-            (&value.ty_info).into()
-        }
-    }
-}
 
 impl From<&InternalSchemaType> for Option<SchemaTypeVariant> {
     fn from(value: &InternalSchemaType) -> Self {
@@ -977,17 +1011,9 @@ impl From<&InternalSchemaType> for Option<SchemaTypeVariant> {
                 _ => Some(SchemaTypeVariant::Single(SchemaType::Array)),
             },
             InternalSchemaType::Optional {
-                generic,
+                generic: _,
                 schema_type_info: _,
-            } => {
-                let schema: InternalSchemaType =
-                    (&TypeInformation::Type(Box::new(*generic.ty()))).into();
-                let s: Option<SchemaTypeVariant> = (&schema).into();
-                Some(
-                    s.unwrap_or(SchemaTypeVariant::Single(SchemaType::Object))
-                        .with(SchemaType::Null),
-                )
-            }
+            } => None,
             InternalSchemaType::Map { .. } => Some(SchemaTypeVariant::Single(SchemaType::Object)),
             InternalSchemaType::Regular(type_id) => {
                 Some(SchemaTypeVariant::Single((*type_id).into()))
@@ -1010,7 +1036,7 @@ impl From<&FieldInformation> for SchemaTypeInfo {
         Self {
             ty_info: value.type_info.clone(),
             field_data: Some(value.field.clone()),
-            stored_fields: (&value.type_info).into(),
+            internal_schema_type: (&value.type_info).into(),
             reflect_type_data: None,
         }
     }
@@ -1051,10 +1077,10 @@ pub struct SchemaTypeInfo {
     pub ty_info: TypeInformation,
     /// Field information for the type.
     pub field_data: Option<SchemaFieldData>,
-    /// Fields stored in the type.
-    pub stored_fields: Option<FieldsInformation>,
     /// Bevy specific field, names of the types that type reflects. Mapping of the names to the data types is provided by [`SchemaTypesMetadata`].
     pub reflect_type_data: Option<Vec<Cow<'static, str>>>,
+    /// Internal schema type information.
+    pub internal_schema_type: InternalSchemaType,
 }
 
 impl SchemaTypeInfo {
@@ -1093,13 +1119,7 @@ impl SchemaTypeInfo {
     pub fn to_ref_schema(&self) -> JsonSchemaBevyType {
         let range = self.get_range();
         let description = self.get_docs();
-        let internal_type: InternalSchemaType = (self).into();
-        let (ref_type, schema_type) = (
-            self.ty_info
-                .try_get_type_reference_id()
-                .map(TypeReferencePath::definition),
-            self.into(),
-        );
+        let (ref_type, schema_type) = (self.ty_info.try_get_path_id(), self.into());
 
         let mut schema = JsonSchemaBevyType {
             description,
@@ -1112,28 +1132,55 @@ impl SchemaTypeInfo {
             schema_type,
             ..default()
         };
-        match internal_type {
+        match self.internal_schema_type.clone() {
             InternalSchemaType::Array {
                 element_ty,
                 min_size,
                 max_size,
             } => {
                 schema.ref_type = None;
-                let items_schema = SchemaTypeInfo {
-                    ty_info: element_ty.clone(),
-                    field_data: None,
-                    stored_fields: None,
-                    reflect_type_data: None,
-                };
+                let items_schema = element_ty.to_schema_type_info();
                 schema.items = Some(items_schema.to_ref_schema().into());
                 schema.min_items = min_size;
                 schema.max_items = max_size;
             }
-            InternalSchemaType::EnumHolder(_)
-            | InternalSchemaType::EnumVariant(_)
-            | InternalSchemaType::FieldsHolder(_)
-            | InternalSchemaType::Map { key: _, value: _ } => {
+            InternalSchemaType::Map { key, value } => {
+                schema.kind = Some(SchemaKind::Map);
+                let key_info = SchemaTypeInfo {
+                    ty_info: key.clone(),
+                    ..Default::default()
+                };
+                schema.key_type = Some(key_info.to_ref_schema().into());
+                let value_info = SchemaTypeInfo {
+                    ty_info: value.clone(),
+                    ..Default::default()
+                };
+                schema.value_type = Some(value_info.to_ref_schema().into());
+
+                if let Some(p) = key.try_get_regex_for_type() {
+                    schema.pattern_properties = [(p, value_info.to_ref_schema().into())].into();
+                    schema.additional_properties = Some(JsonSchemaVariant::BoolValue(false));
+                }
+            }
+            InternalSchemaType::EnumHolder(_) | InternalSchemaType::EnumVariant(_) => {
                 schema.ref_type = None;
+            }
+            InternalSchemaType::Optional {
+                generic,
+                ref schema_type_info,
+            } => {
+                let schema_optional = SchemaTypeInfo {
+                    ty_info: TypeInformation::Type(Box::new(*generic.ty())),
+                    ..(**schema_type_info).clone()
+                };
+                schema.ref_type = None;
+                schema.one_of = vec![
+                    Box::new(JsonSchemaBevyType {
+                        schema_type: Some(SchemaTypeVariant::Single(SchemaType::Null)),
+                        ..Default::default()
+                    }),
+                    Box::new(schema_optional.to_ref_schema()),
+                ];
             }
             _ => {}
         }
@@ -1152,7 +1199,7 @@ impl SchemaTypeInfo {
                 definitions,
             };
         }
-        let range = self.ty_info.get_range();
+        let range = self.get_range();
 
         let (type_path, short_path, crate_name, module_path) =
             if let Some(type_path_table) = self.ty_info.try_get_type_path_table() {
@@ -1165,9 +1212,10 @@ impl SchemaTypeInfo {
             } else {
                 (Cow::default(), Cow::default(), None, None)
             };
-        let schema_id = id
-            .as_ref()
-            .map(|id| Cow::Owned(format!("urn:bevy:{id}")))
+        let schema_id = self
+            .ty_info
+            .try_get_path_id()
+            .map(|id| Cow::Owned(id.to_string()))
             .unwrap_or_default();
         let mut schema = JsonSchemaBevyType {
             id: schema_id,
@@ -1185,30 +1233,26 @@ impl SchemaTypeInfo {
             reflect_type_data: self.reflect_type_data.clone().unwrap_or_default(),
             ..default()
         };
-        let internal_type: InternalSchemaType = (self).into();
-        match internal_type {
+        match self.internal_schema_type.clone() {
             InternalSchemaType::Map { key, value } => {
-                let key: SchemaTypeInfo = SchemaTypeInfo {
-                    ty_info: key.clone(),
-                    field_data: None,
-                    stored_fields: None,
-                    reflect_type_data: None,
-                };
-                let value: SchemaTypeInfo = SchemaTypeInfo {
-                    ty_info: value.clone(),
-                    field_data: None,
-                    stored_fields: None,
-                    reflect_type_data: None,
-                };
-                if !key.ty_info.is_primitive_type() {
-                    let SchemaDefinition {
-                        id,
-                        schema: _,
-                        definitions: field_definitions,
-                    } = key.to_definition();
-                    if let Some(id) = id {
-                        definitions.insert(id, key.clone());
-                        definitions.extend(field_definitions);
+                let key = key.to_schema_type_info();
+                let value = value.to_schema_type_info();
+                if let Some(_) = key.ty_info.try_get_primitive_type() {
+                    if let Some(p) = key.ty_info.try_get_regex_for_type() {
+                        schema.pattern_properties = [(p, value.to_ref_schema().into())].into();
+                        schema.additional_properties = Some(JsonSchemaVariant::BoolValue(false));
+                    }
+                } else {
+                    {
+                        let SchemaDefinition {
+                            id,
+                            schema: _,
+                            definitions: field_definitions,
+                        } = key.to_definition();
+                        if let Some(id) = id {
+                            definitions.insert(id, key.clone());
+                            definitions.extend(field_definitions);
+                        }
                     }
                 }
                 if !value.ty_info.is_primitive_type() {
@@ -1222,7 +1266,6 @@ impl SchemaTypeInfo {
                         definitions.extend(field_definitions);
                     }
                 }
-                schema.additional_properties = Some(key.to_ref_schema().into());
                 schema.value_type = Some(value.to_ref_schema().into());
                 schema.key_type = Some(key.to_ref_schema().into());
             }
@@ -1258,10 +1301,12 @@ impl SchemaTypeInfo {
                         let schema_field = SchemaTypeInfo {
                             ty_info,
                             field_data,
-                            stored_fields: Some(FieldsInformation {
-                                fields,
-                                fields_type: FieldType::Named,
-                            }),
+                            internal_schema_type: InternalSchemaType::FieldsHolder(
+                                FieldsInformation {
+                                    fields,
+                                    fields_type: FieldType::Named,
+                                },
+                            ),
                             reflect_type_data: None,
                         };
                         let definition = schema_field.to_definition();
@@ -1276,11 +1321,13 @@ impl SchemaTypeInfo {
                         let schema_field = SchemaTypeInfo {
                             ty_info,
                             field_data: None,
-                            stored_fields: Some(FieldsInformation {
-                                fields: stored_fields,
+                            internal_schema_type: InternalSchemaType::FieldsHolder(
+                                FieldsInformation {
+                                    fields: stored_fields,
 
-                                fields_type: FieldType::Unnamed,
-                            }),
+                                    fields_type: FieldType::Unnamed,
+                                },
+                            ),
                             reflect_type_data: None,
                         };
                         let definition = schema_field.to_definition();
@@ -1291,10 +1338,11 @@ impl SchemaTypeInfo {
                         schema.required = vec![variant_info.name().into()];
                     }
                     VariantInfo::Unit(unit_variant_info) => {
+                        let internal_schema_type = (&ty_info).into();
                         let schema_field = SchemaTypeInfo {
                             ty_info,
                             field_data,
-                            stored_fields: None,
+                            internal_schema_type,
                             reflect_type_data: None,
                         };
                         return SchemaDefinition {
@@ -1347,6 +1395,7 @@ impl SchemaTypeInfo {
                 }
                 FieldType::Unnamed if fields.fields.len() == 1 => {
                     let field_schema = SchemaTypeInfo::from(&fields.fields[0]);
+
                     let SchemaDefinition {
                         id,
                         schema: new_schema_type,
@@ -1354,11 +1403,41 @@ impl SchemaTypeInfo {
                     } = field_schema.to_definition();
                     definitions.extend(field_definitions);
                     if let Some(id) = id {
-                        definitions.insert(id, field_schema);
+                        definitions.insert(id.clone(), field_schema);
+                        schema.ref_type = Some(TypeReferencePath::definition(id));
+                    } else {
+                        let (type_path, short_path, crate_name, module_path) =
+                            if let Some(type_path_table) = self.ty_info.try_get_type_path_table() {
+                                (
+                                    type_path_table.path().into(),
+                                    type_path_table.short_path().into(),
+                                    type_path_table.crate_name().map(Into::into),
+                                    type_path_table.module_path().map(Into::into),
+                                )
+                            } else {
+                                (Cow::default(), Cow::default(), None, None)
+                            };
+                        schema = JsonSchemaBevyType {
+                            id: self
+                                .ty_info
+                                .try_get_type_reference_id()
+                                .map(|id| {
+                                    Cow::Owned(
+                                        TypeReferencePath::new_ref(ReferenceLocation::Urn, id)
+                                            .to_string(),
+                                    )
+                                })
+                                .unwrap_or_default(),
+                            short_path,
+                            type_path,
+                            module_path,
+                            crate_name,
+                            kind: Some(SchemaKind::TupleStruct),
+                            schema_type: self.into(),
+                            description: self.get_docs(),
+                            ..new_schema_type
+                        };
                     }
-                    schema = new_schema_type;
-                    schema.schema_type = self.into();
-                    schema.description = self.get_docs();
                 }
                 s => {
                     let schema_fields: Vec<SchemaTypeInfo> =
@@ -1417,12 +1496,7 @@ impl SchemaTypeInfo {
                 max_size,
             } => {
                 id = None;
-                let items_schema = SchemaTypeInfo {
-                    ty_info: element_ty.clone(),
-                    field_data: None,
-                    stored_fields: None,
-                    reflect_type_data: None,
-                };
+                let items_schema = element_ty.to_schema_type_info();
                 schema.items = Some(items_schema.to_ref_schema().into());
                 schema.min_items = min_size;
                 schema.max_items = max_size;
@@ -1447,7 +1521,17 @@ impl SchemaTypeInfo {
                     ty_info: TypeInformation::Type(Box::new(*generic.ty())),
                     ..(**schema_type_info).clone()
                 };
-                return schema_optional.to_definition();
+                let definition = schema_optional.to_definition();
+                definitions.extend(definition.definitions);
+                schema.ref_type = None;
+                schema.schema_type = None;
+                schema.one_of = vec![
+                    Box::new(JsonSchemaBevyType {
+                        schema_type: Some(SchemaTypeVariant::Single(SchemaType::Null)),
+                        ..Default::default()
+                    }),
+                    Box::new(definition.schema),
+                ];
             }
         }
         SchemaDefinition {
@@ -1552,11 +1636,11 @@ where
     fn from(value: &'a T) -> Self {
         let ty_info: TypeInformation = value.into();
         let field_data: SchemaFieldData = value.into();
-        let stored_fields = (&ty_info).into();
+        let internal_schema_type = (&ty_info).into();
         SchemaTypeInfo {
             ty_info,
             field_data: Some(field_data),
-            stored_fields,
+            internal_schema_type,
             reflect_type_data: None,
         }
     }
@@ -1688,11 +1772,56 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
+    use bevy_ecs::component::Component;
     use bevy_platform::collections::HashMap;
     use bevy_reflect::GetTypeRegistration;
 
     use super::*;
+
+    /// Validate a JSON schema against a set of valid and invalid instances.
+    pub fn validate<T: GetTypeRegistration + Serialize + Default>(
+        schema: JsonSchemaBevyType,
+        valid_instances: &[T],
+        valid_values: &[serde_json::Value],
+        invalid_values: &[serde_json::Value],
+    ) {
+        let schema_value = serde_json::to_value(&schema).unwrap();
+        let schema_validator = jsonschema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .build(&schema_value)
+            .expect("Failed to build schema validator");
+        let default_value = serde_json::to_value(T::default()).unwrap();
+        assert!(
+            schema_validator.validate(&default_value).is_ok(),
+            "Default value is invalid: {}, schema: {}",
+            default_value,
+            serde_json::to_string_pretty(&schema_value).unwrap_or_default()
+        );
+        let mut errors = Vec::new();
+        let valid_instances: Vec<serde_json::Value> = valid_instances
+            .iter()
+            .flat_map(|s| serde_json::to_value(s).ok())
+            .collect();
+        for value in valid_instances.iter() {
+            if let Err(error) = schema_validator.validate(value) {
+                errors.push(error);
+            }
+        }
+        for value in valid_values {
+            if let Err(error) = schema_validator.validate(&value) {
+                errors.push(error);
+            }
+        }
+        assert!(
+            errors.is_empty(),
+            "Failed to validate valid instances, errors: {:?}",
+            errors
+        );
+        for value in invalid_values {
+            assert!(schema_validator.validate(&value).is_err());
+        }
+    }
 
     #[test]
     fn integer_test() {
@@ -1753,10 +1882,10 @@ mod tests {
         let type_info = SchemaTypeInfo::from(field_info);
         let schema_type: Option<SchemaTypeVariant> = (&type_info).into();
         let range = type_info.get_range();
-        assert!(!range.in_range((-1).into()));
-        assert!(range.in_range(0.into()));
-        assert!(range.in_range(12.into()));
-        assert!(!range.in_range(13.into()));
+        assert!(!range.in_range(-1));
+        assert!(range.in_range(0));
+        assert!(range.in_range(12));
+        assert!(!range.in_range(13));
         assert_eq!(range.min, Some(BoundValue::Inclusive(0.into())));
         assert_eq!(range.max, Some(BoundValue::Exclusive(13.into())));
         assert_eq!(
@@ -1765,6 +1894,8 @@ mod tests {
         );
         assert_eq!(type_info.get_docs(), Some("Test documentation".into()));
     }
+
+    #[cfg(feature = "bevy_math")]
     #[test]
     fn other_ss_test() {
         #[derive(Reflect, Default, Deserialize, Serialize)]
@@ -1772,6 +1903,19 @@ mod tests {
             /// Test doc
             a: u16,
         }
+        validate::<Foo>(
+            TypeInformation::TypeRegistration(Foo::get_type_registration())
+                .to_schema_type_info()
+                .to_definition()
+                .into(),
+            &[Foo { a: 5 }, Foo { a: 1111 }],
+            &[serde_json::json!({"a": 5}), serde_json::json!({"a": 1})],
+            &[
+                serde_json::json!({"a": 1111111}),
+                serde_json::json!({"ab": -5555}),
+                serde_json::json!({"a": 5555,"b": 5555}),
+            ],
+        );
         let atr = bevy_ecs::reflect::AppTypeRegistry::default();
         {
             let mut register = atr.write();
@@ -1785,7 +1929,24 @@ mod tests {
                 .expect(""),
         )
         .to_schema_type_info();
-        let _: JsonSchemaBevyType = declaration.to_definition().into();
+        let schema: JsonSchemaBevyType = declaration.to_definition().into();
+
+        validate::<bevy_math::Vec3>(
+            schema,
+            &[
+                bevy_math::Vec3::new(5.0, 4.0, 4.0),
+                bevy_math::Vec3::new(25.0, 4.0, 4.0),
+            ],
+            &[
+                serde_json::json!([0, 4, 5]),
+                serde_json::json!([5.1, 5.2, 5.3]),
+            ],
+            &[
+                serde_json::json!([5.1, 5.2]),
+                serde_json::json!([5.1, 5.2, 4, 4]),
+                serde_json::json!({"x": 5.1, "y": 5.2, "z": 5.3}),
+            ],
+        );
     }
 
     #[test]
@@ -1812,6 +1973,15 @@ mod tests {
             Some(SchemaTypeVariant::Single(SchemaType::Integer))
         );
         assert_eq!(type_info.get_docs(), Some("Test documentation".into()));
+        validate::<TupleTest>(
+            TypeInformation::TypeRegistration(TupleTest::get_type_registration())
+                .to_schema_type_info()
+                .to_definition()
+                .into(),
+            &[TupleTest(10), TupleTest(11), TupleTest(0)],
+            &[serde_json::json!(5), serde_json::json!(1)],
+            &[serde_json::json!(55), serde_json::json!(-5555)],
+        );
     }
 
     #[test]
@@ -1828,17 +1998,51 @@ mod tests {
             Variant3(isize, usize),
             Variant4(usize),
         }
+        let type_info =
+            TypeInformation::from(&EnumTest::get_type_registration()).to_schema_type_info();
+        let schema: JsonSchemaBevyType = type_info.to_definition().into();
+        validate::<EnumTest>(
+            schema,
+            &[
+                EnumTest::Variant1,
+                EnumTest::Variant2 {
+                    field1: "test".into(),
+                    field2: 42,
+                },
+                EnumTest::Variant3(1, 2),
+                EnumTest::Variant4(3),
+            ],
+            &[],
+            &[],
+        );
     }
 
     #[test]
     fn reflect_struct_with_array() {
         #[derive(Reflect, Default, Deserialize, Serialize)]
         pub struct ArrayComponent {
-            pub array: [i32; 3],
+            pub array: [u8; 3],
         }
         let type_info =
             TypeInformation::from(&ArrayComponent::get_type_registration()).to_schema_type_info();
-        let _: JsonSchemaBevyType = type_info.to_definition().into();
+        let schema: JsonSchemaBevyType = type_info.to_definition().into();
+        validate::<ArrayComponent>(
+            schema,
+            &[
+                ArrayComponent::default(),
+                ArrayComponent { array: [1, 2, 3] },
+                ArrayComponent { array: [4, 5, 6] },
+                ArrayComponent { array: [7, 8, 9] },
+            ],
+            &[],
+            &[
+                serde_json::json!({"array": [0,5]}),
+                serde_json::json!({"array": [0,5,-1]}),
+                serde_json::json!({"aa": [0,5,5]}),
+                serde_json::json!({"array": [0,5,5,5]}),
+                serde_json::json!({"array": [0.1,5.1,5]}),
+            ],
+        );
     }
 
     #[test]
@@ -1869,8 +2073,7 @@ mod tests {
             type_info.definitions.len(),
             type_info_second.definitions.len()
         );
-        // let schema: JsonSchemaBevyType = type_info_second.into();
-        // eprintln!("{}", serde_json::to_string_pretty(&schema).expect(""));
+        validate::<ArrayComponentWithMoreVariants>(type_info_second.into(), &[], &[], &[]);
     }
 
     #[test]
@@ -1879,13 +2082,23 @@ mod tests {
         pub struct HashMapStruct {
             pub map: HashMap<i32, Option<i32>>,
         }
-        assert!(serde_json::from_str::<HashMapStruct>(
-            "{\"map\": {\"0\": 1, \"1\": 41, \"2\": null}}"
-        )
-        .is_ok());
         let type_info =
             TypeInformation::from(&HashMapStruct::get_type_registration()).to_schema_type_info();
-        let _: JsonSchemaBevyType = type_info.to_definition().into();
+        let schema: JsonSchemaBevyType = type_info.to_definition().into();
+        validate::<HashMapStruct>(
+            schema,
+            &[HashMapStruct {
+                map: [(5, Some(10)), (15, Some(20)), (-25, Some(30))].into(),
+            }],
+            &[
+                serde_json::json!({"map": {"-5": 10}}),
+                serde_json::json!({"map": {"5": None::<i32>}}),
+            ],
+            &[
+                serde_json::json!({"map": {"5.5": 10}}),
+                serde_json::json!({"map": {"s": 10}}),
+            ],
+        );
     }
 
     #[test]
@@ -1913,11 +2126,88 @@ mod tests {
         }
         let type_info =
             TypeInformation::from(&NestedStruct::get_type_registration()).to_schema_type_info();
-        let _s: JsonSchemaBevyType = type_info.to_definition().into();
-        // eprintln!("{}", serde_json::to_string_pretty(&s).expect("msg"));
-        // eprintln!(
-        //     "{}",
-        //     serde_json::to_string_pretty(&NestedStruct::default()).expect("msg")
-        // );
+        let s: JsonSchemaBevyType = type_info.to_definition().into();
+        assert_eq!(s.definitions.len(), 3);
+        validate::<NestedStruct>(
+            s,
+            &[NestedStruct {
+                other: OtherStruct { field: "s".into() },
+                ..Default::default()
+            }],
+            &[],
+            &[],
+        );
+    }
+
+    #[test]
+    fn reflect_tuple_struct_with_one_field_that_is_struct() {
+        use bevy_ecs::prelude::ReflectComponent;
+        use bevy_reflect::prelude::ReflectDefault;
+
+        #[derive(Reflect, Default, Deserialize, Serialize)]
+        pub struct ThirdStruct {
+            pub map_strings: HashMap<String, i32>,
+        }
+        #[derive(Reflect, Default, Deserialize, Serialize, Component)]
+        #[reflect(Component, Default)]
+        /// A tuple struct with one field.
+        pub struct TupleStruct(pub HashMap<String, i32>);
+
+        let type_info =
+            TypeInformation::from(&TupleStruct::get_type_registration()).to_schema_type_info();
+        let schema: JsonSchemaBevyType = type_info.to_definition().into();
+        validate::<TupleStruct>(
+            schema,
+            &[TupleStruct(
+                [
+                    ("s".to_string(), 0),
+                    ("b".to_string(), 5),
+                    ("c".to_string(), 10),
+                ]
+                .into(),
+            )],
+            &[serde_json::json!({"json": 5})],
+            &[serde_json::json!("json")],
+        );
+    }
+    #[test]
+    fn reflect_tuple_struct_with_one_field() {
+        use bevy_ecs::prelude::ReflectComponent;
+        use bevy_reflect::prelude::ReflectDefault;
+        #[derive(Reflect, Deserialize, Serialize, Component)]
+        #[reflect(Component, Default)]
+        /// A tuple struct with one field.
+        pub struct TupleStruct(#[reflect(@10..=50i8)] pub i8);
+        impl Default for TupleStruct {
+            fn default() -> Self {
+                TupleStruct(15)
+            }
+        }
+        let type_info =
+            TypeInformation::from(&TupleStruct::get_type_registration()).to_schema_type_info();
+        let s: JsonSchemaBevyType = type_info.to_definition().into();
+        let range: MinMaxValues = (&s).into();
+        assert!(!range.in_range(51));
+        assert!(range.in_range(15));
+        assert!(range.in_range(50));
+        assert!(!range.in_range(51));
+
+        validate::<TupleStruct>(
+            s,
+            &[TupleStruct(15)],
+            &[
+                serde_json::json!(15),
+                serde_json::json!(50),
+                serde_json::json!(49),
+                serde_json::json!(10),
+            ],
+            &[
+                serde_json::json!(9),
+                serde_json::json!(51),
+                serde_json::json!(-1),
+                serde_json::json!(5.3),
+                serde_json::Value::Null,
+            ],
+        );
     }
 }

@@ -43,6 +43,9 @@ http-body-util = "0.1"
 async-channel = "2"
 bevy_log = { version = "0.17.0-dev", path = "../bevy_log" }
 
+[dev-dependencies]
+jsonschema = "0.30.0"
+
 # dependencies that will not compile on wasm
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 async-io = { version = "2", optional = true }

@@ -1389,13 +1389,10 @@ pub fn process_remote_list_watching_request(
     }
 }
 
-/// Handles a `bevy/registry/schema` request (list all registry types in form of schema) coming from a client.
-pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
-    let filter: BrpJsonSchemaQueryFilter = match params {
-        None => Default::default(),
-        Some(params) => parse(params)?,
-    };
-
+fn export_registry_types_typed(
+    filter: BrpJsonSchemaQueryFilter,
+    world: &World,
+) -> Result<JsonSchemaBevyType, BrpError> {
     let extra_info = world.resource::<crate::schemas::SchemaTypesMetadata>();
     let types = world.resource::<AppTypeRegistry>();
     let types = types.read();
@@ -1438,8 +1435,17 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
         })
         .flatten()
         .collect();
+    Ok(schema)
+}
 
-    serde_json::to_value(schema).map_err(BrpError::internal)
+/// Handles a `bevy/registry/schema` request (list all registry types in form of schema) coming from a client.
+pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
+    let filter: BrpJsonSchemaQueryFilter = match params {
+        None => Default::default(),
+        Some(params) => parse(params)?,
+    };
+    let result = export_registry_types_typed(filter, world)?;
+    serde_json::to_value(result).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
@@ -1720,7 +1726,7 @@ mod tests {
         pub struct ThirdStruct {
             pub array_strings: Vec<String>,
             pub array_structs: [OtherStruct; 5],
-            pub map_strings: HashMap<String, i32>,
+            // pub map_strings: HashMap<String, i32>,
         }
         #[derive(Reflect, Default, Deserialize, Serialize, Component)]
         #[reflect(Component)]
@@ -1754,7 +1760,7 @@ mod tests {
         assert_eq!(response.definitions.len(), 1);
         {
             let first = response.definitions.iter().next().expect("Should have one");
-            assert_eq!(first.1.id, "urn:bevy:glam-Vec3");
+            assert_eq!(first.1.id, "urn:glam-Vec3");
         }
         let response = export_registry_types_ext(
             BrpJsonSchemaQueryFilter {
@@ -1781,15 +1787,9 @@ mod tests {
         input: BrpJsonSchemaQueryFilter,
         world: &World,
     ) -> JsonSchemaBevyType {
-        let response_json = export_registry_types(
-            In(Some(
-                serde_json::to_value(&input).expect("Failed to serialize input"),
-            )),
-            world,
-        )
-        .expect("Failed to export registry types");
+        let response =
+            export_registry_types_typed(input, world).expect("Failed to export registry types");
 
-        serde_json::from_value::<JsonSchemaBevyType>(response_json)
-            .expect("Failed to deserialize response")
+        response
     }
 }

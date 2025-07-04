@@ -168,12 +168,14 @@ pub struct JsonSchemaBevyType {
     ///
     /// It contains type info of value of the Map.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub value_type: Option<JsonSchemaVariant>,
+    #[reflect(ignore)]
+    pub value_type: Option<Box<JsonSchemaBevyType>>,
     /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
     ///
     /// It contains type info of key of the Map.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub key_type: Option<JsonSchemaVariant>,
+    #[reflect(ignore)]
+    pub key_type: Option<Box<JsonSchemaBevyType>>,
     /// The type keyword is fundamental to JSON Schema. It specifies the data type for a schema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     #[serde(rename = "type")]
@@ -184,6 +186,13 @@ pub struct JsonSchemaBevyType {
     /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub additional_properties: Option<JsonSchemaVariant>,
+    /// The behavior of this keyword depends on the presence and annotation results of "properties"
+    /// and "patternProperties" within the same schema object.
+    /// Validation with "additionalProperties" applies only to the child
+    /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
+    #[reflect(ignore)]
+    pub pattern_properties: HashMap<Cow<'static, str>, Box<JsonSchemaBevyType>>,
     /// Validation succeeds if, for each name that appears in both the instance and as a name
     /// within this keyword's value, the child instance for that name successfully validates
     /// against the corresponding schema.
@@ -194,7 +203,8 @@ pub struct JsonSchemaBevyType {
     pub required: Vec<Cow<'static, str>>,
     /// An instance validates successfully against this keyword if it validates successfully against exactly one schema defined by this keyword's value.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub one_of: Vec<JsonSchemaVariant>,
+    #[reflect(ignore)]
+    pub one_of: Vec<Box<JsonSchemaBevyType>>,
     /// Validation succeeds if each element of the instance validates against the schema at the same position, if any. This keyword does not constrain the length of the array. If the array is longer than this keyword's value, this keyword validates only the prefix of matching length.
     ///
     /// This keyword produces an annotation value which is the largest index to which this keyword
@@ -712,7 +722,7 @@ mod tests {
         let schema = export_type::<Foo>();
         let schema_as_value = serde_json::to_value(&schema).expect("Failed to serialize schema");
         let mut value = json!({
-          "$id": "urn:bevy:bevy_remote-schemas-json_schema-tests-Foo",
+          "$id": "urn:bevy_remote-schemas-json_schema-tests-Foo",
           "shortPath": "Foo",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "typePath": "bevy_remote::schemas::json_schema::tests::Foo",
