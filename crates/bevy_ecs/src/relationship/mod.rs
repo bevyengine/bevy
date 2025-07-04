@@ -115,7 +115,7 @@ pub trait Relationship: Component + Sized {
                 }
             }
         }
-        let target_entity = world.entity(entity).get::<Self>().unwrap().get();
+        let target_entity = world.get::<Self>(entity).unwrap().get();
         if target_entity == entity {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
