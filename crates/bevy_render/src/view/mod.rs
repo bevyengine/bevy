@@ -2,6 +2,7 @@ pub mod visibility;
 pub mod window;
 
 use bevy_diagnostic::FrameCount;
+use bevy_mesh::{Mesh2d, Mesh3d};
 pub use visibility::*;
 pub use window::*;
 
@@ -109,6 +110,10 @@ impl Plugin for ViewPlugin {
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
             .register_type::<OcclusionCulling>()
+            .register_required_components::<Mesh3d, Visibility>()
+            .register_required_components::<Mesh3d, VisibilityClass>()
+            .register_required_components::<Mesh2d, Visibility>()
+            .register_required_components::<Mesh2d, VisibilityClass>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
                 ExtractComponentPlugin::<Hdr>::default(),
@@ -117,6 +122,12 @@ impl Plugin for ViewPlugin {
                 VisibilityPlugin,
                 VisibilityRangePlugin,
             ));
+        app.world_mut()
+            .register_component_hooks::<Mesh3d>()
+            .on_add(add_visibility_class::<Mesh3d>);
+        app.world_mut()
+            .register_component_hooks::<Mesh2d>()
+            .on_add(add_visibility_class::<Mesh2d>);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
