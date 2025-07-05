@@ -112,7 +112,7 @@
 //! This differentiates each construction of that [`EntityRow`].
 //! Again, all an [`Entity`] id is is an [`EntityRow`] (where to find the component values) and an [`EntityGeneration`] (which version of that row it references).
 //! When an [`Entity`] id is invalid, it just means that that generation of its row has been destructed.
-//! It could still be null or it could have since been constructed again.
+//! It could still be null (unconstructed) or it could have been re-constructed after it was destructed.
 //! Either way, that row-generation pair no longer exists.
 //!
 //! As mentioned, once an [`EntityRow`] is destructed, it is not discoverable until it is constructed again.
