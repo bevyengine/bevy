@@ -11,7 +11,7 @@ use crate::{
     },
     entity::{
         ConstructionError, ContainsEntity, Entity, EntityCloner, EntityClonerBuilder,
-        EntityEquivalent, EntityIdLocation, EntityLocation,
+        EntityEquivalent, EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
     event::EntityEvent,
     lifecycle::{DESPAWN, REMOVE, REPLACE},
@@ -2888,9 +2888,7 @@ impl<'w> EntityWorldMut<'w> {
     ) -> Entity {
         self.assert_not_despawned();
 
-        let entity_clone = self.world.entities.reserve_entity();
-        self.world.flush();
-
+        let entity_clone = self.world.spawn_empty().id();
         let mut builder = EntityCloner::build_opt_out(self.world);
         config(&mut builder);
         builder.clone_entity(self.entity, entity_clone);

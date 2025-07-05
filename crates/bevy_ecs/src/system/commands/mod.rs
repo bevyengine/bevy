@@ -20,9 +20,9 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{
         ConstructedEntityDoesNotExistError, Entities, EntitiesAllocator, Entity,
-        EntityClonerBuilder, EntityDoesNotExistError,
+        EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut,
     },
-    error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
+    error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::{BufferedEvent, EntityEvent, Event},
     observer::{Observer, TriggerTargets},
     resource::Resource,

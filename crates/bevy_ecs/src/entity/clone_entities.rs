@@ -7,12 +7,13 @@ use crate::{
     relationship::RelationshipHookMode,
     world::World,
 };
-use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec::Vec};
-use bevy_platform::collections::{HashMap, HashSet};
+use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::prelude::DebugName;
 use bumpalo::Bump;
-use core::any::TypeId;
+use core::{any::TypeId, cell::LazyCell, ops::Range};
+use derive_more::From;
 
 use super::EntitiesAllocator;
 
@@ -558,7 +559,9 @@ impl EntityCloner {
             #[cfg(not(feature = "bevy_reflect"))]
             let app_registry = Option::<()>::None;
 
-            let source_archetype = source_entity.archetype();
+            let source_archetype = source_entity
+                .archetype()
+                .expect("Source entity must exist constructed");
             bundle_scratch = BundleScratch::with_capacity(source_archetype.component_count());
 
             let target_archetype = LazyCell::new(|| {
@@ -566,6 +569,7 @@ impl EntityCloner {
                     .get_entity(target)
                     .expect("Target entity must exist")
                     .archetype()
+                    .expect("Target entity must exist constructed")
             });
 
             filter.clone_components(source_archetype, target_archetype, |component| {
