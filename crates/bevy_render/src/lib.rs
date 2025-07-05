@@ -9,8 +9,8 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 #[cfg(target_pointer_width = "16")]
@@ -26,6 +26,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
+pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
 pub mod extract_instances;
@@ -37,7 +38,6 @@ pub mod gpu_readback;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
-pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;
@@ -49,6 +49,7 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
+pub use bevy_camera::primitives;
 
 /// The render prelude.
 ///
@@ -57,18 +58,21 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        camera::{
-            Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
-            Projection,
-        },
+        camera::ToNormalizedRenderTarget as _,
         mesh::{
             morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
             Mesh3d,
         },
         render_resource::Shader,
-        texture::ImagePlugin,
+        texture::{ImagePlugin, ManualTextureViews},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
         ExtractSchedule,
+    };
+    // TODO: Remove this in a follow-up
+    #[doc(hidden)]
+    pub use bevy_camera::{
+        Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
+        Projection,
     };
 }
 use batching::gpu_preprocessing::BatchingPlugin;
@@ -79,6 +83,7 @@ pub mod _macro {
 }
 
 use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
@@ -92,7 +97,8 @@ use render_asset::{
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
-    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
+    despawn_temporary_render_entities, entity_sync_system, MainEntity, RenderEntity,
+    SyncToRenderWorld, SyncWorldPlugin, TemporaryRenderEntity,
 };
 
 use crate::gpu_readback::GpuReadbackPlugin;
@@ -101,7 +107,7 @@ use crate::{
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance, WgpuWrapper},
+    renderer::{render_system, RenderInstance},
     settings::RenderCreation,
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -110,6 +116,7 @@ use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bevy_utils::WgpuWrapper;
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
@@ -213,9 +220,29 @@ pub enum RenderSystems {
     PostCleanup,
 }
 
+/// The schedule that contains the app logic that is evaluated each tick
+///
+/// This is highly inspired by [`bevy_app::Main`]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct MainRender;
+impl MainRender {
+    pub fn run(world: &mut World, mut run_at_least_once: Local<bool>) {
+        if !*run_at_least_once {
+            let _ = world.try_run_schedule(RenderStartup);
+            *run_at_least_once = true;
+        }
+
+        let _ = world.try_run_schedule(Render);
+    }
+}
+
 /// Deprecated alias for [`RenderSystems`].
 #[deprecated(since = "0.17.0", note = "Renamed to `RenderSystems`.")]
 pub type RenderSet = RenderSystems;
+
+/// The startup schedule of the [`RenderApp`]
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct RenderStartup;
 
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -349,10 +376,12 @@ impl Plugin for RenderPlugin {
                             backend_options: wgpu::BackendOptions {
                                 gl: wgpu::GlBackendOptions {
                                     gles_minor_version: settings.gles3_minor_version,
+                                    fence_behavior: wgpu::GlFenceBehavior::Normal,
                                 },
                                 dx12: wgpu::Dx12BackendOptions {
                                     shader_compiler: settings.dx12_shader_compiler.clone(),
                                 },
+                                noop: wgpu::NoopBackendOptions { enable: false },
                             },
                         });
 
@@ -373,10 +402,19 @@ impl Plugin for RenderPlugin {
                             }
                         });
 
+                        let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
+                            .map_or(settings.force_fallback_adapter, |v| {
+                                !(v.is_empty() || v == "0" || v == "false")
+                            });
+
+                        let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
+                            .as_deref()
+                            .map_or(settings.adapter_name.clone(), |x| Some(x.to_lowercase()));
+
                         let request_adapter_options = wgpu::RequestAdapterOptions {
                             power_preference: settings.power_preference,
                             compatible_surface: surface.as_ref(),
-                            ..Default::default()
+                            force_fallback_adapter,
                         };
 
                         let (device, queue, adapter_info, render_adapter) =
@@ -384,6 +422,7 @@ impl Plugin for RenderPlugin {
                                 &instance,
                                 &settings,
                                 &request_adapter_options,
+                                desired_adapter_name,
                             )
                             .await;
                         debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
@@ -445,10 +484,9 @@ impl Plugin for RenderPlugin {
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
             .register_type::<bevy_color::Color>()
-            .register_type::<primitives::Aabb>()
-            .register_type::<primitives::CascadesFrusta>()
-            .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>()
+            .register_type::<RenderEntity>()
+            .register_type::<TemporaryRenderEntity>()
+            .register_type::<MainEntity>()
             .register_type::<SyncToRenderWorld>();
     }
 
@@ -469,10 +507,15 @@ impl Plugin for RenderPlugin {
             let RenderResources(device, queue, adapter_info, render_adapter, instance) =
                 future_render_resources.0.lock().unwrap().take().unwrap();
 
+            let compressed_image_format_support = CompressedImageFormatSupport(
+                CompressedImageFormats::from_features(device.features()),
+            );
+
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone());
+                .insert_resource(render_adapter.clone())
+                .insert_resource(compressed_image_format_support);
 
             let render_app = app.sub_app_mut(RenderApp);
 
@@ -517,7 +560,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = SubApp::new();
-    render_app.update_schedule = Some(Render.intern());
+    render_app.update_schedule = Some(MainRender.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     // We skip applying any commands during the ExtractSchedule
@@ -532,6 +575,7 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
         .init_resource::<render_graph::RenderGraph>()
+        .add_systems(MainRender, MainRender::run)
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(

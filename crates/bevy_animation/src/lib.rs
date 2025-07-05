@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Animation for the game engine Bevy
@@ -324,13 +324,13 @@ impl AnimationClip {
             .push(variable_curve);
     }
 
-    /// Add a untargeted [`Event`] to this [`AnimationClip`].
+    /// Add an [`EntityEvent`] with no [`AnimationTarget`] to this [`AnimationClip`].
     ///
     /// The `event` will be cloned and triggered on the [`AnimationPlayer`] entity once the `time` (in seconds)
     /// is reached in the animation.
     ///
     /// See also [`add_event_to_target`](Self::add_event_to_target).
-    pub fn add_event(&mut self, time: f32, event: impl Event + Clone) {
+    pub fn add_event(&mut self, time: f32, event: impl EntityEvent + Clone) {
         self.add_event_fn(
             time,
             move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
@@ -339,7 +339,7 @@ impl AnimationClip {
         );
     }
 
-    /// Add an [`Event`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add an [`EntityEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
     /// The `event` will be cloned and triggered on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
@@ -349,7 +349,7 @@ impl AnimationClip {
         &mut self,
         target_id: AnimationTargetId,
         time: f32,
-        event: impl Event + Clone,
+        event: impl EntityEvent + Clone,
     ) {
         self.add_event_fn_to_target(
             target_id,
@@ -360,19 +360,19 @@ impl AnimationClip {
         );
     }
 
-    /// Add a untargeted event function to this [`AnimationClip`].
+    /// Add an event function with no [`AnimationTarget`] to this [`AnimationClip`].
     ///
     /// The `func` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
     /// is reached in the animation.
     ///
-    /// For a simpler [`Event`]-based alternative, see [`AnimationClip::add_event`].
+    /// For a simpler [`EntityEvent`]-based alternative, see [`AnimationClip::add_event`].
     /// See also [`add_event_to_target`](Self::add_event_to_target).
     ///
     /// ```
     /// # use bevy_animation::AnimationClip;
     /// # let mut clip = AnimationClip::default();
     /// clip.add_event_fn(1.0, |commands, entity, time, weight| {
-    ///   println!("Animation Event Triggered {entity:#?} at time {time} with weight {weight}");
+    ///   println!("Animation event triggered {entity:#?} at time {time} with weight {weight}");
     /// })
     /// ```
     pub fn add_event_fn(
@@ -388,14 +388,14 @@ impl AnimationClip {
     /// The `func` will trigger on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
     ///
-    /// For a simpler [`Event`]-based alternative, see [`AnimationClip::add_event_to_target`].
+    /// For a simpler [`EntityEvent`]-based alternative, see [`AnimationClip::add_event_to_target`].
     /// Use [`add_event`](Self::add_event) instead if you don't have a specific target.
     ///
     /// ```
     /// # use bevy_animation::{AnimationClip, AnimationTargetId};
     /// # let mut clip = AnimationClip::default();
     /// clip.add_event_fn_to_target(AnimationTargetId::from_iter(["Arm", "Hand"]), 1.0, |commands, entity, time, weight| {
-    ///   println!("Animation Event Triggered {entity:#?} at time {time} with weight {weight}");
+    ///   println!("Animation event triggered {entity:#?} at time {time} with weight {weight}");
     /// })
     /// ```
     pub fn add_event_fn_to_target(
@@ -1534,7 +1534,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Event, Reflect, Clone)]
+    #[derive(Event, EntityEvent, Reflect, Clone)]
     struct A;
 
     #[track_caller]

@@ -95,7 +95,7 @@ impl BevyManifest {
                 return None;
             };
 
-            let mut path = Self::parse_str::<syn::Path>(&format!("::{}", package));
+            let mut path = Self::parse_str::<syn::Path>(&format!("::{package}"));
             if let Some(module) = name.strip_prefix("bevy_") {
                 path.segments.push(Self::parse_str(module));
             }

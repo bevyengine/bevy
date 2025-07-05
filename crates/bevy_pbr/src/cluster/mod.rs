@@ -2,6 +2,8 @@
 
 use core::num::NonZero;
 
+use bevy_asset::Handle;
+use bevy_camera::visibility;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
@@ -12,23 +14,27 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
+use bevy_image::Image;
 use bevy_math::{uvec4, AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
+    extract_component::ExtractComponent,
     render_resource::{
         BindingResource, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
         UniformBuffer,
     },
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
+    view::{Visibility, VisibilityClass},
     Extract,
 };
+use bevy_transform::components::Transform;
 use tracing::warn;
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
-use crate::MeshPipeline;
+use crate::{LightVisibilityClass, MeshPipeline};
 
 pub(crate) mod assign;
 
@@ -62,6 +68,27 @@ const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 // (Also note that Part 3 of the above shows how we could support the shadow mapping for many lights.)
 // The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa's Siggraph 2016 talk about Doom 2016:
 // http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
+
+#[derive(Resource)]
+pub struct GlobalClusterSettings {
+    pub supports_storage_buffers: bool,
+    pub clustered_decals_are_usable: bool,
+}
+
+pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettings {
+    let device = world.resource::<RenderDevice>();
+    let adapter = world.resource::<RenderAdapter>();
+    let clustered_decals_are_usable =
+        crate::decal::clustered::clustered_decals_are_usable(device, adapter);
+    let supports_storage_buffers = matches!(
+        device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
+        BufferBindingType::Storage { .. }
+    );
+    GlobalClusterSettings {
+        supports_storage_buffers,
+        clustered_decals_are_usable,
+    }
+}
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
@@ -162,8 +189,8 @@ pub struct GpuClusterableObject {
     pub(crate) spot_light_tan_angle: f32,
     pub(crate) soft_shadow_size: f32,
     pub(crate) shadow_map_near_z: f32,
-    pub(crate) pad_a: f32,
-    pub(crate) pad_b: f32,
+    pub(crate) decal_index: u32,
+    pub(crate) pad: f32,
 }
 
 pub enum GpuClusterableObjects {
@@ -207,6 +234,34 @@ struct ClusterableObjectCounts {
     irradiance_volumes: u32,
     /// The number of decals in the cluster.
     decals: u32,
+}
+
+/// An object that projects a decal onto surfaces within its bounds.
+///
+/// Conceptually, a clustered decal is a 1×1×1 cube centered on its origin. It
+/// projects the given [`Self::image`] onto surfaces in the -Z direction (thus
+/// you may find [`Transform::looking_at`] useful).
+///
+/// Clustered decals are the highest-quality types of decals that Bevy supports,
+/// but they require bindless textures. This means that they presently can't be
+/// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
+/// with forward or deferred rendering and don't require a prepass.
+#[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
+#[reflect(Component, Debug, Clone)]
+#[require(Transform, Visibility, VisibilityClass)]
+#[component(on_add = visibility::add_visibility_class::<LightVisibilityClass>)]
+pub struct ClusteredDecal {
+    /// The image that the clustered decal projects.
+    ///
+    /// This must be a 2D image. If it has an alpha channel, it'll be alpha
+    /// blended with the underlying surface and/or other decals. All decal
+    /// images in the scene must use the same sampler.
+    pub image: Handle<Image>,
+
+    /// An application-specific tag you can use for any purpose you want.
+    ///
+    /// See the `clustered_decals` example for an example of use.
+    pub tag: u32,
 }
 
 enum ExtractedClusterableObjectElement {
@@ -535,12 +590,12 @@ pub fn extract_clusters(
             continue;
         }
 
-        let num_entities: usize = clusters
+        let entity_count: usize = clusters
             .clusterable_objects
             .iter()
             .map(|l| l.entities.len())
             .sum();
-        let mut data = Vec::with_capacity(clusters.clusterable_objects.len() + num_entities);
+        let mut data = Vec::with_capacity(clusters.clusterable_objects.len() + entity_count);
         for cluster_objects in &clusters.clusterable_objects {
             data.push(ExtractedClusterableObjectElement::ClusterHeader(
                 cluster_objects.counts,
