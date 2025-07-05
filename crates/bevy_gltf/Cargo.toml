@@ -63,7 +63,7 @@ itertools = "0.14"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
-smallvec = "1.11"
+smallvec = { version = "1", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
 
