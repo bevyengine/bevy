@@ -381,7 +381,7 @@ pub(crate) fn assign_objects_to_clusters(
 
         // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering problems.
         let far_z = far_z.max(first_slice_depth);
-        let cluster_factors = crate::calculate_cluster_factors(
+        let cluster_factors = calculate_cluster_factors(
             first_slice_depth,
             far_z,
             requested_cluster_dimensions.z as f32,
@@ -868,6 +868,23 @@ pub(crate) fn assign_objects_to_clusters(
                     ..Default::default()
                 });
         }
+    }
+}
+
+pub fn calculate_cluster_factors(
+    near: f32,
+    far: f32,
+    z_slices: f32,
+    is_orthographic: bool,
+) -> Vec2 {
+    if is_orthographic {
+        Vec2::new(-near, z_slices / (-far - -near))
+    } else {
+        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / ops::ln(far / near);
+        Vec2::new(
+            z_slices_of_ln_zfar_over_znear,
+            ops::ln(near) * z_slices_of_ln_zfar_over_znear,
+        )
     }
 }
 
