@@ -38,6 +38,7 @@ pub struct SolariLightingNode {
     di_initial_and_temporal_pipeline: CachedComputePipelineId,
     di_spatial_and_shade_pipeline: CachedComputePipelineId,
     gi_initial_and_temporal_pipeline: CachedComputePipelineId,
+    gi_spatial_and_shade_pipeline: CachedComputePipelineId,
 }
 
 impl ViewNode for SolariLightingNode {
@@ -75,6 +76,7 @@ impl ViewNode for SolariLightingNode {
             Some(di_initial_and_temporal_pipeline),
             Some(di_spatial_and_shade_pipeline),
             Some(gi_initial_and_temporal_pipeline),
+            Some(gi_spatial_and_shade_pipeline),
             Some(scene_bindings),
             Some(viewport),
             Some(gbuffer),
@@ -86,6 +88,7 @@ impl ViewNode for SolariLightingNode {
             pipeline_cache.get_compute_pipeline(self.di_initial_and_temporal_pipeline),
             pipeline_cache.get_compute_pipeline(self.di_spatial_and_shade_pipeline),
             pipeline_cache.get_compute_pipeline(self.gi_initial_and_temporal_pipeline),
+            pipeline_cache.get_compute_pipeline(self.gi_spatial_and_shade_pipeline),
             &scene_bindings.bind_group,
             camera.physical_viewport_size,
             view_prepass_textures.deferred_view(),
@@ -108,6 +111,12 @@ impl ViewNode for SolariLightingNode {
                     .as_entire_binding(),
                 solari_lighting_resources
                     .di_reservoirs_b
+                    .as_entire_binding(),
+                solari_lighting_resources
+                    .gi_reservoirs_a
+                    .as_entire_binding(),
+                solari_lighting_resources
+                    .gi_reservoirs_b
                     .as_entire_binding(),
                 gbuffer,
                 depth_buffer,
@@ -152,6 +161,9 @@ impl ViewNode for SolariLightingNode {
         pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
 
         pass.set_pipeline(gi_initial_and_temporal_pipeline);
+        pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
+
+        pass.set_pipeline(gi_spatial_and_shade_pipeline);
         pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
 
         pass_span.end(&mut pass);
@@ -200,6 +212,8 @@ impl FromWorld for SolariLightingNode {
                         ViewTarget::TEXTURE_FORMAT_HDR,
                         StorageTextureAccess::ReadWrite,
                     ),
+                    storage_buffer_sized(false, None),
+                    storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
                     texture_2d(TextureSampleType::Uint),
@@ -264,11 +278,29 @@ impl FromWorld for SolariLightingNode {
                 zero_initialize_workgroup_memory: false,
             });
 
+        let gi_spatial_and_shade_pipeline =
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("solari_lighting_gi_spatial_and_shade_pipeline".into()),
+                layout: vec![
+                    scene_bindings.bind_group_layout.clone(),
+                    bind_group_layout.clone(),
+                ],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..8,
+                }],
+                shader: load_embedded_asset!(world, "restir_gi.wgsl"),
+                shader_defs: vec![],
+                entry_point: "spatial_and_shade".into(),
+                zero_initialize_workgroup_memory: false,
+            });
+
         Self {
             bind_group_layout,
             di_initial_and_temporal_pipeline,
             di_spatial_and_shade_pipeline,
             gi_initial_and_temporal_pipeline,
+            gi_spatial_and_shade_pipeline,
         }
     }
 }

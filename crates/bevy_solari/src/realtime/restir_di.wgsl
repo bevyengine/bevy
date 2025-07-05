@@ -13,13 +13,13 @@
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(1) var<storage, read_write> di_reservoirs_a: array<Reservoir>;
 @group(1) @binding(2) var<storage, read_write> di_reservoirs_b: array<Reservoir>;
-@group(1) @binding(3) var gbuffer: texture_2d<u32>;
-@group(1) @binding(4) var depth_buffer: texture_depth_2d;
-@group(1) @binding(5) var motion_vectors: texture_2d<f32>;
-@group(1) @binding(6) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(7) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(8) var<uniform> view: View;
-@group(1) @binding(9) var<uniform> previous_view: PreviousViewUniforms;
+@group(1) @binding(5) var gbuffer: texture_2d<u32>;
+@group(1) @binding(6) var depth_buffer: texture_depth_2d;
+@group(1) @binding(7) var motion_vectors: texture_2d<f32>;
+@group(1) @binding(8) var previous_gbuffer: texture_2d<u32>;
+@group(1) @binding(9) var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(10) var<uniform> view: View;
+@group(1) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
