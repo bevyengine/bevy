@@ -87,6 +87,7 @@ fn update_attributes(
             justify: layout.justify,
             line_break: layout.linebreak,
             line_height: font.line_height,
+            max_chars: None,
         });
     }
 }
