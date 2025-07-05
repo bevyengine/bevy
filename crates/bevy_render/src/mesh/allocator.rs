@@ -452,13 +452,17 @@ impl MeshAllocator {
 
         // Allocate.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
+            if vertex_buffer_size == 0 {
+                continue;
+            }
             // Allocate vertex data. Note that we can only pack mesh vertex data
             // together if the platform supports it.
             let vertex_element_layout = ElementLayout::vertex(mesh_vertex_buffer_layouts, mesh);
             if self.general_vertex_slabs_supported {
                 self.allocate(
                     mesh_id,
-                    mesh.get_vertex_buffer_size() as u64,
+                    vertex_buffer_size,
                     vertex_element_layout,
                     &mut slabs_to_grow,
                     mesh_allocator_settings,
