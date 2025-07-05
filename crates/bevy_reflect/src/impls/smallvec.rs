@@ -4,7 +4,7 @@ use crate::{
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
     Typed,
 };
-use alloc::{borrow::Cow, boxed::Box, string::ToString, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect::ReflectCloneError;
 use bevy_reflect_derive::impl_type_path;
 use core::any::Any;
@@ -137,16 +137,11 @@ where
 
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Ok(Box::new(
-            self.iter()
-                .map(|value| {
-                    value
-                        .reflect_clone()?
-                        .take()
-                        .map_err(|_| ReflectCloneError::FailedDowncast {
-                            expected: Cow::Borrowed(<T::Item as TypePath>::type_path()),
-                            received: Cow::Owned(value.reflect_type_path().to_string()),
-                        })
-                })
+            // `(**self)` avoids getting `SmallVec<T> as List::iter`, which
+            // would give us the wrong item type.
+            (**self)
+                .iter()
+                .map(PartialReflect::reflect_clone_and_take)
                 .collect::<Result<Self, ReflectCloneError>>()?,
         ))
     }

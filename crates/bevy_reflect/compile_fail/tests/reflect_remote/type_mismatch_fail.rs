@@ -77,6 +77,7 @@ mod enums {
 
     #[reflect_remote(external_crate::TheirBar)]
     //~^ ERROR: `?` operator has incompatible types
+    //~| ERROR: mismatched types
     enum MyBar {
         // Reason: Should use `i32`
         Value(u32),

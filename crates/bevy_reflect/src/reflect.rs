@@ -313,6 +313,24 @@ where
         })
     }
 
+    /// For a type implementing [`PartialReflect`], combines `reflect_clone` and
+    /// `take` in a useful fashion, automatically constructing an appropriate
+    /// [`ReflectCloneError`] if the downcast fails.
+    ///
+    /// This is an associated function, rather than a method, because methods
+    /// with generic types prevent dyn-compatibility.
+    fn reflect_clone_and_take<T: 'static>(&self) -> Result<T, ReflectCloneError>
+    where
+        Self: TypePath + Sized,
+    {
+        self.reflect_clone()?
+            .take()
+            .map_err(|_| ReflectCloneError::FailedDowncast {
+                expected: Cow::Borrowed(<Self as TypePath>::type_path()),
+                received: Cow::Owned(self.reflect_type_path().to_string()),
+            })
+    }
+
     /// Returns a hash of the value (which includes the type).
     ///
     /// If the underlying type does not support hashing, returns `None`.
