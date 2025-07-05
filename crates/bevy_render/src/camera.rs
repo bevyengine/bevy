@@ -29,7 +29,7 @@ use bevy_ecs::{
     event::EventReader,
     lifecycle::HookContext,
     prelude::With,
-    query::Has,
+    query::{Has, QueryItem},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -59,6 +59,8 @@ impl Plugin for CameraPlugin {
             .register_type::<MipBias>()
             .register_required_components::<Camera, Msaa>()
             .register_required_components::<Camera, SyncToRenderWorld>()
+            .register_required_components::<Camera3d, ColorGrading>()
+            .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
@@ -95,7 +97,7 @@ fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .
 }
 
 impl ExtractResource for ClearColor {
-    type Source = ClearColor;
+    type Source = Self;
 
     fn extract_resource(source: &Self::Source) -> Self {
         source.clone()
@@ -106,10 +108,26 @@ impl ExtractComponent for CameraMainTextureUsages {
     type QueryFilter = ();
     type Out = Self;
 
-    fn extract_component(
-        item: bevy_ecs::query::QueryItem<'_, '_, Self::QueryData>,
-    ) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(*item)
+    }
+}
+impl ExtractComponent for Camera2d {
+    type QueryData = &'static Self;
+    type QueryFilter = With<Camera>;
+    type Out = Self;
+
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
+    }
+}
+impl ExtractComponent for Camera3d {
+    type QueryData = &'static Self;
+    type QueryFilter = With<Camera>;
+    type Out = Self;
+
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
     }
 }
 

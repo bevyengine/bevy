@@ -1,39 +1,33 @@
-use crate::{
-    core_3d::graph::Core3d,
-    tonemapping::{DebandDither, Tonemapping},
-};
+use crate::{primitives::Frustum, Camera, CameraProjection, OrthographicProjection, Projection};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::{
-    camera::{Camera, CameraRenderGraph, Exposure, Projection},
-    extract_component::ExtractComponent,
-    render_resource::{LoadOp, TextureUsages},
-    view::ColorGrading,
-};
+use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
+use wgpu_types::{LoadOp, TextureUsages};
+
+/// A 2D camera component. Enables the 2D render graph for a [`Camera`].
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default, Clone)]
+#[require(
+    Camera,
+    Projection::Orthographic(OrthographicProjection::default_2d()),
+    Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
+)]
+pub struct Camera2d;
 
 /// A 3D camera component. Enables the main 3D render graph for a [`Camera`].
 ///
 /// The camera coordinate space is right-handed X-right, Y-up, Z-back.
 /// This means "forward" is -Z.
-#[derive(Component, Reflect, Clone, ExtractComponent)]
-#[extract_component_filter(With<Camera>)]
+#[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(
-    Camera,
-    DebandDither::Enabled,
-    CameraRenderGraph::new(Core3d),
-    Projection,
-    Tonemapping,
-    ColorGrading,
-    Exposure
-)]
+#[require(Camera, Projection)]
 pub struct Camera3d {
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
     /// The texture usages for the depth texture created for the main 3d pass.
     pub depth_texture_usages: Camera3dDepthTextureUsage,
-    /// How many individual steps should be performed in the [`Transmissive3d`](crate::core_3d::Transmissive3d) pass.
+    /// How many individual steps should be performed in the `Transmissive3d` pass.
     ///
     /// Roughly corresponds to how many “layers of transparency” are rendered for screen space
     /// specular transmissive objects. Each step requires making one additional

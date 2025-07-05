@@ -1,4 +1,3 @@
-mod camera_3d;
 mod main_opaque_pass_3d_node;
 mod main_transmissive_pass_3d_node;
 mod main_transparent_pass_3d_node;
@@ -70,14 +69,17 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
+pub use bevy_camera::{
+    Camera3d, Camera3dDepthLoadOp, Camera3dDepthTextureUsage, ScreenSpaceTransmissionQuality,
+};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    camera::CameraRenderGraph,
     experimental::occlusion_culling::OcclusionCulling,
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
-pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
@@ -127,7 +129,7 @@ use crate::{
         ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
-    tonemapping::TonemappingNode,
+    tonemapping::{DebandDither, Tonemapping, TonemappingNode},
     upscaling::UpscalingNode,
 };
 
@@ -139,6 +141,11 @@ impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<ScreenSpaceTransmissionQuality>()
+            .register_required_components_with::<Camera3d, DebandDither>(|| DebandDither::Enabled)
+            .register_required_components_with::<Camera3d, CameraRenderGraph>(|| {
+                CameraRenderGraph::new(Core3d)
+            })
+            .register_required_components::<Camera3d, Tonemapping>()
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
             .add_systems(PostUpdate, check_msaa);
 
