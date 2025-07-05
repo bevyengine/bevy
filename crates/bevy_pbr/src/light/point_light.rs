@@ -1,5 +1,7 @@
 use bevy_render::view::{self, Visibility};
 
+use crate::decal::clustered::CubemapLayout;
+
 use super::*;
 
 /// A light that emits light in all directions from a central point.
@@ -135,4 +137,17 @@ impl PointLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.08;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
     pub const DEFAULT_SHADOW_MAP_NEAR_Z: f32 = 0.1;
+}
+
+/// Add to a [`PointLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(PointLight)]
+pub struct PointLightTexture {
+    /// The texture image. Only the R channel is read.
+    pub image: Handle<Image>,
+    /// The cubemap layout. The image should be a packed cubemap in one of the formats described by the [`CubemapLayout`] enum.
+    pub cubemap_layout: CubemapLayout,
 }
