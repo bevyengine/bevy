@@ -1,7 +1,8 @@
 use bevy_asset::Handle;
 use bevy_camera::{
-    primitives::CascadesFrusta,
-    visibility::{self, CascadesVisibleEntities, Visibility, VisibilityClass},
+    primitives::{CascadesFrusta, Frustum},
+    visibility::{self, CascadesVisibleEntities, ViewVisibility, Visibility, VisibilityClass},
+    Camera,
 };
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
@@ -99,6 +100,8 @@ pub struct DirectionalLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    ///
+    /// [`ShadowFilteringMethod::Temporal`]: crate::ShadowFilteringMethod::Temporal
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadow_size: Option<f32>,
 
@@ -162,4 +165,65 @@ pub struct DirectionalLightTexture {
     pub image: Handle<Image>,
     /// Whether to tile the image infinitely, or use only a single tile centered at the light's translation
     pub tiled: bool,
+}
+
+/// Controls the resolution of [`DirectionalLight`] shadow maps.
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::DirectionalLightShadowMap;
+/// App::new()
+///     .insert_resource(DirectionalLightShadowMap { size: 4096 });
+/// ```
+#[derive(Resource, Clone, Debug, Reflect)]
+#[reflect(Resource, Debug, Default, Clone)]
+pub struct DirectionalLightShadowMap {
+    // The width and height of each cascade.
+    ///
+    /// Defaults to `2048`.
+    pub size: usize,
+}
+
+impl Default for DirectionalLightShadowMap {
+    fn default() -> Self {
+        Self { size: 2048 }
+    }
+}
+
+pub fn update_directional_light_frusta(
+    mut views: Query<
+        (
+            &Cascades,
+            &DirectionalLight,
+            &ViewVisibility,
+            &mut CascadesFrusta,
+        ),
+        (
+            // Prevents this query from conflicting with camera queries.
+            Without<Camera>,
+        ),
+    >,
+) {
+    for (cascades, directional_light, visibility, mut frusta) in &mut views {
+        // The frustum is used for culling meshes to the light for shadow mapping
+        // so if shadow mapping is disabled for this light, then the frustum is
+        // not needed.
+        if !directional_light.shadows_enabled || !visibility.get() {
+            continue;
+        }
+
+        frusta.frusta = cascades
+            .cascades
+            .iter()
+            .map(|(view, cascades)| {
+                (
+                    *view,
+                    cascades
+                        .iter()
+                        .map(|c| Frustum::from_clip_from_world(&c.clip_from_world))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+    }
 }

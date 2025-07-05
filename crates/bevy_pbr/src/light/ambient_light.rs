@@ -6,7 +6,7 @@ use bevy_render::{extract_component::ExtractComponent, extract_resource::Extract
 
 /// An ambient light, which lights the entire scene equally.
 ///
-/// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
+/// This resource is inserted by the `PbrPlugin` and by default it is set to a low ambient light.
 ///
 /// It can also be added to a camera to override the resource (or default) ambient for that camera only.
 ///

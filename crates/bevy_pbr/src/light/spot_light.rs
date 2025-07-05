@@ -11,7 +11,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::view::VisibleMeshEntities;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use crate::LightVisibilityClass;
+use crate::{GlobalVisibleClusterableObjects, LightVisibilityClass};
 
 /// A light that emits light in a given direction from a central point.
 ///
@@ -69,6 +69,8 @@ pub struct SpotLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    ///
+    /// [`ShadowFilteringMethod::Temporal`]: crate::ShadowFilteringMethod::Temporal
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
 
@@ -194,4 +196,39 @@ pub struct SpotLightTexture {
     /// The texture image. Only the R channel is read.
     /// Note the border of the image should be entirely black to avoid leaking light.
     pub image: Handle<Image>,
+}
+
+pub fn update_spot_light_frusta(
+    global_lights: Res<GlobalVisibleClusterableObjects>,
+    mut views: Query<
+        (Entity, &GlobalTransform, &SpotLight, &mut Frustum),
+        Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
+    >,
+) {
+    for (entity, transform, spot_light, mut frustum) in &mut views {
+        // The frusta are used for culling meshes to the light for shadow mapping
+        // so if shadow mapping is disabled for this light, then the frusta are
+        // not needed.
+        // Also, if the light is not relevant for any cluster, it will not be in the
+        // global lights set and so there is no need to update its frusta.
+        if !spot_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+            continue;
+        }
+
+        // ignore scale because we don't want to effectively scale light radius and range
+        // by applying those as a view transform to shadow map rendering of objects
+        let view_backward = transform.back();
+
+        let spot_world_from_view = spot_light_world_from_view(transform);
+        let spot_clip_from_view =
+            spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
+        let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
+
+        *frustum = Frustum::from_clip_from_world_custom_far(
+            &clip_from_world,
+            &transform.translation(),
+            &view_backward,
+            spot_light.range,
+        );
+    }
 }
