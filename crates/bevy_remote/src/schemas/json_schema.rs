@@ -417,6 +417,7 @@ impl From<TypeId> for SchemaType {
         } else if value.eq(&TypeId::of::<str>())
             || value.eq(&TypeId::of::<char>())
             || value.eq(&TypeId::of::<String>())
+            || value.eq(&TypeId::of::<Cow<str>>())
         {
             Self::String
         } else {

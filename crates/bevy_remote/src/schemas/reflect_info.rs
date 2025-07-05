@@ -755,12 +755,12 @@ impl From<&JsonSchemaBevyType> for MinMaxValues {
     fn from(value: &JsonSchemaBevyType) -> Self {
         let min = match (&value.exclusive_minimum, &value.minimum) {
             (Some(ex), None) => Some(BoundValue::Exclusive(ex.clone())),
-            (_, Some(inclusive)) => Some(BoundValue::Inclusive(inclusive.clone())),
+            (_, Some(inclusive)) => Some(BoundValue::Inclusive(*inclusive)),
             _ => None,
         };
         let max = match (&value.exclusive_maximum, &value.maximum) {
             (Some(ex), None) => Some(BoundValue::Exclusive(ex.clone())),
-            (_, Some(inclusive)) => Some(BoundValue::Inclusive(inclusive.clone())),
+            (_, Some(inclusive)) => Some(BoundValue::Inclusive(*inclusive)),
             _ => None,
         };
         MinMaxValues { min, max }
@@ -1027,16 +1027,17 @@ impl From<&InternalSchemaType> for Option<SchemaTypeVariant> {
                 }
                 _ => Some(SchemaTypeVariant::Single(SchemaType::Array)),
             },
-            InternalSchemaType::Optional {
-                generic: _,
-                schema_type_info: _,
-            } => None,
             InternalSchemaType::Map { .. } => Some(SchemaTypeVariant::Single(SchemaType::Object)),
             InternalSchemaType::Regular(type_id) => {
                 Some(SchemaTypeVariant::Single((*type_id).into()))
             }
             InternalSchemaType::RegularType(ty) => Some(SchemaTypeVariant::Single(ty.id().into())),
-            InternalSchemaType::NoInfo | InternalSchemaType::EnumHolder(_) => None,
+            InternalSchemaType::NoInfo
+            | InternalSchemaType::EnumHolder(_)
+            | InternalSchemaType::Optional {
+                generic: _,
+                schema_type_info: _,
+            } => None,
         }
     }
 }
@@ -1286,7 +1287,7 @@ impl SchemaTypeInfo {
             InternalSchemaType::Map { key, value } => {
                 let key = key.to_schema_type_info();
                 let value = value.to_schema_type_info();
-                if let Some(_) = key.ty_info.try_get_primitive_type() {
+                if key.ty_info.try_get_primitive_type().is_some() {
                     if let Some(p) = key.ty_info.try_get_regex_for_type() {
                         schema.pattern_properties = [(p, value.to_ref_schema().into())].into();
                         schema.additional_properties = Some(JsonSchemaVariant::BoolValue(false));
@@ -1812,7 +1813,7 @@ where
 
 #[cfg(test)]
 pub(super) mod tests {
-    use bevy_ecs::component::Component;
+    use bevy_ecs::{component::Component, name::Name};
     use bevy_platform::collections::HashMap;
     use bevy_reflect::GetTypeRegistration;
 
@@ -2059,6 +2060,21 @@ pub(super) mod tests {
             ],
             &[],
             &[],
+        );
+    }
+
+    #[test]
+    fn name_field_test() {
+        #[derive(Reflect, Default, Deserialize, Serialize)]
+        pub struct EnumTest {
+            pub name: Name,
+        }
+        let type_info =
+            TypeInformation::from(&EnumTest::get_type_registration()).to_schema_type_info();
+        let schema: JsonSchemaBevyType = type_info.to_definition().into();
+        eprintln!(
+            "{}",
+            serde_json::to_string_pretty(&schema).unwrap_or_default()
         );
     }
 
