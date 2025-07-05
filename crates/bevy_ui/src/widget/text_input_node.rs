@@ -120,6 +120,7 @@ pub struct TextInputOverwriteMode(pub bool);
 pub struct TextInputNode {}
 
 /// Main single line text input component
+#[derive(Component, Debug, Default)]
 #[require(
     Node,
     TextFont,
@@ -136,7 +137,10 @@ pub struct TextInputNode {}
     TextInputHistory,
     SingleLineTextInput
 )]
-#[derive(Component, Debug, Default)]
+#[component(
+    on_add = on_add_text_input_node,
+    on_remove = on_remove_input_focus,
+)]
 pub struct SingleLineTextInputNode {}
 
 fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
