@@ -1,8 +1,8 @@
 [package]
-name = "bevy_mesh"
+name = "bevy_camera"
 version = "0.17.0-dev"
 edition = "2024"
-description = "Provides mesh types for Bevy Engine"
+description = "Provides a camera abstraction for Bevy Engine"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
@@ -10,39 +10,31 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
-bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.17.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
-  "std",
+bevy_color = { path = "../bevy_color", version = "0.17.0-dev", features = [
   "serialize",
 ] }
+bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 
 # other
-bitflags = { version = "2.3", features = ["serde"] }
-bytemuck = { version = "1.5" }
 wgpu-types = { version = "25", default-features = false }
-serde = { version = "1", default-features = false, features = [
-  "derive",
-], optional = true }
-hexasphere = "15.0"
+serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
-tracing = { version = "0.1", default-features = false, features = ["std"] }
+downcast-rs = { version = "2", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
-
-[dev-dependencies]
-serde_json = "1.0.140"
+smallvec = { version = "1.11", features = ["const_new"] }
 
 [features]
 default = []
-## Adds serialization support through `serde`.
-serialize = ["dep:serde", "wgpu-types/serde"]
 
 [lints]
 workspace = true

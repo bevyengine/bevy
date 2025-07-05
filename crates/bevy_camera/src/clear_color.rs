@@ -1,4 +1,3 @@
-use crate::extract_resource::ExtractResource;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
@@ -32,7 +31,7 @@ pub enum ClearColorConfig {
 /// clear color or opt out of clearing their viewport.
 ///
 /// [`Camera.clear_color`]: crate::camera::Camera::clear_color
-#[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource, Reflect)]
+#[derive(Resource, Clone, Debug, Deref, DerefMut, Reflect)]
 #[reflect(Resource, Default, Debug, Clone)]
 pub struct ClearColor(pub Color);
 

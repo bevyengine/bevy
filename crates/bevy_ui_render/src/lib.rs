@@ -36,7 +36,6 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
-use bevy_render::load_shader_library;
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::renderer::RenderContext;
@@ -53,6 +52,7 @@ use bevy_render::{
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSystems,
 };
+use bevy_render::{load_shader_library, RenderStartup};
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     sync_world::{RenderEntity, TemporaryRenderEntity},
@@ -243,6 +243,7 @@ impl Plugin for UiRenderPlugin {
                 )
                     .chain(),
             )
+            .add_systems(RenderStartup, init_ui_pipeline)
             .add_systems(
                 ExtractSchedule,
                 (
@@ -291,14 +292,6 @@ impl Plugin for UiRenderPlugin {
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<UiPipeline>();
     }
 }
 
