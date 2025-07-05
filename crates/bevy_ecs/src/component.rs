@@ -37,6 +37,72 @@ use core::{
 use smallvec::SmallVec;
 use thiserror::Error;
 
+/// Checks if a struct has Default.
+#[doc(hidden)]
+pub struct Check<T, const OUTCOME: bool>(pub PhantomData<T>);
+
+impl<T> Deref for Check<T, true> {
+    type Target = Check<T, false>;
+    fn deref(&self) -> &Self::Target {
+        &Check(PhantomData)
+    }
+}
+
+// Deref specialization will try this implementation first.
+impl<T: Default> Check<T, true> {
+    pub fn get_self(&self) -> &Self {
+        self
+    }
+
+    pub fn create_requirement(&self) -> fn() -> T {
+        || T::default()
+    }
+}
+
+// Deref specialization will try this implementation second.
+impl<T> Check<T, false> {
+    pub fn get_self(&self) -> &Self {
+        self
+    }
+
+    pub fn create_requirement(&self) -> fn() -> T {
+        // The other checker should only let 0 sized types use this function.
+        // This is just a bit of extra assurance.
+        const {
+            if size_of::<T>() != 0 {
+                panic!("Something has gone terribly wrong.")
+            }
+        }
+        || {
+            // SAFETY:
+            // I do not know if this is safe.
+            // We can hope that because it has a size of 0 that it will be fine.
+            let requirement: T = unsafe { core::mem::zeroed() };
+            requirement
+        }
+    }
+}
+
+/// A trait for checking whether Check is true or false.
+/// This is likely not required, as I can instead just check their const generic, but I was encountering lifetime issues, so I'll just use this until I find a solution.
+#[doc(hidden)]
+pub trait HasDefault {
+    type Actual;
+    const HAS_DEFAULT: bool;
+}
+
+impl<T, const OUTCOME: bool> HasDefault for &Check<T, OUTCOME> {
+    type Actual = T;
+    const HAS_DEFAULT: bool = OUTCOME;
+}
+
+/// Checks if a component's requirement is valid.
+/// It is valid if it has Default, or if it has a size of 0 and is therefore a unit struct.
+#[doc(hidden)]
+pub const fn component_requirement_is_valid<T: HasDefault>(_: &impl FnOnce() -> T) -> bool {
+    T::HAS_DEFAULT || size_of::<T::Actual>() == 0
+}
+
 /// A data type that can be used to store data for an [entity].
 ///
 /// `Component` is a [derivable trait]: this means that a data type can implement it by applying a `#[derive(Component)]` attribute to it.

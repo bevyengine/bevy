@@ -1903,6 +1903,16 @@ mod tests {
     }
 
     #[test]
+    fn unit_without_default_required_components() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component)]
+        #[require(A)]
+        struct B;
+    }
+
+    #[test]
     fn generic_required_components() {
         #[derive(Component)]
         #[require(Y<usize>)]
