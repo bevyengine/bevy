@@ -21,7 +21,6 @@ use bevy_math::{
     FloatOrd, Rect, Vec2,
 };
 use bevy_math::{Affine2, Vec2Swizzles};
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -30,6 +29,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
+use bevy_render::{sync_world::MainEntity, RenderStartup};
 use bevy_sprite::BorderRect;
 use bevy_ui::{
     BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,
@@ -51,6 +51,7 @@ impl Plugin for GradientPlugin {
                 .init_resource::<ExtractedColorStops>()
                 .init_resource::<GradientMeta>()
                 .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
+                .add_systems(RenderStartup, init_gradient_pipeline)
                 .add_systems(
                     ExtractSchedule,
                     extract_gradients
@@ -64,12 +65,6 @@ impl Plugin for GradientPlugin {
                         prepare_gradient.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<GradientPipeline>();
         }
     }
 }
@@ -102,23 +97,23 @@ pub struct GradientPipeline {
     pub shader: Handle<Shader>,
 }
 
-impl FromWorld for GradientPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+pub fn init_gradient_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
+    let view_layout = render_device.create_bind_group_layout(
+        "ui_gradient_view_layout",
+        &BindGroupLayoutEntries::single(
+            ShaderStages::VERTEX_FRAGMENT,
+            uniform_buffer::<ViewUniform>(true),
+        ),
+    );
 
-        let view_layout = render_device.create_bind_group_layout(
-            "ui_gradient_view_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX_FRAGMENT,
-                uniform_buffer::<ViewUniform>(true),
-            ),
-        );
-
-        GradientPipeline {
-            view_layout,
-            shader: load_embedded_asset!(world, "gradient.wgsl"),
-        }
-    }
+    commands.insert_resource(GradientPipeline {
+        view_layout,
+        shader: load_embedded_asset!(asset_server.as_ref(), "gradient.wgsl"),
+    });
 }
 
 pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
