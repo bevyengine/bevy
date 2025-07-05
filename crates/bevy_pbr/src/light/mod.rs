@@ -20,6 +20,7 @@ use bevy_utils::Parallel;
 use core::{marker::PhantomData, ops::DerefMut};
 
 use crate::*;
+pub use light::spot_light::{spot_light_clip_from_view, spot_light_world_from_view};
 
 mod ambient_light;
 pub use ambient_light::AmbientLight;

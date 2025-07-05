@@ -711,38 +711,6 @@ pub fn calculate_cluster_factors(
     }
 }
 
-// this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
-// we will also construct it in the fragment shader and need our implementations to match,
-// so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
-// could move this onto transform but it's pretty niche
-pub(crate) fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
-    // the matrix z_local (opposite of transform.forward())
-    let fwd_dir = transform.back().extend(0.0);
-
-    let sign = 1f32.copysign(fwd_dir.z);
-    let a = -1.0 / (fwd_dir.z + sign);
-    let b = fwd_dir.x * fwd_dir.y * a;
-    let up_dir = Vec4::new(
-        1.0 + sign * fwd_dir.x * fwd_dir.x * a,
-        sign * b,
-        -sign * fwd_dir.x,
-        0.0,
-    );
-    let right_dir = Vec4::new(-b, -sign - fwd_dir.y * fwd_dir.y * a, fwd_dir.y, 0.0);
-
-    Mat4::from_cols(
-        right_dir,
-        up_dir,
-        fwd_dir,
-        transform.translation().extend(1.0),
-    )
-}
-
-pub(crate) fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
-    // spot light projection FOV is 2x the angle from spot light center to outer edge
-    Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, near_z)
-}
-
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
