@@ -1,21 +1,27 @@
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
         CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoFrustumCulling,
-        PreviousVisibleEntities, RenderLayers, ViewVisibility, VisibilityRange,
+        PreviousVisibleEntities, RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems,
         VisibleEntityRanges, VisibleMeshEntities,
     },
+    CameraUpdateSystems,
 };
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::Vec3A;
 use bevy_reflect::prelude::*;
 use bevy_render::{extract_component::ExtractComponent, mesh::Mesh3d};
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
 use core::ops::DerefMut;
 
 pub use crate::light::spot_light::{spot_light_clip_from_view, spot_light_world_from_view};
-use crate::VisibleClusterableObjects;
+use crate::{
+    add_clusters, assign_objects_to_clusters,
+    cascade::{build_directional_light_cascades, clear_directional_light_cascades},
+    CascadeShadowConfig, Cascades, VisibleClusterableObjects,
+};
 
 mod ambient_light;
 pub use ambient_light::AmbientLight;
@@ -89,6 +95,88 @@ pub mod light_consts {
         pub const DIRECT_SUNLIGHT: f32 = 100_000.;
         /// The amount of light (lux) of raw sunlight, not filtered by the atmosphere.
         pub const RAW_SUNLIGHT: f32 = 130_000.;
+    }
+}
+
+pub struct LightPlugin;
+
+impl Plugin for LightPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<AmbientLight>()
+            .register_type::<CascadeShadowConfig>()
+            .register_type::<Cascades>()
+            .register_type::<DirectionalLight>()
+            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<NotShadowCaster>()
+            .register_type::<NotShadowReceiver>()
+            .register_type::<PointLight>()
+            .register_type::<PointLightShadowMap>()
+            .register_type::<SpotLight>()
+            .register_type::<ShadowFilteringMethod>()
+            .init_resource::<AmbientLight>()
+            .init_resource::<DirectionalLightShadowMap>()
+            .init_resource::<PointLightShadowMap>()
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::UpdateDirectionalLightCascades
+                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
+            )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::CheckLightVisibility
+                    .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    add_clusters
+                        .in_set(SimulationLightSystems::AddClusters)
+                        .after(CameraUpdateSystems),
+                    assign_objects_to_clusters
+                        .in_set(SimulationLightSystems::AssignLightsToClusters)
+                        .after(TransformSystems::Propagate)
+                        .after(VisibilitySystems::CheckVisibility)
+                        .after(CameraUpdateSystems),
+                    clear_directional_light_cascades
+                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
+                        .after(TransformSystems::Propagate)
+                        .after(CameraUpdateSystems),
+                    update_directional_light_frusta
+                        .in_set(SimulationLightSystems::UpdateLightFrusta)
+                        // This must run after CheckVisibility because it relies on `ViewVisibility`
+                        .after(VisibilitySystems::CheckVisibility)
+                        .after(TransformSystems::Propagate)
+                        .after(SimulationLightSystems::UpdateDirectionalLightCascades)
+                        // We assume that no entity will be both a directional light and a spot light,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_spot_light_frusta),
+                    update_point_light_frusta
+                        .in_set(SimulationLightSystems::UpdateLightFrusta)
+                        .after(TransformSystems::Propagate)
+                        .after(SimulationLightSystems::AssignLightsToClusters),
+                    update_spot_light_frusta
+                        .in_set(SimulationLightSystems::UpdateLightFrusta)
+                        .after(TransformSystems::Propagate)
+                        .after(SimulationLightSystems::AssignLightsToClusters),
+                    (
+                        check_dir_light_mesh_visibility,
+                        check_point_light_mesh_visibility,
+                    )
+                        .in_set(SimulationLightSystems::CheckLightVisibility)
+                        .after(VisibilitySystems::CalculateBounds)
+                        .after(TransformSystems::Propagate)
+                        .after(SimulationLightSystems::UpdateLightFrusta)
+                        // NOTE: This MUST be scheduled AFTER the core renderer visibility check
+                        // because that resets entity `ViewVisibility` for the first view
+                        // which would override any results from this otherwise
+                        .after(VisibilitySystems::CheckVisibility)
+                        .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
+                    build_directional_light_cascades
+                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
+                        .after(clear_directional_light_cascades),
+                ),
+            );
     }
 }
 
@@ -168,8 +256,6 @@ pub enum SimulationLightSystems {
     /// System order ambiguities between systems in this set are ignored:
     /// each [`build_directional_light_cascades`] system is independent of the others,
     /// and should operate on distinct sets of entities.
-    ///
-    /// [`build_directional_light_cascades`]: crate::build_directional_light_cascades
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
