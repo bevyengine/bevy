@@ -7,7 +7,7 @@ use crate::{
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
 use bevy_utils::WgpuWrapper;
-use core::ops::Deref;
+use core::{iter, ops::Deref};
 use wgpu::{
     ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
 };
@@ -137,6 +137,12 @@ pub struct FragmentState {
     pub targets: Vec<Option<ColorTargetState>>,
 }
 
+impl FragmentState {
+    pub fn set_target(&mut self, index: usize, target: ColorTargetState) {
+        filling_insert_at(&mut self.targets, index, None, Some(target));
+    }
+}
+
 /// Describes a compute pipeline.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct ComputePipelineDescriptor {
@@ -152,4 +158,10 @@ pub struct ComputePipelineDescriptor {
     /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
     /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
     pub zero_initialize_workgroup_memory: bool,
+}
+
+fn filling_insert_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T) {
+    let num_to_fill = index.saturating_sub(vec.len() - 1);
+    vec.extend(iter::repeat_n(filler, num_to_fill));
+    vec[index] = value;
 }

@@ -109,6 +109,10 @@ impl Specializer<RenderPipeline> for BloomUpsamplingSpecializer {
         key: Self::Key,
         descriptor: &mut RenderPipelineDescriptor,
     ) -> Result<Canonical<Self::Key>, BevyError> {
+        let Some(fragment) = &mut descriptor.fragment else {
+            return Ok(key);
+        };
+
         let texture_format = if key.final_pipeline {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -147,17 +151,23 @@ impl Specializer<RenderPipeline> for BloomUpsamplingSpecializer {
             },
         };
 
-        let fragment = descriptor.fragment.get_or_insert_default();
+        let target = ColorTargetState {
+            format: texture_format,
+            blend: Some(BlendState {
+                // placeholder
+                color: color_blend,
+                alpha: BlendComponent {
+                    src_factor: BlendFactor::Zero,
+                    dst_factor: BlendFactor::One,
+                    operation: BlendOperation::Add,
+                },
+            }),
+            write_mask: ColorWrites::ALL,
+        };
 
-        if let Some(Some(color_target)) = fragment.targets.first_mut()
-            && let Some(blend_state) = &mut color_target.blend
-        {
-            blend_state.color = color_blend;
-            color_target.format = texture_format;
-            Ok(key)
-        } else {
-            Err("color target state or blend state missing".into())
-        }
+        fragment.set_target(0, target);
+
+        Ok(key)
     }
 }
 
