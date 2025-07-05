@@ -2,8 +2,11 @@ use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 
 use bevy_platform::collections::HashMap;
 
-use crate::system::IntoSystem;
-use crate::world::World;
+use crate::{
+    schedule::{SystemKey, SystemSetKey},
+    system::IntoSystem,
+    world::World,
+};
 
 use super::{
     is_apply_deferred, ApplyDeferred, DiGraph, Direction, NodeId, ReportCycles, ScheduleBuildError,
@@ -36,29 +39,26 @@ impl AutoInsertApplyDeferredPass {
         self.auto_sync_node_ids
             .get(&distance)
             .copied()
-            .or_else(|| {
-                let node_id = self.add_auto_sync(graph);
+            .unwrap_or_else(|| {
+                let node_id = NodeId::System(self.add_auto_sync(graph));
                 self.auto_sync_node_ids.insert(distance, node_id);
-                Some(node_id)
+                node_id
             })
-            .unwrap()
     }
     /// add an [`ApplyDeferred`] system with no config
-    fn add_auto_sync(&mut self, graph: &mut ScheduleGraph) -> NodeId {
-        let id = NodeId::System(graph.systems.len());
-
-        graph
+    fn add_auto_sync(&mut self, graph: &mut ScheduleGraph) -> SystemKey {
+        let key = graph
             .systems
-            .push(SystemNode::new(Box::new(IntoSystem::into_system(
+            .insert(SystemNode::new(Box::new(IntoSystem::into_system(
                 ApplyDeferred,
             ))));
-        graph.system_conditions.push(Vec::new());
+        graph.system_conditions.insert(key, Vec::new());
 
         // ignore ambiguities with auto sync points
         // They aren't under user control, so no one should know or care.
-        graph.ambiguous_with_all.insert(id);
+        graph.ambiguous_with_all.insert(NodeId::System(key));
 
-        id
+        key
     }
 }
 
@@ -80,39 +80,45 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
-        fn set_has_conditions(graph: &ScheduleGraph, node: NodeId) -> bool {
-            !graph.set_conditions_at(node).is_empty()
+        fn set_has_conditions(graph: &ScheduleGraph, set: SystemSetKey) -> bool {
+            !graph.set_conditions_at(set).is_empty()
                 || graph
                     .hierarchy()
                     .graph()
-                    .edges_directed(node, Direction::Incoming)
-                    .any(|(parent, _)| set_has_conditions(graph, parent))
+                    .edges_directed(NodeId::Set(set), Direction::Incoming)
+                    .any(|(parent, _)| {
+                        parent
+                            .as_set()
+                            .is_some_and(|p| set_has_conditions(graph, p))
+                    })
         }
 
-        fn system_has_conditions(graph: &ScheduleGraph, node: NodeId) -> bool {
-            assert!(node.is_system());
-            !graph.system_conditions[node.index()].is_empty()
+        fn system_has_conditions(graph: &ScheduleGraph, key: SystemKey) -> bool {
+            !graph.system_conditions[key].is_empty()
                 || graph
                     .hierarchy()
                     .graph()
-                    .edges_directed(node, Direction::Incoming)
-                    .any(|(parent, _)| set_has_conditions(graph, parent))
+                    .edges_directed(NodeId::System(key), Direction::Incoming)
+                    .any(|(parent, _)| {
+                        parent
+                            .as_set()
+                            .is_some_and(|p| set_has_conditions(graph, p))
+                    })
         }
 
-        let mut system_has_conditions_cache = HashMap::<usize, bool>::default();
-        let mut is_valid_explicit_sync_point = |system: NodeId| {
-            let index = system.index();
-            is_apply_deferred(&graph.systems[index].get().unwrap().system)
+        let mut system_has_conditions_cache = HashMap::<SystemKey, bool>::default();
+        let mut is_valid_explicit_sync_point = |key: SystemKey| {
+            is_apply_deferred(&graph.systems[key].get().unwrap().system)
                 && !*system_has_conditions_cache
-                    .entry(index)
-                    .or_insert_with(|| system_has_conditions(graph, system))
+                    .entry(key)
+                    .or_insert_with(|| system_has_conditions(graph, key))
         };
 
         // Calculate the distance for each node.
         // The "distance" is the number of sync points between a node and the beginning of the graph.
         // Also store if a preceding edge would have added a sync point but was ignored to add it at
         // a later edge that is not ignored.
-        let mut distances_and_pending_sync: HashMap<usize, (u32, bool)> =
+        let mut distances_and_pending_sync: HashMap<SystemKey, (u32, bool)> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
 
         // Keep track of any explicit sync nodes for a specific distance.
@@ -120,17 +126,21 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
         // Determine the distance for every node and collect the explicit sync points.
         for node in &topo {
+            let &NodeId::System(key) = node else {
+                panic!("Encountered a non-system node in the flattened dependency graph: {node:?}");
+            };
+
             let (node_distance, mut node_needs_sync) = distances_and_pending_sync
-                .get(&node.index())
+                .get(&key)
                 .copied()
                 .unwrap_or_default();
 
-            if is_valid_explicit_sync_point(*node) {
+            if is_valid_explicit_sync_point(key) {
                 // The distance of this sync point does not change anymore as the iteration order
                 // makes sure that this node is no unvisited target of another node.
                 // Because of this, the sync point can be stored for this distance to be reused as
                 // automatically added sync points later.
-                distance_to_explicit_sync_node.insert(node_distance, *node);
+                distance_to_explicit_sync_node.insert(node_distance, NodeId::System(key));
 
                 // This node just did a sync, so the only reason to do another sync is if one was
                 // explicitly scheduled afterwards.
@@ -138,26 +148,22 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
             } else if !node_needs_sync {
                 // No previous node has postponed sync points to add so check if the system itself
                 // has deferred params that require a sync point to apply them.
-                node_needs_sync = graph.systems[node.index()]
-                    .get()
-                    .unwrap()
-                    .system
-                    .has_deferred();
+                node_needs_sync = graph.systems[key].get().unwrap().system.has_deferred();
             }
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
-                let (target_distance, target_pending_sync) = distances_and_pending_sync
-                    .entry(target.index())
-                    .or_default();
+                let NodeId::System(target) = target else {
+                    panic!("Encountered a non-system node in the flattened dependency graph: {target:?}");
+                };
+                let (target_distance, target_pending_sync) =
+                    distances_and_pending_sync.entry(target).or_default();
 
                 let mut edge_needs_sync = node_needs_sync;
                 if node_needs_sync
-                    && !graph.systems[target.index()]
-                        .get()
-                        .unwrap()
-                        .system
-                        .is_exclusive()
-                    && self.no_sync_edges.contains(&(*node, target))
+                    && !graph.systems[target].get().unwrap().system.is_exclusive()
+                    && self
+                        .no_sync_edges
+                        .contains(&(*node, NodeId::System(target)))
                 {
                     // The node has deferred params to apply, but this edge is ignoring sync points.
                     // Mark the target as 'delaying' those commands to a future edge and the current
@@ -182,14 +188,20 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         // Find any edges which have a different number of sync points between them and make sure
         // there is a sync point between them.
         for node in &topo {
+            let &NodeId::System(key) = node else {
+                panic!("Encountered a non-system node in the flattened dependency graph: {node:?}");
+            };
             let (node_distance, _) = distances_and_pending_sync
-                .get(&node.index())
+                .get(&key)
                 .copied()
                 .unwrap_or_default();
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
+                let NodeId::System(target) = target else {
+                    panic!("Encountered a non-system node in the flattened dependency graph: {target:?}");
+                };
                 let (target_distance, _) = distances_and_pending_sync
-                    .get(&target.index())
+                    .get(&target)
                     .copied()
                     .unwrap_or_default();
 
@@ -198,7 +210,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     continue;
                 }
 
-                if is_apply_deferred(&graph.systems[target.index()].get().unwrap().system) {
+                if is_apply_deferred(&graph.systems[target].get().unwrap().system) {
                     // We don't need to insert a sync point since ApplyDeferred is a sync point
                     // already!
                     continue;
@@ -210,10 +222,10 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .unwrap_or_else(|| self.get_sync_point(graph, target_distance));
 
                 sync_point_graph.add_edge(*node, sync_point);
-                sync_point_graph.add_edge(sync_point, target);
+                sync_point_graph.add_edge(sync_point, NodeId::System(target));
 
                 // The edge without the sync point is now redundant.
-                sync_point_graph.remove_edge(*node, target);
+                sync_point_graph.remove_edge(*node, NodeId::System(target));
             }
         }
 
@@ -223,34 +235,39 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
     fn collapse_set(
         &mut self,
-        set: NodeId,
-        systems: &[NodeId],
+        set: SystemSetKey,
+        systems: &[SystemKey],
         dependency_flattened: &DiGraph,
     ) -> impl Iterator<Item = (NodeId, NodeId)> {
         if systems.is_empty() {
             // collapse dependencies for empty sets
-            for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
-                for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
-                    if self.no_sync_edges.contains(&(a, set))
-                        && self.no_sync_edges.contains(&(set, b))
+            for a in dependency_flattened.neighbors_directed(NodeId::Set(set), Direction::Incoming)
+            {
+                for b in
+                    dependency_flattened.neighbors_directed(NodeId::Set(set), Direction::Outgoing)
+                {
+                    if self.no_sync_edges.contains(&(a, NodeId::Set(set)))
+                        && self.no_sync_edges.contains(&(NodeId::Set(set), b))
                     {
                         self.no_sync_edges.insert((a, b));
                     }
                 }
             }
         } else {
-            for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
+            for a in dependency_flattened.neighbors_directed(NodeId::Set(set), Direction::Incoming)
+            {
                 for &sys in systems {
-                    if self.no_sync_edges.contains(&(a, set)) {
-                        self.no_sync_edges.insert((a, sys));
+                    if self.no_sync_edges.contains(&(a, NodeId::Set(set))) {
+                        self.no_sync_edges.insert((a, NodeId::System(sys)));
                     }
                 }
             }
 
-            for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
+            for b in dependency_flattened.neighbors_directed(NodeId::Set(set), Direction::Outgoing)
+            {
                 for &sys in systems {
-                    if self.no_sync_edges.contains(&(set, b)) {
-                        self.no_sync_edges.insert((sys, b));
+                    if self.no_sync_edges.contains(&(NodeId::Set(set), b)) {
+                        self.no_sync_edges.insert((NodeId::System(sys), b));
                     }
                 }
             }

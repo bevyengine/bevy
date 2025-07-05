@@ -21,7 +21,7 @@ use bevy_render::{
         BindingResource, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
         UniformBuffer,
     },
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     Extract,
 };
@@ -62,6 +62,27 @@ const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 // (Also note that Part 3 of the above shows how we could support the shadow mapping for many lights.)
 // The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa's Siggraph 2016 talk about Doom 2016:
 // http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
+
+#[derive(Resource)]
+pub struct GlobalClusterSettings {
+    pub supports_storage_buffers: bool,
+    pub clustered_decals_are_usable: bool,
+}
+
+pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettings {
+    let device = world.resource::<RenderDevice>();
+    let adapter = world.resource::<RenderAdapter>();
+    let clustered_decals_are_usable =
+        crate::decal::clustered::clustered_decals_are_usable(device, adapter);
+    let supports_storage_buffers = matches!(
+        device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
+        BufferBindingType::Storage { .. }
+    );
+    GlobalClusterSettings {
+        supports_storage_buffers,
+        clustered_decals_are_usable,
+    }
+}
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
@@ -162,8 +183,8 @@ pub struct GpuClusterableObject {
     pub(crate) spot_light_tan_angle: f32,
     pub(crate) soft_shadow_size: f32,
     pub(crate) shadow_map_near_z: f32,
-    pub(crate) pad_a: f32,
-    pub(crate) pad_b: f32,
+    pub(crate) decal_index: u32,
+    pub(crate) pad: f32,
 }
 
 pub enum GpuClusterableObjects {

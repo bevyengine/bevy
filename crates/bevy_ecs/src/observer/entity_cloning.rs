@@ -43,10 +43,10 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
                 .get_mut::<Observer>(observer_entity)
                 .expect("Source observer entity must have Observer");
             observer_state.descriptor.entities.push(target);
-            let event_types = observer_state.descriptor.events.clone();
+            let event_keys = observer_state.descriptor.events.clone();
             let components = observer_state.descriptor.components.clone();
-            for event_type in event_types {
-                let observers = world.observers.get_observers_mut(event_type);
+            for event_key in event_keys {
+                let observers = world.observers.get_observers_mut(event_key);
                 if components.is_empty() {
                     if let Some(map) = observers.entity_observers.get(&source).cloned() {
                         observers.entity_observers.insert(target, map);

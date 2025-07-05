@@ -152,19 +152,19 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
-        let on_add = Add::register_component_id(self);
+        let on_add = Add::register_event_key(self);
         assert_eq!(ADD, on_add);
 
-        let on_insert = Insert::register_component_id(self);
+        let on_insert = Insert::register_event_key(self);
         assert_eq!(INSERT, on_insert);
 
-        let on_replace = Replace::register_component_id(self);
+        let on_replace = Replace::register_event_key(self);
         assert_eq!(REPLACE, on_replace);
 
-        let on_remove = Remove::register_component_id(self);
+        let on_remove = Remove::register_event_key(self);
         assert_eq!(REMOVE, on_remove);
 
-        let on_despawn = Despawn::register_component_id(self);
+        let on_despawn = Despawn::register_event_key(self);
         assert_eq!(DESPAWN, on_despawn);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
@@ -304,6 +304,7 @@ impl World {
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
     ///
     /// Will panic if `T` exists in any archetypes.
+    #[must_use]
     pub fn register_component_hooks<T: Component>(&mut self) -> &mut ComponentHooks {
         let index = self.register_component::<T>();
         assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if {} may already be in use", core::any::type_name::<T>());

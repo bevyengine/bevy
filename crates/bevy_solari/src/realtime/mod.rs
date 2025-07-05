@@ -13,8 +13,7 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoSc
 use bevy_pbr::DefaultOpaqueRendererMethod;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    load_shader_library,
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
     view::Hdr,
     ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -29,7 +28,6 @@ pub struct SolariLightingPlugin;
 impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "restir_di.wgsl");
-        load_shader_library!(app, "reservoir.wgsl");
 
         app.register_type::<SolariLighting>()
             .insert_resource(DefaultOpaqueRendererMethod::deferred());

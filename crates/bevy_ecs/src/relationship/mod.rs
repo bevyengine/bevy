@@ -14,7 +14,7 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
-    error::{ignore, CommandWithEntity, HandleError},
+    error::CommandWithEntity,
     lifecycle::HookContext,
     world::{DeferredWorld, EntityWorldMut},
 };
@@ -126,16 +126,18 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(entity).remove::<Self>();
             return;
         }
-        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
-            if let Some(mut relationship_target) =
-                target_entity_mut.get_mut::<Self::RelationshipTarget>()
-            {
-                relationship_target.collection_mut_risky().add(entity);
-            } else {
-                let mut target = <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-                target.collection_mut_risky().add(entity);
-                world.commands().entity(target_entity).insert(target);
-            }
+        if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
+            // Deferring is necessary for batch mode
+            entity_commands
+                .entry::<Self::RelationshipTarget>()
+                .and_modify(move |mut relationship_target| {
+                    relationship_target.collection_mut_risky().add(entity);
+                })
+                .or_insert_with(|| {
+                    let mut target = Self::RelationshipTarget::with_capacity(1);
+                    target.collection_mut_risky().add(entity);
+                    target
+                });
         } else {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
@@ -187,7 +189,7 @@ pub trait Relationship: Component + Sized {
 
                     world
                         .commands()
-                        .queue(command.with_entity(target_entity).handle_error_with(ignore));
+                        .queue_silenced(command.with_entity(target_entity));
                 }
             }
         }
@@ -244,7 +246,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
         for source_entity in relationship_target.iter() {
             commands
                 .entity(source_entity)
-                .remove::<Self::Relationship>();
+                .try_remove::<Self::Relationship>();
         }
     }
 
@@ -255,7 +257,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            commands.entity(source_entity).despawn();
+            commands.entity(source_entity).try_despawn();
         }
     }
 
@@ -323,6 +325,7 @@ pub enum RelationshipHookMode {
 
 #[cfg(test)]
 mod tests {
+    use crate::prelude::{ChildOf, Children};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
@@ -418,8 +421,6 @@ mod tests {
 
     #[test]
     fn parent_child_relationship_with_custom_relationship() {
-        use crate::prelude::ChildOf;
-
         #[derive(Component)]
         #[relationship(relationship_target = RelTarget)]
         struct Rel(Entity);
@@ -473,5 +474,35 @@ mod tests {
 
         assert!(world.get_entity(child).is_err());
         assert!(!world.entity(parent).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn spawn_batch_with_relationship() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let children = world
+            .spawn_batch((0..10).map(|_| ChildOf(parent)))
+            .collect::<Vec<_>>();
+
+        for &child in &children {
+            assert!(world
+                .get::<ChildOf>(child)
+                .is_some_and(|child_of| child_of.parent() == parent));
+        }
+        assert!(world
+            .get::<Children>(parent)
+            .is_some_and(|children| children.len() == 10));
+    }
+
+    #[test]
+    fn insert_batch_with_relationship() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn_empty().id();
+        world.insert_batch([(child, ChildOf(parent))]);
+        world.flush();
+
+        assert!(world.get::<ChildOf>(child).is_some());
+        assert!(world.get::<Children>(parent).is_some());
     }
 }

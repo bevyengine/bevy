@@ -417,7 +417,7 @@ pub fn handle_tab_navigation(
                 visible.0 = true;
             }
             Err(e) => {
-                warn!("Tab navigation error: {}", e);
+                warn!("Tab navigation error: {e}");
                 // This failure mode is recoverable, but still indicates a problem.
                 if let TabNavigationError::NoTabGroupForCurrentFocus { new_focus, .. } = e {
                     trigger.propagate(false);

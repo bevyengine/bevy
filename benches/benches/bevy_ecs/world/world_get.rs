@@ -51,7 +51,7 @@ pub fn world_entity(criterion: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(format!("{}_entities", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities"), |bencher| {
             let world = setup::<Table>(entity_count);
 
             bencher.iter(|| {
@@ -74,7 +74,7 @@ pub fn world_get(criterion: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
             let world = setup::<Table>(entity_count);
 
             bencher.iter(|| {
@@ -86,7 +86,7 @@ pub fn world_get(criterion: &mut Criterion) {
                 }
             });
         });
-        group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
             let world = setup::<Sparse>(entity_count);
 
             bencher.iter(|| {
@@ -109,7 +109,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
             let mut world = setup::<Table>(entity_count);
             let mut query = world.query::<&Table>();
 
@@ -122,7 +122,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 }
             });
         });
-        group.bench_function(format!("{}_entities_table_wide", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_table_wide"), |bencher| {
             let mut world = setup_wide::<(
                 WideTable<0>,
                 WideTable<1>,
@@ -149,7 +149,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 }
             });
         });
-        group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
             let mut world = setup::<Sparse>(entity_count);
             let mut query = world.query::<&Sparse>();
 
@@ -162,37 +162,33 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 }
             });
         });
-        group.bench_function(
-            format!("{}_entities_sparse_wide", entity_count),
-            |bencher| {
-                let mut world = setup_wide::<(
-                    WideSparse<0>,
-                    WideSparse<1>,
-                    WideSparse<2>,
-                    WideSparse<3>,
-                    WideSparse<4>,
-                    WideSparse<5>,
-                )>(entity_count);
-                let mut query = world.query::<(
-                    &WideSparse<0>,
-                    &WideSparse<1>,
-                    &WideSparse<2>,
-                    &WideSparse<3>,
-                    &WideSparse<4>,
-                    &WideSparse<5>,
-                )>();
+        group.bench_function(format!("{entity_count}_entities_sparse_wide"), |bencher| {
+            let mut world = setup_wide::<(
+                WideSparse<0>,
+                WideSparse<1>,
+                WideSparse<2>,
+                WideSparse<3>,
+                WideSparse<4>,
+                WideSparse<5>,
+            )>(entity_count);
+            let mut query = world.query::<(
+                &WideSparse<0>,
+                &WideSparse<1>,
+                &WideSparse<2>,
+                &WideSparse<3>,
+                &WideSparse<4>,
+                &WideSparse<5>,
+            )>();
 
-                bencher.iter(|| {
-                    for i in 0..entity_count {
-                        // SAFETY: Range is exclusive.
-                        let entity = Entity::from_raw(EntityRow::new(unsafe {
-                            NonMaxU32::new_unchecked(i)
-                        }));
-                        assert!(query.get(&world, entity).is_ok());
-                    }
-                });
-            },
-        );
+            bencher.iter(|| {
+                for i in 0..entity_count {
+                    // SAFETY: Range is exclusive.
+                    let entity =
+                        Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
+                    assert!(query.get(&world, entity).is_ok());
+                }
+            });
+        });
     }
 
     group.finish();
@@ -204,7 +200,7 @@ pub fn world_query_iter(criterion: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
             let mut world = setup::<Table>(entity_count);
             let mut query = world.query::<&Table>();
 
@@ -218,7 +214,7 @@ pub fn world_query_iter(criterion: &mut Criterion) {
                 assert_eq!(black_box(count), entity_count);
             });
         });
-        group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
             let mut world = setup::<Sparse>(entity_count);
             let mut query = world.query::<&Sparse>();
 
@@ -243,7 +239,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
             let mut world = setup::<Table>(entity_count);
             let mut query = world.query::<&Table>();
 
@@ -257,7 +253,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
                 assert_eq!(black_box(count), entity_count);
             });
         });
-        group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
             let mut world = setup::<Sparse>(entity_count);
             let mut query = world.query::<&Sparse>();
 
@@ -282,7 +278,7 @@ pub fn query_get(criterion: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
             let mut world = World::default();
             let mut entities: Vec<_> = world
                 .spawn_batch((0..entity_count).map(|_| Table::default()))
@@ -301,7 +297,7 @@ pub fn query_get(criterion: &mut Criterion) {
                 assert_eq!(black_box(count), entity_count);
             });
         });
-        group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
             let mut world = World::default();
             let mut entities: Vec<_> = world
                 .spawn_batch((0..entity_count).map(|_| Sparse::default()))
@@ -331,7 +327,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(2 * N as u64));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        group.bench_function(format!("{}_calls_table", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_calls_table"), |bencher| {
             let mut world = World::default();
             let mut entity_groups: Vec<_> = (0..entity_count)
                 .map(|_| [(); N].map(|_| world.spawn(Table::default()).id()))
@@ -354,7 +350,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 assert_eq!(black_box(count), entity_count);
             });
         });
-        group.bench_function(format!("{}_calls_sparse", entity_count), |bencher| {
+        group.bench_function(format!("{entity_count}_calls_sparse"), |bencher| {
             let mut world = World::default();
             let mut entity_groups: Vec<_> = (0..entity_count)
                 .map(|_| [(); N].map(|_| world.spawn(Sparse::default()).id()))

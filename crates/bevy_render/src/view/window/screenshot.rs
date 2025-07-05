@@ -1,6 +1,6 @@
 use super::ExtractedWindows;
 use crate::{
-    camera::{ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget},
+    camera::{NormalizedRenderTarget, ToNormalizedRenderTarget as _},
     gpu_readback,
     prelude::Shader,
     render_asset::{RenderAssetUsages, RenderAssets},
@@ -11,18 +11,19 @@ use crate::{
         SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
     },
     renderer::RenderDevice,
-    texture::{GpuImage, OutputColorAttachment},
+    texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_camera::{ManualTextureViewHandle, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
-use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
@@ -321,11 +322,7 @@ fn prepare_screenshots(
                     continue;
                 };
                 let format = manual_texture_view.format;
-                let size = Extent3d {
-                    width: manual_texture_view.size.x,
-                    height: manual_texture_view.size.y,
-                    ..default()
-                };
+                let size = manual_texture_view.size.to_extents();
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
                     format,
@@ -465,29 +462,24 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
             label: Some(Cow::Borrowed("screenshot-to-screen")),
             layout: vec![self.bind_group_layout.clone()],
             vertex: VertexState {
-                buffers: vec![],
-                shader_defs: vec![],
-                entry_point: Cow::Borrowed("vs_main"),
                 shader: self.shader.clone(),
+                ..default()
             },
             primitive: wgpu::PrimitiveState {
                 cull_mode: Some(wgpu::Face::Back),
                 ..Default::default()
             },
-            depth_stencil: None,
             multisample: Default::default(),
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                entry_point: Cow::Borrowed("fs_main"),
-                shader_defs: vec![],
                 targets: vec![Some(wgpu::ColorTargetState {
                     format: key,
                     blend: None,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

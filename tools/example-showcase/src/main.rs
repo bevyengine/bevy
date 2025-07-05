@@ -55,6 +55,12 @@ enum Action {
         /// This defaults to frame 250. Set it to 0 to not stop the example automatically.
         stop_frame: u32,
 
+        #[arg(long, default_value = "false")]
+        /// Automatically ends after taking a screenshot
+        ///
+        /// Only works if `screenshot-frame` is set to non-0, and overrides `stop-frame`.
+        auto_stop_frame: bool,
+
         #[arg(long)]
         /// Which frame to take a screenshot at. Set to 0 for no screenshot.
         screenshot_frame: u32,
@@ -150,6 +156,7 @@ fn main() {
         Action::Run {
             wgpu_backend,
             stop_frame,
+            auto_stop_frame,
             screenshot_frame,
             fixed_frame_time,
             in_ci,
@@ -183,11 +190,21 @@ fn main() {
 
             let mut extra_parameters = vec![];
 
-            match (stop_frame, screenshot_frame) {
+            match (stop_frame, screenshot_frame, auto_stop_frame) {
                 // When the example does not automatically stop nor take a screenshot.
-                (0, 0) => (),
+                (0, 0, _) => (),
+                // When the example automatically stops at an automatic frame.
+                (0, _, true) => {
+                    let mut file = File::create("example_showcase_config.ron").unwrap();
+                    file.write_all(
+                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, ScreenshotAndExit)])").as_bytes(),
+                    )
+                    .unwrap();
+                    extra_parameters.push("--features");
+                    extra_parameters.push("bevy_ci_testing");
+                }
                 // When the example does not automatically stop.
-                (0, _) => {
+                (0, _, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
                         format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot)])").as_bytes(),
@@ -197,15 +214,25 @@ fn main() {
                     extra_parameters.push("bevy_ci_testing");
                 }
                 // When the example does not take a screenshot.
-                (_, 0) => {
+                (_, 0, _) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(format!("(events: [({stop_frame}, AppExit)])").as_bytes())
                         .unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
+                // When the example both automatically stops at an automatic frame and takes a screenshot.
+                (_, _, true) => {
+                    let mut file = File::create("example_showcase_config.ron").unwrap();
+                    file.write_all(
+                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, ScreenshotAndExit)])").as_bytes(),
+                    )
+                    .unwrap();
+                    extra_parameters.push("--features");
+                    extra_parameters.push("bevy_ci_testing");
+                }
                 // When the example both automatically stops and takes a screenshot.
-                (_, _) => {
+                (_, _, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
                         format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot), ({stop_frame}, AppExit)])").as_bytes(),

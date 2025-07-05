@@ -10,6 +10,11 @@ pub mod prelude {
     };
 }
 
+#[cfg(all(feature = "zstd", not(feature = "zstd_rust"), not(feature = "zstd_c")))]
+compile_error!(
+    "Choosing a zstd backend is required for zstd support. Please enable either the \"zstd_rust\" or the \"zstd_c\" feature."
+);
+
 mod image;
 pub use self::image::*;
 #[cfg(feature = "basis-universal")]

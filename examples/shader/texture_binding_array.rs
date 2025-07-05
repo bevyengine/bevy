@@ -104,7 +104,7 @@ impl AsBindGroup for BindlessMaterial {
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
-    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
+    ) -> Result<PreparedBindGroup, AsBindGroupError> {
         // retrieve the render resources from handles
         let mut images = vec![];
         for handle in self.textures.iter().take(MAX_TEXTURE_COUNT) {
@@ -135,9 +135,10 @@ impl AsBindGroup for BindlessMaterial {
         Ok(PreparedBindGroup {
             bindings: BindingResources(vec![]),
             bind_group,
-            data: (),
         })
     }
+
+    fn bind_group_data(&self) -> Self::Data {}
 
     fn unprepared_bind_group(
         &self,
@@ -145,7 +146,7 @@ impl AsBindGroup for BindlessMaterial {
         _render_device: &RenderDevice,
         _param: &mut SystemParamItem<'_, '_, Self::Param>,
         _force_no_bindless: bool,
-    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
+    ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
         // We implement `as_bind_group`` directly because bindless texture
         // arrays can't be owned.
         // Or rather, they can be owned, but then you can't make a `&'a [&'a
@@ -163,7 +164,7 @@ impl AsBindGroup for BindlessMaterial {
             (
                 // Screen texture
                 //
-                // @group(2) @binding(0) var textures: binding_array<texture_2d<f32>>;
+                // @group(3) @binding(0) var textures: binding_array<texture_2d<f32>>;
                 (
                     0,
                     texture_2d(TextureSampleType::Float { filterable: true })
@@ -171,7 +172,7 @@ impl AsBindGroup for BindlessMaterial {
                 ),
                 // Sampler
                 //
-                // @group(2) @binding(1) var nearest_sampler: sampler;
+                // @group(3) @binding(1) var nearest_sampler: sampler;
                 //
                 // Note: as with textures, multiple samplers can also be bound
                 // onto one binding slot:
