@@ -32,6 +32,7 @@ use bevy_image::Image;
 use bevy_math::Mat4;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
+pub use bevy_render::primitives::CubemapLayout;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     load_shader_library,
@@ -93,42 +94,6 @@ pub struct ClusteredDecal {
     ///
     /// See the `clustered_decals` example for an example of use.
     pub tag: u32,
-}
-
-/// Cubemap layout defines the order of images in a packed cubemap image.
-#[derive(Default, Reflect, Debug, Clone, Copy)]
-pub enum CubemapLayout {
-    /// layout in a vertical cross format
-    /// ```text
-    ///    +y
-    /// -x -z +x
-    ///    -y
-    ///    +z
-    /// ```
-    #[default]
-    CrossVertical = 0,
-    /// layout in a horizontal cross format
-    /// ```text
-    ///    +y
-    /// -x -z +x +z
-    ///    -y
-    /// ```
-    CrossHorizontal = 1,
-    /// layout in a vertical sequence
-    /// ```text
-    ///   +x
-    ///   -y
-    ///   +y
-    ///   -y
-    ///   -z
-    ///   +z
-    /// ```
-    SequenceVertical = 2,
-    /// layout in a horizontal sequence
-    /// ```text
-    /// +x -y +y -y -z +z
-    /// ```
-    SequenceHorizontal = 3,
 }
 
 /// Add to a [`PointLight`] to add a light texture effect.
