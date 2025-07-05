@@ -1,7 +1,7 @@
 use crate::FullscreenShader;
 
 use super::{Bloom, BLOOM_TEXTURE_FORMAT};
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::load_embedded_asset;
 use bevy_ecs::{
     error::BevyError,
     prelude::{Component, Entity},

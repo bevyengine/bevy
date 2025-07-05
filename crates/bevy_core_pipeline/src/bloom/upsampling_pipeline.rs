@@ -3,7 +3,7 @@ use crate::FullscreenShader;
 use super::{
     downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT,
 };
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::load_embedded_asset;
 use bevy_ecs::{
     error::BevyError,
     prelude::{Component, Entity},
