@@ -1,4 +1,5 @@
 use self::assign::ClusterableObjectType;
+use crate::assign::calculate_cluster_factors;
 use crate::*;
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
@@ -11,7 +12,7 @@ use bevy_ecs::{
     prelude::*,
     system::lifetimeless::Read,
 };
-use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_render::erased_render_asset::ErasedRenderAssets;
@@ -693,22 +694,6 @@ pub enum LightEntity {
     Spot {
         light_entity: Entity,
     },
-}
-pub fn calculate_cluster_factors(
-    near: f32,
-    far: f32,
-    z_slices: f32,
-    is_orthographic: bool,
-) -> Vec2 {
-    if is_orthographic {
-        Vec2::new(-near, z_slices / (-far - -near))
-    } else {
-        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / ops::ln(far / near);
-        Vec2::new(
-            z_slices_of_ln_zfar_over_znear,
-            ops::ln(near) * z_slices_of_ln_zfar_over_znear,
-        )
-    }
 }
 
 // this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
