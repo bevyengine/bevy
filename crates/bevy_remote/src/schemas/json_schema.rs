@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::schemas::{
-    reflect_info::{SchemaNumber, TypeInformation, TypeReferenceId, TypeReferencePath},
+    reflect_info::{
+        is_non_zero_number_type, SchemaNumber, TypeInformation, TypeReferenceId, TypeReferencePath,
+    },
     SchemaTypesMetadata,
 };
 
@@ -257,6 +259,11 @@ pub struct JsonSchemaBevyType {
     /// Type description
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub description: Option<Cow<'static, str>>,
+    /// This keyword's value MUST be a valid JSON Schema.
+    /// An instance is valid against this keyword if it fails to validate successfully against the schema defined by this keyword.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[reflect(ignore)]
+    pub not: Option<Box<JsonSchemaBevyType>>,
     /// Default value for the schema.
     #[serde(skip_serializing_if = "Option::is_none", default, rename = "default")]
     #[reflect(ignore)]
@@ -404,6 +411,7 @@ impl From<TypeId> for SchemaType {
             || value.eq(&TypeId::of::<i64>())
             || value.eq(&TypeId::of::<i128>())
             || value.eq(&TypeId::of::<isize>())
+            || is_non_zero_number_type(value)
         {
             Self::Integer
         } else if value.eq(&TypeId::of::<str>())

@@ -20,6 +20,10 @@ use core::{
 };
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::num::{
+    NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
+    NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+};
 
 use crate::schemas::json_schema::{
     JsonSchemaBevyType, JsonSchemaVariant, SchemaKind, SchemaType, SchemaTypeVariant,
@@ -836,7 +840,10 @@ impl From<TypeId> for MinMaxValues {
     fn from(value: TypeId) -> Self {
         let mut min: Option<BoundValue> = None;
         let mut max: Option<BoundValue> = None;
-        if value.eq(&TypeId::of::<u8>()) {
+        if value.eq(&TypeId::of::<NonZeroU8>()) {
+            min = Some(BoundValue::Inclusive(1.into()));
+            max = Some(BoundValue::Inclusive(u8::MAX.into()));
+        } else if value.eq(&TypeId::of::<u8>()) {
             min = Some(BoundValue::Inclusive(0.into()));
             max = Some(BoundValue::Inclusive(u8::MAX.into()));
         } else if value.eq(&TypeId::of::<u16>()) {
@@ -850,19 +857,35 @@ impl From<TypeId> for MinMaxValues {
             || value.eq(&TypeId::of::<u128>())
         {
             min = Some(BoundValue::Inclusive(0.into()));
-        } else if value.eq(&TypeId::of::<i8>()) {
+        } else if value.eq(&TypeId::of::<i8>()) || value.eq(&TypeId::of::<NonZeroI8>()) {
             min = Some(BoundValue::Inclusive(i8::MIN.into()));
             max = Some(BoundValue::Inclusive(i8::MAX.into()));
-        } else if value.eq(&TypeId::of::<i16>()) {
+        } else if value.eq(&TypeId::of::<i16>()) || value.eq(&TypeId::of::<NonZeroI16>()) {
             min = Some(BoundValue::Inclusive(i16::MIN.into()));
             max = Some(BoundValue::Inclusive(i16::MAX.into()));
-        } else if value.eq(&TypeId::of::<i32>()) {
+        } else if value.eq(&TypeId::of::<i32>()) || value.eq(&TypeId::of::<NonZeroI32>()) {
             min = Some(BoundValue::Inclusive(i32::MIN.into()));
             max = Some(BoundValue::Inclusive(i32::MAX.into()));
         }
         MinMaxValues { min, max }
     }
 }
+
+pub(super) fn is_non_zero_number_type(t: TypeId) -> bool {
+    t.eq(&TypeId::of::<NonZeroI8>())
+        || t.eq(&TypeId::of::<NonZeroI16>())
+        || t.eq(&TypeId::of::<NonZeroI32>())
+        || t.eq(&TypeId::of::<NonZeroI64>())
+        || t.eq(&TypeId::of::<NonZeroI128>())
+        || t.eq(&TypeId::of::<NonZeroIsize>())
+        || t.eq(&TypeId::of::<NonZeroU8>())
+        || t.eq(&TypeId::of::<NonZeroU16>())
+        || t.eq(&TypeId::of::<NonZeroU32>())
+        || t.eq(&TypeId::of::<NonZeroU64>())
+        || t.eq(&TypeId::of::<NonZeroU128>())
+        || t.eq(&TypeId::of::<NonZeroUsize>())
+}
+
 /// Enum representing the internal schema type information for different Rust types.
 /// This enum categorizes how different types should be represented in JSON schema.
 #[derive(Clone, Debug, Default)]
@@ -1119,9 +1142,18 @@ impl SchemaTypeInfo {
                 .map(TypeReferencePath::definition),
             self.into(),
         );
+        let not = if is_non_zero_number_type(self.ty_info.type_id()) {
+            Some(Box::new(JsonSchemaBevyType {
+                const_value: Some(0.into()),
+                ..default()
+            }))
+        } else {
+            None
+        };
 
         let mut schema = JsonSchemaBevyType {
             description,
+            not,
             minimum: range.min.get_inclusive(),
             maximum: range.max.get_inclusive(),
             exclusive_minimum: range.min.get_exclusive(),
@@ -2154,6 +2186,35 @@ pub(super) mod tests {
             &[serde_json::json!("json")],
         );
     }
+
+    #[test]
+    fn reflect_non_zero_type() {
+        #[derive(Reflect, Deserialize, Serialize, Component)]
+        /// A tuple struct with one field.
+        pub struct TupleStruct(pub NonZeroI8);
+        impl Default for TupleStruct {
+            fn default() -> Self {
+                TupleStruct(NonZeroI8::new(15i8).expect("Should not fail"))
+            }
+        }
+
+        let type_info =
+            TypeInformation::from(&TupleStruct::get_type_registration()).to_schema_type_info();
+        let schema: JsonSchemaBevyType = type_info.to_definition().into();
+
+        validate::<TupleStruct>(
+            schema,
+            &[TupleStruct(NonZeroI8::new(115i8).expect("Should not fail"))],
+            &[
+                serde_json::json!(15),
+                serde_json::json!(50),
+                serde_json::json!(-49),
+                serde_json::json!(0),
+            ],
+            &[serde_json::Value::Null],
+        );
+    }
+
     #[test]
     fn reflect_tuple_struct_with_one_field() {
         use bevy_ecs::prelude::ReflectComponent;
