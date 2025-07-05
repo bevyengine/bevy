@@ -54,7 +54,9 @@ pub(crate) trait VariantBuilder: Sized {
         } else if let Some(field_index) = field.field.reflection_index {
             quote!(#this.field_at(#field_index))
         } else {
-            quote!(::core::compile_error!("internal bevy_reflect error: field should be active"))
+            quote!(::core::compile_error!(
+                "internal bevy_reflect error: field should be active"
+            ))
         }
     }
 
