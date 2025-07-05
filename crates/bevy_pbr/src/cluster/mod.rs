@@ -2,6 +2,8 @@
 
 use core::num::NonZero;
 
+use bevy_asset::Handle;
+use bevy_camera::visibility;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
@@ -12,23 +14,27 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
+use bevy_image::Image;
 use bevy_math::{uvec4, AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
+    extract_component::ExtractComponent,
     render_resource::{
         BindingResource, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
         UniformBuffer,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
+    view::{Visibility, VisibilityClass},
     Extract,
 };
+use bevy_transform::components::Transform;
 use tracing::warn;
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
-use crate::MeshPipeline;
+use crate::{LightVisibilityClass, MeshPipeline};
 
 pub(crate) mod assign;
 
@@ -228,6 +234,34 @@ struct ClusterableObjectCounts {
     irradiance_volumes: u32,
     /// The number of decals in the cluster.
     decals: u32,
+}
+
+/// An object that projects a decal onto surfaces within its bounds.
+///
+/// Conceptually, a clustered decal is a 1×1×1 cube centered on its origin. It
+/// projects the given [`Self::image`] onto surfaces in the -Z direction (thus
+/// you may find [`Transform::looking_at`] useful).
+///
+/// Clustered decals are the highest-quality types of decals that Bevy supports,
+/// but they require bindless textures. This means that they presently can't be
+/// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
+/// with forward or deferred rendering and don't require a prepass.
+#[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
+#[reflect(Component, Debug, Clone)]
+#[require(Transform, Visibility, VisibilityClass)]
+#[component(on_add = visibility::add_visibility_class::<LightVisibilityClass>)]
+pub struct ClusteredDecal {
+    /// The image that the clustered decal projects.
+    ///
+    /// This must be a 2D image. If it has an alpha channel, it'll be alpha
+    /// blended with the underlying surface and/or other decals. All decal
+    /// images in the scene must use the same sampler.
+    pub image: Handle<Image>,
+
+    /// An application-specific tag you can use for any purpose you want.
+    ///
+    /// See the `clustered_decals` example for an example of use.
+    pub tag: u32,
 }
 
 enum ExtractedClusterableObjectElement {
