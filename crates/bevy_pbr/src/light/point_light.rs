@@ -1,8 +1,15 @@
-use bevy_render::view::{self, Visibility};
+use bevy_asset::Handle;
+use bevy_camera::{
+    primitives::{CubemapFrusta, CubemapLayout},
+    visibility::{self, CubemapVisibleEntities, Visibility, VisibilityClass},
+};
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_image::Image;
+use bevy_reflect::prelude::*;
+use bevy_transform::components::Transform;
 
-use crate::decal::clustered::CubemapLayout;
-
-use super::*;
+use crate::LightVisibilityClass;
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -36,7 +43,7 @@ use super::*;
     Visibility,
     VisibilityClass
 )]
-#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<LightVisibilityClass>)]
 pub struct PointLight {
     /// The color of this light source.
     pub color: Color,

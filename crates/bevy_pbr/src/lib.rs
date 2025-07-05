@@ -122,7 +122,12 @@ pub mod graph {
     }
 }
 
-use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
+pub use crate::cascade::{CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades};
+use crate::{
+    cascade::{build_directional_light_cascades, clear_directional_light_cascades},
+    deferred::DeferredPbrLightingPlugin,
+    graph::NodePbr,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetPath, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};

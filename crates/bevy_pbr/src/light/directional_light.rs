@@ -1,6 +1,15 @@
-use bevy_render::view::{self, Visibility};
+use bevy_asset::Handle;
+use bevy_camera::{
+    primitives::CascadesFrusta,
+    visibility::{self, CascadesVisibleEntities, Visibility, VisibilityClass},
+};
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_image::Image;
+use bevy_reflect::prelude::*;
+use bevy_transform::components::Transform;
 
-use super::*;
+use crate::{cascade::CascadeShadowConfig, light_consts, Cascades, LightVisibilityClass};
 
 /// A Directional light.
 ///
@@ -53,7 +62,7 @@ use super::*;
     Visibility,
     VisibilityClass
 )]
-#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<LightVisibilityClass>)]
 pub struct DirectionalLight {
     /// The color of the light.
     ///

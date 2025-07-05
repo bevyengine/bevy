@@ -1,4 +1,8 @@
-use super::*;
+use bevy_camera::Camera;
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_reflect::prelude::*;
+use bevy_render::{extract_component::ExtractComponent, extract_resource::ExtractResource};
 
 /// An ambient light, which lights the entire scene equally.
 ///

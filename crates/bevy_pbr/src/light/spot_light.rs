@@ -1,6 +1,17 @@
-use bevy_render::view::{self, Visibility};
+use bevy_asset::Handle;
+use bevy_camera::{
+    primitives::Frustum,
+    visibility::{self, Visibility, VisibilityClass},
+};
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_image::Image;
+use bevy_math::{Mat4, Vec4};
+use bevy_reflect::prelude::*;
+use bevy_render::view::VisibleMeshEntities;
+use bevy_transform::components::{GlobalTransform, Transform};
 
-use super::*;
+use crate::LightVisibilityClass;
 
 /// A light that emits light in a given direction from a central point.
 ///
@@ -10,7 +21,7 @@ use super::*;
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Frustum, VisibleMeshEntities, Transform, Visibility, VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<LightVisibilityClass>)]
 pub struct SpotLight {
     /// The color of the light.
     ///
