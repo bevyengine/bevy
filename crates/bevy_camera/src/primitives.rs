@@ -442,7 +442,7 @@ pub enum CubemapLayout {
     /// layout in a vertical sequence
     /// ```text
     ///   +x
-    ///   -y
+    ///   -x
     ///   +y
     ///   -y
     ///   -z
@@ -451,7 +451,7 @@ pub enum CubemapLayout {
     SequenceVertical = 2,
     /// layout in a horizontal sequence
     /// ```text
-    /// +x -y +y -y -z +z
+    /// +x -x +y -y -z +z
     /// ```
     SequenceHorizontal = 3,
 }
