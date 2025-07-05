@@ -208,10 +208,7 @@ impl Plugin for PbrPlugin {
             .register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
             .register_type::<Cascades>()
-            .register_type::<CascadesVisibleEntities>()
-            .register_type::<VisibleMeshEntities>()
             .register_type::<ClusterConfig>()
-            .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<DirectionalLightShadowMap>()
             .register_type::<NotShadowCaster>()
@@ -399,6 +396,9 @@ impl Plugin for PbrPlugin {
             .init_resource::<ShadowSamplers>()
             .init_resource::<GlobalClusterableObjectMeta>()
             .init_resource::<FallbackBindlessResources>();
+
+        let global_cluster_settings = make_global_cluster_settings(render_app.world());
+        app.insert_resource(global_cluster_settings);
     }
 }
 

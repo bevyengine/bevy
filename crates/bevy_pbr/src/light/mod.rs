@@ -17,19 +17,20 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::Parallel;
-use core::{marker::PhantomData, ops::DerefMut};
+use core::ops::DerefMut;
 
 use crate::*;
+pub use light::spot_light::{spot_light_clip_from_view, spot_light_world_from_view};
 
 mod ambient_light;
 pub use ambient_light::AmbientLight;
 
 mod point_light;
-pub use point_light::PointLight;
+pub use point_light::{PointLight, PointLightTexture};
 mod spot_light;
-pub use spot_light::SpotLight;
+pub use spot_light::{SpotLight, SpotLightTexture};
 mod directional_light;
-pub use directional_light::DirectionalLight;
+pub use directional_light::{DirectionalLight, DirectionalLightTexture};
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -87,16 +88,6 @@ pub mod light_consts {
         pub const DIRECT_SUNLIGHT: f32 = 100_000.;
         /// The amount of light (lux) of raw sunlight, not filtered by the atmosphere.
         pub const RAW_SUNLIGHT: f32 = 130_000.;
-    }
-}
-
-/// Marker resource for whether shadows are enabled for this material type
-#[derive(Resource, Debug)]
-pub struct ShadowsEnabled<M: Material>(PhantomData<M>);
-
-impl<M: Material> Default for ShadowsEnabled<M> {
-    fn default() -> Self {
-        Self(PhantomData)
     }
 }
 
