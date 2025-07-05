@@ -3,7 +3,7 @@ mod render_layers;
 
 use core::any::TypeId;
 
-use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
@@ -267,6 +267,50 @@ impl VisibleEntities {
     }
 }
 
+/// Collection of mesh entities visible for 3D lighting.
+///
+/// This component contains all mesh entities visible from the current light view.
+/// The collection is updated automatically by `bevy_pbr::SimulationLightSystems`.
+#[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
+#[reflect(Component, Debug, Default, Clone)]
+pub struct VisibleMeshEntities {
+    #[reflect(ignore, clone)]
+    pub entities: Vec<Entity>,
+}
+
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Debug, Default, Clone)]
+pub struct CubemapVisibleEntities {
+    #[reflect(ignore, clone)]
+    data: [VisibleMeshEntities; 6],
+}
+
+impl CubemapVisibleEntities {
+    pub fn get(&self, i: usize) -> &VisibleMeshEntities {
+        &self.data[i]
+    }
+
+    pub fn get_mut(&mut self, i: usize) -> &mut VisibleMeshEntities {
+        &mut self.data[i]
+    }
+
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &VisibleMeshEntities> {
+        self.data.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut VisibleMeshEntities> {
+        self.data.iter_mut()
+    }
+}
+
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct CascadesVisibleEntities {
+    /// Map of view entity to the visible entities for each cascade frustum.
+    #[reflect(ignore, clone)]
+    pub entities: EntityHashMap<Vec<VisibleMeshEntities>>,
+}
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
     /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
@@ -303,6 +347,9 @@ impl Plugin for VisibilityPlugin {
             .register_type::<RenderLayers>()
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
+            .register_type::<CascadesVisibleEntities>()
+            .register_type::<VisibleMeshEntities>()
+            .register_type::<CubemapVisibleEntities>()
             .register_required_components::<Mesh3d, Visibility>()
             .register_required_components::<Mesh3d, VisibilityClass>()
             .register_required_components::<Mesh2d, Visibility>()
