@@ -719,7 +719,8 @@ mod tests {
         #[reflect(Resource, Default)]
         struct Foo {
             /// Test doc
-            a: u16,
+            a: f32,
+            b: u8,
         }
 
         let schema = export_type::<Foo>();
@@ -735,22 +736,29 @@ mod tests {
             "Default",
           ],
           "default": {
-            "a": 0
+            "a": 0.0,
+            "b": 0
           },
           "kind": "Struct",
           "type": "object",
           "additionalProperties": false,
           "properties": {
             "a": {
-              "maximum": 65535,
+              "type": "number",
+              "kind": "Value",
+              "typePath": "f32"
+            },
+            "b": {
               "minimum": 0,
+              "maximum": 255,
               "type": "integer",
               "kind": "Value",
-              "typePath": "u16"
-            },
+              "typePath": "u8"
+            }
           },
           "required": [
-            "a"
+            "a",
+            "b"
           ]
         });
         if cfg!(feature = "documentation") {
