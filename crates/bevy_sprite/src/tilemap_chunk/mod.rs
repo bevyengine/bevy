@@ -91,8 +91,8 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
             "Invalid indices length for tilemap chunk {} of size {}. Expected {}, got {}",
             entity,
             chunk_size,
+            expected_indices_length,
             indices.len(),
-            expected_indices_length
         );
         return;
     }
