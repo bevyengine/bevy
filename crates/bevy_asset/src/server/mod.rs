@@ -14,9 +14,10 @@ use crate::{
         MetaTransform, Settings,
     },
     path::AssetPath,
-    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
-    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
-    UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetIndex, AssetLoadFailedEvent,
+    AssetMetaCheck, Assets, DeserializeMetaError, ErasedAssetIndex, ErasedLoadedAsset, Handle,
+    LoadedUntypedAsset, UnapprovedPathMode, UntypedAssetId, UntypedAssetLoadFailedEvent,
+    UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
@@ -164,21 +165,21 @@ impl AssetServer {
     /// Registers a new [`Asset`] type. [`Asset`] types must be registered before assets of that type can be loaded.
     pub fn register_asset<A: Asset>(&self, assets: &Assets<A>) {
         self.register_handle_provider(assets.get_handle_provider());
-        fn sender<A: Asset>(world: &mut World, id: UntypedAssetId) {
+        fn sender<A: Asset>(world: &mut World, index: AssetIndex) {
             world
                 .resource_mut::<Events<AssetEvent<A>>>()
-                .send(AssetEvent::LoadedWithDependencies { id: id.typed() });
+                .send(AssetEvent::LoadedWithDependencies { id: index.into() });
         }
         fn failed_sender<A: Asset>(
             world: &mut World,
-            id: UntypedAssetId,
+            index: AssetIndex,
             path: AssetPath<'static>,
             error: AssetLoadError,
         ) {
             world
                 .resource_mut::<Events<AssetLoadFailedEvent<A>>>()
                 .send(AssetLoadFailedEvent {
-                    id: id.typed(),
+                    id: index.into(),
                     path,
                     error,
                 });
@@ -537,7 +538,9 @@ impl AssetServer {
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
         {
             let mut infos = infos;
-            infos.pending_tasks.insert(handle.id(), task);
+            infos
+                .pending_tasks
+                .insert((&handle).try_into().unwrap(), task);
         }
 
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
@@ -584,21 +587,21 @@ impl AssetServer {
         if !should_load {
             return handle;
         }
-        let id = handle.id().untyped();
+        let index = (&handle).try_into().unwrap();
 
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
             let path_clone = path.clone();
             match server.load_untyped_async(path).await {
                 Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
-                    id,
+                    index,
                     loaded_asset: LoadedAsset::new_with_dependencies(LoadedUntypedAsset { handle })
                         .into(),
                 }),
                 Err(err) => {
                     error!("{err}");
                     server.send_asset_event(InternalAssetEvent::Failed {
-                        id,
+                        index,
                         path: path_clone,
                         error: err,
                     });
@@ -607,7 +610,7 @@ impl AssetServer {
         });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-        infos.pending_tasks.insert(handle.id().untyped(), task);
+        infos.pending_tasks.insert(index, task);
 
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         task.detach();
@@ -670,7 +673,7 @@ impl AssetServer {
                 // we cannot find the meta and loader
                 if let Some(handle) = &input_handle {
                     self.send_asset_event(InternalAssetEvent::Failed {
-                        id: handle.id(),
+                        index: handle.try_into().unwrap(),
                         path: path.clone_owned(),
                         error: e.clone(),
                     });
@@ -681,11 +684,13 @@ impl AssetServer {
             (*meta_transform)(&mut *meta);
         }
 
-        let asset_id; // The asset ID of the asset we are trying to load.
+        let asset_id: Option<ErasedAssetIndex>; // The asset ID of the asset we are trying to load.
         let fetched_handle; // The handle if one was looked up/created.
         let should_load; // Whether we need to load the asset.
         if let Some(input_handle) = input_handle {
-            asset_id = Some(input_handle.id());
+            // This must have been created with `get_or_create_path_handle_internal` at some point,
+            // which only produces Strong variant handles, so this is safe.
+            asset_id = Some((&input_handle).try_into().unwrap());
             // In this case, we intentionally drop the input handle so we can cancel loading the
             // asset if the handle gets dropped (externally) before it finishes loading.
             fetched_handle = None;
@@ -717,14 +722,16 @@ impl AssetServer {
                     should_load = true;
                 }
                 Some((handle, result_should_load)) => {
-                    asset_id = Some(handle.id());
+                    // `get_or_create_path_handle_internal` always returns Strong variant, so this
+                    // is safe.
+                    asset_id = Some((&handle).try_into().unwrap());
                     fetched_handle = Some(handle);
                     should_load = result_should_load;
                 }
             }
         }
         // Verify that the expected type matches the loader's type.
-        if let Some(asset_type_id) = asset_id.map(|id| id.type_id()) {
+        if let Some(asset_type_id) = asset_id.map(|id| id.type_id) {
             // If we are loading a subasset, then the subasset's type almost certainly doesn't match
             // the loader's type - and that's ok.
             if path.label().is_none() && asset_type_id != loader.asset_type_id() {
@@ -761,7 +768,13 @@ impl AssetServer {
                     None,
                 )
                 .0;
-            (base_handle.id(), Some(base_handle), base_path)
+            (
+                // `get_or_create_path_handle_erased` always returns Strong variant, so this is
+                // safe.
+                (&base_handle).try_into().unwrap(),
+                Some(base_handle),
+                base_path,
+            )
         } else {
             (asset_id.unwrap(), None, path.clone())
         };
@@ -804,7 +817,7 @@ impl AssetServer {
             }
             Err(err) => {
                 self.send_asset_event(InternalAssetEvent::Failed {
-                    id: base_asset_id,
+                    index: base_asset_id,
                     error: err.clone(),
                     path: path.into_owned(),
                 });
@@ -815,12 +828,19 @@ impl AssetServer {
 
     /// Sends a load event for the given `loaded_asset` and does the same recursively for all
     /// labeled assets.
-    fn send_loaded_asset(&self, id: UntypedAssetId, mut loaded_asset: ErasedLoadedAsset) {
+    fn send_loaded_asset(&self, index: ErasedAssetIndex, mut loaded_asset: ErasedLoadedAsset) {
         for (_, labeled_asset) in loaded_asset.labeled_assets.drain() {
-            self.send_loaded_asset(labeled_asset.handle.id(), labeled_asset.asset);
+            self.send_loaded_asset(
+                // Labeled assets are always Strong variant, so this is safe.
+                (&labeled_asset.handle).try_into().unwrap(),
+                labeled_asset.asset,
+            );
         }
 
-        self.send_asset_event(InternalAssetEvent::Loaded { id, loaded_asset });
+        self.send_asset_event(InternalAssetEvent::Loaded {
+            index,
+            loaded_asset,
+        });
     }
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
@@ -894,7 +914,8 @@ impl AssetServer {
             )
         };
         self.send_asset_event(InternalAssetEvent::Loaded {
-            id: handle.id(),
+            // `get_or_create_path_handle_erased` always returns Strong variant, so this is safe.
+            index: (&handle).try_into().unwrap(),
             loaded_asset,
         });
         handle
@@ -917,7 +938,8 @@ impl AssetServer {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         drop(infos);
 
-        let id = handle.id();
+        // `create_loading_handle_untyped` always returns a Strong variant, so this is safe.
+        let index = (&handle).try_into().unwrap();
 
         let event_sender = self.data.asset_event_sender.clone();
 
@@ -926,7 +948,10 @@ impl AssetServer {
                 Ok(asset) => {
                     let loaded_asset = LoadedAsset::new_with_dependencies(asset).into();
                     event_sender
-                        .send(InternalAssetEvent::Loaded { id, loaded_asset })
+                        .send(InternalAssetEvent::Loaded {
+                            index,
+                            loaded_asset,
+                        })
                         .unwrap();
                 }
                 Err(error) => {
@@ -936,7 +961,7 @@ impl AssetServer {
                     error!("{error}");
                     event_sender
                         .send(InternalAssetEvent::Failed {
-                            id,
+                            index,
                             path: Default::default(),
                             error: AssetLoadError::AddAsyncError(error),
                         })
@@ -946,7 +971,7 @@ impl AssetServer {
         });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-        infos.pending_tasks.insert(id, task);
+        infos.pending_tasks.insert(index, task);
 
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         task.detach();
@@ -977,13 +1002,14 @@ impl AssetServer {
         if !should_load {
             return handle;
         }
-        let id = handle.id().untyped();
-        self.load_folder_internal(id, path);
+        // `get_or_create_path_handle` always returns a Strong variant, so this is safe.
+        let index = (&handle).try_into().unwrap();
+        self.load_folder_internal(index, path);
 
         handle
     }
 
-    pub(crate) fn load_folder_internal(&self, id: UntypedAssetId, path: AssetPath) {
+    pub(crate) fn load_folder_internal(&self, index: ErasedAssetIndex, path: AssetPath) {
         async fn load_folder<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
@@ -1051,7 +1077,7 @@ impl AssetServer {
                 let mut handles = Vec::new();
                 match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles).await {
                     Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded {
-                        id,
+                        index,
                         loaded_asset: LoadedAsset::new_with_dependencies(
                             LoadedFolder { handles },
                         )
@@ -1059,7 +1085,7 @@ impl AssetServer {
                     }),
                     Err(err) => {
                         error!("Failed to load folder. {err}");
-                        server.send_asset_event(InternalAssetEvent::Failed { id, error: err, path });
+                        server.send_asset_event(InternalAssetEvent::Failed { index, error: err, path });
                     },
                 }
             })
@@ -1075,7 +1101,11 @@ impl AssetServer {
         &self,
         id: impl Into<UntypedAssetId>,
     ) -> Option<(LoadState, DependencyLoadState, RecursiveDependencyLoadState)> {
-        self.data.infos.read().get(id.into()).map(|i| {
+        let Ok(index) = id.into().try_into() else {
+            // Always say we don't have Uuid assets.
+            return None;
+        };
+        self.data.infos.read().get(index).map(|i| {
             (
                 i.load_state.clone(),
                 i.dep_load_state.clone(),
@@ -1090,10 +1120,14 @@ impl AssetServer {
     /// its dependencies or recursive dependencies, see [`AssetServer::get_dependency_load_state`]
     /// and [`AssetServer::get_recursive_dependency_load_state`] respectively.
     pub fn get_load_state(&self, id: impl Into<UntypedAssetId>) -> Option<LoadState> {
+        let Ok(index) = id.into().try_into() else {
+            // Always say we don't have Uuid assets.
+            return None;
+        };
         self.data
             .infos
             .read()
-            .get(id.into())
+            .get(index)
             .map(|i| i.load_state.clone())
     }
 
@@ -1106,10 +1140,14 @@ impl AssetServer {
         &self,
         id: impl Into<UntypedAssetId>,
     ) -> Option<DependencyLoadState> {
+        let Ok(index) = id.into().try_into() else {
+            // Always say we don't have Uuid assets.
+            return None;
+        };
         self.data
             .infos
             .read()
-            .get(id.into())
+            .get(index)
             .map(|i| i.dep_load_state.clone())
     }
 
@@ -1122,10 +1160,14 @@ impl AssetServer {
         &self,
         id: impl Into<UntypedAssetId>,
     ) -> Option<RecursiveDependencyLoadState> {
+        let Ok(index) = id.into().try_into() else {
+            // Always say we don't have Uuid assets.
+            return None;
+        };
         self.data
             .infos
             .read()
-            .get(id.into())
+            .get(index)
             .map(|i| i.rec_dep_load_state.clone())
     }
 
@@ -1206,13 +1248,21 @@ impl AssetServer {
     /// Get an `UntypedHandle` from an `UntypedAssetId`.
     /// See [`AssetServer::get_id_handle`] for details.
     pub fn get_id_handle_untyped(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
-        self.data.infos.read().get_id_handle(id)
+        let Ok(index) = id.try_into() else {
+            // Always say we don't have Uuid assets.
+            return None;
+        };
+        self.data.infos.read().get_index_handle(index)
     }
 
     /// Returns `true` if the given `id` corresponds to an asset that is managed by this [`AssetServer`].
     /// Otherwise, returns `false`.
     pub fn is_managed(&self, id: impl Into<UntypedAssetId>) -> bool {
-        self.data.infos.read().contains_key(id.into())
+        let Ok(index) = id.into().try_into() else {
+            // Always say we don't have Uuid assets.
+            return false;
+        };
+        self.data.infos.read().contains_key(index)
     }
 
     /// Returns an active untyped asset id for the given path, if the asset at the given path has already started loading,
@@ -1224,8 +1274,8 @@ impl AssetServer {
     pub fn get_path_id<'a>(&self, path: impl Into<AssetPath<'a>>) -> Option<UntypedAssetId> {
         let infos = self.data.infos.read();
         let path = path.into();
-        let mut ids = infos.get_path_ids(&path);
-        ids.next()
+        let mut ids = infos.get_path_indices(&path);
+        ids.next().map(Into::into)
     }
 
     /// Returns all active untyped asset IDs for the given path, if the assets at the given path have already started loading,
@@ -1234,7 +1284,7 @@ impl AssetServer {
     pub fn get_path_ids<'a>(&self, path: impl Into<AssetPath<'a>>) -> Vec<UntypedAssetId> {
         let infos = self.data.infos.read();
         let path = path.into();
-        infos.get_path_ids(&path).collect()
+        infos.get_path_indices(&path).map(Into::into).collect()
     }
 
     /// Returns an active untyped handle for the given path, if the asset at the given path has already started loading,
@@ -1273,8 +1323,12 @@ impl AssetServer {
 
     /// Returns the path for the given `id`, if it has one.
     pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath> {
+        let Ok(index) = id.into().try_into() else {
+            // Always say we don't have Uuid assets.
+            return None;
+        };
         let infos = self.data.infos.read();
-        let info = infos.get(id.into())?;
+        let info = infos.get(index)?;
         Some(info.path.as_ref()?.clone())
     }
 
@@ -1520,19 +1574,22 @@ impl AssetServer {
         &self,
         id: impl Into<UntypedAssetId>,
     ) -> Result<(), WaitForAssetError> {
-        let id = id.into();
-        core::future::poll_fn(move |cx| self.wait_for_asset_id_poll_fn(cx, id)).await
+        let Ok(index) = id.into().try_into() else {
+            // Always say we aren't loading Uuid assets.
+            return Err(WaitForAssetError::NotLoaded);
+        };
+        core::future::poll_fn(move |cx| self.wait_for_asset_id_poll_fn(cx, index)).await
     }
 
     /// Used by [`wait_for_asset_id`](AssetServer::wait_for_asset_id) in [`poll_fn`](core::future::poll_fn).
     fn wait_for_asset_id_poll_fn(
         &self,
         cx: &mut core::task::Context<'_>,
-        id: UntypedAssetId,
+        index: ErasedAssetIndex,
     ) -> Poll<Result<(), WaitForAssetError>> {
         let infos = self.data.infos.read();
 
-        let Some(info) = infos.get(id) else {
+        let Some(info) = infos.get(index) else {
             return Poll::Ready(Err(WaitForAssetError::NotLoaded));
         };
 
@@ -1560,7 +1617,7 @@ impl AssetServer {
                     self.data.infos.write()
                 };
 
-                let Some(info) = infos.get_mut(id) else {
+                let Some(info) = infos.get_mut(index) else {
                     return Poll::Ready(Err(WaitForAssetError::NotLoaded));
                 };
 
@@ -1644,32 +1701,35 @@ pub fn handle_internal_asset_events(world: &mut World) {
         let mut untyped_failures = var_name;
         for event in server.data.asset_event_receiver.try_iter() {
             match event {
-                InternalAssetEvent::Loaded { id, loaded_asset } => {
+                InternalAssetEvent::Loaded {
+                    index,
+                    loaded_asset,
+                } => {
                     infos.process_asset_load(
-                        id,
+                        index,
                         loaded_asset,
                         world,
                         &server.data.asset_event_sender,
                     );
                 }
-                InternalAssetEvent::LoadedWithDependencies { id } => {
+                InternalAssetEvent::LoadedWithDependencies { index } => {
                     let sender = infos
                         .dependency_loaded_event_sender
-                        .get(&id.type_id())
+                        .get(&index.type_id)
                         .expect("Asset event sender should exist");
-                    sender(world, id);
-                    if let Some(info) = infos.get_mut(id) {
+                    sender(world, index.index);
+                    if let Some(info) = infos.get_mut(index) {
                         for waker in info.waiting_tasks.drain(..) {
                             waker.wake();
                         }
                     }
                 }
-                InternalAssetEvent::Failed { id, path, error } => {
-                    infos.process_asset_fail(id, error.clone());
+                InternalAssetEvent::Failed { index, path, error } => {
+                    infos.process_asset_fail(index, error.clone());
 
                     // Send untyped failure event
                     untyped_failures.push(UntypedAssetLoadFailedEvent {
-                        id,
+                        id: index.into(),
                         path: path.clone(),
                         error: error.clone(),
                     });
@@ -1677,9 +1737,9 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     // Send typed failure event
                     let sender = infos
                         .dependency_failed_event_sender
-                        .get(&id.type_id())
+                        .get(&index.type_id)
                         .expect("Asset failed event sender should exist");
-                    sender(world, id, path, error);
+                    sender(world, index.index, path, error);
                 }
             }
         }
@@ -1709,7 +1769,9 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     AssetPath::from(current_folder.clone()).with_source(source.clone());
                 for folder_handle in infos.get_path_handles(&parent_asset_path) {
                     info!("Reloading folder {parent_asset_path} because the content has changed");
-                    server.load_folder_internal(folder_handle.id(), parent_asset_path.clone());
+                    // `get_path_handles` only returns Strong variants, so this is safe.
+                    let index = (&folder_handle).try_into().unwrap();
+                    server.load_folder_internal(index, parent_asset_path.clone());
                 }
             }
         };
@@ -1772,14 +1834,14 @@ pub fn handle_internal_asset_events(world: &mut World) {
 /// Internal events for asset load results
 pub(crate) enum InternalAssetEvent {
     Loaded {
-        id: UntypedAssetId,
+        index: ErasedAssetIndex,
         loaded_asset: ErasedLoadedAsset,
     },
     LoadedWithDependencies {
-        id: UntypedAssetId,
+        index: ErasedAssetIndex,
     },
     Failed {
-        id: UntypedAssetId,
+        index: ErasedAssetIndex,
         path: AssetPath<'static>,
         error: AssetLoadError,
     },
