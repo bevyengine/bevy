@@ -3,8 +3,7 @@
 use alloc::borrow::Cow;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
-    prelude::ReflectDefault, serde::ReflectSerializer, GetTypeRegistration, Reflect,
-    TypeRegistration, TypeRegistry,
+    prelude::ReflectDefault, serde::ReflectSerializer, GetTypeRegistration, Reflect, TypeRegistry,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
@@ -44,7 +43,26 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         extra_info: &SchemaTypesMetadata,
     ) -> Option<JsonSchemaBevyType> {
         let type_reg = self.get(type_id)?;
-        let mut schema: JsonSchemaBevyType = (type_reg, extra_info).try_into().ok()?;
+
+        let mut definition = TypeInformation::from(type_reg)
+            .to_schema_type_info_with_metadata(extra_info)
+            .to_definition();
+        for missing in &definition.missing_definitions {
+            let reg_option = self.get(*missing);
+            if let Some(reg) = reg_option {
+                let missing_schema =
+                    TypeInformation::from(reg).to_schema_type_info_with_metadata(extra_info);
+                let mis_def = missing_schema.to_definition();
+                definition.definitions.extend(mis_def.definitions);
+                if let Some(missing_id) = mis_def.id {
+                    if !definition.definitions.contains_key(&missing_id) {
+                        definition.definitions.insert(missing_id, missing_schema);
+                    }
+                }
+            }
+        }
+        let mut schema: JsonSchemaBevyType = definition.into();
+        schema.reflect_type_data = extra_info.get_registered_reflect_types(type_reg);
         schema.schema = Some(SchemaMarker.into());
         schema.default_value = self.try_get_default_value_for_type_id(type_id);
 
@@ -66,38 +84,6 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         }
 
         None
-    }
-}
-
-/// Error type for invalid JSON Schema conversions.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InvalidJsonSchema {
-    /// The type cannot be converted to a valid JSON Schema.
-    InvalidType,
-}
-
-impl TryFrom<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
-    type Error = InvalidJsonSchema;
-
-    fn try_from(value: (&TypeRegistration, &SchemaTypesMetadata)) -> Result<Self, Self::Error> {
-        let (reg, metadata) = value;
-        // if let Some(s) = reg.data::<ReflectJsonSchema>() {
-        //     return Ok(s.0.clone());
-        // }
-        let mut schema: JsonSchemaBevyType = TypeInformation::from(reg)
-            .to_schema_type_info_with_metadata(metadata)
-            .to_definition()
-            .into();
-        schema.reflect_type_data = metadata.get_registered_reflect_types(reg);
-        Ok(schema)
-    }
-}
-
-impl TryFrom<&TypeRegistration> for JsonSchemaBevyType {
-    type Error = InvalidJsonSchema;
-
-    fn try_from(value: &TypeRegistration) -> Result<Self, Self::Error> {
-        (value, &SchemaTypesMetadata::default()).try_into()
     }
 }
 

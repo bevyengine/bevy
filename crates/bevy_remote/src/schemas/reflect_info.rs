@@ -1071,6 +1071,9 @@ pub struct SchemaDefinition {
     pub schema: JsonSchemaBevyType,
     /// The properties of the schema.
     pub definitions: HashMap<TypeReferenceId, SchemaTypeInfo>,
+    /// Missing definitions of the schema.
+    /// Could be the case for the types that are stored as generic arguments.
+    pub missing_definitions: Vec<TypeId>,
 }
 
 impl From<SchemaDefinition> for JsonSchemaBevyType {
@@ -1237,11 +1240,13 @@ impl SchemaTypeInfo {
     pub fn to_definition(&self) -> SchemaDefinition {
         let mut id: Option<TypeReferenceId> = self.ty_info.try_get_type_reference_id();
         let mut definitions: HashMap<TypeReferenceId, SchemaTypeInfo> = HashMap::new();
+        let mut missing_definitions: Vec<TypeId> = Vec::new();
         if let Some(custom_schema) = &self.ty_info.try_get_custom_schema() {
             return SchemaDefinition {
                 id,
                 schema: custom_schema.0.clone(),
                 definitions,
+                missing_definitions,
             };
         }
         let range = self.get_range();
@@ -1298,7 +1303,9 @@ impl SchemaTypeInfo {
                             id,
                             schema: _,
                             definitions: field_definitions,
+                            missing_definitions: key_missing_definitions,
                         } = key.to_definition();
+                        missing_definitions.extend(key_missing_definitions);
                         if let Some(id) = id {
                             definitions.insert(id, key.clone());
                             definitions.extend(field_definitions);
@@ -1310,7 +1317,10 @@ impl SchemaTypeInfo {
                         id,
                         schema: _,
                         definitions: field_definitions,
+                        missing_definitions: value_missing_definitions,
                     } = value.to_definition();
+
+                    missing_definitions.extend(value_missing_definitions);
                     if let Some(id) = id {
                         definitions.insert(id, value.clone());
                         definitions.extend(field_definitions);
@@ -1405,6 +1415,7 @@ impl SchemaTypeInfo {
                                 ..Default::default()
                             },
                             definitions: HashMap::new(),
+                            missing_definitions,
                         };
                     }
                 }
@@ -1430,7 +1441,9 @@ impl SchemaTypeInfo {
                             id,
                             schema: _,
                             definitions: field_definitions,
+                            missing_definitions: field_missing_definitions,
                         } = field_schema.to_definition();
+                        missing_definitions.extend(field_missing_definitions);
                         definitions.extend(field_definitions);
                         let Some(id) = id else { continue };
                         if !definitions.contains_key(&id) {
@@ -1450,7 +1463,9 @@ impl SchemaTypeInfo {
                         id,
                         schema: new_schema_type,
                         definitions: field_definitions,
+                        missing_definitions: field_missing_definitions,
                     } = field_schema.to_definition();
+                    missing_definitions.extend(field_missing_definitions);
                     definitions.extend(field_definitions);
                     if let Some(id) = id {
                         definitions.insert(id.clone(), field_schema);
@@ -1519,8 +1534,10 @@ impl SchemaTypeInfo {
                             id,
                             schema: _,
                             definitions: field_definitions,
+                            missing_definitions: field_missing_definitions,
                         } = field_schema.to_definition();
                         definitions.extend(field_definitions);
+                        missing_definitions.extend(field_missing_definitions);
                         let Some(id) = id else { continue };
                         if !definitions.contains_key(&id) {
                             definitions.insert(id, field_schema);
@@ -1546,7 +1563,9 @@ impl SchemaTypeInfo {
                         id,
                         schema: _,
                         definitions: field_definitions,
+                        missing_definitions: field_missing_definitions,
                     } = items_schema.to_definition();
+                    missing_definitions.extend(field_missing_definitions);
                     definitions.extend(field_definitions);
                     if let Some(id) = id {
                         definitions.insert(id, items_schema);
@@ -1561,7 +1580,8 @@ impl SchemaTypeInfo {
                     ty_info: TypeInformation::Type(Box::new(*generic.ty())),
                     ..(**schema_type_info).clone()
                 };
-                let definition = schema_optional.to_definition();
+                missing_definitions.push(generic.type_id());
+                let definition = schema_optional.clone().to_definition();
                 definitions.extend(definition.definitions);
                 schema.ref_type = None;
                 schema.schema_type = None;
@@ -1570,7 +1590,7 @@ impl SchemaTypeInfo {
                         schema_type: Some(SchemaTypeVariant::Single(SchemaType::Null)),
                         ..Default::default()
                     }),
-                    Box::new(definition.schema),
+                    Box::new(schema_optional.to_ref_schema()),
                 ];
             }
         }
@@ -1578,6 +1598,7 @@ impl SchemaTypeInfo {
             id,
             schema,
             definitions,
+            missing_definitions,
         }
     }
 }
@@ -1813,9 +1834,11 @@ where
 
 #[cfg(test)]
 pub(super) mod tests {
-    use bevy_ecs::{component::Component, name::Name};
+    use bevy_ecs::{component::Component, name::Name, reflect::AppTypeRegistry};
     use bevy_platform::collections::HashMap;
     use bevy_reflect::GetTypeRegistration;
+
+    use crate::schemas::json_schema::TypeRegistrySchemaReader;
 
     use super::*;
 
@@ -1962,7 +1985,7 @@ pub(super) mod tests {
                 serde_json::json!({"a": 5555,"b": 5555}),
             ],
         );
-        let atr = bevy_ecs::reflect::AppTypeRegistry::default();
+        let atr = AppTypeRegistry::default();
         {
             let mut register = atr.write();
             register.register::<bevy_math::Vec3>();
@@ -2075,6 +2098,33 @@ pub(super) mod tests {
         eprintln!(
             "{}",
             serde_json::to_string_pretty(&schema).unwrap_or_default()
+        );
+    }
+
+    #[test]
+    fn optional_tests() {
+        #[derive(Reflect, Default, Deserialize, Serialize)]
+        pub struct ArrayComponent {
+            pub array: [u8; 3],
+        }
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<ArrayComponent>();
+            register.register::<Option<ArrayComponent>>();
+        }
+        let type_registry = atr.read();
+        let schema = type_registry
+            .export_type_json_schema::<Option<ArrayComponent>>(&Default::default())
+            .expect("Failed to export type JSON schema");
+        validate::<Option<ArrayComponent>>(
+            schema,
+            &[None, Some(ArrayComponent { array: [5, 1, 9] })],
+            &[
+                serde_json::json!({"array": [1, 2, 3]}),
+                serde_json::Value::Null,
+            ],
+            &[serde_json::json!({"array": [1999, 2, 3]})],
         );
     }
 
