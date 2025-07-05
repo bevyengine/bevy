@@ -1,5 +1,10 @@
 //! Assigning objects to clusters.
 
+use bevy_camera::{
+    primitives::{Aabb, Frustum, HalfSpace, Sphere},
+    visibility::{RenderLayers, ViewVisibility},
+    Camera,
+};
 use bevy_ecs::{
     entity::Entity,
     query::{Has, With},
@@ -9,20 +14,18 @@ use bevy_math::{
     ops::{self, sin_cos},
     Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
 };
-use bevy_render::{
-    camera::Camera,
-    primitives::{Aabb, Frustum, HalfSpace, Sphere},
-    view::{RenderLayers, ViewVisibility},
-};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use tracing::warn;
 
+use super::{
+    ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings,
+    GlobalVisibleClusterableObjects, ViewClusterBindings, VisibleClusterableObjects,
+    MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
+};
 use crate::{
-    decal::clustered::ClusteredDecal, prelude::EnvironmentMapLight, ClusterConfig, ClusterFarZMode,
-    Clusters, ExtractedPointLight, GlobalClusterSettings, GlobalVisibleClusterableObjects,
-    LightProbe, PointLight, SpotLight, ViewClusterBindings, VisibleClusterableObjects,
-    VolumetricLight, MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
+    prelude::EnvironmentMapLight, ExtractedPointLight, LightProbe, PointLight, SpotLight,
+    VolumetricLight,
 };
 
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
