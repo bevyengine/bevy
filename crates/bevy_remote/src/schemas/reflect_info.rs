@@ -223,19 +223,13 @@ impl TypeInformation {
         }
     }
 
-    /// Builds a `TypeReferencePath` from the type identifier.
-    pub fn try_get_path_id(&self) -> Option<TypeReferencePath> {
-        self.try_get_type_reference_id()
-            .map(|id| TypeReferencePath::new_ref(ReferenceLocation::Urn, id))
-    }
-
     /// Builds a `TypeReferenceId` from the type path.
     pub fn try_get_type_reference_id(&self) -> Option<TypeReferenceId> {
         if let Some(schema) = self.try_get_custom_schema() {
-            if schema.0.id.is_empty() {
+            if schema.0.type_path.is_empty() {
                 None
             } else {
-                Some(schema.0.id.trim().into())
+                Some(TypeReferenceId::from(&*schema.0.type_path))
             }
         } else if self.is_primitive_type() {
             None
@@ -1119,7 +1113,12 @@ impl SchemaTypeInfo {
     pub fn to_ref_schema(&self) -> JsonSchemaBevyType {
         let range = self.get_range();
         let description = self.get_docs();
-        let (ref_type, schema_type) = (self.ty_info.try_get_path_id(), self.into());
+        let (ref_type, schema_type) = (
+            self.ty_info
+                .try_get_type_reference_id()
+                .map(TypeReferencePath::definition),
+            self.into(),
+        );
 
         let mut schema = JsonSchemaBevyType {
             description,
@@ -1212,13 +1211,8 @@ impl SchemaTypeInfo {
             } else {
                 (Cow::default(), Cow::default(), None, None)
             };
-        let schema_id = self
-            .ty_info
-            .try_get_path_id()
-            .map(|id| Cow::Owned(id.to_string()))
-            .unwrap_or_default();
+
         let mut schema = JsonSchemaBevyType {
-            id: schema_id,
             description: self.ty_info.get_docs(),
             type_path,
             short_path,
@@ -1418,16 +1412,6 @@ impl SchemaTypeInfo {
                                 (Cow::default(), Cow::default(), None, None)
                             };
                         schema = JsonSchemaBevyType {
-                            id: self
-                                .ty_info
-                                .try_get_type_reference_id()
-                                .map(|id| {
-                                    Cow::Owned(
-                                        TypeReferencePath::new_ref(ReferenceLocation::Urn, id)
-                                            .to_string(),
-                                    )
-                                })
-                                .unwrap_or_default(),
                             short_path,
                             type_path,
                             module_path,

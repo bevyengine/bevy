@@ -126,11 +126,6 @@ impl From<SchemaMarker> for Cow<'static, str> {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, Reflect)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonSchemaBevyType {
-    /// JSON Schema specific field.
-    /// This keyword declares an identifier for the schema resource.
-    #[serde(skip_serializing_if = "str::is_empty", default)]
-    #[serde(rename = "$id")]
-    pub id: Cow<'static, str>,
     /// Identifies the JSON Schema version used in the schema.
     #[serde(rename = "$schema")]
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -722,7 +717,6 @@ mod tests {
         let schema = export_type::<Foo>();
         let schema_as_value = serde_json::to_value(&schema).expect("Failed to serialize schema");
         let mut value = json!({
-          "$id": "urn:bevy_remote-schemas-json_schema-tests-Foo",
           "shortPath": "Foo",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "typePath": "bevy_remote::schemas::json_schema::tests::Foo",

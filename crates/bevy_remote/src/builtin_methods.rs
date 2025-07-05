@@ -1681,7 +1681,9 @@ mod tests {
     use bevy_math::Vec3;
     use bevy_reflect::Reflect;
 
-    use crate::schemas::{ReflectJsonSchemaForceAsArray, SchemaTypesMetadata};
+    use crate::schemas::{
+        reflect_info::TypeReferenceId, ReflectJsonSchemaForceAsArray, SchemaTypesMetadata,
+    };
 
     use super::*;
 
@@ -1760,7 +1762,7 @@ mod tests {
         assert_eq!(response.definitions.len(), 1);
         {
             let first = response.definitions.iter().next().expect("Should have one");
-            assert_eq!(first.1.id, "urn:glam-Vec3");
+            assert_eq!(first.0, &TypeReferenceId::from("glam-Vec3"));
         }
         let response = export_registry_types_ext(
             BrpJsonSchemaQueryFilter {
