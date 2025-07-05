@@ -51,9 +51,9 @@ use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
-    binding_arrays_are_usable, prepare_lights, DirectionalLight, GlobalClusterableObjectMeta,
-    LightVisibilityClass, PointLight, SpotLight,
+    binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta, LightVisibilityClass,
 };
+pub use crate::{DirectionalLightTexture, PointLightTexture, SpotLightTexture};
 
 /// The maximum number of decals that can be present in a view.
 ///
@@ -94,44 +94,6 @@ pub struct ClusteredDecal {
     ///
     /// See the `clustered_decals` example for an example of use.
     pub tag: u32,
-}
-
-/// Add to a [`PointLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component, Debug)]
-#[require(PointLight)]
-pub struct PointLightTexture {
-    /// The texture image. Only the R channel is read.
-    pub image: Handle<Image>,
-    /// The cubemap layout. The image should be a packed cubemap in one of the formats described by the [`CubemapLayout`] enum.
-    pub cubemap_layout: CubemapLayout,
-}
-
-/// Add to a [`SpotLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component, Debug)]
-#[require(SpotLight)]
-pub struct SpotLightTexture {
-    /// The texture image. Only the R channel is read.
-    /// Note the border of the image should be entirely black to avoid leaking light.
-    pub image: Handle<Image>,
-}
-
-/// Add to a [`DirectionalLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component, Debug)]
-#[require(DirectionalLight)]
-pub struct DirectionalLightTexture {
-    /// The texture image. Only the R channel is read.
-    pub image: Handle<Image>,
-    /// Whether to tile the image infinitely, or use only a single tile centered at the light's translation
-    pub tiled: bool,
 }
 
 /// Stores information about all the clustered decals in the scene.
