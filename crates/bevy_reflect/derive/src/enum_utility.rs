@@ -48,20 +48,13 @@ pub(crate) trait VariantBuilder: Sized {
     /// * `this`: The identifier of the enum
     /// * `field`: The field to access
     fn access_field(&self, this: &Ident, field: VariantField) -> TokenStream {
-        match &field.field.data.ident {
-            Some(field_ident) => {
-                let name = field_ident.to_string();
-                quote!(#this.field(#name))
-            }
-            None => {
-                if let Some(field_index) = field.field.reflection_index {
-                    quote!(#this.field_at(#field_index))
-                } else {
-                    quote!(::core::compile_error!(
-                        "internal bevy_reflect error: field should be active"
-                    ))
-                }
-            }
+        if let Some(field_ident) = &field.field.data.ident {
+            let name = field_ident.to_string();
+            quote!(#this.field(#name))
+        } else if let Some(field_index) = field.field.reflection_index {
+            quote!(#this.field_at(#field_index))
+        } else {
+            quote!(::core::compile_error!("internal bevy_reflect error: field should be active"))
         }
     }
 
