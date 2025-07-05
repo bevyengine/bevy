@@ -36,6 +36,7 @@ use bevy_picking::events::Pointer;
 use bevy_picking::events::Press;
 use bevy_picking::pointer::PointerButton;
 use bevy_text::Motion;
+use bevy_text::SingleLineTextInput;
 use bevy_text::TextColor;
 use bevy_text::TextFont;
 use bevy_text::TextInputAction;
@@ -117,6 +118,26 @@ pub struct TextInputOverwriteMode(pub bool);
     on_remove = on_remove_input_focus,
 )]
 pub struct TextInputNode {}
+
+/// Main single line text input component
+#[require(
+    Node,
+    TextFont,
+    TextColor,
+    TextInputMultiClickCounter,
+    TextInputBuffer,
+    TextInputTarget,
+    TextLayout,
+    TextInputAttributes,
+    TextInputActions,
+    TextCursorStyle,
+    TextLayoutInfo,
+    TextCursorBlinkTimer,
+    TextInputHistory,
+    SingleLineTextInput
+)]
+#[derive(Component, Debug, Default)]
+pub struct SingleLineTextInputNode {}
 
 fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
     for mut observer in [
