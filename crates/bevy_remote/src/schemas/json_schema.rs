@@ -744,7 +744,9 @@ mod tests {
             "a": {
               "maximum": 65535,
               "minimum": 0,
-              "type": "integer"
+              "type": "integer",
+              "kind": "Value",
+              "typePath": "u16"
             },
           },
           "required": [

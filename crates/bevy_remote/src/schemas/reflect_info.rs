@@ -1136,24 +1136,20 @@ impl SchemaTypeInfo {
     pub fn to_ref_schema(&self) -> JsonSchemaBevyType {
         let range = self.get_range();
         let description = self.get_docs();
-        let (ref_type, schema_type) = (
-            self.ty_info
-                .try_get_type_reference_id()
-                .map(TypeReferencePath::definition),
-            self.into(),
-        );
-        let not = if is_non_zero_number_type(self.ty_info.type_id()) {
-            Some(Box::new(JsonSchemaBevyType {
-                const_value: Some(0.into()),
-                ..default()
-            }))
+        let ref_type = self
+            .ty_info
+            .try_get_type_reference_id()
+            .map(TypeReferencePath::definition);
+
+        // If there is reference specified it is not need for specifying type
+        let schema_type = if ref_type.is_some() {
+            self.into()
         } else {
             None
         };
 
         let mut schema = JsonSchemaBevyType {
             description,
-            not,
             minimum: range.min.get_inclusive(),
             maximum: range.max.get_inclusive(),
             exclusive_minimum: range.min.get_exclusive(),
@@ -1170,22 +1166,19 @@ impl SchemaTypeInfo {
                 max_size,
             } => {
                 schema.ref_type = None;
+                schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Array));
                 let items_schema = element_ty.to_schema_type_info();
                 schema.items = Some(items_schema.to_ref_schema().into());
                 schema.min_items = min_size;
                 schema.max_items = max_size;
             }
             InternalSchemaType::Map { key, value } => {
+                schema.ref_type = None;
+                schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::Object));
                 schema.kind = Some(SchemaKind::Map);
-                let key_info = SchemaTypeInfo {
-                    ty_info: key.clone(),
-                    ..Default::default()
-                };
+                let key_info = key.clone().to_schema_type_info();
                 schema.key_type = Some(key_info.to_ref_schema().into());
-                let value_info = SchemaTypeInfo {
-                    ty_info: value.clone(),
-                    ..Default::default()
-                };
+                let value_info = value.clone().to_schema_type_info();
                 schema.value_type = Some(value_info.to_ref_schema().into());
 
                 if let Some(p) = key.try_get_regex_for_type() {
@@ -1193,7 +1186,7 @@ impl SchemaTypeInfo {
                     schema.additional_properties = Some(JsonSchemaVariant::BoolValue(false));
                 }
             }
-            InternalSchemaType::EnumHolder(_) | InternalSchemaType::EnumVariant(_) => {
+            InternalSchemaType::EnumVariant(_) => {
                 schema.ref_type = None;
             }
             InternalSchemaType::Optional {
@@ -1213,7 +1206,27 @@ impl SchemaTypeInfo {
                     Box::new(schema_optional.to_ref_schema()),
                 ];
             }
-            _ => {}
+            _ => {
+                if let Some(primitive) = self.ty_info.try_get_primitive_type() {
+                    schema.not = if is_non_zero_number_type(self.ty_info.type_id()) {
+                        Some(Box::new(JsonSchemaBevyType {
+                            const_value: Some(0.into()),
+                            ..default()
+                        }))
+                    } else {
+                        None
+                    };
+
+                    schema.type_path = self
+                        .ty_info
+                        .try_get_type_path_table()
+                        .map(|t| Cow::Owned(t.path().to_string()))
+                        .unwrap_or_default();
+
+                    schema.kind = Some(SchemaKind::Value);
+                    schema.schema_type = Some(SchemaTypeVariant::Single(primitive));
+                }
+            }
         }
 
         schema
@@ -1244,8 +1257,18 @@ impl SchemaTypeInfo {
                 (Cow::default(), Cow::default(), None, None)
             };
 
+        let not = if is_non_zero_number_type(self.ty_info.type_id()) {
+            Some(Box::new(JsonSchemaBevyType {
+                const_value: Some(0.into()),
+                ..default()
+            }))
+        } else {
+            None
+        };
+
         let mut schema = JsonSchemaBevyType {
             description: self.ty_info.get_docs(),
+            not,
             type_path,
             short_path,
             crate_name,
@@ -1821,21 +1844,27 @@ pub(super) mod tests {
             .collect();
         for value in valid_instances.iter() {
             if let Err(error) = schema_validator.validate(value) {
-                errors.push(error);
+                errors.push((error, value.clone()));
             }
         }
         for value in valid_values {
             if let Err(error) = schema_validator.validate(&value) {
-                errors.push(error);
+                errors.push((error, value.clone()));
             }
         }
         assert!(
             errors.is_empty(),
-            "Failed to validate valid instances, errors: {:?}",
-            errors
+            "Failed to validate valid instances, errors: {:?}, schema: {}",
+            errors,
+            serde_json::to_string_pretty(&schema_value).unwrap_or_default()
         );
         for value in invalid_values {
-            assert!(schema_validator.validate(&value).is_err());
+            assert!(
+                schema_validator.validate(&value).is_err(),
+                "Validation should fail for invalid value: {}, schema: {}",
+                value,
+                serde_json::to_string_pretty(&schema_value).unwrap_or_default()
+            );
         }
     }
 
@@ -2209,9 +2238,8 @@ pub(super) mod tests {
                 serde_json::json!(15),
                 serde_json::json!(50),
                 serde_json::json!(-49),
-                serde_json::json!(0),
             ],
-            &[serde_json::Value::Null],
+            &[serde_json::json!(0), serde_json::Value::Null],
         );
     }
 
