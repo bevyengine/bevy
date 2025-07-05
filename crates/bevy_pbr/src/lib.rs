@@ -399,6 +399,9 @@ impl Plugin for PbrPlugin {
             .init_resource::<ShadowSamplers>()
             .init_resource::<GlobalClusterableObjectMeta>()
             .init_resource::<FallbackBindlessResources>();
+
+        let global_cluster_settings = make_global_cluster_settings(render_app.world());
+        app.insert_resource(global_cluster_settings);
     }
 }
 
