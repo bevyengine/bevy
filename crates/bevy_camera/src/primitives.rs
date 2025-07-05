@@ -363,6 +363,42 @@ impl CubemapFrusta {
     }
 }
 
+/// Cubemap layout defines the order of images in a packed cubemap image.
+#[derive(Default, Reflect, Debug, Clone, Copy)]
+pub enum CubemapLayout {
+    /// layout in a vertical cross format
+    /// ```text
+    ///    +y
+    /// -x -z +x
+    ///    -y
+    ///    +z
+    /// ```
+    #[default]
+    CrossVertical = 0,
+    /// layout in a horizontal cross format
+    /// ```text
+    ///    +y
+    /// -x -z +x +z
+    ///    -y
+    /// ```
+    CrossHorizontal = 1,
+    /// layout in a vertical sequence
+    /// ```text
+    ///   +x
+    ///   -y
+    ///   +y
+    ///   -y
+    ///   -z
+    ///   +z
+    /// ```
+    SequenceVertical = 2,
+    /// layout in a horizontal sequence
+    /// ```text
+    /// +x -y +y -y -z +z
+    /// ```
+    SequenceHorizontal = 3,
+}
+
 #[derive(Component, Debug, Default, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct CascadesFrusta {
