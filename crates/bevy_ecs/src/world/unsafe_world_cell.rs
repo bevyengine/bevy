@@ -6,7 +6,10 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    entity::{
+        ContainsEntity, Entities, EntitiesAllocator, Entity, EntityDoesNotExistError,
+        EntityIdLocation, EntityLocation,
+    },
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::RemovedComponentEvents,
     observer::Observers,
@@ -259,6 +262,14 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.entities
     }
 
+    /// Retrieves this world's [`Entities`] collection.
+    #[inline]
+    pub fn entities_allocator(self) -> &'w EntitiesAllocator {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.allocator
+    }
+
     /// Retrieves this world's [`Archetypes`] collection.
     #[inline]
     pub fn archetypes(self) -> &'w Archetypes {
@@ -362,10 +373,7 @@ impl<'w> UnsafeWorldCell<'w> {
         self,
         entity: Entity,
     ) -> Result<UnsafeEntityCell<'w>, EntityDoesNotExistError> {
-        let location = self
-            .entities()
-            .get(entity)
-            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+        let location = self.entities().get(entity)?;
         Ok(UnsafeEntityCell::new(
             self,
             entity,
@@ -384,10 +392,7 @@ impl<'w> UnsafeWorldCell<'w> {
         last_run: Tick,
         this_run: Tick,
     ) -> Result<UnsafeEntityCell<'w>, EntityDoesNotExistError> {
-        let location = self
-            .entities()
-            .get(entity)
-            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+        let location = self.entities().get(entity)?;
         Ok(UnsafeEntityCell::new(
             self, entity, location, last_run, this_run,
         ))
@@ -732,7 +737,7 @@ impl Debug for UnsafeWorldCell<'_> {
 pub struct UnsafeEntityCell<'w> {
     world: UnsafeWorldCell<'w>,
     entity: Entity,
-    location: EntityLocation,
+    location: EntityIdLocation,
     last_run: Tick,
     this_run: Tick,
 }
@@ -742,7 +747,7 @@ impl<'w> UnsafeEntityCell<'w> {
     pub(crate) fn new(
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-        location: EntityLocation,
+        location: EntityIdLocation,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -764,14 +769,15 @@ impl<'w> UnsafeEntityCell<'w> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn location(self) -> EntityLocation {
+    pub fn location(self) -> EntityIdLocation {
         self.location
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
-    pub fn archetype(self) -> &'w Archetype {
-        &self.world.archetypes()[self.location.archetype_id]
+    pub fn archetype(self) -> Option<&'w Archetype> {
+        self.location
+            .map(|loc| &self.world.archetypes()[loc.archetype_id])
     }
 
     /// Gets the world that the current entity belongs to.
@@ -802,7 +808,8 @@ impl<'w> UnsafeEntityCell<'w> {
     ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(self, component_id: ComponentId) -> bool {
-        self.archetype().contains(component_id)
+        self.archetype()
+            .is_some_and(|archetype| archetype.contains(component_id))
     }
 
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
@@ -837,7 +844,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 component_id,
                 T::STORAGE_TYPE,
                 self.entity,
-                self.location,
+                self.location?,
             )
             // SAFETY: returned component is of type T
             .map(|value| value.deref::<T>())
@@ -864,7 +871,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 component_id,
                 T::STORAGE_TYPE,
                 self.entity,
-                self.location,
+                self.location?,
             )
             .map(|(value, cells, caller)| Ref {
                 // SAFETY: returned component is of type T
@@ -895,7 +902,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 component_id,
                 T::STORAGE_TYPE,
                 self.entity,
-                self.location,
+                self.location?,
             )
         }
     }
@@ -927,7 +934,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 component_id,
                 info.storage_type(),
                 self.entity,
-                self.location,
+                self.location?,
             )
         }
     }
@@ -980,7 +987,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 component_id,
                 T::STORAGE_TYPE,
                 self.entity,
-                self.location,
+                self.location?,
             )
             .map(|(value, cells, caller)| Mut {
                 // SAFETY: returned component is of type T
@@ -1006,7 +1013,7 @@ impl<'w> UnsafeEntityCell<'w> {
             let world = self.world().world();
             Q::get_state(world.components())?
         };
-        let location = self.location();
+        let location = self.location()?;
         // SAFETY: Location is guaranteed to exist
         let archetype = unsafe {
             self.world
@@ -1060,7 +1067,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 component_id,
                 info.storage_type(),
                 self.entity,
-                self.location,
+                self.location?,
             )
         }
     }
@@ -1095,20 +1102,23 @@ impl<'w> UnsafeEntityCell<'w> {
 
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
-            get_component_and_ticks(
-                self.world,
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
-            .map(|(value, cells, caller)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: TicksMut::from_tick_cells(cells, self.last_run, self.this_run),
-                changed_by: caller.map(|caller| caller.deref_mut()),
-            })
-            .ok_or(GetEntityMutByIdError::ComponentNotFound)
+            self.location
+                .and_then(|location| {
+                    get_component_and_ticks(
+                        self.world,
+                        component_id,
+                        info.storage_type(),
+                        self.entity,
+                        location,
+                    )
+                })
+                .map(|(value, cells, caller)| MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: TicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+                    changed_by: caller.map(|caller| caller.deref_mut()),
+                })
+                .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
     }
 
@@ -1139,20 +1149,23 @@ impl<'w> UnsafeEntityCell<'w> {
 
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
-            get_component_and_ticks(
-                self.world,
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
-            .map(|(value, cells, caller)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: TicksMut::from_tick_cells(cells, self.last_run, self.this_run),
-                changed_by: caller.map(|caller| caller.deref_mut()),
-            })
-            .ok_or(GetEntityMutByIdError::ComponentNotFound)
+            self.location
+                .and_then(|location| {
+                    get_component_and_ticks(
+                        self.world,
+                        component_id,
+                        info.storage_type(),
+                        self.entity,
+                        location,
+                    )
+                })
+                .map(|(value, cells, caller)| MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: TicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+                    changed_by: caller.map(|caller| caller.deref_mut()),
+                })
+                .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
     }
 

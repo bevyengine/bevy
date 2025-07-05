@@ -1,20 +1,21 @@
+use crate::{
+    archetype::Archetype,
+    bundle::{Bundle, BundleId, InsertMode},
+    component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
+    entity::{hash_map::EntityHashMap, Entity, EntityMapper},
+    query::DebugCheckedUnwrap,
+    relationship::RelationshipHookMode,
+    world::World,
+};
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::prelude::DebugName;
 use bumpalo::Bump;
 use core::{any::TypeId, cell::LazyCell, ops::Range};
-use derive_more::derive::From;
+use derive_more::From;
 
-use crate::{
-    archetype::Archetype,
-    bundle::{Bundle, BundleId, InsertMode},
-    component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
-    entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
-    query::DebugCheckedUnwrap,
-    relationship::RelationshipHookMode,
-    world::World,
-};
+use super::EntitiesAllocator;
 
 /// Provides read access to the source component (the component being cloned) in a [`ComponentCloneFn`].
 pub struct SourceComponent<'a> {
@@ -78,7 +79,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     target_component_written: bool,
     bundle_scratch: &'a mut BundleScratch<'b>,
     bundle_scratch_allocator: &'b Bump,
-    entities: &'a Entities,
+    allocator: &'a EntitiesAllocator,
     source: Entity,
     target: Entity,
     component_info: &'a ComponentInfo,
@@ -104,7 +105,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         target: Entity,
         bundle_scratch_allocator: &'b Bump,
         bundle_scratch: &'a mut BundleScratch<'b>,
-        entities: &'a Entities,
+        allocator: &'a EntitiesAllocator,
         component_info: &'a ComponentInfo,
         entity_cloner: &'a mut EntityClonerState,
         mapper: &'a mut dyn EntityMapper,
@@ -118,7 +119,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             bundle_scratch,
             target_component_written: false,
             bundle_scratch_allocator,
-            entities,
+            allocator,
             mapper,
             component_info,
             state: entity_cloner,
@@ -271,7 +272,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 
     /// Queues the `entity` to be cloned by the current [`EntityCloner`]
     pub fn queue_entity_clone(&mut self, entity: Entity) {
-        let target = self.entities.reserve_entity();
+        let target = self.allocator.alloc();
         self.mapper.set_mapped(entity, target);
         self.state.clone_queue.push_back(entity);
     }
@@ -536,6 +537,10 @@ impl EntityCloner {
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> Entity {
         let target = mapper.get_mapped(source);
+        // The target may need to be constructed if it hasn't been already.
+        // If this fails, it either didn't need to be constructed (ok) or doesn't exist (caught better later).
+        let _ = world.construct_empty(target);
+
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
         let bundle_scratch_allocator = Bump::new();
         let mut bundle_scratch: BundleScratch;
@@ -554,7 +559,9 @@ impl EntityCloner {
             #[cfg(not(feature = "bevy_reflect"))]
             let app_registry = Option::<()>::None;
 
-            let source_archetype = source_entity.archetype();
+            let source_archetype = source_entity
+                .archetype()
+                .expect("Source entity must exist constructed");
             bundle_scratch = BundleScratch::with_capacity(source_archetype.component_count());
 
             let target_archetype = LazyCell::new(|| {
@@ -562,6 +569,7 @@ impl EntityCloner {
                     .get_entity(target)
                     .expect("Target entity must exist")
                     .archetype()
+                    .expect("Target entity must exist constructed")
             });
 
             filter.clone_components(source_archetype, target_archetype, |component| {
@@ -598,7 +606,7 @@ impl EntityCloner {
                         target,
                         &bundle_scratch_allocator,
                         &mut bundle_scratch,
-                        world.entities(),
+                        world.entities_allocator(),
                         info,
                         state,
                         mapper,
