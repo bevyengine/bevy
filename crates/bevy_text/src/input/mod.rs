@@ -96,7 +96,7 @@ impl Default for TextInputBuffer {
 }
 
 /// Marks a text input buffer as only supporting single line editing
-#[derive(Component, Debug)]
+#[derive(Component, Default, Debug)]
 pub struct SingleLineTextInput;
 
 /// Component containing the change history for a text input.
