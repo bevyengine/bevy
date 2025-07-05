@@ -66,7 +66,7 @@ enum SimulationSystems {
 // The entity will start with an age of 0 frames
 // If an entity gets spawned, we increase the counter in the EntityCounter resource
 fn spawn_entities(mut commands: Commands, mut entity_counter: ResMut<EntityCounter>) {
-    if rand::thread_rng().gen_bool(0.6) {
+    if rand::rng().random_bool(0.6) {
         let entity_id = commands.spawn(Age::default()).id();
         println!("    spawning {entity_id:?}");
         entity_counter.value += 1;
