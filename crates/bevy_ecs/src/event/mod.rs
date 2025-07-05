@@ -11,7 +11,7 @@ mod update;
 mod writer;
 
 pub(crate) use base::EventInstance;
-pub use base::{BufferedEvent, EntityEvent, Event, EventId};
+pub use base::{BufferedEvent, EntityEvent, Event, EventId, EventKey};
 pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
 pub use collections::{Events, SendBatchIds};
 pub use event_cursor::EventCursor;
@@ -528,20 +528,20 @@ mod tests {
             });
         reader.initialize(&mut world);
 
-        let last = reader.run((), &mut world);
+        let last = reader.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventReader should be empty");
 
         world.send_event(TestEvent { i: 0 });
-        let last = reader.run((), &mut world);
+        let last = reader.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 0 }));
 
         world.send_event(TestEvent { i: 1 });
         world.send_event(TestEvent { i: 2 });
         world.send_event(TestEvent { i: 3 });
-        let last = reader.run((), &mut world);
+        let last = reader.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 3 }));
 
-        let last = reader.run((), &mut world);
+        let last = reader.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventReader should be empty");
     }
 
@@ -558,20 +558,20 @@ mod tests {
             });
         mutator.initialize(&mut world);
 
-        let last = mutator.run((), &mut world);
+        let last = mutator.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventMutator should be empty");
 
         world.send_event(TestEvent { i: 0 });
-        let last = mutator.run((), &mut world);
+        let last = mutator.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 0 }));
 
         world.send_event(TestEvent { i: 1 });
         world.send_event(TestEvent { i: 2 });
         world.send_event(TestEvent { i: 3 });
-        let last = mutator.run((), &mut world);
+        let last = mutator.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 3 }));
 
-        let last = mutator.run((), &mut world);
+        let last = mutator.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventMutator should be empty");
     }
 

@@ -47,7 +47,7 @@ use bevy_math::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::{Mesh, Meshable},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::SpecializedRenderPipelines,
     sync_component::SyncComponentPlugin,
     view::Visibility,

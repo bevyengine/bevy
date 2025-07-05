@@ -1,5 +1,3 @@
-use core::ops::DerefMut;
-
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
@@ -7,7 +5,7 @@ use bevy_ecs::{
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    camera::{Camera, CameraProjection, Projection},
+    camera::{Camera, Projection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     mesh::Mesh3d,
@@ -19,6 +17,7 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::Parallel;
+use core::{marker::PhantomData, ops::DerefMut};
 
 use crate::*;
 
@@ -88,6 +87,16 @@ pub mod light_consts {
         pub const DIRECT_SUNLIGHT: f32 = 100_000.;
         /// The amount of light (lux) of raw sunlight, not filtered by the atmosphere.
         pub const RAW_SUNLIGHT: f32 = 130_000.;
+    }
+}
+
+/// Marker resource for whether shadows are enabled for this material type
+#[derive(Resource, Debug)]
+pub struct ShadowsEnabled<M: Material>(PhantomData<M>);
+
+impl<M: Material> Default for ShadowsEnabled<M> {
+    fn default() -> Self {
+        Self(PhantomData)
     }
 }
 

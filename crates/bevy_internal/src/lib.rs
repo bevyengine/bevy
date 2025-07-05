@@ -35,6 +35,8 @@ pub use bevy_core_widgets as core_widgets;
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
 pub use bevy_ecs as ecs;
+#[cfg(feature = "bevy_feathers")]
+pub use bevy_feathers as feathers;
 #[cfg(feature = "bevy_gilrs")]
 pub use bevy_gilrs as gilrs;
 #[cfg(feature = "bevy_gizmos")]
@@ -75,6 +77,8 @@ pub use bevy_time as time;
 pub use bevy_transform as transform;
 #[cfg(feature = "bevy_ui")]
 pub use bevy_ui as ui;
+#[cfg(feature = "bevy_ui_render")]
+pub use bevy_ui_render as ui_render;
 pub use bevy_utils as utils;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;

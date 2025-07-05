@@ -13,7 +13,7 @@ use bevy_ecs::{
     component::Component,
     observer::On,
     query::With,
-    system::{Commands, Query, SystemId},
+    system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
@@ -22,8 +22,10 @@ use bevy_log::warn_once;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
 
+use crate::{Callback, Notify};
+
 /// Defines how the slider should behave when you click on the track (not the thumb).
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum TrackClick {
     /// Clicking on the track lets you drag to edit the value, just like clicking on the thumb.
     #[default]
@@ -72,8 +74,9 @@ pub enum TrackClick {
 )]
 pub struct CoreSlider {
     /// Callback which is called when the slider is dragged or the value is changed via other user
-    /// interaction. If this value is `None`, then the slider will self-update.
-    pub on_change: Option<SystemId<In<f32>>>,
+    /// interaction. If this value is `Callback::Ignore`, then the slider will update it's own
+    /// internal [`SliderValue`] state without notification.
+    pub on_change: Callback<In<f32>>,
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,
     // TODO: Think about whether we want a "vertical" option.
@@ -92,7 +95,9 @@ pub struct SliderValue(pub f32);
 #[derive(Component, Debug, PartialEq, Clone, Copy)]
 #[component(immutable)]
 pub struct SliderRange {
+    /// The beginning of the allowed range for the slider value.
     start: f32,
+    /// The end of the allowed range for the slider value.
     end: f32,
 }
 
@@ -255,12 +260,12 @@ pub(crate) fn slider_on_pointer_down(
             TrackClick::Snap => click_val,
         });
 
-        if let Some(on_change) = slider.on_change {
-            commands.run_system_with(on_change, new_value);
-        } else {
+        if matches!(slider.on_change, Callback::Ignore) {
             commands
                 .entity(trigger.target())
                 .insert(SliderValue(new_value));
+        } else {
+            commands.notify_with(&slider.on_change, new_value);
         }
     }
 }
@@ -320,12 +325,12 @@ pub(crate) fn slider_on_drag(
                 range.start() + span * 0.5
             };
 
-            if let Some(on_change) = slider.on_change {
-                commands.run_system_with(on_change, new_value);
-            } else {
+            if matches!(slider.on_change, Callback::Ignore) {
                 commands
                     .entity(trigger.target())
                     .insert(SliderValue(new_value));
+            } else {
+                commands.notify_with(&slider.on_change, new_value);
             }
         }
     }
@@ -367,12 +372,12 @@ fn slider_on_key_input(
                 }
             };
             trigger.propagate(false);
-            if let Some(on_change) = slider.on_change {
-                commands.run_system_with(on_change, new_value);
-            } else {
+            if matches!(slider.on_change, Callback::Ignore) {
                 commands
                     .entity(trigger.target())
                     .insert(SliderValue(new_value));
+            } else {
+                commands.notify_with(&slider.on_change, new_value);
             }
         }
     }
@@ -459,12 +464,12 @@ fn slider_on_set_value(
                 range.clamp(value.0 + *delta * step.map(|s| s.0).unwrap_or_default())
             }
         };
-        if let Some(on_change) = slider.on_change {
-            commands.run_system_with(on_change, new_value);
-        } else {
+        if matches!(slider.on_change, Callback::Ignore) {
             commands
                 .entity(trigger.target())
                 .insert(SliderValue(new_value));
+        } else {
+            commands.notify_with(&slider.on_change, new_value);
         }
     }
 }

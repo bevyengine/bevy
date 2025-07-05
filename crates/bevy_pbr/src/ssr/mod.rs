@@ -7,8 +7,8 @@ use bevy_core_pipeline::{
         graph::{Core3d, Node3d},
         DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
-    fullscreen_vertex_shader,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    FullscreenShader,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -25,7 +25,7 @@ use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
@@ -155,7 +155,8 @@ pub struct ScreenSpaceReflectionsPipeline {
     depth_nearest_sampler: Sampler,
     bind_group_layout: BindGroupLayout,
     binding_arrays_are_usable: bool,
-    shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 /// A GPU buffer that stores the screen space reflection settings for each view.
@@ -322,7 +323,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         render_pass.set_render_pipeline(render_pipeline);
         render_pass.set_bind_group(
             0,
-            &view_bind_group.value,
+            &view_bind_group.main,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -332,9 +333,10 @@ impl ViewNode for ScreenSpaceReflectionsNode {
                 **view_environment_map_offset,
             ],
         );
+        render_pass.set_bind_group(1, &view_bind_group.binding_array, &[]);
 
         // Perform the SSR render pass.
-        render_pass.set_bind_group(1, &ssr_bind_group, &[]);
+        render_pass.set_bind_group(2, &ssr_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -397,9 +399,10 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
             depth_nearest_sampler,
             bind_group_layout,
             binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
             // Even though ssr was loaded using load_shader_library, we can still access it like a
             // normal embedded asset (so we can use it as both a library or a kernel).
-            shader: load_embedded_asset!(world, "ssr.wgsl"),
+            fragment_shader: load_embedded_asset!(world, "ssr.wgsl"),
         }
     }
 }
@@ -515,9 +518,14 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
     type Key = ScreenSpaceReflectionsPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mesh_view_layout = self
+        let layout = self
             .mesh_view_layouts
             .get_view_layout(key.mesh_pipeline_view_key);
+        let layout = vec![
+            layout.main_layout.clone(),
+            layout.binding_array_layout.clone(),
+            self.bind_group_layout.clone(),
+        ];
 
         let mut shader_defs = vec![
             "DEPTH_PREPASS".into(),
@@ -535,12 +543,11 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),
-            layout: vec![mesh_view_layout.clone(), self.bind_group_layout.clone()],
-            vertex: fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
+            layout,
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.is_hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -550,12 +557,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            push_constant_ranges: vec![],
-            primitive: default(),
-            depth_stencil: None,
-            multisample: default(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

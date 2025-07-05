@@ -49,8 +49,8 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     }
 
     /// Returns the event type of this [`On`] instance.
-    pub fn event_type(&self) -> ComponentId {
-        self.trigger.event_type
+    pub fn event_key(&self) -> EventKey {
+        self.trigger.event_key
     }
 
     /// Returns a reference to the triggered event.
@@ -182,7 +182,7 @@ pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
     pub observer: Entity,
     /// The [`Event`] the trigger targeted.
-    pub event_type: ComponentId,
+    pub event_key: EventKey,
     /// The [`ComponentId`]s the trigger targeted.
     pub components: SmallVec<[ComponentId; 2]>,
     /// The entity that the entity-event targeted, if any.

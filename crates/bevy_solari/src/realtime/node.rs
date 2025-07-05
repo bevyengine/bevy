@@ -1,12 +1,15 @@
 use super::{prepare::SolariLightingResources, SolariLighting};
 use crate::scene::RaytracingSceneBindings;
 use bevy_asset::load_embedded_asset;
-use bevy_core_pipeline::prepass::ViewPrepassTextures;
+use bevy_core_pipeline::prepass::{
+    PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms, ViewPrepassTextures,
+};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     query::QueryItem,
     world::{FromWorld, World},
 };
+use bevy_image::ToExtents;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -22,6 +25,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
+use bevy_utils::default;
 
 pub mod graph {
     use bevy_render::render_graph::RenderLabel;
@@ -44,6 +48,7 @@ impl ViewNode for SolariLightingNode {
         &'static ViewTarget,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
+        &'static PreviousViewUniformOffset,
     );
 
     fn run(
@@ -57,12 +62,14 @@ impl ViewNode for SolariLightingNode {
             view_target,
             view_prepass_textures,
             view_uniform_offset,
+            previous_view_uniform_offset,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let scene_bindings = world.resource::<RaytracingSceneBindings>();
         let view_uniforms = world.resource::<ViewUniforms>();
+        let previous_view_uniforms = world.resource::<PreviousViewUniforms>();
         let frame_count = world.resource::<FrameCount>();
         let (
             Some(initial_and_temporal_pipeline),
@@ -73,6 +80,7 @@ impl ViewNode for SolariLightingNode {
             Some(depth_buffer),
             Some(motion_vectors),
             Some(view_uniforms),
+            Some(previous_view_uniforms),
         ) = (
             pipeline_cache.get_compute_pipeline(self.initial_and_temporal_pipeline),
             pipeline_cache.get_compute_pipeline(self.spatial_and_shade_pipeline),
@@ -82,6 +90,7 @@ impl ViewNode for SolariLightingNode {
             view_prepass_textures.depth_view(),
             view_prepass_textures.motion_vectors_view(),
             view_uniforms.uniforms.binding(),
+            previous_view_uniforms.uniforms.binding(),
         )
         else {
             return Ok(());
@@ -97,7 +106,10 @@ impl ViewNode for SolariLightingNode {
                 gbuffer,
                 depth_buffer,
                 motion_vectors,
+                &solari_lighting_resources.previous_gbuffer.1,
+                &solari_lighting_resources.previous_depth.1,
                 view_uniforms,
+                previous_view_uniforms,
             )),
         );
 
@@ -114,7 +126,14 @@ impl ViewNode for SolariLightingNode {
         let pass_span = diagnostics.pass_span(&mut pass, "solari_lighting");
 
         pass.set_bind_group(0, scene_bindings, &[]);
-        pass.set_bind_group(1, &bind_group, &[view_uniform_offset.offset]);
+        pass.set_bind_group(
+            1,
+            &bind_group,
+            &[
+                view_uniform_offset.offset,
+                previous_view_uniform_offset.offset,
+            ],
+        );
 
         pass.set_pipeline(initial_and_temporal_pipeline);
         pass.set_push_constants(
@@ -127,6 +146,31 @@ impl ViewNode for SolariLightingNode {
         pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
 
         pass_span.end(&mut pass);
+        drop(pass);
+
+        // TODO: Remove these copies, and double buffer instead
+        command_encoder.copy_texture_to_texture(
+            view_prepass_textures
+                .deferred
+                .clone()
+                .unwrap()
+                .texture
+                .texture
+                .as_image_copy(),
+            solari_lighting_resources.previous_gbuffer.0.as_image_copy(),
+            viewport.to_extents(),
+        );
+        command_encoder.copy_texture_to_texture(
+            view_prepass_textures
+                .depth
+                .clone()
+                .unwrap()
+                .texture
+                .texture
+                .as_image_copy(),
+            solari_lighting_resources.previous_depth.0.as_image_copy(),
+            viewport.to_extents(),
+        );
 
         Ok(())
     }
@@ -152,7 +196,10 @@ impl FromWorld for SolariLightingNode {
                     texture_2d(TextureSampleType::Uint),
                     texture_depth_2d(),
                     texture_2d(TextureSampleType::Float { filterable: true }),
+                    texture_2d(TextureSampleType::Uint),
+                    texture_depth_2d(),
                     uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<PreviousViewData>(true),
                 ),
             ),
         );
@@ -169,9 +216,8 @@ impl FromWorld for SolariLightingNode {
                     range: 0..8,
                 }],
                 shader: load_embedded_asset!(world, "restir_di.wgsl"),
-                shader_defs: vec![],
-                entry_point: "initial_and_temporal".into(),
-                zero_initialize_workgroup_memory: false,
+                entry_point: Some("initial_and_temporal".into()),
+                ..default()
             });
 
         let spatial_and_shade_pipeline =
@@ -186,9 +232,8 @@ impl FromWorld for SolariLightingNode {
                     range: 0..8,
                 }],
                 shader: load_embedded_asset!(world, "restir_di.wgsl"),
-                shader_defs: vec![],
-                entry_point: "spatial_and_shade".into(),
-                zero_initialize_workgroup_memory: false,
+                entry_point: Some("spatial_and_shade".into()),
+                ..default()
             });
 
         Self {

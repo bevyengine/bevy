@@ -16,6 +16,8 @@ pbr_multi_layer_material_textures = []
 pbr_anisotropy_texture = []
 experimental_pbr_pcss = []
 pbr_specular_textures = []
+pbr_clustered_decals = []
+pbr_light_textures = []
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
@@ -42,6 +44,7 @@ bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
@@ -51,10 +54,10 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 ] }
 
 # other
-bitflags = "2.3"
+bitflags = { version = "2.3", features = ["bytemuck"] }
 fixedbitset = "0.5"
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 # meshlet
 lz4_flex = { version = "0.11", default-features = false, features = [
   "frame",

@@ -38,6 +38,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 http-body-util = "0.1"
 async-channel = "2"
+bevy_log = { version = "0.17.0-dev", path = "../bevy_log" }
 
 # dependencies that will not compile on wasm
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
