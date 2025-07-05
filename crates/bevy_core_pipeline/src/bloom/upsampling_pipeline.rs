@@ -5,6 +5,7 @@ use super::{
 };
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{
+    error::BevyError,
     prelude::{Component, Entity},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
@@ -29,16 +30,7 @@ pub struct UpsamplingPipelineIds {
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayout,
-    /// The asset handle for the fullscreen vertex shader.
-    pub fullscreen_shader: FullscreenShader,
-    /// The fragment shader asset handle.
-    pub fragment_shader: Handle<Shader>,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub struct BloomUpsamplingPipelineKeys {
-    composite_mode: BloomCompositeMode,
-    final_pipeline: bool,
+    pub specialized_cache: SpecializedCache<RenderPipeline, BloomUpsamplingSpecializer>,
 }
 
 impl FromWorld for BloomUpsamplingPipeline {
@@ -60,18 +52,63 @@ impl FromWorld for BloomUpsamplingPipeline {
             ),
         );
 
+        let fullscreen_shader = world.resource::<FullscreenShader>().clone();
+        let fragment_shader = load_embedded_asset!(world, "bloom.wgsl");
+        let base_descriptor = RenderPipelineDescriptor {
+            label: Some("bloom_upsampling_pipeline".into()),
+            layout: vec![bind_group_layout.clone()],
+            vertex: fullscreen_shader.to_vertex_state(),
+            fragment: Some(FragmentState {
+                shader: fragment_shader.clone(),
+                entry_point: Some("upsample".into()),
+                targets: vec![Some(ColorTargetState {
+                    format: TextureFormat::Rgba8Unorm, // placeholder
+                    blend: Some(BlendState {
+                        // placeholder
+                        color: BlendComponent {
+                            src_factor: BlendFactor::Zero,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::Zero,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: ColorWrites::ALL,
+                })],
+                ..default()
+            }),
+            ..default()
+        };
+
+        let specialized_cache =
+            SpecializedCache::new(BloomUpsamplingSpecializer, None, base_descriptor);
+
         BloomUpsamplingPipeline {
             bind_group_layout,
-            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "bloom.wgsl"),
+            specialized_cache,
         }
     }
 }
 
-impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
-    type Key = BloomUpsamplingPipelineKeys;
+pub struct BloomUpsamplingSpecializer;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+#[derive(PartialEq, Eq, Hash, Clone, SpecializerKey)]
+pub struct BloomUpsamplingKey {
+    composite_mode: BloomCompositeMode,
+    final_pipeline: bool,
+}
+
+impl Specializer<RenderPipeline> for BloomUpsamplingSpecializer {
+    type Key = BloomUpsamplingKey;
+
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
         let texture_format = if key.final_pipeline {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -110,28 +147,16 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             },
         };
 
-        RenderPipelineDescriptor {
-            label: Some("bloom_upsampling_pipeline".into()),
-            layout: vec![self.bind_group_layout.clone()],
-            vertex: self.fullscreen_shader.to_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: self.fragment_shader.clone(),
-                entry_point: Some("upsample".into()),
-                targets: vec![Some(ColorTargetState {
-                    format: texture_format,
-                    blend: Some(BlendState {
-                        color: color_blend,
-                        alpha: BlendComponent {
-                            src_factor: BlendFactor::Zero,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Add,
-                        },
-                    }),
-                    write_mask: ColorWrites::ALL,
-                })],
-                ..default()
-            }),
-            ..default()
+        let fragment = descriptor.fragment.get_or_insert_default();
+
+        if let Some(Some(color_target)) = fragment.targets.first_mut()
+            && let Some(blend_state) = &mut color_target.blend
+        {
+            blend_state.color = color_blend;
+            color_target.format = texture_format;
+            Ok(key)
+        } else {
+            Err("color target state or blend state missing".into())
         }
     }
 }
@@ -139,32 +164,30 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
 pub fn prepare_upsampling_pipeline(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
-    pipeline: Res<BloomUpsamplingPipeline>,
+    mut pipeline: ResMut<BloomUpsamplingPipeline>,
     views: Query<(Entity, &Bloom)>,
-) {
+) -> Result<(), BevyError> {
     for (entity, bloom) in &views {
-        let pipeline_id = pipelines.specialize(
+        let pipeline_id = pipeline.specialized_cache.specialize(
             &pipeline_cache,
-            &pipeline,
-            BloomUpsamplingPipelineKeys {
+            BloomUpsamplingKey {
                 composite_mode: bloom.composite_mode,
                 final_pipeline: false,
             },
-        );
+        )?;
 
-        let pipeline_final_id = pipelines.specialize(
+        let pipeline_final_id = pipeline.specialized_cache.specialize(
             &pipeline_cache,
-            &pipeline,
-            BloomUpsamplingPipelineKeys {
+            BloomUpsamplingKey {
                 composite_mode: bloom.composite_mode,
                 final_pipeline: true,
             },
-        );
+        )?;
 
         commands.entity(entity).insert(UpsamplingPipelineIds {
             id_main: pipeline_id,
             id_final: pipeline_final_id,
         });
     }
+    Ok(())
 }

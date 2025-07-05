@@ -57,8 +57,6 @@ impl Plugin for BloomPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
-            .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .add_systems(
                 Render,
                 (
