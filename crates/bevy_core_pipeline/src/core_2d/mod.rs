@@ -1,4 +1,3 @@
-mod camera_2d;
 mod main_opaque_pass_2d_node;
 mod main_transparent_pass_2d_node;
 
@@ -34,18 +33,22 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
+pub use bevy_camera::Camera2d;
 use bevy_image::ToExtents;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
+    camera::CameraRenderGraph,
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
-pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
 
-use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
+use crate::{
+    tonemapping::{DebandDither, Tonemapping, TonemappingNode},
+    upscaling::UpscalingNode,
+};
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
@@ -78,6 +81,11 @@ pub struct Core2dPlugin;
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera2d>()
+            .register_required_components::<Camera2d, DebandDither>()
+            .register_required_components_with::<Camera2d, CameraRenderGraph>(|| {
+                CameraRenderGraph::new(Core2d)
+            })
+            .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::None)
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

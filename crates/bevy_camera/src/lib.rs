@@ -1,12 +1,14 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 mod camera;
 mod clear_color;
+mod components;
 pub mod primitives;
 mod projection;
 pub mod visibility;
 
 pub use camera::*;
 pub use clear_color::*;
+pub use components::*;
 pub use projection::*;
 
 use bevy_app::{App, Plugin};
