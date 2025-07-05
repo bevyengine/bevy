@@ -1751,7 +1751,12 @@ mod tests {
         world.insert_resource(SchemaTypesMetadata::default());
         let response = export_registry_types_ext(BrpJsonSchemaQueryFilter::default(), &world);
 
-        assert_eq!(response.definitions.len(), 5);
+        assert_eq!(
+            response.definitions.len(),
+            5,
+            "Expected 5 definitions, got: {:#?}",
+            response.definitions.keys()
+        );
         let response = export_registry_types_ext(
             BrpJsonSchemaQueryFilter {
                 without_crates: vec!["bevy_remote".to_string()],

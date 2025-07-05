@@ -12,7 +12,7 @@ use bevy_reflect::{
 };
 use core::any::TypeId;
 
-use crate::schemas::json_schema::JsonSchemaBevyType;
+use crate::schemas::{json_schema::JsonSchemaBevyType, open_rpc::OpenRpcDocument};
 
 pub mod json_schema;
 pub mod open_rpc;
@@ -34,6 +34,61 @@ pub struct ReflectJsonSchemaForceAsArray;
 impl<T: Reflect> FromType<T> for ReflectJsonSchemaForceAsArray {
     fn from_type() -> Self {
         ReflectJsonSchemaForceAsArray
+    }
+}
+
+/// Helper trait
+pub(crate) trait RegisterReflectJsonSchemas {
+    /// Register types and or type data that are implemented by this crate
+    fn register_schema_base_types(&mut self) {
+        #[cfg(feature = "bevy_math")]
+        {
+            // self.register_type_data_internal::<bevy_math::Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::Vec3, ReflectJsonSchemaForceAsArray>();
+        }
+        self.register_type_internal::<OpenRpcDocument>();
+        self.register_type_data_internal::<OpenRpcDocument, ReflectJsonSchema>();
+    }
+    fn register_type_internal<T>(&mut self)
+    where
+        T: bevy_reflect::GetTypeRegistration;
+
+    fn register_type_data_internal<T, D>(&mut self)
+    where
+        T: Reflect + bevy_reflect::TypePath,
+        D: TypeData + FromType<T>;
+}
+
+impl RegisterReflectJsonSchemas for bevy_reflect::TypeRegistry {
+    fn register_type_data_internal<T, D>(&mut self)
+    where
+        T: Reflect + bevy_reflect::TypePath,
+        D: TypeData + FromType<T>,
+    {
+        self.register_type_data::<T, D>();
+    }
+
+    fn register_type_internal<T>(&mut self)
+    where
+        T: bevy_reflect::GetTypeRegistration,
+    {
+        self.register::<T>();
+    }
+}
+impl RegisterReflectJsonSchemas for bevy_app::App {
+    fn register_type_data_internal<T, D>(&mut self)
+    where
+        T: Reflect + bevy_reflect::TypePath,
+        D: TypeData + FromType<T>,
+    {
+        self.register_type_data::<T, D>();
+    }
+
+    fn register_type_internal<T>(&mut self)
+    where
+        T: bevy_reflect::GetTypeRegistration,
+    {
+        self.register_type::<T>();
     }
 }
 
