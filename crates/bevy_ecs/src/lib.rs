@@ -2479,16 +2479,16 @@ mod tests {
         //
         // Requirements with `require` attribute:
         //
-        // A -> B -> C
-        //   0    1
+        // A -> B -> C -> D
+        //   0    1    2
         //
         // Runtime requirements:
         //
-        // X -> A -> B -> C
-        //   0    1    2
-        //
-        // X -> Y -> Z -> B -> C
+        // X -> A -> B -> C -> D
         //   0    1    2    3
+        //
+        // X -> Y -> Z -> B -> C -> D
+        //   0    1    2    3    4
 
         #[derive(Component, Default)]
         #[require(B)]
@@ -2499,7 +2499,11 @@ mod tests {
         struct B;
 
         #[derive(Component, Default)]
+        #[require(D)]
         struct C;
+
+        #[derive(Component, Default)]
+        struct D;
 
         #[derive(Component, Default)]
         struct X;
@@ -2515,6 +2519,7 @@ mod tests {
         let a = world.register_component::<A>();
         let b = world.register_component::<B>();
         let c = world.register_component::<C>();
+        let d = world.register_component::<D>();
         let y = world.register_component::<Y>();
         let z = world.register_component::<Z>();
 
@@ -2528,6 +2533,7 @@ mod tests {
         let required_a = world.get_required_components::<A>().unwrap();
         let required_b = world.get_required_components::<B>().unwrap();
         let required_c = world.get_required_components::<C>().unwrap();
+        let required_d = world.get_required_components::<D>().unwrap();
         let required_x = world.get_required_components::<X>().unwrap();
         let required_y = world.get_required_components::<Y>().unwrap();
         let required_z = world.get_required_components::<Z>().unwrap();
@@ -2545,15 +2551,16 @@ mod tests {
         }
 
         // Check that the inheritance depths are correct for each component.
-        assert_eq!(to_vec(required_a), vec![(b, 0), (c, 1)]);
-        assert_eq!(to_vec(required_b), vec![(c, 0)]);
-        assert_eq!(to_vec(required_c), vec![]);
+        assert_eq!(to_vec(required_a), vec![(b, 0), (c, 1), (d, 2)]);
+        assert_eq!(to_vec(required_b), vec![(c, 0), (d, 1)]);
+        assert_eq!(to_vec(required_c), vec![(d, 0)]);
+        assert_eq!(to_vec(required_d), vec![]);
         assert_eq!(
             to_vec(required_x),
-            vec![(a, 0), (b, 1), (c, 2), (y, 0), (z, 1)]
+            vec![(a, 0), (b, 1), (c, 2), (d, 3), (y, 0), (z, 1)]
         );
-        assert_eq!(to_vec(required_y), vec![(b, 1), (c, 2), (z, 0)]);
-        assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1)]);
+        assert_eq!(to_vec(required_y), vec![(b, 1), (c, 2), (d, 3), (z, 0)]);
+        assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1), (d, 2)]);
     }
 
     #[test]
