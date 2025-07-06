@@ -1,5 +1,6 @@
 use self::assign::ClusterableObjectType;
 use crate::assign::calculate_cluster_factors;
+use crate::cascade::{Cascade, CascadeShadowConfig, Cascades};
 use crate::*;
 use bevy_asset::UntypedAssetId;
 pub use bevy_camera::primitives::{face_index_to_name, CubeMapFace, CUBE_MAP_FACES};
