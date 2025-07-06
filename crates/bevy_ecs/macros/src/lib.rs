@@ -167,13 +167,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             ){
                 #(<#active_field_types as #ecs_path::bundle::StaticBundle>::get_component_ids(components, &mut *ids);)*
             }
-
-            fn register_required_components(
-                components: &mut #ecs_path::component::ComponentsRegistrator,
-                required_components: &mut #ecs_path::component::RequiredComponents
-            ){
-                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::register_required_components(components, &mut *required_components);)*
-            }
         }
     });
 
@@ -198,14 +191,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
             ) {
                 #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(&self.#active_field_tokens, components, &mut *ids);)*
-            }
-
-            fn register_required_components(
-                &self,
-                components: &mut #ecs_path::component::ComponentsRegistrator,
-                required_components: &mut #ecs_path::component::RequiredComponents
-            ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::register_required_components(&self.#active_field_tokens, components, required_components);)*
             }
         }
     };

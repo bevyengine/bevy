@@ -201,16 +201,6 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Static
     ) {
         <R::RelationshipTarget as StaticBundle>::get_component_ids(components, ids);
     }
-
-    fn register_required_components(
-        components: &mut crate::component::ComponentsRegistrator,
-        required_components: &mut crate::component::RequiredComponents,
-    ) {
-        <R::RelationshipTarget as StaticBundle>::register_required_components(
-            components,
-            required_components,
-        );
-    }
 }
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
@@ -231,14 +221,6 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
         ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
         <Self as StaticBundle>::get_component_ids(components, ids);
-    }
-
-    fn register_required_components(
-        &self,
-        components: &mut crate::component::ComponentsRegistrator,
-        required_components: &mut crate::component::RequiredComponents,
-    ) {
-        <Self as StaticBundle>::register_required_components(components, required_components);
     }
 }
 
@@ -297,16 +279,6 @@ unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
     ) {
         <R::RelationshipTarget as StaticBundle>::get_component_ids(components, ids);
     }
-
-    fn register_required_components(
-        components: &mut crate::component::ComponentsRegistrator,
-        required_components: &mut crate::component::RequiredComponents,
-    ) {
-        <R::RelationshipTarget as StaticBundle>::register_required_components(
-            components,
-            required_components,
-        );
-    }
 }
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
@@ -325,14 +297,6 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
         ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
         <Self as StaticBundle>::get_component_ids(components, ids);
-    }
-
-    fn register_required_components(
-        &self,
-        components: &mut crate::component::ComponentsRegistrator,
-        required_components: &mut crate::component::RequiredComponents,
-    ) {
-        <Self as StaticBundle>::register_required_components(components, required_components);
     }
 }
 

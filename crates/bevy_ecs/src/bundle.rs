@@ -206,13 +206,6 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(&self, components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
-
-    /// Registers components that are required by the components in this [`Bundle`].
-    fn register_required_components(
-        &self,
-        _components: &mut ComponentsRegistrator,
-        _required_components: &mut RequiredComponents,
-    );
 }
 
 /// A static and fixed set of [`Component`] types.
@@ -250,13 +243,6 @@ pub unsafe trait StaticBundle: Send + Sync + 'static {
     /// Gets this [`StaticBundle`]'s component ids. This will be [`None`] if the component has not been registered.
     #[doc(hidden)]
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
-
-    /// Registers components that are required by the components in this [`StaticBundle`].
-    #[doc(hidden)]
-    fn register_required_components(
-        _components: &mut ComponentsRegistrator,
-        _required_components: &mut RequiredComponents,
-    );
 }
 
 /// Creates a bundle by taking it from the internal storage.
@@ -326,20 +312,6 @@ unsafe impl<C: Component> StaticBundle for C {
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
         ids(components.get_id(TypeId::of::<C>()));
     }
-
-    fn register_required_components(
-        components: &mut ComponentsRegistrator,
-        required_components: &mut RequiredComponents,
-    ) {
-        let component_id = components.register_component::<C>();
-        <C as Component>::register_required_components(
-            component_id,
-            components,
-            required_components,
-            0,
-            &mut Vec::new(),
-        );
-    }
 }
 
 // SAFETY:
@@ -360,14 +332,6 @@ unsafe impl<C: Component> Bundle for C {
         ids: &mut impl FnMut(Option<ComponentId>),
     ) {
         <Self as StaticBundle>::get_component_ids(components, ids);
-    }
-
-    fn register_required_components(
-        &self,
-        components: &mut ComponentsRegistrator,
-        required_components: &mut RequiredComponents,
-    ) {
-        <Self as StaticBundle>::register_required_components(components, required_components);
     }
 }
 
@@ -418,13 +382,6 @@ macro_rules! tuple_impl {
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as StaticBundle>::get_component_ids(components, ids);)*
             }
-
-            fn register_required_components(
-                components: &mut ComponentsRegistrator,
-                required_components: &mut RequiredComponents,
-            ) {
-                $(<$name as StaticBundle>::register_required_components(components, required_components);)*
-            }
         }
 
         #[expect(
@@ -462,20 +419,6 @@ macro_rules! tuple_impl {
                 let ($($name,)*) = self;
 
                 $(<$name as Bundle>::get_component_ids($name, components, ids);)*
-            }
-
-            fn register_required_components(
-                &self,
-                components: &mut ComponentsRegistrator,
-                required_components: &mut RequiredComponents,
-            ) {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($($name,)*) = self;
-
-                $(<$name as Bundle>::register_required_components($name, components, required_components);)*
             }
         }
 
