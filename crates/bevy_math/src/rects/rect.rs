@@ -356,6 +356,38 @@ impl Rect {
         }
     }
 
+    /// Return the area of this rectangle.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::Rect;
+    /// let r = Rect::new(0., 0., 10., 10.); // w=10 h=10
+    /// assert_eq!(r.area(), 100.0);
+    /// ```
+    #[inline]
+    pub fn area(&self) -> f32 {
+        self.width() * self.height()
+    }
+
+    /// Scale this rect by a multiplicative factor
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::Rect;
+    /// let r = Rect::new(1., 1., 2., 2.); // w=10 h=10
+    /// assert_eq!(r.scale(2.).min.x, 2.0);
+    /// assert_eq!(r.scale(2.).max.x, 4.0);
+    /// ```
+    #[inline]
+    pub fn scale(&self, factor: f32) -> Rect {
+        Self {
+            min: self.min * factor,
+            max: self.max * factor,
+        }
+    }
+
     /// Returns self as [`IRect`] (i32)
     #[inline]
     pub fn as_irect(&self) -> IRect {

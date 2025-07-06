@@ -3,7 +3,8 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        Callback, CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider,
+        popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
+        Callback, CoreButton, CoreCheckbox, CoreMenuPopup, CoreRadio, CoreRadioGroup, CoreSlider,
         CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugin, SliderRange, SliderValue,
         TrackClick,
     },
@@ -26,7 +27,7 @@ fn main() {
             TabNavigationPlugin,
         ))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
+        // .insert_resource(WinitSettings::desktop_app())
         .insert_resource(DemoWidgetStates {
             slider_value: 50.0,
             slider_click: TrackClick::Snap,
@@ -156,6 +157,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         Callback::System(on_click),
         Callback::System(on_change_value),
         Callback::System(on_change_radio),
+        Callback::System(on_open_menu),
     ));
 }
 
@@ -164,6 +166,7 @@ fn demo_root(
     on_click: Callback,
     on_change_value: Callback<In<f32>>,
     on_change_radio: Callback<In<Entity>>,
+    on_open_menu: Callback,
 ) -> impl Bundle {
     (
         Node {
@@ -182,6 +185,7 @@ fn demo_root(
             slider(0.0, 100.0, 50.0, on_change_value),
             checkbox(asset_server, "Checkbox", Callback::Ignore),
             radio_group(asset_server, on_change_radio),
+            menu_button(asset_server, on_open_menu),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
@@ -219,21 +223,20 @@ fn button(asset_server: &AssetServer, on_click: Callback) -> impl Bundle {
     )
 }
 
-fn menu_button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
+fn menu_button(asset_server: &AssetServer, on_activate: Callback) -> impl Bundle {
     (
         Node {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
             border: UiRect::all(Val::Px(5.0)),
+            box_sizing: BoxSizing::BorderBox,
             justify_content: JustifyContent::SpaceBetween,
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(16.0), Val::Px(0.0)),
             ..default()
         },
         DemoMenuButton,
-        CoreButton {
-            on_click: Callback::System(on_click),
-        },
+        CoreButton { on_activate },
         Hovered::default(),
         TabIndex(0),
         BorderColor::all(Color::BLACK),
@@ -792,36 +795,38 @@ fn spawn_popup(menu: Query<Entity, With<DemoMenuButton>>, mut commands: Commands
     let Ok(anchor) = menu.single() else {
         return;
     };
-    commands.entity(anchor).insert(PortalChildren::spawn_one((
-        Node {
-            min_height: Val::Px(100.),
-            min_width: Val::Px(100.),
-            border: UiRect::all(Val::Px(2.0)),
-            position_type: PositionType::Absolute,
-            left: Val::Px(100.),
-            ..default()
-        },
-        BorderColor::all(GREEN.into()),
-        BackgroundColor(GRAY.into()),
-        ZIndex(100),
-        Floating {
-            anchor: FloatAnchor::Node(anchor),
-            positions: vec![
-                FloatPosition {
-                    side: FloatSide::Bottom,
-                    align: FloatAlign::Start,
-                    gap: 2.0,
-                    ..default()
-                },
-                FloatPosition {
-                    side: FloatSide::Top,
-                    align: FloatAlign::Start,
-                    gap: 2.0,
-                    ..default()
-                },
-            ],
-        },
-    )));
+    let menu = commands
+        .spawn((
+            Node {
+                min_height: Val::Px(100.),
+                min_width: Val::Percent(100.),
+                border: UiRect::all(Val::Px(2.0)),
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            CoreMenuPopup,
+            Visibility::Hidden, // Will be visible after positioning
+            BorderColor::all(GREEN.into()),
+            BackgroundColor(GRAY.into()),
+            ZIndex(100),
+            Popover {
+                positions: vec![
+                    PopoverPlacement {
+                        side: PopoverSide::Bottom,
+                        align: PopoverAlign::Start,
+                        gap: 2.0,
+                    },
+                    PopoverPlacement {
+                        side: PopoverSide::Top,
+                        align: PopoverAlign::Start,
+                        gap: 2.0,
+                    },
+                ],
+            },
+            OverrideClip,
+        ))
+        .id();
+    commands.entity(anchor).add_child(menu);
     info!("Open menu");
 }
 

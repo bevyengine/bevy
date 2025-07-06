@@ -166,12 +166,12 @@ pub struct TabNavigation<'w, 's> {
 }
 
 impl TabNavigation<'_, '_> {
-    /// Navigate to the desired focusable entity.
+    /// Navigate to the desired focusable entity, relative to the current focused entity.
     ///
     /// Change the [`NavAction`] to navigate in a different direction.
     /// Focusable entities are determined by the presence of the [`TabIndex`] component.
     ///
-    /// If no focusable entities are found, then this function will return either the first
+    /// If there is no currently focused entity, then this function will return either the first
     /// or last focusable entity, depending on the direction of navigation. For example, if
     /// `action` is `Next` and no focusable entities are found, then this function will return
     /// the first focusable entity.
@@ -198,13 +198,46 @@ impl TabNavigation<'_, '_> {
                 })
         });
 
+        self.navigate_internal(focus.0, action, tabgroup)
+    }
+
+    /// Initialize focus to a focusable child of a container, either the first or last
+    /// depending on [`NavAction`]. This assumes that the parent entity has a [`TabGroup`]
+    /// component.
+    ///
+    /// Focusable entities are determined by the presence of the [`TabIndex`] component.
+    pub fn initialize(
+        &self,
+        parent: Entity,
+        action: NavAction,
+    ) -> Result<Entity, TabNavigationError> {
+        // If there are no tab groups, then there are no focusable entities.
+        if self.tabgroup_query.is_empty() {
+            return Err(TabNavigationError::NoTabGroups);
+        }
+
+        // Look for the tab group on the parent entity.
+        match self.tabgroup_query.get(parent) {
+            Ok(tabgroup) => self.navigate_internal(None, action, Some((parent, tabgroup.1))),
+            Err(_) => Err(TabNavigationError::NoTabGroups),
+        }
+    }
+
+    pub fn navigate_internal(
+        &self,
+        focus: Option<Entity>,
+        action: NavAction,
+        tabgroup: Option<(Entity, &TabGroup)>,
+    ) -> Result<Entity, TabNavigationError> {
         let navigation_result = self.navigate_in_group(tabgroup, focus, action);
 
         match navigation_result {
             Ok(entity) => {
-                if focus.0.is_some() && tabgroup.is_none() {
+                if let Some(previous_focus) = focus
+                    && tabgroup.is_none()
+                {
                     Err(TabNavigationError::NoTabGroupForCurrentFocus {
-                        previous_focus: focus.0.unwrap(),
+                        previous_focus,
                         new_focus: entity,
                     })
                 } else {
@@ -218,7 +251,7 @@ impl TabNavigation<'_, '_> {
     fn navigate_in_group(
         &self,
         tabgroup: Option<(Entity, &TabGroup)>,
-        focus: &InputFocus,
+        focus: Option<Entity>,
         action: NavAction,
     ) -> Result<Entity, TabNavigationError> {
         // List of all focusable entities found.
@@ -268,7 +301,7 @@ impl TabNavigation<'_, '_> {
             }
         });
 
-        let index = focusable.iter().position(|e| Some(e.0) == focus.0);
+        let index = focusable.iter().position(|e| Some(e.0) == focus);
         let count = focusable.len();
         let next = match (index, action) {
             (Some(idx), NavAction::Next) => (idx + 1).rem_euclid(count),

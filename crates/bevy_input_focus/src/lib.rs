@@ -153,7 +153,7 @@ pub struct FocusedInput<E: BufferedEvent + Clone> {
 #[entity_event(traversal = WindowTraversal, auto_propagate)]
 pub struct AcquireFocus {
     /// The primary window entity.
-    window: Entity,
+    pub window: Entity,
 }
 
 #[derive(QueryData)]
