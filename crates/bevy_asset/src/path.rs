@@ -1035,6 +1035,8 @@ mod tests {
         assert_eq!(result.get_full_extension(), Some("Custom"));
     }
 
+    // Regression test for non-UTF-8 file names. Creating an `OsStr` from bytes (without unsafe) is
+    // platform-dependent, so we just test Unix here.
     #[test]
     #[cfg(unix)]
     fn test_get_full_extension_non_utf8() {
