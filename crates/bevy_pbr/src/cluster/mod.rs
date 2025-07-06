@@ -25,8 +25,8 @@ pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 use crate::LightVisibilityClass;
 
 pub(crate) mod assign;
-mod extract;
-pub use extract::*;
+mod extract_and_prepare;
+pub use extract_and_prepare::*;
 
 #[cfg(test)]
 mod test;
