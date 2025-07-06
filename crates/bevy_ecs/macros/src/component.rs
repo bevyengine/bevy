@@ -248,7 +248,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 components.register_required_components_manual::<Self, #ident>(
                     required_components,
                     #constructor,
-                    recursion_check_stack
                 );
             });
         }
@@ -291,7 +290,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             fn register_required_components(
                 components: &mut #bevy_ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponents,
-                recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
             ) {
                 #(#register_required)*
             }
