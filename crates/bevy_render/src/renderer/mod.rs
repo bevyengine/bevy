@@ -7,7 +7,7 @@ use bevy_tasks::ComputeTaskPool;
 use bevy_utils::WgpuWrapper;
 pub use graph_runner::*;
 pub use render_device::*;
-use tracing::{debug, error, info, info_span, warn};
+use tracing::{debug, error, info, info_span, trace, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
@@ -151,13 +151,41 @@ pub async fn initialize_renderer(
     instance: Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_, '_>,
+    desired_adapter_name: Option<String>,
     #[cfg(feature = "dlss")] dlss_project_id: bevy_asset::uuid::Uuid,
 ) -> RenderResources {
-    let adapter = instance
-        .request_adapter(request_adapter_options)
-        .await
-        .expect(GPU_NOT_FOUND_ERROR_MESSAGE);
+    let mut selected_adapter = None;
+    if let Some(adapter_name) = &desired_adapter_name {
+        debug!("Searching for adapter with name: {}", adapter_name);
+        for adapter in instance.enumerate_adapters(options.backends.expect(
+            "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
+        )) {
+            trace!("Checking adapter: {:?}", adapter.get_info());
+            let info = adapter.get_info();
+            if let Some(surface) = request_adapter_options.compatible_surface {
+                if !adapter.is_surface_supported(surface) {
+                    continue;
+                }
+            }
 
+            if info
+                .name
+                .to_lowercase()
+                .contains(&adapter_name.to_lowercase())
+            {
+                selected_adapter = Some(adapter);
+                break;
+            }
+        }
+    } else {
+        debug!(
+            "Searching for adapter with options: {:?}",
+            request_adapter_options
+        );
+        selected_adapter = instance.request_adapter(request_adapter_options).await.ok();
+    };
+
+    let adapter = selected_adapter.expect(GPU_NOT_FOUND_ERROR_MESSAGE);
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
 

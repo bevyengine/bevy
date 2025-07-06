@@ -289,9 +289,9 @@ impl Observer {
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
     /// # Safety
-    /// The type of the `event` [`ComponentId`] _must_ match the actual value
+    /// The type of the `event` [`EventKey`] _must_ match the actual value
     /// of the event passed into the observer system.
-    pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
+    pub unsafe fn with_event(mut self, event: EventKey) -> Self {
         self.descriptor.events.push(event);
         self
     }
@@ -350,7 +350,7 @@ impl Component for Observer {
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
     /// The events the observer is watching.
-    pub(super) events: Vec<ComponentId>,
+    pub(super) events: Vec<EventKey>,
 
     /// The components the observer is watching.
     pub(super) components: Vec<ComponentId>,
@@ -362,9 +362,9 @@ pub struct ObserverDescriptor {
 impl ObserverDescriptor {
     /// Add the given `events` to the descriptor.
     /// # Safety
-    /// The type of each [`ComponentId`] in `events` _must_ match the actual value
+    /// The type of each [`EventKey`] in `events` _must_ match the actual value
     /// of the event passed into the observer.
-    pub unsafe fn with_events(mut self, events: Vec<ComponentId>) -> Self {
+    pub unsafe fn with_events(mut self, events: Vec<EventKey>) -> Self {
         self.events = events;
         self
     }
@@ -382,7 +382,7 @@ impl ObserverDescriptor {
     }
 
     /// Returns the `events` that the observer is watching.
-    pub fn events(&self) -> &[ComponentId] {
+    pub fn events(&self) -> &[EventKey] {
         &self.events
     }
 
@@ -410,13 +410,13 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     HookContext { entity, .. }: HookContext,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_id = E::register_component_id(world);
+        let event_key = E::register_event_key(world);
         let mut components = alloc::vec![];
         B::component_ids(&mut world.components_registrator(), &mut |id| {
             components.push(id);
         });
         if let Some(mut observer) = world.get_mut::<Observer>(entity) {
-            observer.descriptor.events.push(event_id);
+            observer.descriptor.events.push(event_key);
             observer.descriptor.components.extend(components);
 
             let system: &mut dyn Any = observer.system.as_mut();

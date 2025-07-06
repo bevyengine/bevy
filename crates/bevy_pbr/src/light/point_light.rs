@@ -1,6 +1,16 @@
-use bevy_render::view::{self, Visibility};
+use bevy_asset::Handle;
+use bevy_camera::{
+    primitives::{CubeMapFace, CubemapFrusta, CubemapLayout, Frustum, CUBE_MAP_FACES},
+    visibility::{self, CubemapVisibleEntities, Visibility, VisibilityClass},
+};
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_image::Image;
+use bevy_math::Mat4;
+use bevy_reflect::prelude::*;
+use bevy_transform::components::{GlobalTransform, Transform};
 
-use super::*;
+use crate::cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects};
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -34,7 +44,7 @@ use super::*;
     Visibility,
     VisibilityClass
 )]
-#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct PointLight {
     /// The color of this light source.
     pub color: Color,
@@ -74,6 +84,8 @@ pub struct PointLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    ///
+    /// [`ShadowFilteringMethod::Temporal`]: crate::ShadowFilteringMethod::Temporal
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
 
@@ -135,4 +147,99 @@ impl PointLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.08;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
     pub const DEFAULT_SHADOW_MAP_NEAR_Z: f32 = 0.1;
+}
+
+/// Add to a [`PointLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(PointLight)]
+pub struct PointLightTexture {
+    /// The texture image. Only the R channel is read.
+    pub image: Handle<Image>,
+    /// The cubemap layout. The image should be a packed cubemap in one of the formats described by the [`CubemapLayout`] enum.
+    pub cubemap_layout: CubemapLayout,
+}
+
+/// Controls the resolution of [`PointLight`] shadow maps.
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::PointLightShadowMap;
+/// App::new()
+///     .insert_resource(PointLightShadowMap { size: 2048 });
+/// ```
+#[derive(Resource, Clone, Debug, Reflect)]
+#[reflect(Resource, Debug, Default, Clone)]
+pub struct PointLightShadowMap {
+    /// The width and height of each of the 6 faces of the cubemap.
+    ///
+    /// Defaults to `1024`.
+    pub size: usize,
+}
+
+impl Default for PointLightShadowMap {
+    fn default() -> Self {
+        Self { size: 1024 }
+    }
+}
+
+// NOTE: Run this after assign_lights_to_clusters!
+pub fn update_point_light_frusta(
+    global_lights: Res<GlobalVisibleClusterableObjects>,
+    mut views: Query<(Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta)>,
+    changed_lights: Query<
+        Entity,
+        (
+            With<PointLight>,
+            Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
+        ),
+    >,
+) {
+    let view_rotations = CUBE_MAP_FACES
+        .iter()
+        .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
+        .collect::<Vec<_>>();
+
+    for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
+        // If this light hasn't changed, and neither has the set of global_lights,
+        // then we can skip this calculation.
+        if !global_lights.is_changed() && !changed_lights.contains(entity) {
+            continue;
+        }
+
+        // The frusta are used for culling meshes to the light for shadow mapping
+        // so if shadow mapping is disabled for this light, then the frusta are
+        // not needed.
+        // Also, if the light is not relevant for any cluster, it will not be in the
+        // global lights set and so there is no need to update its frusta.
+        if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+            continue;
+        }
+
+        let clip_from_view = Mat4::perspective_infinite_reverse_rh(
+            core::f32::consts::FRAC_PI_2,
+            1.0,
+            point_light.shadow_map_near_z,
+        );
+
+        // ignore scale because we don't want to effectively scale light radius and range
+        // by applying those as a view transform to shadow map rendering of objects
+        // and ignore rotation because we want the shadow map projections to align with the axes
+        let view_translation = Transform::from_translation(transform.translation());
+        let view_backward = transform.back();
+
+        for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
+            let world_from_view = view_translation * *view_rotation;
+            let clip_from_world = clip_from_view * world_from_view.to_matrix().inverse();
+
+            *frustum = Frustum::from_clip_from_world_custom_far(
+                &clip_from_world,
+                &transform.translation(),
+                &view_backward,
+                point_light.range,
+            );
+        }
+    }
 }

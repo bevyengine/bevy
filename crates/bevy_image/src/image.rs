@@ -1558,11 +1558,11 @@ pub enum DataFormat {
 pub enum TranscodeFormat {
     Etc1s,
     Uastc(DataFormat),
-    // Has to be transcoded to R8Unorm for use with `wgpu`.
+    /// Has to be transcoded from `R8UnormSrgb` to `R8Unorm` for use with `wgpu`.
     R8UnormSrgb,
-    // Has to be transcoded to R8G8Unorm for use with `wgpu`.
+    /// Has to be transcoded from `Rg8UnormSrgb` to `R8G8Unorm` for use with `wgpu`.
     Rg8UnormSrgb,
-    // Has to be transcoded to Rgba8 for use with `wgpu`.
+    /// Has to be transcoded from `Rgb8` to `Rgba8` for use with `wgpu`.
     Rgb8,
 }
 
