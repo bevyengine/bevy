@@ -39,6 +39,7 @@ pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
 pub mod render_asset;
+pub mod render_event;
 pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
