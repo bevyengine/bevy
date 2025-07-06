@@ -288,7 +288,6 @@ unsafe impl<C: Component> Bundle for C {
             component_id,
             components,
             required_components,
-            0,
             &mut Vec::new(),
         );
     }

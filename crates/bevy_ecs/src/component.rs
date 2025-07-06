@@ -541,7 +541,6 @@ pub trait Component: Send + Sync + 'static {
         _component_id: ComponentId,
         _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
-        _inheritance_depth: u16,
         _recursion_check_stack: &mut Vec<ComponentId>,
     ) {
     }
@@ -1608,13 +1607,7 @@ impl<'w> ComponentsRegistrator<'w> {
         debug_assert!(prev.is_none());
 
         let mut required_components = RequiredComponents::default();
-        T::register_required_components(
-            id,
-            self,
-            &mut required_components,
-            0,
-            recursion_check_stack,
-        );
+        T::register_required_components(id, self, &mut required_components, recursion_check_stack);
         // SAFETY: we just inserted it in `register_component_inner`
         let info = unsafe {
             &mut self
@@ -1661,10 +1654,6 @@ impl<'w> ComponentsRegistrator<'w> {
     /// Registers the given component `R` and [required components] inherited from it as required by `T`,
     /// and adds `T` to their lists of requirees.
     ///
-    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
-    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
-    /// Lower depths are more specific requirements, and can override existing less specific registrations.
-    ///
     /// The `recursion_check_stack` allows checking whether this component tried to register itself as its
     /// own (indirect) required component.
     ///
@@ -1679,7 +1668,6 @@ impl<'w> ComponentsRegistrator<'w> {
         &mut self,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
-        inheritance_depth: u16,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) {
         let requiree = self.register_component_checked::<T>(recursion_check_stack);
@@ -1696,7 +1684,6 @@ impl<'w> ComponentsRegistrator<'w> {
                 required,
                 required_components,
                 constructor,
-                inheritance_depth,
             );
         }
     }
@@ -2136,10 +2123,6 @@ impl Components {
     /// Registers the given component `R` and [required components] inherited from it as required by `T`,
     /// and adds `T` to their lists of requirees.
     ///
-    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
-    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
-    /// Lower depths are more specific requirements, and can override existing less specific registrations.
-    ///
     /// This method does *not* register any components as required by components that require `T`.
     ///
     /// [required component]: Component#required-components
@@ -2153,7 +2136,6 @@ impl Components {
         required: ComponentId,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
-        inheritance_depth: u16,
     ) {
         // Components cannot require themselves.
         if required == requiree {
@@ -2161,7 +2143,7 @@ impl Components {
         }
 
         // Register the required component `R` for the requiree.
-        required_components.register_by_id(required, constructor, inheritance_depth);
+        required_components.register_by_id(required, constructor, 0);
 
         // Add the requiree to the list of components that require `R`.
         // SAFETY: The caller ensures that the component ID is valid.
