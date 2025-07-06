@@ -102,7 +102,7 @@ wgpu = { version = "25", default-features = false, features = [
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "25", features = ["wgsl-in"] }
-dlss_wgpu = { path = "../../../dlss_wgpu", optional = true }
+dlss_wgpu = { git = "https://github.com/JMS55/dlss_wgpu", optional = true }
 serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
