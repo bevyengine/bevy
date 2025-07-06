@@ -236,7 +236,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .push(parse_quote! { Self: Send + Sync + 'static });
 
     let requires = &attrs.requires;
-    let mut register_required = Vec::with_capacity(attrs.requires.iter().len());
+    let mut register_required = Vec::with_capacity(requires.as_ref().map_or(0, Punctuated::len));
     if let Some(requires) = requires {
         for require in requires {
             let ident = &require.path;
