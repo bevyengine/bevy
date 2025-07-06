@@ -11,7 +11,8 @@ use serde_json::Value;
 
 use crate::schemas::{
     reflect_info::{
-        is_non_zero_number_type, SchemaNumber, TypeInformation, TypeReferenceId, TypeReferencePath,
+        is_non_zero_number_type, SchemaNumber, TypeDefinitionBuilder, TypeReferenceId,
+        TypeReferencePath,
     },
     SchemaTypesMetadata,
 };
@@ -42,25 +43,7 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         type_id: TypeId,
         extra_info: &SchemaTypesMetadata,
     ) -> Option<JsonSchemaBevyType> {
-        let type_reg = self.get(type_id)?;
-
-        let mut definition = TypeInformation::from(type_reg)
-            .to_schema_type_info_with_metadata(extra_info)
-            .to_definition();
-        for dependency in &definition.dependencies {
-            let reg_option = self.get(*dependency);
-            if let Some(reg) = reg_option {
-                let missing_schema =
-                    TypeInformation::from(reg).to_schema_type_info_with_metadata(extra_info);
-                let mis_def = missing_schema.to_definition();
-                definition.definitions.extend(mis_def.definitions);
-                if let Some(missing_id) = mis_def.id {
-                    definition.definitions.insert(missing_id, missing_schema);
-                }
-            }
-        }
-        let mut schema: JsonSchemaBevyType = definition.into();
-        schema.reflect_type_data = extra_info.get_registered_reflect_types(type_reg);
+        let mut schema = self.build_schema_for_type_id_with_definitions(type_id, extra_info)?;
         schema.schema = Some(SchemaMarker.into());
         schema.default_value = self.try_get_default_value_for_type_id(type_id);
 

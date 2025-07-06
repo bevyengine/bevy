@@ -1822,9 +1822,6 @@ mod tests {
         input: BrpJsonSchemaQueryFilter,
         world: &World,
     ) -> JsonSchemaBevyType {
-        let response =
-            export_registry_types_typed(input, world).expect("Failed to export registry types");
-
-        response
+        export_registry_types_typed(input, world).expect("Failed to export registry types")
     }
 }
