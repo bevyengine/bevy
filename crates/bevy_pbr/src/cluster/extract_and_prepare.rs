@@ -46,6 +46,8 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
     GlobalClusterSettings {
         supports_storage_buffers,
         clustered_decals_are_usable,
+        max_uniform_buffer_clusterable_objects: MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
+        view_cluster_bindings_max_indices: ViewClusterBindings::MAX_INDICES,
     }
 }
 
