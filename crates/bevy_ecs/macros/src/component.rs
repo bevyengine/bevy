@@ -240,28 +240,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     if let Some(requires) = requires {
         for require in requires {
             let ident = &require.path;
-            match &require.func {
-                Some(func) => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            || { let x: #ident = (#func)().into(); x },
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
-                None => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            <#ident as Default>::default,
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
-            }
+            let constructor = match &require.func {
+                Some(func) => quote!(|| { let x: #ident = (#func)().into(); x }),
+                None => quote!(<#ident as Default>::default),
+            };
+            register_required.push(quote! {
+                components.register_required_components_manual::<Self, #ident>(
+                    required_components,
+                    #constructor,
+                    inheritance_depth,
+                    recursion_check_stack
+                );
+            });
         }
     }
     let struct_name = &ast.ident;
