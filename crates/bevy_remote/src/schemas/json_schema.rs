@@ -47,17 +47,15 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         let mut definition = TypeInformation::from(type_reg)
             .to_schema_type_info_with_metadata(extra_info)
             .to_definition();
-        for missing in &definition.missing_definitions {
-            let reg_option = self.get(*missing);
+        for dependency in &definition.dependencies {
+            let reg_option = self.get(*dependency);
             if let Some(reg) = reg_option {
                 let missing_schema =
                     TypeInformation::from(reg).to_schema_type_info_with_metadata(extra_info);
                 let mis_def = missing_schema.to_definition();
                 definition.definitions.extend(mis_def.definitions);
                 if let Some(missing_id) = mis_def.id {
-                    if !definition.definitions.contains_key(&missing_id) {
-                        definition.definitions.insert(missing_id, missing_schema);
-                    }
+                    definition.definitions.insert(missing_id, missing_schema);
                 }
             }
         }

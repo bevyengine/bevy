@@ -27,9 +27,9 @@ use serde_json::{Map, Value};
 use crate::{
     error_codes,
     schemas::{
-        json_schema::{JsonSchemaBevyType, SchemaMarker, TypeRegistrySchemaReader},
+        json_schema::{JsonSchemaBevyType, SchemaMarker},
         open_rpc::OpenRpcDocument,
-        reflect_info::TypeInformation,
+        reflect_info::TypeDefinitionBuilder,
     },
     BrpError, BrpResult,
 };
@@ -367,9 +367,11 @@ pub struct BrpJsonSchemaQueryFilter {
 impl BrpJsonSchemaQueryFilter {
     /// Check if the filter should skip a type registration based on the crate name.
     pub fn should_skip_for_crate(&self, type_registration: &TypeRegistration) -> bool {
-        let Some(crate_name) = type_registration.type_info().type_path_table().crate_name() else {
-            return false;
-        };
+        let crate_name = type_registration
+            .type_info()
+            .type_path_table()
+            .crate_name()
+            .unwrap_or_default();
         if !self.with_crates.is_empty() && !self.with_crates.iter().any(|c| crate_name.eq(c)) {
             return true;
         }
@@ -1393,7 +1395,7 @@ fn export_registry_types_typed(
     filter: BrpJsonSchemaQueryFilter,
     world: &World,
 ) -> Result<JsonSchemaBevyType, BrpError> {
-    let extra_info = world.resource::<crate::schemas::SchemaTypesMetadata>();
+    let metadata = world.resource::<crate::schemas::SchemaTypesMetadata>();
     let types = world.resource::<AppTypeRegistry>();
     let types = types.read();
     let mut schema = JsonSchemaBevyType {
@@ -1403,14 +1405,14 @@ fn export_registry_types_typed(
         ),
         ..Default::default()
     };
-    schema.definitions = types
+    let definitions: Vec<TypeId> = types
         .iter()
         .filter_map(|type_reg| {
             if filter.should_skip_for_crate(type_reg) {
                 return None;
             }
             if !filter.type_limit.is_empty() {
-                let registered_types = extra_info.get_registered_reflect_types(type_reg);
+                let registered_types = metadata.get_registered_reflect_types(type_reg);
                 if filter
                     .type_limit
                     .should_skip_type(registered_types.as_slice())
@@ -1418,22 +1420,22 @@ fn export_registry_types_typed(
                     return None;
                 }
             }
-            let id = type_reg.type_id();
-            let schema_type_info = TypeInformation::TypeRegistration(type_reg.clone())
-                .to_schema_type_info_with_metadata(extra_info);
-            let schema_id = schema_type_info.ty_info.try_get_type_reference_id()?;
-            let mut definition = schema_type_info.to_definition();
-            definition.schema.default_value = types.try_get_default_value_for_type_id(id);
-            definition.schema.schema = None;
-            let mut definitions = vec![(schema_id, Box::new(definition.schema))];
-            let extra_defs = definition.definitions.iter().map(|(id, definition)| {
-                let def = definition.to_definition();
-                (id.clone(), Box::new(def.schema))
-            });
-            definitions.extend(extra_defs);
-            Some(definitions)
+            let type_id = type_reg.type_id();
+            let mut dep_ids = types.get_type_dependencies(type_id);
+            dep_ids.insert(type_id);
+            Some(dep_ids)
         })
         .flatten()
+        .collect();
+    schema.definitions = definitions
+        .into_iter()
+        .flat_map(|id| {
+            let result = types.build_schema_for_type_id(id, metadata);
+            let Some((Some(schema_id), schema)) = result else {
+                return None;
+            };
+            Some((schema_id, Box::new(schema)))
+        })
         .collect();
     Ok(schema)
 }
@@ -1678,12 +1680,11 @@ mod tests {
     }
 
     use bevy_ecs::component::Component;
+    #[cfg(feature = "bevy_math")]
     use bevy_math::Vec3;
     use bevy_reflect::Reflect;
 
-    use crate::schemas::{
-        reflect_info::TypeReferenceId, ReflectJsonSchemaForceAsArray, SchemaTypesMetadata,
-    };
+    use crate::schemas::{reflect_info::TypeReferenceId, SchemaTypesMetadata};
 
     use super::*;
 
@@ -1710,11 +1711,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "bevy_math")]
     fn export_schema_test() {
         #[derive(Reflect, Default, Deserialize, Serialize)]
         pub struct OtherStruct {
             /// FIELD DOC
             pub field: String,
+            pub second_field: Option<(u8, u8)>,
         }
         /// STRUCT DOC
         #[derive(Reflect, Default, Deserialize, Serialize)]
@@ -1742,6 +1745,8 @@ mod tests {
         let mut world = World::new();
         let atr = AppTypeRegistry::default();
         {
+            use crate::schemas::ReflectJsonSchemaForceAsArray;
+
             let mut register = atr.write();
             register.register::<NestedStruct>();
             register.register::<Vec3>();
@@ -1750,21 +1755,32 @@ mod tests {
         world.insert_resource(atr);
         world.insert_resource(SchemaTypesMetadata::default());
         let response = export_registry_types_ext(BrpJsonSchemaQueryFilter::default(), &world);
-
+        let schema_value = serde_json::to_value(&response).unwrap();
+        _ = jsonschema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .build(&schema_value)
+            .expect("Failed to validate json schema");
         assert_eq!(
             response.definitions.len(),
-            5,
-            "Expected 5 definitions, got: {:#?}",
-            response.definitions.keys()
+            6,
+            "Expected 6 definitions, got: {}: {}",
+            response.definitions.keys().len(),
+            serde_json::to_string_pretty(&response).unwrap_or_default()
         );
         let response = export_registry_types_ext(
             BrpJsonSchemaQueryFilter {
-                without_crates: vec!["bevy_remote".to_string()],
+                with_crates: vec!["glam".to_string()],
                 ..Default::default()
             },
             &world,
         );
-        assert_eq!(response.definitions.len(), 1);
+        assert_eq!(
+            response.definitions.len(),
+            1,
+            "Expected 1 definition, got: {}: {:?}",
+            response.definitions.keys().len(),
+            response.definitions.keys()
+        );
         {
             let first = response.definitions.iter().next().expect("Should have one");
             assert_eq!(first.0, &TypeReferenceId::from("glam-Vec3"));
@@ -1776,7 +1792,13 @@ mod tests {
             },
             &world,
         );
-        assert_eq!(response.definitions.len(), 4);
+        assert_eq!(
+            response.definitions.len(),
+            5,
+            "Expected 5 definitions, got: {}: {:?}",
+            response.definitions.len(),
+            response.definitions.keys()
+        );
         let response = export_registry_types_ext(
             BrpJsonSchemaQueryFilter {
                 type_limit: JsonSchemaTypeLimit {
@@ -1787,7 +1809,13 @@ mod tests {
             },
             &world,
         );
-        assert_eq!(response.definitions.len(), 4);
+        assert_eq!(
+            response.definitions.len(),
+            5,
+            "Expected 5 definitions, got: {}: {:?}",
+            response.definitions.len(),
+            response.definitions.keys()
+        );
     }
 
     fn export_registry_types_ext(

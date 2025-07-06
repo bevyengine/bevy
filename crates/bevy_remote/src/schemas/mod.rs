@@ -43,7 +43,7 @@ pub(crate) trait RegisterReflectJsonSchemas {
     fn register_schema_base_types(&mut self) {
         #[cfg(feature = "bevy_math")]
         {
-            // self.register_type_data_internal::<bevy_math::Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::Vec2, ReflectJsonSchemaForceAsArray>();
             self.register_type_data_internal::<bevy_math::Vec3, ReflectJsonSchemaForceAsArray>();
         }
         self.register_type_internal::<OpenRpcDocument>();
@@ -65,7 +65,9 @@ impl RegisterReflectJsonSchemas for bevy_reflect::TypeRegistry {
         T: Reflect + bevy_reflect::TypePath,
         D: TypeData + FromType<T>,
     {
-        self.register_type_data::<T, D>();
+        if self.contains(TypeId::of::<T>()) {
+            self.register_type_data::<T, D>();
+        }
     }
 
     fn register_type_internal<T>(&mut self)
