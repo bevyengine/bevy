@@ -150,8 +150,8 @@ fn oklab_to_linear_rgba(c: vec4<f32>) -> vec4<f32> {
 }
 
 fn linear_rgb_to_hsl(c: vec4<f32>) -> vec4<f32> {
-    let maxc = max(max(c.r, c.g), b);
-    let minc = min(min(c.r, c.g), b);
+    let maxc = max(max(c.r, c.g), c.b);
+    let minc = min(min(c.r, c.g), c.b);
     let delta = maxc - minc;
     let l = (maxc + minc) * 0.5;
     var h: f32 = 0.0;
@@ -160,7 +160,7 @@ fn linear_rgb_to_hsl(c: vec4<f32>) -> vec4<f32> {
         s = delta / (1.0 - abs(2.0 * l - 1.0));
         if maxc == c.r {
             h = ((c.g - c.b) / delta) % 6.0;
-        } else if maxc == g {
+        } else if maxc == c.g {
             h = ((c.b - c.r) / delta) + 2.0;
         } else {
             h = ((c.r - c.g) / delta) + 4.0;
@@ -209,7 +209,7 @@ fn linear_rgba_to_hsva(c: vec4<f32>) -> vec4<f32> {
     let v: f32 = maxc;
     if delta != 0.0 {
         s = delta / maxc;
-        if maxc == r {
+        if maxc == c.r {
             h = ((c.g - c.b) / delta) % 6.0;
         } else if maxc == c.g {
             h = ((c.b - c.r) / delta) + 2.0;
