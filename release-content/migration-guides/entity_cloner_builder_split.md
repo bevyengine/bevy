@@ -65,8 +65,8 @@ All other methods `EntityClonerBuilder` had in 0.16 are still available for both
 ## Unified id filtering
 
 Previously `EntityClonerBuilder` supported filtering by 2 types of ids: `ComponentId` and `TypeId`, the functions taking in `IntoIterator` for them.
-Since now `EntityClonerBuilder` supports filtering by `BundleId` as well, the number of method variations became a bit too unwieldy.
-To make this functionality a bit easier to manage, all id filtering methods were unified into generic `deny_by_ids/allow_by_ids(_if_new)` methods, which allow to filter components by
+Since now `EntityClonerBuilder` supports filtering by `BundleId` as well, the number of method variations would become a bit too unwieldy.
+Instead, all id filtering methods were unified into generic `deny_by_ids/allow_by_ids(_if_new)` methods, which allow to filter components by
 `TypeId`, `ComponentId`, `BundleId` and their `IntoIterator` variations.
 
 ## Other affected APIs
