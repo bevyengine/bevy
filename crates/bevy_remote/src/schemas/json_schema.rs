@@ -3,7 +3,8 @@
 use alloc::borrow::Cow;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
-    prelude::ReflectDefault, serde::ReflectSerializer, GetTypeRegistration, Reflect, TypeRegistry,
+    prelude::ReflectDefault, serde::ReflectSerializer, GetTypeRegistration, Reflect, TypeInfo,
+    TypeRegistration, TypeRegistry,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
@@ -293,6 +294,36 @@ pub enum SchemaKind {
     Opaque,
     /// Optional type
     Optional,
+}
+
+impl SchemaKind {
+    /// Creates a [`SchemaKind`] from a [`TypeRegistration`].
+    pub fn from_type_reg(type_reg: &TypeRegistration) -> Self {
+        match type_reg.type_info() {
+            TypeInfo::Struct(_) => SchemaKind::Struct,
+            TypeInfo::TupleStruct(_) => SchemaKind::TupleStruct,
+            TypeInfo::Tuple(_) => SchemaKind::Tuple,
+            TypeInfo::List(_) => SchemaKind::List,
+            TypeInfo::Array(_) => SchemaKind::Array,
+            TypeInfo::Map(_) => SchemaKind::Map,
+            TypeInfo::Set(_) => SchemaKind::Set,
+            TypeInfo::Opaque(o) => {
+                let schema_type: SchemaType = o.ty().id().into();
+                match schema_type {
+                    SchemaType::Object => SchemaKind::Struct,
+                    SchemaType::Array => SchemaKind::Array,
+                    _ => SchemaKind::Value,
+                }
+            }
+            TypeInfo::Enum(enum_info) => {
+                if super::reflect_info::try_get_optional_from_info(enum_info).is_some() {
+                    SchemaKind::Optional
+                } else {
+                    SchemaKind::Enum
+                }
+            }
+        }
+    }
 }
 /// Represents the possible type variants for a JSON Schema.
 ///
