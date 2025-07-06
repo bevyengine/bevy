@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_reflect::{prelude::ReflectDefault, reflect_remote, Reflect};
 use bevy_render::{
     camera::{MipBias, TemporalJitter},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
     view::{prepare_view_targets, prepare_view_uniforms, Hdr},
     ExtractSchedule, Render, RenderApp, RenderSystems,

@@ -3,6 +3,7 @@ pub mod window;
 
 use bevy_camera::{
     primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
+    MainPassResolutionOverride,
 };
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;

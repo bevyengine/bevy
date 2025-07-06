@@ -43,7 +43,6 @@ type TaaComponents = (
     TemporalAntiAliasing,
     TemporalJitter,
     MipBias,
-    MipBias,
     DepthPrepass,
     MotionVectorPrepass,
 );
