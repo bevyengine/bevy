@@ -114,7 +114,7 @@ profiling = { version = "1", features = [
 ], optional = true }
 async-channel = "2.3.0"
 nonmax = "0.5"
-smallvec = { version = "1.11", features = ["const_new"] }
+smallvec = { version = "1", default-features = false, features = ["const_new"] }
 offset-allocator = "0.2"
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }

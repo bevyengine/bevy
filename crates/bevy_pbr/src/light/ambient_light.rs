@@ -1,8 +1,12 @@
-use super::*;
+use bevy_camera::Camera;
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_reflect::prelude::*;
+use bevy_render::{extract_component::ExtractComponent, extract_resource::ExtractResource};
 
 /// An ambient light, which lights the entire scene equally.
 ///
-/// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
+/// This resource is inserted by the [`LightPlugin`] and by default it is set to a low ambient light.
 ///
 /// It can also be added to a camera to override the resource (or default) ambient for that camera only.
 ///
@@ -17,6 +21,8 @@ use super::*;
 ///    ambient_light.brightness = 100.0;
 /// }
 /// ```
+///
+/// [`LightPlugin`]: crate::LightPlugin
 #[derive(Resource, Component, Clone, Debug, ExtractResource, ExtractComponent, Reflect)]
 #[reflect(Resource, Component, Debug, Default, Clone)]
 #[require(Camera)]

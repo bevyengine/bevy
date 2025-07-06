@@ -27,6 +27,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
@@ -42,7 +43,7 @@ serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
-smallvec = "1"
+smallvec = { version = "1", default-features = false }
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 bytemuck = { version = "1" }
