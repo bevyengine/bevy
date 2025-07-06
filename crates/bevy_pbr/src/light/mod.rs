@@ -16,23 +16,24 @@ use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
 use core::ops::DerefMut;
 
-pub use crate::light::spot_light::{spot_light_clip_from_view, spot_light_world_from_view};
-use crate::{
-    add_clusters, assign_objects_to_clusters,
-    cascade::{build_directional_light_cascades, clear_directional_light_cascades},
-    CascadeShadowConfig, Cascades, VisibleClusterableObjects,
-};
+use crate::cluster::{add_clusters, assign_objects_to_clusters, VisibleClusterableObjects};
 
 mod ambient_light;
 pub use ambient_light::AmbientLight;
-
 pub mod cascade;
+use cascade::{
+    build_directional_light_cascades, clear_directional_light_cascades, CascadeShadowConfig,
+    Cascades,
+};
 mod point_light;
 pub use point_light::{
     update_point_light_frusta, PointLight, PointLightShadowMap, PointLightTexture,
 };
 mod spot_light;
-pub use spot_light::{update_spot_light_frusta, SpotLight, SpotLightTexture};
+pub use spot_light::{
+    spot_light_clip_from_view, spot_light_world_from_view, update_spot_light_frusta, SpotLight,
+    SpotLightTexture,
+};
 mod directional_light;
 pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
@@ -242,11 +243,6 @@ pub enum ShadowFilteringMethod {
     /// [method by Jorge Jimenez for *Call of Duty: Advanced Warfare*]: https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
     Temporal,
 }
-
-/// The [`VisibilityClass`] used for all lights (point, directional, and spot).
-///
-/// [`VisibilityClass`]: bevy_camera::visibility::VisibilityClass
-pub struct LightVisibilityClass;
 
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]

@@ -22,7 +22,6 @@ use bevy_transform::components::Transform;
 use tracing::warn;
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
-use crate::LightVisibilityClass;
 
 pub(crate) mod assign;
 mod extract_and_prepare;
@@ -115,6 +114,11 @@ pub struct Clusters {
     pub(crate) clusterable_objects: Vec<VisibleClusterableObjects>,
 }
 
+/// The [`VisibilityClass`] used for clusterables (decals, point lights, directional lights, and spot lights).
+///
+/// [`VisibilityClass`]: bevy_camera::visibility::VisibilityClass
+pub struct ClusterVisibilityClass;
+
 #[derive(Clone, Component, Debug, Default)]
 pub struct VisibleClusterableObjects {
     pub(crate) entities: Vec<Entity>,
@@ -157,7 +161,7 @@ struct ClusterableObjectCounts {
 #[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
 #[reflect(Component, Debug, Clone)]
 #[require(Transform, Visibility, VisibilityClass)]
-#[component(on_add = visibility::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct ClusteredDecal {
     /// The image that the clustered decal projects.
     ///

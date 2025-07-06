@@ -13,7 +13,8 @@ use bevy_render::{
 };
 use tracing::warn;
 
-use crate::{cluster::ClusterableObjectCounts, Clusters, GlobalClusterSettings, MeshPipeline};
+use super::{ClusterableObjectCounts, Clusters, GlobalClusterSettings};
+use crate::MeshPipeline;
 
 // NOTE: this must be kept in sync with the same constants in
 // `mesh_view_types.wgsl`.
