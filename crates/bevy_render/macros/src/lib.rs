@@ -4,6 +4,7 @@
 mod as_bind_group;
 mod extract_component;
 mod extract_resource;
+mod specializer;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
@@ -12,6 +13,10 @@ use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_render")
+}
+
+pub(crate) fn bevy_ecs_path() -> syn::Path {
+    BevyManifest::shared().get_path("bevy_ecs")
 }
 
 #[proc_macro_derive(ExtractResource)]
@@ -100,6 +105,20 @@ pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
         .segments
         .push(format_ident!("RenderSubGraph").into());
     derive_label(input, "RenderSubGraph", &trait_path)
+}
+
+/// Derive macro generating an impl of the trait `Specializer`
+///
+/// This only works for structs whose members all implement `Specializer`
+#[proc_macro_derive(Specializer, attributes(specialize, key, base_descriptor))]
+pub fn derive_specialize(input: TokenStream) -> TokenStream {
+    specializer::impl_specializer(input)
+}
+
+/// Derive macro generating the most common impl of the trait `SpecializerKey`
+#[proc_macro_derive(SpecializerKey)]
+pub fn derive_specializer_key(input: TokenStream) -> TokenStream {
+    specializer::impl_specializer_key(input)
 }
 
 #[proc_macro_derive(ShaderLabel)]

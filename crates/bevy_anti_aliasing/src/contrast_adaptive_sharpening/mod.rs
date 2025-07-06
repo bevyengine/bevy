@@ -1,5 +1,5 @@
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -11,15 +11,16 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     prelude::Camera,
-    render_graph::RenderGraphApp,
+    render_graph::RenderGraphExt,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_utils::default;
 
 mod node;
 
@@ -113,6 +114,7 @@ impl Plugin for CasPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<CasPipeline>>()
+            .add_systems(RenderStartup, init_cas_pipeline)
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare));
 
         {
@@ -150,13 +152,6 @@ impl Plugin for CasPlugin {
                 );
         }
     }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<CasPipeline>();
-    }
 }
 
 #[derive(Resource)]
@@ -167,34 +162,36 @@ pub struct CasPipeline {
     fragment_shader: Handle<Shader>,
 }
 
-impl FromWorld for CasPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        let render_device = render_world.resource::<RenderDevice>();
-        let texture_bind_group = render_device.create_bind_group_layout(
-            "sharpening_texture_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                    // CAS Settings
-                    uniform_buffer::<CasUniform>(true),
-                ),
+pub fn init_cas_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let texture_bind_group = render_device.create_bind_group_layout(
+        "sharpening_texture_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+                // CAS Settings
+                uniform_buffer::<CasUniform>(true),
             ),
-        );
+        ),
+    );
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        CasPipeline {
-            texture_bind_group,
-            sampler,
-            fullscreen_shader: render_world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(
-                render_world,
-                "robust_contrast_adaptive_sharpening.wgsl"
-            ),
-        }
-    }
+    commands.insert_resource(CasPipeline {
+        texture_bind_group,
+        sampler,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(
+            asset_server.as_ref(),
+            "robust_contrast_adaptive_sharpening.wgsl"
+        ),
+    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
@@ -218,18 +215,14 @@ impl SpecializedRenderPipeline for CasPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

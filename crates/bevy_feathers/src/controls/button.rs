@@ -1,5 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::CoreButton;
+use bevy_core_widgets::{Callback, CoreButton};
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
@@ -9,7 +9,7 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or},
     schedule::IntoScheduleConfigs,
     spawn::{SpawnRelated, SpawnableList},
-    system::{Commands, Query, SystemId},
+    system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
@@ -38,14 +38,14 @@ pub enum ButtonVariant {
 }
 
 /// Parameters for the button template, passed to [`button`] function.
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct ButtonProps {
     /// Color variant for the button.
     pub variant: ButtonVariant,
     /// Rounded corners options
     pub corners: RoundedCorners,
     /// Click handler
-    pub on_click: Option<SystemId>,
+    pub on_click: Callback,
 }
 
 /// Template function to spawn a button.
@@ -69,7 +69,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             ..Default::default()
         },
         CoreButton {
-            on_click: props.on_click,
+            on_activate: props.on_click,
         },
         props.variant,
         Hovered::default(),

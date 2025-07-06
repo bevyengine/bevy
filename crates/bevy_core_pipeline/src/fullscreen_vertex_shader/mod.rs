@@ -33,7 +33,7 @@ impl FullscreenShader {
         VertexState {
             shader: self.0.clone(),
             shader_defs: Vec::new(),
-            entry_point: "fullscreen_vertex_shader".into(),
+            entry_point: Some("fullscreen_vertex_shader".into()),
             buffers: Vec::new(),
         }
     }

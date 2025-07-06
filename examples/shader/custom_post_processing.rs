@@ -19,7 +19,7 @@ use bevy::{
             UniformComponentPlugin,
         },
         render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+            NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
         },
         render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
@@ -27,7 +27,7 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice},
         view::ViewTarget,
-        RenderApp,
+        RenderApp, RenderStartup,
     },
 };
 
@@ -66,6 +66,10 @@ impl Plugin for PostProcessPlugin {
             return;
         };
 
+        // RenderStartup runs once on startup after all plugins are built
+        // It is useful to initialize data that will only live in the RenderApp
+        render_app.add_systems(RenderStartup, setup_pipeline);
+
         render_app
             // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
             // It currently runs on each view/camera and executes each node in the specified order.
@@ -96,17 +100,6 @@ impl Plugin for PostProcessPlugin {
                     Node3d::EndMainPassPostProcessing,
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        // We need to get the render app from the main app
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app
-            // Initialize the pipeline
-            .init_resource::<PostProcessPipeline>();
     }
 }
 
@@ -233,69 +226,60 @@ struct PostProcessPipeline {
     pipeline_id: CachedRenderPipelineId,
 }
 
-impl FromWorld for PostProcessPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // We need to define the bind group layout used for our pipeline
-        let layout = render_device.create_bind_group_layout(
-            "post_process_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                // The layout entries will only be visible in the fragment stage
-                ShaderStages::FRAGMENT,
-                (
-                    // The screen texture
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // The sampler that will be used to sample the screen texture
-                    sampler(SamplerBindingType::Filtering),
-                    // The settings uniform that will control the effect
-                    uniform_buffer::<PostProcessSettings>(true),
-                ),
+fn setup_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+    fullscreen_shader: Res<FullscreenShader>,
+    pipeline_cache: Res<PipelineCache>,
+) {
+    // We need to define the bind group layout used for our pipeline
+    let layout = render_device.create_bind_group_layout(
+        "post_process_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            // The layout entries will only be visible in the fragment stage
+            ShaderStages::FRAGMENT,
+            (
+                // The screen texture
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // The sampler that will be used to sample the screen texture
+                sampler(SamplerBindingType::Filtering),
+                // The settings uniform that will control the effect
+                uniform_buffer::<PostProcessSettings>(true),
             ),
-        );
+        ),
+    );
+    // We can create the sampler here since it won't change at runtime and doesn't depend on the view
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        // We can create the sampler here since it won't change at runtime and doesn't depend on the view
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
-
-        // Get the shader handle
-        let shader = world.load_asset(SHADER_ASSET_PATH);
-        // This will setup a fullscreen triangle for the vertex state.
-        let vertex_state = world.resource::<FullscreenShader>().to_vertex_state();
-
-        let pipeline_id = world
-            .resource_mut::<PipelineCache>()
-            // This will add the pipeline to the cache and queue its creation
-            .queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("post_process_pipeline".into()),
-                layout: vec![layout.clone()],
-                vertex: vertex_state,
-                fragment: Some(FragmentState {
-                    shader,
-                    shader_defs: vec![],
-                    // Make sure this matches the entry point of your shader.
-                    // It can be anything as long as it matches here and in the shader.
-                    entry_point: "fragment".into(),
-                    targets: vec![Some(ColorTargetState {
-                        format: TextureFormat::bevy_default(),
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    })],
-                }),
-                // All of the following properties are not important for this effect so just use the default values.
-                // This struct doesn't have the Default trait implemented because not all fields can have a default value.
-                primitive: PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: MultisampleState::default(),
-                push_constant_ranges: vec![],
-                zero_initialize_workgroup_memory: false,
-            });
-
-        Self {
-            layout,
-            sampler,
-            pipeline_id,
-        }
-    }
+    // Get the shader handle
+    let shader = asset_server.load(SHADER_ASSET_PATH);
+    // This will setup a fullscreen triangle for the vertex state.
+    let vertex_state = fullscreen_shader.to_vertex_state();
+    let pipeline_id = pipeline_cache
+        // This will add the pipeline to the cache and queue its creation
+        .queue_render_pipeline(RenderPipelineDescriptor {
+            label: Some("post_process_pipeline".into()),
+            layout: vec![layout.clone()],
+            vertex: vertex_state,
+            fragment: Some(FragmentState {
+                shader,
+                // Make sure this matches the entry point of your shader.
+                // It can be anything as long as it matches here and in the shader.
+                targets: vec![Some(ColorTargetState {
+                    format: TextureFormat::bevy_default(),
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                })],
+                ..default()
+            }),
+            ..default()
+        });
+    commands.insert_resource(PostProcessPipeline {
+        layout,
+        sampler,
+        pipeline_id,
+    });
 }
 
 // This is the component that will get passed to the shader

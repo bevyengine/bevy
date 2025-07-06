@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.86.0"
+rust-version = "1.88.0"
 
 [workspace]
 resolver = "2"
@@ -151,6 +151,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_ui_render",
   "bevy_window",
   "bevy_winit",
   "custom_cursor",
@@ -278,6 +279,9 @@ bevy_ui = [
   "bevy_color",
   "bevy_anti_aliasing",
 ]
+
+# Provides rendering functionality for bevy_ui
+bevy_ui_render = ["bevy_internal/bevy_ui_render", "bevy_render", "bevy_ui"]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
@@ -486,6 +490,12 @@ shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
+
+# Enable support for Clustered Decals
+pbr_clustered_decals = ["bevy_internal/pbr_clustered_decals"]
+
+# Enable support for Light Textures
+pbr_light_textures = ["bevy_internal/pbr_light_textures"]
 
 # Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_multi_layer_material_textures = [
@@ -2086,12 +2096,6 @@ doc-scrape-examples = true
 [package.metadata.example.ecs_guide]
 name = "ECS Guide"
 description = "Full guide to Bevy's ECS"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[package.metadata.example.apply_deferred]
-name = "Apply System Buffers"
-description = "Show how to use `ApplyDeferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -4423,10 +4427,23 @@ wasm = true
 name = "clustered_decals"
 path = "examples/3d/clustered_decals.rs"
 doc-scrape-examples = true
+required-features = ["pbr_clustered_decals"]
 
 [package.metadata.example.clustered_decals]
 name = "Clustered Decals"
 description = "Demonstrates clustered decals"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "light_textures"
+path = "examples/3d/light_textures.rs"
+doc-scrape-examples = true
+required-features = ["pbr_light_textures"]
+
+[package.metadata.example.light_textures]
+name = "Light Textures"
+description = "Demonstrates light textures"
 category = "3D Rendering"
 wasm = false
 
@@ -4530,6 +4547,17 @@ doc-scrape-examples = true
 [package.metadata.example.core_widgets_observers]
 name = "Core Widgets (w/Observers)"
 description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "scrollbars"
+path = "examples/ui/scrollbars.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scrollbars]
+name = "Scrollbars"
+description = "Demonstrates use of core scrollbar in Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 

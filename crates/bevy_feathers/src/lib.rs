@@ -67,6 +67,7 @@ impl Plugin for FeathersPlugin {
 
         app.add_systems(PostUpdate, theme::update_theme)
             .add_observer(theme::on_changed_background)
+            .add_observer(theme::on_changed_border)
             .add_observer(theme::on_changed_font_color)
             .add_observer(font_styles::on_changed_font);
     }

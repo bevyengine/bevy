@@ -112,13 +112,17 @@ derive_more = { version = "2", default-features = false, features = [
 ] }
 nonmax = { version = "0.5", default-features = false }
 arrayvec = { version = "0.7.4", default-features = false, optional = true }
-smallvec = { version = "1", features = ["union", "const_generics"] }
+smallvec = { version = "1", default-features = false, features = [
+  "union",
+  "const_generics",
+] }
 indexmap = { version = "2.5.0", default-features = false }
 variadics_please = { version = "1.1", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
 subsecond = { version = "0.7.0-alpha.1", optional = true }
+slotmap = { version = "1.0.7", default-features = false }
 
 concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
