@@ -20,9 +20,12 @@ To use DLSS in your app:
 * Insert the `DlssProjectId` resource before `DefaultPlugins` when setting up your app
 * Add the `Dlss` component to your camera entity, optionally setting a specific `DlssPerfQualityMode` (defaults to `Auto`)
 * Optionally add sharpening via `ContrastAdaptiveSharpening`
+* Custom rendering code, including third party crates, should account for the optional `MainPassResolutionOverride` to work with DLSS
+
+Note that DLSS integration is expected to have some bugs in this release related to certain rendering effects not respecting upscaling settings, and possible issues with transparencies or camera exposure. Please report any bugs encountered.
 
 Other temporal upscalers like AMD's FidelityFX™ Super Resolution (FSR), Intel's Xe Super Sampling XeSS (XeSS), and Apple's MTLFXTemporalScaler are not integrated in this release. However they all use similiar APIs, and would not be a challenge to integrate in future releases.
 
-Support for other swapchain-related features like frame interpolation/extrapolation or latency redunction are not currently planned, but support for DLSS Ray Reconstruction for use in Bevy Solari _is_ planned for a future release.
+Support for other swapchain-related features like frame interpolation/extrapolation, latency reduction, or dynamic resolution scaling are not currently planned, but support for DLSS Ray Reconstruction for use in Bevy Solari _is_ planned for a future release.
 
 Special thanks to @cwfitzgerald for helping with the wgpu backend interop APIs.
