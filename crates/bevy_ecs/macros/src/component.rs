@@ -289,15 +289,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
             fn register_required_components(
-                requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponents,
                 recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
             ) {
-                #bevy_ecs_path::component::enforce_no_required_components_recursion(components, recursion_check_stack);
-                recursion_check_stack.push(requiree);
                 #(#register_required)*
-                recursion_check_stack.pop();
             }
 
             #on_add
