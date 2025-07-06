@@ -538,11 +538,8 @@ pub trait Component: Send + Sync + 'static {
 
     /// Registers required components.
     fn register_required_components(
-        _component_id: ComponentId,
         _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
-        _inheritance_depth: u16,
-        _recursion_check_stack: &mut Vec<ComponentId>,
     ) {
     }
 
@@ -1323,7 +1320,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                         // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
                         #[expect(unused_unsafe, reason = "More precise to specify.")]
                         unsafe {
-                            registrator.register_component_unchecked::<T>(&mut Vec::new(), id);
+                            registrator.register_component_unchecked::<T>(id);
                         }
                     },
                 )
@@ -1442,6 +1439,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
 pub struct ComponentsRegistrator<'w> {
     components: &'w mut Components,
     ids: &'w mut ComponentIds,
+    recursion_check_stack: Vec<ComponentId>,
 }
 
 impl Deref for ComponentsRegistrator<'_> {
@@ -1466,7 +1464,11 @@ impl<'w> ComponentsRegistrator<'w> {
     /// The [`Components`] and [`ComponentIds`] must match.
     /// For example, they must be from the same world.
     pub unsafe fn new(components: &'w mut Components, ids: &'w mut ComponentIds) -> Self {
-        Self { components, ids }
+        Self {
+            components,
+            ids,
+            recursion_check_stack: Vec::new(),
+        }
     }
 
     /// Converts this [`ComponentsRegistrator`] into a [`ComponentsQueuedRegistrator`].
@@ -1555,15 +1557,6 @@ impl<'w> ComponentsRegistrator<'w> {
     /// * [`ComponentsRegistrator::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.register_component_checked::<T>(&mut Vec::new())
-    }
-
-    /// Same as [`Self::register_component_unchecked`] but keeps a checks for safety.
-    #[inline]
-    fn register_component_checked<T: Component>(
-        &mut self,
-        recursion_check_stack: &mut Vec<ComponentId>,
-    ) -> ComponentId {
         let type_id = TypeId::of::<T>();
         if let Some(id) = self.indices.get(&type_id) {
             return *id;
@@ -1585,7 +1578,7 @@ impl<'w> ComponentsRegistrator<'w> {
         let id = self.ids.next_mut();
         // SAFETY: The component is not currently registered, and the id is fresh.
         unsafe {
-            self.register_component_unchecked::<T>(recursion_check_stack, id);
+            self.register_component_unchecked::<T>(id);
         }
         id
     }
@@ -1594,11 +1587,7 @@ impl<'w> ComponentsRegistrator<'w> {
     ///
     /// Neither this component, nor its id may be registered or queued. This must be a new registration.
     #[inline]
-    unsafe fn register_component_unchecked<T: Component>(
-        &mut self,
-        recursion_check_stack: &mut Vec<ComponentId>,
-        id: ComponentId,
-    ) {
+    unsafe fn register_component_unchecked<T: Component>(&mut self, id: ComponentId) {
         // SAFETY: ensured by caller.
         unsafe {
             self.register_component_inner(id, ComponentDescriptor::new::<T>());
@@ -1607,14 +1596,11 @@ impl<'w> ComponentsRegistrator<'w> {
         let prev = self.indices.insert(type_id, id);
         debug_assert!(prev.is_none());
 
+        self.recursion_check_stack.push(id);
         let mut required_components = RequiredComponents::default();
-        T::register_required_components(
-            id,
-            self,
-            &mut required_components,
-            0,
-            recursion_check_stack,
-        );
+        T::register_required_components(self, &mut required_components);
+        self.recursion_check_stack.pop();
+
         // SAFETY: we just inserted it in `register_component_inner`
         let info = unsafe {
             &mut self
@@ -1661,13 +1647,6 @@ impl<'w> ComponentsRegistrator<'w> {
     /// Registers the given component `R` and [required components] inherited from it as required by `T`,
     /// and adds `T` to their lists of requirees.
     ///
-    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
-    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
-    /// Lower depths are more specific requirements, and can override existing less specific registrations.
-    ///
-    /// The `recursion_check_stack` allows checking whether this component tried to register itself as its
-    /// own (indirect) required component.
-    ///
     /// This method does *not* register any components as required by components that require `T`.
     ///
     /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
@@ -1679,11 +1658,15 @@ impl<'w> ComponentsRegistrator<'w> {
         &mut self,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
-        inheritance_depth: u16,
-        recursion_check_stack: &mut Vec<ComponentId>,
     ) {
-        let requiree = self.register_component_checked::<T>(recursion_check_stack);
-        let required = self.register_component_checked::<R>(recursion_check_stack);
+        let requiree = self.register_component::<T>();
+        let required = self.register_component::<R>();
+
+        enforce_no_required_components_recursion(
+            required,
+            self.components,
+            &self.recursion_check_stack,
+        );
 
         // SAFETY: We just created the components.
         unsafe {
@@ -1692,7 +1675,6 @@ impl<'w> ComponentsRegistrator<'w> {
                 required,
                 required_components,
                 constructor,
-                inheritance_depth,
             );
         }
     }
@@ -2132,10 +2114,6 @@ impl Components {
     /// Registers the given component `R` and [required components] inherited from it as required by `T`,
     /// and adds `T` to their lists of requirees.
     ///
-    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
-    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
-    /// Lower depths are more specific requirements, and can override existing less specific registrations.
-    ///
     /// This method does *not* register any components as required by components that require `T`.
     ///
     /// [required component]: Component#required-components
@@ -2149,7 +2127,6 @@ impl Components {
         required: ComponentId,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
-        inheritance_depth: u16,
     ) {
         // Components cannot require themselves.
         if required == requiree {
@@ -2157,7 +2134,7 @@ impl Components {
         }
 
         // Register the required component `R` for the requiree.
-        required_components.register_by_id(required, constructor, inheritance_depth);
+        required_components.register_by_id(required, constructor, 0);
 
         // Add the requiree to the list of components that require `R`.
         // SAFETY: The caller ensures that the component ID is valid.
@@ -2852,37 +2829,32 @@ impl RequiredComponents {
     }
 }
 
-// NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
-// This exists as a standalone function instead of being inlined into the component derive macro so as
-// to reduce the amount of generated code.
-#[doc(hidden)]
-pub fn enforce_no_required_components_recursion(
+fn enforce_no_required_components_recursion(
+    requiree: ComponentId,
     components: &Components,
     recursion_check_stack: &[ComponentId],
 ) {
-    if let Some((&requiree, check)) = recursion_check_stack.split_last() {
-        if let Some(direct_recursion) = check
-            .iter()
-            .position(|&id| id == requiree)
-            .map(|index| index == check.len() - 1)
-        {
-            panic!(
-                "Recursive required components detected: {}\nhelp: {}",
-                recursion_check_stack
-                    .iter()
-                    .map(|id| format!("{}", components.get_name(*id).unwrap().shortname()))
-                    .collect::<Vec<_>>()
-                    .join(" → "),
-                if direct_recursion {
-                    format!(
-                        "Remove require({}).",
-                        components.get_name(requiree).unwrap().shortname()
-                    )
-                } else {
-                    "If this is intentional, consider merging the components.".into()
-                }
-            );
-        }
+    if let Some(direct_recursion) = recursion_check_stack
+        .iter()
+        .position(|&id| id == requiree)
+        .map(|index| index == recursion_check_stack.len() - 1)
+    {
+        panic!(
+            "Recursive required components detected: {}\nhelp: {}",
+            recursion_check_stack
+                .iter()
+                .map(|id| format!("{}", components.get_name(*id).unwrap().shortname()))
+                .collect::<Vec<_>>()
+                .join(" → "),
+            if direct_recursion {
+                format!(
+                    "Remove require({}).",
+                    components.get_name(requiree).unwrap().shortname()
+                )
+            } else {
+                "If this is intentional, consider merging the components.".into()
+            }
+        );
     }
 }
 

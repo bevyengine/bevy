@@ -283,14 +283,7 @@ unsafe impl<C: Component> Bundle for C {
         components: &mut ComponentsRegistrator,
         required_components: &mut RequiredComponents,
     ) {
-        let component_id = components.register_component::<C>();
-        <C as Component>::register_required_components(
-            component_id,
-            components,
-            required_components,
-            0,
-            &mut Vec::new(),
-        );
+        <C as Component>::register_required_components(components, required_components);
     }
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
