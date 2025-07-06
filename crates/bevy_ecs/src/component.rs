@@ -1685,6 +1685,10 @@ impl<'w> ComponentsRegistrator<'w> {
         let requiree = self.register_component_checked::<T>(recursion_check_stack);
         let required = self.register_component_checked::<R>(recursion_check_stack);
 
+        recursion_check_stack.push(required);
+        enforce_no_required_components_recursion(self.components, &recursion_check_stack);
+        recursion_check_stack.pop();
+
         // SAFETY: We just created the components.
         unsafe {
             self.register_required_components_manual_unchecked::<R>(

@@ -237,19 +237,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let requires = &attrs.requires;
     let mut register_required = Vec::with_capacity(attrs.requires.iter().len());
-    let mut register_recursive_requires = Vec::with_capacity(attrs.requires.iter().len());
     if let Some(requires) = requires {
         for require in requires {
             let ident = &require.path;
-            register_recursive_requires.push(quote! {
-                <#ident as #bevy_ecs_path::component::Component>::register_required_components(
-                    requiree,
-                    components,
-                    required_components,
-                    inheritance_depth + 1,
-                    recursion_check_stack
-                );
-            });
             match &require.func {
                 Some(func) => {
                     register_required.push(quote! {
@@ -304,8 +294,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
-    // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
-    // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
         #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
@@ -322,7 +310,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 let self_id = components.register_component::<Self>();
                 recursion_check_stack.push(self_id);
                 #(#register_required)*
-                #(#register_recursive_requires)*
                 recursion_check_stack.pop();
             }
 
