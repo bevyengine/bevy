@@ -2273,35 +2273,53 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// [Insert](EntityCommands::insert) the value returned from `default` into this entity,
     /// if `T` is not already present.
+    ///
+    /// `default` will only be invoked if the component will actually be inserted.
     #[track_caller]
-    pub fn or_insert_with(&mut self, default: impl Fn() -> T) -> &mut Self {
-        self.or_insert(default())
+    pub fn or_insert_with<F>(&mut self, default: F) -> &mut Self
+    where
+        F: Fn() -> T + Send + 'static,
+    {
+        self.entity_commands
+            .queue(entity_command::insert_with(default, InsertMode::Keep));
+        self
     }
 
     /// [Insert](EntityCommands::insert) the value returned from `default` into this entity,
     /// if `T` is not already present.
+    ///
+    /// `default` will only be invoked if the component will actually be inserted.
     ///
     /// # Note
     ///
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn or_try_insert_with(&mut self, default: impl Fn() -> T) -> &mut Self {
-        self.or_try_insert(default())
+    pub fn or_try_insert_with<F>(&mut self, default: F) -> &mut Self
+    where
+        F: Fn() -> T + Send + 'static,
+    {
+        self.entity_commands
+            .queue_silenced(entity_command::insert_with(default, InsertMode::Keep));
+        self
     }
 
     /// [Insert](EntityCommands::insert) `T::default` into this entity,
     /// if `T` is not already present.
+    ///
+    /// `T::default` will only be invoked if the component will actually be inserted.
     #[track_caller]
     pub fn or_default(&mut self) -> &mut Self
     where
         T: Default,
     {
-        self.or_insert(T::default())
+        self.or_insert_with(T::default)
     }
 
     /// [Insert](EntityCommands::insert) `T::from_world` into this entity,
     /// if `T` is not already present.
+    ///
+    /// `T::from_world` will only be invoked if the component will actually be inserted.
     #[track_caller]
     pub fn or_from_world(&mut self) -> &mut Self
     where
