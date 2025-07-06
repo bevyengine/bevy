@@ -1034,4 +1034,15 @@ mod tests {
         let result = AssetPath::from("asset.Custom");
         assert_eq!(result.get_full_extension(), Some("Custom"));
     }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_get_full_extension_non_utf8() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let path = OsStr::from_bytes(b"imag\xe9.png");
+        let result = AssetPath::from_path(Path::new(path));
+        assert_eq!(result.get_full_extension(), Some("png"));
+    }
 }
