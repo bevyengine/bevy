@@ -31,7 +31,7 @@ serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
-smallvec = { version = "1.11", features = ["const_new"] }
+smallvec = { version = "1", default-features = false, features = ["const_new"] }
 
 [features]
 default = []
