@@ -1727,6 +1727,9 @@ impl TypeDefinitionBuilder for TypeRegistry {
             }
             _ => {}
         }
+        if schema.ref_type.is_some() {
+            schema.schema_type = None;
+        }
 
         Some(schema)
     }
