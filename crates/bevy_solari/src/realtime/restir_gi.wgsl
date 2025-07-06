@@ -7,7 +7,7 @@
 #import bevy_pbr::utils::{rand_f, octahedral_decode}
 #import bevy_render::maths::{PI, PI_2}
 #import bevy_render::view::View
-#import bevy_solari::sampling::{sample_uniform_hemisphere, sample_random_light, sample_disk}
+#import bevy_solari::sampling::{sample_uniform_hemisphere, sample_random_light, sample_disk, trace_point_visibility}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
@@ -181,9 +181,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.viewport.z);
     var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
 
-    let ray_direction = normalize(spatial_reservoir.sample_point_world_position - world_position);
-    let ray_hit = trace_ray(world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
-    spatial_reservoir.unbiased_contribution_weight *= f32(ray_hit.kind == RAY_QUERY_INTERSECTION_NONE);
+    spatial_reservoir.unbiased_contribution_weight *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
 
     return spatial_reservoir;
 }
@@ -254,8 +252,13 @@ fn empty_reservoir() -> Reservoir {
 }
 
 fn merge_reservoirs(canonical_reservoir: Reservoir, other_reservoir: Reservoir, rng: ptr<function, u32>) -> Reservoir {
+    var combined_reservoir = empty_reservoir();
+    combined_reservoir.confidence_weight = canonical_reservoir.confidence_weight + other_reservoir.confidence_weight;
+
+    if combined_reservoir.confidence_weight == 0.0 { return combined_reservoir; }
+
     // TODO: Balance heuristic MIS weights
-    let mis_weight_denominator = 1.0 / (canonical_reservoir.confidence_weight + other_reservoir.confidence_weight);
+    let mis_weight_denominator = 1.0 / combined_reservoir.confidence_weight;
 
     let canonical_mis_weight = canonical_reservoir.confidence_weight * mis_weight_denominator;
     let canonical_target_function = luminance(canonical_reservoir.radiance);
@@ -265,9 +268,7 @@ fn merge_reservoirs(canonical_reservoir: Reservoir, other_reservoir: Reservoir, 
     let other_target_function = luminance(other_reservoir.radiance);
     let other_resampling_weight = other_mis_weight * (other_target_function * other_reservoir.unbiased_contribution_weight);
 
-    var combined_reservoir = empty_reservoir();
     combined_reservoir.weight_sum = canonical_resampling_weight + other_resampling_weight;
-    combined_reservoir.confidence_weight = canonical_reservoir.confidence_weight + other_reservoir.confidence_weight;
 
     if rand_f(rng) < other_resampling_weight / combined_reservoir.weight_sum {
         combined_reservoir.sample_point_world_position = other_reservoir.sample_point_world_position;

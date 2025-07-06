@@ -187,10 +187,14 @@ fn trace_emissive_mesh_visibility(light_sample: LightSample, instance_id: u32, r
 
     let triangle_data = resolve_triangle_data_full(instance_id, triangle_id, barycentrics);
 
-    let light_distance = distance(ray_origin, triangle_data.world_position);
-    let ray_direction = (triangle_data.world_position - ray_origin) / light_distance;
+    return trace_point_visibility(ray_origin, triangle_data.world_position);
+}
 
-    let ray_t_max = light_distance - RAY_T_MIN - RAY_T_MIN;
+fn trace_point_visibility(ray_origin: vec3<f32>, point: vec3<f32>) -> f32 {
+    let dist = distance(ray_origin, point);
+    let ray_direction = (point - ray_origin) / dist;
+
+    let ray_t_max = dist - RAY_T_MIN - RAY_T_MIN;
     if ray_t_max < RAY_T_MIN { return 0.0; }
 
     let ray_hit = trace_ray(ray_origin, ray_direction, RAY_T_MIN, ray_t_max, RAY_FLAG_TERMINATE_ON_FIRST_HIT);
