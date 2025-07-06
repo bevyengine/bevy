@@ -11,7 +11,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::view::VisibleMeshEntities;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use crate::{GlobalVisibleClusterableObjects, LightVisibilityClass};
+use crate::cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects};
 
 /// A light that emits light in a given direction from a central point.
 ///
@@ -21,7 +21,7 @@ use crate::{GlobalVisibleClusterableObjects, LightVisibilityClass};
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Frustum, VisibleMeshEntities, Transform, Visibility, VisibilityClass)]
-#[component(on_add = visibility::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct SpotLight {
     /// The color of the light.
     ///
