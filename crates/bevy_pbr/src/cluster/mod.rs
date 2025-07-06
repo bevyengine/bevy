@@ -43,6 +43,8 @@ mod test;
 pub struct GlobalClusterSettings {
     pub supports_storage_buffers: bool,
     pub clustered_decals_are_usable: bool,
+    pub max_uniform_buffer_clusterable_objects: usize,
+    pub view_cluster_bindings_max_indices: usize,
 }
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
