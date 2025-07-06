@@ -1,14 +1,13 @@
 use bevy_asset::Handle;
 use bevy_camera::{
     primitives::Frustum,
-    visibility::{self, Visibility, VisibilityClass},
+    visibility::{self, Visibility, VisibilityClass, VisibleMeshEntities},
 };
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Mat4, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_render::view::VisibleMeshEntities;
 use bevy_transform::components::{GlobalTransform, Transform};
 
 use crate::cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects};

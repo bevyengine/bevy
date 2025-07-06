@@ -22,10 +22,7 @@ use super::{
     ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings,
     GlobalVisibleClusterableObjects, VisibleClusterableObjects,
 };
-use crate::{
-    prelude::EnvironmentMapLight, ExtractedPointLight, LightProbe, PointLight, SpotLight,
-    VolumetricLight,
-};
+use crate::{EnvironmentMapLight, LightProbe, PointLight, SpotLight, VolumetricLight};
 
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
 const NDC_MAX: Vec2 = Vec2::ONE;
@@ -57,7 +54,7 @@ impl ClusterableObjectAssignmentData {
 /// Data needed to assign objects to clusters that's specific to the type of
 /// clusterable object.
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum ClusterableObjectType {
+pub enum ClusterableObjectType {
     /// Data needed to assign point lights to clusters.
     PointLight {
         /// Whether shadows are enabled for this point light.
@@ -105,7 +102,7 @@ impl ClusterableObjectType {
     /// Generally, we sort first by type, then, for lights, by whether shadows
     /// are enabled (enabled before disabled), and then whether volumetrics are
     /// enabled (enabled before disabled).
-    pub(crate) fn ordering(&self) -> (u8, bool, bool) {
+    pub fn ordering(&self) -> (u8, bool, bool) {
         match *self {
             ClusterableObjectType::PointLight {
                 shadows_enabled,
@@ -119,23 +116,6 @@ impl ClusterableObjectType {
             ClusterableObjectType::ReflectionProbe => (2, false, false),
             ClusterableObjectType::IrradianceVolume => (3, false, false),
             ClusterableObjectType::Decal => (4, false, false),
-        }
-    }
-
-    /// Creates the [`ClusterableObjectType`] data for a point or spot light.
-    pub(crate) fn from_point_or_spot_light(
-        point_light: &ExtractedPointLight,
-    ) -> ClusterableObjectType {
-        match point_light.spot_light_angles {
-            Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
-                outer_angle,
-                shadows_enabled: point_light.shadows_enabled,
-                volumetric: point_light.volumetric,
-            },
-            None => ClusterableObjectType::PointLight {
-                shadows_enabled: point_light.shadows_enabled,
-                volumetric: point_light.volumetric,
-            },
         }
     }
 }

@@ -31,7 +31,6 @@ pub mod decal;
 pub mod deferred;
 mod extended_material;
 mod fog;
-mod light;
 mod light_probe;
 mod lightmap;
 mod material;
@@ -48,12 +47,19 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
+use bevy_light::SimulationLightSystems;
+pub use bevy_light::{
+    light_consts, AmbientLight, CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades,
+    ClusteredDecal, DirectionalLight, DirectionalLightShadowMap, DirectionalLightTexture,
+    FogVolume, LightPlugin, LightProbe, NotShadowCaster, NotShadowReceiver, PointLight,
+    PointLightShadowMap, PointLightTexture, ShadowFilteringMethod, SpotLight, SpotLightTexture,
+    TransmittedShadowReceiver, VolumetricFog, VolumetricLight,
+};
 pub use cluster::*;
 pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
-pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
@@ -65,7 +71,7 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, VolumetricLight};
+pub use volumetric_fog::VolumetricFogPlugin;
 
 /// The PBR prelude.
 ///
@@ -74,13 +80,16 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         fog::{DistanceFog, FogFalloff},
-        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
-        light_probe::{environment_map::EnvironmentMapLight, LightProbe},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,
+    };
+    #[doc(hidden)]
+    pub use bevy_light::{
+        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight, LightProbe, PointLight,
+        SpotLight,
     };
 }
 
@@ -122,7 +131,6 @@ pub mod graph {
     }
 }
 
-pub use crate::cascade::{CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades};
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetPath, Assets, Handle};
@@ -203,8 +211,6 @@ impl Plugin for PbrPlugin {
         load_shader_library!(app, "meshlet/dummy_visibility_buffer_resolve.wgsl");
 
         app.register_asset_reflect::<StandardMaterial>()
-            .register_type::<ClusterConfig>()
-            .init_resource::<GlobalVisibleClusterableObjects>()
             .register_type::<DefaultOpaqueRendererMethod>()
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((

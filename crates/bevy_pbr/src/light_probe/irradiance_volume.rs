@@ -135,6 +135,7 @@
 
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::Image;
+use bevy_light::LightProbe;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
@@ -155,7 +156,7 @@ use crate::{
     MAX_VIEW_LIGHT_PROBES,
 };
 
-use super::{LightProbe, LightProbeComponent};
+use super::LightProbeComponent;
 
 /// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
 /// overflow the number of texture bindings when deferred rendering is in use
