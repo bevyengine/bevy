@@ -172,7 +172,7 @@ impl<E: BufferedEvent> Events<E> {
     /// "Sends" an `event` by writing it to the current event buffer.
     /// [`EventReader`](super::EventReader)s can then read the event.
     /// This method returns the [ID](`EventId`) of the sent `event`.
-    #[deprecated(since = "0.17", note = "Use `Events<E>::write` instead.")]
+    #[deprecated(since = "0.17.0", note = "Use `Events<E>::write` instead.")]
     #[track_caller]
     pub fn send(&mut self, event: E) -> EventId<E> {
         self.write(event)
@@ -181,7 +181,7 @@ impl<E: BufferedEvent> Events<E> {
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
     /// This is more efficient than sending each event individually.
     /// This method returns the [IDs](`EventId`) of the sent `events`.
-    #[deprecated(since = "0.17", note = "Use `Events<E>::write_batch` instead.")]
+    #[deprecated(since = "0.17.0", note = "Use `Events<E>::write_batch` instead.")]
     #[track_caller]
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> WriteBatchIds<E> {
         self.write_batch(events)
@@ -189,7 +189,7 @@ impl<E: BufferedEvent> Events<E> {
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
     /// This method returns the [ID](`EventId`) of the sent `event`.
-    #[deprecated(since = "0.17", note = "Use `Events<E>::write_default` instead.")]
+    #[deprecated(since = "0.17.0", note = "Use `Events<E>::write_default` instead.")]
     #[track_caller]
     pub fn send_default(&mut self) -> EventId<E>
     where
@@ -388,7 +388,7 @@ pub struct WriteBatchIds<E> {
 }
 
 /// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
-#[deprecated(since = "0.17", note = "Use `WriteBatchIds` instead.")]
+#[deprecated(since = "0.17.0", note = "Use `WriteBatchIds` instead.")]
 pub type SendBatchIds<E> = WriteBatchIds<E>;
 
 impl<E: BufferedEvent> Iterator for WriteBatchIds<E> {

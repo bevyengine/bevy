@@ -241,7 +241,7 @@ pub fn write_event<E: BufferedEvent>(event: E) -> impl Command {
 
 /// A [`Command`] that writes an arbitrary [`BufferedEvent`].
 #[track_caller]
-#[deprecated(since = "0.17", note = "Use `write_event` instead.")]
+#[deprecated(since = "0.17.0", note = "Use `write_event` instead.")]
 pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
     write_event(event)
 }

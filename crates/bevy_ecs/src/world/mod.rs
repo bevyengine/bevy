@@ -2638,7 +2638,7 @@ impl World {
     /// This method returns the [ID](`EventId`) of the written `event`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17", note = "Use `World::write_event` instead.")]
+    #[deprecated(since = "0.17.0", note = "Use `World::write_event` instead.")]
     pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
         self.write_event(event)
     }
@@ -2655,7 +2655,7 @@ impl World {
     /// This method returns the [ID](`EventId`) of the written `event`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17", note = "Use `World::write_event_default` instead.")]
+    #[deprecated(since = "0.17.0", note = "Use `World::write_event_default` instead.")]
     pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
         self.write_event_default::<E>()
     }
@@ -2682,7 +2682,7 @@ impl World {
     /// This method returns the [IDs](`EventId`) of the written `events`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17", note = "Use `World::write_event_batch` instead.")]
+    #[deprecated(since = "0.17.0", note = "Use `World::write_event_batch` instead.")]
     pub fn send_event_batch<E: BufferedEvent>(
         &mut self,
         events: impl IntoIterator<Item = E>,

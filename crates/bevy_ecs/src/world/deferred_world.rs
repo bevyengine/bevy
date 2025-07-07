@@ -519,7 +519,7 @@ impl<'w> DeferredWorld<'w> {
     /// This method returns the [ID](`EventId`) of the written `event`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17", note = "Use `DeferredWorld::write_event` instead.")]
+    #[deprecated(since = "0.17.0", note = "Use `DeferredWorld::write_event` instead.")]
     pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
         self.write_event(event)
     }
@@ -537,7 +537,7 @@ impl<'w> DeferredWorld<'w> {
     /// or [`None`] if the `event` could not be written.
     #[inline]
     #[deprecated(
-        since = "0.17",
+        since = "0.17.0",
         note = "Use `DeferredWorld::write_event_default` instead."
     )]
     pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
@@ -567,7 +567,7 @@ impl<'w> DeferredWorld<'w> {
     /// or [`None`] if the `event` could not be written.
     #[inline]
     #[deprecated(
-        since = "0.17",
+        since = "0.17.0",
         note = "Use `DeferredWorld::write_event_batch` instead."
     )]
     pub fn send_event_batch<E: BufferedEvent>(

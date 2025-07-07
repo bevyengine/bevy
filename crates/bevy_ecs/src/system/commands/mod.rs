@@ -1155,7 +1155,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// If these events are performance-critical or very frequently sent,
     /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
     #[track_caller]
-    #[deprecated(since = "0.17", note = "Use `Commands::write_event` instead.")]
+    #[deprecated(since = "0.17.0", note = "Use `Commands::write_event` instead.")]
     pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
         self.write_event(event)
     }

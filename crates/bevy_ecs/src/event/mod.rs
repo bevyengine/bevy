@@ -13,6 +13,7 @@ mod writer;
 pub(crate) use base::EventInstance;
 pub use base::{BufferedEvent, EntityEvent, Event, EventId, EventKey};
 pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
+#[expect(deprecated, reason = "`SendBatchIds` was renamed to `WriteBatchIds`.")]
 pub use collections::{Events, SendBatchIds, WriteBatchIds};
 pub use event_cursor::EventCursor;
 #[cfg(feature = "multi_threaded")]
