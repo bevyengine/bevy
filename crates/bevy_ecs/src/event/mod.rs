@@ -11,8 +11,8 @@ mod update;
 mod writer;
 
 pub(crate) use base::EventInstance;
-pub use base::{Event, EventId};
-pub use bevy_ecs_macros::Event;
+pub use base::{BufferedEvent, EntityEvent, Event, EventId, EventKey};
+pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
 pub use collections::{Events, SendBatchIds};
 pub use event_cursor::EventCursor;
 #[cfg(feature = "multi_threaded")]
@@ -38,17 +38,20 @@ pub use writer::EventWriter;
 mod tests {
     use alloc::{vec, vec::Vec};
     use bevy_ecs::{event::*, system::assert_is_read_only_system};
-    use bevy_ecs_macros::Event;
+    use bevy_ecs_macros::BufferedEvent;
 
-    #[derive(Event, Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Event, BufferedEvent, Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
     }
 
-    #[derive(Event, Clone, PartialEq, Debug, Default)]
+    #[derive(Event, BufferedEvent, Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
-    fn get_events<E: Event + Clone>(events: &Events<E>, cursor: &mut EventCursor<E>) -> Vec<E> {
+    fn get_events<E: BufferedEvent + Clone>(
+        events: &Events<E>,
+        cursor: &mut EventCursor<E>,
+    ) -> Vec<E> {
         cursor.read(events).cloned().collect::<Vec<E>>()
     }
 
@@ -525,20 +528,20 @@ mod tests {
             });
         reader.initialize(&mut world);
 
-        let last = reader.run((), &mut world);
+        let last = reader.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventReader should be empty");
 
         world.send_event(TestEvent { i: 0 });
-        let last = reader.run((), &mut world);
+        let last = reader.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 0 }));
 
         world.send_event(TestEvent { i: 1 });
         world.send_event(TestEvent { i: 2 });
         world.send_event(TestEvent { i: 3 });
-        let last = reader.run((), &mut world);
+        let last = reader.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 3 }));
 
-        let last = reader.run((), &mut world);
+        let last = reader.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventReader should be empty");
     }
 
@@ -555,20 +558,20 @@ mod tests {
             });
         mutator.initialize(&mut world);
 
-        let last = mutator.run((), &mut world);
+        let last = mutator.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventMutator should be empty");
 
         world.send_event(TestEvent { i: 0 });
-        let last = mutator.run((), &mut world);
+        let last = mutator.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 0 }));
 
         world.send_event(TestEvent { i: 1 });
         world.send_event(TestEvent { i: 2 });
         world.send_event(TestEvent { i: 3 });
-        let last = mutator.run((), &mut world);
+        let last = mutator.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 3 }));
 
-        let last = mutator.run((), &mut world);
+        let last = mutator.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventMutator should be empty");
     }
 

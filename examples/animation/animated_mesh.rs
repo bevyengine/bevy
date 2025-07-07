@@ -62,7 +62,7 @@ fn setup_mesh_and_animation(
 }
 
 fn play_animation_when_ready(
-    trigger: Trigger<SceneInstanceReady>,
+    trigger: On<SceneInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     animations_to_play: Query<&AnimationToPlay>,

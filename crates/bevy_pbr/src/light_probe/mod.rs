@@ -343,7 +343,8 @@ impl Plugin for LightProbePlugin {
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>();
+            .register_type::<IrradianceVolume>()
+            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
     }
 
     fn finish(&self, app: &mut App) {
@@ -352,7 +353,6 @@ impl Plugin for LightProbePlugin {
         };
 
         render_app
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
@@ -378,7 +378,7 @@ fn gather_environment_map_uniform(
         let environment_map_uniform = if let Some(environment_map_light) = environment_map_light {
             EnvironmentMapUniform {
                 transform: Transform::from_rotation(environment_map_light.rotation)
-                    .compute_matrix()
+                    .to_matrix()
                     .inverse(),
             }
         } else {
@@ -595,7 +595,7 @@ where
     ) -> Option<LightProbeInfo<C>> {
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             world_from_light: light_probe_transform.affine(),
-            light_from_world: light_probe_transform.compute_matrix().inverse(),
+            light_from_world: light_probe_transform.to_matrix().inverse(),
             asset_id: id,
             intensity: environment_map.intensity(),
             affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),

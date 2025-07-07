@@ -1,7 +1,7 @@
 //! From time to time, you may find that you want to both send and receive an event of the same type in a single system.
 //!
 //! Of course, this results in an error: the borrows of [`EventWriter`] and [`EventReader`] overlap,
-//! if and only if the [`Event`] type is the same.
+//! if and only if the [`BufferedEvent`] type is the same.
 //! One system parameter borrows the [`Events`] resource mutably, and another system parameter borrows the [`Events`] resource immutably.
 //! If Bevy allowed this, this would violate Rust's rules against aliased mutability.
 //! In other words, this would be Undefined Behavior (UB)!
@@ -46,10 +46,10 @@ fn main() {
     app.update();
 }
 
-#[derive(Event)]
+#[derive(Event, BufferedEvent)]
 struct A;
 
-#[derive(Event)]
+#[derive(Event, BufferedEvent)]
 struct B;
 
 // This works fine, because the types are different,
@@ -62,7 +62,7 @@ fn read_and_write_different_event_types(mut a: EventWriter<A>, mut b: EventReade
 }
 
 /// A dummy event type.
-#[derive(Debug, Clone, Event)]
+#[derive(Debug, Clone, Event, BufferedEvent)]
 struct DebugEvent {
     resend_from_param_set: bool,
     resend_from_local_event_reader: bool,

@@ -27,7 +27,9 @@ pub struct Unaligned;
 /// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
 /// to have const generics of an enum.
 pub trait IsAligned: sealed::Sealed {}
+
 impl IsAligned for Aligned {}
+
 impl IsAligned for Unaligned {}
 
 mod sealed {

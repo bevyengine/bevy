@@ -57,6 +57,7 @@ pub struct PlaybackRemoveMarker;
 pub(crate) struct EarPositions<'w, 's> {
     pub(crate) query: Query<'w, 's, (Entity, &'static GlobalTransform, &'static SpatialListener)>,
 }
+
 impl<'w, 's> EarPositions<'w, 's> {
     /// Gets a set of transformed ear positions.
     ///

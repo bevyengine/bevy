@@ -17,7 +17,7 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};
 
 const ASSET_URL: &str =
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh";
+    "https://raw.githubusercontent.com/atlv24/assets/69bb39164fd35aadf863f6009520d4981eafcea0/bunny.meshlet_mesh";
 
 fn main() -> ExitCode {
     if !Path::new("./assets/external/models/bunny.meshlet_mesh").exists() {
@@ -30,7 +30,7 @@ fn main() -> ExitCode {
         .add_plugins((
             DefaultPlugins,
             MeshletPlugin {
-                cluster_buffer_slots: 8192,
+                cluster_buffer_slots: 1 << 14,
             },
             MaterialPlugin::<MeshletDebugMaterial>::default(),
             CameraControllerPlugin,
@@ -128,4 +128,5 @@ fn setup(
 struct MeshletDebugMaterial {
     _dummy: (),
 }
+
 impl Material for MeshletDebugMaterial {}

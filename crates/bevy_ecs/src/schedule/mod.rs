@@ -26,7 +26,9 @@ pub mod passes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::{string::ToString, vec, vec::Vec};
+    #[cfg(feature = "trace")]
+    use alloc::string::ToString;
+    use alloc::{vec, vec::Vec};
     use core::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate::{
@@ -49,10 +51,10 @@ mod tests {
     struct SystemOrder(Vec<u32>);
 
     #[derive(Resource, Default)]
-    struct RunConditionBool(pub bool);
+    struct RunConditionBool(bool);
 
     #[derive(Resource, Default)]
-    struct Counter(pub AtomicU32);
+    struct Counter(AtomicU32);
 
     fn make_exclusive_system(tag: u32) -> impl FnMut(&mut World) {
         move |world| world.resource_mut::<SystemOrder>().0.push(tag)
@@ -252,12 +254,16 @@ mod tests {
     }
 
     mod conditions {
-        use crate::change_detection::DetectChanges;
+
+        use crate::{
+            change_detection::DetectChanges,
+            error::{ignore, DefaultErrorHandler, Result},
+        };
 
         use super::*;
 
         #[test]
-        fn system_with_condition() {
+        fn system_with_condition_bool() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
@@ -274,6 +280,28 @@ mod tests {
             world.resource_mut::<RunConditionBool>().0 = true;
             schedule.run(&mut world);
             assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
+        }
+
+        #[test]
+        fn system_with_condition_result_bool() {
+            let mut world = World::default();
+            world.insert_resource(DefaultErrorHandler(ignore));
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            schedule.add_systems((
+                make_function_system(0).run_if(|| -> Result<bool> { Err(core::fmt::Error.into()) }),
+                make_function_system(1).run_if(|| -> Result<bool> { Ok(false) }),
+            ));
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
+
+            schedule.add_systems(make_function_system(2).run_if(|| -> Result<bool> { Ok(true) }));
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![2]);
         }
 
         #[test]
@@ -727,6 +755,7 @@ mod tests {
     }
 
     mod system_ambiguity {
+        #[cfg(feature = "trace")]
         use alloc::collections::BTreeSet;
 
         use super::*;
@@ -741,8 +770,7 @@ mod tests {
         #[derive(Component)]
         struct B;
 
-        // An event type
-        #[derive(Event)]
+        #[derive(Event, BufferedEvent)]
         struct E;
 
         #[derive(Resource, Component)]
@@ -874,7 +902,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "Known failing but fix is non-trivial: https://github.com/bevyengine/bevy/issues/4381"]
         fn filtered_components() {
             let mut world = World::new();
             world.spawn(A);
@@ -1069,6 +1096,7 @@ mod tests {
 
         // Tests that the correct ambiguities were reported in the correct order.
         #[test]
+        #[cfg(feature = "trace")]
         fn correct_ambiguities() {
             fn system_a(_res: ResMut<R>) {}
             fn system_b(_res: ResMut<R>) {}
@@ -1142,6 +1170,7 @@ mod tests {
         // Test that anonymous set names work properly
         // Related issue https://github.com/bevyengine/bevy/issues/9641
         #[test]
+        #[cfg(feature = "trace")]
         fn anonymous_set_name() {
             let mut schedule = Schedule::new(TestSchedule);
             schedule.add_systems((resmut_system, resmut_system).run_if(|| true));

@@ -1,7 +1,6 @@
+use crate::{GpuLights, LightMeta};
 use bevy_asset::{load_embedded_asset, Handle};
-use bevy_core_pipeline::{
-    core_3d::Camera3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-};
+use bevy_core_pipeline::{core_3d::Camera3d, FullscreenShader};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -10,6 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_image::ToExtents;
 use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     camera::Camera,
@@ -19,8 +19,7 @@ use bevy_render::{
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
-
-use crate::{GpuLights, LightMeta};
+use bevy_utils::default;
 
 use super::{Atmosphere, AtmosphereSettings};
 
@@ -36,7 +35,8 @@ pub(crate) struct AtmosphereBindGroupLayouts {
 pub(crate) struct RenderSkyBindGroupLayouts {
     pub render_sky: BindGroupLayout,
     pub render_sky_msaa: BindGroupLayout,
-    pub shader: Handle<Shader>,
+    pub fullscreen_shader: FullscreenShader,
+    pub fragment_shader: Handle<Shader>,
 }
 
 impl FromWorld for AtmosphereBindGroupLayouts {
@@ -205,7 +205,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
         Self {
             render_sky,
             render_sky_msaa,
-            shader: load_embedded_asset!(world, "render_sky.wgsl"),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(world, "render_sky.wgsl"),
         }
     }
 }
@@ -275,42 +276,30 @@ impl FromWorld for AtmosphereLutPipelines {
         let transmittance_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("transmittance_lut_pipeline".into()),
             layout: vec![layouts.transmittance_lut.clone()],
-            push_constant_ranges: vec![],
             shader: load_embedded_asset!(world, "transmittance_lut.wgsl"),
-            shader_defs: vec![],
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         });
 
         let multiscattering_lut =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("multi_scattering_lut_pipeline".into()),
                 layout: vec![layouts.multiscattering_lut.clone()],
-                push_constant_ranges: vec![],
                 shader: load_embedded_asset!(world, "multiscattering_lut.wgsl"),
-                shader_defs: vec![],
-                entry_point: "main".into(),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             });
 
         let sky_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
-            push_constant_ranges: vec![],
             shader: load_embedded_asset!(world, "sky_view_lut.wgsl"),
-            shader_defs: vec![],
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         });
 
         let aerial_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("aerial_view_lut_pipeline".into()),
             layout: vec![layouts.aerial_view_lut.clone()],
-            push_constant_ranges: vec![],
             shader: load_embedded_asset!(world, "aerial_view_lut.wgsl"),
-            shader_defs: vec![],
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         });
 
         Self {
@@ -357,20 +346,10 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             } else {
                 self.render_sky_msaa.clone()
             }],
-            push_constant_ranges: vec![],
-            vertex: fullscreen_shader_vertex_state(),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: key.msaa_samples,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            zero_initialize_workgroup_memory: false,
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "main".into(),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::Rgba16Float,
                     blend: Some(BlendState {
@@ -387,7 +366,13 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
+            multisample: MultisampleState {
+                count: key.msaa_samples,
+                ..default()
+            },
+            ..default()
         }
     }
 }
@@ -434,11 +419,7 @@ pub(super) fn prepare_atmosphere_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("transmittance_lut"),
-                size: Extent3d {
-                    width: lut_settings.transmittance_lut_size.x,
-                    height: lut_settings.transmittance_lut_size.y,
-                    depth_or_array_layers: 1,
-                },
+                size: lut_settings.transmittance_lut_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -452,11 +433,7 @@ pub(super) fn prepare_atmosphere_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("multiscattering_lut"),
-                size: Extent3d {
-                    width: lut_settings.multiscattering_lut_size.x,
-                    height: lut_settings.multiscattering_lut_size.y,
-                    depth_or_array_layers: 1,
-                },
+                size: lut_settings.multiscattering_lut_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -470,11 +447,7 @@ pub(super) fn prepare_atmosphere_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("sky_view_lut"),
-                size: Extent3d {
-                    width: lut_settings.sky_view_lut_size.x,
-                    height: lut_settings.sky_view_lut_size.y,
-                    depth_or_array_layers: 1,
-                },
+                size: lut_settings.sky_view_lut_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -488,11 +461,7 @@ pub(super) fn prepare_atmosphere_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("aerial_view_lut"),
-                size: Extent3d {
-                    width: lut_settings.aerial_view_lut_size.x,
-                    height: lut_settings.aerial_view_lut_size.y,
-                    depth_or_array_layers: lut_settings.aerial_view_lut_size.z,
-                },
+                size: lut_settings.aerial_view_lut_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D3,
@@ -560,7 +529,7 @@ pub(super) fn prepare_atmosphere_transforms(
     };
 
     for (entity, view) in &views {
-        let world_from_view = view.world_from_view.compute_matrix();
+        let world_from_view = view.world_from_view.to_matrix();
         let camera_z = world_from_view.z_axis.truncate();
         let camera_y = world_from_view.y_axis.truncate();
         let atmo_z = camera_z

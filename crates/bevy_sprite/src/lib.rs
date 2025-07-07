@@ -16,6 +16,7 @@ mod picking_backend;
 mod render;
 mod sprite;
 mod texture_slice;
+mod tilemap_chunk;
 
 /// The sprite prelude.
 ///
@@ -40,6 +41,7 @@ pub use picking_backend::*;
 pub use render::*;
 pub use sprite::*;
 pub use texture_slice::*;
+pub use tilemap_chunk::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, AssetEventSystems, Assets};
@@ -49,8 +51,8 @@ use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_render::{
     batching::sort_binned_render_phase,
     load_shader_library,
-    mesh::{Mesh, Mesh2d, MeshAabb},
-    primitives::Aabb,
+    mesh::{Mesh, Mesh2d},
+    primitives::{Aabb, MeshAabb},
     render_phase::AddRenderCommand,
     render_resource::SpecializedRenderPipelines,
     view::{NoFrustumCulling, VisibilitySystems},
@@ -87,7 +89,12 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<Mesh2d>()
-            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
+            .add_plugins((
+                Mesh2dRenderPlugin,
+                ColorMaterialPlugin,
+                TilemapChunkPlugin,
+                TilemapChunkMaterialPlugin,
+            ))
             .add_systems(
                 PostUpdate,
                 (

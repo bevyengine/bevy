@@ -181,7 +181,7 @@ impl ViewNode for RenderSkyNode {
             view_uniforms_offset,
             lights_uniforms_offset,
             render_sky_pipeline_id,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();

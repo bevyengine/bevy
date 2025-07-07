@@ -11,6 +11,7 @@ use core::{
     hash::{BuildHasher, Hash},
 };
 use indexmap::IndexMap;
+use slotmap::{Key, KeyData};
 use smallvec::SmallVec;
 
 use super::NodeId;
@@ -298,7 +299,7 @@ impl Direction {
 /// Compact storage of a [`NodeId`] and a [`Direction`].
 #[derive(Clone, Copy)]
 struct CompactNodeIdAndDirection {
-    index: usize,
+    key: KeyData,
     is_system: bool,
     direction: Direction,
 }
@@ -310,27 +311,30 @@ impl fmt::Debug for CompactNodeIdAndDirection {
 }
 
 impl CompactNodeIdAndDirection {
-    const fn store(node: NodeId, direction: Direction) -> Self {
-        let index = node.index();
+    fn store(node: NodeId, direction: Direction) -> Self {
+        let key = match node {
+            NodeId::System(key) => key.data(),
+            NodeId::Set(key) => key.data(),
+        };
         let is_system = node.is_system();
 
         Self {
-            index,
+            key,
             is_system,
             direction,
         }
     }
 
-    const fn load(self) -> (NodeId, Direction) {
+    fn load(self) -> (NodeId, Direction) {
         let Self {
-            index,
+            key,
             is_system,
             direction,
         } = self;
 
         let node = match is_system {
-            true => NodeId::System(index),
-            false => NodeId::Set(index),
+            true => NodeId::System(key.into()),
+            false => NodeId::Set(key.into()),
         };
 
         (node, direction)
@@ -340,8 +344,8 @@ impl CompactNodeIdAndDirection {
 /// Compact storage of a [`NodeId`] pair.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 struct CompactNodeIdPair {
-    index_a: usize,
-    index_b: usize,
+    key_a: KeyData,
+    key_b: KeyData,
     is_system_a: bool,
     is_system_b: bool,
 }
@@ -353,37 +357,43 @@ impl fmt::Debug for CompactNodeIdPair {
 }
 
 impl CompactNodeIdPair {
-    const fn store(a: NodeId, b: NodeId) -> Self {
-        let index_a = a.index();
+    fn store(a: NodeId, b: NodeId) -> Self {
+        let key_a = match a {
+            NodeId::System(index) => index.data(),
+            NodeId::Set(index) => index.data(),
+        };
         let is_system_a = a.is_system();
 
-        let index_b = b.index();
+        let key_b = match b {
+            NodeId::System(index) => index.data(),
+            NodeId::Set(index) => index.data(),
+        };
         let is_system_b = b.is_system();
 
         Self {
-            index_a,
-            index_b,
+            key_a,
+            key_b,
             is_system_a,
             is_system_b,
         }
     }
 
-    const fn load(self) -> (NodeId, NodeId) {
+    fn load(self) -> (NodeId, NodeId) {
         let Self {
-            index_a,
-            index_b,
+            key_a,
+            key_b,
             is_system_a,
             is_system_b,
         } = self;
 
         let a = match is_system_a {
-            true => NodeId::System(index_a),
-            false => NodeId::Set(index_a),
+            true => NodeId::System(key_a.into()),
+            false => NodeId::Set(key_a.into()),
         };
 
         let b = match is_system_b {
-            true => NodeId::System(index_b),
-            false => NodeId::Set(index_b),
+            true => NodeId::System(key_b.into()),
+            false => NodeId::Set(key_b.into()),
         };
 
         (a, b)
@@ -392,8 +402,11 @@ impl CompactNodeIdPair {
 
 #[cfg(test)]
 mod tests {
+    use crate::schedule::SystemKey;
+
     use super::*;
     use alloc::vec;
+    use slotmap::SlotMap;
 
     /// The `Graph` type _must_ preserve the order that nodes are inserted in if
     /// no removals occur. Removals are permitted to swap the latest node into the
@@ -402,37 +415,43 @@ mod tests {
     fn node_order_preservation() {
         use NodeId::System;
 
+        let mut slotmap = SlotMap::<SystemKey, ()>::with_key();
         let mut graph = <DiGraph>::default();
 
-        graph.add_node(System(1));
-        graph.add_node(System(2));
-        graph.add_node(System(3));
-        graph.add_node(System(4));
+        let sys1 = slotmap.insert(());
+        let sys2 = slotmap.insert(());
+        let sys3 = slotmap.insert(());
+        let sys4 = slotmap.insert(());
+
+        graph.add_node(System(sys1));
+        graph.add_node(System(sys2));
+        graph.add_node(System(sys3));
+        graph.add_node(System(sys4));
 
         assert_eq!(
             graph.nodes().collect::<Vec<_>>(),
-            vec![System(1), System(2), System(3), System(4)]
+            vec![System(sys1), System(sys2), System(sys3), System(sys4)]
         );
 
-        graph.remove_node(System(1));
+        graph.remove_node(System(sys1));
 
         assert_eq!(
             graph.nodes().collect::<Vec<_>>(),
-            vec![System(4), System(2), System(3)]
+            vec![System(sys4), System(sys2), System(sys3)]
         );
 
-        graph.remove_node(System(4));
+        graph.remove_node(System(sys4));
 
         assert_eq!(
             graph.nodes().collect::<Vec<_>>(),
-            vec![System(3), System(2)]
+            vec![System(sys3), System(sys2)]
         );
 
-        graph.remove_node(System(2));
+        graph.remove_node(System(sys2));
 
-        assert_eq!(graph.nodes().collect::<Vec<_>>(), vec![System(3)]);
+        assert_eq!(graph.nodes().collect::<Vec<_>>(), vec![System(sys3)]);
 
-        graph.remove_node(System(3));
+        graph.remove_node(System(sys3));
 
         assert_eq!(graph.nodes().collect::<Vec<_>>(), vec![]);
     }
@@ -444,18 +463,26 @@ mod tests {
     fn strongly_connected_components() {
         use NodeId::System;
 
+        let mut slotmap = SlotMap::<SystemKey, ()>::with_key();
         let mut graph = <DiGraph>::default();
 
-        graph.add_edge(System(1), System(2));
-        graph.add_edge(System(2), System(1));
+        let sys1 = slotmap.insert(());
+        let sys2 = slotmap.insert(());
+        let sys3 = slotmap.insert(());
+        let sys4 = slotmap.insert(());
+        let sys5 = slotmap.insert(());
+        let sys6 = slotmap.insert(());
 
-        graph.add_edge(System(2), System(3));
-        graph.add_edge(System(3), System(2));
+        graph.add_edge(System(sys1), System(sys2));
+        graph.add_edge(System(sys2), System(sys1));
 
-        graph.add_edge(System(4), System(5));
-        graph.add_edge(System(5), System(4));
+        graph.add_edge(System(sys2), System(sys3));
+        graph.add_edge(System(sys3), System(sys2));
 
-        graph.add_edge(System(6), System(2));
+        graph.add_edge(System(sys4), System(sys5));
+        graph.add_edge(System(sys5), System(sys4));
+
+        graph.add_edge(System(sys6), System(sys2));
 
         let sccs = graph
             .iter_sccs()
@@ -465,9 +492,9 @@ mod tests {
         assert_eq!(
             sccs,
             vec![
-                vec![System(3), System(2), System(1)],
-                vec![System(5), System(4)],
-                vec![System(6)]
+                vec![System(sys3), System(sys2), System(sys1)],
+                vec![System(sys5), System(sys4)],
+                vec![System(sys6)]
             ]
         );
     }

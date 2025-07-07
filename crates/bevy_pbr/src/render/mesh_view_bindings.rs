@@ -59,7 +59,9 @@ use {crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, traci
 
 #[derive(Clone)]
 pub struct MeshPipelineViewLayout {
-    pub bind_group_layout: BindGroupLayout,
+    pub main_layout: BindGroupLayout,
+    pub binding_array_layout: BindGroupLayout,
+    pub empty_layout: BindGroupLayout,
 
     #[cfg(debug_assertions)]
     pub texture_count: usize,
@@ -93,24 +95,36 @@ impl MeshPipelineViewLayoutKey {
 
         format!(
             "mesh_view_layout{}{}{}{}{}{}",
-            self.contains(Key::MULTISAMPLED)
-                .then_some("_multisampled")
-                .unwrap_or_default(),
-            self.contains(Key::DEPTH_PREPASS)
-                .then_some("_depth")
-                .unwrap_or_default(),
-            self.contains(Key::NORMAL_PREPASS)
-                .then_some("_normal")
-                .unwrap_or_default(),
-            self.contains(Key::MOTION_VECTOR_PREPASS)
-                .then_some("_motion")
-                .unwrap_or_default(),
-            self.contains(Key::DEFERRED_PREPASS)
-                .then_some("_deferred")
-                .unwrap_or_default(),
-            self.contains(Key::OIT_ENABLED)
-                .then_some("_oit")
-                .unwrap_or_default(),
+            if self.contains(Key::MULTISAMPLED) {
+                "_multisampled"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::DEPTH_PREPASS) {
+                "_depth"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::NORMAL_PREPASS) {
+                "_normal"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::MOTION_VECTOR_PREPASS) {
+                "_motion"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::DEFERRED_PREPASS) {
+                "_deferred"
+            } else {
+                Default::default()
+            },
+            if self.contains(Key::OIT_ENABLED) {
+                "_oit"
+            } else {
+                Default::default()
+            },
         )
     }
 }
@@ -201,7 +215,11 @@ fn layout_entries(
     layout_key: MeshPipelineViewLayoutKey,
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
-) -> Vec<BindGroupLayoutEntry> {
+) -> [Vec<BindGroupLayoutEntry>; 2] {
+    // EnvironmentMapLight
+    let environment_map_entries =
+        environment_map::get_bind_group_layout_entries(render_device, render_adapter);
+
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
         (
@@ -313,45 +331,15 @@ fn layout_entries(
                 16,
                 texture_2d(TextureSampleType::Float { filterable: false }),
             ),
+            (17, environment_map_entries[3]),
         ),
     );
-
-    // EnvironmentMapLight
-    let environment_map_entries =
-        environment_map::get_bind_group_layout_entries(render_device, render_adapter);
-    entries = entries.extend_with_indices((
-        (17, environment_map_entries[0]),
-        (18, environment_map_entries[1]),
-        (19, environment_map_entries[2]),
-        (20, environment_map_entries[3]),
-    ));
-
-    // Irradiance volumes
-    if IRRADIANCE_VOLUMES_ARE_USABLE {
-        let irradiance_volume_entries =
-            irradiance_volume::get_bind_group_layout_entries(render_device, render_adapter);
-        entries = entries.extend_with_indices((
-            (21, irradiance_volume_entries[0]),
-            (22, irradiance_volume_entries[1]),
-        ));
-    }
-
-    // Clustered decals
-    if let Some(clustered_decal_entries) =
-        decal::clustered::get_bind_group_layout_entries(render_device, render_adapter)
-    {
-        entries = entries.extend_with_indices((
-            (23, clustered_decal_entries[0]),
-            (24, clustered_decal_entries[1]),
-            (25, clustered_decal_entries[2]),
-        ));
-    }
 
     // Tonemapping
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
     entries = entries.extend_with_indices((
-        (26, tonemapping_lut_entries[0]),
-        (27, tonemapping_lut_entries[1]),
+        (18, tonemapping_lut_entries[0]),
+        (19, tonemapping_lut_entries[1]),
     ));
 
     // Prepass
@@ -361,7 +349,7 @@ fn layout_entries(
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
-            .zip([28, 29, 30, 31])
+            .zip([20, 21, 22, 23])
         {
             if let Some(entry) = entry {
                 entries = entries.extend_with_indices(((binding as u32, *entry),));
@@ -372,10 +360,10 @@ fn layout_entries(
     // View Transmission Texture
     entries = entries.extend_with_indices((
         (
-            32,
+            24,
             texture_2d(TextureSampleType::Float { filterable: true }),
         ),
-        (33, sampler(SamplerBindingType::Filtering)),
+        (25, sampler(SamplerBindingType::Filtering)),
     ));
 
     // OIT
@@ -386,19 +374,47 @@ fn layout_entries(
         if is_oit_supported(render_adapter, render_device, false) {
             entries = entries.extend_with_indices((
                 // oit_layers
-                (34, storage_buffer_sized(false, None)),
+                (26, storage_buffer_sized(false, None)),
                 // oit_layer_ids,
-                (35, storage_buffer_sized(false, None)),
+                (27, storage_buffer_sized(false, None)),
                 // oit_layer_count
                 (
-                    36,
+                    28,
                     uniform_buffer::<OrderIndependentTransparencySettings>(true),
                 ),
             ));
         }
     }
 
-    entries.to_vec()
+    let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
+    binding_array_entries = binding_array_entries.extend_with_indices((
+        (0, environment_map_entries[0]),
+        (1, environment_map_entries[1]),
+        (2, environment_map_entries[2]),
+    ));
+
+    // Irradiance volumes
+    if IRRADIANCE_VOLUMES_ARE_USABLE {
+        let irradiance_volume_entries =
+            irradiance_volume::get_bind_group_layout_entries(render_device, render_adapter);
+        binding_array_entries = binding_array_entries.extend_with_indices((
+            (3, irradiance_volume_entries[0]),
+            (4, irradiance_volume_entries[1]),
+        ));
+    }
+
+    // Clustered decals
+    if let Some(clustered_decal_entries) =
+        decal::clustered::get_bind_group_layout_entries(render_device, render_adapter)
+    {
+        binding_array_entries = binding_array_entries.extend_with_indices((
+            (5, clustered_decal_entries[0]),
+            (6, clustered_decal_entries[1]),
+            (7, clustered_decal_entries[2]),
+        ));
+    }
+
+    [entries.to_vec(), binding_array_entries.to_vec()]
 }
 
 /// Stores the view layouts for every combination of pipeline keys.
@@ -435,12 +451,21 @@ impl FromWorld for MeshPipelineViewLayouts {
             #[cfg(debug_assertions)]
             let texture_count: usize = entries
                 .iter()
-                .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
+                .flat_map(|e| {
+                    e.iter()
+                        .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
+                })
                 .count();
 
             MeshPipelineViewLayout {
-                bind_group_layout: render_device
-                    .create_bind_group_layout(key.label().as_str(), &entries),
+                main_layout: render_device
+                    .create_bind_group_layout(key.label().as_str(), &entries[0]),
+                binding_array_layout: render_device.create_bind_group_layout(
+                    format!("{}_binding_array", key.label()).as_str(),
+                    &entries[1],
+                ),
+                empty_layout: render_device
+                    .create_bind_group_layout(format!("{}_empty", key.label()).as_str(), &[]),
                 #[cfg(debug_assertions)]
                 texture_count,
             }
@@ -449,7 +474,10 @@ impl FromWorld for MeshPipelineViewLayouts {
 }
 
 impl MeshPipelineViewLayouts {
-    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
+    pub fn get_view_layout(
+        &self,
+        layout_key: MeshPipelineViewLayoutKey,
+    ) -> &MeshPipelineViewLayout {
         let index = layout_key.bits() as usize;
         let layout = &self[index];
 
@@ -459,7 +487,7 @@ impl MeshPipelineViewLayouts {
             once!(warn!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments."));
         }
 
-        &layout.bind_group_layout
+        layout
     }
 }
 
@@ -484,12 +512,20 @@ pub fn generate_view_layouts(
         #[cfg(debug_assertions)]
         let texture_count: usize = entries
             .iter()
-            .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
+            .flat_map(|e| {
+                e.iter()
+                    .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
+            })
             .count();
 
         MeshPipelineViewLayout {
-            bind_group_layout: render_device
-                .create_bind_group_layout(key.label().as_str(), &entries),
+            main_layout: render_device.create_bind_group_layout(key.label().as_str(), &entries[0]),
+            binding_array_layout: render_device.create_bind_group_layout(
+                format!("{}_binding_array", key.label()).as_str(),
+                &entries[1],
+            ),
+            empty_layout: render_device
+                .create_bind_group_layout(format!("{}_empty", key.label()).as_str(), &[]),
             #[cfg(debug_assertions)]
             texture_count,
         }
@@ -498,7 +534,9 @@ pub fn generate_view_layouts(
 
 #[derive(Component)]
 pub struct MeshViewBindGroup {
-    pub value: BindGroup,
+    pub main: BindGroup,
+    pub binding_array: BindGroup,
+    pub empty: BindGroup,
 }
 
 pub fn prepare_mesh_view_bind_groups(
@@ -585,7 +623,7 @@ pub fn prepare_mesh_view_bind_groups(
                 layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
             }
 
-            let layout = &mesh_pipeline.get_view_layout(layout_key);
+            let layout = mesh_pipeline.get_view_layout(layout_key);
 
             let mut entries = DynamicBindGroupEntries::new_with_indices((
                 (0, view_binding.clone()),
@@ -614,6 +652,58 @@ pub fn prepare_mesh_view_bind_groups(
                 (16, ssao_view),
             ));
 
+            entries = entries.extend_with_indices(((17, environment_map_binding.clone()),));
+
+            let lut_bindings =
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+            entries = entries.extend_with_indices(((18, lut_bindings.0), (19, lut_bindings.1)));
+
+            // When using WebGL, we can't have a depth texture with multisampling
+            let prepass_bindings;
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
+            {
+                prepass_bindings = prepass::get_bindings(prepass_textures);
+                for (binding, index) in prepass_bindings
+                    .iter()
+                    .map(Option::as_ref)
+                    .zip([20, 21, 22, 23])
+                    .flat_map(|(b, i)| b.map(|b| (b, i)))
+                {
+                    entries = entries.extend_with_indices(((index, binding),));
+                }
+            };
+
+            let transmission_view = transmission_texture
+                .map(|transmission| &transmission.view)
+                .unwrap_or(&fallback_image_zero.texture_view);
+
+            let transmission_sampler = transmission_texture
+                .map(|transmission| &transmission.sampler)
+                .unwrap_or(&fallback_image_zero.sampler);
+
+            entries =
+                entries.extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
+
+            if has_oit {
+                if let (
+                    Some(oit_layers_binding),
+                    Some(oit_layer_ids_binding),
+                    Some(oit_settings_binding),
+                ) = (
+                    oit_buffers.layers.binding(),
+                    oit_buffers.layer_ids.binding(),
+                    oit_buffers.settings.binding(),
+                ) {
+                    entries = entries.extend_with_indices((
+                        (26, oit_layers_binding.clone()),
+                        (27, oit_layer_ids_binding.clone()),
+                        (28, oit_settings_binding.clone()),
+                    ));
+                }
+            }
+
+            let mut entries_binding_array = DynamicBindGroupEntries::new();
+
             let environment_map_bind_group_entries = RenderViewEnvironmentMapBindGroupEntries::get(
                 render_view_environment_maps,
                 &images,
@@ -621,18 +711,16 @@ pub fn prepare_mesh_view_bind_groups(
                 &render_device,
                 &render_adapter,
             );
-
             match environment_map_bind_group_entries {
                 RenderViewEnvironmentMapBindGroupEntries::Single {
                     diffuse_texture_view,
                     specular_texture_view,
                     sampler,
                 } => {
-                    entries = entries.extend_with_indices((
-                        (17, diffuse_texture_view),
-                        (18, specular_texture_view),
-                        (19, sampler),
-                        (20, environment_map_binding.clone()),
+                    entries_binding_array = entries_binding_array.extend_with_indices((
+                        (0, diffuse_texture_view),
+                        (1, specular_texture_view),
+                        (2, sampler),
                     ));
                 }
                 RenderViewEnvironmentMapBindGroupEntries::Multiple {
@@ -640,11 +728,10 @@ pub fn prepare_mesh_view_bind_groups(
                     ref specular_texture_views,
                     sampler,
                 } => {
-                    entries = entries.extend_with_indices((
-                        (17, diffuse_texture_views.as_slice()),
-                        (18, specular_texture_views.as_slice()),
-                        (19, sampler),
-                        (20, environment_map_binding.clone()),
+                    entries_binding_array = entries_binding_array.extend_with_indices((
+                        (0, diffuse_texture_views.as_slice()),
+                        (1, specular_texture_views.as_slice()),
+                        (2, sampler),
                     ));
                 }
             }
@@ -666,14 +753,15 @@ pub fn prepare_mesh_view_bind_groups(
                     texture_view,
                     sampler,
                 }) => {
-                    entries = entries.extend_with_indices(((21, texture_view), (22, sampler)));
+                    entries_binding_array = entries_binding_array
+                        .extend_with_indices(((3, texture_view), (4, sampler)));
                 }
                 Some(RenderViewIrradianceVolumeBindGroupEntries::Multiple {
                     ref texture_views,
                     sampler,
                 }) => {
-                    entries = entries
-                        .extend_with_indices(((21, texture_views.as_slice()), (22, sampler)));
+                    entries_binding_array = entries_binding_array
+                        .extend_with_indices(((3, texture_views.as_slice()), (4, sampler)));
                 }
                 None => {}
             }
@@ -689,76 +777,42 @@ pub fn prepare_mesh_view_bind_groups(
 
             // Add the decal bind group entries.
             if let Some(ref render_view_decal_bind_group_entries) = decal_bind_group_entries {
-                entries = entries.extend_with_indices((
+                entries_binding_array = entries_binding_array.extend_with_indices((
                     // `clustered_decals`
                     (
-                        23,
+                        5,
                         render_view_decal_bind_group_entries
                             .decals
                             .as_entire_binding(),
                     ),
                     // `clustered_decal_textures`
                     (
-                        24,
+                        6,
                         render_view_decal_bind_group_entries
                             .texture_views
                             .as_slice(),
                     ),
                     // `clustered_decal_sampler`
-                    (25, render_view_decal_bind_group_entries.sampler),
+                    (7, render_view_decal_bind_group_entries.sampler),
                 ));
             }
 
-            let lut_bindings =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
-            entries = entries.extend_with_indices(((26, lut_bindings.0), (27, lut_bindings.1)));
-
-            // When using WebGL, we can't have a depth texture with multisampling
-            let prepass_bindings;
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
-            {
-                prepass_bindings = prepass::get_bindings(prepass_textures);
-                for (binding, index) in prepass_bindings
-                    .iter()
-                    .map(Option::as_ref)
-                    .zip([28, 29, 30, 31])
-                    .flat_map(|(b, i)| b.map(|b| (b, i)))
-                {
-                    entries = entries.extend_with_indices(((index, binding),));
-                }
-            };
-
-            let transmission_view = transmission_texture
-                .map(|transmission| &transmission.view)
-                .unwrap_or(&fallback_image_zero.texture_view);
-
-            let transmission_sampler = transmission_texture
-                .map(|transmission| &transmission.sampler)
-                .unwrap_or(&fallback_image_zero.sampler);
-
-            entries =
-                entries.extend_with_indices(((32, transmission_view), (33, transmission_sampler)));
-
-            if has_oit {
-                if let (
-                    Some(oit_layers_binding),
-                    Some(oit_layer_ids_binding),
-                    Some(oit_settings_binding),
-                ) = (
-                    oit_buffers.layers.binding(),
-                    oit_buffers.layer_ids.binding(),
-                    oit_buffers.settings.binding(),
-                ) {
-                    entries = entries.extend_with_indices((
-                        (34, oit_layers_binding.clone()),
-                        (35, oit_layer_ids_binding.clone()),
-                        (36, oit_settings_binding.clone()),
-                    ));
-                }
-            }
-
             commands.entity(entity).insert(MeshViewBindGroup {
-                value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
+                main: render_device.create_bind_group(
+                    "mesh_view_bind_group",
+                    &layout.main_layout,
+                    &entries,
+                ),
+                binding_array: render_device.create_bind_group(
+                    "mesh_view_bind_group_binding_array",
+                    &layout.binding_array_layout,
+                    &entries_binding_array,
+                ),
+                empty: render_device.create_bind_group(
+                    "mesh_view_bind_group_empty",
+                    &layout.empty_layout,
+                    &[],
+                ),
             });
         }
     }

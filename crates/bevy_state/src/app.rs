@@ -116,7 +116,7 @@ impl AppExtStates for SubApp {
             }
         } else {
             let name = core::any::type_name::<S>();
-            warn!("State {} is already initialized.", name);
+            warn!("State {name} is already initialized.");
         }
 
         self
@@ -178,7 +178,7 @@ impl AppExtStates for SubApp {
             }
         } else {
             let name = core::any::type_name::<S>();
-            warn!("Computed state {} is already initialized.", name);
+            warn!("Computed state {name} is already initialized.");
         }
 
         self
@@ -209,7 +209,7 @@ impl AppExtStates for SubApp {
             }
         } else {
             let name = core::any::type_name::<S>();
-            warn!("Sub state {} is already initialized.", name);
+            warn!("Sub state {name} is already initialized.");
         }
 
         self
@@ -222,7 +222,7 @@ impl AppExtStates for SubApp {
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
             let name = core::any::type_name::<S>();
-            warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
+            warn!("State scoped entities are enabled for state `{name}`, but the state isn't installed in the app!");
         }
 
         // Note: We work with `StateTransition` in set

@@ -480,7 +480,7 @@ impl<'a> AssetPath<'a> {
     }
 
     pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
-        full_extension.chars().enumerate().filter_map(|(i, c)| {
+        full_extension.char_indices().filter_map(|(i, c)| {
             if c == '.' {
                 Some(&full_extension[i + 1..])
             } else {

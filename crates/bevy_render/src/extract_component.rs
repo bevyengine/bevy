@@ -3,10 +3,10 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
-    view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
     bundle::NoBundleEffect,
     component::Component,
@@ -60,7 +60,7 @@ pub trait ExtractComponent: Component {
     // type Out: Component = Self;
 
     /// Defines how the component is transferred into the "render world".
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out>;
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out>;
 }
 
 /// This plugin prepares the components of the corresponding type for the GPU

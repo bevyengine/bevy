@@ -28,6 +28,10 @@ macro_rules! impl_reflect_for_hashset {
                         .collect()
                 }
 
+                fn retain(&mut self, f: &mut dyn FnMut(&dyn $crate::reflect::PartialReflect) -> bool) {
+                    self.retain(move |value| f(value));
+                }
+
                 fn insert_boxed(&mut self, value: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>) -> bool {
                     let value = V::take_from_reflect(value).unwrap_or_else(|value| {
                         panic!(

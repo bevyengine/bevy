@@ -423,12 +423,12 @@ mod test {
         let mut world = World::new();
         queue.apply(&mut world);
 
-        assert_eq!(world.entities().len(), 2);
+        assert_eq!(world.entity_count(), 2);
 
         // The previous call to `apply` cleared the queue.
         // This call should do nothing.
         queue.apply(&mut world);
-        assert_eq!(world.entities().len(), 2);
+        assert_eq!(world.entity_count(), 2);
     }
 
     #[expect(
@@ -462,7 +462,7 @@ mod test {
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
         queue.apply(&mut world);
-        assert_eq!(world.entities().len(), 3);
+        assert_eq!(world.entity_count(), 3);
     }
 
     #[test]

@@ -3,7 +3,7 @@ use crate::{
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{weak_handle, Asset, Assets, Handle};
+use bevy_asset::{uuid_handle, Asset, Assets, Handle};
 use bevy_ecs::component::Component;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
@@ -21,7 +21,7 @@ use bevy_render::{
 };
 
 const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> =
-    weak_handle!("afa817f9-1869-4e0c-ac0d-d8cd1552d38a");
+    uuid_handle!("afa817f9-1869-4e0c-ac0d-d8cd1552d38a");
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
@@ -132,7 +132,7 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         }
 
         if let Some(label) = &mut descriptor.label {
-            *label = format!("forward_decal_{}", label).into();
+            *label = format!("forward_decal_{label}").into();
         }
 
         Ok(())

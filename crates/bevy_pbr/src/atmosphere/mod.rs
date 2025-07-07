@@ -55,7 +55,7 @@ use bevy_render::{
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{TextureFormat, TextureUsages},
     renderer::RenderAdapter,
     Render, RenderApp, RenderSystems,
@@ -309,7 +309,7 @@ impl ExtractComponent for Atmosphere {
 
     type Out = Atmosphere;
 
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }
@@ -405,7 +405,7 @@ impl ExtractComponent for AtmosphereSettings {
 
     type Out = AtmosphereSettings;
 
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }

@@ -1,11 +1,11 @@
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::event::EventParIter;
 use bevy_ecs::{
-    event::{Event, EventCursor, EventIterator, EventIteratorWithId, Events},
+    event::{BufferedEvent, EventCursor, EventIterator, EventIteratorWithId, Events},
     system::{Local, Res, SystemParam},
 };
 
-/// Reads events of type `T` in order and tracks which events have already been read.
+/// Reads [`BufferedEvent`]s of type `T` in order and tracks which events have already been read.
 ///
 /// # Concurrency
 ///
@@ -14,13 +14,13 @@ use bevy_ecs::{
 ///
 /// [`EventWriter<T>`]: super::EventWriter
 #[derive(SystemParam, Debug)]
-pub struct EventReader<'w, 's, E: Event> {
+pub struct EventReader<'w, 's, E: BufferedEvent> {
     pub(super) reader: Local<'s, EventCursor<E>>,
-    #[system_param(validation_message = "Event not initialized")]
+    #[system_param(validation_message = "BufferedEvent not initialized")]
     events: Res<'w, Events<E>>,
 }
 
-impl<'w, 's, E: Event> EventReader<'w, 's, E> {
+impl<'w, 's, E: BufferedEvent> EventReader<'w, 's, E> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
@@ -41,7 +41,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// # use bevy_ecs::prelude::*;
     /// # use std::sync::atomic::{AtomicUsize, Ordering};
     ///
-    /// #[derive(Event)]
+    /// #[derive(Event, BufferedEvent)]
     /// struct MyEvent {
     ///     value: usize,
     /// }
@@ -88,7 +88,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// #[derive(Event)]
+    /// #[derive(Event, BufferedEvent)]
     /// struct CollisionEvent;
     ///
     /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {

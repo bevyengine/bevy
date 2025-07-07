@@ -155,6 +155,7 @@ fn bench(c: &mut Criterion) {
                             &mesh.positions,
                             Some(&mesh.normals),
                             Some(&mesh.indices),
+                            None,
                             backface_culling,
                         );
 

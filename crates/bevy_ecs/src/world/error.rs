@@ -1,6 +1,7 @@
 //! Contains error types returned by bevy's schedule.
 
 use alloc::vec::Vec;
+use bevy_utils::prelude::DebugName;
 
 use crate::{
     component::ComponentId,
@@ -24,7 +25,7 @@ pub struct TryRunScheduleError(pub InternedScheduleLabel);
 #[error("Could not insert bundles of type {bundle_type} into the entities with the following IDs because they do not exist: {entities:?}")]
 pub struct TryInsertBatchError {
     /// The bundles' type name.
-    pub bundle_type: &'static str,
+    pub bundle_type: DebugName,
     /// The IDs of the provided entities that do not exist.
     pub entities: Vec<Entity>,
 }

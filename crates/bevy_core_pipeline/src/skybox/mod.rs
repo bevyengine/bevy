@@ -28,6 +28,7 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::Transform;
+use bevy_utils::default;
 use prepass::SkyboxPrepassPipeline;
 
 use crate::{core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms};
@@ -113,7 +114,9 @@ impl ExtractComponent for Skybox {
     type QueryFilter = ();
     type Out = (Self, SkyboxUniforms);
 
-    fn extract_component((skybox, exposure): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(
+        (skybox, exposure): QueryItem<'_, '_, Self::QueryData>,
+    ) -> Option<Self::Out> {
         let exposure = exposure
             .map(Exposure::exposure)
             .unwrap_or_else(|| Exposure::default().exposure());
@@ -123,7 +126,7 @@ impl ExtractComponent for Skybox {
             SkyboxUniforms {
                 brightness: skybox.brightness * exposure,
                 transform: Transform::from_rotation(skybox.rotation)
-                    .compute_matrix()
+                    .to_matrix()
                     .inverse(),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 _wasm_padding_8b: 0,
@@ -190,14 +193,10 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
         RenderPipelineDescriptor {
             label: Some("skybox_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: Vec::new(),
             vertex: VertexState {
                 shader: self.shader.clone(),
-                shader_defs: Vec::new(),
-                entry_point: "skybox_vertex".into(),
-                buffers: Vec::new(),
+                ..default()
             },
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: key.depth_format,
                 depth_write_enabled: false,
@@ -221,8 +220,6 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                shader_defs: Vec::new(),
-                entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -233,8 +230,9 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

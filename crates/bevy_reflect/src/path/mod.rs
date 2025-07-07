@@ -82,6 +82,7 @@ pub trait ReflectPath<'a>: Sized {
         })
     }
 }
+
 impl<'a> ReflectPath<'a> for &'a str {
     fn reflect_element(self, mut root: &dyn PartialReflect) -> PathResult<'a, &dyn PartialReflect> {
         for (access, offset) in PathParser::new(self) {
@@ -437,6 +438,7 @@ impl ParsedPath {
         Ok(Self(parts))
     }
 }
+
 impl<'a> ReflectPath<'a> for &'a ParsedPath {
     fn reflect_element(self, mut root: &dyn PartialReflect) -> PathResult<'a, &dyn PartialReflect> {
         for OffsetAccess { access, offset } in &self.0 {
@@ -454,11 +456,13 @@ impl<'a> ReflectPath<'a> for &'a ParsedPath {
         Ok(root)
     }
 }
+
 impl<const N: usize> From<[OffsetAccess; N]> for ParsedPath {
     fn from(value: [OffsetAccess; N]) -> Self {
         ParsedPath(value.to_vec())
     }
 }
+
 impl From<Vec<Access<'static>>> for ParsedPath {
     fn from(value: Vec<Access<'static>>) -> Self {
         ParsedPath(
@@ -472,6 +476,7 @@ impl From<Vec<Access<'static>>> for ParsedPath {
         )
     }
 }
+
 impl<const N: usize> From<[Access<'static>; N]> for ParsedPath {
     fn from(value: [Access<'static>; N]) -> Self {
         value.to_vec().into()
@@ -493,12 +498,14 @@ impl fmt::Display for ParsedPath {
         Ok(())
     }
 }
+
 impl core::ops::Index<usize> for ParsedPath {
     type Output = OffsetAccess;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
 }
+
 impl core::ops::IndexMut<usize> for ParsedPath {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]

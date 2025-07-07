@@ -61,13 +61,9 @@ pub fn event_propagation(criterion: &mut Criterion) {
     group.finish();
 }
 
-#[derive(Clone, Component)]
+#[derive(Event, EntityEvent, Clone, Component)]
+#[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct TestEvent<const N: usize> {}
-
-impl<const N: usize> Event for TestEvent<N> {
-    type Traversal = &'static ChildOf;
-    const AUTO_PROPAGATE: bool = true;
-}
 
 fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &[Entity]) {
     let target = leaves.iter().choose(&mut rand::thread_rng()).unwrap();
@@ -117,6 +113,6 @@ fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
     }
 }
 
-fn empty_listener<const N: usize>(trigger: Trigger<TestEvent<N>>) {
+fn empty_listener<const N: usize>(trigger: On<TestEvent<N>>) {
     black_box(trigger);
 }

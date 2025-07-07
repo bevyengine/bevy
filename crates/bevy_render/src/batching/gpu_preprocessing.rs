@@ -392,9 +392,12 @@ where
 }
 
 /// The buffer of GPU preprocessing work items for a single view.
-#[expect(
-    clippy::large_enum_variant,
-    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::large_enum_variant,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )
 )]
 pub enum PreprocessWorkItemBuffers {
     /// The work items we use if we aren't using indirect drawing.

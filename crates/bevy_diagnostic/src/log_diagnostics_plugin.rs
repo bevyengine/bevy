@@ -202,7 +202,7 @@ impl LogDiagnosticsPlugin {
     ) {
         if state.timer.tick(time.delta()).is_finished() {
             Self::for_each_diagnostic(&state, &diagnostics, |diagnostic| {
-                debug!("{:#?}\n", diagnostic);
+                debug!("{diagnostic:#?}\n");
             });
         }
     }

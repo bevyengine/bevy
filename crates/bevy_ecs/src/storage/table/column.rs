@@ -228,20 +228,20 @@ impl ThinColumn {
     /// # Safety
     /// `len` is the actual length of this column
     #[inline]
-    pub(crate) unsafe fn check_change_ticks(&mut self, len: usize, change_tick: Tick) {
+    pub(crate) unsafe fn check_change_ticks(&mut self, len: usize, check: CheckChangeTicks) {
         for i in 0..len {
             // SAFETY:
             // - `i` < `len`
             // we have a mutable reference to `self`
             unsafe { self.added_ticks.get_unchecked_mut(i) }
                 .get_mut()
-                .check_tick(change_tick);
+                .check_tick(check);
             // SAFETY:
             // - `i` < `len`
             // we have a mutable reference to `self`
             unsafe { self.changed_ticks.get_unchecked_mut(i) }
                 .get_mut()
-                .check_tick(change_tick);
+                .check_tick(check);
         }
     }
 
@@ -646,12 +646,12 @@ impl Column {
     }
 
     #[inline]
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for component_ticks in &mut self.added_ticks {
-            component_ticks.get_mut().check_tick(change_tick);
+            component_ticks.get_mut().check_tick(check);
         }
         for component_ticks in &mut self.changed_ticks {
-            component_ticks.get_mut().check_tick(change_tick);
+            component_ticks.get_mut().check_tick(check);
         }
     }
 

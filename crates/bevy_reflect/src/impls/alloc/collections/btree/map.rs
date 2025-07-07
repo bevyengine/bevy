@@ -2,7 +2,7 @@ use crate::{
     error::ReflectCloneError,
     generics::{Generics, TypeParamInfo},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
-    map::{map_apply, map_partial_eq, map_try_apply, Map, MapInfo, MapIter},
+    map::{map_apply, map_partial_eq, map_try_apply, Map, MapInfo},
     prelude::*,
     reflect::{impl_full_reflect, ApplyError},
     type_info::{MaybeTyped, TypeInfo, Typed},
@@ -31,27 +31,15 @@ where
             .map(|value| value as &mut dyn PartialReflect)
     }
 
-    fn get_at(&self, index: usize) -> Option<(&dyn PartialReflect, &dyn PartialReflect)> {
-        self.iter()
-            .nth(index)
-            .map(|(key, value)| (key as &dyn PartialReflect, value as &dyn PartialReflect))
-    }
-
-    fn get_at_mut(
-        &mut self,
-        index: usize,
-    ) -> Option<(&dyn PartialReflect, &mut dyn PartialReflect)> {
-        self.iter_mut()
-            .nth(index)
-            .map(|(key, value)| (key as &dyn PartialReflect, value as &mut dyn PartialReflect))
-    }
-
     fn len(&self) -> usize {
         Self::len(self)
     }
 
-    fn iter(&self) -> MapIter {
-        MapIter::new(self)
+    fn iter(&self) -> Box<dyn Iterator<Item = (&dyn PartialReflect, &dyn PartialReflect)> + '_> {
+        Box::new(
+            self.iter()
+                .map(|(k, v)| (k as &dyn PartialReflect, v as &dyn PartialReflect)),
+        )
     }
 
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
@@ -66,6 +54,10 @@ where
             ));
         }
         result
+    }
+
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool) {
+        self.retain(move |k, v| f(k, v));
     }
 
     fn insert_boxed(

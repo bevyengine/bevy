@@ -86,9 +86,9 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 // Switch texture to display every frame to show the one that was written to most recently.
 fn switch_textures(images: Res<GameOfLifeImages>, mut sprite: Single<&mut Sprite>) {
     if sprite.image == images.texture_a {
-        sprite.image = images.texture_b.clone_weak();
+        sprite.image = images.texture_b.clone();
     } else {
-        sprite.image = images.texture_a.clone_weak();
+        sprite.image = images.texture_a.clone();
     }
 }
 
@@ -173,22 +173,16 @@ impl FromWorld for GameOfLifePipeline {
         let shader = world.load_asset(SHADER_ASSET_PATH);
         let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: None,
             layout: vec![texture_bind_group_layout.clone()],
-            push_constant_ranges: Vec::new(),
             shader: shader.clone(),
-            shader_defs: vec![],
-            entry_point: Cow::from("init"),
-            zero_initialize_workgroup_memory: false,
+            entry_point: Some(Cow::from("init")),
+            ..default()
         });
         let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: None,
             layout: vec![texture_bind_group_layout.clone()],
-            push_constant_ranges: Vec::new(),
             shader,
-            shader_defs: vec![],
-            entry_point: Cow::from("update"),
-            zero_initialize_workgroup_memory: false,
+            entry_point: Some(Cow::from("update")),
+            ..default()
         });
 
         GameOfLifePipeline {

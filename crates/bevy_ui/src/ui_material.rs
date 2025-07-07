@@ -141,12 +141,12 @@ where
     fn clone(&self) -> Self {
         Self {
             hdr: self.hdr,
-            bind_group_data: self.bind_group_data.clone(),
+            bind_group_data: self.bind_group_data,
         }
     }
 }
 
-impl<M: UiMaterial> Hash for UiMaterialKey<M>
+impl<M: UiMaterial> core::hash::Hash for UiMaterialKey<M>
 where
     M::Data: Hash,
 {

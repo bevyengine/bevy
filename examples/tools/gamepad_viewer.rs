@@ -48,6 +48,7 @@ struct ButtonMaterials {
     normal: MeshMaterial2d<ColorMaterial>,
     active: MeshMaterial2d<ColorMaterial>,
 }
+
 impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
         Self {
@@ -63,6 +64,7 @@ struct ButtonMeshes {
     start_pause: Mesh2d,
     trigger: Mesh2d,
 }
+
 impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
         Self {
@@ -441,7 +443,7 @@ fn update_connected(
 
     let formatted = gamepads
         .iter()
-        .map(|(entity, name)| format!("{} - {}", entity, name))
+        .map(|(entity, name)| format!("{entity} - {name}"))
         .collect::<Vec<_>>()
         .join("\n");
 

@@ -3,6 +3,7 @@
 extern crate alloc;
 extern crate core;
 
+mod components;
 mod conversions;
 mod index;
 mod mesh;
@@ -12,6 +13,7 @@ pub mod primitives;
 pub mod skinning;
 mod vertex;
 use bitflags::bitflags;
+pub use components::*;
 pub use index::*;
 pub use mesh::*;
 pub use mikktspace::*;

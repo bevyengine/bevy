@@ -130,7 +130,7 @@ fn par_iter_simple(c: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
     for f in [0, 10, 100, 1000] {
-        group.bench_function(format!("with_{}_fragment", f), |b| {
+        group.bench_function(format!("with_{f}_fragment"), |b| {
             let mut bench = par_iter_simple::Benchmark::new(f);
             b.iter(move || bench.run());
         });

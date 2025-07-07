@@ -1,10 +1,10 @@
-use crate::{derive_data::ReflectMeta, where_clause_options::WhereClauseOptions};
+use crate::where_clause_options::WhereClauseOptions;
 use quote::quote;
 
 pub(crate) fn impl_get_ownership(
-    meta: &ReflectMeta,
     where_clause_options: &WhereClauseOptions,
 ) -> proc_macro2::TokenStream {
+    let meta = where_clause_options.meta();
     let bevy_reflect = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 

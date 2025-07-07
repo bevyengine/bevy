@@ -328,13 +328,13 @@ fn add_mask_group_control(
                                 },
                             ))
                             .with_child((
-                                Text(format!("{:?}", label)),
+                                Text(format!("{label:?}")),
                                 if index > 0 {
                                     button_text_style.clone()
                                 } else {
                                     selected_button_text_style.clone()
                                 },
-                                TextLayout::new_with_justify(JustifyText::Center),
+                                TextLayout::new_with_justify(Justify::Center),
                                 Node {
                                     flex_grow: 1.0,
                                     margin: UiRect::vertical(Val::Px(3.0)),

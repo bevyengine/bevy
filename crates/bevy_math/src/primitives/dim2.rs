@@ -35,6 +35,7 @@ pub struct Circle {
     /// The radius of the circle
     pub radius: f32,
 }
+
 impl Primitive2d for Circle {}
 
 impl Default for Circle {
@@ -124,6 +125,7 @@ pub struct Arc2d {
     /// Half the angle defining the arc
     pub half_angle: f32,
 }
+
 impl Primitive2d for Arc2d {}
 
 impl Default for Arc2d {
@@ -290,6 +292,7 @@ pub struct CircularSector {
     #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
+
 impl Primitive2d for CircularSector {}
 
 impl Default for CircularSector {
@@ -433,6 +436,7 @@ pub struct CircularSegment {
     #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
+
 impl Primitive2d for CircularSegment {}
 
 impl Default for CircularSegment {
@@ -453,6 +457,7 @@ impl Measured2d for CircularSegment {
         self.chord_length() + self.arc_length()
     }
 }
+
 impl CircularSegment {
     /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
     #[inline(always)]
@@ -788,6 +793,7 @@ pub struct Ellipse {
     /// This corresponds to the two perpendicular radii defining the ellipse.
     pub half_size: Vec2,
 }
+
 impl Primitive2d for Ellipse {}
 
 impl Default for Ellipse {
@@ -939,6 +945,7 @@ pub struct Annulus {
     /// The outer circle of the annulus
     pub outer_circle: Circle,
 }
+
 impl Primitive2d for Annulus {}
 
 impl Default for Annulus {
@@ -1036,6 +1043,7 @@ pub struct Rhombus {
     /// Size of the horizontal and vertical diagonals of the rhombus
     pub half_diagonals: Vec2,
 }
+
 impl Primitive2d for Rhombus {}
 
 impl Default for Rhombus {
@@ -1171,6 +1179,7 @@ pub struct Plane2d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir2,
 }
+
 impl Primitive2d for Plane2d {}
 
 impl Default for Plane2d {
@@ -1213,6 +1222,7 @@ pub struct Line2d {
     /// and its opposite direction
     pub direction: Dir2,
 }
+
 impl Primitive2d for Line2d {}
 
 /// A line segment defined by two endpoints in 2D space.
@@ -1232,6 +1242,7 @@ pub struct Segment2d {
     /// The endpoints of the line segment.
     pub vertices: [Vec2; 2],
 }
+
 impl Primitive2d for Segment2d {}
 
 impl Segment2d {
@@ -1504,6 +1515,7 @@ pub struct Polyline2d<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
+
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
 impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
@@ -1573,6 +1585,7 @@ pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
 }
+
 impl Primitive2d for Triangle2d {}
 
 impl Default for Triangle2d {
@@ -1745,6 +1758,7 @@ pub struct Rectangle {
     /// Half of the width and height of the rectangle
     pub half_size: Vec2,
 }
+
 impl Primitive2d for Rectangle {}
 
 impl Default for Rectangle {
@@ -1838,6 +1852,7 @@ pub struct Polygon<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
+
 impl<const N: usize> Primitive2d for Polygon<N> {}
 
 impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
@@ -1892,6 +1907,7 @@ pub struct ConvexPolygon<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     vertices: [Vec2; N],
 }
+
 impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
 
 /// An error that happens when creating a [`ConvexPolygon`].
@@ -2013,6 +2029,7 @@ pub struct RegularPolygon {
     /// The number of sides
     pub sides: u32,
 }
+
 impl Primitive2d for RegularPolygon {}
 
 impl Default for RegularPolygon {
@@ -2160,6 +2177,7 @@ pub struct Capsule2d {
     /// Half the height of the capsule, excluding the semicircles
     pub half_length: f32,
 }
+
 impl Primitive2d for Capsule2d {}
 
 impl Default for Capsule2d {

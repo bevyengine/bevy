@@ -25,6 +25,10 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         }
     }
 
+    pub fn meta(&self) -> &'a ReflectMeta<'b> {
+        self.meta
+    }
+
     /// Extends the `where` clause for a type with additional bounds needed for the reflection impls.
     ///
     /// The default bounds added are as follows:

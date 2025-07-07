@@ -2,6 +2,7 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
+use bevy_image::ToExtents;
 pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter};
 
 use crate::{
@@ -19,7 +20,7 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
@@ -121,7 +122,7 @@ impl ViewNode for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         if bloom_settings.intensity == 0.0 {
@@ -347,26 +348,22 @@ fn prepare_bloom_textures(
     views: Query<(Entity, &ExtractedCamera, &Bloom)>,
 ) {
     for (entity, camera, bloom) in &views {
-        if let Some(UVec2 {
-            x: width,
-            y: height,
-        }) = camera.physical_viewport_size
-        {
+        if let Some(viewport) = camera.physical_viewport_size {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
             let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
-            let mip_height_ratio = if height != 0 {
-                bloom.max_mip_dimension as f32 / height as f32
+            let mip_height_ratio = if viewport.y != 0 {
+                bloom.max_mip_dimension as f32 / viewport.y as f32
             } else {
                 0.
             };
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
-                size: Extent3d {
-                    width: ((width as f32 * mip_height_ratio).round() as u32).max(1),
-                    height: ((height as f32 * mip_height_ratio).round() as u32).max(1),
-                    depth_or_array_layers: 1,
-                },
+                size: (viewport.as_vec2() * mip_height_ratio)
+                    .round()
+                    .as_uvec2()
+                    .max(UVec2::ONE)
+                    .to_extents(),
                 mip_level_count: mip_count,
                 sample_count: 1,
                 dimension: TextureDimension::D2,

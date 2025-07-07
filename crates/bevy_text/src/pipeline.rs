@@ -16,8 +16,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, Justify, LineBreak,
+    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -88,7 +88,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
         linebreak: LineBreak,
-        justify: JustifyText,
+        justify: Justify,
         bounds: TextBounds,
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
@@ -201,7 +201,7 @@ impl TextPipeline {
 
         // Workaround for alignment not working for unbounded text.
         // See https://github.com/pop-os/cosmic-text/issues/343
-        if bounds.width.is_none() && justify != JustifyText::Left {
+        if bounds.width.is_none() && justify != Justify::Left {
             let dimensions = buffer_dimensions(buffer);
             // `set_size` causes a re-layout to occur.
             buffer.set_size(font_system, Some(dimensions.x), bounds.height);
@@ -283,10 +283,10 @@ impl TextPipeline {
                                 layout_info.section_rects.push((
                                     computed.entities[section].entity,
                                     Rect::new(
-                                        start,
-                                        run.line_top,
-                                        end,
-                                        run.line_top + run.line_height,
+                                        start - 0.5 * box_size.x,
+                                        run.line_top - 0.5 * box_size.y,
+                                        end - 0.5 * box_size.x,
+                                        run.line_top + run.line_height - 0.5 * box_size.y,
                                     ),
                                 ));
                                 start = end.max(layout_glyph.x);
@@ -340,7 +340,7 @@ impl TextPipeline {
                             )
                         })?;
 
-                    let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                    let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
                     let location = atlas_info.location;
                     let glyph_rect = texture_atlas.textures[location.glyph_index];
                     let left = location.offset.x as f32;
@@ -369,7 +369,12 @@ impl TextPipeline {
             if let Some(section) = current_section {
                 layout_info.section_rects.push((
                     computed.entities[section].entity,
-                    Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                    Rect::new(
+                        start - 0.5 * box_size.x,
+                        run.line_top - 0.5 * box_size.y,
+                        end - 0.5 * box_size.x,
+                        run.line_top + run.line_height - 0.5 * box_size.y,
+                    ),
                 ));
             }
 

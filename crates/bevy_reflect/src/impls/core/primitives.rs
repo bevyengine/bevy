@@ -282,6 +282,7 @@ impl GetTypeRegistration for &'static str {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
         registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
         registration
     }
 }

@@ -1,4 +1,8 @@
 //! A Bevy app that you can connect to with the BRP and edit.
+//! Run this example with the `remote` feature enabled:
+//! ```bash
+//! cargo run --example server --features="bevy_remote"
+//! ```
 
 use bevy::math::ops::cos;
 use bevy::{

@@ -301,6 +301,8 @@ impl From<&Source> for naga_oil::compose::ShaderType {
                 naga::ShaderStage::Vertex => naga_oil::compose::ShaderType::GlslVertex,
                 naga::ShaderStage::Fragment => naga_oil::compose::ShaderType::GlslFragment,
                 naga::ShaderStage::Compute => panic!("glsl compute not yet implemented"),
+                naga::ShaderStage::Task => panic!("task shaders not yet implemented"),
+                naga::ShaderStage::Mesh => panic!("mesh shaders not yet implemented"),
             },
             #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
             Source::Glsl(_, _) => panic!(

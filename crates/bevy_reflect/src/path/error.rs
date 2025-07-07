@@ -74,6 +74,7 @@ impl<'a> AccessError<'a> {
         self.offset.as_ref()
     }
 }
+
 impl fmt::Display for AccessError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let AccessError {
@@ -126,4 +127,5 @@ impl fmt::Display for AccessError<'_> {
         }
     }
 }
+
 impl core::error::Error for AccessError<'_> {}

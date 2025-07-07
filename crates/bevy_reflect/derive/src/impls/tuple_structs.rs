@@ -24,14 +24,10 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
     let where_clause_options = reflect_struct.where_clause_options();
     let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
-    let typed_impl = impl_typed(
-        reflect_struct.meta(),
-        &where_clause_options,
-        reflect_struct.to_info_tokens(true),
-    );
+    let typed_impl = impl_typed(&where_clause_options, reflect_struct.to_info_tokens(true));
 
     let type_path_impl = impl_type_path(reflect_struct.meta());
-    let full_reflect_impl = impl_full_reflect(reflect_struct.meta(), &where_clause_options);
+    let full_reflect_impl = impl_full_reflect(&where_clause_options);
     let common_methods = common_partial_reflect_methods(
         reflect_struct.meta(),
         || Some(quote!(#bevy_reflect_path::tuple_struct_partial_eq)),
@@ -42,8 +38,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
     #[cfg(not(feature = "functions"))]
     let function_impls = None::<proc_macro2::TokenStream>;
     #[cfg(feature = "functions")]
-    let function_impls =
-        crate::impls::impl_function_traits(reflect_struct.meta(), &where_clause_options);
+    let function_impls = crate::impls::impl_function_traits(&where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) = reflect_struct
         .meta()
