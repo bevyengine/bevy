@@ -44,11 +44,43 @@ pub(crate) trait RegisterReflectJsonSchemas {
         #[cfg(feature = "bevy_math")]
         {
             self.register_type_data_internal::<bevy_math::Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::DVec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::I8Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::U8Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::I16Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::U16Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::IVec2, ReflectJsonSchemaForceAsArray>();
             self.register_type_data_internal::<bevy_math::UVec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::I64Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::U64Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::BVec2, ReflectJsonSchemaForceAsArray>();
+
             self.register_type_data_internal::<bevy_math::Vec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::DVec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::I8Vec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::U8Vec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::I16Vec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::U16Vec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::IVec3, ReflectJsonSchemaForceAsArray>();
             self.register_type_data_internal::<bevy_math::UVec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::I64Vec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::U64Vec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::BVec3, ReflectJsonSchemaForceAsArray>();
+
             self.register_type_data_internal::<bevy_math::Vec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::DVec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::I8Vec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::U8Vec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::I16Vec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::U16Vec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::IVec4, ReflectJsonSchemaForceAsArray>();
             self.register_type_data_internal::<bevy_math::UVec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::I64Vec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::U64Vec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::BVec4, ReflectJsonSchemaForceAsArray>();
+
+            self.register_type_data_internal::<bevy_math::Quat, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::DQuat, ReflectJsonSchemaForceAsArray>();
         }
         self.register_type_internal::<OpenRpcDocument>();
         self.register_type_data_internal::<OpenRpcDocument, ReflectJsonSchema>();
@@ -59,19 +91,20 @@ pub(crate) trait RegisterReflectJsonSchemas {
 
     fn register_type_data_internal<T, D>(&mut self)
     where
-        T: Reflect + bevy_reflect::TypePath,
+        T: Reflect + bevy_reflect::TypePath + bevy_reflect::GetTypeRegistration,
         D: TypeData + FromType<T>;
 }
 
 impl RegisterReflectJsonSchemas for bevy_reflect::TypeRegistry {
     fn register_type_data_internal<T, D>(&mut self)
     where
-        T: Reflect + bevy_reflect::TypePath,
+        T: Reflect + bevy_reflect::TypePath + bevy_reflect::GetTypeRegistration,
         D: TypeData + FromType<T>,
     {
-        if self.contains(TypeId::of::<T>()) {
-            self.register_type_data::<T, D>();
+        if !self.contains(TypeId::of::<T>()) {
+            self.register::<T>();
         }
+        self.register_type_data::<T, D>();
     }
 
     fn register_type_internal<T>(&mut self)
@@ -84,9 +117,10 @@ impl RegisterReflectJsonSchemas for bevy_reflect::TypeRegistry {
 impl RegisterReflectJsonSchemas for bevy_app::App {
     fn register_type_data_internal<T, D>(&mut self)
     where
-        T: Reflect + bevy_reflect::TypePath,
+        T: Reflect + bevy_reflect::TypePath + bevy_reflect::GetTypeRegistration,
         D: TypeData + FromType<T>,
     {
+        self.register_type::<T>();
         self.register_type_data::<T, D>();
     }
 
