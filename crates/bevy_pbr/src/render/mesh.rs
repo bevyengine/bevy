@@ -15,6 +15,9 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
+use bevy_light::{
+    EnvironmentMapLight, NotShadowCaster, NotShadowReceiver, TransmittedShadowReceiver,
+};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
@@ -52,7 +55,6 @@ use material_bind_groups::MaterialBindingId;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-use crate::environment_map::EnvironmentMapLight;
 use crate::irradiance_volume::IrradianceVolume;
 use crate::{
     render::{

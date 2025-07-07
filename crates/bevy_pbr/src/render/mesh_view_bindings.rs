@@ -17,6 +17,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
+use bevy_light::EnvironmentMapLight;
 use bevy_math::Vec4;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -30,7 +31,6 @@ use bevy_render::{
     },
 };
 use core::{array, num::NonZero};
-use environment_map::EnvironmentMapLight;
 
 use crate::{
     decal::{

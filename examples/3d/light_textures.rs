@@ -6,13 +6,7 @@ use std::fmt::{self, Formatter};
 use bevy::{
     color::palettes::css::{SILVER, YELLOW},
     input::mouse::AccumulatedMouseMotion,
-    pbr::{
-        decal::{
-            self,
-            clustered::{DirectionalLightTexture, PointLightTexture, SpotLightTexture},
-        },
-        NotShadowCaster,
-    },
+    pbr::{decal, DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
     prelude::*,
     render::renderer::{RenderAdapter, RenderDevice},
     window::SystemCursorIcon,
