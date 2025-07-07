@@ -105,13 +105,7 @@ struct HelpText;
 /// Entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Light Textures Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .init_resource::<AppStatus>()
         .add_event::<WidgetClickEvent<Selection>>()
         .add_event::<WidgetClickEvent<Visibility>>()

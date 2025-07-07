@@ -81,13 +81,7 @@ impl Display for Scene {
 fn main() {
     App::new()
         .init_resource::<AppStatus>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Anisotropy Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, create_material_variants)
         .add_systems(Update, animate_light)
