@@ -13,7 +13,7 @@ mod writer;
 pub(crate) use base::EventInstance;
 pub use base::{BufferedEvent, EntityEvent, Event, EventId, EventKey};
 pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
-pub use collections::{Events, WriteBatchIds};
+pub use collections::{Events, SendBatchIds, WriteBatchIds};
 pub use event_cursor::EventCursor;
 #[cfg(feature = "multi_threaded")]
 pub use iterators::EventParIter;
