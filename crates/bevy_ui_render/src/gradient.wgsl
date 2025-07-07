@@ -182,17 +182,21 @@ fn lerp_hue_long(a: f32, b: f32, t: f32) -> f32 {
 }
 
 fn mix_oklch(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let ah = select(a.z, b.z, a.y == 0.);
+    let bh = select(b.z, a.z, b.y == 0.);
     return vec4(
         mix(a.xy, b.xy, t),
-        lerp_hue(a.z, b.z, t),
+        lerp_hue(ah, bh, t),
         mix(a.w, b.w, t)
     );
 }
 
 fn mix_oklch_long(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let ah = select(a.z, b.z, a.y == 0.);
+    let bh = select(b.z, a.z, b.y == 0.);
     return vec4(
         mix(a.xy, b.xy, t),
-        lerp_hue_long(a.z, b.z, t),
+        lerp_hue_long(ah, bh, t),
         mix(a.w, b.w, t)
     );
 }
