@@ -57,7 +57,6 @@ impl Default for WindowPlugin {
     fn default() -> Self {
         WindowPlugin {
             primary_window: Some(Window::default()),
-            primary_cursor_options: Some(CursorOptions::default()),
             exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,
         }
@@ -76,13 +75,6 @@ pub struct WindowPlugin {
     /// Note that if there are no windows the App will exit (by default) due to
     /// [`exit_on_all_closed`].
     pub primary_window: Option<Window>,
-
-    /// Settings for the cursor on the primary window.
-    ///
-    /// Defaults to `Some(CursorOptions::default())`.
-    ///
-    /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
-    pub primary_cursor_options: Option<CursorOptions>,
 
     /// Whether to exit the app when there are no open windows.
     ///
@@ -135,9 +127,6 @@ impl Plugin for WindowPlugin {
                 PrimaryWindow,
                 RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
             ));
-            if let Some(primary_cursor_options) = &self.primary_cursor_options {
-                entity_commands.insert(primary_cursor_options.clone());
-            }
         }
 
         match self.exit_condition {
