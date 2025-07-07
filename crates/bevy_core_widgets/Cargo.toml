@@ -23,7 +23,7 @@ bevy_ui = { path = "../bevy_ui", version = "0.17.0-dev", features = [
 ] }
 
 # other
-accesskit = "0.19"
+accesskit = "0.20"
 
 [features]
 default = []
