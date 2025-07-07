@@ -1,10 +1,10 @@
 use crate::{
     resource::Resource,
-    schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
+    schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel, SystemKey},
     system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
@@ -125,7 +125,7 @@ impl core::fmt::Debug for Stepping {
         if self.action != Action::RunAll {
             let Cursor { schedule, system } = self.cursor;
             match self.schedule_order.get(schedule) {
-                Some(label) => write!(f, "cursor: {:?}[{}], ", label, system)?,
+                Some(label) => write!(f, "cursor: {label:?}[{system}], ")?,
                 None => write!(f, "cursor: None, ")?,
             };
         }
@@ -173,7 +173,7 @@ impl Stepping {
         state
             .node_ids
             .get(self.cursor.system)
-            .map(|node_id| (*label, *node_id))
+            .map(|node_id| (*label, NodeId::System(*node_id)))
     }
 
     /// Enable stepping for the provided schedule
@@ -475,9 +475,8 @@ impl Stepping {
                     Some(state) => state.clear_behaviors(),
                     None => {
                         warn!(
-                            "stepping is not enabled for schedule {:?}; \
-                            use `.add_stepping({:?})` to enable stepping",
-                            label, label
+                            "stepping is not enabled for schedule {label:?}; \
+                            use `.add_stepping({label:?})` to enable stepping"
                         );
                     }
                 },
@@ -486,9 +485,8 @@ impl Stepping {
                         Some(state) => state.set_behavior(system, behavior),
                         None => {
                             warn!(
-                                "stepping is not enabled for schedule {:?}; \
-                                use `.add_stepping({:?})` to enable stepping",
-                                label, label
+                                "stepping is not enabled for schedule {label:?}; \
+                                use `.add_stepping({label:?})` to enable stepping"
                             );
                         }
                     }
@@ -498,9 +496,8 @@ impl Stepping {
                         Some(state) => state.clear_behavior(system),
                         None => {
                             warn!(
-                                "stepping is not enabled for schedule {:?}; \
-                                use `.add_stepping({:?})` to enable stepping",
-                                label, label
+                                "stepping is not enabled for schedule {label:?}; \
+                                use `.add_stepping({label:?})` to enable stepping"
                             );
                         }
                     }
@@ -609,7 +606,7 @@ struct ScheduleState {
     /// This is a cached copy of `SystemExecutable::system_ids`. We need it
     /// available here to be accessed by [`Stepping::cursor()`] so we can return
     /// [`NodeId`]s to the caller.
-    node_ids: Vec<NodeId>,
+    node_ids: Vec<SystemKey>,
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::skipped_systems()`] is called
@@ -665,15 +662,15 @@ impl ScheduleState {
         // updates for the system TypeId.
         // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
         // system scan here
-        for (node_id, system) in schedule.systems().unwrap() {
+        for (key, system) in schedule.systems().unwrap() {
             let behavior = self.behavior_updates.get(&system.type_id());
             match behavior {
                 None => continue,
                 Some(None) => {
-                    self.behaviors.remove(&node_id);
+                    self.behaviors.remove(&NodeId::System(key));
                 }
                 Some(Some(behavior)) => {
-                    self.behaviors.insert(node_id, *behavior);
+                    self.behaviors.insert(NodeId::System(key), *behavior);
                 }
             }
         }
@@ -706,8 +703,8 @@ impl ScheduleState {
 
         // if we don't have a first system set, set it now
         if self.first.is_none() {
-            for (i, (node_id, _)) in schedule.systems().unwrap().enumerate() {
-                match self.behaviors.get(&node_id) {
+            for (i, (key, _)) in schedule.systems().unwrap().enumerate() {
+                match self.behaviors.get(&NodeId::System(key)) {
                     Some(SystemBehavior::AlwaysRun | SystemBehavior::NeverRun) => continue,
                     Some(_) | None => {
                         self.first = Some(i);
@@ -720,10 +717,10 @@ impl ScheduleState {
         let mut skip = FixedBitSet::with_capacity(schedule.systems_len());
         let mut pos = start;
 
-        for (i, (node_id, _system)) in schedule.systems().unwrap().enumerate() {
+        for (i, (key, _system)) in schedule.systems().unwrap().enumerate() {
             let behavior = self
                 .behaviors
-                .get(&node_id)
+                .get(&NodeId::System(key))
                 .unwrap_or(&SystemBehavior::Continue);
 
             #[cfg(test)]
@@ -823,10 +820,12 @@ impl ScheduleState {
 }
 
 #[cfg(all(test, feature = "bevy_debug_stepping"))]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use super::*;
     use crate::{prelude::*, schedule::ScheduleLabel};
     use alloc::{format, vec};
+    use slotmap::SlotMap;
     use std::println;
 
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -897,9 +896,9 @@ mod tests {
         ($schedule:expr, $skipped_systems:expr, $($system:expr),*) => {
             // pull an ordered list of systems in the schedule, and save the
             // system TypeId, and name.
-            let systems: Vec<(TypeId, alloc::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
+            let systems: Vec<(TypeId, alloc::string::String)> = $schedule.systems().unwrap()
                 .map(|(_, system)| {
-                    (system.type_id(), system.name())
+                    (system.type_id(), system.name().as_string())
                 })
             .collect();
 
@@ -1348,7 +1347,9 @@ mod tests {
         //
         // first system will be configured as `run_if(|| false)`, so it can
         // just panic if called
-        let first_system = move || panic!("first_system should not be run");
+        let first_system: fn() = move || {
+            panic!("first_system should not be run");
+        };
 
         // The second system, we need to know when it has been called, so we'll
         // add a resource for tracking if it has been run.  The system will
@@ -1467,10 +1468,11 @@ mod tests {
         // helper to build a cursor tuple for the supplied schedule
         fn cursor(schedule: &Schedule, index: usize) -> (InternedScheduleLabel, NodeId) {
             let node_id = schedule.executable().system_ids[index];
-            (schedule.label(), node_id)
+            (schedule.label(), NodeId::System(node_id))
         }
 
         let mut world = World::new();
+        let mut slotmap = SlotMap::<SystemKey, ()>::with_key();
 
         // create two schedules with a number of systems in them
         let mut schedule_a = Schedule::new(TestScheduleA);
@@ -1517,6 +1519,11 @@ mod tests {
             ]
         );
 
+        let sys0 = slotmap.insert(());
+        let sys1 = slotmap.insert(());
+        let _sys2 = slotmap.insert(());
+        let sys3 = slotmap.insert(());
+
         // reset our cursor (disable/enable), and update stepping to test if the
         // cursor properly skips over AlwaysRun & NeverRun systems.  Also set
         // a Break system to ensure that shows properly in the cursor
@@ -1524,9 +1531,9 @@ mod tests {
             // disable/enable to reset cursor
             .disable()
             .enable()
-            .set_breakpoint_node(TestScheduleA, NodeId::System(1))
-            .always_run_node(TestScheduleA, NodeId::System(3))
-            .never_run_node(TestScheduleB, NodeId::System(0));
+            .set_breakpoint_node(TestScheduleA, NodeId::System(sys1))
+            .always_run_node(TestScheduleA, NodeId::System(sys3))
+            .never_run_node(TestScheduleB, NodeId::System(sys0));
 
         let mut cursors = Vec::new();
         for _ in 0..9 {

@@ -7,12 +7,18 @@ use super::{
     MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
     MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
 };
+#[cfg(feature = "serialize")]
+use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
+#[cfg(feature = "serialize")]
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bytemuck::cast_slice;
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::warn;
 use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
@@ -85,39 +91,55 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Common points of confusion
 ///
 /// - UV maps in Bevy start at the top-left, see [`ATTRIBUTE_UV_0`](Mesh::ATTRIBUTE_UV_0),
-///     other APIs can have other conventions, `OpenGL` starts at bottom-left.
+///   other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
-///     [position attribute](Mesh::ATTRIBUTE_POSITION) value,
-///     it's a common technique in 3D modeling for complex UV mapping or other calculations.
+///   [position attribute](Mesh::ATTRIBUTE_POSITION) value,
+///   it's a common technique in 3D modeling for complex UV mapping or other calculations.
 /// - Bevy performs frustum culling based on the `Aabb` of meshes, which is calculated
-///     and added automatically for new meshes only. If a mesh is modified, the entity's `Aabb`
-///     needs to be updated manually or deleted so that it is re-calculated.
+///   and added automatically for new meshes only. If a mesh is modified, the entity's `Aabb`
+///   needs to be updated manually or deleted so that it is re-calculated.
 ///
 /// ## Use with `StandardMaterial`
 ///
 /// To render correctly with `StandardMaterial`, a mesh needs to have properly defined:
 /// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh
-///     (also true for `ColorMaterial`).
+///   (also true for `ColorMaterial`).
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
-///     [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
-///     because simple meshes are smooth and they don't require complex light calculations.
+///   [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
+///   because simple meshes are smooth and they don't require complex light calculations.
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
-///     which means that Bevy would *only* render the "front" of each triangle, which
-///     is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
-#[derive(Asset, Debug, Clone, Reflect)]
+///   which means that Bevy would *only* render the "front" of each triangle, which
+///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+#[derive(Asset, Debug, Clone, Reflect, PartialEq)]
+#[reflect(Clone)]
 pub struct Mesh {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
     /// Uses a [`BTreeMap`] because, unlike `HashMap`, it has a defined iteration order,
     /// which allows easy stable `VertexBuffers` (i.e. same buffer order)
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
+    /// Whether or not to build a BLAS for use with `bevy_solari` raytracing.
+    ///
+    /// Note that this is _not_ whether the mesh is _compatible_ with `bevy_solari` raytracing.
+    /// This field just controls whether or not a BLAS gets built for this mesh, assuming that
+    /// the mesh is compatible.
+    ///
+    /// The use case for this field is using lower-resolution proxy meshes for raytracing (to save on BLAS memory usage),
+    /// while using higher-resolution meshes for raster. You can set this field to true for the lower-resolution proxy mesh,
+    /// and to false for the high-resolution raster mesh.
+    ///
+    /// Alternatively, you can use the same mesh for both raster and raytracing, with this field set to true.
+    ///
+    /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
+    /// with `bevy_solari` (see `bevy_solari`'s docs).
+    pub enable_raytracing: bool,
 }
 
 impl Mesh {
@@ -191,6 +213,10 @@ impl Mesh {
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
+    /// The first index that can be used for custom vertex attributes.
+    /// Only the attributes with an index below this are used by Bevy.
+    pub const FIRST_AVAILABLE_CUSTOM_ATTRIBUTE: u64 = 8;
+
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
@@ -202,6 +228,7 @@ impl Mesh {
             morph_targets: None,
             morph_target_names: None,
             asset_usage,
+            enable_raytracing: true,
         }
     }
 
@@ -881,7 +908,7 @@ impl Mesh {
             "mesh transform scale cannot be zero on more than one axis"
         );
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply scale, rotation, and translation to vertex positions
@@ -898,7 +925,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling and rotation
@@ -909,13 +936,16 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
+                let handedness = tangent[3];
                 let scaled_tangent = Vec3::from_slice(tangent) * transform.scale;
-                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
+                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero())
+                    .extend(handedness)
+                    .to_array();
             });
         }
     }
@@ -936,7 +966,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply translation to vertex positions
@@ -958,7 +988,7 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn rotate_by(&mut self, rotation: Quat) {
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply rotation to vertex positions
@@ -972,7 +1002,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals
@@ -981,12 +1011,15 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents
             tangents.iter_mut().for_each(|tangent| {
-                *tangent = (rotation * Vec3::from_slice(tangent).normalize_or_zero()).to_array();
+                let handedness = tangent[3];
+                *tangent = (rotation * Vec3::from_slice(tangent).normalize_or_zero())
+                    .extend(handedness)
+                    .to_array();
             });
         }
     }
@@ -1010,7 +1043,7 @@ impl Mesh {
             "mesh transform scale cannot be zero on more than one axis"
         );
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply scale to vertex positions
@@ -1024,7 +1057,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling
@@ -1033,13 +1066,17 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling
             tangents.iter_mut().for_each(|tangent| {
+                let handedness = tangent[3];
                 let scaled_tangent = Vec3::from_slice(tangent) * scale;
-                *tangent = scaled_tangent.normalize_or_zero().to_array();
+                *tangent = scaled_tangent
+                    .normalize_or_zero()
+                    .extend(handedness)
+                    .to_array();
             });
         }
     }
@@ -1096,7 +1133,7 @@ impl Mesh {
     /// Normalize joint weights so they sum to 1.
     pub fn normalize_joint_weights(&mut self) {
         if let Some(joints) = self.attribute_mut(Self::ATTRIBUTE_JOINT_WEIGHT) {
-            let VertexAttributeValues::Float32x4(ref mut joints) = joints else {
+            let VertexAttributeValues::Float32x4(joints) = joints else {
                 panic!("unexpected joint weight format");
             };
 
@@ -1225,6 +1262,133 @@ impl core::ops::Mul<Mesh> for Transform {
     }
 }
 
+/// A version of [`Mesh`] suitable for serializing for short-term transfer.
+///
+/// [`Mesh`] does not implement [`Serialize`] / [`Deserialize`] because it is made with the renderer in mind.
+/// It is not a general-purpose mesh implementation, and its internals are subject to frequent change.
+/// As such, storing a [`Mesh`] on disk is highly discouraged.
+///
+/// But there are still some valid use cases for serializing a [`Mesh`], namely transferring meshes between processes.
+/// To support this, you can create a [`SerializedMesh`] from a [`Mesh`] with [`SerializedMesh::from_mesh`],
+/// and then deserialize it with [`SerializedMesh::deserialize`]. The caveats are:
+/// - The mesh representation is not valid across different versions of Bevy.
+/// - This conversion is lossy. Only the following information is preserved:
+///   - Primitive topology
+///   - Vertex attributes
+///   - Indices
+/// - Custom attributes that were not specified with [`MeshDeserializer::add_custom_vertex_attribute`] will be ignored while deserializing.
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializedMesh {
+    primitive_topology: PrimitiveTopology,
+    attributes: Vec<(MeshVertexAttributeId, SerializedMeshAttributeData)>,
+    indices: Option<Indices>,
+}
+
+#[cfg(feature = "serialize")]
+impl SerializedMesh {
+    /// Create a [`SerializedMesh`] from a [`Mesh`]. See the documentation for [`SerializedMesh`] for caveats.
+    pub fn from_mesh(mesh: Mesh) -> Self {
+        Self {
+            primitive_topology: mesh.primitive_topology,
+            attributes: mesh
+                .attributes
+                .into_iter()
+                .map(|(id, data)| {
+                    (
+                        id,
+                        SerializedMeshAttributeData::from_mesh_attribute_data(data),
+                    )
+                })
+                .collect(),
+            indices: mesh.indices,
+        }
+    }
+
+    /// Create a [`Mesh`] from a [`SerializedMesh`]. See the documentation for [`SerializedMesh`] for caveats.
+    ///
+    /// Use [`MeshDeserializer`] if you need to pass extra options to the deserialization process, such as specifying custom vertex attributes.
+    pub fn into_mesh(self) -> Mesh {
+        MeshDeserializer::default().deserialize(self)
+    }
+}
+
+/// Use to specify extra options when deserializing a [`SerializedMesh`] into a [`Mesh`].
+#[cfg(feature = "serialize")]
+pub struct MeshDeserializer {
+    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+}
+
+#[cfg(feature = "serialize")]
+impl Default for MeshDeserializer {
+    fn default() -> Self {
+        // Written like this so that the compiler can validate that we use all the built-in attributes.
+        // If you just added a new attribute and got a compile error, please add it to this list :)
+        const BUILTINS: [MeshVertexAttribute; Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE as usize] = [
+            Mesh::ATTRIBUTE_POSITION,
+            Mesh::ATTRIBUTE_NORMAL,
+            Mesh::ATTRIBUTE_UV_0,
+            Mesh::ATTRIBUTE_UV_1,
+            Mesh::ATTRIBUTE_TANGENT,
+            Mesh::ATTRIBUTE_COLOR,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+        ];
+        Self {
+            custom_vertex_attributes: BUILTINS
+                .into_iter()
+                .map(|attribute| (attribute.name.into(), attribute))
+                .collect(),
+        }
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl MeshDeserializer {
+    /// Create a new [`MeshDeserializer`].
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a custom vertex attribute to the deserializer. Custom vertex attributes that were not added with this method will be ignored while deserializing.
+    pub fn add_custom_vertex_attribute(
+        &mut self,
+        name: &str,
+        attribute: MeshVertexAttribute,
+    ) -> &mut Self {
+        self.custom_vertex_attributes.insert(name.into(), attribute);
+        self
+    }
+
+    /// Deserialize a [`SerializedMesh`] into a [`Mesh`].
+    ///
+    /// See the documentation for [`SerializedMesh`] for caveats.
+    pub fn deserialize(&self, serialized_mesh: SerializedMesh) -> Mesh {
+        Mesh {
+            attributes:
+                serialized_mesh
+                .attributes
+                .into_iter()
+                .filter_map(|(id, data)| {
+                    let attribute = data.attribute.clone();
+                    let Some(data) =
+                        data.try_into_mesh_attribute_data(&self.custom_vertex_attributes)
+                    else {
+                        warn!(
+                            "Deserialized mesh contains custom vertex attribute {attribute:?} that \
+                            was not specified with `MeshDeserializer::add_custom_vertex_attribute`. Ignoring."
+                        );
+                        return None;
+                    };
+                    Some((id, data))
+                })
+                .collect(),
+            indices: serialized_mesh.indices,
+            ..Mesh::new(serialized_mesh.primitive_topology, RenderAssetUsages::default())
+        }
+    }
+}
+
 /// Error that can occur when calling [`Mesh::merge`].
 #[derive(Error, Debug, Clone)]
 #[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
@@ -1236,6 +1400,8 @@ pub struct MergeMeshError {
 #[cfg(test)]
 mod tests {
     use super::Mesh;
+    #[cfg(feature = "serialize")]
+    use super::SerializedMesh;
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use crate::PrimitiveTopology;
     use bevy_asset::RenderAssetUsages;
@@ -1539,5 +1705,27 @@ mod tests {
             ],
             mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
         );
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn serialize_deserialize_mesh() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [2., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        );
+        mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
+
+        let serialized_mesh = SerializedMesh::from_mesh(mesh.clone());
+        let serialized_string = serde_json::to_string(&serialized_mesh).unwrap();
+        let serialized_mesh_from_string: SerializedMesh =
+            serde_json::from_str(&serialized_string).unwrap();
+        let deserialized_mesh = serialized_mesh_from_string.into_mesh();
+        assert_eq!(mesh, deserialized_mesh);
     }
 }

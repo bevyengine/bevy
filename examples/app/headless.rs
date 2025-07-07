@@ -19,7 +19,7 @@ fn main() {
         println!("Disable the default features and rerun the example to run headless.");
         println!("To do so, run:");
         println!();
-        println!("    cargo run --example headless --no-default-features");
+        println!("    cargo run --example headless --no-default-features --features bevy_log");
         return;
     }
 

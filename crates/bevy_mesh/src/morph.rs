@@ -5,7 +5,6 @@ use bevy_image::Image;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use core::iter;
 use thiserror::Error;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
@@ -77,7 +76,7 @@ impl MorphTargetImage {
                     buffer.extend_from_slice(bytemuck::bytes_of(&to_add));
                 }
                 // Pad each layer so that they fit width * height
-                buffer.extend(iter::repeat(0).take(padding as usize * size_of::<f32>()));
+                buffer.extend(core::iter::repeat_n(0, padding as usize * size_of::<f32>()));
                 debug_assert_eq!(buffer.len(), layer_byte_count);
                 buffer
             })
@@ -112,12 +111,13 @@ impl MorphTargetImage {
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component, Default)]
+#[reflect(Debug, Component, Default, Clone)]
 pub struct MorphWeights {
     weights: Vec<f32>,
     /// The first mesh primitive assigned to these weights
     first_mesh: Option<Handle<Mesh>>,
 }
+
 impl MorphWeights {
     pub fn new(
         weights: Vec<f32>,
@@ -157,10 +157,11 @@ impl MorphWeights {
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component, Default)]
+#[reflect(Debug, Component, Default, Clone)]
 pub struct MeshMorphWeights {
     weights: Vec<f32>,
 }
+
 impl MeshMorphWeights {
     pub fn new(weights: Vec<f32>) -> Result<Self, MorphBuildError> {
         if weights.len() > MAX_MORPH_WEIGHTS {
@@ -199,6 +200,7 @@ pub struct MorphAttributes {
     /// animated, as the `w` component is the sign and cannot be animated.
     pub tangent: Vec3,
 }
+
 impl From<[Vec3; 3]> for MorphAttributes {
     fn from([position, normal, tangent]: [Vec3; 3]) -> Self {
         MorphAttributes {
@@ -208,6 +210,7 @@ impl From<[Vec3; 3]> for MorphAttributes {
         }
     }
 }
+
 impl MorphAttributes {
     /// How many components `MorphAttributes` has.
     ///

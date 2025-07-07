@@ -1,5 +1,6 @@
 use core::any::TypeId;
 
+use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::{
@@ -10,7 +11,7 @@ use bevy_ecs::{
     resource::Resource,
     world::World,
 };
-use bevy_reflect::{PartialReflect, ReflectFromReflect};
+use bevy_reflect::PartialReflect;
 use bevy_utils::default;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
@@ -303,14 +304,8 @@ impl<'w> DynamicSceneBuilder<'w> {
                         .data::<ReflectComponent>()?
                         .reflect(original_entity)?;
 
-                    // Clone via `FromReflect`. Unlike `PartialReflect::clone_value` this
-                    // retains the original type and `ReflectSerialize` type data which is needed to
-                    // deserialize.
-                    let component = type_registration
-                        .data::<ReflectFromReflect>()
-                        .and_then(|fr| fr.from_reflect(component.as_partial_reflect()))
-                        .map(PartialReflect::into_partial_reflect)
-                        .unwrap_or_else(|| component.clone_value());
+                    let component =
+                        clone_reflect_value(component.as_partial_reflect(), type_registration);
 
                     entry.components.push(component);
                     Some(())
@@ -355,7 +350,7 @@ impl<'w> DynamicSceneBuilder<'w> {
         let original_world_dqf_id = self
             .original_world
             .components()
-            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
+            .get_valid_resource_id(TypeId::of::<DefaultQueryFilters>());
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
@@ -381,13 +376,11 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let resource = type_registration
                     .data::<ReflectResource>()?
-                    .reflect(self.original_world)?;
+                    .reflect(self.original_world)
+                    .ok()?;
 
-                let resource = type_registration
-                    .data::<ReflectFromReflect>()
-                    .and_then(|fr| fr.from_reflect(resource.as_partial_reflect()))
-                    .map(PartialReflect::into_partial_reflect)
-                    .unwrap_or_else(|| resource.clone_value());
+                let resource =
+                    clone_reflect_value(resource.as_partial_reflect(), type_registration);
 
                 self.extracted_resources.insert(component_id, resource);
                 Some(())
@@ -516,10 +509,10 @@ mod tests {
         let mut entities = builder.build().entities.into_iter();
 
         // Assert entities are ordered
-        assert_eq!(entity_a, entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_b, entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_c, entities.next().map(|e| e.entity).unwrap());
         assert_eq!(entity_d, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_c, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_b, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_a, entities.next().map(|e| e.entity).unwrap());
     }
 
     #[test]
@@ -546,7 +539,7 @@ mod tests {
         assert_eq!(scene.entities.len(), 2);
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a_b, entity_a]);
+        assert_eq!(scene_entities, [entity_a, entity_a_b]);
     }
 
     #[test]
@@ -628,9 +621,9 @@ mod tests {
             .build();
 
         assert_eq!(scene.entities.len(), 3);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
+        assert!(scene.entities[2].components[0].represents::<ComponentA>());
         assert!(scene.entities[1].components[0].represents::<ComponentA>());
-        assert_eq!(scene.entities[2].components.len(), 0);
+        assert_eq!(scene.entities[0].components.len(), 0);
     }
 
     #[test]

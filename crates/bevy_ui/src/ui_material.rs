@@ -1,10 +1,7 @@
 use crate::Node;
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    component::{require, Component},
-    reflect::ReflectComponent,
-};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
@@ -144,12 +141,12 @@ where
     fn clone(&self) -> Self {
         Self {
             hdr: self.hdr,
-            bind_group_data: self.bind_group_data.clone(),
+            bind_group_data: self.bind_group_data,
         }
     }
 }
 
-impl<M: UiMaterial> Hash for UiMaterialKey<M>
+impl<M: UiMaterial> core::hash::Hash for UiMaterialKey<M>
 where
     M::Data: Hash,
 {

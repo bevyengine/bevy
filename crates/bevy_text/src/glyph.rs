@@ -1,6 +1,6 @@
 //! This module exports types related to rendering glyphs.
 
-use bevy_asset::Handle;
+use bevy_asset::AssetId;
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
@@ -11,6 +11,7 @@ use bevy_reflect::Reflect;
 ///
 /// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`crate::TextLayoutInfo`] for rendering glyphs.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct PositionedGlyph {
     /// The position of the glyph in the text block's bounding box.
     pub position: Vec2,
@@ -20,24 +21,12 @@ pub struct PositionedGlyph {
     pub atlas_info: GlyphAtlasInfo,
     /// The index of the glyph in the [`ComputedTextBlock`](crate::ComputedTextBlock)'s tracked spans.
     pub span_index: usize,
-    /// TODO: In order to do text editing, we need access to the size of glyphs and their index in the associated String.
-    /// For example, to figure out where to place the cursor in an input box from the mouse's position.
-    /// Without this, it's only possible in texts where each glyph is one byte. Cosmic text has methods for this
-    /// cosmic-texts [hit detection](https://pop-os.github.io/cosmic-text/cosmic_text/struct.Buffer.html#method.hit)
-    byte_index: usize,
-}
-
-impl PositionedGlyph {
-    /// Creates a new [`PositionedGlyph`]
-    pub fn new(position: Vec2, size: Vec2, atlas_info: GlyphAtlasInfo, span_index: usize) -> Self {
-        Self {
-            position,
-            size,
-            atlas_info,
-            span_index,
-            byte_index: 0,
-        }
-    }
+    /// The index of the glyph's line.
+    pub line_index: usize,
+    /// The byte index of the glyph in its line.
+    pub byte_index: usize,
+    /// The byte length of the glyph.
+    pub byte_length: usize,
 }
 
 /// Information about a glyph in an atlas.
@@ -47,15 +36,17 @@ impl PositionedGlyph {
 ///
 /// Used in [`PositionedGlyph`] and [`FontAtlasSet`](crate::FontAtlasSet).
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct GlyphAtlasInfo {
-    /// A handle to the [`Image`] data for the texture atlas this glyph was placed in.
+    /// An asset ID to the [`Image`] data for the texture atlas this glyph was placed in.
     ///
-    /// A (weak) clone of the handle held by the [`FontAtlas`](crate::FontAtlas).
-    pub texture: Handle<Image>,
-    /// A handle to the [`TextureAtlasLayout`] map for the texture atlas this glyph was placed in.
+    /// An asset ID of the handle held by the [`FontAtlas`](crate::FontAtlas).
+    pub texture: AssetId<Image>,
+    /// An asset ID to the [`TextureAtlasLayout`] map for the texture atlas this glyph was placed
+    /// in.
     ///
-    /// A (weak) clone of the handle held by the [`FontAtlas`](crate::FontAtlas).
-    pub texture_atlas: Handle<TextureAtlasLayout>,
+    /// An asset ID of the handle held by the [`FontAtlas`](crate::FontAtlas).
+    pub texture_atlas: AssetId<TextureAtlasLayout>,
     /// Location and offset of a glyph within the texture atlas.
     pub location: GlyphAtlasLocation,
 }
@@ -65,6 +56,7 @@ pub struct GlyphAtlasInfo {
 ///
 /// Used in [`GlyphAtlasInfo`] and [`FontAtlas`](crate::FontAtlas).
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub struct GlyphAtlasLocation {
     /// The index of the glyph in the atlas
     pub glyph_index: usize,

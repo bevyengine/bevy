@@ -1,9 +1,7 @@
 use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
-use bevy_platform_support::collections::{
-    hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable,
-};
+use bevy_platform::collections::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
@@ -69,8 +67,20 @@ pub trait Set: PartialReflect {
     /// After calling this function, `self` will be empty.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Clones the set, producing a [`DynamicSet`].
-    fn clone_dynamic(&self) -> DynamicSet;
+    /// Retain only the elements specified by the predicate.
+    ///
+    /// In other words, remove all elements `e` for which `f(&e)` returns `false`.
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool);
+
+    /// Creates a new [`DynamicSet`] from this set.
+    fn to_dynamic_set(&self) -> DynamicSet {
+        let mut set = DynamicSet::default();
+        set.set_represented_type(self.get_represented_type_info());
+        for value in self.iter() {
+            set.insert_boxed(value.to_dynamic());
+        }
+        set
+    }
 
     /// Inserts a value into the set.
     ///
@@ -134,7 +144,7 @@ impl SetInfo {
     impl_generic_info_methods!(generics);
 }
 
-/// An ordered set of reflected values.
+/// An unordered set of reflected values.
 #[derive(Default)]
 pub struct DynamicSet {
     represented_type: Option<&'static TypeInfo>,
@@ -153,8 +163,7 @@ impl DynamicSet {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Set(_)),
-                "expected TypeInfo::Set but received: {:?}",
-                represented_type
+                "expected TypeInfo::Set but received: {represented_type:?}"
             );
         }
 
@@ -167,7 +176,7 @@ impl DynamicSet {
     }
 
     fn internal_hash(value: &dyn PartialReflect) -> u64 {
-        value.reflect_hash().expect(hash_error!(value))
+        value.reflect_hash().expect(&hash_error!(value))
     }
 
     fn internal_eq(
@@ -201,21 +210,8 @@ impl Set for DynamicSet {
         self.hash_table.drain().collect::<Vec<_>>()
     }
 
-    fn clone_dynamic(&self) -> DynamicSet {
-        let mut hash_table = HashTable::new();
-        self.hash_table
-            .iter()
-            .map(|value| value.clone_value())
-            .for_each(|value| {
-                hash_table.insert_unique(Self::internal_hash(value.as_ref()), value, |boxed| {
-                    Self::internal_hash(boxed.as_ref())
-                });
-            });
-
-        DynamicSet {
-            represented_type: self.represented_type,
-            hash_table,
-        }
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool) {
+        self.hash_table.retain(move |value| f(&**value));
     }
 
     fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
@@ -317,10 +313,6 @@ impl PartialReflect for DynamicSet {
         ReflectOwned::Set(self)
     }
 
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
-    }
-
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         set_partial_eq(self, value)
     }
@@ -377,7 +369,7 @@ impl<T: Reflect> FromIterator<T> for DynamicSet {
 
 impl IntoIterator for DynamicSet {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = bevy_platform_support::collections::hash_table::IntoIter<Self::Item>;
+    type IntoIter = bevy_platform::collections::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.hash_table.into_iter()
@@ -387,7 +379,7 @@ impl IntoIterator for DynamicSet {
 impl<'a> IntoIterator for &'a DynamicSet {
     type Item = &'a dyn PartialReflect;
     type IntoIter = core::iter::Map<
-        bevy_platform_support::collections::hash_table::Iter<'a, Box<dyn PartialReflect>>,
+        bevy_platform::collections::hash_table::Iter<'a, Box<dyn PartialReflect>>,
         fn(&'a Box<dyn PartialReflect>) -> Self::Item,
     >;
 
@@ -458,27 +450,23 @@ pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> core::fmt::Result 
 /// Applies the elements of reflected set `b` to the corresponding elements of set `a`.
 ///
 /// If a value from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a value from `a` does not exist in `b`, the value is removed.
 ///
 /// # Panics
 ///
 /// This function panics if `b` is not a reflected set.
 #[inline]
 pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
-    if let ReflectRef::Set(set_value) = b.reflect_ref() {
-        for b_value in set_value.iter() {
-            if a.get(b_value).is_none() {
-                a.insert_boxed(b_value.clone_value());
-            }
-        }
-    } else {
-        panic!("Attempted to apply a non-set type to a set type.");
+    if let Err(err) = set_try_apply(a, b) {
+        panic!("{err}");
     }
 }
 
 /// Tries to apply the elements of reflected set `b` to the corresponding elements of set `a`
 /// and returns a Result.
 ///
-/// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a value from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a value from `a` does not exist in `b`, the value is removed.
 ///
 /// # Errors
 ///
@@ -490,15 +478,18 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
 
     for b_value in set_value.iter() {
         if a.get(b_value).is_none() {
-            a.insert_boxed(b_value.clone_value());
+            a.insert_boxed(b_value.to_dynamic());
         }
     }
+    a.retain(&mut |value| set_value.get(value).is_some());
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::{PartialReflect, Set};
+
     use super::DynamicSet;
     use alloc::string::{String, ToString};
 
@@ -521,5 +512,22 @@ mod tests {
                 .expect("Element found in expected array");
             assert_eq!(expected[index], value);
         }
+    }
+
+    #[test]
+    fn apply() {
+        let mut map_a = DynamicSet::default();
+        map_a.insert(0);
+        map_a.insert(1);
+
+        let mut map_b = DynamicSet::default();
+        map_b.insert(1);
+        map_b.insert(2);
+
+        map_a.apply(&map_b);
+
+        assert!(map_a.get(&0).is_none());
+        assert_eq!(map_a.get(&1).unwrap().try_downcast_ref(), Some(&1));
+        assert_eq!(map_a.get(&2).unwrap().try_downcast_ref(), Some(&2));
     }
 }

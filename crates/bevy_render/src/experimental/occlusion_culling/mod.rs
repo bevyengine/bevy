@@ -4,15 +4,12 @@
 //! Bevy.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
-use bevy_ecs::{component::Component, prelude::ReflectComponent};
+use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
-use crate::{extract_component::ExtractComponent, render_resource::Shader};
-
-/// The handle to the `mesh_preprocess_types.wgsl` compute shader.
-pub const MESH_PREPROCESS_TYPES_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("7bf7bdb1-ec53-4417-987f-9ec36533287c");
+use crate::{
+    extract_component::ExtractComponent, load_shader_library, render_resource::TextureView,
+};
 
 /// Enables GPU occlusion culling.
 ///
@@ -22,12 +19,7 @@ pub struct OcclusionCullingPlugin;
 
 impl Plugin for OcclusionCullingPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            MESH_PREPROCESS_TYPES_SHADER_HANDLE,
-            "mesh_preprocess_types.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "mesh_preprocess_types.wgsl");
     }
 }
 
@@ -83,5 +75,31 @@ impl Plugin for OcclusionCullingPlugin {
 /// [*two-phase occlusion culling*]:
 /// https://medium.com/@mil_kru/two-pass-occlusion-culling-4100edcad501
 #[derive(Component, ExtractComponent, Clone, Copy, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct OcclusionCulling;
+
+/// A render-world component that contains resources necessary to perform
+/// occlusion culling on any view other than a camera.
+///
+/// Bevy automatically places this component on views created for shadow
+/// mapping. You don't ordinarily need to add this component yourself.
+#[derive(Clone, Component)]
+pub struct OcclusionCullingSubview {
+    /// A texture view of the Z-buffer.
+    pub depth_texture_view: TextureView,
+    /// The size of the texture along both dimensions.
+    ///
+    /// Because [`OcclusionCullingSubview`] is only currently used for shadow
+    /// maps, they're guaranteed to have sizes equal to a power of two, so we
+    /// don't have to store the two dimensions individually here.
+    pub depth_texture_size: u32,
+}
+
+/// A render-world component placed on each camera that stores references to all
+/// entities other than cameras that need occlusion culling.
+///
+/// Bevy automatically places this component on cameras that are drawing
+/// shadows, when those shadows come from lights with occlusion culling enabled.
+/// You don't ordinarily need to add this component yourself.
+#[derive(Clone, Component)]
+pub struct OcclusionCullingSubviewEntities(pub Vec<Entity>);

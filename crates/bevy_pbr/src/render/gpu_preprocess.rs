@@ -9,28 +9,25 @@
 use core::num::{NonZero, NonZeroU64};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     experimental::mip_generation::ViewDepthPyramid,
-    prepass::{
-        DeferredPrepass, DepthPrepass, PreviousViewData, PreviousViewUniformOffset,
-        PreviousViewUniforms,
-    },
+    prepass::{DepthPrepass, PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     prelude::resource_exists,
-    query::{Has, QueryState, With, Without},
+    query::{Has, Or, QueryState, With, Without},
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_render::batching::gpu_preprocessing::{
-    IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
+    GpuPreprocessingMode, IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
 };
 use bevy_render::{
     batching::gpu_preprocessing::{
@@ -41,7 +38,7 @@ use bevy_render::{
         UntypedPhaseBatchedInstanceBuffers,
     },
     experimental::occlusion_culling::OcclusionCulling,
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, Buffer, BufferBinding,
@@ -53,9 +50,9 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
-use bevy_utils::TypeIdMap;
+use bevy_utils::{default, TypeIdMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
@@ -64,20 +61,7 @@ use crate::{
     graph::NodePbr, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
 };
 
-use super::ViewLightEntities;
-
-/// The handle to the `mesh_preprocess.wgsl` compute shader.
-pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("c8579292-cf92-43b5-9c5a-ec5bd4e44d12");
-/// The handle to the `mesh_preprocess_types.wgsl` compute shader.
-pub const MESH_PREPROCESS_TYPES_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("06f797ef-a106-4098-9a2e-20a73aa182e2");
-/// The handle to the `reset_indirect_batch_sets.wgsl` compute shader.
-pub const RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("045fb176-58e2-4e76-b241-7688d761bb23");
-/// The handle to the `build_indirect_params.wgsl` compute shader.
-pub const BUILD_INDIRECT_PARAMS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("133b01f0-3eaf-4590-9ee9-f0cf91a00b71");
+use super::{ShadowView, ViewLightEntities};
 
 /// The GPU workgroup size.
 const WORKGROUP_SIZE: usize = 64;
@@ -140,7 +124,6 @@ pub struct LateGpuPreprocessNode {
             Without<NoIndirectDrawing>,
             With<OcclusionCulling>,
             With<DepthPrepass>,
-            Without<DeferredPrepass>,
         ),
     >,
 }
@@ -158,8 +141,7 @@ pub struct EarlyPrepassBuildIndirectParametersNode {
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
-            With<DepthPrepass>,
-            Without<DeferredPrepass>,
+            Or<(With<DepthPrepass>, With<ShadowView>)>,
         ),
     >,
 }
@@ -178,9 +160,8 @@ pub struct LatePrepassBuildIndirectParametersNode {
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
-            With<DepthPrepass>,
+            Or<(With<DepthPrepass>, With<ShadowView>)>,
             With<OcclusionCulling>,
-            Without<DeferredPrepass>,
         ),
     >,
 }
@@ -264,6 +245,8 @@ pub struct PreprocessPhasePipelines {
 pub struct PreprocessPipeline {
     /// The bind group layout for the compute shader.
     pub bind_group_layout: BindGroupLayout,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
     ///
     /// This gets filled in `prepare_preprocess_pipelines`.
@@ -278,6 +261,8 @@ pub struct PreprocessPipeline {
 pub struct ResetIndirectBatchSetsPipeline {
     /// The bind group layout for the compute shader.
     pub bind_group_layout: BindGroupLayout,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
     ///
     /// This gets filled in `prepare_preprocess_pipelines`.
@@ -289,6 +274,8 @@ pub struct ResetIndirectBatchSetsPipeline {
 pub struct BuildIndirectParametersPipeline {
     /// The bind group layout for the compute shader.
     pub bind_group_layout: BindGroupLayout,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
     ///
     /// This gets filled in `prepare_preprocess_pipelines`.
@@ -440,36 +427,9 @@ pub struct SkipGpuPreprocess;
 
 impl Plugin for GpuMeshPreprocessPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            MESH_PREPROCESS_SHADER_HANDLE,
-            "mesh_preprocess.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE,
-            "reset_indirect_batch_sets.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            BUILD_INDIRECT_PARAMS_SHADER_HANDLE,
-            "build_indirect_params.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            BUILD_INDIRECT_PARAMS_SHADER_HANDLE,
-            "build_indirect_params.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            BUILD_INDIRECT_PARAMS_SHADER_HANDLE,
-            "build_indirect_params.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "mesh_preprocess.wgsl");
+        embedded_asset!(app, "reset_indirect_batch_sets.wgsl");
+        embedded_asset!(app, "build_indirect_params.wgsl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -492,14 +452,14 @@ impl Plugin for GpuMeshPreprocessPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_preprocess_pipelines.in_set(RenderSet::Prepare),
+                    prepare_preprocess_pipelines.in_set(RenderSystems::Prepare),
                     prepare_preprocess_bind_groups
                         .run_if(resource_exists::<BatchedInstanceBuffers<
                             MeshUniform,
                             MeshInputUniform
                         >>)
-                        .in_set(RenderSet::PrepareBindGroups),
-                    write_mesh_culling_data_buffer.in_set(RenderSet::PrepareResourcesFlush),
+                        .in_set(RenderSystems::PrepareBindGroups),
+                    write_mesh_culling_data_buffer.in_set(RenderSystems::PrepareResourcesFlush),
                 ),
             )
             .add_render_graph_node::<ClearIndirectParametersMetadataNode>(
@@ -527,21 +487,29 @@ impl Plugin for GpuMeshPreprocessPlugin {
                     NodePbr::EarlyGpuPreprocess,
                     NodePbr::EarlyPrepassBuildIndirectParameters,
                     Node3d::EarlyPrepass,
+                    Node3d::EarlyDeferredPrepass,
                     Node3d::EarlyDownsampleDepth,
                     NodePbr::LateGpuPreprocess,
                     NodePbr::LatePrepassBuildIndirectParameters,
                     Node3d::LatePrepass,
+                    Node3d::LateDeferredPrepass,
                     NodePbr::MainBuildIndirectParameters,
-                    // Shadows don't currently support occlusion culling, so we
-                    // treat shadows as effectively the main phase for our
-                    // purposes.
-                    NodePbr::ShadowPass,
+                    Node3d::StartMainPass,
                 ),
-            )
-            .add_render_graph_edge(
+            ).add_render_graph_edges(
                 Core3d,
-                NodePbr::MainBuildIndirectParameters,
-                Node3d::DeferredPrepass,
+                (
+                    NodePbr::EarlyPrepassBuildIndirectParameters,
+                    NodePbr::EarlyShadowPass,
+                    Node3d::EarlyDownsampleDepth,
+                )
+            ).add_render_graph_edges(
+                Core3d,
+                (
+                    NodePbr::LatePrepassBuildIndirectParameters,
+                    NodePbr::LateShadowPass,
+                    NodePbr::MainBuildIndirectParameters,
+                )
             );
     }
 }
@@ -916,8 +884,8 @@ impl Node for LateGpuPreprocessNode {
                         ..
                     },
                     Some(PhasePreprocessBindGroups::IndirectOcclusionCulling {
-                        late_indexed: ref maybe_late_indexed_bind_group,
-                        late_non_indexed: ref maybe_late_non_indexed_bind_group,
+                        late_indexed: maybe_late_indexed_bind_group,
+                        late_non_indexed: maybe_late_non_indexed_bind_group,
                         ..
                     }),
                     Some(late_indexed_indirect_parameters_buffer),
@@ -1186,26 +1154,41 @@ fn run_build_indirect_parameters_node(
 impl PreprocessPipelines {
     /// Returns true if the preprocessing and indirect parameters pipelines have
     /// been loaded or false otherwise.
-    pub(crate) fn pipelines_are_loaded(&self, pipeline_cache: &PipelineCache) -> bool {
-        self.direct_preprocess.is_loaded(pipeline_cache)
-            && self
-                .gpu_frustum_culling_preprocess
-                .is_loaded(pipeline_cache)
-            && self
-                .early_gpu_occlusion_culling_preprocess
-                .is_loaded(pipeline_cache)
-            && self
-                .late_gpu_occlusion_culling_preprocess
-                .is_loaded(pipeline_cache)
-            && self
-                .gpu_frustum_culling_build_indexed_indirect_params
-                .is_loaded(pipeline_cache)
-            && self
-                .gpu_frustum_culling_build_non_indexed_indirect_params
-                .is_loaded(pipeline_cache)
-            && self.early_phase.is_loaded(pipeline_cache)
-            && self.late_phase.is_loaded(pipeline_cache)
-            && self.main_phase.is_loaded(pipeline_cache)
+    pub(crate) fn pipelines_are_loaded(
+        &self,
+        pipeline_cache: &PipelineCache,
+        preprocessing_support: &GpuPreprocessingSupport,
+    ) -> bool {
+        match preprocessing_support.max_supported_mode {
+            GpuPreprocessingMode::None => false,
+            GpuPreprocessingMode::PreprocessingOnly => {
+                self.direct_preprocess.is_loaded(pipeline_cache)
+                    && self
+                        .gpu_frustum_culling_preprocess
+                        .is_loaded(pipeline_cache)
+            }
+            GpuPreprocessingMode::Culling => {
+                self.direct_preprocess.is_loaded(pipeline_cache)
+                    && self
+                        .gpu_frustum_culling_preprocess
+                        .is_loaded(pipeline_cache)
+                    && self
+                        .early_gpu_occlusion_culling_preprocess
+                        .is_loaded(pipeline_cache)
+                    && self
+                        .late_gpu_occlusion_culling_preprocess
+                        .is_loaded(pipeline_cache)
+                    && self
+                        .gpu_frustum_culling_build_indexed_indirect_params
+                        .is_loaded(pipeline_cache)
+                    && self
+                        .gpu_frustum_culling_build_non_indexed_indirect_params
+                        .is_loaded(pipeline_cache)
+                    && self.early_phase.is_loaded(pipeline_cache)
+                    && self.late_phase.is_loaded(pipeline_cache)
+                    && self.main_phase.is_loaded(pipeline_cache)
+            }
+        }
     }
 }
 
@@ -1290,10 +1273,9 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             } else {
                 vec![]
             },
-            shader: MESH_PREPROCESS_SHADER_HANDLE,
+            shader: self.shader.clone(),
             shader_defs,
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -1361,18 +1343,27 @@ impl FromWorld for PreprocessPipelines {
                 &build_non_indexed_indirect_params_bind_group_layout_entries,
             );
 
+        let preprocess_shader = load_embedded_asset!(world, "mesh_preprocess.wgsl");
+        let reset_indirect_batch_sets_shader =
+            load_embedded_asset!(world, "reset_indirect_batch_sets.wgsl");
+        let build_indirect_params_shader =
+            load_embedded_asset!(world, "build_indirect_params.wgsl");
+
         let preprocess_phase_pipelines = PreprocessPhasePipelines {
             reset_indirect_batch_sets: ResetIndirectBatchSetsPipeline {
                 bind_group_layout: reset_indirect_batch_sets_bind_group_layout.clone(),
+                shader: reset_indirect_batch_sets_shader,
                 pipeline_id: None,
             },
             gpu_occlusion_culling_build_indexed_indirect_params: BuildIndirectParametersPipeline {
                 bind_group_layout: build_indexed_indirect_params_bind_group_layout.clone(),
+                shader: build_indirect_params_shader.clone(),
                 pipeline_id: None,
             },
             gpu_occlusion_culling_build_non_indexed_indirect_params:
                 BuildIndirectParametersPipeline {
                     bind_group_layout: build_non_indexed_indirect_params_bind_group_layout.clone(),
+                    shader: build_indirect_params_shader.clone(),
                     pipeline_id: None,
                 },
         };
@@ -1380,27 +1371,33 @@ impl FromWorld for PreprocessPipelines {
         PreprocessPipelines {
             direct_preprocess: PreprocessPipeline {
                 bind_group_layout: direct_bind_group_layout,
+                shader: preprocess_shader.clone(),
                 pipeline_id: None,
             },
             gpu_frustum_culling_preprocess: PreprocessPipeline {
                 bind_group_layout: gpu_frustum_culling_bind_group_layout,
+                shader: preprocess_shader.clone(),
                 pipeline_id: None,
             },
             early_gpu_occlusion_culling_preprocess: PreprocessPipeline {
                 bind_group_layout: gpu_early_occlusion_culling_bind_group_layout,
+                shader: preprocess_shader.clone(),
                 pipeline_id: None,
             },
             late_gpu_occlusion_culling_preprocess: PreprocessPipeline {
                 bind_group_layout: gpu_late_occlusion_culling_bind_group_layout,
+                shader: preprocess_shader,
                 pipeline_id: None,
             },
             gpu_frustum_culling_build_indexed_indirect_params: BuildIndirectParametersPipeline {
                 bind_group_layout: build_indexed_indirect_params_bind_group_layout.clone(),
+                shader: build_indirect_params_shader.clone(),
                 pipeline_id: None,
             },
             gpu_frustum_culling_build_non_indexed_indirect_params:
                 BuildIndirectParametersPipeline {
                     bind_group_layout: build_non_indexed_indirect_params_bind_group_layout.clone(),
+                    shader: build_indirect_params_shader,
                     pipeline_id: None,
                 },
             early_phase: preprocess_phase_pipelines.clone(),
@@ -1508,6 +1505,7 @@ pub fn prepare_preprocess_pipelines(
         SpecializedComputePipelines<BuildIndirectParametersPipeline>,
     >,
     preprocess_pipelines: ResMut<PreprocessPipelines>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     let preprocess_pipelines = preprocess_pipelines.into_inner();
 
@@ -1521,22 +1519,25 @@ pub fn prepare_preprocess_pipelines(
         &mut specialized_preprocess_pipelines,
         PreprocessPipelineKey::FRUSTUM_CULLING,
     );
-    preprocess_pipelines
-        .early_gpu_occlusion_culling_preprocess
-        .prepare(
-            &pipeline_cache,
-            &mut specialized_preprocess_pipelines,
-            PreprocessPipelineKey::FRUSTUM_CULLING
-                | PreprocessPipelineKey::OCCLUSION_CULLING
-                | PreprocessPipelineKey::EARLY_PHASE,
-        );
-    preprocess_pipelines
-        .late_gpu_occlusion_culling_preprocess
-        .prepare(
-            &pipeline_cache,
-            &mut specialized_preprocess_pipelines,
-            PreprocessPipelineKey::FRUSTUM_CULLING | PreprocessPipelineKey::OCCLUSION_CULLING,
-        );
+
+    if gpu_preprocessing_support.is_culling_supported() {
+        preprocess_pipelines
+            .early_gpu_occlusion_culling_preprocess
+            .prepare(
+                &pipeline_cache,
+                &mut specialized_preprocess_pipelines,
+                PreprocessPipelineKey::FRUSTUM_CULLING
+                    | PreprocessPipelineKey::OCCLUSION_CULLING
+                    | PreprocessPipelineKey::EARLY_PHASE,
+            );
+        preprocess_pipelines
+            .late_gpu_occlusion_culling_preprocess
+            .prepare(
+                &pipeline_cache,
+                &mut specialized_preprocess_pipelines,
+                PreprocessPipelineKey::FRUSTUM_CULLING | PreprocessPipelineKey::OCCLUSION_CULLING,
+            );
+    }
 
     let mut build_indirect_parameters_pipeline_key = BuildIndirectParametersPipelineKey::empty();
 
@@ -1565,6 +1566,10 @@ pub fn prepare_preprocess_pipelines(
             &mut specialized_build_indirect_parameters_pipelines,
             build_indirect_parameters_pipeline_key,
         );
+
+    if !gpu_preprocessing_support.is_culling_supported() {
+        return;
+    }
 
     for (preprocess_phase_pipelines, build_indirect_parameters_phase_pipeline_key) in [
         (
@@ -1631,11 +1636,8 @@ impl SpecializedComputePipeline for ResetIndirectBatchSetsPipeline {
         ComputePipelineDescriptor {
             label: Some("reset indirect batch sets".into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
-            shader: RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE,
-            shader_defs: vec![],
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            shader: self.shader.clone(),
+            ..default()
         }
     }
 }
@@ -1685,11 +1687,9 @@ impl SpecializedComputePipeline for BuildIndirectParametersPipeline {
         ComputePipelineDescriptor {
             label: Some(label.into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
-            shader: BUILD_INDIRECT_PARAMS_SHADER_HANDLE,
+            shader: self.shader.clone(),
             shader_defs,
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -1745,9 +1745,9 @@ pub fn prepare_preprocess_bind_groups(
 ) {
     // Grab the `BatchedInstanceBuffers`.
     let BatchedInstanceBuffers {
-        current_input_buffer: ref current_input_buffer_vec,
-        previous_input_buffer: ref previous_input_buffer_vec,
-        ref phase_instance_buffers,
+        current_input_buffer: current_input_buffer_vec,
+        previous_input_buffer: previous_input_buffer_vec,
+        phase_instance_buffers,
     } = batched_instance_buffers.into_inner();
 
     let (Some(current_input_buffer), Some(previous_input_buffer)) = (

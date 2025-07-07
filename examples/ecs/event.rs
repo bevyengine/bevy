@@ -6,17 +6,17 @@ use bevy::prelude::*;
 
 // In order to send or receive events first you must define them
 // This event should be sent when something attempts to deal damage to another entity.
-#[derive(Event, Debug)]
+#[derive(Event, BufferedEvent, Debug)]
 struct DealDamage {
     pub amount: i32,
 }
 
 // This event should be sent when an entity receives damage.
-#[derive(Event, Debug, Default)]
+#[derive(Event, BufferedEvent, Debug, Default)]
 struct DamageReceived;
 
 // This event should be sent when an entity blocks damage with armor.
-#[derive(Event, Debug, Default)]
+#[derive(Event, BufferedEvent, Debug, Default)]
 struct ArmorBlockedDamage;
 
 // This resource represents a timer used to determine when to deal damage
@@ -34,17 +34,17 @@ impl Default for DamageTimer {
 // This system reads 'DamageTimer', updates it, then sends a 'DealDamage' event
 // if the timer has finished.
 //
-// Events are sent using an 'EventWriter<T>' by calling 'send' or 'send_default'.
-// The 'send_default' method will send the event with the default value if the event
+// Events are sent using an 'EventWriter<T>' by calling 'write' or 'write_default'.
+// The 'write_default' method will send the event with the default value if the event
 // has a 'Default' implementation.
 fn deal_damage_over_time(
     time: Res<Time>,
     mut state: ResMut<DamageTimer>,
     mut events: EventWriter<DealDamage>,
 ) {
-    if state.tick(time.delta()).finished() {
-        // Events can be sent with 'send' and constructed just like any other object.
-        events.send(DealDamage { amount: 10 });
+    if state.tick(time.delta()).is_finished() {
+        // Events can be sent with 'write' and constructed just like any other object.
+        events.write(DealDamage { amount: 10 });
     }
 }
 
@@ -62,7 +62,7 @@ fn apply_armor_to_damage(
         event.amount -= 1;
         if event.amount <= 0 {
             // Zero-sized events can also be sent with 'send'
-            armor_events.send(ArmorBlockedDamage);
+            armor_events.write(ArmorBlockedDamage);
         }
     }
 }
@@ -80,8 +80,8 @@ fn apply_damage_to_health(
     for event in dmg_events.read() {
         info!("Applying {} damage", event.amount);
         if event.amount > 0 {
-            // Events with a 'Default' implementation can be sent with 'send_default'
-            rcvd_events.send_default();
+            // Events with a 'Default' implementation can be written with 'write_default'
+            rcvd_events.write_default();
         }
     }
 }

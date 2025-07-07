@@ -1,4 +1,4 @@
-use bevy_ecs::entity::{hash_set::EntityHashSet, Entity};
+use bevy_ecs::entity::{Entity, EntityGeneration, EntityHashSet};
 use criterion::{BenchmarkId, Criterion, Throughput};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -11,16 +11,20 @@ fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
     // * For ids, half are in [0, size), half are unboundedly larger.
     // * For generations, half are in [1, 3), half are unboundedly larger.
 
-    let x: f64 = rng.gen();
+    let x: f64 = rng.r#gen();
     let id = -(1.0 - x).log2() * (size as f64);
-    let x: f64 = rng.gen();
-    let gen = 1.0 + -(1.0 - x).log2() * 2.0;
+    let x: f64 = rng.r#gen();
+    let generation = 1.0 + -(1.0 - x).log2() * 2.0;
 
     // this is not reliable, but we're internal so a hack is ok
-    let bits = ((gen as u64) << 32) | (id as u64);
+    let id = id as u64 + 1;
+    let bits = ((generation as u64) << 32) | id;
     let e = Entity::from_bits(bits);
-    assert_eq!(e.index(), id as u32);
-    assert_eq!(e.generation(), gen as u32);
+    assert_eq!(e.index(), !(id as u32));
+    assert_eq!(
+        e.generation(),
+        EntityGeneration::FIRST.after_versions(generation as u32)
+    );
     e
 }
 

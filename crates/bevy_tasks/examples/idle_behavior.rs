@@ -2,8 +2,11 @@
 //! spinning. Other than the one thread, the system should remain idle, demonstrating good behavior
 //! for small workloads.
 
+#![expect(clippy::print_stdout, reason = "Allowed in examples.")]
+
+use bevy_platform::time::Instant;
 use bevy_tasks::TaskPoolBuilder;
-use web_time::{Duration, Instant};
+use core::time::Duration;
 
 fn main() {
     let pool = TaskPoolBuilder::new()

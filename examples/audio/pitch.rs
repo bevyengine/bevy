@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-#[derive(Event, Default)]
+#[derive(Event, BufferedEvent, Default)]
 struct PlayPitch;
 
 #[derive(Resource)]
@@ -50,6 +50,6 @@ fn keyboard_input_system(
         frequency.0 /= ops::powf(2.0f32, 1.0 / 12.0);
     }
     if keyboard_input.just_pressed(KeyCode::Space) {
-        events.send(PlayPitch);
+        events.write(PlayPitch);
     }
 }

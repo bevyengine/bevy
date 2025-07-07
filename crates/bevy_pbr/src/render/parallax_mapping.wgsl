@@ -1,9 +1,15 @@
 #define_import_path bevy_pbr::parallax_mapping
 
+#import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d}
+
 #import bevy_pbr::{
     pbr_bindings::{depth_map_texture, depth_map_sampler},
     mesh_bindings::mesh
 }
+
+#ifdef BINDLESS
+#import bevy_pbr::pbr_bindings::material_indices
+#endif  // BINDLESS
 
 fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     // We use `textureSampleLevel` over `textureSample` because the wgpu DX12
@@ -18,8 +24,8 @@ fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     // See https://stackoverflow.com/questions/56581141/direct3d11-gradient-instruction-used-in-a-loop-with-varying-iteration-forcing
     return textureSampleLevel(
 #ifdef BINDLESS
-        depth_map_texture[material_bind_group_slot],
-        depth_map_sampler[material_bind_group_slot],
+        bindless_textures_2d[material_indices[material_bind_group_slot].depth_map_texture],
+        bindless_samplers_filtering[material_indices[material_bind_group_slot].depth_map_sampler],
 #else   // BINDLESS
         depth_map_texture,
         depth_map_sampler,

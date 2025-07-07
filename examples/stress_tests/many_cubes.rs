@@ -262,17 +262,13 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     let color_bytes: Vec<u8> = (0..(args.material_texture_count * 4))
-        .map(|i| if (i % 4) == 3 { 255 } else { color_rng.gen() })
+        .map(|i| if (i % 4) == 3 { 255 } else { color_rng.r#gen() })
         .collect();
     color_bytes
         .chunks(4)
         .map(|pixel| {
             images.add(Image::new_fill(
-                Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
+                Extent3d::default(),
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
@@ -311,7 +307,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {
-                base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                base_color: Color::srgb_u8(color_rng.r#gen(), color_rng.r#gen(), color_rng.r#gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
                 ..default()
             })

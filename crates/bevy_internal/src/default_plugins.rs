@@ -4,6 +4,7 @@ plugin_group! {
     /// This plugin group will add all the default plugins for a *Bevy* application:
     pub struct DefaultPlugins {
         bevy_app:::PanicHandlerPlugin,
+        #[cfg(feature = "bevy_log")]
         bevy_log:::LogPlugin,
         bevy_app:::TaskPoolPlugin,
         bevy_diagnostic:::FrameCountPlugin,
@@ -17,7 +18,8 @@ plugin_group! {
         bevy_window:::WindowPlugin,
         #[cfg(feature = "bevy_window")]
         bevy_a11y:::AccessibilityPlugin,
-        #[custom(cfg(any(unix, windows)))]
+        #[cfg(feature = "std")]
+        #[custom(cfg(any(all(unix, not(target_os = "horizon")), windows)))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,
@@ -36,12 +38,16 @@ plugin_group! {
         bevy_render::pipelined_rendering:::PipelinedRenderingPlugin,
         #[cfg(feature = "bevy_core_pipeline")]
         bevy_core_pipeline:::CorePipelinePlugin,
+        #[cfg(feature = "bevy_anti_aliasing")]
+        bevy_anti_aliasing:::AntiAliasingPlugin,
         #[cfg(feature = "bevy_sprite")]
         bevy_sprite:::SpritePlugin,
         #[cfg(feature = "bevy_text")]
         bevy_text:::TextPlugin,
         #[cfg(feature = "bevy_ui")]
         bevy_ui:::UiPlugin,
+        #[cfg(feature = "bevy_ui_render")]
+        bevy_ui_render:::UiRenderPlugin,
         #[cfg(feature = "bevy_pbr")]
         bevy_pbr:::PbrPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported
@@ -62,6 +68,8 @@ plugin_group! {
         bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
+        #[cfg(feature = "hotpatching")]
+        bevy_app::hotpatch:::HotPatchPlugin,
         #[plugin_group]
         #[cfg(feature = "bevy_picking")]
         bevy_picking:::DefaultPickingPlugins,

@@ -22,7 +22,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             #[cfg(not(target_arch = "wasm32"))]
-            WireframePlugin,
+            WireframePlugin::default(),
         ))
         .add_systems(Startup, setup)
         .add_systems(

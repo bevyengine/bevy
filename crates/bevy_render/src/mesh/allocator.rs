@@ -12,11 +12,11 @@ use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
 use tracing::error;
@@ -30,7 +30,7 @@ use crate::{
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 /// A plugin that manages GPU memory for mesh data.
@@ -78,6 +78,9 @@ pub struct MeshAllocator {
     /// WebGL 2. On this platform, we must give each vertex array its own
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
+
+    /// Additional buffer usages to add to any vertex or index buffers created.
+    pub extra_buffer_usages: BufferUsages,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -158,6 +161,10 @@ pub struct MeshBufferSlice<'a> {
 pub struct SlabId(pub NonMaxU32);
 
 /// Data for a single slab.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 enum Slab {
     /// A slab that can contain multiple objects.
     General(GeneralSlab),
@@ -311,7 +318,7 @@ impl Plugin for MeshAllocatorPlugin {
             .add_systems(
                 Render,
                 allocate_and_free_meshes
-                    .in_set(RenderSet::PrepareAssets)
+                    .in_set(RenderSystems::PrepareAssets)
                     .before(prepare_assets::<RenderMesh>),
             );
     }
@@ -344,6 +351,7 @@ impl FromWorld for MeshAllocator {
             mesh_id_to_index_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
+            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
@@ -358,7 +366,10 @@ pub fn allocate_and_free_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    // Process newly-added meshes.
+    // Process removed or modified meshes.
+    mesh_allocator.free_meshes(&extracted_meshes);
+
+    // Process newly-added or modified meshes.
     mesh_allocator.allocate_meshes(
         &mesh_allocator_settings,
         &extracted_meshes,
@@ -366,9 +377,6 @@ pub fn allocate_and_free_meshes(
         &render_device,
         &render_queue,
     );
-
-    // Process removed meshes.
-    mesh_allocator.free_meshes(&extracted_meshes);
 }
 
 impl MeshAllocator {
@@ -409,7 +417,7 @@ impl MeshAllocator {
         slab_id: SlabId,
     ) -> Option<MeshBufferSlice> {
         match self.slabs.get(&slab_id)? {
-            Slab::General(ref general_slab) => {
+            Slab::General(general_slab) => {
                 let slab_allocation = general_slab.resident_allocations.get(mesh_id)?;
                 Some(MeshBufferSlice {
                     buffer: general_slab.buffer.as_ref()?,
@@ -420,7 +428,7 @@ impl MeshAllocator {
                 })
             }
 
-            Slab::LargeObject(ref large_object_slab) => {
+            Slab::LargeObject(large_object_slab) => {
                 let buffer = large_object_slab.buffer.as_ref()?;
                 Some(MeshBufferSlice {
                     buffer,
@@ -444,13 +452,17 @@ impl MeshAllocator {
 
         // Allocate.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
+            if vertex_buffer_size == 0 {
+                continue;
+            }
             // Allocate vertex data. Note that we can only pack mesh vertex data
             // together if the platform supports it.
             let vertex_element_layout = ElementLayout::vertex(mesh_vertex_buffer_layouts, mesh);
             if self.general_vertex_slabs_supported {
                 self.allocate(
                     mesh_id,
-                    mesh.get_vertex_buffer_size() as u64,
+                    vertex_buffer_size,
                     vertex_element_layout,
                     &mut slabs_to_grow,
                     mesh_allocator_settings,
@@ -555,7 +567,7 @@ impl MeshAllocator {
 
         match *slab {
             Slab::General(ref mut general_slab) => {
-                let (Some(ref buffer), Some(allocated_range)) = (
+                let (Some(buffer), Some(allocated_range)) = (
                     &general_slab.buffer,
                     general_slab.pending_allocations.remove(mesh_id),
                 ) else {
@@ -594,7 +606,7 @@ impl MeshAllocator {
                         buffer_usages_to_str(buffer_usages)
                     )),
                     size: len as u64,
-                    usage: buffer_usages | BufferUsages::COPY_DST,
+                    usage: buffer_usages | BufferUsages::COPY_DST | self.extra_buffer_usages,
                     mapped_at_creation: true,
                 });
                 {
@@ -607,9 +619,17 @@ impl MeshAllocator {
         }
     }
 
+    /// Frees allocations for meshes that were removed or modified this frame.
     fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
         let mut empty_slabs = <HashSet<_>>::default();
-        for mesh_id in &extracted_meshes.removed {
+
+        // TODO: Consider explicitly reusing allocations for changed meshes of the same size
+        let meshes_to_free = extracted_meshes
+            .removed
+            .iter()
+            .chain(extracted_meshes.modified.iter());
+
+        for mesh_id in meshes_to_free {
             if let Some(slab_id) = self.mesh_id_to_vertex_slab.remove(mesh_id) {
                 self.free_allocation_in_slab(mesh_id, slab_id, &mut empty_slabs);
             }
@@ -706,7 +726,7 @@ impl MeshAllocator {
         // that succeeds.
         let mut mesh_allocation = None;
         for &slab_id in &*candidate_slabs {
-            let Some(Slab::General(ref mut slab)) = self.slabs.get_mut(&slab_id) else {
+            let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
                 unreachable!("Slab not found")
             };
 
@@ -763,9 +783,7 @@ impl MeshAllocator {
         // Mark the allocation as pending. Don't copy it in just yet; further
         // meshes loaded this frame may result in its final allocation location
         // changing.
-        if let Some(Slab::General(ref mut general_slab)) =
-            self.slabs.get_mut(&mesh_allocation.slab_id)
-        {
+        if let Some(Slab::General(general_slab)) = self.slabs.get_mut(&mesh_allocation.slab_id) {
             general_slab
                 .pending_allocations
                 .insert(*mesh_id, mesh_allocation.slab_allocation);
@@ -825,7 +843,7 @@ impl MeshAllocator {
                 buffer_usages_to_str(buffer_usages)
             )),
             size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
-            usage: buffer_usages,
+            usage: buffer_usages | self.extra_buffer_usages,
             mapped_at_creation: false,
         });
 

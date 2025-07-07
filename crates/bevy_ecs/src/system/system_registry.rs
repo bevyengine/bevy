@@ -3,13 +3,16 @@ use crate::reflect::ReflectComponent;
 use crate::{
     change_detection::Mut,
     entity::Entity,
-    system::{input::SystemInput, BoxedSystem, IntoSystem, System},
+    error::BevyError,
+    system::{
+        input::SystemInput, BoxedSystem, IntoSystem, RunSystemError, SystemParamValidationError,
+    },
     world::World,
 };
 use alloc::boxed::Box;
-use bevy_ecs_macros::{require, Component, Resource};
+use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::marker::PhantomData;
 use thiserror::Error;
 
@@ -33,7 +36,7 @@ impl<I, O> RegisteredSystem<I, O> {
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
 #[derive(Component, Default)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
 pub struct SystemIdMarker;
 
 /// A system that has been removed from the registry.
@@ -126,7 +129,21 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
 ///
 /// This resource is inserted by [`World::register_system_cached`].
 #[derive(Resource)]
-pub struct CachedSystemId<S: System>(pub SystemId<S::In, S::Out>);
+pub struct CachedSystemId<S> {
+    /// The cached `SystemId` as an `Entity`.
+    pub entity: Entity,
+    _marker: PhantomData<fn() -> S>,
+}
+
+impl<S> CachedSystemId<S> {
+    /// Creates a new `CachedSystemId` struct given a `SystemId`.
+    pub fn new<I: SystemInput, O>(id: SystemId<I, O>) -> Self {
+        Self {
+            entity: id.entity(),
+            _marker: PhantomData,
+        }
+    }
+}
 
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -154,7 +171,7 @@ impl World {
     /// Similar to [`Self::register_system`], but allows passing in a [`BoxedSystem`].
     ///
     ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
-    /// [`System`] trait object and put in a [`Box`].
+    /// [`System`](crate::system::System) trait object and put in a [`Box`].
     pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemId<I, O>
     where
         I: SystemInput + 'static,
@@ -199,11 +216,9 @@ impl World {
     /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
     /// because it keeps local state between calls and change detection works correctly.
     ///
+    /// Also runs any queued-up commands.
+    ///
     /// In order to run a chained system with an input, use [`World::run_system_with`] instead.
-    ///
-    /// # Limitations
-    ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
     ///
     /// # Examples
     ///
@@ -291,9 +306,7 @@ impl World {
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
     ///
-    /// # Limitations
-    ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
+    /// Also runs any queued-up commands.
     ///
     /// # Examples
     ///
@@ -322,12 +335,12 @@ impl World {
         I: SystemInput + 'static,
         O: 'static,
     {
-        // lookup
+        // Lookup
         let mut entity = self
             .get_entity_mut(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
-        // take ownership of system trait object
+        // Take ownership of system trait object
         let RegisteredSystem {
             mut initialized,
             mut system,
@@ -335,26 +348,28 @@ impl World {
             .take::<RegisteredSystem<I, O>>()
             .ok_or(RegisteredSystemError::Recursive(id))?;
 
-        // run the system
+        // Run the system
         if !initialized {
             system.initialize(self);
             initialized = true;
         }
 
-        let result = if system.validate_param(self) {
-            Ok(system.run(input, self))
-        } else {
-            Err(RegisteredSystemError::InvalidParams(id))
-        };
+        // Wait to run the commands until the system is available again.
+        // This is needed so the systems can recursively run themselves.
+        let result = system.run_without_applying_deferred(input, self);
+        system.queue_deferred(self.into());
 
-        // return ownership of system trait object (if entity still exists)
+        // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
             entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
                 initialized,
                 system,
             });
         }
-        result
+
+        // Run any commands enqueued by the system
+        self.flush();
+        Ok(result?)
     }
 
     /// Registers a system or returns its cached [`SystemId`].
@@ -389,23 +404,23 @@ impl World {
             );
         }
 
-        if !self.contains_resource::<CachedSystemId<S::System>>() {
+        if !self.contains_resource::<CachedSystemId<S>>() {
             let id = self.register_system(system);
-            self.insert_resource(CachedSystemId::<S::System>(id));
+            self.insert_resource(CachedSystemId::<S>::new(id));
             return id;
         }
 
-        self.resource_scope(|world, mut id: Mut<CachedSystemId<S::System>>| {
-            if let Ok(mut entity) = world.get_entity_mut(id.0.entity()) {
+        self.resource_scope(|world, mut id: Mut<CachedSystemId<S>>| {
+            if let Ok(mut entity) = world.get_entity_mut(id.entity) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(RegisteredSystem::new(Box::new(IntoSystem::into_system(
                         system,
                     ))));
                 }
             } else {
-                id.0 = world.register_system(system);
+                id.entity = world.register_system(system).entity();
             }
-            id.0
+            SystemId::from_entity(id.entity)
         })
     }
 
@@ -422,9 +437,9 @@ impl World {
         S: IntoSystem<I, O, M> + 'static,
     {
         let id = self
-            .remove_resource::<CachedSystemId<S::System>>()
+            .remove_resource::<CachedSystemId<S>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
-        self.unregister_system(id.0)
+        self.unregister_system(SystemId::<I, O>::from_entity(id.entity))
     }
 
     /// Runs a cached system, registering it if necessary.
@@ -475,10 +490,21 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
-    ///
-    /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
-    InvalidParams(SystemId<I, O>),
+    /// This is not considered an error.
+    #[error("System did not run due to failed parameter validation: {0}")]
+    Skipped(SystemParamValidationError),
+    /// System returned an error or failed required parameter validation.
+    #[error("System returned error: {0}")]
+    Failed(BevyError),
+}
+
+impl<I: SystemInput, O> From<RunSystemError> for RegisteredSystemError<I, O> {
+    fn from(value: RunSystemError) -> Self {
+        match value {
+            RunSystemError::Skipped(err) => Self::Skipped(err),
+            RunSystemError::Failed(err) => Self::Failed(err),
+        }
+    }
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -490,13 +516,19 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
             Self::SystemNotCached => write!(f, "SystemNotCached"),
             Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
             Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
-            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
+            Self::Skipped(arg0) => f.debug_tuple("Skipped").field(arg0).finish(),
+            Self::Failed(arg0) => f.debug_tuple("Failed").field(arg0).finish(),
         }
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use crate::prelude::*;
+    use core::cell::Cell;
+
+    use bevy_utils::default;
+
+    use crate::{prelude::*, system::SystemId};
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -621,6 +653,19 @@ mod tests {
     }
 
     #[test]
+    fn fallible_system() {
+        fn sys() -> Result<()> {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        let fallible_system_id = world.register_system(sys);
+        let output = world.run_system(fallible_system_id);
+        assert!(matches!(output, Ok(Err(_))));
+    }
+
+    #[test]
     fn exclusive_system() {
         let mut world = World::new();
         let exclusive_system_id = world.register_system(|world: &mut World| {
@@ -721,18 +766,66 @@ mod tests {
     }
 
     #[test]
+    fn cached_fallible_system() {
+        fn sys() -> Result<()> {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        let fallible_system_id = world.register_system_cached(sys);
+        let output = world.run_system(fallible_system_id);
+        assert!(matches!(output, Ok(Err(_))));
+        let output = world.run_system_cached(sys);
+        assert!(matches!(output, Ok(Err(_))));
+        let output = world.run_system_cached_with(sys, ());
+        assert!(matches!(output, Ok(Err(_))));
+    }
+
+    #[test]
     fn cached_system_commands() {
         fn sys(mut counter: ResMut<Counter>) {
-            counter.0 = 1;
+            counter.0 += 1;
         }
 
         let mut world = World::new();
         world.insert_resource(Counter(0));
-
         world.commands().run_system_cached(sys);
         world.flush_commands();
-
         assert_eq!(world.resource::<Counter>().0, 1);
+        world.commands().run_system_cached_with(sys, ());
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 2);
+    }
+
+    #[test]
+    fn cached_fallible_system_commands() {
+        fn sys(mut counter: ResMut<Counter>) -> Result {
+            counter.0 += 1;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+        world.commands().run_system_cached(sys);
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 1);
+        world.commands().run_system_cached_with(sys, ());
+        world.flush_commands();
+        assert_eq!(world.resource::<Counter>().0, 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "This system always fails")]
+    fn cached_fallible_system_commands_can_fail() {
+        use crate::system::command;
+        fn sys() -> Result {
+            Err("This system always fails".into())
+        }
+
+        let mut world = World::new();
+        world.commands().queue(command::run_system_cached(sys));
+        world.flush_commands();
     }
 
     #[test]
@@ -752,6 +845,41 @@ mod tests {
 
         let output = world.run_system_cached(four.map(|i| i * 2));
         assert!(matches!(output, Ok(8)));
+    }
+
+    #[test]
+    fn cached_system_into_same_system_type() {
+        struct Foo;
+        impl IntoSystem<(), (), ()> for Foo {
+            type System = ApplyDeferred;
+            fn into_system(_: Self) -> Self::System {
+                ApplyDeferred
+            }
+        }
+
+        struct Bar;
+        impl IntoSystem<(), (), ()> for Bar {
+            type System = ApplyDeferred;
+            fn into_system(_: Self) -> Self::System {
+                ApplyDeferred
+            }
+        }
+
+        let mut world = World::new();
+        let foo1 = world.register_system_cached(Foo);
+        let foo2 = world.register_system_cached(Foo);
+        let bar1 = world.register_system_cached(Bar);
+        let bar2 = world.register_system_cached(Bar);
+
+        // The `S: IntoSystem` types are different, so they should be cached
+        // as separate systems, even though the `<S as IntoSystem>::System`
+        // types / values are the same (`ApplyDeferred`).
+        assert_ne!(foo1, bar1);
+
+        // But if the `S: IntoSystem` types are the same, they'll be cached
+        // as the same system.
+        assert_eq!(foo1, foo2);
+        assert_eq!(bar1, bar2);
     }
 
     #[test]
@@ -797,19 +925,51 @@ mod tests {
     #[test]
     fn run_system_invalid_params() {
         use crate::system::RegisteredSystemError;
+        use alloc::string::ToString;
 
         struct T;
         impl Resource for T {}
         fn system(_: Res<T>) {}
 
         let mut world = World::new();
-        let id = world.register_system(system.warn_param_missing());
+        let id = world.register_system(system);
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 
-        assert!(matches!(
-            result,
-            Err(RegisteredSystemError::InvalidParams(_))
-        ));
+        assert!(matches!(result, Err(RegisteredSystemError::Failed { .. })));
+        let expected = "System returned error: Parameter `Res<T>` failed validation: Resource does not exist\n";
+        assert!(result.unwrap_err().to_string().contains(expected));
+    }
+
+    #[test]
+    fn run_system_recursive() {
+        std::thread_local! {
+            static INVOCATIONS_LEFT: Cell<i32> = const { Cell::new(3) };
+            static SYSTEM_ID: Cell<Option<SystemId>> = default();
+        }
+
+        fn system(mut commands: Commands) {
+            let count = INVOCATIONS_LEFT.get() - 1;
+            INVOCATIONS_LEFT.set(count);
+            if count > 0 {
+                commands.run_system(SYSTEM_ID.get().unwrap());
+            }
+        }
+
+        let mut world = World::new();
+        let id = world.register_system(system);
+        SYSTEM_ID.set(Some(id));
+        world.run_system(id).unwrap();
+
+        assert_eq!(INVOCATIONS_LEFT.get(), 0);
+    }
+
+    #[test]
+    fn run_system_exclusive_adapters() {
+        let mut world = World::new();
+        fn system(_: &mut World) {}
+        world.run_system_cached(system).unwrap();
+        world.run_system_cached(system.pipe(system)).unwrap();
+        world.run_system_cached(system.map(|()| {})).unwrap();
     }
 }

@@ -5,7 +5,8 @@ use crate::{
     folder::LoadedFolder,
     io::{
         AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        ErasedAssetReader, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
+        AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
+        MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -14,7 +15,7 @@ use crate::{
     },
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
-    CompleteErasedLoadedAsset, DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset,
+    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
     UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
@@ -25,7 +26,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
@@ -38,12 +39,13 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{error, info};
 
-/// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
-/// retrieve their current load states.
+/// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader).
+/// This can be used to kick off new asset loads and retrieve their current load states.
 ///
 /// The general process to load an asset is:
-/// 1. Initialize a new [`Asset`] type with the [`AssetServer`] via [`AssetApp::init_asset`], which will internally call [`AssetServer::register_asset`]
-///     and set up related ECS [`Assets`] storage and systems.
+/// 1. Initialize a new [`Asset`] type with the [`AssetServer`] via [`AssetApp::init_asset`], which
+///    will internally call [`AssetServer::register_asset`] and set up related ECS [`Assets`]
+///    storage and systems.
 /// 2. Register one or more [`AssetLoader`]s for that asset with [`AssetApp::init_asset_loader`]
 /// 3. Add the asset to your asset folder (defaults to `assets`).
 /// 4. Call [`AssetServer::load`] with a path to your asset.
@@ -66,6 +68,7 @@ pub(crate) struct AssetServerData {
     sources: AssetSources,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
+    unapproved_path_mode: UnapprovedPathMode,
 }
 
 /// The "asset mode" the server is currently in.
@@ -80,13 +83,19 @@ pub enum AssetServerMode {
 impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
-    pub fn new(sources: AssetSources, mode: AssetServerMode, watching_for_changes: bool) -> Self {
+    pub fn new(
+        sources: AssetSources,
+        mode: AssetServerMode,
+        watching_for_changes: bool,
+        unapproved_path_mode: UnapprovedPathMode,
+    ) -> Self {
         Self::new_with_loaders(
             sources,
             Default::default(),
             mode,
             AssetMetaCheck::Always,
             watching_for_changes,
+            unapproved_path_mode,
         )
     }
 
@@ -97,6 +106,7 @@ impl AssetServer {
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
+        unapproved_path_mode: UnapprovedPathMode,
     ) -> Self {
         Self::new_with_loaders(
             sources,
@@ -104,6 +114,7 @@ impl AssetServer {
             mode,
             meta_check,
             watching_for_changes,
+            unapproved_path_mode,
         )
     }
 
@@ -113,6 +124,7 @@ impl AssetServer {
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
+        unapproved_path_mode: UnapprovedPathMode,
     ) -> Self {
         let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
         let mut infos = AssetInfos::default();
@@ -126,6 +138,7 @@ impl AssetServer {
                 asset_event_receiver,
                 loaders,
                 infos: RwLock::new(infos),
+                unapproved_path_mode,
             }),
         }
     }
@@ -309,7 +322,16 @@ impl AssetServer {
     /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, None, ())
+        self.load_with_meta_transform(path, None, (), false)
+    }
+
+    /// Same as [`load`](AssetServer::load), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_override<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
+        self.load_with_meta_transform(path, None, (), true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -333,7 +355,20 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, None, guard)
+        self.load_with_meta_transform(path, None, guard, false)
+    }
+
+    /// Same as [`load`](AssetServer::load_acquire), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_acquire_override<'a, A: Asset, G: Send + Sync + 'static>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        guard: G,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path, None, guard, true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
@@ -345,7 +380,30 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), ())
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            (),
+            false,
+        )
+    }
+
+    /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_with_settings_override<'a, A: Asset, S: Settings>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            (),
+            true,
+        )
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -364,7 +422,36 @@ impl AssetServer {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), guard)
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            guard,
+            false,
+        )
+    }
+
+    /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_acquire_with_settings_override<
+        'a,
+        A: Asset,
+        S: Settings,
+        G: Send + Sync + 'static,
+    >(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        guard: G,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            guard,
+            true,
+        )
     }
 
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
@@ -372,8 +459,20 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
         guard: G,
+        override_unapproved: bool,
     ) -> Handle<A> {
         let path = path.into().into_owned();
+
+        if path.is_unapproved() {
+            match (&self.data.unapproved_path_mode, override_unapproved) {
+                (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
+                (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
+                    error!("Asset path {path} is unapproved. See UnapprovedPathMode for details.");
+                    return Handle::default();
+                }
+            }
+        }
+
         let mut infos = self.data.infos.write();
         let (handle, should_load) = infos.get_or_create_path_handle::<A>(
             path.clone(),
@@ -454,7 +553,9 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path: AssetPath = path.into();
-        self.load_internal(None, path, false, None).await
+        self.load_internal(None, path, false, None)
+            .await
+            .map(|h| h.expect("handle must be returned, since we didn't pass in an input handle"))
     }
 
     pub(crate) fn load_unknown_type_with_meta_transform<'a>(
@@ -544,21 +645,25 @@ impl AssetServer {
 
     /// Performs an async asset load.
     ///
-    /// `input_handle` must only be [`Some`] if `should_load` was true when retrieving `input_handle`. This is an optimization to
-    /// avoid looking up `should_load` twice, but it means you _must_ be sure a load is necessary when calling this function with [`Some`].
+    /// `input_handle` must only be [`Some`] if `should_load` was true when retrieving
+    /// `input_handle`. This is an optimization to avoid looking up `should_load` twice, but it
+    /// means you _must_ be sure a load is necessary when calling this function with [`Some`].
+    ///
+    /// Returns the handle of the asset if one was retrieved by this function. Otherwise, may return
+    /// [`None`].
     async fn load_internal<'a>(
         &self,
-        mut input_handle: Option<UntypedHandle>,
+        input_handle: Option<UntypedHandle>,
         path: AssetPath<'a>,
         force: bool,
         meta_transform: Option<MetaTransform>,
-    ) -> Result<UntypedHandle, AssetLoadError> {
-        let asset_type_id = input_handle.as_ref().map(UntypedHandle::type_id);
+    ) -> Result<Option<UntypedHandle>, AssetLoadError> {
+        let input_handle_type_id = input_handle.as_ref().map(UntypedHandle::type_id);
 
         let path = path.into_owned();
         let path_clone = path.clone();
         let (mut meta, loader, mut reader) = self
-            .get_meta_loader_and_reader(&path_clone, asset_type_id)
+            .get_meta_loader_and_reader(&path_clone, input_handle_type_id)
             .await
             .inspect_err(|e| {
                 // if there was an input handle, a "load" operation has already started, so we must produce a "failure" event, if
@@ -575,76 +680,90 @@ impl AssetServer {
         if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
             (*meta_transform)(&mut *meta);
         }
-        // downgrade the input handle so we don't keep the asset alive just because we're loading it
-        // note we can't just pass a weak handle in, as only strong handles contain the asset meta transform
-        input_handle = input_handle.map(|h| h.clone_weak());
 
-        // This contains Some(UntypedHandle), if it was retrievable
-        // If it is None, that is because it was _not_ retrievable, due to
-        //    1. The handle was not already passed in for this path, meaning we can't just use that
-        //    2. The asset has not been loaded yet, meaning there is no existing Handle for it
-        //    3. The path has a label, meaning the AssetLoader's root asset type is not the path's asset type
-        //
-        // In the None case, the only course of action is to wait for the asset to load so we can allocate the
-        // handle for that type.
-        //
-        // TODO: Note that in the None case, multiple asset loads for the same path can happen at the same time
-        // (rather than "early out-ing" in the "normal" case)
-        // This would be resolved by a universal asset id, as we would not need to resolve the asset type
-        // to generate the ID. See this issue: https://github.com/bevyengine/bevy/issues/10549
-        let handle_result = match input_handle {
-            Some(handle) => {
-                // if a handle was passed in, the "should load" check was already done
-                Some((handle, true))
-            }
-            None => {
-                let mut infos = self.data.infos.write();
-                let result = infos.get_or_create_path_handle_internal(
-                    path.clone(),
-                    path.label().is_none().then(|| loader.asset_type_id()),
-                    HandleLoadingMode::Request,
-                    meta_transform,
-                );
-                unwrap_with_context(result, Either::Left(loader.asset_type_name()))
-            }
-        };
+        let asset_id; // The asset ID of the asset we are trying to load.
+        let fetched_handle; // The handle if one was looked up/created.
+        let should_load; // Whether we need to load the asset.
+        if let Some(input_handle) = input_handle {
+            asset_id = Some(input_handle.id());
+            // In this case, we intentionally drop the input handle so we can cancel loading the
+            // asset if the handle gets dropped (externally) before it finishes loading.
+            fetched_handle = None;
+            // The handle was passed in, so the "should_load" check was already done.
+            should_load = true;
+        } else {
+            // TODO: multiple asset loads for the same path can happen at the same time (rather than
+            // "early out-ing" in the "normal" case). This would be resolved by a universal asset
+            // id, as we would not need to resolve the asset type to generate the ID. See this
+            // issue: https://github.com/bevyengine/bevy/issues/10549
 
-        let handle = if let Some((handle, should_load)) = handle_result {
-            if path.label().is_none() && handle.type_id() != loader.asset_type_id() {
+            let mut infos = self.data.infos.write();
+            let result = infos.get_or_create_path_handle_internal(
+                path.clone(),
+                path.label().is_none().then(|| loader.asset_type_id()),
+                HandleLoadingMode::Request,
+                meta_transform,
+            );
+            match unwrap_with_context(result, Either::Left(loader.asset_type_name())) {
+                // We couldn't figure out the correct handle without its type ID (which can only
+                // happen if we are loading a subasset).
+                None => {
+                    // We don't know the expected type since the subasset may have a different type
+                    // than the "root" asset (which is the type the loader will load).
+                    asset_id = None;
+                    fetched_handle = None;
+                    // If we couldn't find an appropriate handle, then the asset certainly needs to
+                    // be loaded.
+                    should_load = true;
+                }
+                Some((handle, result_should_load)) => {
+                    asset_id = Some(handle.id());
+                    fetched_handle = Some(handle);
+                    should_load = result_should_load;
+                }
+            }
+        }
+        // Verify that the expected type matches the loader's type.
+        if let Some(asset_type_id) = asset_id.map(|id| id.type_id()) {
+            // If we are loading a subasset, then the subasset's type almost certainly doesn't match
+            // the loader's type - and that's ok.
+            if path.label().is_none() && asset_type_id != loader.asset_type_id() {
                 error!(
                     "Expected {:?}, got {:?}",
-                    handle.type_id(),
+                    asset_type_id,
                     loader.asset_type_id()
                 );
                 return Err(AssetLoadError::RequestedHandleTypeMismatch {
                     path: path.into_owned(),
-                    requested: handle.type_id(),
+                    requested: asset_type_id,
                     actual_asset_name: loader.asset_type_name(),
                     loader_name: loader.type_name(),
                 });
             }
-            if !should_load && !force {
-                return Ok(handle);
-            }
-            Some(handle)
-        } else {
-            None
-        };
-        // if the handle result is None, we definitely need to load the asset
+        }
+        // Bail out earlier if we don't need to load the asset.
+        if !should_load && !force {
+            return Ok(fetched_handle);
+        }
 
-        let (base_handle, base_path) = if path.label().is_some() {
+        // We don't actually need to use _base_handle, but we do need to keep the handle alive.
+        // Dropping it would cancel the load of the base asset, which would make the load of this
+        // subasset never complete.
+        let (base_asset_id, _base_handle, base_path) = if path.label().is_some() {
             let mut infos = self.data.infos.write();
             let base_path = path.without_label().into_owned();
-            let (base_handle, _) = infos.get_or_create_path_handle_erased(
-                base_path.clone(),
-                loader.asset_type_id(),
-                Some(loader.asset_type_name()),
-                HandleLoadingMode::Force,
-                None,
-            );
-            (base_handle, base_path)
+            let base_handle = infos
+                .get_or_create_path_handle_erased(
+                    base_path.clone(),
+                    loader.asset_type_id(),
+                    Some(loader.asset_type_name()),
+                    HandleLoadingMode::Force,
+                    None,
+                )
+                .0;
+            (base_handle.id(), Some(base_handle), base_path)
         } else {
-            (handle.clone().unwrap(), path.clone())
+            (asset_id.unwrap(), None, path.clone())
         };
 
         match self
@@ -661,7 +780,7 @@ impl AssetServer {
             Ok(loaded_asset) => {
                 let final_handle = if let Some(label) = path.label_cow() {
                     match loaded_asset.labeled_assets.get(&label) {
-                        Some(labeled_asset) => labeled_asset.handle.clone(),
+                        Some(labeled_asset) => Some(labeled_asset.handle.clone()),
                         None => {
                             let mut all_labels: Vec<String> = loaded_asset
                                 .labeled_assets
@@ -677,16 +796,15 @@ impl AssetServer {
                         }
                     }
                 } else {
-                    // if the path does not have a label, the handle must exist at this point
-                    handle.unwrap()
+                    fetched_handle
                 };
 
-                self.send_loaded_asset(base_handle.id(), loaded_asset);
+                self.send_loaded_asset(base_asset_id, loaded_asset);
                 Ok(final_handle)
             }
             Err(err) => {
                 self.send_asset_event(InternalAssetEvent::Failed {
-                    id: base_handle.id(),
+                    id: base_asset_id,
                     error: err.clone(),
                     path: path.into_owned(),
                 });
@@ -697,18 +815,12 @@ impl AssetServer {
 
     /// Sends a load event for the given `loaded_asset` and does the same recursively for all
     /// labeled assets.
-    fn send_loaded_asset(&self, id: UntypedAssetId, mut complete_asset: CompleteErasedLoadedAsset) {
-        for (_, labeled_asset) in complete_asset.labeled_assets.drain() {
-            self.send_asset_event(InternalAssetEvent::Loaded {
-                id: labeled_asset.handle.id(),
-                loaded_asset: labeled_asset.asset,
-            });
+    fn send_loaded_asset(&self, id: UntypedAssetId, mut loaded_asset: ErasedLoadedAsset) {
+        for (_, labeled_asset) in loaded_asset.labeled_assets.drain() {
+            self.send_loaded_asset(labeled_asset.handle.id(), labeled_asset.asset);
         }
 
-        self.send_asset_event(InternalAssetEvent::Loaded {
-            id,
-            loaded_asset: complete_asset.asset,
-        });
+        self.send_asset_event(InternalAssetEvent::Loaded { id, loaded_asset });
     }
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
@@ -923,8 +1035,8 @@ impl AssetServer {
                 };
 
                 let asset_reader = match server.data.mode {
-                    AssetServerMode::Unprocessed { .. } => source.reader(),
-                    AssetServerMode::Processed { .. } => match source.processed_reader() {
+                    AssetServerMode::Unprocessed => source.reader(),
+                    AssetServerMode::Processed => match source.processed_reader() {
                         Ok(reader) => reader,
                         Err(_) => {
                             error!(
@@ -1235,8 +1347,8 @@ impl AssetServer {
         // Then the meta reader, if meta exists, will correspond to the meta for the current "version" of the asset.
         // See ProcessedAssetInfo::file_transaction_lock for more context
         let asset_reader = match self.data.mode {
-            AssetServerMode::Unprocessed { .. } => source.reader(),
-            AssetServerMode::Processed { .. } => source.processed_reader()?,
+            AssetServerMode::Unprocessed => source.reader(),
+            AssetServerMode::Processed => source.processed_reader()?,
         };
         let reader = asset_reader.read(asset_path.path()).await?;
         let read_meta = match &self.data.meta_check {
@@ -1332,7 +1444,7 @@ impl AssetServer {
         reader: &mut dyn Reader,
         load_dependencies: bool,
         populate_hashes: bool,
-    ) -> Result<CompleteErasedLoadedAsset, AssetLoadError> {
+    ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         // TODO: experiment with this
         let asset_path = asset_path.clone_owned();
         let load_context =
@@ -1478,6 +1590,50 @@ impl AssetServer {
             }
         }
     }
+
+    /// Writes the default loader meta file for the provided `path`.
+    ///
+    /// This function only generates meta files that simply load the path directly. To generate a
+    /// meta file that will use the default asset processor for the path, see
+    /// [`AssetProcessor::write_default_meta_file_for_path`].
+    ///
+    /// Note if there is already a meta file for `path`, this function returns
+    /// `Err(WriteDefaultMetaError::MetaAlreadyExists)`.
+    ///
+    /// [`AssetProcessor::write_default_meta_file_for_path`]:  crate::AssetProcessor::write_default_meta_file_for_path
+    pub async fn write_default_loader_meta_file_for_path(
+        &self,
+        path: impl Into<AssetPath<'_>>,
+    ) -> Result<(), WriteDefaultMetaError> {
+        let path = path.into();
+        let loader = self.get_path_asset_loader(&path).await?;
+
+        let meta = loader.default_meta();
+        let serialized_meta = meta.serialize();
+
+        let source = self.get_source(path.source())?;
+
+        let reader = source.reader();
+        match reader.read_meta_bytes(path.path()).await {
+            Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
+            Err(AssetReaderError::NotFound(_)) => {
+                // The meta file couldn't be found so just fall through.
+            }
+            Err(AssetReaderError::Io(err)) => {
+                return Err(WriteDefaultMetaError::IoErrorFromExistingMetaCheck(err))
+            }
+            Err(AssetReaderError::HttpError(err)) => {
+                return Err(WriteDefaultMetaError::HttpErrorFromExistingMetaCheck(err))
+            }
+        }
+
+        let writer = source.writer()?;
+        writer
+            .write_meta_bytes(path.path(), &serialized_meta)
+            .await?;
+
+        Ok(())
+    }
 }
 
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
@@ -1584,14 +1740,14 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
         for source in server.data.sources.iter() {
             match server.data.mode {
-                AssetServerMode::Unprocessed { .. } => {
+                AssetServerMode::Unprocessed => {
                     if let Some(receiver) = source.event_receiver() {
                         for event in receiver.try_iter() {
                             handle_event(source.id(), event);
                         }
                     }
                 }
-                AssetServerMode::Processed { .. } => {
+                AssetServerMode::Processed => {
                     if let Some(receiver) = source.processed_event_receiver() {
                         for event in receiver.try_iter() {
                             handle_event(source.id(), event);
@@ -1794,7 +1950,7 @@ pub enum AssetLoadError {
             base_path,
             label,
             all_labels.len(),
-            all_labels.iter().map(|l| format!("'{}'", l)).collect::<Vec<_>>().join(", "))]
+            all_labels.iter().map(|l| format!("'{l}'")).collect::<Vec<_>>().join(", "))]
     MissingLabel {
         base_path: AssetPath<'static>,
         label: String,
@@ -1808,13 +1964,21 @@ pub enum AssetLoadError {
 pub struct AssetLoaderError {
     path: AssetPath<'static>,
     loader_name: &'static str,
-    error: Arc<dyn core::error::Error + Send + Sync + 'static>,
+    error: Arc<BevyError>,
 }
 
 impl AssetLoaderError {
     /// The path of the asset that failed to load.
     pub fn path(&self) -> &AssetPath<'static> {
         &self.path
+    }
+
+    /// The error the loader reported when attempting to load the asset.
+    ///
+    /// If you know the type of the error the asset loader returned, you can use
+    /// [`BevyError::downcast_ref()`] to get it.
+    pub fn error(&self) -> &BevyError {
+        &self.error
     }
 }
 
@@ -1884,4 +2048,22 @@ pub enum WaitForAssetError {
     /// A dependency of the asset failed to load.
     #[error(transparent)]
     DependencyFailed(Arc<AssetLoadError>),
+}
+
+#[derive(Error, Debug)]
+pub enum WriteDefaultMetaError {
+    #[error(transparent)]
+    MissingAssetLoader(#[from] MissingAssetLoaderForExtensionError),
+    #[error(transparent)]
+    MissingAssetSource(#[from] MissingAssetSourceError),
+    #[error(transparent)]
+    MissingAssetWriter(#[from] MissingAssetWriterError),
+    #[error("failed to write default asset meta file: {0}")]
+    FailedToWriteMeta(#[from] AssetWriterError),
+    #[error("asset meta file already exists, so avoiding overwrite")]
+    MetaAlreadyExists,
+    #[error("encountered an I/O error while reading the existing meta file: {0}")]
+    IoErrorFromExistingMetaCheck(Arc<std::io::Error>),
+    #[error("encountered HTTP status {0} when reading the existing meta file")]
+    HttpErrorFromExistingMetaCheck(u16),
 }

@@ -1,5 +1,5 @@
 use crate::{Asset, AssetIndex};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -19,6 +19,7 @@ use thiserror::Error;
 ///
 /// For an "untyped" / "generic-less" id, see [`UntypedAssetId`].
 #[derive(Reflect, Serialize, Deserialize, From)]
+#[reflect(Clone, Default, Debug, PartialEq, Hash)]
 pub enum AssetId<A: Asset> {
     /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
     /// the "default" identifier used for assets. The alternative(s) (ex: [`AssetId::Uuid`]) will only be used if assets are
@@ -29,7 +30,7 @@ pub enum AssetId<A: Asset> {
         /// The unstable, opaque index of the asset.
         index: AssetIndex,
         /// A marker to store the type information of the asset.
-        #[reflect(ignore)]
+        #[reflect(ignore, clone)]
         marker: PhantomData<fn() -> A>,
     },
     /// A stable-across-runs / const asset identifier. This will only be used if an asset is explicitly registered in [`Assets`]
@@ -163,7 +164,7 @@ impl<A: Asset> From<AssetIndex> for AssetId<A> {
 /// An "untyped" / "generic-less" [`Asset`] identifier that behaves much like [`AssetId`], but stores the [`Asset`] type
 /// information at runtime instead of compile-time. This increases the size of the type, but it enables storing asset ids
 /// across asset types together and enables comparisons between them.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Reflect)]
 pub enum UntypedAssetId {
     /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
     /// the "default" identifier used for assets. The alternative(s) (ex: [`UntypedAssetId::Uuid`]) will only be used if assets are
@@ -440,7 +441,7 @@ mod tests {
     fn hash<T: Hash>(data: &T) -> u64 {
         use core::hash::BuildHasher;
 
-        bevy_platform_support::hash::FixedHasher.hash_one(data)
+        bevy_platform::hash::FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `AssetIds` should be equivalent to each other and themselves

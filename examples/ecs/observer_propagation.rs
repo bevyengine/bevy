@@ -42,21 +42,21 @@ fn setup(mut commands: Commands) {
 }
 
 // This event represents an attack we want to "bubble" up from the armor to the goblin.
-#[derive(Clone, Component)]
+//
+// We enable propagation by adding the event attribute and specifying two important pieces of information.
+//
+// - **traversal:**
+// Which component we want to propagate along. In this case, we want to "bubble" (meaning propagate
+// from child to parent) so we use the `ChildOf` component for propagation. The component supplied
+// must implement the `Traversal` trait.
+//
+// - **auto_propagate:**
+// We can also choose whether or not this event will propagate by default when triggered. If this is
+// false, it will only propagate following a call to `On::propagate(true)`.
+#[derive(Clone, Component, Event, EntityEvent)]
+#[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct Attack {
     damage: u16,
-}
-
-// We enable propagation by implementing `Event` manually (rather than using a derive) and specifying
-// two important pieces of information:
-impl Event for Attack {
-    // 1. Which component we want to propagate along. In this case, we want to "bubble" (meaning propagate
-    //    from child to parent) so we use the `ChildOf` component for propagation. The component supplied
-    //    must implement the `Traversal` trait.
-    type Traversal = &'static ChildOf;
-    // 2. We can also choose whether or not this event will propagate by default when triggered. If this is
-    //    false, it will only propagate following a call to `Trigger::propagate(true)`.
-    const AUTO_PROPAGATE: bool = true;
 }
 
 /// An entity that can take damage.
@@ -77,14 +77,14 @@ fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
     }
 }
 
-fn attack_hits(trigger: Trigger<Attack>, name: Query<&Name>) {
+fn attack_hits(trigger: On<Attack>, name: Query<&Name>) {
     if let Ok(name) = name.get(trigger.target()) {
         info!("Attack hit {}", name);
     }
 }
 
 /// A callback placed on [`Armor`], checking if it absorbed all the [`Attack`] damage.
-fn block_attack(mut trigger: Trigger<Attack>, armor: Query<(&Armor, &Name)>) {
+fn block_attack(mut trigger: On<Attack>, armor: Query<(&Armor, &Name)>) {
     let (armor, name) = armor.get(trigger.target()).unwrap();
     let attack = trigger.event_mut();
     let damage = attack.damage.saturating_sub(**armor);
@@ -104,7 +104,7 @@ fn block_attack(mut trigger: Trigger<Attack>, armor: Query<(&Armor, &Name)>) {
 /// A callback on the armor wearer, triggered when a piece of armor is not able to block an attack,
 /// or the wearer is attacked directly.
 fn take_damage(
-    trigger: Trigger<Attack>,
+    trigger: On<Attack>,
     mut hp: Query<(&mut HitPoints, &Name)>,
     mut commands: Commands,
     mut app_exit: EventWriter<AppExit>,
@@ -118,7 +118,7 @@ fn take_damage(
     } else {
         warn!("💀 {} has died a gruesome death", name);
         commands.entity(trigger.target()).despawn();
-        app_exit.send(AppExit::Success);
+        app_exit.write(AppExit::Success);
     }
 
     info!("(propagation reached root)\n");

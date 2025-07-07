@@ -54,11 +54,11 @@ use crate::{
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
     AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
-    MissingAssetLoaderForExtensionError,
+    MissingAssetLoaderForExtensionError, UnapprovedPathMode, WriteDefaultMetaError,
 };
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
@@ -122,6 +122,7 @@ impl AssetProcessor {
             AssetServerMode::Processed,
             AssetMetaCheck::Always,
             false,
+            UnapprovedPathMode::default(),
         );
         Self { server, data }
     }
@@ -207,10 +208,13 @@ impl AssetProcessor {
     /// Processes all assets. This will:
     /// * For each "processed [`AssetSource`]:
     /// * Scan the [`ProcessorTransactionLog`] and recover from any failures detected
-    /// * Scan the processed [`AssetReader`](crate::io::AssetReader) to build the current view of already processed assets.
-    /// * Scan the unprocessed [`AssetReader`](crate::io::AssetReader) and remove any final processed assets that are invalid or no longer exist.
-    /// * For each asset in the unprocessed [`AssetReader`](crate::io::AssetReader), kick off a new "process job", which will process the asset
-    ///     (if the latest version of the asset has not been processed).
+    /// * Scan the processed [`AssetReader`](crate::io::AssetReader) to build the current view of
+    ///   already processed assets.
+    /// * Scan the unprocessed [`AssetReader`](crate::io::AssetReader) and remove any final
+    ///   processed assets that are invalid or no longer exist.
+    /// * For each asset in the unprocessed [`AssetReader`](crate::io::AssetReader), kick off a new
+    ///   "process job", which will process the asset
+    ///   (if the latest version of the asset has not been processed).
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub fn process_assets(&self) {
         let start_time = std::time::Instant::now();
@@ -256,6 +260,58 @@ impl AssetProcessor {
                 self.finish_processing_assets().await;
             }
         }
+    }
+
+    /// Writes the default meta file for the provided `path`.
+    ///
+    /// This function generates the appropriate meta file to process `path` with the default
+    /// processor. If there is no default processor, it falls back to the default loader.
+    ///
+    /// Note if there is already a meta file for `path`, this function returns
+    /// `Err(WriteDefaultMetaError::MetaAlreadyExists)`.
+    pub async fn write_default_meta_file_for_path(
+        &self,
+        path: impl Into<AssetPath<'_>>,
+    ) -> Result<(), WriteDefaultMetaError> {
+        let path = path.into();
+        let Some(processor) = path
+            .get_full_extension()
+            .and_then(|extension| self.get_default_processor(&extension))
+        else {
+            return self
+                .server
+                .write_default_loader_meta_file_for_path(path)
+                .await;
+        };
+
+        let meta = processor.default_meta();
+        let serialized_meta = meta.serialize();
+
+        let source = self.get_source(path.source())?;
+
+        // Note: we get the reader rather than the processed reader, since we want to write the meta
+        // file for the unprocessed version of that asset (so it will be processed by the default
+        // processor).
+        let reader = source.reader();
+        match reader.read_meta_bytes(path.path()).await {
+            Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
+            Err(AssetReaderError::NotFound(_)) => {
+                // The meta file couldn't be found so just fall through.
+            }
+            Err(AssetReaderError::Io(err)) => {
+                return Err(WriteDefaultMetaError::IoErrorFromExistingMetaCheck(err))
+            }
+            Err(AssetReaderError::HttpError(err)) => {
+                return Err(WriteDefaultMetaError::HttpErrorFromExistingMetaCheck(err))
+            }
+        }
+
+        let writer = source.writer()?;
+        writer
+            .write_meta_bytes(path.path(), &serialized_meta)
+            .await?;
+
+        Ok(())
     }
 
     async fn handle_asset_source_event(&self, source: &AssetSource, event: AssetSourceEvent) {
@@ -800,12 +856,6 @@ impl AssetProcessor {
                     }
                 };
                 let meta_bytes = meta.serialize();
-                // write meta to source location if it doesn't already exist
-                source
-                    .writer()?
-                    .write_meta_bytes(path, &meta_bytes)
-                    .await
-                    .map_err(writer_err)?;
                 (meta, meta_bytes, processor)
             }
             Err(err) => {

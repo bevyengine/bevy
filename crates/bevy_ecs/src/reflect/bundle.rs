@@ -5,12 +5,14 @@
 //!
 //! Same as [`super::component`], but for bundles.
 use alloc::boxed::Box;
+use bevy_utils::prelude::DebugName;
 use core::any::{Any, TypeId};
 
 use crate::{
     bundle::BundleFromComponents,
     entity::EntityMapper,
     prelude::Bundle,
+    relationship::RelationshipHookMode,
     world::{EntityMut, EntityWorldMut},
 };
 use bevy_reflect::{
@@ -36,8 +38,13 @@ pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::apply`].
     pub apply: fn(EntityMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert_mapped`].
-    pub apply_or_insert_mapped:
-        fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry, &mut dyn EntityMapper),
+    pub apply_or_insert_mapped: fn(
+        &mut EntityWorldMut,
+        &dyn PartialReflect,
+        &TypeRegistry,
+        &mut dyn EntityMapper,
+        RelationshipHookMode,
+    ),
     /// Function pointer implementing [`ReflectBundle::remove`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectBundle::take`].
@@ -87,8 +94,9 @@ impl ReflectBundle {
         bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
         mapper: &mut dyn EntityMapper,
+        relationship_hook_mode: RelationshipHookMode,
     ) {
-        (self.0.apply_or_insert_mapped)(entity, bundle, registry, mapper);
+        (self.0.apply_or_insert_mapped)(entity, bundle, registry, mapper, relationship_hook_mode);
     }
 
     /// Removes this [`Bundle`] type from the entity. Does nothing if it doesn't exist.
@@ -165,12 +173,16 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                         _ => panic!(
                             "expected bundle `{}` to be named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
-                            core::any::type_name::<B>(),
+                            DebugName::type_name::<B>(),
                         ),
                     }
                 }
             },
-            apply_or_insert_mapped: |entity, reflected_bundle, registry, mapper| {
+            apply_or_insert_mapped: |entity,
+                                     reflected_bundle,
+                                     registry,
+                                     mapper,
+                                     relationship_hook_mode| {
                 if let Some(reflect_component) =
                     registry.get_type_data::<ReflectComponent>(TypeId::of::<B>())
                 {
@@ -179,19 +191,32 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                         reflected_bundle,
                         registry,
                         mapper,
+                        relationship_hook_mode,
                     );
                 } else {
                     match reflected_bundle.reflect_ref() {
                         ReflectRef::Struct(bundle) => bundle.iter_fields().for_each(|field| {
-                            apply_or_insert_field_mapped(entity, field, registry, mapper);
+                            apply_or_insert_field_mapped(
+                                entity,
+                                field,
+                                registry,
+                                mapper,
+                                relationship_hook_mode,
+                            );
                         }),
                         ReflectRef::Tuple(bundle) => bundle.iter_fields().for_each(|field| {
-                            apply_or_insert_field_mapped(entity, field, registry, mapper);
+                            apply_or_insert_field_mapped(
+                                entity,
+                                field,
+                                registry,
+                                mapper,
+                                relationship_hook_mode,
+                            );
                         }),
                         _ => panic!(
                             "expected bundle `{}` to be a named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
-                            core::any::type_name::<B>(),
+                            DebugName::type_name::<B>(),
                         ),
                     }
                 }
@@ -232,6 +257,7 @@ fn apply_or_insert_field_mapped(
     field: &dyn PartialReflect,
     registry: &TypeRegistry,
     mapper: &mut dyn EntityMapper,
+    relationship_hook_mode: RelationshipHookMode,
 ) {
     let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {
         panic!(
@@ -241,9 +267,21 @@ fn apply_or_insert_field_mapped(
     };
 
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(type_id) {
-        reflect_component.apply_or_insert_mapped(entity, field, registry, mapper);
+        reflect_component.apply_or_insert_mapped(
+            entity,
+            field,
+            registry,
+            mapper,
+            relationship_hook_mode,
+        );
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(type_id) {
-        reflect_bundle.apply_or_insert_mapped(entity, field, registry, mapper);
+        reflect_bundle.apply_or_insert_mapped(
+            entity,
+            field,
+            registry,
+            mapper,
+            relationship_hook_mode,
+        );
     } else {
         let is_component = entity.world().components().get_id(type_id).is_some();
 

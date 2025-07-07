@@ -20,7 +20,7 @@ fn main() {
 #[derive(Resource, Deref)]
 struct StreamReceiver(Receiver<u32>);
 
-#[derive(Event)]
+#[derive(Event, BufferedEvent)]
 struct StreamEvent(u32);
 
 fn setup(mut commands: Commands) {
@@ -46,7 +46,7 @@ fn setup(mut commands: Commands) {
 // This system reads from the receiver and sends events to Bevy
 fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
     for from_stream in receiver.try_iter() {
-        events.send(StreamEvent(from_stream));
+        events.write(StreamEvent(from_stream));
     }
 }
 
@@ -54,7 +54,7 @@ fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
     for (per_frame, event) in reader.read().enumerate() {
         commands.spawn((
             Text2d::new(event.0.to_string()),
-            TextLayout::new_with_justify(JustifyText::Center),
+            TextLayout::new_with_justify(Justify::Center),
             Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
         ));
     }

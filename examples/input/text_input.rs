@@ -34,33 +34,30 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // sections that will hold text input.
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
-    commands
-        .spawn((
-            Text::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
-        ))
-        .with_children(|p| {
-            p.spawn(TextSpan::new(
-                "Click to toggle IME. Press return to start a new line.\n\n",
-            ));
-            p.spawn(TextSpan::new("IME Enabled: "));
-            p.spawn(TextSpan::new("false\n"));
-            p.spawn(TextSpan::new("IME Active:  "));
-            p.spawn(TextSpan::new("false\n"));
-            p.spawn(TextSpan::new("IME Buffer:  "));
-            p.spawn((
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+        children![
+            TextSpan::new("Click to toggle IME. Press return to start a new line.\n\n",),
+            TextSpan::new("IME Enabled: "),
+            TextSpan::new("false\n"),
+            TextSpan::new("IME Active:  "),
+            TextSpan::new("false\n"),
+            TextSpan::new("IME Buffer:  "),
+            (
                 TextSpan::new("\n"),
                 TextFont {
                     font: font.clone(),
                     ..default()
                 },
-            ));
-        });
+            ),
+        ],
+    ));
 
     commands.spawn((
         Text2d::new(""),

@@ -27,7 +27,7 @@ impl Plugin for StoragePlugin {
 /// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
 #[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(opaque)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct ShaderStorageBuffer {
     /// Optional data used to initialize the buffer.
     pub data: Option<Vec<u8>>,
@@ -116,6 +116,7 @@ impl RenderAsset for GpuShaderStorageBuffer {
         source_asset: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match source_asset.data {
             Some(data) => {

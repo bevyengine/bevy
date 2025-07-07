@@ -6,7 +6,7 @@
 //! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
-    asset::weak_handle,
+    asset::uuid_handle,
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::{ops, FloatOrd},
@@ -20,14 +20,15 @@ use bevy::{
         },
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-            DepthStencilState, Face, FragmentState, FrontFace, MultisampleState, PipelineCache,
-            PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor,
-            SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
-            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            DepthStencilState, Face, FragmentState, MultisampleState, PipelineCache,
+            PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, SpecializedRenderPipeline,
+            SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
+            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
-        sync_world::MainEntityHashMap,
+        sync_component::SyncComponentPlugin,
+        sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
-        Extract, Render, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSystems,
     },
     sprite::{
         extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
@@ -164,21 +165,19 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             vertex: VertexState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
-                entry_point: "vertex".into(),
-                shader_defs: vec![],
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             // Use the two standard uniforms for 2d meshes
             layout: vec![
@@ -187,15 +186,10 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
             ],
-            push_constant_ranges: vec![],
             primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
                 topology: key.primitive_topology(),
-                strip_index_format: None,
+                ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
@@ -219,7 +213,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("colored_mesh2d_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -286,7 +280,7 @@ pub struct ColoredMesh2dPlugin;
 
 /// Handle to the custom shader with a unique random ID
 pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("f48b148f-7373-4638-9900-392b3b3ccc66");
+    uuid_handle!("f48b148f-7373-4638-9900-392b3b3ccc66");
 
 /// Our custom pipeline needs its own instance storage
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -300,6 +294,7 @@ impl Plugin for ColoredMesh2dPlugin {
             &COLORED_MESH2D_SHADER_HANDLE,
             Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
         );
+        app.add_plugins(SyncComponentPlugin::<ColoredMesh2d>::default());
 
         // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)
@@ -311,7 +306,10 @@ impl Plugin for ColoredMesh2dPlugin {
                 ExtractSchedule,
                 extract_colored_mesh2d.after(extract_mesh2d),
             )
-            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
+            .add_systems(
+                Render,
+                queue_colored_mesh2d.in_set(RenderSystems::QueueMeshes),
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -329,12 +327,21 @@ pub fn extract_colored_mesh2d(
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
     query: Extract<
-        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2d), With<ColoredMesh2d>>,
+        Query<
+            (
+                Entity,
+                RenderEntity,
+                &ViewVisibility,
+                &GlobalTransform,
+                &Mesh2d,
+            ),
+            With<ColoredMesh2d>,
+        >,
     >,
     mut render_mesh_instances: ResMut<RenderColoredMesh2dInstances>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, view_visibility, transform, handle) in &query {
+    for (entity, render_entity, view_visibility, transform, handle) in &query {
         if !view_visibility.get() {
             continue;
         }
@@ -344,7 +351,7 @@ pub fn extract_colored_mesh2d(
             flags: MeshFlags::empty().bits(),
         };
 
-        values.push((entity, ColoredMesh2d));
+        values.push((render_entity, ColoredMesh2d));
         render_mesh_instances.insert(
             entity.into(),
             RenderMesh2dInstance {
@@ -357,7 +364,7 @@ pub fn extract_colored_mesh2d(
         );
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.try_insert_batch(values);
 }
 
 /// Queue the 2d meshes marked with [`ColoredMesh2d`] using our custom pipeline and draw function
@@ -412,6 +419,7 @@ pub fn queue_colored_mesh2d(
                     // This material is not batched
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    extracted_index: usize::MAX,
                     indexed: mesh.indexed(),
                 });
             }

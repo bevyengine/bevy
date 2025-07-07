@@ -83,7 +83,7 @@ fn create_button() -> impl Bundle {
             align_items: AlignItems::Center,
             ..default()
         },
-        BorderColor(Color::BLACK),
+        BorderColor::all(Color::BLACK),
         BorderRadius::MAX,
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
     )
@@ -108,16 +108,16 @@ fn button_system(
     mut counter_query: Query<&mut Counter>,
 ) {
     // Update parent counter on click
-    for (interaction, parent) in &mut interaction_query {
+    for (interaction, child_of) in &mut interaction_query {
         if matches!(interaction, Interaction::Pressed) {
-            let mut counter = counter_query.get_mut(parent.get()).unwrap();
+            let mut counter = counter_query.get_mut(child_of.parent()).unwrap();
             counter.0 += 1;
         }
     }
 
     // Update button labels to match their parent counter
     for (children, child_of) in &labels_query {
-        let counter = counter_query.get(child_of.get()).unwrap();
+        let counter = counter_query.get(child_of.parent()).unwrap();
         let mut text = text_query.get_mut(children[0]).unwrap();
 
         **text = counter.0.to_string();

@@ -1,6 +1,6 @@
 use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
-    Luminance, Mix, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
+    Luminance, Mix, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
@@ -42,7 +42,11 @@ use derive_more::derive::From;
 /// To avoid the cost of repeated conversion, and ensure consistent results where that is desired,
 /// first convert this [`Color`] into your desired color space.
 #[derive(Debug, Clone, Copy, PartialEq, From)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -807,6 +811,44 @@ impl Hue for Color {
 
     fn set_hue(&mut self, hue: f32) {
         *self = self.with_hue(hue);
+    }
+}
+
+impl Saturation for Color {
+    fn with_saturation(&self, saturation: f32) -> Self {
+        let mut new = *self;
+
+        match &mut new {
+            Color::Srgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::LinearRgba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Hsla(x) => x.with_saturation(saturation).into(),
+            Color::Hsva(x) => x.with_saturation(saturation).into(),
+            Color::Hwba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Laba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Lcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklaba(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Oklcha(x) => Hsla::from(*x).with_saturation(saturation).into(),
+            Color::Xyza(x) => Hsla::from(*x).with_saturation(saturation).into(),
+        }
+    }
+
+    fn saturation(&self) -> f32 {
+        match self {
+            Color::Srgba(x) => Hsla::from(*x).saturation(),
+            Color::LinearRgba(x) => Hsla::from(*x).saturation(),
+            Color::Hsla(x) => x.saturation(),
+            Color::Hsva(x) => x.saturation(),
+            Color::Hwba(x) => Hsla::from(*x).saturation(),
+            Color::Laba(x) => Hsla::from(*x).saturation(),
+            Color::Lcha(x) => Hsla::from(*x).saturation(),
+            Color::Oklaba(x) => Hsla::from(*x).saturation(),
+            Color::Oklcha(x) => Hsla::from(*x).saturation(),
+            Color::Xyza(x) => Hsla::from(*x).saturation(),
+        }
+    }
+
+    fn set_saturation(&mut self, saturation: f32) {
+        *self = self.with_saturation(saturation);
     }
 }
 

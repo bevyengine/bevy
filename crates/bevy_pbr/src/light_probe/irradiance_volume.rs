@@ -17,11 +17,12 @@
 //! documentation in the `bevy-baked-gi` project for more details on this
 //! workflow.
 //!
-//! Like all light probes in Bevy, irradiance volumes are 1×1×1 cubes that can
-//! be arbitrarily scaled, rotated, and positioned in a scene with the
-//! [`bevy_transform::components::Transform`] component. The 3D voxel grid will
-//! be stretched to fill the interior of the cube, and the illumination from the
-//! irradiance volume will apply to all fragments within that bounding region.
+//! Like all light probes in Bevy, irradiance volumes are 1×1×1 cubes, centered
+//! on the origin, that can be arbitrarily scaled, rotated, and positioned in a
+//! scene with the [`bevy_transform::components::Transform`] component. The 3D
+//! voxel grid will be stretched to fill the interior of the cube, with linear
+//! interpolation, and the illumination from the irradiance volume will apply to
+//! all fragments within that bounding region.
 //!
 //! Bevy's irradiance volumes are based on Valve's [*ambient cubes*] as used in
 //! *Half-Life 2* ([Mitchell 2006, slide 27]). These encode a single color of
@@ -81,17 +82,17 @@
 //! less ideal for this use case:
 //!
 //! 1. The level 1 spherical harmonic coefficients can be negative. That
-//!     prevents the use of the efficient [RGB9E5 texture format], which only
-//!     encodes unsigned floating point numbers, and forces the use of the
-//!     less-efficient [RGBA16F format] if hardware interpolation is desired.
+//!    prevents the use of the efficient [RGB9E5 texture format], which only
+//!    encodes unsigned floating point numbers, and forces the use of the
+//!    less-efficient [RGBA16F format] if hardware interpolation is desired.
 //!
 //! 2. As an alternative to RGBA16F, level 1 spherical harmonics can be
-//!     normalized and scaled to the SH0 base color, as [Frostbite] does. This
-//!     allows them to be packed in standard LDR RGBA8 textures. However, this
-//!     prevents the use of hardware trilinear filtering, as the nonuniform scale
-//!     factor means that hardware interpolation no longer produces correct results.
-//!     The 8 texture fetches needed to interpolate between voxels can be upwards of
-//!     twice as slow as the hardware interpolation.
+//!    normalized and scaled to the SH0 base color, as [Frostbite] does. This
+//!    allows them to be packed in standard LDR RGBA8 textures. However, this
+//!    prevents the use of hardware trilinear filtering, as the nonuniform scale
+//!    factor means that hardware interpolation no longer produces correct results.
+//!    The 8 texture fetches needed to interpolate between voxels can be upwards of
+//!    twice as slow as the hardware interpolation.
 //!
 //! The following chart summarizes the costs and benefits of ambient cubes,
 //! level 1 spherical harmonics, and level 2 spherical harmonics:
@@ -134,11 +135,12 @@
 
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::Image;
+use bevy_light::LightProbe;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
-        TextureSampleType, TextureView,
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType,
+        TextureView,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -146,7 +148,7 @@ use bevy_render::{
 use bevy_utils::default;
 use core::{num::NonZero, ops::Deref};
 
-use bevy_asset::{weak_handle, AssetId, Handle};
+use bevy_asset::{AssetId, Handle};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
@@ -156,9 +158,6 @@ use crate::{
 
 use super::LightProbeComponent;
 
-pub const IRRADIANCE_VOLUME_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("7fc7dcd8-3f90-4124-b093-be0e53e08205");
-
 /// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
 /// overflow the number of texture bindings when deferred rendering is in use
 /// (see issue #11885).
@@ -167,8 +166,12 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 /// The component that defines an irradiance volume.
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
+///
+/// This component requires the [`LightProbe`] component, and is typically used with
+/// [`bevy_transform::components::Transform`] to place the volume appropriately.
 #[derive(Clone, Reflect, Component, Debug)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
+#[require(LightProbe)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
     /// described in [`crate::irradiance_volume`].
@@ -251,7 +254,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
                 fallback_image,
             )
         } else {
-            RenderViewIrradianceVolumeBindGroupEntries::get_single(
+            RenderViewIrradianceVolumeBindGroupEntries::single(
                 render_view_irradiance_volumes,
                 images,
                 fallback_image,
@@ -295,7 +298,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// Looks up and returns the bindings for any irradiance volumes visible in
     /// the view, as well as the sampler. This is the version used when binding
     /// arrays aren't available on the current platform.
-    fn get_single(
+    fn single(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
