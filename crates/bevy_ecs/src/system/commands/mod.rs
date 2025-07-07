@@ -2414,6 +2414,12 @@ mod tests {
         }
     }
 
+    impl Default for W<u8> {
+        fn default() -> Self {
+            unreachable!()
+        }
+    }
+
     #[test]
     fn entity_commands_entry() {
         let mut world = World::default();
@@ -2453,6 +2459,17 @@ mod tests {
         let id = commands.entity(entity).entry::<W<u64>>().entity().id();
         queue.apply(&mut world);
         assert_eq!(id, entity);
+        let mut commands = Commands::new(&mut queue, &world);
+        commands
+            .entity(entity)
+            .entry::<W<u8>>()
+            .or_insert_with(|| W(5))
+            .or_insert_with(|| unreachable!())
+            .or_try_insert_with(|| unreachable!())
+            .or_default()
+            .or_from_world();
+        queue.apply(&mut world);
+        assert_eq!(5, world.get::<W<u8>>(entity).unwrap().0);
     }
 
     #[test]

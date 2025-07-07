@@ -143,6 +143,10 @@ pub unsafe fn insert_by_id<T: Send + 'static>(
 
 /// An [`EntityCommand`] that adds a component to an entity using
 /// the component's [`FromWorld`] implementation.
+///
+/// `T::from_world` will only be invoked if the component will actually be inserted.
+/// In other words, `T::from_world` will *not* be invoked if `mode` is [`InsertMode::Keep`]
+/// and the entity already has the component.
 #[track_caller]
 pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
