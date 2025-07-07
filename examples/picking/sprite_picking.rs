@@ -38,15 +38,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((Transform::default(), Visibility::default()))
         .with_children(|commands| {
             for (anchor_index, anchor) in [
-                Anchor::TOP_LEFT,
-                Anchor::TOP_CENTER,
-                Anchor::TOP_RIGHT,
-                Anchor::CENTER_LEFT,
-                Anchor::CENTER,
-                Anchor::CENTER_RIGHT,
-                Anchor::BOTTOM_LEFT,
-                Anchor::BOTTOM_CENTER,
-                Anchor::BOTTOM_RIGHT,
+                Anchor::TopLeft,
+                Anchor::TopCenter,
+                Anchor::TopRight,
+                Anchor::CenterLeft,
+                Anchor::Center,
+                Anchor::CenterRight,
+                Anchor::BottomLeft,
+                Anchor::BottomCenter,
+                Anchor::BottomRight,
             ]
             .iter()
             .enumerate()
@@ -63,8 +63,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::BLACK))
-                    .observe(recolor_on::<Pointer<Press>>(Color::srgb(1.0, 1.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 1.0)));
+                    .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(1.0, 1.0, 0.0)))
+                    .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 1.0)));
 
                 commands
                     .spawn((
@@ -83,8 +83,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 0.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 0.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Press>>(Color::srgb(0.0, 0.0, 1.0)))
-                    .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 0.0)));
+                    .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(0.0, 0.0, 1.0)))
+                    .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 0.0)));
             }
         });
 }
@@ -145,14 +145,14 @@ fn setup_atlas(
         ))
         .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
         .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 1.0, 1.0)))
-        .observe(recolor_on::<Pointer<Press>>(Color::srgb(1.0, 1.0, 0.0)))
-        .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 1.0)));
+        .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(1.0, 1.0, 0.0)))
+        .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 1.0)));
 }
 
 // An observer that changes the target entity's color.
-fn recolor_on<E: EntityEvent + Debug + Clone + Reflect>(
+fn recolor_on<E: Event + Debug + Clone + Reflect>(
     color: Color,
-) -> impl Fn(On<E>, Query<&mut Sprite>) {
+) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
     move |ev, mut sprites| {
         let Ok(mut sprite) = sprites.get_mut(ev.target()) else {
             return;
