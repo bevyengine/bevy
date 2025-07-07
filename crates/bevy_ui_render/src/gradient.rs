@@ -186,6 +186,10 @@ impl SpecializedRenderPipeline for GradientPipeline {
             InterpolationColorSpace::OkLchLong => "IN_OKLCH_LONG",
             InterpolationColorSpace::Srgb => "IN_SRGB",
             InterpolationColorSpace::LinearRgb => "IN_LINEAR_RGB",
+            InterpolationColorSpace::Hsl => "IN_HSL",
+            InterpolationColorSpace::HslLong => "IN_HSL_LONG",
+            InterpolationColorSpace::Hsv => "IN_HSV",
+            InterpolationColorSpace::HsvLong => "IN_HSV_LONG",
         };
 
         let shader_defs = if key.anti_alias {
