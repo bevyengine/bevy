@@ -158,7 +158,7 @@ fn linear_rgb_to_oklch(c: vec4<f32>) -> vec4<f32> {
     let o = linear_rgb_to_oklab(c);
     let chroma = sqrt(o.y * o.y + o.z * o.z);
     let hue = atan2(o.z, o.y);
-    return vec4(o.x, chroma, select(hue + TAU, hue, hue < 0.0), o.w);
+    return vec4(o.x, chroma, hue + select(0., TAU, hue < 0.0), o.w);
 }
 
 fn oklch_to_linear_rgb(c: vec4<f32>) -> vec4<f32> {
