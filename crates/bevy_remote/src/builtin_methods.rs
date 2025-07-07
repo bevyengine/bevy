@@ -1781,7 +1781,7 @@ mod tests {
         );
         {
             let first = response.definitions.iter().next().expect("Should have one");
-            assert_eq!(first.0, &TypeReferenceId::from("glam-Vec3"));
+            assert_eq!(first.0, &TypeReferenceId::from("glam::Vec3"));
         }
         let response = export_registry_types_ext(
             BrpJsonSchemaQueryFilter {

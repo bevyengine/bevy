@@ -274,10 +274,10 @@ impl Display for TypeReferenceId {
 impl From<&str> for TypeReferenceId {
     fn from(t: &str) -> Self {
         TypeReferenceId(
-            t.replace("::", "-")
-                .replace(", ", "+")
-                .replace(")", "")
-                .replace("(", "")
+            t.replace("::", "__")
+                .replace(", ", ".")
+                .replace(")", "~")
+                .replace("(", "~")
                 .replace(">", "-")
                 .replace("<", "-")
                 .into(),
