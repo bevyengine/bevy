@@ -2278,7 +2278,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     #[track_caller]
     pub fn or_insert_with<F>(&mut self, default: F) -> &mut Self
     where
-        F: Fn() -> T + Send + 'static,
+        F: FnOnce() -> T + Send + 'static,
     {
         self.entity_commands
             .queue(entity_command::insert_with(default, InsertMode::Keep));
@@ -2297,7 +2297,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     #[track_caller]
     pub fn or_try_insert_with<F>(&mut self, default: F) -> &mut Self
     where
-        F: Fn() -> T + Send + 'static,
+        F: FnOnce() -> T + Send + 'static,
     {
         self.entity_commands
             .queue_silenced(entity_command::insert_with(default, InsertMode::Keep));

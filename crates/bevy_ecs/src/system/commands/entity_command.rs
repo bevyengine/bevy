@@ -167,7 +167,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
 #[track_caller]
 pub fn insert_with<T: Component, F>(component_fn: F, mode: InsertMode) -> impl EntityCommand
 where
-    F: Fn() -> T + Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
 {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
