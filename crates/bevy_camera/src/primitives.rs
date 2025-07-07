@@ -2,7 +2,28 @@ use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
+
+pub trait MeshAabb {
+    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
+    ///
+    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
+    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
+    fn compute_aabb(&self) -> Option<Aabb>;
+}
+
+impl MeshAabb for Mesh {
+    fn compute_aabb(&self) -> Option<Aabb> {
+        let Some(VertexAttributeValues::Float32x3(values)) =
+            self.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            return None;
+        };
+
+        Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
+    }
+}
 
 /// An axis-aligned bounding box, defined by:
 /// - a center,
@@ -24,10 +45,10 @@ use bevy_reflect::prelude::*;
 /// It won't be updated automatically if the space occupied by the entity changes,
 /// for example if the vertex positions of a [`Mesh3d`] are updated.
 ///
-/// [`Camera`]: crate::camera::Camera
-/// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
-/// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
-/// [`Mesh3d`]: crate::mesh::Mesh
+/// [`Camera`]: crate::Camera
+/// [`NoFrustumCulling`]: crate::visibility::NoFrustumCulling
+/// [`CalculateBounds`]: crate::visibility::VisibilitySystems::CalculateBounds
+/// [`Mesh3d`]: bevy_mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Aabb {
@@ -56,7 +77,7 @@ impl Aabb {
     ///
     /// ```
     /// # use bevy_math::{Vec3, Vec3A};
-    /// # use bevy_render::primitives::Aabb;
+    /// # use bevy_camera::primitives::Aabb;
     /// let bb = Aabb::enclosing([Vec3::X, Vec3::Z * 2.0, Vec3::Y * -0.5]).unwrap();
     /// assert_eq!(bb.min(), Vec3A::new(0.0, -0.5, 0.0));
     /// assert_eq!(bb.max(), Vec3A::new(1.0, 0.0, 2.0));
@@ -218,10 +239,10 @@ impl HalfSpace {
 /// It is usually updated automatically by [`update_frusta`] from the
 /// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
 ///
-/// [`Camera`]: crate::camera::Camera
-/// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
-/// [`update_frusta`]: crate::view::visibility::update_frusta
-/// [`CameraProjection`]: crate::camera::CameraProjection
+/// [`Camera`]: crate::Camera
+/// [`NoFrustumCulling`]: crate::visibility::NoFrustumCulling
+/// [`update_frusta`]: crate::visibility::update_frusta
+/// [`CameraProjection`]: crate::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -326,6 +347,63 @@ impl Frustum {
     }
 }
 
+pub struct CubeMapFace {
+    pub target: Vec3,
+    pub up: Vec3,
+}
+
+// Cubemap faces are [+X, -X, +Y, -Y, +Z, -Z], per https://www.w3.org/TR/webgpu/#texture-view-creation
+// Note: Cubemap coordinates are left-handed y-up, unlike the rest of Bevy.
+// See https://registry.khronos.org/vulkan/specs/1.2/html/chap16.html#_cube_map_face_selection
+//
+// For each cubemap face, we take care to specify the appropriate target/up axis such that the rendered
+// texture using Bevy's right-handed y-up coordinate space matches the expected cubemap face in
+// left-handed y-up cubemap coordinates.
+pub const CUBE_MAP_FACES: [CubeMapFace; 6] = [
+    // +X
+    CubeMapFace {
+        target: Vec3::X,
+        up: Vec3::Y,
+    },
+    // -X
+    CubeMapFace {
+        target: Vec3::NEG_X,
+        up: Vec3::Y,
+    },
+    // +Y
+    CubeMapFace {
+        target: Vec3::Y,
+        up: Vec3::Z,
+    },
+    // -Y
+    CubeMapFace {
+        target: Vec3::NEG_Y,
+        up: Vec3::NEG_Z,
+    },
+    // +Z (with left-handed conventions, pointing forwards)
+    CubeMapFace {
+        target: Vec3::NEG_Z,
+        up: Vec3::Y,
+    },
+    // -Z (with left-handed conventions, pointing backwards)
+    CubeMapFace {
+        target: Vec3::Z,
+        up: Vec3::Y,
+    },
+];
+
+pub fn face_index_to_name(face_index: usize) -> &'static str {
+    match face_index {
+        0 => "+x",
+        1 => "-x",
+        2 => "+y",
+        3 => "-y",
+        4 => "+z",
+        5 => "-z",
+        _ => "invalid",
+    }
+}
+
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct CubemapFrusta {
@@ -342,6 +420,42 @@ impl CubemapFrusta {
     }
 }
 
+/// Cubemap layout defines the order of images in a packed cubemap image.
+#[derive(Default, Reflect, Debug, Clone, Copy)]
+pub enum CubemapLayout {
+    /// layout in a vertical cross format
+    /// ```text
+    ///    +y
+    /// -x -z +x
+    ///    -y
+    ///    +z
+    /// ```
+    #[default]
+    CrossVertical = 0,
+    /// layout in a horizontal cross format
+    /// ```text
+    ///    +y
+    /// -x -z +x +z
+    ///    -y
+    /// ```
+    CrossHorizontal = 1,
+    /// layout in a vertical sequence
+    /// ```text
+    ///   +x
+    ///   -x
+    ///   +y
+    ///   -y
+    ///   -z
+    ///   +z
+    /// ```
+    SequenceVertical = 2,
+    /// layout in a horizontal sequence
+    /// ```text
+    /// +x -x +y -y -z +z
+    /// ```
+    SequenceHorizontal = 3,
+}
+
 #[derive(Component, Debug, Default, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct CascadesFrusta {
@@ -356,7 +470,7 @@ mod tests {
     use bevy_math::{ops, Quat};
     use bevy_transform::components::GlobalTransform;
 
-    use crate::camera::{CameraProjection, PerspectiveProjection};
+    use crate::{CameraProjection, PerspectiveProjection};
 
     use super::*;
 

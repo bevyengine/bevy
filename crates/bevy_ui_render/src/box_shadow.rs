@@ -16,7 +16,6 @@ use bevy_ecs::{
 use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
 use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
-use bevy_render::RenderApp;
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -24,6 +23,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
+use bevy_render::{RenderApp, RenderStartup};
 use bevy_ui::{
     BoxShadow, CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius,
     UiGlobalTransform, Val,
@@ -48,6 +48,7 @@ impl Plugin for BoxShadowPlugin {
                 .init_resource::<ExtractedBoxShadows>()
                 .init_resource::<BoxShadowMeta>()
                 .init_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
+                .add_systems(RenderStartup, init_box_shadow_pipeline)
                 .add_systems(
                     ExtractSchedule,
                     extract_shadows.in_set(RenderUiSystems::ExtractBoxShadows),
@@ -59,12 +60,6 @@ impl Plugin for BoxShadowPlugin {
                         prepare_shadows.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<BoxShadowPipeline>();
         }
     }
 }
@@ -111,23 +106,23 @@ pub struct BoxShadowPipeline {
     pub shader: Handle<Shader>,
 }
 
-impl FromWorld for BoxShadowPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+pub fn init_box_shadow_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
+    let view_layout = render_device.create_bind_group_layout(
+        "box_shadow_view_layout",
+        &BindGroupLayoutEntries::single(
+            ShaderStages::VERTEX_FRAGMENT,
+            uniform_buffer::<ViewUniform>(true),
+        ),
+    );
 
-        let view_layout = render_device.create_bind_group_layout(
-            "box_shadow_view_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX_FRAGMENT,
-                uniform_buffer::<ViewUniform>(true),
-            ),
-        );
-
-        BoxShadowPipeline {
-            view_layout,
-            shader: load_embedded_asset!(world, "box_shadow.wgsl"),
-        }
-    }
+    commands.insert_resource(BoxShadowPipeline {
+        view_layout,
+        shader: load_embedded_asset!(asset_server.as_ref(), "box_shadow.wgsl"),
+    });
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]

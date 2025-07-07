@@ -197,10 +197,10 @@ impl World {
     }
 
     pub(crate) fn trigger_with_caller<E: Event>(&mut self, mut event: E, caller: MaybeLocation) {
-        let event_id = E::register_component_id(self);
-        // SAFETY: We just registered `event_id` with the type of `event`
+        let event_key = E::register_event_key(self);
+        // SAFETY: We just registered `event_key` with the type of `event`
         unsafe {
-            self.trigger_dynamic_ref_with_caller(event_id, &mut event, caller);
+            self.trigger_dynamic_ref_with_caller(event_key, &mut event, caller);
         }
     }
 
@@ -210,22 +210,22 @@ impl World {
     /// or use the event after it has been modified by observers.
     #[track_caller]
     pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
-        let event_id = E::register_component_id(self);
-        // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_dynamic_ref_with_caller(event_id, event, MaybeLocation::caller()) };
+        let event_key = E::register_event_key(self);
+        // SAFETY: We just registered `event_key` with the type of `event`
+        unsafe { self.trigger_dynamic_ref_with_caller(event_key, event, MaybeLocation::caller()) };
     }
 
     unsafe fn trigger_dynamic_ref_with_caller<E: Event>(
         &mut self,
-        event_id: ComponentId,
+        event_key: EventKey,
         event_data: &mut E,
         caller: MaybeLocation,
     ) {
         let mut world = DeferredWorld::from(self);
-        // SAFETY: `event_data` is accessible as the type represented by `event_id`
+        // SAFETY: `event_data` is accessible as the type represented by `event_key`
         unsafe {
             world.trigger_observers_with_data::<_, ()>(
-                event_id,
+                event_key,
                 None,
                 None,
                 core::iter::empty::<ComponentId>(),
@@ -252,10 +252,10 @@ impl World {
         targets: impl TriggerTargets,
         caller: MaybeLocation,
     ) {
-        let event_id = E::register_component_id(self);
-        // SAFETY: We just registered `event_id` with the type of `event`
+        let event_key = E::register_event_key(self);
+        // SAFETY: We just registered `event_key` with the type of `event`
         unsafe {
-            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, targets, caller);
+            self.trigger_targets_dynamic_ref_with_caller(event_key, &mut event, targets, caller);
         }
     }
 
@@ -270,9 +270,9 @@ impl World {
         event: &mut E,
         targets: impl TriggerTargets,
     ) {
-        let event_id = E::register_component_id(self);
-        // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, event, targets) };
+        let event_key = E::register_event_key(self);
+        // SAFETY: We just registered `event_key` with the type of `event`
+        unsafe { self.trigger_targets_dynamic_ref(event_key, event, targets) };
     }
 
     /// Triggers the given [`EntityEvent`] for the given `targets`, which will run any [`Observer`]s watching for it.
@@ -283,17 +283,17 @@ impl World {
     ///
     /// # Safety
     ///
-    /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
+    /// Caller must ensure that `event_data` is accessible as the type represented by `event_key`.
     #[track_caller]
     pub unsafe fn trigger_targets_dynamic<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
-        event_id: ComponentId,
+        event_key: EventKey,
         mut event_data: E,
         targets: Targets,
     ) {
-        // SAFETY: `event_data` is accessible as the type represented by `event_id`
+        // SAFETY: `event_data` is accessible as the type represented by `event_key`
         unsafe {
-            self.trigger_targets_dynamic_ref(event_id, &mut event_data, targets);
+            self.trigger_targets_dynamic_ref(event_key, &mut event_data, targets);
         };
     }
 
@@ -305,16 +305,16 @@ impl World {
     ///
     /// # Safety
     ///
-    /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
+    /// Caller must ensure that `event_data` is accessible as the type represented by `event_key`.
     #[track_caller]
     pub unsafe fn trigger_targets_dynamic_ref<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
-        event_id: ComponentId,
+        event_key: EventKey,
         event_data: &mut E,
         targets: Targets,
     ) {
         self.trigger_targets_dynamic_ref_with_caller(
-            event_id,
+            event_key,
             event_data,
             targets,
             MaybeLocation::caller(),
@@ -326,7 +326,7 @@ impl World {
     /// See `trigger_targets_dynamic_ref`
     unsafe fn trigger_targets_dynamic_ref_with_caller<E: EntityEvent, Targets: TriggerTargets>(
         &mut self,
-        event_id: ComponentId,
+        event_key: EventKey,
         event_data: &mut E,
         targets: Targets,
         caller: MaybeLocation,
@@ -334,10 +334,10 @@ impl World {
         let mut world = DeferredWorld::from(self);
         let mut entity_targets = targets.entities().peekable();
         if entity_targets.peek().is_none() {
-            // SAFETY: `event_data` is accessible as the type represented by `event_id`
+            // SAFETY: `event_data` is accessible as the type represented by `event_key`
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
-                    event_id,
+                    event_key,
                     None,
                     None,
                     targets.components(),
@@ -348,10 +348,10 @@ impl World {
             };
         } else {
             for target_entity in entity_targets {
-                // SAFETY: `event_data` is accessible as the type represented by `event_id`
+                // SAFETY: `event_data` is accessible as the type represented by `event_key`
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
-                        event_id,
+                        event_key,
                         Some(target_entity),
                         Some(target_entity),
                         targets.components(),
@@ -379,8 +379,8 @@ impl World {
         };
         let descriptor = &observer_state.descriptor;
 
-        for &event_type in &descriptor.events {
-            let cache = observers.get_observers_mut(event_type);
+        for &event_key in &descriptor.events {
+            let cache = observers.get_observers_mut(event_key);
 
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache
@@ -400,7 +400,7 @@ impl World {
                             .component_observers
                             .entry(component)
                             .or_insert_with(|| {
-                                if let Some(flag) = Observers::is_archetype_cached(event_type) {
+                                if let Some(flag) = Observers::is_archetype_cached(event_key) {
                                     archetypes.update_flags(component, flag, true);
                                 }
                                 CachedComponentObservers::default()
@@ -430,8 +430,8 @@ impl World {
         let archetypes = &mut self.archetypes;
         let observers = &mut self.observers;
 
-        for &event_type in &descriptor.events {
-            let cache = observers.get_observers_mut(event_type);
+        for &event_key in &descriptor.events {
+            let cache = observers.get_observers_mut(event_key);
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache.global_observers.remove(&entity);
             } else if descriptor.components.is_empty() {
@@ -470,7 +470,7 @@ impl World {
                         && observers.entity_component_observers.is_empty()
                     {
                         cache.component_observers.remove(component);
-                        if let Some(flag) = Observers::is_archetype_cached(event_type) {
+                        if let Some(flag) = Observers::is_archetype_cached(event_key) {
                             if let Some(by_component) = archetypes.by_component.get(component) {
                                 for archetype in by_component.keys() {
                                     let archetype = &mut archetypes.archetypes[archetype.index()];
@@ -734,7 +734,7 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = Remove::register_component_id(&mut world);
+        let on_remove = Remove::register_event_key(&mut world);
         world.spawn(
             // SAFETY: Add and Remove are both unit types, so this is safe
             unsafe {
@@ -1008,7 +1008,7 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let event_a = Remove::register_component_id(&mut world);
+        let event_a = Remove::register_event_key(&mut world);
 
         // SAFETY: we registered `event_a` above and it matches the type of EventA
         let observe = unsafe {

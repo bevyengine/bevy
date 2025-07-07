@@ -1,9 +1,8 @@
 use core::fmt::Debug;
 use core::ops::{Deref, DerefMut};
 
-use crate::{primitives::Frustum, view::VisibilitySystems};
-use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_asset::AssetEventSystems;
+use crate::{primitives::Frustum, visibility::VisibilitySystems};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
@@ -24,27 +23,15 @@ impl Plugin for CameraProjectionPlugin {
             .register_type::<OrthographicProjection>()
             .register_type::<CustomProjection>()
             .add_systems(
-                PostStartup,
-                crate::camera::camera_system.in_set(CameraUpdateSystems),
-            )
-            .add_systems(
                 PostUpdate,
-                (
-                    crate::camera::camera_system
-                        .in_set(CameraUpdateSystems)
-                        .before(AssetEventSystems),
-                    crate::view::update_frusta
-                        .in_set(VisibilitySystems::UpdateFrusta)
-                        .after(crate::camera::camera_system)
-                        .after(TransformSystems::Propagate),
-                ),
+                crate::visibility::update_frusta
+                    .in_set(VisibilitySystems::UpdateFrusta)
+                    .after(TransformSystems::Propagate),
             );
     }
 }
 
-/// Label for [`camera_system<T>`], shared across all `T`.
-///
-/// [`camera_system<T>`]: crate::camera::camera_system
+/// Label for `camera_system<T>`, shared across all `T`.
 #[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystems;
 
@@ -90,7 +77,7 @@ pub trait CameraProjection {
 
     /// Compute camera frustum for camera with given projection and transform.
     ///
-    /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
+    /// This code is called by [`update_frusta`](crate::visibility::update_frusta) system
     /// for each camera to update its frustum.
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
         let clip_from_world = self.get_clip_from_view() * camera_transform.to_matrix().inverse();
@@ -160,7 +147,7 @@ impl CustomProjection {
     /// Returns `None` if this dynamic object is not a projection of type `P`.
     ///
     /// ```
-    /// # use bevy_render::prelude::{Projection, PerspectiveProjection};
+    /// # use bevy_camera::{Projection, PerspectiveProjection};
     /// // For simplicity's sake, use perspective as a custom projection:
     /// let projection = Projection::custom(PerspectiveProjection::default());
     /// let Projection::Custom(custom) = projection else { return };
@@ -183,7 +170,7 @@ impl CustomProjection {
     /// Returns `None` if this dynamic object is not a projection of type `P`.
     ///
     /// ```
-    /// # use bevy_render::prelude::{Projection, PerspectiveProjection};
+    /// # use bevy_camera::{Projection, PerspectiveProjection};
     /// // For simplicity's sake, use perspective as a custom projection:
     /// let mut projection = Projection::custom(PerspectiveProjection::default());
     /// let Projection::Custom(mut custom) = projection else { return };
@@ -303,8 +290,8 @@ pub struct PerspectiveProjection {
 
     /// The aspect ratio (width divided by height) of the viewing frustum.
     ///
-    /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
-    /// updates this value when the aspect ratio of the associated window changes.
+    /// Bevy's `camera_system` automatically updates this value when the aspect ratio
+    /// of the associated window changes.
     ///
     /// Defaults to a value of `1.0`.
     pub aspect_ratio: f32,
@@ -422,7 +409,7 @@ impl Default for PerspectiveProjection {
 /// Configure the orthographic projection to two world units per window height:
 ///
 /// ```
-/// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
+/// # use bevy_camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
 ///    scaling_mode: ScalingMode::FixedVertical { viewport_height: 2.0 },
 ///    ..OrthographicProjection::default_2d()
@@ -478,7 +465,7 @@ pub enum ScalingMode {
 /// Configure the orthographic projection to one world unit per 100 window pixels:
 ///
 /// ```
-/// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
+/// # use bevy_camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
 ///     scaling_mode: ScalingMode::WindowSize,
 ///     scale: 0.01,
@@ -535,7 +522,7 @@ pub struct OrthographicProjection {
     pub scale: f32,
     /// The area that the projection covers relative to `viewport_origin`.
     ///
-    /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
+    /// Bevy's `camera_system` automatically
     /// updates this value when the viewport is resized depending on `OrthographicProjection`'s other fields.
     /// In this case, `area` should not be manually modified.
     ///

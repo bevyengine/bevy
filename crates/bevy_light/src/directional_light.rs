@@ -1,6 +1,18 @@
-use bevy_render::view::{self, Visibility};
+use bevy_asset::Handle;
+use bevy_camera::{
+    primitives::{CascadesFrusta, Frustum},
+    visibility::{self, CascadesVisibleEntities, ViewVisibility, Visibility, VisibilityClass},
+    Camera,
+};
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_image::Image;
+use bevy_reflect::prelude::*;
+use bevy_transform::components::Transform;
 
-use super::*;
+use super::{
+    cascade::CascadeShadowConfig, cluster::ClusterVisibilityClass, light_consts, Cascades,
+};
 
 /// A Directional light.
 ///
@@ -53,7 +65,7 @@ use super::*;
     Visibility,
     VisibilityClass
 )]
-#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct DirectionalLight {
     /// The color of the light.
     ///
@@ -90,6 +102,8 @@ pub struct DirectionalLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    ///
+    /// [`ShadowFilteringMethod::Temporal`]: crate::ShadowFilteringMethod::Temporal
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadow_size: Option<f32>,
 
@@ -140,4 +154,78 @@ impl Default for DirectionalLight {
 impl DirectionalLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
+}
+
+/// Add to a [`DirectionalLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(DirectionalLight)]
+pub struct DirectionalLightTexture {
+    /// The texture image. Only the R channel is read.
+    pub image: Handle<Image>,
+    /// Whether to tile the image infinitely, or use only a single tile centered at the light's translation
+    pub tiled: bool,
+}
+
+/// Controls the resolution of [`DirectionalLight`] shadow maps.
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_light::DirectionalLightShadowMap;
+/// App::new()
+///     .insert_resource(DirectionalLightShadowMap { size: 4096 });
+/// ```
+#[derive(Resource, Clone, Debug, Reflect)]
+#[reflect(Resource, Debug, Default, Clone)]
+pub struct DirectionalLightShadowMap {
+    // The width and height of each cascade.
+    ///
+    /// Defaults to `2048`.
+    pub size: usize,
+}
+
+impl Default for DirectionalLightShadowMap {
+    fn default() -> Self {
+        Self { size: 2048 }
+    }
+}
+
+pub fn update_directional_light_frusta(
+    mut views: Query<
+        (
+            &Cascades,
+            &DirectionalLight,
+            &ViewVisibility,
+            &mut CascadesFrusta,
+        ),
+        (
+            // Prevents this query from conflicting with camera queries.
+            Without<Camera>,
+        ),
+    >,
+) {
+    for (cascades, directional_light, visibility, mut frusta) in &mut views {
+        // The frustum is used for culling meshes to the light for shadow mapping
+        // so if shadow mapping is disabled for this light, then the frustum is
+        // not needed.
+        if !directional_light.shadows_enabled || !visibility.get() {
+            continue;
+        }
+
+        frusta.frusta = cascades
+            .cascades
+            .iter()
+            .map(|(view, cascades)| {
+                (
+                    *view,
+                    cascades
+                        .iter()
+                        .map(|c| Frustum::from_clip_from_world(&c.clip_from_world))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+    }
 }
