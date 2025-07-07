@@ -790,7 +790,7 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
         if !raw_winit_events.is_empty() {
             world
                 .resource_mut::<Events<RawWinitWindowEvent>>()
-                .send_batch(raw_winit_events);
+                .write_batch(raw_winit_events);
         }
 
         for winit_event in buffered_events.iter() {
@@ -882,7 +882,7 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
         if !buffered_events.is_empty() {
             world
                 .resource_mut::<Events<BevyWindowEvent>>()
-                .send_batch(buffered_events);
+                .write_batch(buffered_events);
         }
     }
 
