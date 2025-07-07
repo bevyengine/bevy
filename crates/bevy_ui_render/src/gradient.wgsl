@@ -31,7 +31,7 @@ struct GradientVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) @interpolate(flat) size: vec2<f32>,
     @location(2) @interpolate(flat) flags: u32,
-    @location(3) @interpolate(flat) radius: vec4<f32>,    
+    @location(3) @interpolate(flat) radius: vec4<f32>,
     @location(4) @interpolate(flat) border: vec4<f32>,    
 
     // Position relative to the center of the rectangle.
@@ -129,7 +129,7 @@ fn linear_rgb_to_oklab(c: vec4<f32>) -> vec4<f32> {
     return vec4(
         0.21045426 * l + 0.7936178 * m - 0.004072047 * s,
         1.9779985 * l - 2.4285922 * m + 0.4505937 * s,
-        0.025904037 * l + 0.78277177 * m  - 0.80867577 * s,
+        0.025904037 * l + 0.78277177 * m - 0.80867577 * s,
         c.w
     );
 }
@@ -149,7 +149,7 @@ fn oklab_to_linear_rgba(c: vec4<f32>) -> vec4<f32> {
     );
 }
 
-fn mix_linear_rgb_in_oklab_space(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> { 
+fn mix_linear_rgb_in_oklab_space(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
     return oklab_to_linear_rgba(mix(linear_rgb_to_oklab(a), linear_rgb_to_oklab(b), t));
 }
 
@@ -178,7 +178,7 @@ fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
 
 fn lerp_hue_long(a: f32, b: f32, t: f32) -> f32 {
     let diff = rem_euclid(b - a + PI, TAU) - PI;
-    return rem_euclid(a + select(diff - TAU, diff + TAU, 0. < diff) * t, TAU);
+    return rem_euclid(a + (diff + select(TAU, -TAU, 0. < diff)) * t, TAU);
 }
 
 fn mix_oklch(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
