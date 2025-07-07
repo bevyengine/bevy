@@ -1233,7 +1233,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     }
 
     /// Queues this function to run as a component registrator if the given
-    /// type is not aready queued as a component.
+    /// type is not already queued as a component.
     ///
     /// # Safety
     ///
@@ -1258,7 +1258,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     }
 
     /// Queues this function to run as a resource registratorif the given
-    /// type is not aready queued as a resource.
+    /// type is not already queued as a resource.
     ///
     /// # Safety
     ///
