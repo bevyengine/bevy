@@ -572,9 +572,7 @@ mod linear_gradient {
     use bevy::utils::default;
 
     pub fn setup(mut commands: Commands) {
-        let stops = vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)];
-
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::RadialGradient)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::LinearGradient)));
         commands
             .spawn((
                 Node {
@@ -610,7 +608,7 @@ mod linear_gradient {
                             BackgroundGradient::from(LinearGradient {
                                 color_space,
                                 angle: LinearGradient::TO_RIGHT,
-                                stops: stops.clone(),
+                                stops: vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)],
                             }),
                             children![
                                 Node {
