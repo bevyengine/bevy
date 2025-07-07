@@ -50,6 +50,7 @@ pub mod sync_world;
 pub mod texture;
 pub mod view;
 pub use bevy_camera::primitives;
+#[cfg(feature = "bevy_light")]
 mod extract_impls;
 
 /// The render prelude.
