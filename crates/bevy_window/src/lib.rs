@@ -19,6 +19,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
+use bevy_ecs::system::Commands;
 use bevy_platform::sync::Mutex;
 
 mod event;
@@ -134,10 +135,9 @@ impl Plugin for WindowPlugin {
             .add_event::<AppLifecycle>();
 
         if self.spawn_primary_window {
-            app.world_mut().spawn((
-                PrimaryWindow,
-                RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
-            ));
+            app.add_systems(PreStartup, |mut commands: Commands| {
+                commands.spawn(PrimaryWindow);
+            });
         }
 
         match self.exit_condition {
