@@ -2418,7 +2418,7 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         for component_id in archetype.components() {
-            world.removed_components.send(component_id, self.entity);
+            world.removed_components.write(component_id, self.entity);
         }
 
         // Observers and on_remove hooks may reserve new entities, which

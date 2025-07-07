@@ -161,10 +161,10 @@ fn update_score_on_event() {
     // Add our systems
     app.add_systems(Update, update_score);
 
-    // Send an `EnemyDied` event
+    // Write an `EnemyDied` event
     app.world_mut()
         .resource_mut::<Events<EnemyDied>>()
-        .send(EnemyDied(3));
+        .write(EnemyDied(3));
 
     // Run systems
     app.update();

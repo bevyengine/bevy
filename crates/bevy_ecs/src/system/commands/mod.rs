@@ -1124,9 +1124,9 @@ impl<'w, 's> Commands<'w, 's> {
         self.spawn(Observer::new(observer))
     }
 
-    /// Sends an arbitrary [`BufferedEvent`].
+    /// Writes an arbitrary [`BufferedEvent`].
     ///
-    /// This is a convenience method for sending events
+    /// This is a convenience method for writing events
     /// without requiring an [`EventWriter`](crate::event::EventWriter).
     ///
     /// # Performance
@@ -1137,9 +1137,27 @@ impl<'w, 's> Commands<'w, 's> {
     /// If these events are performance-critical or very frequently sent,
     /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
     #[track_caller]
-    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
-        self.queue(command::send_event(event));
+    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
+        self.queue(command::write_event(event));
         self
+    }
+
+    /// Writes an arbitrary [`BufferedEvent`].
+    ///
+    /// This is a convenience method for writing events
+    /// without requiring an [`EventWriter`](crate::event::EventWriter).
+    ///
+    /// # Performance
+    ///
+    /// Since this is a command, exclusive world access is used, which means that it will not profit from
+    /// system-level parallelism on supported platforms.
+    ///
+    /// If these events are performance-critical or very frequently sent,
+    /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
+    #[track_caller]
+    #[deprecated(since = "0.17.0", note = "Use `Commands::write_event` instead.")]
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
+        self.write_event(event)
     }
 
     /// Runs the schedule corresponding to the given [`ScheduleLabel`].
