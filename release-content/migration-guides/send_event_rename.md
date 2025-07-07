@@ -1,6 +1,6 @@
 ---
 title: Rename `send_event` and similar methods to `write_event`
-pull_requests: [Todo]
+pull_requests: [20017]
 ---
 
 Following up on the `EventWriter::send` being renamed to `EventWriter::write` in 0.16, many similar methods have been renamed.
@@ -19,5 +19,5 @@ This includes both the `World` and `Commands` event methods. The old methods hav
 | `Events::send_default`              | `Events::write_default`              |
 | `Events::send_batch`                | `Events::write_batch`                |
 | `RemovedComponentEvents::send`      | `RemovedComponentEvents::write`      |
-| `command::send_event`               | `commmand::write_event`              |
+| `command::send_event`               | `command::write_event`               |
 | `SendBatchIds`                      | `WriteBatchIds`                      |
