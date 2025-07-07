@@ -14,7 +14,7 @@ Each gradient type consists of the geometric properties for that gradient, a lis
 Color stops consist of a color, a position or angle and an optional hint. If no position is specified for a stop, it's evenly spaced between the previous and following stops. Color stop positions are absolute. With the list of stops:
 
 ```rust
-vec![vec![ColorStop::new(RED, Val::Percent(90.), ColorStop::new(Color::GREEN, Val::Percent(10.))
+vec![ColorStop::new(RED, Val::Percent(90.), ColorStop::new(GREEN), Val::Percent(10.))]
 ```
 
 the colors will be reordered and the gradient will transition from green at 10% to red at 90%.
