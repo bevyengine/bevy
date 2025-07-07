@@ -408,7 +408,7 @@ impl Plugin for RenderPlugin {
         load_shader_library!(app, "color_operations.wgsl");
         load_shader_library!(app, "bindless.wgsl");
         if let Some(future_render_resources) =
-            app.world_mut().remove_resource::<FutureRenderResources>()
+            app.world_mut().get_resource::<FutureRenderResources>()
         {
             let RenderResources(device, queue, adapter_info, render_adapter, instance) =
                 future_render_resources.0.lock().unwrap().take().unwrap();
@@ -446,7 +446,7 @@ struct AutomaticRendererCreationSettings(WgpuSettings);
 fn initialize_renderer(
     primary_window: Option<Single<&RawHandleWrapperHolder, With<PrimaryWindow>>>,
     future_render_resources: Res<FutureRenderResources>,
-    render_creation: When<Res<AutomaticRendererCreationSettings>>,
+    render_creation: Res<AutomaticRendererCreationSettings>,
 ) {
     let primary_window = primary_window.map(|primary_window| primary_window.clone());
     let settings = render_creation.into_inner().0.clone();
