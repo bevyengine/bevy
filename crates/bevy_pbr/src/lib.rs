@@ -51,9 +51,9 @@ use bevy_light::SimulationLightSystems;
 pub use bevy_light::{
     light_consts, AmbientLight, CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades,
     ClusteredDecal, DirectionalLight, DirectionalLightShadowMap, DirectionalLightTexture,
-    FogVolume, LightPlugin, LightProbe, NotShadowCaster, NotShadowReceiver, PointLight,
-    PointLightShadowMap, PointLightTexture, ShadowFilteringMethod, SpotLight, SpotLightTexture,
-    TransmittedShadowReceiver, VolumetricFog, VolumetricLight,
+    FogVolume, IrradianceVolume, LightPlugin, LightProbe, NotShadowCaster, NotShadowReceiver,
+    PointLight, PointLightShadowMap, PointLightTexture, ShadowFilteringMethod, SpotLight,
+    SpotLightTexture, TransmittedShadowReceiver, VolumetricFog, VolumetricLight,
 };
 pub use cluster::*;
 pub use components::*;
