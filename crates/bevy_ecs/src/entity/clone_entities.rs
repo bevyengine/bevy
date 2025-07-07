@@ -1277,6 +1277,16 @@ mod private {
         Bundle(BundleId),
     }
 
+    impl<'a, T> From<&'a T> for FilterableId
+    where
+        T: Into<FilterableId> + Copy,
+    {
+        #[inline]
+        fn from(value: &'a T) -> Self {
+            (*value).into()
+        }
+    }
+
     /// A trait to allow [`EntityClonerBuilder`] filter by any supported id type and their iterators,
     /// reducing the number of method permutations required for all id types.
     ///
