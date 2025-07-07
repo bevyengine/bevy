@@ -2,6 +2,7 @@ use core::num::NonZero;
 
 use bevy_camera::Camera;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_light::cluster::{ClusterableObjectCounts, Clusters, GlobalClusterSettings};
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
     render_resource::{
@@ -13,7 +14,6 @@ use bevy_render::{
 };
 use tracing::warn;
 
-use super::{ClusterableObjectCounts, Clusters, GlobalClusterSettings};
 use crate::MeshPipeline;
 
 // NOTE: this must be kept in sync with the same constants in
