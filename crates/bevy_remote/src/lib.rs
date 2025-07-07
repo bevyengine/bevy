@@ -135,6 +135,7 @@
 //!   - `components` (optional): An array of [fully-qualified type names] of components to fetch,
 //!     see _below_ example for a query to list all the type names in **your** project.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
+//!     to fetch all reflectable components, you can pass in the string `"all"`.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
 //!     reported as boolean values.
 //! - `filter` (optional):
@@ -152,7 +153,141 @@
 //! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
+//! ### Example
+//! To use the query API and retrieve Transform data for all entities that have a Transform
+//! use this query:
 //!
+//! ```json
+//! {
+//!     "jsonrpc": "2.0",
+//!     "method": "bevy/query",
+//!     "id": 0,
+//!     "params": {
+//!         "data": {
+//!             "components": ["bevy_transform::components::transform::Transform"]
+//!             "option": [],
+//!             "has": []
+//!        },
+//!        "filter": {
+//!           "with": [],
+//!           "without": []
+//!         },
+//!         "strict": false
+//!     }
+//! }
+//! ```
+//!
+//!
+//! To query all entities and all of their Reflectable components (and retrieve their values), you can pass in "all" for the option field:
+//! ```json
+//! {
+//!     "jsonrpc": "2.0",
+//!     "method": "bevy/query",
+//!     "id": 0,
+//!     "params": {
+//!         "data": {
+//!             "components": []
+//!             "option": "all",
+//!             "has": []
+//!        },
+//!        "filter": {
+//!            "with": [],
+//!           "without": []
+//!         },
+//!         "strict": false
+//!     }
+//! }
+//! ```
+//!
+//! This should return you something like the below (in a larger list):
+//! ```json
+//! {
+//!      "components": {
+//!        "bevy_core_pipeline::core_3d::camera_3d::Camera3d": {
+//!          "depth_load_op": {
+//!            "Clear": 0.0
+//!          },
+//!          "depth_texture_usages": 16,
+//!          "screen_space_specular_transmission_quality": "Medium",
+//!          "screen_space_specular_transmission_steps": 1
+//!        },
+//!        "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
+//!        "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
+//!        "bevy_pbr::cluster::ClusterConfig": {
+//!          "FixedZ": {
+//!         "dynamic_resizing": true,
+//!            "total": 4096,
+//!            "z_config": {
+//!              "far_z_mode": "MaxClusterableObjectRange",
+//!              "first_slice_depth": 5.0
+//!            },
+//!            "z_slices": 24
+//!          }
+//!        },
+//!        "bevy_render::camera::camera::Camera": {
+//!          "clear_color": "Default",
+//!          "is_active": true,
+//!          "msaa_writeback": true,
+//!          "order": 0,
+//!          "sub_camera_view": null,
+//!          "target": {
+//!            "Window": "Primary"
+//!          },
+//!       "viewport": null
+//!        },
+//!        "bevy_render::camera::projection::Projection": {
+//!          "Perspective": {
+//!            "aspect_ratio": 1.7777777910232544,
+//!            "far": 1000.0,
+//!            "fov": 0.7853981852531433,
+//!            "near": 0.10000000149011612
+//!          }
+//!        },
+//!        "bevy_render::primitives::Frustum": {},
+//!     "bevy_render::sync_world::RenderEntity": 4294967291,
+//!        "bevy_render::sync_world::SyncToRenderWorld": {},
+//!        "bevy_render::view::Msaa": "Sample4",
+//!        "bevy_render::view::visibility::InheritedVisibility": true,
+//!        "bevy_render::view::visibility::ViewVisibility": false,
+//!        "bevy_render::view::visibility::Visibility": "Inherited",
+//!        "bevy_render::view::visibility::VisibleEntities": {},
+//!        "bevy_transform::components::global_transform::GlobalTransform": [
+//!          0.9635179042816162,
+//!          -3.725290298461914e-9,
+//!          0.26764383912086487,
+//!          0.11616238951683044,
+//!          0.9009039402008056,
+//!          -0.4181846082210541,
+//!          -0.24112138152122495,
+//!          0.4340185225009918,
+//!          0.8680371046066284,
+//!          -2.5,
+//!          4.5,
+//!          9.0
+//!        ],
+//!        "bevy_transform::components::transform::Transform": {
+//!       "rotation": [
+//!            -0.22055435180664065,
+//!            -0.13167093694210052,
+//!            -0.03006339818239212,
+//!            0.9659786224365234
+//!          ],
+//!          "scale": [
+//!            1.0,
+//!            1.0,
+//!            1.0
+//!       ],
+//!          "translation": [
+//!            -2.5,
+//!          4.5,
+//!            9.0
+//!          ]
+//!        },
+//!        "bevy_transform::components::transform::TransformTreeChanged": null
+//!      },
+//!      "entity": 4294967261
+//!},
+//! ```
 //!
 //! ### `world.spawn_entity`
 //!
@@ -363,6 +498,8 @@
 //! [fully-qualified type names]: bevy_reflect::TypePath::type_path
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
+extern crate alloc;
+
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
@@ -538,6 +675,7 @@ impl Plugin for RemotePlugin {
             .insert_after(Last, RemoteLast);
 
         app.insert_resource(remote_methods)
+            .init_resource::<schemas::SchemaTypesMetadata>()
             .init_resource::<RemoteWatchingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(

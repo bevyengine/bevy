@@ -17,11 +17,13 @@ pub struct FrameTimeDiagnosticsPlugin {
     /// The smoothing factor for the exponential moving average. Usually `2.0 / (history_length + 1.0)`.
     pub smoothing_factor: f64,
 }
+
 impl Default for FrameTimeDiagnosticsPlugin {
     fn default() -> Self {
         Self::new(DEFAULT_MAX_HISTORY_LENGTH)
     }
 }
+
 impl FrameTimeDiagnosticsPlugin {
     /// Creates a new `FrameTimeDiagnosticsPlugin` with the specified `max_history_length` and a
     /// reasonable `smoothing_factor`.

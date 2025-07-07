@@ -15,12 +15,12 @@ struct MaterialBindings {
 }
 
 #ifdef BINDLESS
-@group(2) @binding(0) var<storage> materials: array<MaterialBindings>;
-@group(2) @binding(10) var<storage> material_color: binding_array<Color>;
+@group(3) @binding(0) var<storage> materials: array<MaterialBindings>;
+@group(3) @binding(10) var<storage> material_color: binding_array<Color>;
 #else   // BINDLESS
-@group(2) @binding(0) var<uniform> material_color: Color;
-@group(2) @binding(1) var material_color_texture: texture_2d<f32>;
-@group(2) @binding(2) var material_color_sampler: sampler;
+@group(3) @binding(0) var<uniform> material_color: Color;
+@group(3) @binding(1) var material_color_texture: texture_2d<f32>;
+@group(3) @binding(2) var material_color_sampler: sampler;
 #endif  // BINDLESS
 
 @fragment

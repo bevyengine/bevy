@@ -25,8 +25,8 @@ use winit::{event_loop::EventLoop, window::WindowId};
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_window::{exit_on_all_closed, Window, WindowCreated};
-use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
+use bevy_window::{exit_on_all_closed, CursorOptions, Window, WindowCreated};
+use system::{changed_cursor_options, changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
 pub use winit::platform::web::CustomCursorExtWebSys;
@@ -142,6 +142,7 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
                     // `exit_on_all_closed` only checks if windows exist but doesn't access data,
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
+                    changed_cursor_options,
                     despawn_windows,
                     check_keyboard_focus_lost,
                 )
@@ -211,6 +212,7 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
         (
             Entity,
             &'static mut Window,
+            &'static CursorOptions,
             Option<&'static RawHandleWrapperHolder>,
         ),
         F,

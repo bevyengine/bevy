@@ -22,9 +22,9 @@ use alloc::{format, string::String, vec::Vec};
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use bevy_utils::prelude::DebugName;
 use core::ops::Deref;
 use core::slice;
-use disqualified::ShortName;
 use log::warn;
 
 /// Stores the parent entity of this child entity with this component.
@@ -330,7 +330,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enabled if an invariant is is broken and the command is executed.
+    /// Panics when debug assertions are enabled if an invariant is broken and the command is executed.
     pub fn replace_children_with_difference(
         &mut self,
         entities_to_unrelate: &[Entity],
@@ -420,7 +420,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enabled if an invariant is is broken and the command is executed.
+    /// Panics when debug assertions are enabled if an invariant is broken and the command is executed.
     pub fn replace_children_with_difference(
         &mut self,
         entities_to_unrelate: &[Entity],
@@ -461,11 +461,12 @@ pub fn validate_parent_has_component<C: Component>(
     {
         // TODO: print name here once Name lives in bevy_ecs
         let name: Option<String> = None;
+        let debug_name = DebugName::type_name::<C>();
         warn!(
             "warning[B0004]: {}{name} with the {ty_name} component has a parent without {ty_name}.\n\
             This will cause inconsistent behaviors! See: https://bevy.org/learn/errors/b0004",
             caller.map(|c| format!("{c}: ")).unwrap_or_default(),
-            ty_name = ShortName::of::<C>(),
+            ty_name = debug_name.shortname(),
             name = name.map_or_else(
                 || format!("Entity {entity}"),
                 |s| format!("The {s} entity")

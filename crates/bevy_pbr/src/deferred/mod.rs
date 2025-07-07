@@ -1,14 +1,11 @@
 use crate::{
-    graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
-    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
-    ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
+    graph::NodePbr, irradiance_volume::IrradianceVolume, MeshPipeline, MeshViewBindGroup,
+    RenderViewLightProbes, ScreenSpaceAmbientOcclusion, ScreenSpaceReflectionsUniform,
+    ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
     ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
     TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
-use crate::{
-    DistanceFog, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
-    ViewLightsUniformOffset,
-};
+use crate::{DistanceFog, MeshPipelineKey, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
@@ -21,16 +18,18 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
+use bevy_light::{EnvironmentMapLight, ShadowFilteringMethod};
 use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
+use bevy_utils::default;
 
 pub struct DeferredPbrLightingPlugin;
 
@@ -184,9 +183,9 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
-        let bind_group_1 = render_context.render_device().create_bind_group(
-            "deferred_lighting_layout_group_1",
-            &deferred_lighting_layout.bind_group_layout_1,
+        let bind_group_2 = render_context.render_device().create_bind_group(
+            "deferred_lighting_layout_group_2",
+            &deferred_lighting_layout.bind_group_layout_2,
             &BindGroupEntries::single(deferred_lighting_pass_id_binding),
         );
 
@@ -208,7 +207,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(
             0,
-            &mesh_view_bind_group.value,
+            &mesh_view_bind_group.main,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -218,7 +217,8 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 **view_environment_map_offset,
             ],
         );
-        render_pass.set_bind_group(1, &bind_group_1, &[]);
+        render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
+        render_pass.set_bind_group(2, &bind_group_2, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -228,7 +228,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 #[derive(Resource)]
 pub struct DeferredLightingLayout {
     mesh_pipeline: MeshPipeline,
-    bind_group_layout_1: BindGroupLayout,
+    bind_group_layout_2: BindGroupLayout,
     deferred_lighting_shader: Handle<Shader>,
 }
 
@@ -346,22 +346,22 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
+        let layout = self.mesh_pipeline.get_view_layout(key.into());
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                self.mesh_pipeline.get_view_layout(key.into()).clone(),
-                self.bind_group_layout_1.clone(),
+                layout.main_layout.clone(),
+                layout.binding_array_layout.clone(),
+                self.bind_group_layout_2.clone(),
             ],
             vertex: VertexState {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs: shader_defs.clone(),
-                entry_point: "vertex".into(),
-                buffers: Vec::new(),
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.deferred_lighting_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.contains(MeshPipelineKey::HDR) {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -371,8 +371,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
                 depth_write_enabled: false,
@@ -389,9 +389,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                     clamp: 0.0,
                 },
             }),
-            multisample: MultisampleState::default(),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -408,7 +406,7 @@ impl FromWorld for DeferredLightingLayout {
         );
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
-            bind_group_layout_1: layout,
+            bind_group_layout_2: layout,
             deferred_lighting_shader: load_embedded_asset!(world, "deferred_lighting.wgsl"),
         }
     }

@@ -12,6 +12,7 @@ use crate::{
     schedule::{
         is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
     },
+    system::RunSystemError,
     world::World,
 };
 #[cfg(feature = "hotpatching")]
@@ -74,7 +75,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].system.name();
             #[cfg(feature = "trace")]
-            let should_run_span = info_span!("check_conditions", name = &*name).entered();
+            let should_run_span = info_span!("check_conditions", name = name.as_string()).entered();
 
             let mut should_run = !self.completed_systems.contains(system_index);
             for set_idx in schedule.sets_with_conditions_of_systems[system_index].ones() {
@@ -108,25 +109,6 @@ impl SystemExecutor for SingleThreadedExecutor {
             should_run &= system_conditions_met;
 
             let system = &mut schedule.systems[system_index].system;
-            if should_run {
-                let valid_params = match system.validate_param(world) {
-                    Ok(()) => true,
-                    Err(e) => {
-                        if !e.skipped {
-                            error_handler(
-                                e.into(),
-                                ErrorContext::System {
-                                    name: system.name(),
-                                    last_run: system.get_last_run(),
-                                },
-                            );
-                        }
-                        false
-                    }
-                };
-
-                should_run &= valid_params;
-            }
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
@@ -149,7 +131,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             let f = AssertUnwindSafe(|| {
-                if let Err(err) =
+                if let Err(RunSystemError::Failed(err)) =
                     __rust_begin_short_backtrace::run_without_applying_deferred(system, world)
                 {
                     error_handler(
@@ -166,7 +148,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
                 if let Err(payload) = std::panic::catch_unwind(f) {
-                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    eprintln!("Encountered a panic in system `{}`!", system.name());
                     std::panic::resume_unwind(payload);
                 }
             }
@@ -232,26 +214,24 @@ fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|ConditionWithAccess { condition, .. }| {
-            match condition.validate_param(world) {
-                Ok(()) => (),
-                Err(e) => {
-                    if !e.skipped {
+            #[cfg(feature = "hotpatching")]
+            if should_update_hotpatch {
+                condition.refresh_hotpatch();
+            }
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world).unwrap_or_else(
+                |err| {
+                    if let RunSystemError::Failed(err) = err {
                         error_handler(
-                            e.into(),
+                            err,
                             ErrorContext::System {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                             },
                         );
-                    }
-                    return false;
-                }
-            }
-            #[cfg(feature = "hotpatching")]
-            if should_update_hotpatch {
-                condition.refresh_hotpatch();
-            }
-            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
+                    };
+                    false
+                },
+            )
         })
         .fold(true, |acc, res| acc && res)
 }

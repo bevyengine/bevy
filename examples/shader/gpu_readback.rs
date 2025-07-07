@@ -176,11 +176,8 @@ impl FromWorld for ComputePipeline {
         let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("GPU readback compute shader".into()),
             layout: vec![layout.clone()],
-            push_constant_ranges: Vec::new(),
             shader: shader.clone(),
-            shader_defs: Vec::new(),
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         });
         ComputePipeline { layout, pipeline }
     }
@@ -193,6 +190,7 @@ struct ComputeNodeLabel;
 /// The node that will execute the compute shader
 #[derive(Default)]
 struct ComputeNode {}
+
 impl render_graph::Node for ComputeNode {
     fn run(
         &self,
