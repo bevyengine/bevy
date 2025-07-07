@@ -1,7 +1,7 @@
 ---
 title: Initial raytraced lighting progress (bevy_solari)
 authors: ["@JMS55"]
-pull_requests: [19058, 19620, 19790]
+pull_requests: [19058, 19620, 19790, 20020]
 ---
 
 (TODO: Embed solari example screenshot here)
