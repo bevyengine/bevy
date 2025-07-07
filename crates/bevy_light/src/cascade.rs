@@ -11,8 +11,8 @@ use crate::{DirectionalLight, DirectionalLightShadowMap};
 /// Prefer using [`CascadeShadowConfigBuilder`] to construct an instance.
 ///
 /// ```
-/// # use bevy_pbr::CascadeShadowConfig;
-/// # use bevy_pbr::CascadeShadowConfigBuilder;
+/// # use bevy_light::CascadeShadowConfig;
+/// # use bevy_light::CascadeShadowConfigBuilder;
 /// # use bevy_utils::default;
 /// #
 /// let config: CascadeShadowConfig = CascadeShadowConfigBuilder {

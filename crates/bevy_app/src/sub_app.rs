@@ -12,7 +12,7 @@ use core::fmt::Debug;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
+type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 
 /// A secondary application with its own [`World`]. These can run independently of each other.
 ///
@@ -160,7 +160,7 @@ impl SubApp {
     /// The first argument is the `World` to extract data from, the second argument is the app `World`.
     pub fn set_extract<F>(&mut self, extract: F) -> &mut Self
     where
-        F: Fn(&mut World, &mut World) + Send + 'static,
+        F: FnMut(&mut World, &mut World) + Send + 'static,
     {
         self.extract = Some(Box::new(extract));
         self
@@ -177,13 +177,13 @@ impl SubApp {
     /// ```
     /// # use bevy_app::SubApp;
     /// # let mut app = SubApp::new();
-    /// let default_fn = app.take_extract();
+    /// let mut default_fn = app.take_extract();
     /// app.set_extract(move |main, render| {
     ///     // Do pre-extract custom logic
     ///     // [...]
     ///
     ///     // Call Bevy's default, which executes the Extract phase
-    ///     if let Some(f) = default_fn.as_ref() {
+    ///     if let Some(f) = default_fn.as_mut() {
     ///         f(main, render);
     ///     }
     ///
