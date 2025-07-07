@@ -77,7 +77,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
-bevy_light = { path = "../bevy_light", version = "0.17.0-dev" }
+bevy_light = { path = "../bevy_light", optional = true, version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
   "serialize",
