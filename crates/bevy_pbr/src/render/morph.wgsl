@@ -28,11 +28,11 @@ fn component_texture_coord(vertex_index: u32, component_offset: u32) -> vec2<u32
 }
 fn weight_at(weight_index: u32) -> f32 {
     let i = weight_index;
-    return morph_weights.weights[i / 4u][i % 4u];
+    return morph_weights.weights[i >> 2u][i & 3u];
 }
 fn prev_weight_at(weight_index: u32) -> f32 {
     let i = weight_index;
-    return prev_morph_weights.weights[i / 4u][i % 4u];
+    return prev_morph_weights.weights[i >> 2u][i & 3u];
 }
 fn morph_pixel(vertex: u32, component: u32, weight: u32) -> f32 {
     let coord = component_texture_coord(vertex, component);

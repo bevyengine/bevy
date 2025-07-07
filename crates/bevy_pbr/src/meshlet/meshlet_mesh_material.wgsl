@@ -8,8 +8,8 @@
 
 @vertex
 fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f32> {
-    let vertex_index = vertex_input % 3u;
     let material_id = vertex_input / 3u;
+    let vertex_index = vertex_input - material_id * 3u;
     let material_depth = f32(material_id) / 65535.0;
     let uv = vec2<f32>(vec2(vertex_index >> 1u, vertex_index & 1u)) * 2.0;
     return vec4(uv_to_ndc(uv), material_depth, 1.0);

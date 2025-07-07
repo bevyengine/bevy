@@ -112,10 +112,10 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let pixel_checkboard = (
 #ifdef TEMPORAL_JITTER
         // 0 or 1 on even/odd pixels, alternates every frame
-        (i32(frag_coord.x) + i32(frag_coord.y) + i32(view_bindings::globals.frame_count)) % 2
+        (i32(frag_coord.x) + i32(frag_coord.y) + i32(view_bindings::globals.frame_count)) & 1
 #else
         // 0 or 1 on even/odd pixels
-        (i32(frag_coord.x) + i32(frag_coord.y)) % 2
+        (i32(frag_coord.x) + i32(frag_coord.y)) & 1
 #endif
     );
 

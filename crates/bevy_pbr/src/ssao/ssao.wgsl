@@ -30,10 +30,10 @@
 @group(1) @binding(2) var<uniform> view: View;
 
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
-    var index = textureLoad(hilbert_index_lut, pixel_coordinates % 64, 0).r;
+    var index = textureLoad(hilbert_index_lut, pixel_coordinates & vec2<i32>(63), 0).r;
 
 #ifdef TEMPORAL_JITTER
-    index += 288u * (globals.frame_count % 64u);
+    index += 288u * (globals.frame_count & 63u);
 #endif
 
     // R2 sequence - http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences

@@ -70,7 +70,7 @@ fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
 
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
 fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>, frame: u32) -> f32 {
-    let xy = pixel_coordinates + 5.588238 * f32(frame % 64u);
+    let xy = pixel_coordinates + 5.588238 * f32(frame & 63u);
     return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
 }
 

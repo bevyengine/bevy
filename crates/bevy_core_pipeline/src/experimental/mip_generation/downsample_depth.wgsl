@@ -42,8 +42,8 @@ fn downsample_depth_first(
     @builtin(workgroup_id) workgroup_id: vec3u,
     @builtin(local_invocation_index) local_invocation_index: u32,
 ) {
-    let sub_xy = remap_for_wave_reduction(local_invocation_index % 64u);
-    let x = sub_xy.x + 8u * ((local_invocation_index >> 6u) % 2u);
+    let sub_xy = remap_for_wave_reduction(local_invocation_index & 63u);
+    let x = sub_xy.x + 8u * ((local_invocation_index >> 6u) & 1u);
     let y = sub_xy.y + 8u * (local_invocation_index >> 7u);
 
     downsample_mips_0_and_1(x, y, workgroup_id.xy, local_invocation_index);
@@ -54,8 +54,8 @@ fn downsample_depth_first(
 @compute
 @workgroup_size(256, 1, 1)
 fn downsample_depth_second(@builtin(local_invocation_index) local_invocation_index: u32) {
-    let sub_xy = remap_for_wave_reduction(local_invocation_index % 64u);
-    let x = sub_xy.x + 8u * ((local_invocation_index >> 6u) % 2u);
+    let sub_xy = remap_for_wave_reduction(local_invocation_index & 63u);
+    let x = sub_xy.x + 8u * ((local_invocation_index >> 6u) & 1u);
     let y = sub_xy.y + 8u * (local_invocation_index >> 7u);
 
     downsample_mips_6_and_7(x, y);
@@ -99,8 +99,8 @@ fn downsample_mips_0_and_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
                 intermediate_memory[x * 2u + 1u][y * 2u + 1u],
             ));
             pix = (workgroup_id * 16u) + vec2(
-                x + (i % 2u) * 8u,
-                y + (i / 2u) * 8u,
+                x + (i & 1u) * 8u,
+                y + (i >> 1u) * 8u,
             );
             textureStore(mip_2, pix, vec4(v[i]));
         }
@@ -142,7 +142,7 @@ fn downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index:
             intermediate_memory[x * 2u + 1u][y * 2u + 1u],
         ));
         textureStore(mip_3, (workgroup_id * 8u) + vec2(x, y), vec4(v));
-        intermediate_memory[x * 2u + y % 2u][y * 2u] = v;
+        intermediate_memory[x * 2u + (y & 1u)][y * 2u] = v;
     }
 }
 
@@ -241,7 +241,7 @@ fn downsample_mip_8(x: u32, y: u32, local_invocation_index: u32) {
             intermediate_memory[x * 2u + 1u][y * 2u + 1u],
         ));
         textureStore(mip_9, vec2(x, y), vec4(v));
-        intermediate_memory[x * 2u + y % 2u][y * 2u] = v;
+        intermediate_memory[x * 2u + (y & 1u)][y * 2u] = v;
     }
 }
 
