@@ -3,9 +3,9 @@
 //! [`bevy::picking::backend`] provides an API for adding picking hit tests to any entity. To get
 //! started with picking 3d meshes, the [`MeshPickingPlugin`] is provided as a simple starting
 //! point, especially useful for debugging. For your game, you may want to use a 3d picking backend
-//! provided by your physics engine, or a picking shader, depending on your specific use case.
+//! provided by your physics engine, or a picking shader, depending Trigger your specific use case.
 //!
-//! [`bevy::picking`] allows you to compose backends together to make any entity on screen pickable
+//! [`bevy::picking`] allows you to compose backends together to make any entity Trigger screen pickable
 //! with pointers, regardless of how that entity is rendered. For example, `bevy_ui` and
 //! `bevy_sprite` provide their own picking backends that can be enabled at the same time as this
 //! mesh picking backend. This makes it painless to deal with cases like the UI or sprites blocking
@@ -91,8 +91,8 @@ fn setup_scene(
             ))
             .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
             .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
+            .observe(update_material_on::<Pointer<Pressed>>(pressed_matl.clone()))
+            .observe(update_material_on::<Pointer<Released>>(hover_matl.clone()))
             .observe(rotate_on_drag);
     }
 
@@ -114,8 +114,8 @@ fn setup_scene(
             ))
             .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
             .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
+            .observe(update_material_on::<Pointer<Pressed>>(pressed_matl.clone()))
+            .observe(update_material_on::<Pointer<Released>>(hover_matl.clone()))
             .observe(rotate_on_drag);
     }
 
@@ -157,9 +157,9 @@ fn setup_scene(
 }
 
 /// Returns an observer that updates the entity's material to the one specified.
-fn update_material_on<E: EntityEvent>(
+fn update_material_on<E: Event>(
     new_material: Handle<StandardMaterial>,
-) -> impl Fn(On<E>, Query<&mut MeshMaterial3d<StandardMaterial>>) {
+) -> impl Fn(Trigger<E>, Query<&mut MeshMaterial3d<StandardMaterial>>) {
     // An observer closure that captures `new_material`. We do this to avoid needing to write four
     // versions of this observer, each triggered by a different event and with a different hardcoded
     // material. Instead, the event type is a generic, and the material is passed in.
@@ -190,7 +190,7 @@ fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
 }
 
 /// An observer to rotate an entity when it is dragged
-fn rotate_on_drag(drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
+fn rotate_on_drag(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
     let mut transform = transforms.get_mut(drag.target()).unwrap();
     transform.rotate_y(drag.delta.x * 0.02);
     transform.rotate_x(drag.delta.y * 0.02);
