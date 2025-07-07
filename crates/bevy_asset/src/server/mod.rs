@@ -1685,7 +1685,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
         }
 
         if !untyped_failures.is_empty() {
-            world.send_event_batch(untyped_failures);
+            world.write_event_batch(untyped_failures);
         }
 
         fn queue_ancestors(

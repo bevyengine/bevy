@@ -185,7 +185,7 @@ mod tests {
     }
 
     #[test]
-    fn test_events_send_default() {
+    fn test_events_write_default() {
         let mut events = Events::<EmptyTestEvent>::default();
         events.write_default();
 
@@ -194,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn test_send_events_ids() {
+    fn test_write_events_ids() {
         let mut events = Events::<TestEvent>::default();
         let event_0 = TestEvent { i: 0 };
         let event_1 = TestEvent { i: 1 };
@@ -437,7 +437,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Events<TestEvent>>();
         for _ in 0..100 {
-            world.send_event(TestEvent { i: 1 });
+            world.write_event(TestEvent { i: 1 });
         }
 
         let mut schedule = Schedule::default();
@@ -479,7 +479,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Events<TestEvent>>();
         for _ in 0..100 {
-            world.send_event(TestEvent { i: 1 });
+            world.write_event(TestEvent { i: 1 });
         }
         let mut schedule = Schedule::default();
         schedule.add_systems(
@@ -531,13 +531,13 @@ mod tests {
         let last = reader.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventReader should be empty");
 
-        world.send_event(TestEvent { i: 0 });
+        world.write_event(TestEvent { i: 0 });
         let last = reader.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 0 }));
 
-        world.send_event(TestEvent { i: 1 });
-        world.send_event(TestEvent { i: 2 });
-        world.send_event(TestEvent { i: 3 });
+        world.write_event(TestEvent { i: 1 });
+        world.write_event(TestEvent { i: 2 });
+        world.write_event(TestEvent { i: 3 });
         let last = reader.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 3 }));
 
@@ -561,13 +561,13 @@ mod tests {
         let last = mutator.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventMutator should be empty");
 
-        world.send_event(TestEvent { i: 0 });
+        world.write_event(TestEvent { i: 0 });
         let last = mutator.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 0 }));
 
-        world.send_event(TestEvent { i: 1 });
-        world.send_event(TestEvent { i: 2 });
-        world.send_event(TestEvent { i: 3 });
+        world.write_event(TestEvent { i: 1 });
+        world.write_event(TestEvent { i: 2 });
+        world.write_event(TestEvent { i: 3 });
         let last = mutator.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 3 }));
 
@@ -582,11 +582,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Events<TestEvent>>();
 
-        world.send_event(TestEvent { i: 0 });
-        world.send_event(TestEvent { i: 1 });
-        world.send_event(TestEvent { i: 2 });
-        world.send_event(TestEvent { i: 3 });
-        world.send_event(TestEvent { i: 4 });
+        world.write_event(TestEvent { i: 0 });
+        world.write_event(TestEvent { i: 1 });
+        world.write_event(TestEvent { i: 2 });
+        world.write_event(TestEvent { i: 3 });
+        world.write_event(TestEvent { i: 4 });
 
         let mut schedule = Schedule::default();
         schedule.add_systems(|mut events: EventReader<TestEvent>| {
@@ -608,11 +608,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Events<TestEvent>>();
 
-        world.send_event(TestEvent { i: 0 });
-        world.send_event(TestEvent { i: 1 });
-        world.send_event(TestEvent { i: 2 });
-        world.send_event(TestEvent { i: 3 });
-        world.send_event(TestEvent { i: 4 });
+        world.write_event(TestEvent { i: 0 });
+        world.write_event(TestEvent { i: 1 });
+        world.write_event(TestEvent { i: 2 });
+        world.write_event(TestEvent { i: 3 });
+        world.write_event(TestEvent { i: 4 });
 
         let mut schedule = Schedule::default();
         schedule.add_systems(|mut events: EventReader<TestEvent>| {

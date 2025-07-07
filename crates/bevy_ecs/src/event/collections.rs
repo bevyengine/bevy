@@ -54,8 +54,8 @@ use {
 /// // run this once per update/frame
 /// events.update();
 ///
-/// // somewhere else: send an event
-/// events.send(MyEvent { value: 1 });
+/// // somewhere else: write an event
+/// events.write(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
 /// for event in cursor.read(&events) {
@@ -133,7 +133,7 @@ impl<E: BufferedEvent> Events<E> {
             _marker: PhantomData,
         };
         #[cfg(feature = "detailed_trace")]
-        tracing::trace!("Events::send() -> id: {}", event_id);
+        tracing::trace!("Events::write() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -168,11 +168,11 @@ impl<E: BufferedEvent> Events<E> {
     {
         self.write(Default::default())
     }
-    
+
     /// "Sends" an `event` by writing it to the current event buffer.
     /// [`EventReader`](super::EventReader)s can then read the event.
     /// This method returns the [ID](`EventId`) of the sent `event`.
-    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write` instead.")]
+    #[deprecated(since = "0.17", note = "Use `Events<E>::write` instead.")]
     #[track_caller]
     pub fn send(&mut self, event: E) -> EventId<E> {
         self.write(event)
@@ -181,7 +181,7 @@ impl<E: BufferedEvent> Events<E> {
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
     /// This is more efficient than sending each event individually.
     /// This method returns the [IDs](`EventId`) of the sent `events`.
-    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write_batch` instead.")]
+    #[deprecated(since = "0.17", note = "Use `Events<E>::write_batch` instead.")]
     #[track_caller]
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
         self.write_batch(events)
@@ -189,7 +189,7 @@ impl<E: BufferedEvent> Events<E> {
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
     /// This method returns the [ID](`EventId`) of the sent `event`.
-    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write_default` instead.")]
+    #[deprecated(since = "0.17", note = "Use `Events<E>::write_default` instead.")]
     #[track_caller]
     pub fn send_default(&mut self) -> EventId<E>
     where
@@ -429,14 +429,14 @@ mod tests {
         assert_eq!(test_events.iter_current_update_events().count(), 0);
         test_events.update();
 
-        // Sending one event
+        // Writing one event
         test_events.write(TestEvent);
 
         assert_eq!(test_events.len(), 1);
         assert_eq!(test_events.iter_current_update_events().count(), 1);
         test_events.update();
 
-        // Sending two events on the next frame
+        // Writing two events on the next frame
         test_events.write(TestEvent);
         test_events.write(TestEvent);
 
@@ -444,7 +444,7 @@ mod tests {
         assert_eq!(test_events.iter_current_update_events().count(), 2);
         test_events.update();
 
-        // Sending zero events
+        // Writing zero events
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_events().count(), 0);
     }
