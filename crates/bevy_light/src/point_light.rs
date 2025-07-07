@@ -166,7 +166,7 @@ pub struct PointLightTexture {
 ///
 /// ```
 /// # use bevy_app::prelude::*;
-/// # use bevy_pbr::PointLightShadowMap;
+/// # use bevy_light::PointLightShadowMap;
 /// App::new()
 ///     .insert_resource(PointLightShadowMap { size: 2048 });
 /// ```

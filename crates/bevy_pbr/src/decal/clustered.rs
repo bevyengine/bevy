@@ -27,6 +27,8 @@ use bevy_ecs::{
     system::{Query, Res, ResMut},
 };
 use bevy_image::Image;
+pub use bevy_light::cluster::ClusteredDecal;
+use bevy_light::{DirectionalLightTexture, PointLightTexture, SpotLightTexture};
 use bevy_math::Mat4;
 use bevy_platform::collections::HashMap;
 pub use bevy_render::primitives::CubemapLayout;
@@ -47,9 +49,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-pub use crate::ClusteredDecal;
 use crate::{binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta};
-pub use crate::{DirectionalLightTexture, PointLightTexture, SpotLightTexture};
 
 /// The maximum number of decals that can be present in a view.
 ///

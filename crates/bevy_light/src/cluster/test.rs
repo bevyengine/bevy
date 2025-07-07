@@ -1,6 +1,6 @@
 use bevy_math::UVec2;
 
-use crate::{ClusterConfig, Clusters};
+use super::{ClusterConfig, Clusters};
 
 fn test_cluster_tiling(config: ClusterConfig, screen_size: UVec2) -> Clusters {
     let dims = config.dimensions_for_screen_size(screen_size);
