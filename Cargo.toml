@@ -879,7 +879,7 @@ doc-scrape-examples = true
 name = "2D Wireframe"
 description = "Showcases wireframes for 2d meshes"
 category = "2D Rendering"
-# Wireframes are not supported by WebGL
+# PolygonMode::Line wireframes are not supported by WebGL
 wasm = false
 
 # 3D Rendering
@@ -992,7 +992,7 @@ doc-scrape-examples = true
 name = "Auto Exposure"
 description = "A scene showcasing auto exposure"
 category = "3D Rendering"
-# Requires computation shaders, which are not supported by WebGL.
+# Requires compute shaders, which are not supported by WebGL.
 wasm = false
 
 [[example]]
