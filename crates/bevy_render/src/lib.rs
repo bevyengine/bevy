@@ -116,7 +116,7 @@ use crate::{
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use alloc::sync::Arc;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, Plugin, PreStartup, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bevy_utils::WgpuWrapper;
@@ -348,7 +348,9 @@ impl Plugin for RenderPlugin {
                     let future_render_resources_wrapper = Arc::new(Mutex::new(None));
                     app.insert_resource(FutureRenderResources(
                         future_render_resources_wrapper.clone(),
-                    ));
+                    ))
+                    .insert_resource(AutomaticRendererCreationSettings(render_creation.clone()))
+                    .add_systems(PreStartup, initialize_renderer);
 
                     // SAFETY: Plugins should be set up on the main thread.
                     unsafe { initialize_render_app(app) };
@@ -383,13 +385,6 @@ impl Plugin for RenderPlugin {
                     Render,
                     reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
                 );
-            if let RenderCreation::Automatic(render_creation) = &self.render_creation {
-                if render_creation.backends.is_some() {
-                    render_app
-                        .insert_resource(AutomaticRendererCreationSettings(render_creation.clone()))
-                        .add_systems(RenderStartup, initialize_renderer);
-                }
-            }
         }
 
         app.register_type::<alpha::AlphaMode>()
