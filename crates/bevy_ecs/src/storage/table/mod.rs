@@ -597,7 +597,7 @@ impl Table {
     #[inline]
     pub fn entity_count(&self) -> u32 {
         // No entity may have more than one table row, so there are no duplicates,
-        // and there may only ever be u32::MAX entities, so the length never exceeds u32's cappacity.
+        // and there may only ever be u32::MAX entities, so the length never exceeds u32's capacity.
         self.entities.len() as u32
     }
 

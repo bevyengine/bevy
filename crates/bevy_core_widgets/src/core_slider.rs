@@ -176,7 +176,7 @@ impl Default for SliderRange {
 }
 
 /// Defines the amount by which to increment or decrement the slider value when using keyboard
-/// shorctuts. Defaults to 1.0.
+/// shortcuts. Defaults to 1.0.
 #[derive(Component, Debug, PartialEq, Clone)]
 #[component(immutable)]
 pub struct SliderStep(pub f32);
