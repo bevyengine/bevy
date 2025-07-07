@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    event::{BufferedEvent, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EventId, Events, WriteBatchIds},
     system::{ResMut, SystemParam},
 };
 
@@ -82,7 +82,7 @@ impl<'w, E: BufferedEvent> EventWriter<'w, E> {
     /// See [`Events`] for details.
     #[doc(alias = "send_batch")]
     #[track_caller]
-    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> WriteBatchIds<E> {
         self.events.write_batch(events)
     }
 

@@ -147,12 +147,12 @@ impl<E: BufferedEvent> Events<E> {
     /// This is more efficient than writing each event individually.
     /// This method returns the [IDs](`EventId`) of the written `events`.
     #[track_caller]
-    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> WriteBatchIds<E> {
         let last_count = self.event_count;
 
         self.extend(events);
 
-        SendBatchIds {
+        WriteBatchIds {
             last_count,
             event_count: self.event_count,
             _marker: PhantomData,
@@ -183,7 +183,7 @@ impl<E: BufferedEvent> Events<E> {
     /// This method returns the [IDs](`EventId`) of the sent `events`.
     #[deprecated(since = "0.17", note = "Use `Events<E>::write_batch` instead.")]
     #[track_caller]
-    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> WriteBatchIds<E> {
         self.write_batch(events)
     }
 
@@ -380,14 +380,18 @@ impl<E: BufferedEvent> DerefMut for EventSequence<E> {
     }
 }
 
-/// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
-pub struct SendBatchIds<E> {
+/// [`Iterator`] over written [`EventIds`](`EventId`) from a batch.
+pub struct WriteBatchIds<E> {
     last_count: usize,
     event_count: usize,
     _marker: PhantomData<E>,
 }
 
-impl<E: BufferedEvent> Iterator for SendBatchIds<E> {
+/// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
+#[deprecated(since = "0.17", note = "Use `WriteBatchIds` instead.")]
+pub type SendBatchIds<E> = WriteBatchIds<E>;
+
+impl<E: BufferedEvent> Iterator for WriteBatchIds<E> {
     type Item = EventId<E>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -407,7 +411,7 @@ impl<E: BufferedEvent> Iterator for SendBatchIds<E> {
     }
 }
 
-impl<E: BufferedEvent> ExactSizeIterator for SendBatchIds<E> {
+impl<E: BufferedEvent> ExactSizeIterator for WriteBatchIds<E> {
     fn len(&self) -> usize {
         self.event_count.saturating_sub(self.last_count)
     }
