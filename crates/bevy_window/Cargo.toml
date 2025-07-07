@@ -22,12 +22,7 @@ bevy_reflect = [
 ]
 
 ## Adds serialization support through `serde`.
-serialize = [
-  "serde",
-  "smol_str/serde",
-  "bevy_ecs/serialize",
-  "bevy_input/serialize",
-]
+serialize = ["serde", "bevy_ecs/serialize", "bevy_input/serialize"]
 
 # Platform Compatibility
 
@@ -56,9 +51,7 @@ bevy_input = { path = "../bevy_input", version = "0.17.0-dev", default-features 
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, features = [
   "glam",
-  "smol_str",
 ], optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false }
 
 # other
@@ -69,7 +62,6 @@ serde = { version = "1.0", features = [
 raw-window-handle = { version = "0.6", features = [
   "alloc",
 ], default-features = false }
-smol_str = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]
