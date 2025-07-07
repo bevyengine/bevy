@@ -273,7 +273,7 @@ impl FromWorld for SolariLightingNode {
                 }],
                 shader: load_embedded_asset!(world, "restir_gi.wgsl"),
                 shader_defs: vec![],
-                entry_point: "initial_and_temporal".into(),
+                entry_point: Some("initial_and_temporal".into()),
                 zero_initialize_workgroup_memory: false,
             });
 
@@ -290,7 +290,7 @@ impl FromWorld for SolariLightingNode {
                 }],
                 shader: load_embedded_asset!(world, "restir_gi.wgsl"),
                 shader_defs: vec![],
-                entry_point: "spatial_and_shade".into(),
+                entry_point: Some("spatial_and_shade".into()),
                 zero_initialize_workgroup_memory: false,
             });
 

@@ -227,6 +227,7 @@ fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 #endif
 }
 
+// Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
 struct Reservoir {
     sample_point_world_position: vec3<f32>,
     weight_sum: f32,
