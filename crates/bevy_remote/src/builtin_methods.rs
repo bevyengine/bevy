@@ -1680,8 +1680,6 @@ mod tests {
     }
 
     use bevy_ecs::component::Component;
-    #[cfg(feature = "bevy_math")]
-    use bevy_math::Vec3;
     use bevy_reflect::Reflect;
 
     use crate::schemas::{reflect_info::TypeReferenceId, SchemaTypesMetadata};
@@ -1749,8 +1747,8 @@ mod tests {
 
             let mut register = atr.write();
             register.register::<NestedStruct>();
-            register.register::<Vec3>();
-            register.register_type_data::<Vec3, ReflectJsonSchemaForceAsArray>();
+            register.register::<bevy_math::Vec3>();
+            register.register_type_data::<bevy_math::Vec3, ReflectJsonSchemaForceAsArray>();
         }
         world.insert_resource(atr);
         world.insert_resource(SchemaTypesMetadata::default());

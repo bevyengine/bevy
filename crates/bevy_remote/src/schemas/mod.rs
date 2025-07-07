@@ -44,7 +44,11 @@ pub(crate) trait RegisterReflectJsonSchemas {
         #[cfg(feature = "bevy_math")]
         {
             self.register_type_data_internal::<bevy_math::Vec2, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::UVec2, ReflectJsonSchemaForceAsArray>();
             self.register_type_data_internal::<bevy_math::Vec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::UVec3, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::Vec4, ReflectJsonSchemaForceAsArray>();
+            self.register_type_data_internal::<bevy_math::UVec4, ReflectJsonSchemaForceAsArray>();
         }
         self.register_type_internal::<OpenRpcDocument>();
         self.register_type_data_internal::<OpenRpcDocument, ReflectJsonSchema>();
