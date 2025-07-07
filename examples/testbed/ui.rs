@@ -582,7 +582,7 @@ mod linear_gradient {
                     height: Val::Percent(100.),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    row_gap: Val::Px(10.),
+                    row_gap: Val::Px(5.),
                     ..default()
                 },
                 DespawnOnExitState(super::Scene::LinearGradient),
@@ -614,7 +614,7 @@ mod linear_gradient {
                             },
                             children![(
                                 Node {
-                                    height: Val::Px(50.),
+                                    height: Val::Px(30.),
                                     width: Val::Px(300.),
                                     ..Default::default()
                                 },
