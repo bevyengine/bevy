@@ -37,10 +37,10 @@ fn main() {
         .run();
 }
 
-fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut PresentMode>) {
-    let mut present_mode = window.get_mut(trigger.target()).unwrap();
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
     // Turn off vsync to maximize CPU/GPU usage
-    *present_mode = PresentMode::AutoNoVsync;
+    window.present_mode = PresentMode::AutoNoVsync;
 }
 
 #[derive(Resource, Debug)]

@@ -161,8 +161,10 @@ impl ContainsEntity for NormalizedWindowRef {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[require(CursorOptions, PresentMode)]
+#[require(CursorOptions)]
 pub struct Window {
+    /// What presentation mode to give the window.
+    pub present_mode: PresentMode,
     /// Which fullscreen or windowing mode should be used.
     pub mode: WindowMode,
     /// Where the window should be placed.
@@ -468,6 +470,7 @@ impl Default for Window {
     fn default() -> Self {
         Self {
             title: DEFAULT_WINDOW_TITLE.to_owned(),
+            present_mode: PresentMode::default(),
             name: None,
             mode: Default::default(),
             position: Default::default(),
@@ -1205,11 +1208,11 @@ pub enum VideoModeSelection {
 /// [`AutoVsync`]: PresentMode::AutoVsync
 /// [`AutoNoVsync`]: PresentMode::AutoNoVsync
 #[repr(C)]
-#[derive(Component, Default, Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Debug, PartialEq, Hash, Clone)
+    reflect(Debug, PartialEq, Hash, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

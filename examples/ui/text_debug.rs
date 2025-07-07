@@ -19,9 +19,9 @@ fn main() {
         .run();
 }
 
-fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut PresentMode>) {
-    let mut present_mode = window.get_mut(trigger.target()).unwrap();
-    *present_mode = PresentMode::AutoNoVsync;
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.present_mode = PresentMode::AutoNoVsync;
 }
 
 #[derive(Component)]

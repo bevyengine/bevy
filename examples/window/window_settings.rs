@@ -38,11 +38,8 @@ fn main() {
         .run();
 }
 
-fn configure_window(
-    trigger: On<Add, PrimaryWindow>,
-    mut window: Query<(&mut Window, &mut PresentMode)>,
-) {
-    let (mut window, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
     window.title = "I am a window!".into();
     window.name = Some("bevy.app".into());
     window.resolution = (500., 300.).into();
@@ -57,7 +54,7 @@ fn configure_window(
     // This is useful when you want to avoid the white window that shows up before the GPU is ready to render the app.
     window.visible = false;
 
-    *present_mode = PresentMode::AutoNoVsync;
+    window.present_mode = PresentMode::AutoNoVsync;
 }
 
 fn make_visible(mut window: Single<&mut Window>, frames: Res<FrameCount>) {
@@ -72,14 +69,14 @@ fn make_visible(mut window: Single<&mut Window>, frames: Res<FrameCount>) {
 
 /// This system toggles the vsync mode when pressing the button V.
 /// You'll see fps increase displayed in the console.
-fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut present_mode: Single<&mut PresentMode>) {
+fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
     if input.just_pressed(KeyCode::KeyV) {
-        **present_mode = if matches!(**present_mode, PresentMode::AutoVsync) {
+        window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
             PresentMode::AutoNoVsync
         } else {
             PresentMode::AutoVsync
         };
-        info!("PRESENT_MODE: {:?}", *present_mode);
+        info!("PRESENT_MODE: {:?}", window.present_mode);
     }
 }
 

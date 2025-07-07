@@ -68,14 +68,11 @@ fn main() {
         .run();
 }
 
-fn configure_window(
-    trigger: On<Add, PrimaryWindow>,
-    mut window: Query<(&mut Window, &mut PresentMode)>,
-) {
-    let (mut window, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
     window.title = "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string();
     window.resolution = WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0);
-    *present_mode = PresentMode::AutoNoVsync;
+    window.present_mode = PresentMode::AutoNoVsync;
 }
 
 #[derive(Resource)]
