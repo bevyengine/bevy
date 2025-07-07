@@ -5,7 +5,7 @@
 
 use bevy::{
     prelude::*,
-    window::{PresentMode, RequestRedraw, WindowPlugin},
+    window::{PresentMode, PrimaryWindow, RequestRedraw},
     winit::{EventLoopProxyWrapper, WakeUp, WinitSettings},
 };
 use core::time::Duration;
@@ -22,14 +22,8 @@ fn main() {
             unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_millis(10)),
         })
         .insert_resource(ExampleMode::Game)
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                // Turn off vsync to maximize CPU/GPU usage
-                present_mode: PresentMode::AutoNoVsync,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
+        .add_observer(configure_window)
         .add_systems(Startup, test_setup::setup)
         .add_systems(
             Update,
@@ -41,6 +35,12 @@ fn main() {
             ),
         )
         .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut PresentMode>) {
+    let mut present_mode = window.get_mut(trigger.target()).unwrap();
+    // Turn off vsync to maximize CPU/GPU usage
+    *present_mode = PresentMode::AutoNoVsync;
 }
 
 #[derive(Resource, Debug)]

@@ -5,7 +5,7 @@ use std::f32::consts::TAU;
 use bevy::{
     diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowResolution},
+    window::{PresentMode, PrimaryWindow, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 
@@ -14,15 +14,7 @@ const SYSTEM_COUNT: u32 = 10;
 fn main() {
     let mut app = App::new();
     app.add_plugins((
-        DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Many Debug Lines".to_string(),
-                present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
-                ..default()
-            }),
-            ..default()
-        }),
+        DefaultPlugins,
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
@@ -34,6 +26,7 @@ fn main() {
         line_count: 50_000,
         fancy: false,
     })
+    .add_observer(configure_window)
     .add_systems(Startup, setup)
     .add_systems(Update, (input, ui_system));
 
@@ -42,6 +35,16 @@ fn main() {
     }
 
     app.run();
+}
+
+fn configure_window(
+    trigger: On<Add, PrimaryWindow>,
+    mut window: Query<(&mut Window, &mut PresentMode)>,
+) {
+    let (mut window, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+    window.title = "Many Debug Lines".to_string();
+    window.resolution = WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0);
+    *present_mode = PresentMode::AutoNoVsync;
 }
 
 #[derive(Resource, Debug)]

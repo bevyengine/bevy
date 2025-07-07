@@ -6,7 +6,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     text::TextColor,
-    window::{PresentMode, WindowResolution},
+    window::{PresentMode, PrimaryWindow, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 
@@ -73,14 +73,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins((
-        DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
-                ..default()
-            }),
-            ..default()
-        }),
+        DefaultPlugins,
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
@@ -88,6 +81,7 @@ fn main() {
         focused_mode: UpdateMode::Continuous,
         unfocused_mode: UpdateMode::Continuous,
     })
+    .add_observer(configure_window)
     .add_systems(Update, (button_system, set_text_colors_changed));
 
     if !args.no_camera {
@@ -127,6 +121,15 @@ fn main() {
     }
 
     app.insert_resource(args).run();
+}
+
+fn configure_window(
+    trigger: On<Add, PrimaryWindow>,
+    mut window: Query<(&mut Window, &mut PresentMode)>,
+) {
+    let (mut window, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+    window.resolution = WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0);
+    *present_mode = PresentMode::AutoNoVsync;
 }
 
 fn set_text_colors_changed(mut colors: Query<&mut TextColor>) {

@@ -7,24 +7,21 @@ use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     ui::widget::TextUiWriter,
-    window::PresentMode,
+    window::{PresentMode, PrimaryWindow},
 };
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    present_mode: PresentMode::AutoNoVsync,
-                    ..default()
-                }),
-                ..default()
-            }),
-            FrameTimeDiagnosticsPlugin::default(),
-        ))
+        .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
+        .add_observer(configure_window)
         .add_systems(Startup, infotext_system)
         .add_systems(Update, change_text_system)
         .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut PresentMode>) {
+    let mut present_mode = window.get_mut(trigger.target()).unwrap();
+    *present_mode = PresentMode::AutoNoVsync;
 }
 
 #[derive(Component)]

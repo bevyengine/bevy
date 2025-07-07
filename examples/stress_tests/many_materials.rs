@@ -3,7 +3,7 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, PrimaryWindow, WindowResolution},
 };
 use std::f32::consts::PI;
 
@@ -24,23 +24,25 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    title: "many_materials".into(),
-                    present_mode: PresentMode::AutoNoVsync,
-                    ..default()
-                }),
-                ..default()
-            }),
+            DefaultPlugins,
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(args)
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_materials)
         .run();
+}
+
+fn configure_window(
+    trigger: On<Add, PrimaryWindow>,
+    mut window: Query<(&mut Window, &mut PresentMode)>,
+) {
+    let (mut window, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+    window.resolution = WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0);
+    window.title = "many_materials".into();
+    *present_mode = PresentMode::AutoNoVsync;
 }
 
 fn setup(

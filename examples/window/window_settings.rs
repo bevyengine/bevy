@@ -7,7 +7,8 @@ use bevy::{
     diagnostic::{FrameCount, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{
-        CursorGrabMode, CursorOptions, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme,
+        CursorGrabMode, CursorOptions, PresentMode, PrimaryWindow, SystemCursorIcon, WindowLevel,
+        WindowTheme,
     },
     winit::cursor::CursorIcon,
 };
@@ -15,32 +16,11 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "I am a window!".into(),
-                    name: Some("bevy.app".into()),
-                    resolution: (500., 300.).into(),
-                    present_mode: PresentMode::AutoVsync,
-                    // Tells Wasm to resize the window according to the available canvas
-                    fit_canvas_to_parent: true,
-                    // Tells Wasm not to override default event handling, like F5, Ctrl+R etc.
-                    prevent_default_event_handling: false,
-                    window_theme: Some(WindowTheme::Dark),
-                    enabled_buttons: bevy::window::EnabledButtons {
-                        maximize: false,
-                        ..Default::default()
-                    },
-                    // This will spawn an invisible window
-                    // The window will be made visible in the make_visible() system after 3 frames.
-                    // This is useful when you want to avoid the white window that shows up before the GPU is ready to render the app.
-                    visible: false,
-                    ..default()
-                }),
-                ..default()
-            }),
+            DefaultPlugins,
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin::default(),
         ))
+        .add_observer(configure_window)
         .add_systems(Startup, init_cursor_icons)
         .add_systems(
             Update,
@@ -58,6 +38,28 @@ fn main() {
         .run();
 }
 
+fn configure_window(
+    trigger: On<Add, PrimaryWindow>,
+    mut window: Query<(&mut Window, &mut PresentMode)>,
+) {
+    let (mut window, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+    window.title = "I am a window!".into();
+    window.name = Some("bevy.app".into());
+    window.resolution = (500., 300.).into();
+    // Tells Wasm to resize the window according to the available canvas
+    window.fit_canvas_to_parent = true;
+    // Tells Wasm not to override default event handling, like F5, Ctrl+R etc.
+    window.prevent_default_event_handling = false;
+    window.window_theme = Some(WindowTheme::Dark);
+    window.enabled_buttons.maximize = false;
+    // This will spawn an invisible window
+    // The window will be made visible in the make_visible() system after 3 frames.
+    // This is useful when you want to avoid the white window that shows up before the GPU is ready to render the app.
+    window.visible = false;
+
+    *present_mode = PresentMode::AutoNoVsync;
+}
+
 fn make_visible(mut window: Single<&mut Window>, frames: Res<FrameCount>) {
     // The delay may be different for your app or system.
     if frames.0 == 3 {
@@ -70,14 +72,14 @@ fn make_visible(mut window: Single<&mut Window>, frames: Res<FrameCount>) {
 
 /// This system toggles the vsync mode when pressing the button V.
 /// You'll see fps increase displayed in the console.
-fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
+fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut present_mode: Single<&mut PresentMode>) {
     if input.just_pressed(KeyCode::KeyV) {
-        window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
+        **present_mode = if matches!(**present_mode, PresentMode::AutoVsync) {
             PresentMode::AutoNoVsync
         } else {
             PresentMode::AutoVsync
         };
-        info!("PRESENT_MODE: {:?}", window.present_mode);
+        info!("PRESENT_MODE: {:?}", *present_mode);
     }
 }
 

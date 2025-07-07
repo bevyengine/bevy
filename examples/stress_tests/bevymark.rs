@@ -15,7 +15,7 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::AlphaMode2d,
-    window::{PresentMode, WindowResolution},
+    window::{PresentMode, PrimaryWindow, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 use rand::{seq::SliceRandom, Rng, SeedableRng};
@@ -132,16 +132,7 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "BevyMark".into(),
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    present_mode: PresentMode::AutoNoVsync,
-                    ..default()
-                }),
-                ..default()
-            }),
+            DefaultPlugins,
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
@@ -154,6 +145,7 @@ fn main() {
             count: 0,
             color: Color::WHITE,
         })
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, scheduled_spawner)
         .add_systems(
@@ -169,6 +161,16 @@ fn main() {
             FIXED_TIMESTEP,
         )))
         .run();
+}
+
+fn configure_window(
+    trigger: On<Add, PrimaryWindow>,
+    mut window: Query<(&mut Window, &mut PresentMode)>,
+) {
+    let (mut window, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+    window.title = "BevyMark".to_string();
+    window.resolution = WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0);
+    *present_mode = PresentMode::AutoNoVsync;
 }
 
 #[derive(Resource)]

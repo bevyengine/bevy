@@ -101,11 +101,19 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     mut closing: Extract<EventReader<WindowClosing>>,
-    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
+    windows: Extract<
+        Query<(
+            Entity,
+            &Window,
+            &PresentMode,
+            &RawHandleWrapper,
+            Option<&PrimaryWindow>,
+        )>,
+    >,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
 ) {
-    for (entity, window, handle, primary) in windows.iter() {
+    for (entity, window, present_mode, handle, primary) in windows.iter() {
         if primary.is_some() {
             extracted_windows.primary = Some(entity);
         }
@@ -120,7 +128,7 @@ fn extract_windows(
             handle: handle.clone(),
             physical_width: new_width,
             physical_height: new_height,
-            present_mode: window.present_mode,
+            present_mode: *present_mode,
             desired_maximum_frame_latency: window.desired_maximum_frame_latency,
             swap_chain_texture: None,
             swap_chain_texture_view: None,
@@ -134,8 +142,7 @@ fn extract_windows(
         extracted_window.swap_chain_texture_view = None;
         extracted_window.size_changed = new_width != extracted_window.physical_width
             || new_height != extracted_window.physical_height;
-        extracted_window.present_mode_changed =
-            window.present_mode != extracted_window.present_mode;
+        extracted_window.present_mode_changed = *present_mode != extracted_window.present_mode;
 
         if extracted_window.size_changed {
             debug!(
@@ -152,9 +159,9 @@ fn extract_windows(
         if extracted_window.present_mode_changed {
             debug!(
                 "Window Present Mode changed from {:?} to {:?}",
-                extracted_window.present_mode, window.present_mode
+                extracted_window.present_mode, *present_mode
             );
-            extracted_window.present_mode = window.present_mode;
+            extracted_window.present_mode = *present_mode;
         }
     }
 

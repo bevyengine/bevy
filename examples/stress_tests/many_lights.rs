@@ -10,7 +10,7 @@ use bevy::{
     pbr::{ExtractedPointLight, GlobalClusterableObjectMeta},
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSystems},
-    window::{PresentMode, WindowResolution},
+    window::{PresentMode, PrimaryWindow, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
@@ -18,16 +18,7 @@ use rand::{thread_rng, Rng};
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    title: "many_lights".into(),
-                    present_mode: PresentMode::AutoNoVsync,
-                    ..default()
-                }),
-                ..default()
-            }),
+            DefaultPlugins,
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,
@@ -36,9 +27,20 @@ fn main() {
             focused_mode: UpdateMode::Continuous,
             unfocused_mode: UpdateMode::Continuous,
         })
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
         .run();
+}
+
+fn configure_window(
+    trigger: On<Add, PrimaryWindow>,
+    mut window: Query<(&mut Window, &mut PresentMode)>,
+) {
+    let (mut window, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+    window.title = "many_lights".to_string();
+    window.resolution = WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0);
+    *present_mode = PresentMode::AutoNoVsync;
 }
 
 fn setup(

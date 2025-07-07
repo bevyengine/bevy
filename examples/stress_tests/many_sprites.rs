@@ -11,7 +11,7 @@ use bevy::{
     color::palettes::css::*,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowResolution},
+    window::{PresentMode, PrimaryWindow, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 
@@ -33,26 +33,28 @@ fn main() {
         .add_plugins((
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin::default(),
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    ..default()
-                }),
-                ..default()
-            }),
+            DefaultPlugins,
         ))
         .insert_resource(WinitSettings {
             focused_mode: UpdateMode::Continuous,
             unfocused_mode: UpdateMode::Continuous,
         })
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (print_sprite_count, move_camera.after(print_sprite_count)),
         )
         .run();
+}
+
+fn configure_window(
+    trigger: On<Add, PrimaryWindow>,
+    mut window: Query<(&mut Window, &mut PresentMode)>,
+) {
+    let (mut window, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+    window.resolution = WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0);
+    *present_mode = PresentMode::AutoNoVsync;
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<ColorTint>) {
