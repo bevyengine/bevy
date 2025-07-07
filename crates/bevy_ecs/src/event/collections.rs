@@ -118,7 +118,7 @@ impl<E: BufferedEvent> Events<E> {
         self.events_a.start_event_count
     }
 
-    /// Writes an `event` by writing it to the current event buffer.
+    /// Writes an `event` to the current event buffer.
     /// [`EventReader`](super::EventReader)s can then read the event.
     /// This method returns the [ID](`EventId`) of the written `event`.
     #[track_caller]
