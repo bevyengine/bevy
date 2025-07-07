@@ -2776,4 +2776,17 @@ mod tests {
 
         fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
     }
+
+    #[test]
+    fn queue_register_component_toctou() {
+        for _ in 0..1000 {
+            let w = World::new();
+
+            std::thread::scope(|s| {
+                let c1 = s.spawn(|| w.components_queue().queue_register_component::<A>());
+                let c2 = s.spawn(|| w.components_queue().queue_register_component::<A>());
+                assert_eq!(c1.join().unwrap(), c2.join().unwrap());
+            });
+        }
+    }
 }
