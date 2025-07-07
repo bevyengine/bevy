@@ -301,12 +301,19 @@ pub fn apply_text_input_actions(
         Entity,
         &mut TextInputBuffer,
         &mut TextInputActions,
+        &TextInputAttributes,
         Option<&mut TextInputHistory>,
         Has<SingleLineTextInput>,
     )>,
 ) {
-    for (_entity, mut buffer, mut text_input_actions, mut maybe_history, is_single_line_input) in
-        text_input_query.iter_mut()
+    for (
+        _entity,
+        mut buffer,
+        mut text_input_actions,
+        attribs,
+        mut maybe_history,
+        is_single_line_input,
+    ) in text_input_query.iter_mut()
     {
         let mut editor = buffer.editor.borrow_with(&mut font_system);
 
@@ -442,10 +449,28 @@ pub fn apply_text_input_actions(
                 }
             }
 
-            if let Some(change) = editor
+            if let Some(mut change) = editor
                 .finish_change()
                 .filter(|change| !change.items.is_empty())
             {
+                if let Some(max_chars) = attribs.max_chars {
+                    let new_length = editor.with_buffer(|buffer| {
+                        buffer
+                            .lines
+                            .iter()
+                            .map(|buffer_line| buffer_line.text())
+                            .fold(0, |out, line| {
+                                out + line.chars().count() + (out != 0) as usize
+                            })
+                    });
+
+                    if max_chars < new_length {
+                        change.reverse();
+                        editor.apply_change(&change);
+                        return;
+                    }
+                }
+
                 if let Some(undo) = maybe_history.as_mut() {
                     undo.changes.push(change);
                 }
