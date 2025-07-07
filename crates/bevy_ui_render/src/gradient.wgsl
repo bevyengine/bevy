@@ -259,7 +259,7 @@ fn linear_rgba_to_oklcha(c: vec4<f32>) -> vec4<f32> {
     let o = linear_rgba_to_oklaba(c);
     let chroma = sqrt(o.y * o.y + o.z * o.z);
     let hue = atan2(o.z, o.y);
-    return vec4(o.x, chroma, select(hue + TAU, hue, hue < 0.0), o.a);
+    return vec4(o.x, chroma, rem_euclid(hue, TAU), o.a);
 }
 
 fn oklcha_to_linear_rgba(c: vec4<f32>) -> vec4<f32> {
@@ -279,22 +279,26 @@ fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
 
 fn lerp_hue_long(a: f32, b: f32, t: f32) -> f32 {
     let diff = rem_euclid(b - a + PI, TAU) - PI;
-    return rem_euclid(a + select(diff - TAU, diff + TAU, 0. < diff) * t, TAU);
+    return rem_euclid(a + (diff + select(TAU, -TAU, 0. < diff)) * t, TAU);
 }
 
 fn mix_oklcha(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let ah = select(a.z, b.z, a.y == 0.);
+    let bh = select(b.z, a.z, b.y == 0.);
     return vec4(
         mix(a.xy, b.xy, t),
-        lerp_hue(a.z, b.z, t),
+        lerp_hue(ah, bh, t),
         mix(a.a, b.a, t)
     );
 }
 
 fn mix_oklcha_long(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let ah = select(a.z, b.z, a.y == 0.);
+    let bh = select(b.z, a.z, b.y == 0.);
     return vec4(
         mix(a.xy, b.xy, t),
-        lerp_hue_long(a.z, b.z, t),
-        mix(a.a, b.a, t)
+        lerp_hue_long(ah, bh, t),
+        mix(a.w, b.w, t)
     );
 }
 
