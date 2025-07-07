@@ -162,5 +162,5 @@ impl HasDisplayHandle for ThreadLockedRawWindowHandleWrapper {
 }
 
 /// Holder of the [`RawHandleWrapper`] with wrappers, to allow use in asynchronous context
-#[derive(Debug, Clone, Component)]
+#[derive(Debug, Clone, Component, Default)]
 pub struct RawHandleWrapperHolder(pub Arc<Mutex<Option<RawHandleWrapper>>>);

@@ -27,13 +27,7 @@ struct AppSettings {
 fn main() {
     App::new()
         .init_resource::<AppSettings>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Chromatic Aberration Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, handle_keyboard_input)
         .add_systems(

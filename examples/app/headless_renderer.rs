@@ -89,7 +89,7 @@ fn main() {
                 // Not strictly necessary, as the inclusion of ScheduleRunnerPlugin below
                 // replaces the bevy_winit app runner and so a window is never created.
                 .set(WindowPlugin {
-                    primary_window: None,
+                    spawn_primary_window: false,
                     // Don’t automatically exit due to having no windows.
                     // Instead, the code in `update()` will explicitly produce an `AppExit` event.
                     exit_condition: bevy::window::ExitCondition::DontExit,

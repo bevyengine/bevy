@@ -24,13 +24,7 @@ use bevy::{
 /// Initializes the example.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Scrolling Fog".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_systems(Startup, setup)
         .add_systems(Update, scroll_fog)

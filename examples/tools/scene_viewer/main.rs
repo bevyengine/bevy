@@ -18,6 +18,7 @@ use bevy::{
         experimental::occlusion_culling::OcclusionCulling,
         primitives::{Aabb, Sphere},
     },
+    window::PrimaryWindow,
 };
 
 #[path = "../../helpers/camera_controller.rs"]
@@ -65,25 +66,18 @@ fn main() {
 
     let mut app = App::new();
     app.add_plugins((
-        DefaultPlugins
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "bevy scene viewer".to_string(),
-                    ..default()
-                }),
-                ..default()
-            })
-            .set(AssetPlugin {
-                file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
-                // Allow scenes to be loaded from anywhere on disk
-                unapproved_path_mode: UnapprovedPathMode::Allow,
-                ..default()
-            }),
+        DefaultPlugins.set(AssetPlugin {
+            file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+            // Allow scenes to be loaded from anywhere on disk
+            unapproved_path_mode: UnapprovedPathMode::Allow,
+            ..default()
+        }),
         CameraControllerPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,
     ))
     .insert_resource(args)
+    .add_observer(configure_window)
     .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
 
@@ -96,6 +90,11 @@ fn main() {
     app.add_plugins(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.title = "Bevy Scene Viewer".to_string();
 }
 
 fn parse_scene(scene_path: String) -> (String, usize) {

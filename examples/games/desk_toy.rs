@@ -18,19 +18,11 @@ use bevy::window::CompositeAlphaMode;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Desk Toy".into(),
-                transparent: true,
-                #[cfg(target_os = "macos")]
-                composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(WINDOW_CLEAR_COLOR))
         .insert_resource(WindowTransparency(false))
         .insert_resource(CursorWorldPos(None))
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -49,6 +41,16 @@ fn main() {
                 .chain(),
         )
         .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.title = "Bevy Desk Toy".into();
+    window.transparent = true;
+    #[cfg(target_os = "macos")]
+    {
+        window.composite_alpha_mode = CompositeAlphaMode::PostMultiplied;
+    }
 }
 
 /// Whether the window is transparent

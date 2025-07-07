@@ -10,7 +10,7 @@
 //!
 //! The `start_drag_resize()` function behaves similarly but permits a window to
 //! be resized.
-use bevy::{math::CompassOctant, prelude::*};
+use bevy::{math::CompassOctant, prelude::*, window::PrimaryWindow};
 
 /// Determine what do on left click.
 #[derive(Resource, Debug)]
@@ -41,18 +41,18 @@ const DIRECTIONS: [CompassOctant; 8] = [
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                decorations: false,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .insert_resource(ResizeDir(7))
         .insert_resource(LeftClickAction::Move)
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(Update, (handle_input, move_or_resize_windows))
         .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.decorations = false;
 }
 
 fn setup(mut commands: Commands) {

@@ -6,13 +6,7 @@ fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
     // it is currently.
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Minimizing".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_3d, setup_2d))
         .add_systems(Update, minimize_automatically)
         .run();

@@ -1,7 +1,10 @@
 //! A test to confirm that `bevy` allows setting the window to arbitrary small sizes
 //! This is run in CI to ensure that this doesn't regress again.
 
-use bevy::{prelude::*, window::WindowResolution};
+use bevy::{
+    prelude::*,
+    window::{PrimaryWindow, WindowResolution},
+};
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
 // TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
@@ -19,27 +22,25 @@ struct Dimensions {
 
 fn main() {
     App::new()
-        .add_plugins(
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    resolution: WindowResolution::new(MAX_WIDTH as f32, MAX_HEIGHT as f32)
-                        .with_scale_factor_override(1.0),
-                    title: "Resizing".into(),
-                    ..default()
-                }),
-                ..default()
-            }),
-        )
+        .add_plugins(DefaultPlugins)
         .insert_resource(Dimensions {
             width: MAX_WIDTH,
             height: MAX_HEIGHT,
         })
         .insert_resource(ContractingY)
+        .add_observer(configure_window)
         .add_systems(Startup, (setup_3d, setup_2d))
         .add_systems(Update, (change_window_size, sync_dimensions))
         .run();
 }
 
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+
+    window.resolution =
+        WindowResolution::new(MAX_WIDTH as f32, MAX_HEIGHT as f32).with_scale_factor_override(1.0);
+    window.title = "Resizing".into();
+}
 #[derive(Resource)]
 enum Phase {
     ContractingY,
