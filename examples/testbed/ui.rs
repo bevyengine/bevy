@@ -557,6 +557,9 @@ mod layout_rounding {
 mod linear_gradient {
     use bevy::color::palettes::css::RED;
     use bevy::color::palettes::css::YELLOW;
+    use bevy::ecs::prelude::*;
+    use bevy::render::camera::Camera2d;
+    use bevy::state::state_scoped::DespawnOnExitState;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
     use bevy::ui::ColorStop;
@@ -567,9 +570,6 @@ mod linear_gradient {
     use bevy::ui::PositionType;
     use bevy::ui::Val;
     use bevy::utils::default;
-    use bevy_ecs::prelude::*;
-    use bevy_render::camera::Camera2d;
-    use bevy_state::state_scoped::DespawnOnExitState;
 
     pub fn setup(mut commands: Commands) {
         let stops = vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)];
