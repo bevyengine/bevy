@@ -309,7 +309,14 @@ fn mix_linear_rgba_in_oklcha_space_long(a: vec4<f32>, b: vec4<f32>, t: f32) -> v
 fn mix_linear_rgba_in_hsva_space(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
     let ha = linear_rgba_to_hsva(a);
     let hb = linear_rgba_to_hsva(b);
-    let h = lerp_hue(ha.x * TAU, hb.x * TAU, t) / TAU;
+    var h: f32;
+    if ha.y == 0. {
+        h = hb.x;
+    } else if hb.y == 0. {
+        h = ha.x;
+    } else {
+        h = lerp_hue(ha.x * TAU, hb.x * TAU, t) / TAU;
+    }
     let s = mix(ha.y, hb.y, t);
     let v = mix(ha.z, hb.z, t);
     let a_alpha = mix(ha.a, hb.a, t);
