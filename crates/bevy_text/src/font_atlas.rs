@@ -1,10 +1,10 @@
 use bevy_asset::{Assets, Handle};
-use bevy_image::{prelude::*, ImageSampler};
+use bevy_image::{prelude::*, ImageSampler, ToExtents};
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssetUsages,
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render_resource::{TextureDimension, TextureFormat},
 };
 
 use crate::{FontSmoothing, GlyphAtlasLocation, TextError};
@@ -41,11 +41,7 @@ impl FontAtlas {
         font_smoothing: FontSmoothing,
     ) -> FontAtlas {
         let mut image = Image::new_fill(
-            Extent3d {
-                width: size.x,
-                height: size.y,
-                depth_or_array_layers: 1,
-            },
+            size.to_extents(),
             TextureDimension::D2,
             &[0, 0, 0, 0],
             TextureFormat::Rgba8UnormSrgb,

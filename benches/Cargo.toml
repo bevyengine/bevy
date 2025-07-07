@@ -10,7 +10,7 @@ autobenches = false
 [dependencies]
 # The primary crate that runs and analyzes our benchmarks. This is a regular dependency because the
 # `bench!` macro refers to it in its documentation.
-criterion = { version = "0.5.1", features = ["html_reports"] }
+criterion = { version = "0.6.0", features = ["html_reports"] }
 
 [dev-dependencies]
 # Bevy crates
@@ -32,6 +32,7 @@ bevy_platform = { path = "../crates/bevy_platform", default-features = false, fe
 glam = "0.29"
 rand = "0.8"
 rand_chacha = "0.3"
+nonmax = { version = "0.5", default-features = false }
 
 # Make `bevy_render` compile on Linux with x11 windowing. x11 vs. Wayland does not matter here
 # because the benches do not actually open any windows.

@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
@@ -18,14 +18,15 @@ use bevy_derive::Deref;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use core::cell::RefCell;
 use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_window::{exit_on_all_closed, Window, WindowCreated};
-use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
+use bevy_window::{exit_on_all_closed, CursorOptions, Window, WindowCreated};
+use system::{changed_cursor_options, changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
 pub use winit::platform::web::CustomCursorExtWebSys;
@@ -37,7 +38,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use crate::{
-    accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers},
+    accessibility::{AccessKitPlugin, WinitActionRequestHandlers},
     state::winit_runner,
     winit_monitors::WinitMonitors,
 };
@@ -53,6 +54,12 @@ mod winit_config;
 mod winit_monitors;
 mod winit_windows;
 
+thread_local! {
+    /// Temporary storage of WinitWindows data to replace usage of `!Send` resources. This will be replaced with proper
+    /// storage of `!Send` data after issue #17667 is complete.
+    pub static WINIT_WINDOWS: RefCell<WinitWindows> = const { RefCell::new(WinitWindows::new()) };
+}
+
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
 ///
@@ -64,9 +71,9 @@ mod winit_windows;
 /// in systems.
 ///
 /// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
-/// `WakeUp` is the default `Event` that bevy uses.
+/// `WakeUp` is the default event that bevy uses.
 #[derive(Default)]
-pub struct WinitPlugin<T: Event = WakeUp> {
+pub struct WinitPlugin<T: BufferedEvent = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///
@@ -80,7 +87,7 @@ pub struct WinitPlugin<T: Event = WakeUp> {
     marker: PhantomData<T>,
 }
 
-impl<T: Event> Plugin for WinitPlugin<T> {
+impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
     fn name(&self) -> &str {
         "bevy_winit::WinitPlugin"
     }
@@ -124,8 +131,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             .build()
             .expect("Failed to build event loop");
 
-        app.init_non_send_resource::<WinitWindows>()
-            .init_resource::<WinitMonitors>()
+        app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
             .add_event::<RawWinitWindowEvent>()
@@ -136,6 +142,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
                     // `exit_on_all_closed` only checks if windows exist but doesn't access data,
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
+                    changed_cursor_options,
                     despawn_windows,
                     check_keyboard_focus_lost,
                 )
@@ -149,7 +156,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, Event, Reflect)]
+#[derive(Debug, Default, Clone, Copy, Event, BufferedEvent, Reflect)]
 #[reflect(Debug, Default, Clone)]
 pub struct WakeUp;
 
@@ -160,7 +167,7 @@ pub struct WakeUp;
 ///
 /// When you receive this event it has already been handled by Bevy's main loop.
 /// Sending these events will NOT cause them to be processed by Bevy.
-#[derive(Debug, Clone, Event)]
+#[derive(Debug, Clone, Event, BufferedEvent)]
 pub struct RawWinitWindowEvent {
     /// The window for which the event was fired.
     pub window_id: WindowId,
@@ -205,13 +212,12 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
         (
             Entity,
             &'static mut Window,
+            &'static CursorOptions,
             Option<&'static RawHandleWrapperHolder>,
         ),
         F,
     >,
     EventWriter<'w, WindowCreated>,
-    NonSendMut<'w, WinitWindows>,
-    NonSendMut<'w, AccessKitAdapters>,
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
     Res<'w, WinitMonitors>,

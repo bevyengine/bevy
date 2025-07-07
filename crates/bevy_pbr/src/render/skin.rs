@@ -220,7 +220,7 @@ pub fn prepare_skins(
         let mut new_size = uniform.current_buffer.size();
         while new_size < needed_size {
             // 1.5× growth factor.
-            new_size += new_size / 2;
+            new_size = (new_size + new_size / 2).next_multiple_of(4);
         }
 
         // Create the new buffers.
