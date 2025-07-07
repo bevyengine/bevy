@@ -122,7 +122,6 @@ use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bevy_utils::WgpuWrapper;
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
-use std::panic;
 use std::sync::Mutex;
 use tracing::debug;
 
@@ -394,13 +393,6 @@ impl Plugin for RenderPlugin {
             .register_type::<TemporaryRenderEntity>()
             .register_type::<MainEntity>()
             .register_type::<SyncToRenderWorld>();
-    }
-
-    fn ready(&self, app: &App) -> bool {
-        app.world()
-            .get_resource::<FutureRenderResources>()
-            .and_then(|frr| frr.0.try_lock().map(|locked| locked.is_some()).ok())
-            .unwrap_or(true)
     }
 
     fn finish(&self, app: &mut App) {
