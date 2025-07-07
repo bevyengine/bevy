@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 
 use std::collections::VecDeque;
+use std::sync::LazyLock;
 
 use crate::buffer_dimensions;
 use crate::load_font_to_fontdb;
@@ -45,6 +46,7 @@ use cosmic_text::Editor;
 use cosmic_text::Metrics;
 pub use cosmic_text::Motion;
 use cosmic_text::Selection;
+use regex::Regex;
 
 pub struct TextInputPlugin;
 
@@ -148,6 +150,42 @@ impl Default for TextInputAttributes {
             justify: Default::default(),
             line_break: Default::default(),
             max_chars: None,
+        }
+    }
+}
+
+#[derive(Component)]
+pub enum TextInputFilter {
+    /// Integer input
+    /// accepts only digits and a leading sign
+    Integer,
+    /// Decimal input
+    /// accepts only digits, a decimal point and a leading sign
+    Decimal,
+    /// Hexadecimal input
+    /// accepts only `0-9`, `a-f` and `A-F`
+    Hex,
+    /// Alphanumeric input
+    /// accepts only `0-9`, `a-z` and `A-Z`
+    Alphanumeric,
+    /// Custom filter
+    Custom(Regex),
+}
+
+static INTEGER_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
+static DECIMAL_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
+static HEX_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[0-9A-Fa-f]*$").unwrap());
+static ALPHANUMERIC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[0-9A-Za-z]*$").unwrap());
+
+impl TextInputFilter {
+    pub fn regex(&self) -> &Regex {
+        match self {
+            TextInputFilter::Integer => &*INTEGER_REGEX,
+            TextInputFilter::Decimal => &*DECIMAL_REGEX,
+            TextInputFilter::Hex => &*HEX_REGEX,
+            TextInputFilter::Alphanumeric => &*ALPHANUMERIC,
+            TextInputFilter::Custom(regex) => regex,
         }
     }
 }

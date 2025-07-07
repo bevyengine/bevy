@@ -41,6 +41,7 @@ smallvec = "1.13"
 unicode-bidi = "0.3.13"
 sys-locale = "0.3.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+regex = "1.11.1"
 
 [dev-dependencies]
 approx = "0.5.1"
