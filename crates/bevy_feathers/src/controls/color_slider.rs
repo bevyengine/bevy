@@ -2,7 +2,7 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::Handle;
-use bevy_color::{Alpha, Color, Oklcha};
+use bevy_color::{Alpha, Color, Hsla};
 use bevy_core_widgets::{
     Callback, CoreSlider, CoreSliderThumb, SliderRange, SliderValue, TrackClick,
 };
@@ -49,12 +49,12 @@ pub enum ColorChannel {
     Green,
     /// Editing the RGB blue channel (0..=1)
     Blue,
-    /// Editing the luminance channel (0..=1)
-    Lightness,
-    /// Editing the chroma / saturation channel (0..=1)
-    Chroma,
     /// Editing the hue channel (0..=360)
-    Hue,
+    HslHue,
+    /// Editing the chroma / saturation channel (0..=1)
+    HslSaturation,
+    /// Editing the luminance channel (0..=1)
+    HslLightness,
     /// Editing the alpha channel (0..=1)
     Alpha,
 }
@@ -67,9 +67,9 @@ impl ColorChannel {
             | ColorChannel::Green
             | ColorChannel::Blue
             | ColorChannel::Alpha
-            | ColorChannel::Chroma
-            | ColorChannel::Lightness => SliderRange::new(0., 1.),
-            ColorChannel::Hue => SliderRange::new(0., 360.),
+            | ColorChannel::HslSaturation
+            | ColorChannel::HslLightness => SliderRange::new(0., 1.),
+            ColorChannel::HslHue => SliderRange::new(0., 360.),
         }
     }
 
@@ -104,31 +104,29 @@ impl ColorChannel {
                 )
             }
 
-            ColorChannel::Lightness => {
-                let base_oklcha: Oklcha = base_color.into();
-                (
-                    Color::oklch(0.0, base_oklcha.chroma, base_oklcha.hue),
-                    Color::oklch(0.5, base_oklcha.chroma, base_oklcha.hue),
-                    Color::oklch(1.0, base_oklcha.chroma, base_oklcha.hue),
-                )
-            }
-
-            ColorChannel::Chroma => {
-                let base_oklcha: Oklcha = base_color.into();
-                (
-                    Color::oklch(base_oklcha.lightness, 0.0, base_oklcha.hue),
-                    Color::oklch(base_oklcha.lightness, 0.5, base_oklcha.hue),
-                    Color::oklch(base_oklcha.lightness, 1.0, base_oklcha.hue),
-                )
-            }
-
-            // For now, hard-code to Oklcha since that's the only hue-rotation color space
-            // supported by [`ColorGradient`] currently.
-            ColorChannel::Hue => (
-                Color::oklch(0.7, 0.3, 0.0 + 0.0001),
-                Color::oklch(0.7, 0.3, 180.0),
-                Color::oklch(0.7, 0.3, 360.0 - 0.0001),
+            ColorChannel::HslHue => (
+                Color::hsl(0.0 + 0.0001, 1.0, 0.5),
+                Color::hsl(180.0, 1.0, 0.5),
+                Color::hsl(360.0 - 0.01, 1.0, 0.5),
             ),
+
+            ColorChannel::HslSaturation => {
+                let base_hsla: Hsla = base_color.into();
+                (
+                    Color::hsl(base_hsla.hue, 0.0, base_hsla.lightness),
+                    Color::hsl(base_hsla.hue, 0.5, base_hsla.lightness),
+                    Color::hsl(base_hsla.hue, 1.0, base_hsla.lightness),
+                )
+            }
+
+            ColorChannel::HslLightness => {
+                let base_hsla: Hsla = base_color.into();
+                (
+                    Color::hsl(base_hsla.hue, base_hsla.saturation, 0.0),
+                    Color::hsl(base_hsla.hue, base_hsla.saturation, 0.5),
+                    Color::hsl(base_hsla.hue, base_hsla.saturation, 1.0),
+                )
+            }
 
             ColorChannel::Alpha => (
                 base_color.with_alpha(0.),
@@ -142,7 +140,7 @@ impl ColorChannel {
 /// Used to store the color channels that we are not editing: the components of the color
 /// that are constant for this slider.
 #[derive(Component, Default, Clone)]
-pub struct BaseColor(pub Color);
+pub struct SliderBaseColor(pub Color);
 
 /// Slider template properties, passed to [`slider`] function.
 pub struct ColorSliderProps {
@@ -164,9 +162,11 @@ impl Default for ColorSliderProps {
     }
 }
 
+/// A color slider widget.
 #[derive(Component, Default, Clone)]
-#[require(CoreSlider, BaseColor(Color::WHITE))]
+#[require(CoreSlider, SliderBaseColor(Color::WHITE))]
 pub struct ColorSlider {
+    /// Which channel is being edited by this slider.
     pub channel: ColorChannel,
 }
 
@@ -308,13 +308,13 @@ fn update_slider_pos(
 }
 
 fn update_track_color(
-    mut q_sliders: Query<(Entity, &ColorSlider, &BaseColor), Changed<BaseColor>>,
+    mut q_sliders: Query<(Entity, &ColorSlider, &SliderBaseColor), Changed<SliderBaseColor>>,
     q_children: Query<&Children>,
     q_track: Query<(), With<ColorSliderTrack>>,
     mut q_background: Query<&mut BackgroundColor>,
     mut q_gradient: Query<&mut BackgroundGradient>,
 ) {
-    for (slider_ent, slider, BaseColor(base_color)) in q_sliders.iter_mut() {
+    for (slider_ent, slider, SliderBaseColor(base_color)) in q_sliders.iter_mut() {
         let (start, middle, end) = slider.channel.gradient_ends(*base_color);
         if let Some(track_ent) = q_children
             .iter_descendants(slider_ent)
@@ -337,14 +337,15 @@ fn update_track_color(
                         ColorChannel::Red | ColorChannel::Green | ColorChannel::Blue => {
                             InterpolationColorSpace::Srgb
                         }
-                        ColorChannel::Hue | ColorChannel::Lightness | ColorChannel::Chroma => {
-                            InterpolationColorSpace::OkLch
-                        }
+                        ColorChannel::HslHue
+                        | ColorChannel::HslLightness
+                        | ColorChannel::HslSaturation => InterpolationColorSpace::Hsl,
                         ColorChannel::Alpha => match base_color {
                             Color::Srgba(_) => InterpolationColorSpace::Srgb,
                             Color::LinearRgba(_) => InterpolationColorSpace::LinearRgb,
                             Color::Oklaba(_) => InterpolationColorSpace::OkLab,
                             Color::Oklcha(_) => InterpolationColorSpace::OkLchLong,
+                            Color::Hsla(_) | Color::Hsva(_) => InterpolationColorSpace::Hsl,
                             _ => {
                                 warn_once!(
                                     "Unsupported color space for ColorSlider: {:?}",
