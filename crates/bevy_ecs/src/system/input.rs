@@ -80,7 +80,7 @@ pub type SystemIn<'a, S> = <<S as System>::In as SystemInput>::Inner<'a>;
 /// let mut square_system = IntoSystem::into_system(square);
 /// square_system.initialize(&mut world);
 ///
-/// assert_eq!(square_system.run(12, &mut world), 144);
+/// assert_eq!(square_system.run(12, &mut world).unwrap(), 144);
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
@@ -318,9 +318,9 @@ mod tests {
         let mut a = 12;
         let b = 24;
 
-        assert_eq!(by_value.run((a, b), &mut world), 36);
-        assert_eq!(by_ref.run((&a, &b), &mut world), 36);
-        by_mut.run((&mut a, b), &mut world);
+        assert_eq!(by_value.run((a, b), &mut world).unwrap(), 36);
+        assert_eq!(by_ref.run((&a, &b), &mut world).unwrap(), 36);
+        by_mut.run((&mut a, b), &mut world).unwrap();
         assert_eq!(a, 36);
     }
 }

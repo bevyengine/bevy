@@ -7,6 +7,7 @@
 use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
@@ -16,7 +17,7 @@ use bevy_ecs::{
 };
 
 use crate::sync_world::MainEntityHashMap;
-use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
+use crate::{Extract, ExtractSchedule, RenderApp};
 
 /// Describes how to extract data needed for rendering from a component or
 /// components.

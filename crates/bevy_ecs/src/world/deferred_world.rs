@@ -7,7 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{BufferedEvent, EntityEvent, Event, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EntityEvent, Event, EventId, EventKey, Events, SendBatchIds},
     lifecycle::{HookContext, INSERT, REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
@@ -749,7 +749,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers(
         &mut self,
-        event: ComponentId,
+        event: EventKey,
         target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
@@ -773,7 +773,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
-        event: ComponentId,
+        event: EventKey,
         current_target: Option<Entity>,
         original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
