@@ -27,7 +27,7 @@ use cluster::{
 mod ambient_light;
 pub use ambient_light::AmbientLight;
 mod probe;
-pub use probe::{EnvironmentMapLight, LightProbe};
+pub use probe::{EnvironmentMapLight, IrradianceVolume, LightProbe};
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
 pub mod cascade;
@@ -121,6 +121,7 @@ impl Plugin for LightPlugin {
             .register_type::<PointLight>()
             .register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
+            .register_type::<IrradianceVolume>()
             .register_type::<VolumetricFog>()
             .register_type::<VolumetricLight>()
             .register_type::<PointLightShadowMap>()
