@@ -7,4 +7,4 @@ Toggling mouse and touch input update for picking should be done through
 the `PointerInputSettings` resource instead of `PointerInputPlugin`.
 
 To initialize `PointerInputSettings` with non-default values, simply add
-the resource to the app using `insert_resource` with desired value.
+the resource to the app using `insert_resource` with the desired value.
