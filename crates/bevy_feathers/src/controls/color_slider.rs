@@ -107,7 +107,7 @@ impl ColorChannel {
             ColorChannel::HslHue => (
                 Color::hsl(0.0 + 0.0001, 1.0, 0.5),
                 Color::hsl(180.0, 1.0, 0.5),
-                Color::hsl(360.0 - 0.01, 1.0, 0.5),
+                Color::hsl(360.0 - 0.0001, 1.0, 0.5),
             ),
 
             ColorChannel::HslSaturation => {
