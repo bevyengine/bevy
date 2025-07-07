@@ -14,7 +14,7 @@ This includes both the `World` and `Commands` event methods. The old methods hav
 | `DeferredWorld::send_event`         | `DeferredWorld::write_event`         |
 | `DeferredWorld::send_event_default` | `DeferredWorld::write_event_default` |
 | `DeferredWorld::send_event_batch`   | `DeferredWorld::write_event_batch`   |
-| `Commands::send_event`              | `Commmands::write_event`             |
+| `Commands::send_event`              | `Commands::write_event`              |
 | `Events::send`                      | `Events::write`                      |
 | `Events::send_default`              | `Events::write_default`              |
 | `Events::send_batch`                | `Events::write_batch`                |
