@@ -12,7 +12,7 @@ use bevy::{
         render_resource::{binding_types::texture_storage_2d, *},
         renderer::{RenderContext, RenderDevice},
         texture::GpuImage,
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderSystems,
     },
 };
 use std::borrow::Cow;
@@ -86,9 +86,9 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 // Switch texture to display every frame to show the one that was written to most recently.
 fn switch_textures(images: Res<GameOfLifeImages>, mut sprite: Single<&mut Sprite>) {
     if sprite.image == images.texture_a {
-        sprite.image = images.texture_b.clone_weak();
+        sprite.image = images.texture_b.clone();
     } else {
-        sprite.image = images.texture_a.clone_weak();
+        sprite.image = images.texture_a.clone();
     }
 }
 
@@ -105,7 +105,7 @@ impl Plugin for GameOfLifeComputePlugin {
         let render_app = app.sub_app_mut(RenderApp);
         render_app.add_systems(
             Render,
-            prepare_bind_group.in_set(RenderSet::PrepareBindGroups),
+            prepare_bind_group.in_set(RenderSystems::PrepareBindGroups),
         );
 
         let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
@@ -173,22 +173,16 @@ impl FromWorld for GameOfLifePipeline {
         let shader = world.load_asset(SHADER_ASSET_PATH);
         let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: None,
             layout: vec![texture_bind_group_layout.clone()],
-            push_constant_ranges: Vec::new(),
             shader: shader.clone(),
-            shader_defs: vec![],
-            entry_point: Cow::from("init"),
-            zero_initialize_workgroup_memory: false,
+            entry_point: Some(Cow::from("init")),
+            ..default()
         });
         let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: None,
             layout: vec![texture_bind_group_layout.clone()],
-            push_constant_ranges: Vec::new(),
             shader,
-            shader_defs: vec![],
-            entry_point: Cow::from("update"),
-            zero_initialize_workgroup_memory: false,
+            entry_point: Some(Cow::from("update")),
+            ..default()
         });
 
         GameOfLifePipeline {
@@ -229,6 +223,8 @@ impl render_graph::Node for GameOfLifeNode {
                     CachedPipelineState::Ok(_) => {
                         self.state = GameOfLifeState::Init;
                     }
+                    // If the shader hasn't loaded yet, just wait.
+                    CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
                     CachedPipelineState::Err(err) => {
                         panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
                     }

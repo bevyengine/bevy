@@ -1,4 +1,3 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -8,8 +7,8 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Reflection in Rust.
@@ -521,7 +520,7 @@
 //! and displaying it in error messages.
 //!
 //! [Reflection]: https://en.wikipedia.org/wiki/Reflective_programming
-//! [Bevy]: https://bevyengine.org/
+//! [Bevy]: https://bevy.org/
 //! [limitations]: #limitations
 //! [`bevy_reflect`]: crate
 //! [introspection]: https://en.wikipedia.org/wiki/Type_introspection
@@ -589,7 +588,14 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod alloc;
+    mod bevy_platform;
+    mod core;
     mod foldhash;
+    #[cfg(feature = "hashbrown")]
+    mod hashbrown;
+    mod macros;
+    #[cfg(feature = "std")]
     mod std;
 
     #[cfg(feature = "glam")]
@@ -995,7 +1001,7 @@ mod tests {
     /// If we don't append the strings in the `TypePath` derive correctly (i.e. explicitly specifying the type),
     /// we'll get a compilation error saying that "`&String` cannot be added to `String`".
     ///
-    /// So this test just ensures that we do do that correctly.
+    /// So this test just ensures that we do that correctly.
     ///
     /// This problem is a known issue and is unexpectedly expected behavior:
     /// - <https://github.com/rust-lang/rust/issues/77143>
@@ -1577,7 +1583,6 @@ mod tests {
         foo.apply(&foo_patch);
 
         let mut hash_map = <HashMap<_, _>>::default();
-        hash_map.insert(1, 1);
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
@@ -2601,7 +2606,7 @@ bevy_reflect::tests::Test {
         let foo = Foo { a: 1 };
         let foo: &dyn Reflect = &foo;
 
-        assert_eq!("123", format!("{:?}", foo));
+        assert_eq!("123", format!("{foo:?}"));
     }
 
     #[test]
@@ -2854,7 +2859,7 @@ bevy_reflect::tests::Test {
         test_unknown_tuple_struct.insert(14);
         test_struct.insert("unknown_tuplestruct", test_unknown_tuple_struct);
         assert_eq!(
-            format!("{:?}", test_struct),
+            format!("{test_struct:?}"),
             "DynamicStruct(bevy_reflect::tests::TestStruct { \
                 tuple: DynamicTuple((0, 1)), \
                 tuple_struct: DynamicTupleStruct(bevy_reflect::tests::TestTupleStruct(8)), \

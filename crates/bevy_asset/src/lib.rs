@@ -141,8 +141,8 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -228,13 +228,6 @@ use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
 use tracing::error;
 
-#[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
-compile_error!(
-    "The \"file_watcher\" feature for hot reloading requires the \
-    \"multi_threaded\" feature to be functional.\n\
-    Consider either disabling the \"file_watcher\" feature or enabling \"multi_threaded\""
-);
-
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
 /// which can be something like a filesystem, a network, etc.
 ///
@@ -271,7 +264,7 @@ pub struct AssetPlugin {
 /// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
 ///
 /// It is strongly discouraged to use [`Allow`](UnapprovedPathMode::Allow) if your
-/// app will include scripts or modding support, as it could allow allow arbitrary file
+/// app will include scripts or modding support, as it could allow arbitrary file
 /// access for malicious code.
 ///
 /// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
@@ -279,10 +272,10 @@ pub struct AssetPlugin {
 pub enum UnapprovedPathMode {
     /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
-    /// Fails to load any asset that is is unapproved, unless an override method is used, like
+    /// Fails to load any asset that is unapproved, unless an override method is used, like
     /// [`AssetServer::load_override`].
     Deny,
-    /// Fails to load any asset that is is unapproved.
+    /// Fails to load any asset that is unapproved.
     #[default]
     Forbid,
 }
@@ -421,7 +414,10 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
-            .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
+            .configure_sets(
+                PreUpdate,
+                AssetTrackingSystems.after(handle_internal_asset_events),
+            )
             // `handle_internal_asset_events` requires the use of `&mut World`,
             // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
             // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
@@ -618,9 +614,12 @@ impl AssetApp for App {
                 PostUpdate,
                 Assets::<A>::asset_events
                     .run_if(Assets::<A>::asset_events_condition)
-                    .in_set(AssetEvents),
+                    .in_set(AssetEventSystems),
             )
-            .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
+            .add_systems(
+                PreUpdate,
+                Assets::<A>::track_assets.in_set(AssetTrackingSystems),
+            )
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -650,13 +649,21 @@ impl AssetApp for App {
 
 /// A system set that holds all "track asset" operations.
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-pub struct TrackAssets;
+pub struct AssetTrackingSystems;
+
+/// Deprecated alias for [`AssetTrackingSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetTrackingSystems`.")]
+pub type TrackAssets = AssetTrackingSystems;
 
 /// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
 ///
 /// [`Events`]: bevy_ecs::event::Events
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct AssetEvents;
+pub struct AssetEventSystems;
+
+/// Deprecated alias for [`AssetEventSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetEventSystems`.")]
+pub type AssetEvents = AssetEventSystems;
 
 #[cfg(test)]
 mod tests {
@@ -1992,5 +1999,93 @@ mod tests {
         app.add_systems(Update, (uses_assets, load_a_asset));
 
         app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    #[ignore = "blocked on https://github.com/bevyengine/bevy/issues/11111"]
+    fn same_asset_different_settings() {
+        // Test loading the same asset twice with different settings. This should
+        // produce two distinct assets.
+
+        // First, implement an asset that's a single u8, whose value is copied from
+        // the loader settings.
+
+        #[derive(Asset, TypePath)]
+        struct U8Asset(u8);
+
+        #[derive(Serialize, Deserialize, Default)]
+        struct U8LoaderSettings(u8);
+
+        struct U8Loader;
+
+        impl AssetLoader for U8Loader {
+            type Asset = U8Asset;
+            type Settings = U8LoaderSettings;
+            type Error = crate::loader::LoadDirectError;
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                settings: &Self::Settings,
+                _: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(U8Asset(settings.0))
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["u8"]
+            }
+        }
+
+        // Create a test asset.
+
+        let dir = Dir::default();
+        dir.insert_asset(Path::new("test.u8"), &[]);
+
+        let asset_source = AssetSource::build()
+            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+
+        // Set up the app.
+
+        let mut app = App::new();
+
+        app.register_asset_source(AssetSourceId::Default, asset_source)
+            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<U8Asset>()
+            .register_asset_loader(U8Loader);
+
+        let asset_server = app.world().resource::<AssetServer>();
+
+        // Load the test asset twice but with different settings.
+
+        fn load(asset_server: &AssetServer, path: &str, value: u8) -> Handle<U8Asset> {
+            asset_server.load_with_settings::<U8Asset, U8LoaderSettings>(
+                path,
+                move |s: &mut U8LoaderSettings| s.0 = value,
+            )
+        }
+
+        let handle_1 = load(asset_server, "test.u8", 1);
+        let handle_2 = load(asset_server, "test.u8", 2);
+
+        // Handles should be different.
+
+        assert_ne!(handle_1, handle_2);
+
+        run_app_until(&mut app, |world| {
+            let (Some(asset_1), Some(asset_2)) = (
+                world.resource::<Assets<U8Asset>>().get(&handle_1),
+                world.resource::<Assets<U8Asset>>().get(&handle_2),
+            ) else {
+                return None;
+            };
+
+            // Values should match the settings.
+
+            assert_eq!(asset_1.0, 1);
+            assert_eq!(asset_2.0, 2);
+
+            Some(())
+        });
     }
 }

@@ -64,7 +64,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ));
         builder.spawn((
             Text::new(
-                "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",
+                "This text is right-justified. The `Justify` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",
             ),
             TextFont {
                 font: font.clone(),
@@ -72,7 +72,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             TextColor(YELLOW.into()),
-            TextLayout::new_with_justify(JustifyText::Right),
+            TextLayout::new_with_justify(Justify::Right),
             Node {
                 max_width: Val::Px(300.),
                 ..default()
@@ -114,7 +114,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.8, 0.2, 0.7)),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
                 Node {
                     max_width: Val::Px(400.),
                     ..default()
@@ -130,7 +130,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 TextColor(YELLOW.into()),
-                TextLayout::new_with_justify(JustifyText::Left),
+                TextLayout::new_with_justify(Justify::Left),
                 Node {
                     max_width: Val::Px(300.),
                     ..default()
@@ -145,7 +145,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 29.0,
                     ..default()
                 },
-                TextLayout::new_with_justify(JustifyText::Justified),
+                TextLayout::new_with_justify(Justify::Justified),
                 TextColor(GREEN_YELLOW.into()),
                 Node {
                     max_width: Val::Px(300.),
