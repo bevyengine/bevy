@@ -29,7 +29,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", features = [
 ] }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
-  "serialize",
+  "serialize"
 ] }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev", optional = true }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev", optional = true }

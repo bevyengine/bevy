@@ -12,8 +12,7 @@ use serde_json::Value;
 
 use crate::schemas::{
     reflect_info::{
-        is_non_zero_number_type, SchemaNumber, TypeDefinitionBuilder, TypeReferenceId,
-        TypeReferencePath,
+        OptionalInfoReader, SchemaNumber, TypeDefinitionBuilder, TypeReferenceId, TypeReferencePath,
     },
     SchemaTypesMetadata,
 };
@@ -269,7 +268,7 @@ impl From<JsonSchemaBevyType> for JsonSchemaVariant {
 }
 
 /// Kind of json schema, maps [`bevy_reflect::TypeInfo`] type
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, Reflect)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, Reflect, Copy)]
 pub enum SchemaKind {
     /// Struct
     #[default]
@@ -299,6 +298,14 @@ pub enum SchemaKind {
 impl SchemaKind {
     /// Creates a [`SchemaKind`] from a [`TypeRegistration`].
     pub fn from_type_reg(type_reg: &TypeRegistration) -> Self {
+        if let Some(info) =
+            super::reflect_info::BASE_TYPES_INFO.get(&type_reg.type_info().type_id())
+        {
+            return info.schema_kind;
+        }
+        if type_reg.try_get_optional().is_some() {
+            return SchemaKind::Optional;
+        }
         match type_reg.type_info() {
             TypeInfo::Struct(_) => SchemaKind::Struct,
             TypeInfo::TupleStruct(_) => SchemaKind::TupleStruct,
@@ -315,13 +322,7 @@ impl SchemaKind {
                     _ => SchemaKind::Value,
                 }
             }
-            TypeInfo::Enum(enum_info) => {
-                if super::reflect_info::try_get_optional_from_info(enum_info).is_some() {
-                    SchemaKind::Optional
-                } else {
-                    SchemaKind::Enum
-                }
-            }
+            TypeInfo::Enum(_) => SchemaKind::Enum,
         }
     }
 }
@@ -393,34 +394,22 @@ pub enum SchemaType {
 
 impl From<TypeId> for SchemaType {
     fn from(value: TypeId) -> Self {
-        if value.eq(&TypeId::of::<bool>()) {
-            Self::Boolean
-        } else if value.eq(&TypeId::of::<f32>()) || value.eq(&TypeId::of::<f64>()) {
-            Self::Number
-        } else if value.eq(&TypeId::of::<u8>())
-            || value.eq(&TypeId::of::<u16>())
-            || value.eq(&TypeId::of::<u32>())
-            || value.eq(&TypeId::of::<u64>())
-            || value.eq(&TypeId::of::<u128>())
-            || value.eq(&TypeId::of::<usize>())
-            || value.eq(&TypeId::of::<i8>())
-            || value.eq(&TypeId::of::<i16>())
-            || value.eq(&TypeId::of::<i32>())
-            || value.eq(&TypeId::of::<i64>())
-            || value.eq(&TypeId::of::<i128>())
-            || value.eq(&TypeId::of::<isize>())
-            || is_non_zero_number_type(value)
-        {
-            Self::Integer
-        } else if value.eq(&TypeId::of::<str>())
-            || value.eq(&TypeId::of::<char>())
-            || value.eq(&TypeId::of::<String>())
-            || value.eq(&TypeId::of::<Cow<str>>())
-        {
-            Self::String
+        if let Some(info) = super::reflect_info::BASE_TYPES_INFO.get(&value) {
+            info.schema_type
         } else {
             Self::Object
         }
+    }
+}
+
+impl From<SchemaType> for SchemaTypeVariant {
+    fn from(value: SchemaType) -> Self {
+        SchemaTypeVariant::Single(value)
+    }
+}
+impl From<SchemaType> for Option<SchemaTypeVariant> {
+    fn from(value: SchemaType) -> Self {
+        Some(SchemaTypeVariant::Single(value))
     }
 }
 
