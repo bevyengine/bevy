@@ -56,7 +56,6 @@ critical-section = [
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = false }
 bevy_time = { path = "../bevy_time", version = "0.17.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", default-features = false }
 bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "alloc",
