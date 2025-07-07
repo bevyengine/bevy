@@ -4325,6 +4325,17 @@ description = "Demonstrates specular tints and maps"
 category = "3D Rendering"
 wasm = true
 
+[[example]]
+name = "projectile_follow_moving"
+path = "examples/usage/projectile_follow_moving.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.projectile_follow_moving]
+name = "Projectile follow moving"
+description = "A projectile is fired on mousclick following a moving target."
+category = "usage"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
