@@ -687,36 +687,40 @@ mod tests {
 
     #[test]
     fn entity_index_map() {
-        #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
-        struct Rel(Entity);
+        for add_before in [false, true] {
+            #[derive(Component)]
+            #[relationship(relationship_target = RelTarget)]
+            struct Rel(Entity);
 
-        #[derive(Component)]
-        #[relationship_target(relationship = Rel, linked_spawn)]
-        struct RelTarget(EntityHashSet);
+            #[derive(Component)]
+            #[relationship_target(relationship = Rel, linked_spawn)]
+            struct RelTarget(Vec<Entity>);
 
-        let mut world = World::new();
-        let a = world.spawn_empty().id();
-        let b = world.spawn_empty().id();
-        let c = world.spawn_empty().id();
+            let mut world = World::new();
+            if add_before {
+                let _ = world.spawn_empty().id();
+            }
+            let a = world.spawn_empty().id();
+            let b = world.spawn_empty().id();
+            let c = world.spawn_empty().id();
+            let d = world.spawn_empty().id();
 
-        let d = world.spawn_empty().id();
+            world.entity_mut(a).add_related::<Rel>(&[b, c, d]);
 
-        world.entity_mut(a).add_related::<Rel>(&[b, c, d]);
+            let rel_target = world.get::<RelTarget>(a).unwrap();
+            let collection = rel_target.collection();
 
-        let rel_target = world.get::<RelTarget>(a).unwrap();
-        let collection = rel_target.collection();
+            // Insertions should maintain ordering
+            assert!(collection.iter().eq([b, c, d]));
 
-        // Insertions should maintain ordering
-        assert!(collection.iter().eq(&[d, c, b]));
+            world.entity_mut(c).despawn();
 
-        world.entity_mut(c).despawn();
+            let rel_target = world.get::<RelTarget>(a).unwrap();
+            let collection = rel_target.collection();
 
-        let rel_target = world.get::<RelTarget>(a).unwrap();
-        let collection = rel_target.collection();
-
-        // Removals should maintain ordering
-        assert!(collection.iter().eq(&[d, b]));
+            // Removals should maintain ordering
+            assert!(collection.iter().eq([b, d]));
+        }
     }
 
     #[test]

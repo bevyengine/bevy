@@ -94,10 +94,10 @@ use core::{
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Send + Sync + 'static {
-    /// Generates the [`ComponentId`] for this event type.
+    /// Generates the [`EventKey`] for this event type.
     ///
     /// If this type has already been registered,
-    /// this will return the existing [`ComponentId`].
+    /// this will return the existing [`EventKey`].
     ///
     /// This is used by various dynamically typed observer APIs,
     /// such as [`World::trigger_targets_dynamic`].
@@ -105,12 +105,12 @@ pub trait Event: Send + Sync + 'static {
     /// # Warning
     ///
     /// This method should not be overridden by implementers,
-    /// and should always correspond to the implementation of [`component_id`](Event::component_id).
-    fn register_component_id(world: &mut World) -> ComponentId {
-        world.register_component::<EventWrapperComponent<Self>>()
+    /// and should always correspond to the implementation of [`event_key`](Event::event_key).
+    fn register_event_key(world: &mut World) -> EventKey {
+        EventKey(world.register_component::<EventWrapperComponent<Self>>())
     }
 
-    /// Fetches the [`ComponentId`] for this event type,
+    /// Fetches the [`EventKey`] for this event type,
     /// if it has already been generated.
     ///
     /// This is used by various dynamically typed observer APIs,
@@ -119,9 +119,12 @@ pub trait Event: Send + Sync + 'static {
     /// # Warning
     ///
     /// This method should not be overridden by implementers,
-    /// and should always correspond to the implementation of [`register_component_id`](Event::register_component_id).
-    fn component_id(world: &World) -> Option<ComponentId> {
-        world.component_id::<EventWrapperComponent<Self>>()
+    /// and should always correspond to the implementation of
+    /// [`register_event_key`](Event::register_event_key).
+    fn event_key(world: &World) -> Option<EventKey> {
+        world
+            .component_id::<EventWrapperComponent<Self>>()
+            .map(EventKey)
     }
 }
 
@@ -420,4 +423,20 @@ impl<E: BufferedEvent> Hash for EventId<E> {
 pub(crate) struct EventInstance<E: BufferedEvent> {
     pub event_id: EventId<E>,
     pub event: E,
+}
+
+/// A unique identifier for an [`Event`], used by [observers].
+///
+/// You can look up the key for your event by calling the [`Event::event_key`] method.
+///
+/// [observers]: crate::observer
+#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+pub struct EventKey(pub(crate) ComponentId);
+
+impl EventKey {
+    /// Returns the internal [`ComponentId`].
+    #[inline]
+    pub(crate) fn component_id(&self) -> ComponentId {
+        self.0
+    }
 }

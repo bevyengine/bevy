@@ -25,6 +25,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
+use bevy_utils::default;
 
 pub mod graph {
     use bevy_render::render_graph::RenderLabel;
@@ -239,9 +240,8 @@ impl FromWorld for SolariLightingNode {
                     range: 0..8,
                 }],
                 shader: load_embedded_asset!(world, "restir_di.wgsl"),
-                shader_defs: vec![],
-                entry_point: "initial_and_temporal".into(),
-                zero_initialize_workgroup_memory: false,
+                entry_point: Some("initial_and_temporal".into()),
+                ..default()
             });
 
         let di_spatial_and_shade_pipeline =
@@ -256,9 +256,8 @@ impl FromWorld for SolariLightingNode {
                     range: 0..8,
                 }],
                 shader: load_embedded_asset!(world, "restir_di.wgsl"),
-                shader_defs: vec![],
-                entry_point: "spatial_and_shade".into(),
-                zero_initialize_workgroup_memory: false,
+                entry_point: Some("spatial_and_shade".into()),
+                ..default()
             });
 
         let gi_initial_and_temporal_pipeline =

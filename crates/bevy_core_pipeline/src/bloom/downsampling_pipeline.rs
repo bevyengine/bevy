@@ -16,6 +16,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
 };
+use bevy_utils::default;
 
 #[derive(Component)]
 pub struct BloomDownsamplingPipelineIds {
@@ -130,18 +131,14 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point,
+                entry_point: Some(entry_point),
                 targets: vec![Some(ColorTargetState {
                     format: BLOOM_TEXTURE_FORMAT,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

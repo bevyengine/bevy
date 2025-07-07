@@ -999,10 +999,10 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// write_system.initialize(world);
 /// read_system.initialize(world);
 ///
-/// assert_eq!(read_system.run((), world), 0);
+/// assert_eq!(read_system.run((), world).unwrap(), 0);
 /// write_system.run((), world);
 /// // Note how the read local is still 0 due to the locals not being shared.
-/// assert_eq!(read_system.run((), world), 0);
+/// assert_eq!(read_system.run((), world).unwrap(), 0);
 /// ```
 ///
 /// A simple way to set a different default value for a local is by wrapping the value with an Option.
@@ -1019,9 +1019,9 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// counter_system.initialize(world);
 ///
 /// // Counter is initialized at 10, and increases to 11 on first run.
-/// assert_eq!(counter_system.run((), world), 11);
+/// assert_eq!(counter_system.run((), world).unwrap(), 11);
 /// // Counter is only increased by 1 on subsequent runs.
-/// assert_eq!(counter_system.run((), world), 12);
+/// assert_eq!(counter_system.run((), world).unwrap(), 12);
 /// ```
 ///
 /// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
@@ -2825,6 +2825,13 @@ impl SystemParamValidationError {
             field: field.into(),
         }
     }
+
+    pub(crate) const EMPTY: Self = Self {
+        skipped: false,
+        message: Cow::Borrowed(""),
+        param: DebugName::borrowed(""),
+        field: Cow::Borrowed(""),
+    };
 }
 
 impl Display for SystemParamValidationError {

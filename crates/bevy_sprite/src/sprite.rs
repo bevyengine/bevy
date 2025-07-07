@@ -124,12 +124,15 @@ impl Sprite {
             point_relative_to_sprite_center.y *= -1.0;
         }
 
+        if sprite_size.x == 0.0 || sprite_size.y == 0.0 {
+            return Err(point_relative_to_sprite_center);
+        }
+
         let sprite_to_texture_ratio = {
             let texture_size = texture_rect.size();
-            let div_or_zero = |a, b| if b == 0.0 { 0.0 } else { a / b };
             Vec2::new(
-                div_or_zero(texture_size.x, sprite_size.x),
-                div_or_zero(texture_size.y, sprite_size.y),
+                texture_size.x / sprite_size.x,
+                texture_size.y / sprite_size.y,
             )
         };
 
@@ -554,5 +557,35 @@ mod tests {
         assert_eq!(compute(Vec2::new(-10.0, -15.0)), Ok(Vec2::new(2.0, 4.0)));
         // The pixel is outside the texture atlas, but is still a valid pixel in the image.
         assert_eq!(compute(Vec2::new(0.0, 35.0)), Err(Vec2::new(2.5, -1.0)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_sprite_with_zero_custom_size() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            custom_size: Some(Vec2::new(0.0, 0.0)),
+            ..Default::default()
+        };
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(
+                point,
+                Anchor::default(),
+                &image_assets,
+                &texture_atlas_assets,
+            )
+        };
+        assert_eq!(compute(Vec2::new(30.0, 15.0)), Err(Vec2::new(30.0, -15.0)));
+        assert_eq!(
+            compute(Vec2::new(-10.0, -15.0)),
+            Err(Vec2::new(-10.0, 15.0))
+        );
+        // The pixel is outside the texture atlas, but is still a valid pixel in the image.
+        assert_eq!(compute(Vec2::new(0.0, 35.0)), Err(Vec2::new(0.0, -35.0)));
     }
 }
