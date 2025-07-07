@@ -22,9 +22,10 @@ use bevy_log::warn_once;
 use bevy_picking::PickingSystems;
 use bevy_ui::{
     AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
-    FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, MaterialNode, Node, Outline,
-    PositionType, UiRect, UiTransform, Val, Val2, ZIndex,
+    FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
+    UiRect, UiTransform, Val, Val2, ZIndex,
 };
+use bevy_ui_render::ui_material::MaterialNode;
 use bevy_winit::cursor::CursorIcon;
 
 use crate::{

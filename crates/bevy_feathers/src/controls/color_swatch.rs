@@ -1,7 +1,8 @@
 use bevy_asset::Handle;
 use bevy_color::Alpha;
 use bevy_ecs::{bundle::Bundle, children, spawn::SpawnRelated};
-use bevy_ui::{BackgroundColor, BorderRadius, MaterialNode, Node, PositionType, Val};
+use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
+use bevy_ui_render::ui_material::MaterialNode;
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},

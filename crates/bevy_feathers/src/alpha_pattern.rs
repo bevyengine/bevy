@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypePath;
 use bevy_render::render_resource::{AsBindGroup, ShaderRef};
-use bevy_ui::{MaterialNode, UiMaterial};
+use bevy_ui_render::ui_material::{MaterialNode, UiMaterial};
 
 #[derive(AsBindGroup, Asset, TypePath, Default, Debug, Clone)]
 pub(crate) struct AlphaPatternMaterial {}
