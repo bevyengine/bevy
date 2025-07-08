@@ -26,6 +26,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    load_shader_library,
     render_graph::{
         NodeRunError, RenderGraph, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
     },
@@ -41,7 +42,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
-use bevy_render::{load_shader_library, render_graph::RenderGraph};
 use bevy_utils::{once, prelude::default};
 use tracing::info;
 
