@@ -1802,10 +1802,6 @@ mod tests {
         world.insert_resource(atr.clone());
         world.insert_resource(SchemaTypesMetadata::default());
         let response = export_registry_types_ext(BrpJsonSchemaQueryFilter::default(), &world);
-        eprintln!(
-            "{}",
-            serde_json::to_string_pretty(&response).unwrap_or_default()
-        );
         let schema_value = serde_json::to_value(response).expect("Failed to serialize schema");
         let type_registry = atr.read();
         let serializer = ReflectSerializer::new(&value, &type_registry);
