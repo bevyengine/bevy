@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::basic::*,
     core_widgets::{
         Callback, CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider,
-        CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugin, SliderRange, SliderValue,
+        CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugins, SliderRange, SliderValue,
         TrackClick,
     },
     input_focus::{
@@ -21,7 +21,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreWidgetsPlugin,
+            CoreWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
