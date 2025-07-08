@@ -21,6 +21,7 @@ use bevy_input_focus::FocusedInput;
 use bevy_log::warn_once;
 use bevy_math::ops;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
+use bevy_reflect::Reflect;
 use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
 
 use crate::{Callback, Notify};
@@ -178,7 +179,7 @@ impl Default for SliderRange {
 
 /// Defines the amount by which to increment or decrement the slider value when using keyboard
 /// shortcuts. Defaults to 1.0.
-#[derive(Component, Debug, PartialEq, Clone)]
+#[derive(Component, Debug, PartialEq, Clone, Reflect)]
 #[component(immutable)]
 pub struct SliderStep(pub f32);
 
@@ -188,15 +189,16 @@ impl Default for SliderStep {
     }
 }
 
-/// A component which controls the rounding of the slider value during dragging. Stepping is not
-/// affected, although presumably the step size will be an integer multiple of the rounding factor.
-/// This also doesn't prevent the slider value from being set to non-rounded values by other means,
-/// such as manually entering digits via a numberic input field.
+/// A component which controls the rounding of the slider value during dragging.
 ///
-/// The value in this component represents the number of decimal places of desired precision,
-/// so a value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
+/// Stepping is not affected, although presumably the step size will be an integer multiple of the
+/// rounding factor. This also doesn't prevent the slider value from being set to non-rounded values
+/// by other means, such as manually entering digits via a numeric input field.
+///
+/// The value in this component represents the number of decimal places of desired precision, so a
+/// value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
 /// thousand.
-#[derive(Component, Debug, Default, Clone, Copy)]
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 pub struct SliderPrecision(pub i32);
 
 impl SliderPrecision {
