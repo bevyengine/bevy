@@ -2223,7 +2223,7 @@ mod tests {
             self.app
                 .world_mut()
                 .resource_mut::<Events<GamepadConnectionEvent>>()
-                .send(GamepadConnectionEvent::new(
+                .write(GamepadConnectionEvent::new(
                     gamepad,
                     Connected {
                         name: "Test gamepad".to_string(),
@@ -2238,14 +2238,14 @@ mod tests {
             self.app
                 .world_mut()
                 .resource_mut::<Events<GamepadConnectionEvent>>()
-                .send(GamepadConnectionEvent::new(gamepad, Disconnected));
+                .write(GamepadConnectionEvent::new(gamepad, Disconnected));
         }
 
         pub fn send_raw_gamepad_event(&mut self, event: RawGamepadEvent) {
             self.app
                 .world_mut()
                 .resource_mut::<Events<RawGamepadEvent>>()
-                .send(event);
+                .write(event);
         }
 
         pub fn send_raw_gamepad_event_batch(
@@ -2255,7 +2255,7 @@ mod tests {
             self.app
                 .world_mut()
                 .resource_mut::<Events<RawGamepadEvent>>()
-                .send_batch(events);
+                .write_batch(events);
         }
     }
 
@@ -2449,7 +2449,7 @@ mod tests {
         ctx.app
             .world_mut()
             .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch([
+            .write_batch([
                 RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
                     entity,
                     GamepadAxis::LeftStickY,
@@ -2513,7 +2513,7 @@ mod tests {
         ctx.app
             .world_mut()
             .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .write_batch(events);
         ctx.update();
         assert_eq!(
             ctx.app
@@ -2550,7 +2550,7 @@ mod tests {
         ctx.app
             .world_mut()
             .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .write_batch(events);
         ctx.update();
         assert_eq!(
             ctx.app
@@ -2598,7 +2598,7 @@ mod tests {
         ctx.app
             .world_mut()
             .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .write_batch(events);
         ctx.update();
 
         let events = ctx
@@ -2654,7 +2654,7 @@ mod tests {
         ctx.app
             .world_mut()
             .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .write_batch(events);
         ctx.update();
         assert_eq!(
             ctx.app
@@ -2692,7 +2692,7 @@ mod tests {
         ctx.app
             .world_mut()
             .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .write_batch(events);
         ctx.update();
 
         let events = ctx
@@ -2728,7 +2728,7 @@ mod tests {
         ctx.app
             .world_mut()
             .resource_mut::<Events<RawGamepadEvent>>()
-            .send_batch(events);
+            .write_batch(events);
         ctx.update();
 
         assert_eq!(

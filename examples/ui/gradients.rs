@@ -245,6 +245,18 @@ fn setup(mut commands: Commands) {
                                             InterpolationColorSpace::LinearRgb
                                         }
                                         InterpolationColorSpace::LinearRgb => {
+                                            InterpolationColorSpace::Hsl
+                                        }
+                                        InterpolationColorSpace::Hsl => {
+                                            InterpolationColorSpace::HslLong
+                                        }
+                                        InterpolationColorSpace::HslLong => {
+                                            InterpolationColorSpace::Hsv
+                                        }
+                                        InterpolationColorSpace::Hsv => {
+                                            InterpolationColorSpace::HsvLong
+                                        }
+                                        InterpolationColorSpace::HsvLong => {
                                             InterpolationColorSpace::OkLab
                                         }
                                     };

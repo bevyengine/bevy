@@ -343,15 +343,15 @@ mod tests {
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
-        fn send_event(mut events: ResMut<Events<DummyEvent>>) {
-            events.send(DummyEvent);
+        fn write_event(mut events: ResMut<Events<DummyEvent>>) {
+            events.write(DummyEvent);
         }
 
         let mut app = App::new();
         app.add_plugins(TimePlugin)
             .add_event::<DummyEvent>()
             .init_resource::<FixedUpdateCounter>()
-            .add_systems(Startup, send_event)
+            .add_systems(Startup, write_event)
             .add_systems(FixedUpdate, count_fixed_updates)
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 

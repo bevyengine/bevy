@@ -1,6 +1,16 @@
-use bevy_render::view::{self, Visibility};
+use bevy_asset::Handle;
+use bevy_camera::{
+    primitives::Frustum,
+    visibility::{self, Visibility, VisibilityClass, VisibleMeshEntities},
+};
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_image::Image;
+use bevy_math::{Mat4, Vec4};
+use bevy_reflect::prelude::*;
+use bevy_transform::components::{GlobalTransform, Transform};
 
-use super::*;
+use crate::cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects};
 
 /// A light that emits light in a given direction from a central point.
 ///
@@ -10,7 +20,7 @@ use super::*;
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Frustum, VisibleMeshEntities, Transform, Visibility, VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct SpotLight {
     /// The color of the light.
     ///
@@ -58,6 +68,8 @@ pub struct SpotLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    ///
+    /// [`ShadowFilteringMethod::Temporal`]: crate::ShadowFilteringMethod::Temporal
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
 
@@ -138,5 +150,84 @@ impl Default for SpotLight {
             #[cfg(feature = "experimental_pbr_pcss")]
             soft_shadows_enabled: false,
         }
+    }
+}
+
+// this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
+// we will also construct it in the fragment shader and need our implementations to match,
+// so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
+// could move this onto transform but it's pretty niche
+pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
+    // the matrix z_local (opposite of transform.forward())
+    let fwd_dir = transform.back().extend(0.0);
+
+    let sign = 1f32.copysign(fwd_dir.z);
+    let a = -1.0 / (fwd_dir.z + sign);
+    let b = fwd_dir.x * fwd_dir.y * a;
+    let up_dir = Vec4::new(
+        1.0 + sign * fwd_dir.x * fwd_dir.x * a,
+        sign * b,
+        -sign * fwd_dir.x,
+        0.0,
+    );
+    let right_dir = Vec4::new(-b, -sign - fwd_dir.y * fwd_dir.y * a, fwd_dir.y, 0.0);
+
+    Mat4::from_cols(
+        right_dir,
+        up_dir,
+        fwd_dir,
+        transform.translation().extend(1.0),
+    )
+}
+
+pub fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
+    // spot light projection FOV is 2x the angle from spot light center to outer edge
+    Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, near_z)
+}
+
+/// Add to a [`SpotLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(SpotLight)]
+pub struct SpotLightTexture {
+    /// The texture image. Only the R channel is read.
+    /// Note the border of the image should be entirely black to avoid leaking light.
+    pub image: Handle<Image>,
+}
+
+pub fn update_spot_light_frusta(
+    global_lights: Res<GlobalVisibleClusterableObjects>,
+    mut views: Query<
+        (Entity, &GlobalTransform, &SpotLight, &mut Frustum),
+        Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
+    >,
+) {
+    for (entity, transform, spot_light, mut frustum) in &mut views {
+        // The frusta are used for culling meshes to the light for shadow mapping
+        // so if shadow mapping is disabled for this light, then the frusta are
+        // not needed.
+        // Also, if the light is not relevant for any cluster, it will not be in the
+        // global lights set and so there is no need to update its frusta.
+        if !spot_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+            continue;
+        }
+
+        // ignore scale because we don't want to effectively scale light radius and range
+        // by applying those as a view transform to shadow map rendering of objects
+        let view_backward = transform.back();
+
+        let spot_world_from_view = spot_light_world_from_view(transform);
+        let spot_clip_from_view =
+            spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
+        let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
+
+        *frustum = Frustum::from_clip_from_world_custom_far(
+            &clip_from_world,
+            &transform.translation(),
+            &view_backward,
+            spot_light.range,
+        );
     }
 }

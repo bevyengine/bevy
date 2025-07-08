@@ -30,9 +30,7 @@
 //!
 //! [SMAA]: https://www.iryoku.com/smaa/
 use bevy_app::{App, Plugin};
-#[cfg(feature = "smaa_luts")]
-use bevy_asset::load_internal_binary_asset;
-use bevy_asset::{embedded_asset, load_embedded_asset, uuid_handle, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 #[cfg(not(feature = "smaa_luts"))]
 use bevy_core_pipeline::tonemapping::lut_placeholder;
 use bevy_core_pipeline::{
@@ -79,13 +77,6 @@ use bevy_render::{
 };
 use bevy_utils::prelude::default;
 
-/// The handle of the area LUT, a KTX2 format texture that SMAA uses internally.
-const SMAA_AREA_LUT_TEXTURE_HANDLE: Handle<Image> =
-    uuid_handle!("569c4d67-c7fa-4958-b1af-0836023603c0");
-/// The handle of the search LUT, a KTX2 format texture that SMAA uses internally.
-const SMAA_SEARCH_LUT_TEXTURE_HANDLE: Handle<Image> =
-    uuid_handle!("43b97515-252e-4c8a-b9af-f2fc528a1c27");
-
 /// Adds support for subpixel morphological antialiasing, or SMAA.
 pub struct SmaaPlugin;
 
@@ -123,6 +114,14 @@ pub enum SmaaPreset {
 
     /// Thirty-two search steps, 8 diagonal search steps, and corner detection.
     Ultra,
+}
+
+#[derive(Resource)]
+struct SmaaLuts {
+    /// The handle of the area LUT, a KTX2 format texture that SMAA uses internally.
+    area_lut: Handle<Image>,
+    /// The handle of the search LUT, a KTX2 format texture that SMAA uses internally.
+    search_lut: Handle<Image>,
 }
 
 /// A render world resource that holds all render pipeline data needed for SMAA.
@@ -292,49 +291,26 @@ impl Plugin for SmaaPlugin {
         // Load the shader.
         embedded_asset!(app, "smaa.wgsl");
 
-        // Load the two lookup textures. These are compressed textures in KTX2
-        // format.
         #[cfg(feature = "smaa_luts")]
-        load_internal_binary_asset!(
-            app,
-            SMAA_AREA_LUT_TEXTURE_HANDLE,
-            "SMAAAreaLUT.ktx2",
-            |bytes, _: String| Image::from_buffer(
-                bytes,
-                bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
-                bevy_image::CompressedImageFormats::NONE,
-                false,
-                bevy_image::ImageSampler::Default,
-                bevy_asset::RenderAssetUsages::RENDER_WORLD,
-            )
-            .expect("Failed to load SMAA area LUT")
-        );
+        let smaa_luts = {
+            // Load the two lookup textures. These are compressed textures in KTX2 format.
+            embedded_asset!(app, "SMAAAreaLUT.ktx2");
+            embedded_asset!(app, "SMAASearchLUT.ktx2");
 
-        #[cfg(feature = "smaa_luts")]
-        load_internal_binary_asset!(
-            app,
-            SMAA_SEARCH_LUT_TEXTURE_HANDLE,
-            "SMAASearchLUT.ktx2",
-            |bytes, _: String| Image::from_buffer(
-                bytes,
-                bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
-                bevy_image::CompressedImageFormats::NONE,
-                false,
-                bevy_image::ImageSampler::Default,
-                bevy_asset::RenderAssetUsages::RENDER_WORLD,
-            )
-            .expect("Failed to load SMAA search LUT")
-        );
-
+            SmaaLuts {
+                area_lut: load_embedded_asset!(app, "SMAAAreaLUT.ktx2"),
+                search_lut: load_embedded_asset!(app, "SMAASearchLUT.ktx2"),
+            }
+        };
         #[cfg(not(feature = "smaa_luts"))]
-        app.world_mut()
-            .resource_mut::<bevy_asset::Assets<Image>>()
-            .insert(SMAA_AREA_LUT_TEXTURE_HANDLE.id(), lut_placeholder());
-
-        #[cfg(not(feature = "smaa_luts"))]
-        app.world_mut()
-            .resource_mut::<bevy_asset::Assets<Image>>()
-            .insert(SMAA_SEARCH_LUT_TEXTURE_HANDLE.id(), lut_placeholder());
+        let smaa_luts = {
+            let mut images = app.world_mut().resource_mut::<bevy_asset::Assets<Image>>();
+            let handle = images.add(lut_placeholder());
+            SmaaLuts {
+                area_lut: handle.clone(),
+                search_lut: handle.clone(),
+            }
+        };
 
         app.add_plugins(ExtractComponentPlugin::<Smaa>::default())
             .register_type::<Smaa>();
@@ -344,6 +320,7 @@ impl Plugin for SmaaPlugin {
         };
 
         render_app
+            .insert_resource(smaa_luts)
             .init_resource::<SmaaSpecializedRenderPipelines>()
             .init_resource::<SmaaInfoUniformBuffer>()
             .add_systems(RenderStartup, init_smaa_pipelines)
@@ -747,13 +724,14 @@ fn prepare_smaa_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     smaa_pipelines: Res<SmaaPipelines>,
+    smaa_luts: Res<SmaaLuts>,
     images: Res<RenderAssets<GpuImage>>,
     view_targets: Query<(Entity, &SmaaTextures), (With<ExtractedView>, With<Smaa>)>,
 ) {
     // Fetch the two lookup textures. These are bundled in this library.
     let (Some(search_texture), Some(area_texture)) = (
-        images.get(&SMAA_SEARCH_LUT_TEXTURE_HANDLE),
-        images.get(&SMAA_AREA_LUT_TEXTURE_HANDLE),
+        images.get(&smaa_luts.search_lut),
+        images.get(&smaa_luts.area_lut),
     ) else {
         return;
     };

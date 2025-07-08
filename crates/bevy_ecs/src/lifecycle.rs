@@ -465,10 +465,16 @@ impl RemovedComponentEvents {
     }
 
     /// Sends a removal event for the specified component.
+    #[deprecated(since = "0.17.0", note = "Use `RemovedComponentEvents:write` instead.")]
     pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
+        self.write(component_id, entity);
+    }
+
+    /// Writes a removal event for the specified component.
+    pub fn write(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
-            .send(RemovedComponentEntity(entity));
+            .write(RemovedComponentEntity(entity));
     }
 }
 

@@ -1,5 +1,10 @@
 //! Assigning objects to clusters.
 
+use bevy_camera::{
+    primitives::{Aabb, Frustum, HalfSpace, Sphere},
+    visibility::{RenderLayers, ViewVisibility},
+    Camera,
+};
 use bevy_ecs::{
     entity::Entity,
     query::{Has, With},
@@ -9,25 +14,15 @@ use bevy_math::{
     ops::{self, sin_cos},
     Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
 };
-use bevy_render::{
-    camera::Camera,
-    primitives::{Aabb, Frustum, HalfSpace, Sphere},
-    render_resource::BufferBindingType,
-    renderer::{RenderAdapter, RenderDevice},
-    view::{RenderLayers, ViewVisibility},
-};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use tracing::warn;
 
-use crate::{
-    decal::{self, clustered::ClusteredDecal},
-    prelude::EnvironmentMapLight,
-    ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight, GlobalVisibleClusterableObjects,
-    LightProbe, PointLight, SpotLight, ViewClusterBindings, VisibleClusterableObjects,
-    VolumetricLight, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
+use super::{
+    ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings,
+    GlobalVisibleClusterableObjects, VisibleClusterableObjects,
 };
+use crate::{EnvironmentMapLight, LightProbe, PointLight, SpotLight, VolumetricLight};
 
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
 const NDC_MAX: Vec2 = Vec2::ONE;
@@ -59,7 +54,7 @@ impl ClusterableObjectAssignmentData {
 /// Data needed to assign objects to clusters that's specific to the type of
 /// clusterable object.
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum ClusterableObjectType {
+pub enum ClusterableObjectType {
     /// Data needed to assign point lights to clusters.
     PointLight {
         /// Whether shadows are enabled for this point light.
@@ -107,7 +102,7 @@ impl ClusterableObjectType {
     /// Generally, we sort first by type, then, for lights, by whether shadows
     /// are enabled (enabled before disabled), and then whether volumetrics are
     /// enabled (enabled before disabled).
-    pub(crate) fn ordering(&self) -> (u8, bool, bool) {
+    pub fn ordering(&self) -> (u8, bool, bool) {
         match *self {
             ClusterableObjectType::PointLight {
                 shadows_enabled,
@@ -121,23 +116,6 @@ impl ClusterableObjectType {
             ClusterableObjectType::ReflectionProbe => (2, false, false),
             ClusterableObjectType::IrradianceVolume => (3, false, false),
             ClusterableObjectType::Decal => (4, false, false),
-        }
-    }
-
-    /// Creates the [`ClusterableObjectType`] data for a point or spot light.
-    pub(crate) fn from_point_or_spot_light(
-        point_light: &ExtractedPointLight,
-    ) -> ClusterableObjectType {
-        match point_light.spot_light_angles {
-            Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
-                outer_angle,
-                shadows_enabled: point_light.shadows_enabled,
-                volumetric: point_light.volumetric,
-            },
-            None => ClusterableObjectType::PointLight {
-                shadows_enabled: point_light.shadows_enabled,
-                volumetric: point_light.volumetric,
-            },
         }
     }
 }
@@ -180,9 +158,9 @@ pub(crate) fn assign_objects_to_clusters(
     mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_clusterable_objects_warning_emitted: Local<bool>,
-    (render_device, render_adapter): (Option<Res<RenderDevice>>, Option<Res<RenderAdapter>>),
+    global_cluster_settings: Option<Res<GlobalClusterSettings>>,
 ) {
-    let (Some(render_device), Some(render_adapter)) = (render_device, render_adapter) else {
+    let Some(global_cluster_settings) = global_cluster_settings else {
         return;
     };
 
@@ -229,20 +207,13 @@ pub(crate) fn assign_objects_to_clusters(
             ),
     );
 
-    let clustered_forward_buffer_binding_type =
-        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-    let supports_storage_buffers = matches!(
-        clustered_forward_buffer_binding_type,
-        BufferBindingType::Storage { .. }
-    );
-
     // Gather up light probes, but only if we're clustering them.
     //
     // UBOs aren't large enough to hold indices for light probes, so we can't
     // cluster light probes on such platforms (mainly WebGL 2). Besides, those
     // platforms typically lack bindless textures, so multiple light probes
     // wouldn't be supported anyhow.
-    if supports_storage_buffers {
+    if global_cluster_settings.supports_storage_buffers {
         clusterable_objects.extend(light_probes_query.iter().map(
             |(entity, transform, is_reflection_probe)| ClusterableObjectAssignmentData {
                 entity,
@@ -259,7 +230,7 @@ pub(crate) fn assign_objects_to_clusters(
     }
 
     // Add decals if the current platform supports them.
-    if decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
+    if global_cluster_settings.clustered_decals_are_usable {
         clusterable_objects.extend(decals_query.iter().map(|(entity, transform)| {
             ClusterableObjectAssignmentData {
                 entity,
@@ -271,8 +242,8 @@ pub(crate) fn assign_objects_to_clusters(
         }));
     }
 
-    if clusterable_objects.len() > MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
-        && !supports_storage_buffers
+    if clusterable_objects.len() > global_cluster_settings.max_uniform_buffer_clusterable_objects
+        && !global_cluster_settings.supports_storage_buffers
     {
         clusterable_objects.sort_by_cached_key(|clusterable_object| {
             (
@@ -290,7 +261,9 @@ pub(crate) fn assign_objects_to_clusters(
         let mut clusterable_objects_in_view_count = 0;
         clusterable_objects.retain(|clusterable_object| {
             // take one extra clusterable object to check if we should emit the warning
-            if clusterable_objects_in_view_count == MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS + 1 {
+            if clusterable_objects_in_view_count
+                == global_cluster_settings.max_uniform_buffer_clusterable_objects + 1
+            {
                 false
             } else {
                 let clusterable_object_sphere = clusterable_object.sphere();
@@ -306,17 +279,19 @@ pub(crate) fn assign_objects_to_clusters(
             }
         });
 
-        if clusterable_objects.len() > MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
+        if clusterable_objects.len()
+            > global_cluster_settings.max_uniform_buffer_clusterable_objects
             && !*max_clusterable_objects_warning_emitted
         {
             warn!(
-                "MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS ({}) exceeded",
-                MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
+                "max_uniform_buffer_clusterable_objects ({}) exceeded",
+                global_cluster_settings.max_uniform_buffer_clusterable_objects
             );
             *max_clusterable_objects_warning_emitted = true;
         }
 
-        clusterable_objects.truncate(MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS);
+        clusterable_objects
+            .truncate(global_cluster_settings.max_uniform_buffer_clusterable_objects);
     }
 
     for (
@@ -392,7 +367,7 @@ pub(crate) fn assign_objects_to_clusters(
 
         // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering problems.
         let far_z = far_z.max(first_slice_depth);
-        let cluster_factors = crate::calculate_cluster_factors(
+        let cluster_factors = calculate_cluster_factors(
             first_slice_depth,
             far_z,
             requested_cluster_dimensions.z as f32,
@@ -456,14 +431,17 @@ pub(crate) fn assign_objects_to_clusters(
                     (xy_count.x + x_overlap) * (xy_count.y + y_overlap) * z_count as f32;
             }
 
-            if cluster_index_estimate > ViewClusterBindings::MAX_INDICES as f32 {
+            if cluster_index_estimate
+                > global_cluster_settings.view_cluster_bindings_max_indices as f32
+            {
                 // scale x and y cluster count to be able to fit all our indices
 
                 // we take the ratio of the actual indices over the index estimate.
                 // this is not guaranteed to be small enough due to overlapped tiles, but
                 // the conservative estimate is more than sufficient to cover the
                 // difference
-                let index_ratio = ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate;
+                let index_ratio = global_cluster_settings.view_cluster_bindings_max_indices as f32
+                    / cluster_index_estimate;
                 let xy_ratio = index_ratio.sqrt();
 
                 requested_cluster_dimensions.x =
@@ -879,6 +857,23 @@ pub(crate) fn assign_objects_to_clusters(
                     ..Default::default()
                 });
         }
+    }
+}
+
+pub fn calculate_cluster_factors(
+    near: f32,
+    far: f32,
+    z_slices: f32,
+    is_orthographic: bool,
+) -> Vec2 {
+    if is_orthographic {
+        Vec2::new(-near, z_slices / (-far - -near))
+    } else {
+        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / ops::ln(far / near);
+        Vec2::new(
+            z_slices_of_ln_zfar_over_znear,
+            ops::ln(near) * z_slices_of_ln_zfar_over_znear,
+        )
     }
 }
 

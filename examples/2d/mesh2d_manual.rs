@@ -6,7 +6,6 @@
 //! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
-    asset::uuid_handle,
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::{ops, FloatOrd},
@@ -129,12 +128,16 @@ pub struct ColoredMesh2d;
 pub struct ColoredMesh2dPipeline {
     /// This pipeline wraps the standard [`Mesh2dPipeline`]
     mesh2d_pipeline: Mesh2dPipeline,
+    /// The shader asset handle.
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for ColoredMesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
         Self {
             mesh2d_pipeline: Mesh2dPipeline::from_world(world),
+            // Get the shader from the shader resource we inserted in the plugin.
+            shader: world.resource::<ColoredMesh2dShader>().0.clone(),
         }
     }
 }
@@ -164,14 +167,14 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
-                shader: COLORED_MESH2D_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
-                shader: COLORED_MESH2D_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
@@ -278,9 +281,10 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 /// Plugin that renders [`ColoredMesh2d`]s
 pub struct ColoredMesh2dPlugin;
 
-/// Handle to the custom shader with a unique random ID
-pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
-    uuid_handle!("f48b148f-7373-4638-9900-392b3b3ccc66");
+/// A resource holding the shader asset handle for the pipeline to take. There are many ways to get
+/// the shader into the pipeline - this is just one option.
+#[derive(Resource)]
+struct ColoredMesh2dShader(Handle<Shader>);
 
 /// Our custom pipeline needs its own instance storage
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -290,15 +294,16 @@ impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
         let mut shaders = app.world_mut().resource_mut::<Assets<Shader>>();
-        shaders.insert(
-            &COLORED_MESH2D_SHADER_HANDLE,
-            Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
-        );
+        // Here, we construct and add the shader asset manually. There are many ways to load this
+        // shader, including `embedded_asset`/`load_embedded_asset`.
+        let shader = shaders.add(Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()));
+
         app.add_plugins(SyncComponentPlugin::<ColoredMesh2d>::default());
 
         // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)
             .unwrap()
+            .insert_resource(ColoredMesh2dShader(shader))
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .init_resource::<RenderColoredMesh2dInstances>()

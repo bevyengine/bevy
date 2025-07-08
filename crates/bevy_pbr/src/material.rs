@@ -1717,3 +1717,13 @@ pub fn write_material_bind_group_buffers(
         allocator.write_buffers(&render_device, &render_queue);
     }
 }
+
+/// Marker resource for whether shadows are enabled for this material type
+#[derive(Resource, Debug)]
+pub struct ShadowsEnabled<M: Material>(PhantomData<M>);
+
+impl<M: Material> Default for ShadowsEnabled<M> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}

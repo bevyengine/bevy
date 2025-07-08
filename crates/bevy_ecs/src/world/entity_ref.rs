@@ -2464,7 +2464,7 @@ impl<'w> EntityWorldMut<'w> {
         for component_id in archetype.components() {
             self.world
                 .removed_components
-                .send(component_id, self.entity);
+                .write(component_id, self.entity);
         }
         // SAFETY: Since we had a location, and it was valid, this is safe.
         unsafe {

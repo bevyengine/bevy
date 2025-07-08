@@ -722,18 +722,7 @@ impl<'a> ReflectStruct<'a> {
                         }
                     } else {
                         quote! {
-                            #bevy_reflect_path::PartialReflect::reflect_clone(#accessor)?
-                                .take()
-                                .map_err(|value| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
-                                    expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(
-                                        <#field_ty as #bevy_reflect_path::TypePath>::type_path()
-                                    ),
-                                    received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
-                                        #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(
-                                            #bevy_reflect_path::DynamicTypePath::reflect_type_path(&*value)
-                                        )
-                                    ),
-                                })?
+                            <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#accessor)?
                         }
                     };
 

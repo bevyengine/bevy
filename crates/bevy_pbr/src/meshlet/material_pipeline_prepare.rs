@@ -2,13 +2,14 @@ use super::{
     instance_manager::InstanceManager, pipelines::MeshletPipelines,
     resource_manager::ResourceManager,
 };
-use crate::{environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume, *};
+use crate::{irradiance_volume::IrradianceVolume, *};
 use bevy_core_pipeline::{
     core_3d::Camera3d,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_light::EnvironmentMapLight;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::{
