@@ -47,7 +47,7 @@ struct Args {
     #[argh(switch)]
     no_frustum_culling: bool,
 
-    /// whether the text should use `JustifyText::Center`.
+    /// whether the text should use `Justify::Center`.
     #[argh(switch)]
     center: bool,
 }
@@ -132,9 +132,9 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                 random_text_font(&mut rng, &args, font.0.clone()),
                 TextColor(color.into()),
                 TextLayout::new_with_justify(if args.center {
-                    JustifyText::Center
+                    Justify::Center
                 } else {
-                    JustifyText::Left
+                    Justify::Left
                 }),
                 Transform {
                     translation,

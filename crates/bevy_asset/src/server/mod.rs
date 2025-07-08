@@ -1931,7 +1931,7 @@ pub enum AssetLoadError {
             base_path,
             label,
             all_labels.len(),
-            all_labels.iter().map(|l| format!("'{}'", l)).collect::<Vec<_>>().join(", "))]
+            all_labels.iter().map(|l| format!("'{l}'")).collect::<Vec<_>>().join(", "))]
     MissingLabel {
         base_path: AssetPath<'static>,
         label: String,
@@ -1945,13 +1945,21 @@ pub enum AssetLoadError {
 pub struct AssetLoaderError {
     path: AssetPath<'static>,
     loader_name: &'static str,
-    error: Arc<dyn core::error::Error + Send + Sync + 'static>,
+    error: Arc<BevyError>,
 }
 
 impl AssetLoaderError {
     /// The path of the asset that failed to load.
     pub fn path(&self) -> &AssetPath<'static> {
         &self.path
+    }
+
+    /// The error the loader reported when attempting to load the asset.
+    ///
+    /// If you know the type of the error the asset loader returned, you can use
+    /// [`BevyError::downcast_ref()`] to get it.
+    pub fn error(&self) -> &BevyError {
+        &self.error
     }
 }
 

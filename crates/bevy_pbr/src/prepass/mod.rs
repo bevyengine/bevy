@@ -13,6 +13,7 @@ use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
     alpha::AlphaMode,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
+    load_shader_library,
     mesh::{allocator::MeshAllocator, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::prepare_assets,
     render_resource::binding_types::uniform_buffer,
@@ -23,7 +24,7 @@ use bevy_render::{
 };
 pub use prepass_bindings::*;
 
-use bevy_asset::{load_internal_asset, weak_handle, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
@@ -63,18 +64,6 @@ use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSystems::{PrepareAssets, PrepareResources};
 use core::{hash::Hash, marker::PhantomData};
 
-pub const PREPASS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("ce810284-f1ae-4439-ab2e-0d6b204b6284");
-
-pub const PREPASS_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("3e83537e-ae17-489c-a18a-999bc9c1d252");
-
-pub const PREPASS_UTILS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("02e4643a-a14b-48eb-a339-0c47aeab0d7e");
-
-pub const PREPASS_IO_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("1c065187-c99b-4b7c-ba59-c1575482d2c9");
-
 /// Sets up everything required to use the prepass pipeline.
 ///
 /// This does not add the actual prepasses, see [`PrepassPlugin`] for that.
@@ -91,33 +80,11 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            PREPASS_SHADER_HANDLE,
-            "prepass.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "prepass.wgsl");
 
-        load_internal_asset!(
-            app,
-            PREPASS_BINDINGS_SHADER_HANDLE,
-            "prepass_bindings.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            PREPASS_UTILS_SHADER_HANDLE,
-            "prepass_utils.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            PREPASS_IO_SHADER_HANDLE,
-            "prepass_io.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "prepass_bindings.wgsl");
+        load_shader_library!(app, "prepass_utils.wgsl");
+        load_shader_library!(app, "prepass_io.wgsl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -128,7 +95,6 @@ where
                 Render,
                 prepare_prepass_view_bind_group::<M>.in_set(RenderSystems::PrepareBindGroups),
             )
-            .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
     }
@@ -138,7 +104,9 @@ where
             return;
         };
 
-        render_app.init_resource::<PrepassPipeline<M>>();
+        render_app
+            .init_resource::<PrepassPipeline<M>>()
+            .init_resource::<PrepassViewBindGroup>();
     }
 }
 
@@ -249,11 +217,16 @@ pub fn update_previous_view_data(
     query: Query<(Entity, &Camera, &GlobalTransform), Or<(With<Camera3d>, With<ShadowView>)>>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        let view_from_world = camera_transform.compute_matrix().inverse();
+        let world_from_view = camera_transform.to_matrix();
+        let view_from_world = world_from_view.inverse();
+        let view_from_clip = camera.clip_from_view().inverse();
+
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
             clip_from_view: camera.clip_from_view(),
+            world_from_clip: world_from_view * view_from_clip,
+            view_from_clip,
         });
     }
 }
@@ -300,11 +273,13 @@ pub struct PrepassPipelineInternal {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layouts: MeshLayouts,
+    pub empty_layout: BindGroupLayout,
     pub material_layout: BindGroupLayout,
     pub prepass_material_vertex_shader: Option<Handle<Shader>>,
     pub prepass_material_fragment_shader: Option<Handle<Shader>>,
     pub deferred_material_vertex_shader: Option<Handle<Shader>>,
     pub deferred_material_fragment_shader: Option<Handle<Shader>>,
+    pub default_prepass_shader: Handle<Shader>,
 
     /// Whether skins will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
@@ -403,10 +378,12 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
+            default_prepass_shader: load_embedded_asset!(world, "prepass.wgsl"),
             material_layout: M::bind_group_layout(render_device),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(render_device),
             depth_clip_control_supported,
             binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
+            empty_layout: render_device.create_bind_group_layout("prepass_empty_layout", &[]),
         };
         PrepassPipeline {
             internal,
@@ -451,13 +428,14 @@ impl PrepassPipelineInternal {
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = shader_defs;
-        let mut bind_group_layouts = vec![if mesh_key
-            .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-        {
-            self.view_layout_motion_vectors.clone()
-        } else {
-            self.view_layout_no_motion_vectors.clone()
-        }];
+        let mut bind_group_layouts = vec![
+            if mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+                self.view_layout_motion_vectors.clone()
+            } else {
+                self.view_layout_no_motion_vectors.clone()
+            },
+            self.empty_layout.clone(),
+        ];
         let mut vertex_attributes = Vec::new();
 
         // Let the shader code know that it's running in a prepass pipeline.
@@ -582,7 +560,7 @@ impl PrepassPipelineInternal {
             &mut vertex_attributes,
             self.skins_use_uniform_buffers,
         );
-        bind_group_layouts.insert(1, bind_group);
+        bind_group_layouts.insert(2, bind_group);
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = prepass_target_descriptors(
@@ -610,12 +588,12 @@ impl PrepassPipelineInternal {
             let frag_shader_handle = if mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
                 match self.deferred_material_fragment_shader.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
-                    _ => PREPASS_SHADER_HANDLE,
+                    None => self.default_prepass_shader.clone(),
                 }
             } else {
                 match self.prepass_material_fragment_shader.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
-                    _ => PREPASS_SHADER_HANDLE,
+                    None => self.default_prepass_shader.clone(),
                 }
             };
 
@@ -632,12 +610,12 @@ impl PrepassPipelineInternal {
             if let Some(handle) = &self.deferred_material_vertex_shader {
                 handle.clone()
             } else {
-                PREPASS_SHADER_HANDLE
+                self.default_prepass_shader.clone()
             }
         } else if let Some(handle) = &self.prepass_material_vertex_shader {
             handle.clone()
         } else {
-            PREPASS_SHADER_HANDLE
+            self.default_prepass_shader.clone()
         };
         let descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
@@ -729,11 +707,16 @@ pub fn prepare_previous_view_uniforms(
         let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let view_from_world = camera.world_from_view.compute_matrix().inverse();
+                let world_from_view = camera.world_from_view.to_matrix();
+                let view_from_world = world_from_view.inverse();
+                let view_from_clip = camera.clip_from_view.inverse();
+
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
                     clip_from_view: camera.clip_from_view,
+                    world_from_clip: world_from_view * view_from_clip,
+                    view_from_clip,
                 }
             }
         };
@@ -744,10 +727,29 @@ pub fn prepare_previous_view_uniforms(
     }
 }
 
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct PrepassViewBindGroup {
     pub motion_vectors: Option<BindGroup>,
     pub no_motion_vectors: Option<BindGroup>,
+    pub empty_bind_group: BindGroup,
+}
+
+impl FromWorld for PrepassViewBindGroup {
+    fn from_world(world: &mut World) -> Self {
+        let pipeline = world.resource::<PrepassPipeline<StandardMaterial>>();
+
+        let render_device = world.resource::<RenderDevice>();
+        let empty_bind_group = render_device.create_bind_group(
+            "prepass_view_empty_bind_group",
+            &pipeline.internal.empty_layout,
+            &[],
+        );
+        PrepassViewBindGroup {
+            motion_vectors: None,
+            no_motion_vectors: None,
+            empty_bind_group,
+        }
+    }
 }
 
 pub fn prepare_prepass_view_bind_group<M: Material>(
@@ -983,12 +985,18 @@ pub fn specialize_prepass_material_meshes<M>(
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
-                | AlphaMode::Multiply => continue,
+                | AlphaMode::Multiply => {
+                    // In case this material was previously in a valid alpha_mode, remove it to
+                    // stop the queue system from assuming its retained cache to be valid.
+                    view_specialized_material_pipeline_cache.remove(visible_entity);
+                    continue;
+                }
             }
 
             if material.properties.reads_view_transmission_texture {
                 // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the `Opaque3d`
                 // phase, and are therefore also excluded from the prepass much like alpha-blended materials.
+                view_specialized_material_pipeline_cache.remove(visible_entity);
                 continue;
             }
 
@@ -1299,7 +1307,26 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
                 );
             }
         }
+        RenderCommandResult::Success
+    }
+}
 
+pub struct SetPrepassViewEmptyBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewEmptyBindGroup<I> {
+    type Param = SRes<PrepassViewBindGroup>;
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: (),
+        _entity: Option<()>,
+        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let prepass_view_bind_group = prepass_view_bind_group.into_inner();
+        pass.set_bind_group(I, &prepass_view_bind_group.empty_bind_group, &[]);
         RenderCommandResult::Success
     }
 }
@@ -1307,7 +1334,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
 pub type DrawPrepass<M> = (
     SetItemPipeline,
     SetPrepassViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    SetMaterialBindGroup<M, 2>,
+    SetPrepassViewEmptyBindGroup<1>,
+    SetMeshBindGroup<2>,
+    SetMaterialBindGroup<M, 3>,
     DrawMesh,
 );

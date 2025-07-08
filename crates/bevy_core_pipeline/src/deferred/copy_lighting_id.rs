@@ -1,11 +1,11 @@
 use crate::{
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prepass::{DeferredPrepass, ViewPrepassTextures},
+    FullscreenShader,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset};
 use bevy_ecs::prelude::*;
-use bevy_math::UVec2;
+use bevy_image::ToExtents;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -24,18 +24,11 @@ use bevy_render::{
 
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
-pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("70d91342-1c43-4b20-973f-aa6ce93aa617");
 pub struct CopyDeferredLightingIdPlugin;
 
 impl Plugin for CopyDeferredLightingIdPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE,
-            "copy_deferred_lighting_id.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "copy_deferred_lighting_id.wgsl");
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -144,15 +137,18 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
             ),
         );
 
+        let vertex_state = world.resource::<FullscreenShader>().to_vertex_state();
+        let shader = load_embedded_asset!(world, "copy_deferred_lighting_id.wgsl");
+
         let pipeline_id =
             world
                 .resource_mut::<PipelineCache>()
                 .queue_render_pipeline(RenderPipelineDescriptor {
                     label: Some("copy_deferred_lighting_id_pipeline".into()),
                     layout: vec![layout.clone()],
-                    vertex: fullscreen_shader_vertex_state(),
+                    vertex: vertex_state,
                     fragment: Some(FragmentState {
-                        shader: COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE,
+                        shader,
                         shader_defs: vec![],
                         entry_point: "fragment".into(),
                         targets: vec![],
@@ -189,18 +185,10 @@ fn prepare_deferred_lighting_id_textures(
     views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
 ) {
     for (entity, camera) in &views {
-        if let Some(UVec2 {
-            x: width,
-            y: height,
-        }) = camera.physical_target_size
-        {
+        if let Some(physical_target_size) = camera.physical_target_size {
             let texture_descriptor = TextureDescriptor {
                 label: Some("deferred_lighting_id_depth_texture_a"),
-                size: Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
+                size: physical_target_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,

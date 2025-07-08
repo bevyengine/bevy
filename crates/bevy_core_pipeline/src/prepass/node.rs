@@ -1,6 +1,6 @@
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, MainPassResolutionOverride},
     diagnostic::RecordDiagnostics,
     experimental::occlusion_culling::OcclusionCulling,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -36,7 +36,7 @@ impl ViewNode for EarlyPrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        view_query: QueryItem<'w, Self::ViewQuery>,
+        view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         run_prepass(graph, render_context, view_query, world, "early prepass")
@@ -64,6 +64,7 @@ impl ViewNode for LatePrepassNode {
         Option<&'static RenderSkyboxPrepassPipeline>,
         Option<&'static SkyboxPrepassBindGroup>,
         Option<&'static PreviousViewUniformOffset>,
+        Option<&'static MainPassResolutionOverride>,
         Has<OcclusionCulling>,
         Has<NoIndirectDrawing>,
         Has<DeferredPrepass>,
@@ -73,12 +74,12 @@ impl ViewNode for LatePrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        query: QueryItem<'w, Self::ViewQuery>,
+        query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // We only need a late prepass if we have occlusion culling and indirect
         // drawing.
-        let (_, _, _, _, _, _, _, _, _, occlusion_culling, no_indirect_drawing, _) = query;
+        let (.., occlusion_culling, no_indirect_drawing, _) = query;
         if !occlusion_culling || no_indirect_drawing {
             return Ok(());
         }
@@ -109,10 +110,11 @@ fn run_prepass<'w>(
         skybox_prepass_pipeline,
         skybox_prepass_bind_group,
         view_prev_uniform_offset,
+        resolution_override,
         _,
         _,
         has_deferred,
-    ): QueryItem<'w, <LatePrepassNode as ViewNode>::ViewQuery>,
+    ): QueryItem<'w, '_, <LatePrepassNode as ViewNode>::ViewQuery>,
     world: &'w World,
     label: &'static str,
 ) -> Result<(), NodeRunError> {
@@ -183,7 +185,7 @@ fn run_prepass<'w>(
         let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         // Opaque draws
