@@ -1,3 +1,15 @@
+//! NVIDIA Deep Learning Super Sampling.
+//!
+//! See https://github.com/JMS55/dlss_wgpu for licensing requirements and setup instructions.
+//!
+//! # Usage
+//! 1. Enable Bevy's `dlss` feature
+//! 2. During app setup, insert the `DlssProjectId` resource before `DefaultPlugins`
+//! 3. Check for the presence of `Option<Res<DlssSupported>>` at runtime to see if DLSS is supported on the current machine
+//! 4. Add the `Dlss` component to your camera entity, optionally setting a specific `DlssPerfQualityMode` (defaults to `Auto`)
+//! 5. Optionally add sharpening via `ContrastAdaptiveSharpening`
+//! 6. Custom rendering code, including third party crates, should account for the optional `MainPassResolutionOverride` to work with DLSS (see the `custom_render_phase` example)
+
 mod extract;
 mod node;
 mod prepare;
@@ -80,6 +92,7 @@ impl Plugin for DlssPlugin {
     }
 }
 
+/// Camera component to enable DLSS.
 #[derive(Component, Reflect, Clone, Default)]
 #[reflect(Component, Default)]
 #[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass, Hdr)]

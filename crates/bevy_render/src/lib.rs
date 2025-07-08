@@ -673,10 +673,15 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
     None
 }
 
+/// Application-specific ID for DLSS.
+///
+/// See the DLSS programming guide for more info.
 #[cfg(feature = "dlss")]
 #[derive(Resource)]
 pub struct DlssProjectId(pub bevy_asset::uuid::Uuid);
 
+/// When DLSS is supported by the current system, this resource will exist in the main world.
+/// Otherwise this resource will be absent.
 #[cfg(feature = "dlss")]
 #[derive(Resource, Clone, Copy)]
 pub struct DlssSupported;
