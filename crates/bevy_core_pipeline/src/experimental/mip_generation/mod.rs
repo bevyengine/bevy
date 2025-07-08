@@ -12,7 +12,7 @@ use crate::core_3d::{
     prepare_core_3d_depth_textures,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -30,7 +30,7 @@ use bevy_render::{
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
@@ -46,12 +46,13 @@ use bevy_render::{
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
     Render, RenderApp, RenderSystems,
 };
+use bevy_utils::default;
 use bitflags::bitflags;
 use tracing::debug;
 
 /// Identifies the `downsample_depth.wgsl` shader.
-pub const DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("a09a149e-5922-4fa4-9170-3c1a13065364");
+#[derive(Resource, Deref)]
+pub struct DownsampleDepthShader(Handle<Shader>);
 
 /// The maximum number of mip levels that we can produce.
 ///
@@ -68,18 +69,16 @@ pub struct MipGenerationPlugin;
 
 impl Plugin for MipGenerationPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-            "downsample_depth.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "downsample_depth.wgsl");
+
+        let downsample_depth_shader = load_embedded_asset!(app, "downsample_depth.wgsl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
+            .insert_resource(DownsampleDepthShader(downsample_depth_shader))
             .init_resource::<SpecializedComputePipelines<DownsampleDepthPipeline>>()
             .add_render_graph_node::<DownsampleDepthNode>(Core3d, Node3d::EarlyDownsampleDepth)
             .add_render_graph_node::<DownsampleDepthNode>(Core3d, Node3d::LateDownsampleDepth)
@@ -293,17 +292,21 @@ pub struct DownsampleDepthPipeline {
     bind_group_layout: BindGroupLayout,
     /// A handle that identifies the compiled shader.
     pipeline_id: Option<CachedComputePipelineId>,
+    /// The shader asset handle.
+    shader: Handle<Shader>,
 }
 
 impl DownsampleDepthPipeline {
-    /// Creates a new [`DownsampleDepthPipeline`] from a bind group layout.
+    /// Creates a new [`DownsampleDepthPipeline`] from a bind group layout and the downsample
+    /// shader.
     ///
     /// This doesn't actually specialize the pipeline; that must be done
     /// afterward.
-    fn new(bind_group_layout: BindGroupLayout) -> DownsampleDepthPipeline {
+    fn new(bind_group_layout: BindGroupLayout, shader: Handle<Shader>) -> DownsampleDepthPipeline {
         DownsampleDepthPipeline {
             bind_group_layout,
             pipeline_id: None,
+            shader,
         }
     }
 }
@@ -334,6 +337,7 @@ fn create_downsample_depth_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut specialized_compute_pipelines: ResMut<SpecializedComputePipelines<DownsampleDepthPipeline>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    downsample_depth_shader: Res<DownsampleDepthShader>,
     mut has_run: Local<bool>,
 ) {
     // Only run once.
@@ -367,10 +371,22 @@ fn create_downsample_depth_pipelines(
 
     // Initialize the pipelines.
     let mut downsample_depth_pipelines = DownsampleDepthPipelines {
-        first: DownsampleDepthPipeline::new(standard_bind_group_layout.clone()),
-        second: DownsampleDepthPipeline::new(standard_bind_group_layout.clone()),
-        first_multisample: DownsampleDepthPipeline::new(multisampled_bind_group_layout.clone()),
-        second_multisample: DownsampleDepthPipeline::new(multisampled_bind_group_layout.clone()),
+        first: DownsampleDepthPipeline::new(
+            standard_bind_group_layout.clone(),
+            downsample_depth_shader.0.clone(),
+        ),
+        second: DownsampleDepthPipeline::new(
+            standard_bind_group_layout.clone(),
+            downsample_depth_shader.0.clone(),
+        ),
+        first_multisample: DownsampleDepthPipeline::new(
+            multisampled_bind_group_layout.clone(),
+            downsample_depth_shader.0.clone(),
+        ),
+        second_multisample: DownsampleDepthPipeline::new(
+            multisampled_bind_group_layout.clone(),
+            downsample_depth_shader.0.clone(),
+        ),
         sampler,
     };
 
@@ -490,14 +506,14 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
                 stages: ShaderStages::COMPUTE,
                 range: 0..4,
             }],
-            shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+            shader: self.shader.clone(),
             shader_defs,
-            entry_point: if key.contains(DownsampleDepthPipelineKey::SECOND_PHASE) {
+            entry_point: Some(if key.contains(DownsampleDepthPipelineKey::SECOND_PHASE) {
                 "downsample_depth_second".into()
             } else {
                 "downsample_depth_first".into()
-            },
-            zero_initialize_workgroup_memory: false,
+            }),
+            ..default()
         }
     }
 }
@@ -529,11 +545,7 @@ pub fn create_depth_pyramid_dummy_texture(
     render_device
         .create_texture(&TextureDescriptor {
             label: Some(texture_label),
-            size: Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            size: Extent3d::default(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,

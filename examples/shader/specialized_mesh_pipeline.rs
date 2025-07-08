@@ -12,7 +12,7 @@ use bevy::{
     math::{vec3, vec4},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
-        SetMeshBindGroup, SetMeshViewBindGroup,
+        SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
     },
     prelude::*,
     render::{
@@ -153,8 +153,10 @@ type DrawSpecializedPipelineCommands = (
     SetItemPipeline,
     // Set the view uniform at bind group 0
     SetMeshViewBindGroup<0>,
-    // Set the mesh uniform at bind group 1
-    SetMeshBindGroup<1>,
+    // Set an empty material bind group at bind group 1
+    SetMeshViewEmptyBindGroup<1>,
+    // Set the mesh uniform at bind group 2
+    SetMeshBindGroup<2>,
     // Draw the mesh
     DrawMesh,
 );
@@ -171,6 +173,7 @@ struct CustomMeshPipeline {
     /// This isn't required, it's only done like this for simplicity.
     shader_handle: Handle<Shader>,
 }
+
 impl FromWorld for CustomMeshPipeline {
     fn from_world(world: &mut World) -> Self {
         // Load the shader
@@ -209,28 +212,25 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
         // This will automatically generate the correct `VertexBufferLayout` based on the vertex attributes
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
+        let view_layout = self
+            .mesh_pipeline
+            .get_view_layout(MeshPipelineViewLayoutKey::from(mesh_key));
+
         Ok(RenderPipelineDescriptor {
             label: Some("Specialized Mesh Pipeline".into()),
             layout: vec![
-                // Bind group 0 is the view uniform
-                self.mesh_pipeline
-                    .get_view_layout(MeshPipelineViewLayoutKey::from(mesh_key))
-                    .clone(),
-                // Bind group 1 is the mesh uniform
+                view_layout.main_layout.clone(),
+                view_layout.empty_layout.clone(),
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
-            push_constant_ranges: vec![],
             vertex: VertexState {
                 shader: self.shader_handle.clone(),
-                shader_defs: vec![],
-                entry_point: "vertex".into(),
                 // Customize how to store the meshes' vertex attributes in the vertex buffer
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     // This isn't required, but bevy supports HDR and non-HDR rendering
                     // so it's generally recommended to specialize the pipeline for that
@@ -244,6 +244,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
@@ -265,9 +266,10 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             // but it's not always possible
             multisample: MultisampleState {
                 count: mesh_key.msaa_samples(),
-                ..MultisampleState::default()
+                ..default()
             },
-            zero_initialize_workgroup_memory: false,
+
+            ..default()
         })
     }
 }

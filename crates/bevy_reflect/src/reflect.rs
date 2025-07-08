@@ -21,32 +21,47 @@ pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
     /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to an enum.
     MismatchedKinds {
+        /// Kind of the value we attempted to apply.
         from_kind: ReflectKind,
+        /// Kind of the type we attempted to apply the value to.
         to_kind: ReflectKind,
     },
 
     #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
     /// Enum variant that we tried to apply to was missing a field.
     MissingEnumField {
+        /// Name of the enum variant.
         variant_name: Box<str>,
+        /// Name of the missing field.
         field_name: Box<str>,
     },
 
     #[error("`{from_type}` is not `{to_type}`")]
     /// Tried to apply incompatible types.
     MismatchedTypes {
+        /// Type of the value we attempted to apply.
         from_type: Box<str>,
+        /// Type we attempted to apply the value to.
         to_type: Box<str>,
     },
 
     #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
-    /// Attempted to apply to types with mismatched sizes, e.g. a [u8; 4] to [u8; 3].
-    DifferentSize { from_size: usize, to_size: usize },
+    /// Attempted to apply an [array-like] type to another of different size, e.g. a [u8; 4] to [u8; 3].
+    ///
+    /// [array-like]: crate::Array
+    DifferentSize {
+        /// Size of the value we attempted to apply, in elements.
+        from_size: usize,
+        /// Size of the type we attempted to apply the value to, in elements.
+        to_size: usize,
+    },
 
     #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
     /// The enum we tried to apply to didn't contain a variant with the give name.
     UnknownVariant {
+        /// Name of the enum.
         enum_name: Box<str>,
+        /// Name of the missing variant.
         variant_name: Box<str>,
     },
 }
@@ -135,34 +150,37 @@ where
 
     /// Applies a reflected value to this value.
     ///
-    /// If a type implements an [introspection subtrait], then the semantics of this
+    /// If `Self` implements a [reflection subtrait], then the semantics of this
     /// method are as follows:
-    /// - If `T` is a [`Struct`], then the value of each named field of `value` is
+    /// - If `Self` is a [`Struct`], then the value of each named field of `value` is
     ///   applied to the corresponding named field of `self`. Fields which are
     ///   not present in both structs are ignored.
-    /// - If `T` is a [`TupleStruct`] or [`Tuple`], then the value of each
+    /// - If `Self` is a [`TupleStruct`] or [`Tuple`], then the value of each
     ///   numbered field is applied to the corresponding numbered field of
     ///   `self.` Fields which are not present in both values are ignored.
-    /// - If `T` is an [`Enum`], then the variant of `self` is `updated` to match
+    /// - If `Self` is an [`Enum`], then the variant of `self` is `updated` to match
     ///   the variant of `value`. The corresponding fields of that variant are
     ///   applied from `value` onto `self`. Fields which are not present in both
     ///   values are ignored.
-    /// - If `T` is a [`List`] or [`Array`], then each element of `value` is applied
+    /// - If `Self` is a [`List`] or [`Array`], then each element of `value` is applied
     ///   to the corresponding element of `self`. Up to `self.len()` items are applied,
     ///   and excess elements in `value` are appended to `self`.
-    /// - If `T` is a [`Map`], then for each key in `value`, the associated
+    /// - If `Self` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
-    ///   Keys which are not present in `self` are inserted.
-    /// - If `T` is none of these, then `value` is downcast to `T`, cloned, and
+    ///   Keys which are not present in `self` are inserted, and keys from `self` which are not present in `value` are removed.
+    /// - If `Self` is a [`Set`], then each element of `value` is applied to the corresponding
+    ///   element of `Self`. If an element of `value` does not exist in `Self` then it is
+    ///   cloned and inserted. If an element from `self` is not present in `value` then it is removed.
+    /// - If `Self` is none of these, then `value` is downcast to `Self`, cloned, and
     ///   assigned to `self`.
     ///
-    /// Note that `Reflect` must be implemented manually for [`List`]s and
-    /// [`Map`]s in order to achieve the correct semantics, as derived
+    /// Note that `Reflect` must be implemented manually for [`List`]s,
+    /// [`Map`]s, and [`Set`]s in order to achieve the correct semantics, as derived
     /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
-    /// or none of the above depending on the kind of type. For lists and maps, use the
-    /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
+    /// or none of the above depending on the kind of type. For lists, maps, and sets, use the
+    /// [`list_apply`], [`map_apply`], and [`set_apply`] helper functions when implementing this method.
     ///
-    /// [introspection subtrait]: crate#the-introspection-subtraits
+    /// [reflection subtrait]: crate#the-reflection-subtraits
     /// [`Struct`]: crate::Struct
     /// [`TupleStruct`]: crate::TupleStruct
     /// [`Tuple`]: crate::Tuple
@@ -170,17 +188,19 @@ where
     /// [`List`]: crate::List
     /// [`Array`]: crate::Array
     /// [`Map`]: crate::Map
+    /// [`Set`]: crate::Set
     /// [`list_apply`]: crate::list_apply
     /// [`map_apply`]: crate::map_apply
+    /// [`set_apply`]: crate::set_apply
     ///
     /// # Panics
     ///
     /// Derived implementations of this method will panic:
-    /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is
+    /// - If the type of `value` is not of the same kind as `Self` (e.g. if `Self` is
     ///   a `List`, while `value` is a `Struct`).
-    /// - If `T` is any complex type and the corresponding fields or elements of
+    /// - If `Self` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
-    /// - If `T` is an opaque type and `self` cannot be downcast to `T`
+    /// - If `Self` is an opaque type and `value` cannot be downcast to `Self`
     fn apply(&mut self, value: &dyn PartialReflect) {
         PartialReflect::try_apply(self, value).unwrap();
     }
@@ -291,6 +311,24 @@ where
         Err(ReflectCloneError::NotImplemented {
             type_path: Cow::Owned(self.reflect_type_path().to_string()),
         })
+    }
+
+    /// For a type implementing [`PartialReflect`], combines `reflect_clone` and
+    /// `take` in a useful fashion, automatically constructing an appropriate
+    /// [`ReflectCloneError`] if the downcast fails.
+    ///
+    /// This is an associated function, rather than a method, because methods
+    /// with generic types prevent dyn-compatibility.
+    fn reflect_clone_and_take<T: 'static>(&self) -> Result<T, ReflectCloneError>
+    where
+        Self: TypePath + Sized,
+    {
+        self.reflect_clone()?
+            .take()
+            .map_err(|_| ReflectCloneError::FailedDowncast {
+                expected: Cow::Borrowed(<Self as TypePath>::type_path()),
+                received: Cow::Owned(self.reflect_type_path().to_string()),
+            })
     }
 
     /// Returns a hash of the value (which includes the type).
@@ -570,7 +608,7 @@ impl TypePath for dyn Reflect {
 macro_rules! impl_full_reflect {
     ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
         impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
-            fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
+            fn into_any(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn ::core::any::Any> {
                 self
             }
 
@@ -582,7 +620,7 @@ macro_rules! impl_full_reflect {
                 self
             }
 
-            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
+            fn into_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::Reflect> {
                 self
             }
 
@@ -596,8 +634,8 @@ macro_rules! impl_full_reflect {
 
             fn set(
                 &mut self,
-                value: Box<dyn $crate::Reflect>,
-            ) -> Result<(), Box<dyn $crate::Reflect>> {
+                value: bevy_platform::prelude::Box<dyn $crate::Reflect>,
+            ) -> Result<(), bevy_platform::prelude::Box<dyn $crate::Reflect>> {
                 *self = <dyn $crate::Reflect>::take(value)?;
                 Ok(())
             }

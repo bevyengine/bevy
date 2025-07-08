@@ -2,8 +2,9 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
-    UiTargetCamera,
+    ui_transform::UiGlobalTransform,
+    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, OverrideClip,
+    UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -11,13 +12,12 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     hierarchy::ChildOf,
-    query::{Changed, With},
+    query::{Changed, Has, With},
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
 use bevy_render::camera::Camera;
 use bevy_sprite::BorderRect;
-use bevy_transform::components::GlobalTransform;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -26,8 +26,9 @@ pub fn update_clipping_system(
     mut node_query: Query<(
         &Node,
         &ComputedNode,
-        &GlobalTransform,
+        &UiGlobalTransform,
         Option<&mut CalculatedClip>,
+        Has<OverrideClip>,
     )>,
     ui_children: UiChildren,
 ) {
@@ -48,17 +49,23 @@ fn update_clipping(
     node_query: &mut Query<(
         &Node,
         &ComputedNode,
-        &GlobalTransform,
+        &UiGlobalTransform,
         Option<&mut CalculatedClip>,
+        Has<OverrideClip>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
-    let Ok((node, computed_node, global_transform, maybe_calculated_clip)) =
+    let Ok((node, computed_node, transform, maybe_calculated_clip, has_override_clip)) =
         node_query.get_mut(entity)
     else {
         return;
     };
+
+    // If the UI node entity has an `OverrideClip` component, discard any inherited clip rect
+    if has_override_clip {
+        maybe_inherited_clip = None;
+    }
 
     // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
     if node.display == Display::None {
@@ -91,10 +98,7 @@ fn update_clipping(
         maybe_inherited_clip
     } else {
         // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
-        let mut clip_rect = Rect::from_center_size(
-            global_transform.translation().truncate(),
-            computed_node.size(),
-        );
+        let mut clip_rect = Rect::from_center_size(transform.translation, computed_node.size());
 
         // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
         //
@@ -217,8 +221,8 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::UVec2;
     use bevy_render::camera::Camera;
-    use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::RenderTarget;
+    use bevy_render::texture::ManualTextureViews;
     use bevy_utils::default;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;

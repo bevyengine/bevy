@@ -7,6 +7,7 @@
 //! implementation using bevy's low level rendering api.
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
+use bevy::pbr::SetMeshViewBindingArrayBindGroup;
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::{
@@ -88,7 +89,7 @@ impl ExtractComponent for InstanceMaterialData {
     type QueryFilter = ();
     type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self> {
         Some(InstanceMaterialData(item.0.clone()))
     }
 }
@@ -248,7 +249,8 @@ impl SpecializedMeshPipeline for CustomPipeline {
 type DrawCustom = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
+    SetMeshViewBindingArrayBindGroup<1>,
+    SetMeshBindGroup<2>,
     DrawMeshInstanced,
 );
 

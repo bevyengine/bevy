@@ -1,11 +1,14 @@
 use core::ops::Deref;
 
+use bevy_utils::prelude::DebugName;
+
 use crate::{
     archetype::Archetype,
     change_detection::{MaybeLocation, MutUntyped},
-    component::{ComponentId, HookContext, Mutable},
+    component::{ComponentId, Mutable},
     entity::Entity,
-    event::{Event, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EntityEvent, Event, EventId, EventKey, Events, WriteBatchIds},
+    lifecycle::{HookContext, INSERT, REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
@@ -16,14 +19,14 @@ use crate::{
     world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
+use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
 ///
 /// This means that in order to add entities, for example, you will need to use commands instead of the world directly.
 pub struct DeferredWorld<'w> {
-    // SAFETY: Implementors must not use this reference to make structural changes
+    // SAFETY: Implementers must not use this reference to make structural changes
     world: UnsafeWorldCell<'w>,
 }
 
@@ -84,7 +87,7 @@ impl<'w> DeferredWorld<'w> {
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
     /// runs the provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -93,9 +96,11 @@ impl<'w> DeferredWorld<'w> {
     /// If you do not need to ensure the above hooks are triggered, and your component
     /// is mutable, prefer using [`get_mut`](DeferredWorld::get_mut).
     #[inline]
-    pub(crate) fn modify_component<T: Component, R>(
+    #[track_caller]
+    pub(crate) fn modify_component_with_relationship_hook_mode<T: Component, R>(
         &mut self,
         entity: Entity,
+        relationship_hook_mode: RelationshipHookMode,
         f: impl FnOnce(&mut T) -> R,
     ) -> Result<Option<R>, EntityMutableFetchError> {
         // If the component is not registered, then it doesn't exist on this entity, so no action required.
@@ -103,18 +108,23 @@ impl<'w> DeferredWorld<'w> {
             return Ok(None);
         };
 
-        self.modify_component_by_id(entity, component_id, move |component| {
-            // SAFETY: component matches the component_id collected in the above line
-            let mut component = unsafe { component.with_type::<T>() };
+        self.modify_component_by_id_with_relationship_hook_mode(
+            entity,
+            component_id,
+            relationship_hook_mode,
+            move |component| {
+                // SAFETY: component matches the component_id collected in the above line
+                let mut component = unsafe { component.with_type::<T>() };
 
-            f(&mut component)
-        })
+                f(&mut component)
+            },
+        )
     }
 
     /// Temporarily removes a [`Component`] identified by the provided
     /// [`ComponentId`] from the provided [`Entity`] and runs the provided
     /// closure on it, returning the result if the component was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -123,13 +133,15 @@ impl<'w> DeferredWorld<'w> {
     /// If you do not need to ensure the above hooks are triggered, and your component
     /// is mutable, prefer using [`get_mut_by_id`](DeferredWorld::get_mut_by_id).
     ///
-    /// You should prefer the typed [`modify_component`](DeferredWorld::modify_component)
+    /// You should prefer the typed [`modify_component_with_relationship_hook_mode`](DeferredWorld::modify_component_with_relationship_hook_mode)
     /// whenever possible.
     #[inline]
-    pub(crate) fn modify_component_by_id<R>(
+    #[track_caller]
+    pub(crate) fn modify_component_by_id_with_relationship_hook_mode<R>(
         &mut self,
         entity: Entity,
         component_id: ComponentId,
+        relationship_hook_mode: RelationshipHookMode,
         f: impl for<'a> FnOnce(MutUntyped<'a>) -> R,
     ) -> Result<Option<R>, EntityMutableFetchError> {
         let entity_cell = self.get_entity_mut(entity)?;
@@ -144,7 +156,7 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - ON_REPLACE is able to accept ZST events
+        // - REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
             self.trigger_on_replace(
@@ -152,12 +164,12 @@ impl<'w> DeferredWorld<'w> {
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
-                RelationshipHookMode::Run,
+                relationship_hook_mode,
             );
             if archetype.has_replace_observer() {
                 self.trigger_observers(
-                    ON_REPLACE,
-                    entity,
+                    REPLACE,
+                    Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
                 );
@@ -184,7 +196,7 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - ON_REPLACE is able to accept ZST events
+        // - REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
             self.trigger_on_insert(
@@ -192,12 +204,12 @@ impl<'w> DeferredWorld<'w> {
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
-                RelationshipHookMode::Run,
+                relationship_hook_mode,
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(
-                    ON_INSERT,
-                    entity,
+                    INSERT,
+                    Some(entity),
                     [component_id].into_iter(),
                     MaybeLocation::caller(),
                 );
@@ -450,7 +462,7 @@ impl<'w> DeferredWorld<'w> {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                core::any::type_name::<R>()
+                DebugName::type_name::<R>()
             ),
         }
     }
@@ -479,7 +491,7 @@ impl<'w> DeferredWorld<'w> {
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
-                core::any::type_name::<R>()
+                DebugName::type_name::<R>()
             ),
         }
     }
@@ -495,38 +507,74 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_non_send_resource_mut() }
     }
 
-    /// Sends an [`Event`].
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn send_event<E: Event>(&mut self, event: E) -> Option<EventId<E>> {
-        self.send_event_batch(core::iter::once(event))?.next()
+    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
+        self.write_event_batch(core::iter::once(event))?.next()
     }
 
-    /// Sends the default value of the [`Event`] of type `E`.
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn send_event_default<E: Event + Default>(&mut self) -> Option<EventId<E>> {
-        self.send_event(E::default())
+    #[deprecated(since = "0.17.0", note = "Use `DeferredWorld::write_event` instead.")]
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
+        self.write_event(event)
     }
 
-    /// Sends a batch of [`Event`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the sent `events`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn send_event_batch<E: Event>(
+    pub fn write_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
+        self.write_event(E::default())
+    }
+
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use `DeferredWorld::write_event_default` instead."
+    )]
+    pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
+        self.write_event_default::<E>()
+    }
+
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    pub fn write_event_batch<E: BufferedEvent>(
         &mut self,
         events: impl IntoIterator<Item = E>,
-    ) -> Option<SendBatchIds<E>> {
+    ) -> Option<WriteBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
             log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                core::any::type_name::<E>()
+                DebugName::type_name::<E>()
             );
             return None;
         };
-        Some(events_resource.send_batch(events))
+        Some(events_resource.write_batch(events))
+    }
+
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use `DeferredWorld::write_event_batch` instead."
+    )]
+    pub fn send_event_batch<E: BufferedEvent>(
+        &mut self,
+        events: impl IntoIterator<Item = E>,
+    ) -> Option<WriteBatchIds<E>> {
+        self.write_event_batch(events)
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
@@ -737,14 +785,15 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers(
         &mut self,
-        event: ComponentId,
-        target: Entity,
+        event: EventKey,
+        target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
+            target,
             target,
             components,
             &mut (),
@@ -760,8 +809,9 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
-        event: ComponentId,
-        mut target: Entity,
+        event: EventKey,
+        current_target: Option<Entity>,
+        original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
@@ -769,41 +819,64 @@ impl<'w> DeferredWorld<'w> {
     ) where
         T: Traversal<E>,
     {
+        Observers::invoke::<_>(
+            self.reborrow(),
+            event,
+            current_target,
+            original_target,
+            components.clone(),
+            data,
+            &mut propagate,
+            caller,
+        );
+        let Some(mut current_target) = current_target else {
+            return;
+        };
+
         loop {
+            if !propagate {
+                return;
+            }
+            if let Some(traverse_to) = self
+                .get_entity(current_target)
+                .ok()
+                .and_then(|entity| entity.get_components::<T>())
+                .and_then(|item| T::traverse(item, data))
+            {
+                current_target = traverse_to;
+            } else {
+                break;
+            }
             Observers::invoke::<_>(
                 self.reborrow(),
                 event,
-                target,
+                Some(current_target),
+                original_target,
                 components.clone(),
                 data,
                 &mut propagate,
                 caller,
             );
-            if !propagate {
-                break;
-            }
-            if let Some(traverse_to) = self
-                .get_entity(target)
-                .ok()
-                .and_then(|entity| entity.get_components::<T>())
-                .and_then(|item| T::traverse(item, data))
-            {
-                target = traverse_to;
-            } else {
-                break;
-            }
         }
     }
 
-    /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
+    /// Sends a global [`Event`] without any targets.
+    ///
+    /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
+    ///
+    /// [`Observer`]: crate::observer::Observer
     pub fn trigger(&mut self, trigger: impl Event) {
         self.commands().trigger(trigger);
     }
 
-    /// Sends a [`Trigger`](crate::observer::Trigger) with the given `targets`.
+    /// Sends an [`EntityEvent`] with the given `targets`
+    ///
+    /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
+    ///
+    /// [`Observer`]: crate::observer::Observer
     pub fn trigger_targets(
         &mut self,
-        trigger: impl Event,
+        trigger: impl EntityEvent,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
         self.commands().trigger_targets(trigger, targets);
