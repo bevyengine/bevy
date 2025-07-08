@@ -1,4 +1,5 @@
 use core::fmt;
+use indexmap::IndexSet;
 use proc_macro2::Span;
 
 use crate::{
@@ -481,7 +482,6 @@ impl<'a> ReflectMeta<'a> {
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
-            self,
             where_clause_options,
             None,
             Option::<core::iter::Empty<&Type>>::None,
@@ -514,25 +514,27 @@ impl<'a> StructField<'a> {
         };
 
         let ty = self.reflected_type();
-        let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[cfg_attr(
-            not(feature = "documentation"),
-            expect(
-                unused_mut,
-                reason = "Needs to be mutable if `documentation` feature is enabled.",
-            )
-        )]
         let mut info = quote! {
-            #field_info::new::<#ty>(#name).with_custom_attributes(#custom_attributes)
+            #field_info::new::<#ty>(#name)
         };
+
+        let custom_attributes = &self.attrs.custom_attributes;
+        if !custom_attributes.is_empty() {
+            let custom_attributes = custom_attributes.to_tokens(bevy_reflect_path);
+            info.extend(quote! {
+                .with_custom_attributes(#custom_attributes)
+            });
+        }
 
         #[cfg(feature = "documentation")]
         {
             let docs = &self.doc;
-            info.extend(quote! {
-                .with_docs(#docs)
-            });
+            if !docs.is_empty() {
+                info.extend(quote! {
+                    .with_docs(#docs)
+                });
+            }
         }
 
         info
@@ -596,7 +598,6 @@ impl<'a> ReflectStruct<'a> {
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
-            self.meta(),
             where_clause_options,
             self.serialization_data(),
             Some(self.active_types().iter()),
@@ -605,9 +606,12 @@ impl<'a> ReflectStruct<'a> {
 
     /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<Type> {
+        // Collect via `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
-            .collect()
+            .collect::<IndexSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API.
@@ -653,18 +657,19 @@ impl<'a> ReflectStruct<'a> {
             .active_fields()
             .map(|field| field.to_info_tokens(bevy_reflect_path));
 
-        let custom_attributes = self
-            .meta
-            .attrs
-            .custom_attributes()
-            .to_tokens(bevy_reflect_path);
-
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new::<Self>(&[
                 #(#field_infos),*
             ])
-            .with_custom_attributes(#custom_attributes)
         };
+
+        let custom_attributes = self.meta.attrs.custom_attributes();
+        if !custom_attributes.is_empty() {
+            let custom_attributes = custom_attributes.to_tokens(bevy_reflect_path);
+            info.extend(quote! {
+                .with_custom_attributes(#custom_attributes)
+            });
+        }
 
         if let Some(generics) = generate_generics(self.meta()) {
             info.extend(quote! {
@@ -675,9 +680,11 @@ impl<'a> ReflectStruct<'a> {
         #[cfg(feature = "documentation")]
         {
             let docs = self.meta().doc();
-            info.extend(quote! {
-                .with_docs(#docs)
-            });
+            if !docs.is_empty() {
+                info.extend(quote! {
+                    .with_docs(#docs)
+                });
+            }
         }
 
         quote! {
@@ -715,18 +722,7 @@ impl<'a> ReflectStruct<'a> {
                         }
                     } else {
                         quote! {
-                            #bevy_reflect_path::PartialReflect::reflect_clone(#accessor)?
-                                .take()
-                                .map_err(|value| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
-                                    expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(
-                                        <#field_ty as #bevy_reflect_path::TypePath>::type_path()
-                                    ),
-                                    received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
-                                        #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(
-                                            #bevy_reflect_path::DynamicTypePath::reflect_type_path(&*value)
-                                        )
-                                    ),
-                                })?
+                            <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#accessor)?
                         }
                     };
 
@@ -846,9 +842,12 @@ impl<'a> ReflectEnum<'a> {
 
     /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<Type> {
+        // Collect via `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
-            .collect()
+            .collect::<IndexSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API
@@ -868,7 +867,6 @@ impl<'a> ReflectEnum<'a> {
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
-            self.meta(),
             where_clause_options,
             None,
             Some(self.active_fields().map(StructField::reflected_type)),
@@ -884,18 +882,19 @@ impl<'a> ReflectEnum<'a> {
             .iter()
             .map(|variant| variant.to_info_tokens(bevy_reflect_path));
 
-        let custom_attributes = self
-            .meta
-            .attrs
-            .custom_attributes()
-            .to_tokens(bevy_reflect_path);
-
         let mut info = quote! {
             #bevy_reflect_path::EnumInfo::new::<Self>(&[
                 #(#variants),*
             ])
-            .with_custom_attributes(#custom_attributes)
         };
+
+        let custom_attributes = self.meta.attrs.custom_attributes();
+        if !custom_attributes.is_empty() {
+            let custom_attributes = custom_attributes.to_tokens(bevy_reflect_path);
+            info.extend(quote! {
+                .with_custom_attributes(#custom_attributes)
+            });
+        }
 
         if let Some(generics) = generate_generics(self.meta()) {
             info.extend(quote! {
@@ -906,9 +905,11 @@ impl<'a> ReflectEnum<'a> {
         #[cfg(feature = "documentation")]
         {
             let docs = self.meta().doc();
-            info.extend(quote! {
-                .with_docs(#docs)
-            });
+            if !docs.is_empty() {
+                info.extend(quote! {
+                    .with_docs(#docs)
+                });
+            }
         }
 
         quote! {
@@ -1008,26 +1009,26 @@ impl<'a> EnumVariant<'a> {
             }
         };
 
-        let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
-
-        #[cfg_attr(
-            not(feature = "documentation"),
-            expect(
-                unused_mut,
-                reason = "Needs to be mutable if `documentation` feature is enabled.",
-            )
-        )]
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new(#args)
-                .with_custom_attributes(#custom_attributes)
         };
+
+        let custom_attributes = &self.attrs.custom_attributes;
+        if !custom_attributes.is_empty() {
+            let custom_attributes = custom_attributes.to_tokens(bevy_reflect_path);
+            info.extend(quote! {
+                .with_custom_attributes(#custom_attributes)
+            });
+        }
 
         #[cfg(feature = "documentation")]
         {
             let docs = &self.doc;
-            info.extend(quote! {
-                .with_docs(#docs)
-            });
+            if !docs.is_empty() {
+                info.extend(quote! {
+                    .with_docs(#docs)
+                });
+            }
         }
 
         quote! {

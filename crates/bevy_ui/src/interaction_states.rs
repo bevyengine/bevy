@@ -2,8 +2,8 @@
 use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
     component::Component,
-    lifecycle::{OnAdd, OnInsert, OnRemove},
-    observer::Trigger,
+    lifecycle::{Add, Remove},
+    observer::On,
     world::DeferredWorld,
 };
 
@@ -18,21 +18,18 @@ use bevy_ecs::{
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct InteractionDisabled;
 
-pub(crate) fn on_add_disabled(
-    trigger: Trigger<OnAdd, InteractionDisabled>,
-    mut world: DeferredWorld,
-) {
-    let mut entity = world.entity_mut(trigger.target().unwrap());
+pub(crate) fn on_add_disabled(trigger: On<Add, InteractionDisabled>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_disabled();
     }
 }
 
 pub(crate) fn on_remove_disabled(
-    trigger: Trigger<OnRemove, InteractionDisabled>,
+    trigger: On<Remove, InteractionDisabled>,
     mut world: DeferredWorld,
 ) {
-    let mut entity = world.entity_mut(trigger.target().unwrap());
+    let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.clear_disabled();
     }
@@ -43,21 +40,17 @@ pub(crate) fn on_remove_disabled(
 #[derive(Component, Default, Debug)]
 pub struct Pressed;
 
+/// Component that indicates that a widget can be checked.
+#[derive(Component, Default, Debug)]
+pub struct Checkable;
+
 /// Component that indicates whether a checkbox or radio button is in a checked state.
 #[derive(Component, Default, Debug)]
-#[component(immutable)]
-pub struct Checked(pub bool);
+pub struct Checked;
 
-impl Checked {
-    /// Returns whether the checkbox or radio button is currently checked.
-    pub fn get(&self) -> bool {
-        self.0
-    }
-}
-
-pub(crate) fn on_insert_is_checked(trigger: Trigger<OnInsert, Checked>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target().unwrap());
-    let checked = entity.get::<Checked>().unwrap().get();
+pub(crate) fn on_add_checkable(trigger: On<Add, Checked>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(trigger.target());
+    let checked = entity.get::<Checked>().is_some();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(match checked {
             true => accesskit::Toggled::True,
@@ -66,8 +59,23 @@ pub(crate) fn on_insert_is_checked(trigger: Trigger<OnInsert, Checked>, mut worl
     }
 }
 
-pub(crate) fn on_remove_is_checked(trigger: Trigger<OnRemove, Checked>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target().unwrap());
+pub(crate) fn on_remove_checkable(trigger: On<Add, Checked>, mut world: DeferredWorld) {
+    // Remove the 'toggled' attribute entirely.
+    let mut entity = world.entity_mut(trigger.target());
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.clear_toggled();
+    }
+}
+
+pub(crate) fn on_add_checked(trigger: On<Add, Checked>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(trigger.target());
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_toggled(accesskit::Toggled::True);
+    }
+}
+
+pub(crate) fn on_remove_checked(trigger: On<Remove, Checked>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::False);
     }

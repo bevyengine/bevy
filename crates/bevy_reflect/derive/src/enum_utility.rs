@@ -48,20 +48,15 @@ pub(crate) trait VariantBuilder: Sized {
     /// * `this`: The identifier of the enum
     /// * `field`: The field to access
     fn access_field(&self, this: &Ident, field: VariantField) -> TokenStream {
-        match &field.field.data.ident {
-            Some(field_ident) => {
-                let name = field_ident.to_string();
-                quote!(#this.field(#name))
-            }
-            None => {
-                if let Some(field_index) = field.field.reflection_index {
-                    quote!(#this.field_at(#field_index))
-                } else {
-                    quote!(::core::compile_error!(
-                        "internal bevy_reflect error: field should be active"
-                    ))
-                }
-            }
+        if let Some(field_ident) = &field.field.data.ident {
+            let name = field_ident.to_string();
+            quote!(#this.field(#name))
+        } else if let Some(field_index) = field.field.reflection_index {
+            quote!(#this.field_at(#field_index))
+        } else {
+            quote!(::core::compile_error!(
+                "internal bevy_reflect error: field should be active"
+            ))
         }
     }
 
@@ -321,9 +316,7 @@ impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
 
     fn construct_field(&self, field: VariantField) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
-
         let field_ty = field.field.reflected_type();
-
         let alias = field.alias;
         let alias = match &field.field.attrs.remote {
             Some(wrapper_ty) => {
@@ -337,18 +330,7 @@ impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
         match &field.field.attrs.clone {
             CloneBehavior::Default => {
                 quote! {
-                    #bevy_reflect_path::PartialReflect::reflect_clone(#alias)?
-                        .take()
-                        .map_err(|value| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
-                            expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(
-                                <#field_ty as #bevy_reflect_path::TypePath>::type_path()
-                            ),
-                            received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
-                                #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(
-                                    #bevy_reflect_path::DynamicTypePath::reflect_type_path(&*value)
-                                )
-                            ),
-                        })?
+                    <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#alias)?
                 }
             }
             CloneBehavior::Trait => {

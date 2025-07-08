@@ -40,6 +40,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -63,18 +64,12 @@ impl FromWorld for SpritePipeline {
         let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
         let view_layout = render_device.create_bind_group_layout(
             "sprite_view_layout",
-            &BindGroupLayoutEntries::with_indices(
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
-                    (0, uniform_buffer::<ViewUniform>(true)),
-                    (
-                        1,
-                        tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
-                    ),
-                    (
-                        2,
-                        tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
-                    ),
+                    uniform_buffer::<ViewUniform>(true),
+                    tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                    tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
                 ),
             ),
         );
@@ -270,30 +265,21 @@ impl SpecializedRenderPipeline for SpritePipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![instance_rate_vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout: vec![self.view_layout.clone(), self.material_layout.clone()],
-            primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-            },
             // Sprites are always alpha blended so they never need to write to depth.
             // They just need to read it in case an opaque mesh2d
             // that wrote to depth is present.
@@ -319,8 +305,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("sprite_pipeline".into()),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -636,11 +621,7 @@ pub fn prepare_sprite_view_bind_groups(
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &sprite_pipeline.view_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, lut_bindings.0),
-                (2, lut_bindings.1),
-            )),
+            &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
         );
 
         commands.entity(entity).insert(SpriteViewBindGroup {
@@ -908,7 +889,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 
     fn render<'w>(
         _item: &P,
-        (view_uniform, sprite_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
+        (view_uniform, sprite_view_bind_group): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -925,7 +906,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewQuery>,
+        view: ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         (image_bind_groups, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -955,7 +936,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewQuery>,
+        view: ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         (sprite_meta, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,

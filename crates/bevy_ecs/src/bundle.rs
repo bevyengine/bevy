@@ -66,7 +66,7 @@ use crate::{
         RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
-    lifecycle::{ON_ADD, ON_INSERT, ON_REMOVE, ON_REPLACE},
+    lifecycle::{ADD, INSERT, REMOVE, REPLACE},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
@@ -207,12 +207,6 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
-
-    /// Registers components that are required by the components in this [`Bundle`].
-    fn register_required_components(
-        _components: &mut ComponentsRegistrator,
-        _required_components: &mut RequiredComponents,
-    );
 }
 
 /// Creates a [`Bundle`] by taking it from internal storage.
@@ -279,20 +273,6 @@ unsafe impl<C: Component> Bundle for C {
         ids(components.register_component::<C>());
     }
 
-    fn register_required_components(
-        components: &mut ComponentsRegistrator,
-        required_components: &mut RequiredComponents,
-    ) {
-        let component_id = components.register_component::<C>();
-        <C as Component>::register_required_components(
-            component_id,
-            components,
-            required_components,
-            0,
-            &mut Vec::new(),
-        );
-    }
-
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
         ids(components.get_id(TypeId::of::<C>()));
     }
@@ -346,13 +326,6 @@ macro_rules! tuple_impl {
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
-            }
-
-            fn register_required_components(
-                components: &mut ComponentsRegistrator,
-                required_components: &mut RequiredComponents,
-            ) {
-                $(<$name as Bundle>::register_required_components(components, required_components);)*
             }
         }
 
@@ -550,10 +523,9 @@ impl BundleInfo {
                     // SAFETY: the caller ensures component_id is valid.
                     unsafe { components.get_info_unchecked(id).name() }
                 })
-                .collect::<Vec<_>>()
-                .join(", ");
+                .collect::<Vec<_>>();
 
-            panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+            panic!("Bundle {bundle_type_name} has duplicate components: {names:?}");
         }
 
         // handle explicit components
@@ -1191,7 +1163,7 @@ impl<'w> BundleInserter<'w> {
             if insert_mode == InsertMode::Replace {
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
-                        ON_REPLACE,
+                        REPLACE,
                         Some(entity),
                         archetype_after_insert.iter_existing(),
                         caller,
@@ -1376,7 +1348,7 @@ impl<'w> BundleInserter<'w> {
             );
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    ON_ADD,
+                    ADD,
                     Some(entity),
                     archetype_after_insert.iter_added(),
                     caller,
@@ -1394,7 +1366,7 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            ON_INSERT,
+                            INSERT,
                             Some(entity),
                             archetype_after_insert.iter_inserted(),
                             caller,
@@ -1413,7 +1385,7 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            ON_INSERT,
+                            INSERT,
                             Some(entity),
                             archetype_after_insert.iter_added(),
                             caller,
@@ -1567,7 +1539,7 @@ impl<'w> BundleRemover<'w> {
             };
             if self.old_archetype.as_ref().has_replace_observer() {
                 deferred_world.trigger_observers(
-                    ON_REPLACE,
+                    REPLACE,
                     Some(entity),
                     bundle_components_in_archetype(),
                     caller,
@@ -1582,7 +1554,7 @@ impl<'w> BundleRemover<'w> {
             );
             if self.old_archetype.as_ref().has_remove_observer() {
                 deferred_world.trigger_observers(
-                    ON_REMOVE,
+                    REMOVE,
                     Some(entity),
                     bundle_components_in_archetype(),
                     caller,
@@ -1612,7 +1584,7 @@ impl<'w> BundleRemover<'w> {
         // Handle sparse set removes
         for component_id in self.bundle_info.as_ref().iter_explicit_components() {
             if self.old_archetype.as_ref().contains(component_id) {
-                world.removed_components.send(component_id, entity);
+                world.removed_components.write(component_id, entity);
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
@@ -1833,7 +1805,7 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    ON_ADD,
+                    ADD,
                     Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
@@ -1848,7 +1820,7 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
-                    ON_INSERT,
+                    INSERT,
                     Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
@@ -2386,7 +2358,7 @@ mod tests {
         #[derive(Resource, Default)]
         struct Count(u32);
         world.init_resource::<Count>();
-        world.add_observer(|_t: Trigger<ArchetypeCreated>, mut count: ResMut<Count>| {
+        world.add_observer(|_t: On<ArchetypeCreated>, mut count: ResMut<Count>| {
             count.0 += 1;
         });
 
@@ -2397,5 +2369,14 @@ mod tests {
         e.insert(A);
 
         assert_eq!(world.resource::<Count>().0, 3);
+    }
+
+    #[derive(Bundle)]
+    #[expect(unused, reason = "tests the output of the derive macro is valid")]
+    struct Ignore {
+        #[bundle(ignore)]
+        foo: i32,
+        #[bundle(ignore)]
+        bar: i32,
     }
 }

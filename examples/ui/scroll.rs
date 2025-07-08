@@ -3,6 +3,7 @@
 use accesskit::{Node as Accessible, Role};
 use bevy::{
     a11y::AccessibilityNode,
+    ecs::spawn::SpawnIter,
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
@@ -42,25 +43,25 @@ fn send_scroll_events(
 
         for pointer_map in hover_map.values() {
             for entity in pointer_map.keys() {
-                commands.trigger_targets(OnScroll { delta }, *entity);
+                commands.trigger_targets(Scroll { delta }, *entity);
             }
         }
     }
 }
 
 /// UI scrolling event.
-#[derive(Event, Debug)]
-#[event(auto_propagate, traversal = &'static ChildOf)]
-struct OnScroll {
+#[derive(Event, EntityEvent, Debug)]
+#[entity_event(auto_propagate, traversal = &'static ChildOf)]
+struct Scroll {
     /// Scroll delta in logical coordinates.
     delta: Vec2,
 }
 
 fn on_scroll_handler(
-    mut trigger: Trigger<OnScroll>,
+    mut trigger: On<Scroll>,
     mut query: Query<(&mut ScrollPosition, &Node, &ComputedNode)>,
 ) {
-    let target = trigger.target().unwrap();
+    let target = trigger.target();
     let delta = &mut trigger.event_mut().delta;
 
     let Ok((mut scroll_position, node, computed)) = query.get_mut(target) else {
@@ -72,13 +73,13 @@ fn on_scroll_handler(
     if node.overflow.x == OverflowAxis::Scroll && delta.x != 0. {
         // Is this node already scrolled all the way in the direction of the scroll?
         let max = if delta.x > 0. {
-            scroll_position.offset_x >= max_offset.x
+            scroll_position.x >= max_offset.x
         } else {
-            scroll_position.offset_x <= 0.
+            scroll_position.x <= 0.
         };
 
         if !max {
-            scroll_position.offset_x += delta.x;
+            scroll_position.x += delta.x;
             // Consume the X portion of the scroll delta.
             delta.x = 0.;
         }
@@ -87,13 +88,13 @@ fn on_scroll_handler(
     if node.overflow.y == OverflowAxis::Scroll && delta.y != 0. {
         // Is this node already scrolled all the way in the direction of the scroll?
         let max = if delta.y > 0. {
-            scroll_position.offset_y >= max_offset.y
+            scroll_position.y >= max_offset.y
         } else {
-            scroll_position.offset_y <= 0.
+            scroll_position.y <= 0.
         };
 
         if !max {
-            scroll_position.offset_y += delta.y;
+            scroll_position.y += delta.y;
             // Consume the Y portion of the scroll delta.
             delta.y = 0.;
         }
@@ -110,6 +111,9 @@ const FONT_SIZE: f32 = 20.;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
     commands.spawn((Camera2d, IsDefaultUiCamera));
+
+    // Font
+    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     // root node
     commands
@@ -133,7 +137,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn((
                         Text::new("Horizontally Scrolling list (Ctrl + MouseWheel)"),
                         TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font: font_handle.clone(),
                             font_size: FONT_SIZE,
                             ..default()
                         },
@@ -154,229 +158,217 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ))
                         .with_children(|parent| {
                             for i in 0..100 {
-                                parent.spawn((Text(format!("Item {i}")),
+                                parent
+                                    .spawn((
+                                        Text(format!("Item {i}")),
                                         TextFont {
-                                            font: asset_server
-                                                .load("fonts/FiraSans-Bold.ttf"),
+                                            font: font_handle.clone(),
                                             ..default()
                                         },
-                                    Label,
-                                    AccessibilityNode(Accessible::new(Role::ListItem)),
-                                    Node {
-                                    min_width: Val::Px(200.),
-                                    align_content: AlignContent::Center,
-                                    ..default()
-                                }
-                                ))
-                                .observe(|
-                                    trigger: Trigger<Pointer<Press>>,
-                                    mut commands: Commands
-                                | {
-                                    if trigger.event().button == PointerButton::Primary {
-                                        commands.entity(trigger.target().unwrap()).despawn();
-                                    }
-                                });
+                                        Label,
+                                        AccessibilityNode(Accessible::new(Role::ListItem)),
+                                        Node {
+                                            min_width: Val::Px(200.),
+                                            align_content: AlignContent::Center,
+                                            ..default()
+                                        },
+                                    ))
+                                    .observe(
+                                        |trigger: On<Pointer<Press>>, mut commands: Commands| {
+                                            if trigger.event().button == PointerButton::Primary {
+                                                commands.entity(trigger.target()).despawn();
+                                            }
+                                        },
+                                    );
                             }
                         });
                 });
 
             // container for all other examples
-            parent
-                .spawn(Node {
+            parent.spawn((
+                Node {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
                     ..default()
-                })
-                .with_children(|parent| {
-                    // vertical scroll example
-                    parent
-                        .spawn(Node {
-                            flex_direction: FlexDirection::Column,
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            width: Val::Px(200.),
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            // Title
-                            parent.spawn((
-                                Text::new("Vertically Scrolling List"),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: FONT_SIZE,
-                                    ..default()
-                                },
-                                Label,
-                            ));
-                            // Scrolling list
-                            parent
-                                .spawn((
-                                    Node {
-                                        flex_direction: FlexDirection::Column,
-                                        align_self: AlignSelf::Stretch,
-                                        height: Val::Percent(50.),
-                                        overflow: Overflow::scroll_y(), // n.b.
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
-                                ))
-                                .with_children(|parent| {
-                                    // List items
-                                    for i in 0..25 {
-                                        parent
-                                            .spawn(Node {
-                                                min_height: Val::Px(LINE_HEIGHT),
-                                                max_height: Val::Px(LINE_HEIGHT),
-                                                ..default()
-                                            })
-                                            .with_children(|parent| {
-                                                parent.spawn((
-                                                    Text(format!("Item {i}")),
-                                                    TextFont {
-                                                        font: asset_server
-                                                            .load("fonts/FiraSans-Bold.ttf"),
-                                                        ..default()
-                                                    },
-                                                    Label,
-                                                    AccessibilityNode(Accessible::new(
-                                                        Role::ListItem,
-                                                    )),
-                                                ));
-                                            });
-                                    }
-                                });
-                        });
-
-                    // Bidirectional scroll example
-                    parent
-                        .spawn(Node {
-                            flex_direction: FlexDirection::Column,
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            width: Val::Px(200.),
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            // Title
-                            parent.spawn((
-                                Text::new("Bidirectionally Scrolling List"),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: FONT_SIZE,
-                                    ..default()
-                                },
-                                Label,
-                            ));
-                            // Scrolling list
-                            parent
-                                .spawn((
-                                    Node {
-                                        flex_direction: FlexDirection::Column,
-                                        align_self: AlignSelf::Stretch,
-                                        height: Val::Percent(50.),
-                                        overflow: Overflow::scroll(), // n.b.
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
-                                ))
-                                .with_children(|parent| {
-                                    // Rows in each column
-                                    for oi in 0..10 {
-                                        parent
-                                            .spawn(Node {
-                                                flex_direction: FlexDirection::Row,
-                                                ..default()
-                                            })
-                                            .with_children(|parent| {
-                                                // Elements in each row
-                                                for i in 0..20 {
-                                                    parent.spawn((
-                                                        Text(format!("Item {}", (oi * 20) + i)),
-                                                        TextFont {
-                                                            font: asset_server
-                                                                .load("fonts/FiraSans-Bold.ttf"),
-                                                            ..default()
-                                                        },
-                                                        Label,
-                                                        AccessibilityNode(Accessible::new(
-                                                            Role::ListItem,
-                                                        )),
-                                                    ));
-                                                }
-                                            });
-                                    }
-                                });
-                        });
-
-                    // Nested scrolls example
-                    parent
-                        .spawn(Node {
-                            flex_direction: FlexDirection::Column,
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            width: Val::Px(200.),
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            // Title
-                            parent.spawn((
-                                Text::new("Nested Scrolling Lists"),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: FONT_SIZE,
-                                    ..default()
-                                },
-                                Label,
-                            ));
-                            // Outer, horizontal scrolling container
-                            parent
-                                .spawn((
-                                    Node {
-                                        column_gap: Val::Px(20.),
-                                        flex_direction: FlexDirection::Row,
-                                        align_self: AlignSelf::Stretch,
-                                        height: Val::Percent(50.),
-                                        overflow: Overflow::scroll(),
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
-                                ))
-                                .with_children(|parent| {
-                                    // Inner, scrolling columns
-                                    for oi in 0..5 {
-                                        parent
-                                            .spawn((
-                                                Node {
-                                                    flex_direction: FlexDirection::Column,
-                                                    height: Val::Percent(
-                                                        200. / 5. * (oi as f32 + 1.),
-                                                    ),
-                                                    overflow: Overflow::scroll_y(),
-                                                    ..default()
-                                                },
-                                                BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
-                                            ))
-                                            .with_children(|parent| {
-                                                for i in 0..20 {
-                                                    parent.spawn((
-                                                        Text(format!("Item {}", (oi * 20) + i)),
-                                                        TextFont {
-                                                            font: asset_server
-                                                                .load("fonts/FiraSans-Bold.ttf"),
-                                                            ..default()
-                                                        },
-                                                        Label,
-                                                        AccessibilityNode(Accessible::new(
-                                                            Role::ListItem,
-                                                        )),
-                                                    ));
-                                                }
-                                            });
-                                    }
-                                });
-                        });
-                });
+                },
+                children![
+                    vertically_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                    bidirectional_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                    nested_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                ],
+            ));
         });
+}
+
+fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
+    (
+        Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            width: Val::Px(200.),
+            ..default()
+        },
+        children![
+            (
+                // Title
+                Text::new("Vertically Scrolling List"),
+                TextFont {
+                    font: font_handle.clone(),
+                    font_size: FONT_SIZE,
+                    ..default()
+                },
+                Label,
+            ),
+            (
+                // Scrolling list
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    align_self: AlignSelf::Stretch,
+                    height: Val::Percent(50.),
+                    overflow: Overflow::scroll_y(), // n.b.
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                Children::spawn(SpawnIter((0..25).map(move |i| {
+                    (
+                        Node {
+                            min_height: Val::Px(LINE_HEIGHT),
+                            max_height: Val::Px(LINE_HEIGHT),
+                            ..default()
+                        },
+                        children![(
+                            Text(format!("Item {i}")),
+                            TextFont {
+                                font: font_handle.clone(),
+                                ..default()
+                            },
+                            Label,
+                            AccessibilityNode(Accessible::new(Role::ListItem)),
+                        )],
+                    )
+                })))
+            ),
+        ],
+    )
+}
+
+fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
+    (
+        Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            width: Val::Px(200.),
+            ..default()
+        },
+        children![
+            (
+                Text::new("Bidirectionally Scrolling List"),
+                TextFont {
+                    font: font_handle.clone(),
+                    font_size: FONT_SIZE,
+                    ..default()
+                },
+                Label,
+            ),
+            (
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    align_self: AlignSelf::Stretch,
+                    height: Val::Percent(50.),
+                    overflow: Overflow::scroll(), // n.b.
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                Children::spawn(SpawnIter((0..25).map(move |oi| {
+                    (
+                        Node {
+                            flex_direction: FlexDirection::Row,
+                            ..default()
+                        },
+                        Children::spawn(SpawnIter((0..10).map({
+                            let value = font_handle.clone();
+                            move |i| {
+                                (
+                                    Text(format!("Item {}", (oi * 10) + i)),
+                                    TextFont {
+                                        font: value.clone(),
+                                        ..default()
+                                    },
+                                    Label,
+                                    AccessibilityNode(Accessible::new(Role::ListItem)),
+                                )
+                            }
+                        }))),
+                    )
+                })))
+            )
+        ],
+    )
+}
+
+fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
+    (
+        Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            width: Val::Px(200.),
+            ..default()
+        },
+        children![
+            (
+                // Title
+                Text::new("Nested Scrolling Lists"),
+                TextFont {
+                    font: font_handle.clone(),
+                    font_size: FONT_SIZE,
+                    ..default()
+                },
+                Label,
+            ),
+            (
+                // Outer, bi-directional scrolling container
+                Node {
+                    column_gap: Val::Px(20.),
+                    flex_direction: FlexDirection::Row,
+                    align_self: AlignSelf::Stretch,
+                    height: Val::Percent(50.),
+                    overflow: Overflow::scroll(),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                // Inner, scrolling columns
+                Children::spawn(SpawnIter((0..5).map(move |oi| {
+                    (
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_self: AlignSelf::Stretch,
+                            height: Val::Percent(200. / 5. * (oi as f32 + 1.)),
+                            overflow: Overflow::scroll_y(),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
+                        Children::spawn(SpawnIter((0..20).map({
+                            let value = font_handle.clone();
+                            move |i| {
+                                (
+                                    Text(format!("Item {}", (oi * 20) + i)),
+                                    TextFont {
+                                        font: value.clone(),
+                                        ..default()
+                                    },
+                                    Label,
+                                    AccessibilityNode(Accessible::new(Role::ListItem)),
+                                )
+                            }
+                        }))),
+                    )
+                })))
+            )
+        ],
+    )
 }

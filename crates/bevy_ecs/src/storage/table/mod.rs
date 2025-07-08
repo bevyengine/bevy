@@ -1,6 +1,6 @@
 use crate::{
     change_detection::MaybeLocation,
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
+    component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
@@ -597,7 +597,7 @@ impl Table {
     #[inline]
     pub fn entity_count(&self) -> u32 {
         // No entity may have more than one table row, so there are no duplicates,
-        // and there may only ever be u32::MAX entities, so the length never exceeds u32's cappacity.
+        // and there may only ever be u32::MAX entities, so the length never exceeds u32's capacity.
         self.entities.len() as u32
     }
 
@@ -629,11 +629,11 @@ impl Table {
     }
 
     /// Call [`Tick::check_tick`] on all of the ticks in the [`Table`]
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         let len = self.entity_count() as usize;
         for col in self.columns.values_mut() {
             // SAFETY: `len` is the actual length of the column
-            unsafe { col.check_change_ticks(len, change_tick) };
+            unsafe { col.check_change_ticks(len, check) };
         }
     }
 
@@ -793,9 +793,9 @@ impl Tables {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for table in &mut self.tables {
-            table.check_change_ticks(change_tick);
+            table.check_change_ticks(check);
         }
     }
 }

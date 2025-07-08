@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.16.0-dev"
+version = "0.17.0-dev"
 edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.86.0"
+rust-version = "1.88.0"
 
 [workspace]
 resolver = "2"
@@ -72,7 +72,6 @@ allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
-mismatched_lifetime_syntaxes = "allow"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
@@ -152,6 +151,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_ui_render",
   "bevy_window",
   "bevy_winit",
   "custom_cursor",
@@ -165,6 +165,8 @@ default = [
   "vorbis",
   "webgl2",
   "x11",
+  "debug",
+  "zstd_rust",
 ]
 
 # Recommended defaults for no_std applications
@@ -247,6 +249,15 @@ bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
+# Provides raytraced lighting (experimental)
+bevy_solari = [
+  "bevy_internal/bevy_solari",
+  "bevy_asset",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_render",
+]
+
 # Provides sprite functionality
 bevy_sprite = [
   "bevy_internal/bevy_sprite",
@@ -268,6 +279,9 @@ bevy_ui = [
   "bevy_color",
   "bevy_anti_aliasing",
 ]
+
+# Provides rendering functionality for bevy_ui
+bevy_ui_render = ["bevy_internal/bevy_ui_render", "bevy_render", "bevy_ui"]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
@@ -296,6 +310,9 @@ bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 # Headless widget collection for Bevy UI.
 bevy_core_widgets = ["bevy_internal/bevy_core_widgets"]
 
+# Feathers widget collection.
+experimental_bevy_feathers = ["bevy_internal/bevy_feathers"]
+
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
@@ -320,6 +337,9 @@ trace = ["bevy_internal/trace", "dep:tracing"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
+
+# Enables compressed KTX2 UASTC texture output on the asset processor
+compressed_image_saver = ["bevy_internal/compressed_image_saver"]
 
 # BMP image format support
 bmp = ["bevy_internal/bmp"]
@@ -369,8 +389,11 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# For KTX2 supercompression
-zstd = ["bevy_internal/zstd"]
+# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".
+zstd_rust = ["bevy_internal/zstd_rust"]
+
+# For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".
+zstd_c = ["bevy_internal/zstd_c"]
 
 # FLAC audio format support
 flac = ["bevy_internal/flac"]
@@ -439,7 +462,7 @@ android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 detailed_trace = ["bevy_internal/detailed_trace"]
 
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.
-tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
+tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "bevy_image/zstd"]
 
 # Include SMAA Look Up Tables KTX2 Files
 smaa_luts = ["bevy_internal/smaa_luts"]
@@ -467,6 +490,12 @@ shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
+
+# Enable support for Clustered Decals
+pbr_clustered_decals = ["bevy_internal/pbr_clustered_decals"]
+
+# Enable support for Light Textures
+pbr_light_textures = ["bevy_internal/pbr_light_textures"]
 
 # Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_multi_layer_material_textures = [
@@ -498,7 +527,10 @@ file_watcher = ["bevy_internal/file_watcher"]
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
 # Enable stepping-based debugging of Bevy systems
-bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
+bevy_debug_stepping = [
+  "bevy_internal/bevy_debug_stepping",
+  "bevy_internal/debug",
+]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
@@ -542,30 +574,38 @@ web = ["bevy_internal/web"]
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
 
+# Enable converting glTF coordinates to Bevy's coordinate system by default. This will be Bevy's default behavior starting in 0.18.
+gltf_convert_coordinates_default = [
+  "bevy_internal/gltf_convert_coordinates_default",
+]
+
+# Enable collecting debug information about systems and components to help with diagnostics
+debug = ["bevy_internal/debug"]
+
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.17.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.17.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
 rand_chacha = "0.3.1"
-ron = "0.8.0"
+ron = "0.10"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
-bytemuck = "1.7"
-bevy_render = { path = "crates/bevy_render", version = "0.16.0-dev", default-features = false }
+bytemuck = "1"
+bevy_render = { path = "crates/bevy_render", version = "0.17.0-dev", default-features = false }
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.16.0-dev", default-features = false }
-bevy_state = { path = "crates/bevy_state", version = "0.16.0-dev", default-features = false }
-bevy_asset = { path = "crates/bevy_asset", version = "0.16.0-dev", default-features = false }
-bevy_reflect = { path = "crates/bevy_reflect", version = "0.16.0-dev", default-features = false }
-bevy_image = { path = "crates/bevy_image", version = "0.16.0-dev", default-features = false }
-bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.16.0-dev", default-features = false }
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.17.0-dev", default-features = false }
+bevy_state = { path = "crates/bevy_state", version = "0.17.0-dev", default-features = false }
+bevy_asset = { path = "crates/bevy_asset", version = "0.17.0-dev", default-features = false }
+bevy_reflect = { path = "crates/bevy_reflect", version = "0.17.0-dev", default-features = false }
+bevy_image = { path = "crates/bevy_image", version = "0.17.0-dev", default-features = false }
+bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.17.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 async-std = "1.13"
@@ -592,7 +632,7 @@ web-sys = { version = "0.3", features = ["Window"] }
 
 [[example]]
 name = "context_menu"
-path = "examples/usages/context_menu.rs"
+path = "examples/usage/context_menu.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.context_menu]
@@ -828,7 +868,19 @@ doc-scrape-examples = true
 name = "Texture Atlas"
 description = "Generates a texture atlas (sprite sheet) from individual sprites"
 category = "2D Rendering"
+# Loading asset folders is not supported in Wasm, but required to create the atlas.
 wasm = false
+
+[[example]]
+name = "tilemap_chunk"
+path = "examples/2d/tilemap_chunk.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.tilemap_chunk]
+name = "Tilemap Chunk"
+description = "Renders a tilemap chunk"
+category = "2D Rendering"
+wasm = true
 
 [[example]]
 name = "transparency_2d"
@@ -894,6 +946,7 @@ doc-scrape-examples = true
 name = "2D Wireframe"
 description = "Showcases wireframes for 2d meshes"
 category = "2D Rendering"
+# PolygonMode::Line wireframes are not supported by WebGL
 wasm = false
 
 # 3D Rendering
@@ -961,6 +1014,7 @@ doc-scrape-examples = true
 name = "Anti-aliasing"
 description = "Compares different anti-aliasing methods"
 category = "3D Rendering"
+# TAA not supported by WebGL
 wasm = false
 
 [[example]]
@@ -1005,6 +1059,7 @@ doc-scrape-examples = true
 name = "Auto Exposure"
 description = "A scene showcasing auto exposure"
 category = "3D Rendering"
+# Requires compute shaders, which are not supported by WebGL.
 wasm = false
 
 [[example]]
@@ -1015,6 +1070,17 @@ doc-scrape-examples = true
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
 description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "manual_material"
+path = "examples/3d/manual_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.manual_material]
+name = "Manual Material Implementation"
+description = "Demonstrates how to implement a material manually using the mid-level render APIs"
 category = "3D Rendering"
 wasm = true
 
@@ -1061,6 +1127,7 @@ doc-scrape-examples = true
 name = "Screen Space Ambient Occlusion"
 description = "A scene showcasing screen space ambient occlusion"
 category = "3D Rendering"
+# Requires compute shaders, which are not supported by WebGL.
 wasm = false
 
 [[example]]
@@ -1160,6 +1227,7 @@ doc-scrape-examples = true
 name = "Order Independent Transparency"
 description = "Demonstrates how to use OIT"
 category = "3D Rendering"
+# Not supported by WebGL
 wasm = false
 
 [[example]]
@@ -1259,7 +1327,19 @@ doc-scrape-examples = true
 name = "Skybox"
 description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats."
 category = "3D Rendering"
-wasm = false
+wasm = true
+
+[[example]]
+name = "solari"
+path = "examples/3d/solari.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari"]
+
+[package.metadata.example.solari]
+name = "Solari"
+description = "Demonstrates realtime dynamic raytraced lighting using Bevy Solari."
+category = "3D Rendering"
+wasm = false                                                                        # Raytracing is not supported on the web
 
 [[example]]
 name = "spherical_area_lights"
@@ -1358,6 +1438,7 @@ doc-scrape-examples = true
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
+# Not supported on WebGL
 wasm = false
 
 [[example]]
@@ -1369,6 +1450,8 @@ doc-scrape-examples = true
 name = "Irradiance Volumes"
 description = "Demonstrates irradiance volumes"
 category = "3D Rendering"
+# On WebGL and WebGPU, the number of texture bindings is too low
+# See <https://github.com/bevyengine/bevy/issues/11885>
 wasm = false
 
 [[example]]
@@ -1381,6 +1464,7 @@ required-features = ["meshlet"]
 name = "Meshlet"
 description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
+# Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
 wasm = false
 setup = [
   [
@@ -1416,7 +1500,7 @@ doc-scrape-examples = true
 name = "Lightmaps"
 description = "Rendering a scene with baked lightmaps"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "no_prepass"
@@ -1569,6 +1653,7 @@ doc-scrape-examples = true
 name = "Custom Loop"
 description = "Demonstrates how to create a custom runner (to update an app manually)"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -1580,6 +1665,7 @@ doc-scrape-examples = true
 name = "Drag and Drop"
 description = "An example that shows how to handle drag and drop in an app"
 category = "Application"
+# Browser drag and drop is not supported
 wasm = false
 
 [[example]]
@@ -1591,6 +1677,7 @@ doc-scrape-examples = true
 name = "Empty"
 description = "An empty application (does nothing)"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -1614,6 +1701,7 @@ required-features = ["bevy_log"]
 name = "Headless"
 description = "An application that runs without default plugins"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -1636,6 +1724,8 @@ doc-scrape-examples = true
 name = "Log layers"
 description = "Illustrate how to add custom log layers"
 category = "Application"
+# Accesses `time`, which is not available on the web
+# Also doesn't render anything
 wasm = false
 
 [[example]]
@@ -1647,6 +1737,7 @@ doc-scrape-examples = true
 name = "Advanced log layers"
 description = "Illustrate how to transfer data between log layers and Bevy's ECS"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -2022,12 +2113,6 @@ description = "Full guide to Bevy's ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 
-[package.metadata.example.apply_deferred]
-name = "Apply System Buffers"
-description = "Show how to use `ApplyDeferred` system"
-category = "ECS (Entity Component System)"
-wasm = false
-
 [[example]]
 name = "change_detection"
 path = "examples/ecs/change_detection.rs"
@@ -2077,6 +2162,7 @@ wasm = false
 name = "dynamic"
 path = "examples/ecs/dynamic.rs"
 doc-scrape-examples = true
+required-features = ["debug"]
 
 [package.metadata.example.dynamic]
 name = "Dynamic ECS"
@@ -4256,6 +4342,14 @@ description = "Demonstrates specular tints and maps"
 category = "3D Rendering"
 wasm = true
 
+[[example]]
+name = "test_invalid_skinned_mesh"
+path = "tests/3d/test_invalid_skinned_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_invalid_skinned_mesh]
+hidden = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -4355,10 +4449,23 @@ wasm = true
 name = "clustered_decals"
 path = "examples/3d/clustered_decals.rs"
 doc-scrape-examples = true
+required-features = ["pbr_clustered_decals"]
 
 [package.metadata.example.clustered_decals]
 name = "Clustered Decals"
 description = "Demonstrates clustered decals"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "light_textures"
+path = "examples/3d/light_textures.rs"
+doc-scrape-examples = true
+required-features = ["pbr_light_textures"]
+
+[package.metadata.example.light_textures]
+name = "Light Textures"
+description = "Demonstrates light textures"
 category = "3D Rendering"
 wasm = false
 
@@ -4464,3 +4571,27 @@ name = "Core Widgets (w/Observers)"
 description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "scrollbars"
+path = "examples/ui/scrollbars.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scrollbars]
+name = "Scrollbars"
+description = "Demonstrates use of core scrollbar in Bevy UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "feathers"
+path = "examples/ui/feathers.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.feathers]
+name = "Feathers Widgets"
+description = "Gallery of Feathers Widgets"
+category = "UI (User Interface)"
+wasm = true
+hidden = true
