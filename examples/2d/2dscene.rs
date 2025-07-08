@@ -9,9 +9,6 @@
 //! `ArrowRight`: Cycle through colors
 //! N: Next scene
 //! O: Disable intensity
-
-use bevy::math::cos;
-use bevy::math::sin;
 use bevy::prelude::*;
 use bevy::sprite::{FalloffType, PointLight2D};
 use std::f32::consts::TAU;
@@ -78,8 +75,8 @@ fn setup_scene1(mut commands: Commands, asset_server: Res<AssetServer>) {
     let radius = 200.0;
     for i in 0..count {
         let angle = i as f32 / count as f32 * TAU;
-        let x = radius * cos(angle);
-        let y = radius * sin(angle);
+        let x = radius * angle.cos();
+        let y = radius * angle.sin();
         commands.spawn((
             Sprite {
                 image: sprite_handle.clone(),

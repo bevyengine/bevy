@@ -15,13 +15,12 @@ use crate::render::SpritePipeline;
 pub const MAX_POINT_LIGHTS_2D: usize = 32;
 
 /// This structure is sent to the GPU for lighting calculations.
-///
-/// - `color_intensity`: RGBA color multiplied by intensity.
-/// - `position_radius`: XY position of the light, with Z as unused and W as radius.
 #[repr(C)]
 #[derive(ShaderType, Clone, Copy, Default, Pod, Zeroable)]
 pub struct GpuPointLight2D {
+    /// RGBA color multiplied by intensity.
     pub color_intensity: [f32; 4],
+    /// XY position of the light, Z unused, W as radius.
     pub position_radius: [f32; 4],
 }
 
