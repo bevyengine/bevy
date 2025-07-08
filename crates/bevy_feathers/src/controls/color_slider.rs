@@ -142,7 +142,7 @@ impl ColorChannel {
 #[derive(Component, Default, Clone)]
 pub struct SliderBaseColor(pub Color);
 
-/// Slider template properties, passed to [`slider`] function.
+/// Slider template properties, passed to [`color_slider`] function.
 pub struct ColorSliderProps {
     /// Slider current value
     pub value: f32,
