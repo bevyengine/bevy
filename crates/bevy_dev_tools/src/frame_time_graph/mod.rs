@@ -1,7 +1,7 @@
 //! Module containing logic for the frame time graph
 
 use bevy_app::{Plugin, Update};
-use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, uuid_handle, Asset, Assets, Handle};
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_math::ops::log2;
@@ -10,12 +10,12 @@ use bevy_render::{
     render_resource::{AsBindGroup, Shader, ShaderRef, ShaderType},
     storage::ShaderStorageBuffer,
 };
-use bevy_ui::{UiMaterial, UiMaterialPlugin};
+use bevy_ui_render::prelude::{UiMaterial, UiMaterialPlugin};
 
 use crate::fps_overlay::FpsOverlayConfig;
 
 const FRAME_TIME_GRAPH_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("4e38163a-5782-47a5-af52-d9161472ab59");
+    uuid_handle!("4e38163a-5782-47a5-af52-d9161472ab59");
 
 /// Plugin that sets up everything to render the frame time graph material
 pub struct FrameTimeGraphPlugin;
