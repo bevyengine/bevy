@@ -311,12 +311,12 @@ with UI components as a child of an entity without UI components, your UI layout
                 .map(|scroll_pos| {
                     Vec2::new(
                         if style.overflow.x == OverflowAxis::Scroll {
-                            scroll_pos.offset_x
+                            scroll_pos.x
                         } else {
                             0.0
                         },
                         if style.overflow.y == OverflowAxis::Scroll {
-                            scroll_pos.offset_y
+                            scroll_pos.y
                         } else {
                             0.0
                         },
@@ -333,7 +333,7 @@ with UI components as a child of an entity without UI components, your UI layout
             if clamped_scroll_position != scroll_position {
                 commands
                     .entity(entity)
-                    .insert(ScrollPosition::from(clamped_scroll_position));
+                    .insert(ScrollPosition(clamped_scroll_position));
             }
 
             let physical_scroll_position =
@@ -368,7 +368,7 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
-    use bevy_render::{camera::ManualTextureViews, prelude::Camera};
+    use bevy_render::{prelude::Camera, texture::ManualTextureViews};
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;

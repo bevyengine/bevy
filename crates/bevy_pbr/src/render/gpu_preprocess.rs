@@ -37,7 +37,7 @@ use bevy_render::{
     },
     diagnostic::RecordDiagnostics,
     experimental::occlusion_culling::OcclusionCulling,
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, Buffer, BufferBinding,
@@ -51,7 +51,7 @@ use bevy_render::{
     view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
-use bevy_utils::TypeIdMap;
+use bevy_utils::{default, TypeIdMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
@@ -1291,8 +1291,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             },
             shader: self.shader.clone(),
             shader_defs,
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -1653,11 +1652,8 @@ impl SpecializedComputePipeline for ResetIndirectBatchSetsPipeline {
         ComputePipelineDescriptor {
             label: Some("reset indirect batch sets".into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
             shader: self.shader.clone(),
-            shader_defs: vec![],
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -1707,11 +1703,9 @@ impl SpecializedComputePipeline for BuildIndirectParametersPipeline {
         ComputePipelineDescriptor {
             label: Some(label.into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
             shader: self.shader.clone(),
             shader_defs,
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

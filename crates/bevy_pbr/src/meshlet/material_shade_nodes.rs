@@ -122,7 +122,8 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 **view_environment_map_offset,
             ],
         );
-        render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);
+        render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
+        render_pass.set_bind_group(2, meshlet_material_shade_bind_group, &[]);
 
         // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
@@ -134,7 +135,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 {
                     let x = *material_id * 3;
                     render_pass.set_render_pipeline(material_pipeline);
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
+                    render_pass.set_bind_group(3, material_bind_group, &[]);
                     render_pass.draw(x..(x + 3), 0..1);
                 }
             }
@@ -252,7 +253,8 @@ impl ViewNode for MeshletPrepassNode {
             );
         }
 
-        render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);
+        render_pass.set_bind_group(1, &prepass_view_bind_group.empty_bind_group, &[]);
+        render_pass.set_bind_group(2, meshlet_material_shade_bind_group, &[]);
 
         // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
@@ -387,7 +389,8 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             );
         }
 
-        render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);
+        render_pass.set_bind_group(1, &prepass_view_bind_group.empty_bind_group, &[]);
+        render_pass.set_bind_group(2, meshlet_material_shade_bind_group, &[]);
 
         // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in

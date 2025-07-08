@@ -54,8 +54,8 @@ use {
 /// // run this once per update/frame
 /// events.update();
 ///
-/// // somewhere else: send an event
-/// events.send(MyEvent { value: 1 });
+/// // somewhere else: write an event
+/// events.write(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
 /// for event in cursor.read(&events) {
@@ -118,22 +118,22 @@ impl<E: BufferedEvent> Events<E> {
         self.events_a.start_event_count
     }
 
-    /// "Sends" an `event` by writing it to the current event buffer.
+    /// Writes an `event` to the current event buffer.
     /// [`EventReader`](super::EventReader)s can then read the event.
-    /// This method returns the [ID](`EventId`) of the sent `event`.
+    /// This method returns the [ID](`EventId`) of the written `event`.
     #[track_caller]
-    pub fn send(&mut self, event: E) -> EventId<E> {
-        self.send_with_caller(event, MaybeLocation::caller())
+    pub fn write(&mut self, event: E) -> EventId<E> {
+        self.write_with_caller(event, MaybeLocation::caller())
     }
 
-    pub(crate) fn send_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
+    pub(crate) fn write_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
             caller,
             _marker: PhantomData,
         };
         #[cfg(feature = "detailed_trace")]
-        tracing::trace!("Events::send() -> id: {}", event_id);
+        tracing::trace!("Events::write() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -143,30 +143,59 @@ impl<E: BufferedEvent> Events<E> {
         event_id
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than sending each event individually.
-    /// This method returns the [IDs](`EventId`) of the sent `events`.
+    /// Writes a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
+    /// This is more efficient than writing each event individually.
+    /// This method returns the [IDs](`EventId`) of the written `events`.
     #[track_caller]
-    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> WriteBatchIds<E> {
         let last_count = self.event_count;
 
         self.extend(events);
 
-        SendBatchIds {
+        WriteBatchIds {
             last_count,
             event_count: self.event_count,
             _marker: PhantomData,
         }
     }
 
+    /// Writes the default value of the event. Useful when the event is an empty struct.
+    /// This method returns the [ID](`EventId`) of the written `event`.
+    #[track_caller]
+    pub fn write_default(&mut self) -> EventId<E>
+    where
+        E: Default,
+    {
+        self.write(Default::default())
+    }
+
+    /// "Sends" an `event` by writing it to the current event buffer.
+    /// [`EventReader`](super::EventReader)s can then read the event.
+    /// This method returns the [ID](`EventId`) of the sent `event`.
+    #[deprecated(since = "0.17.0", note = "Use `Events<E>::write` instead.")]
+    #[track_caller]
+    pub fn send(&mut self, event: E) -> EventId<E> {
+        self.write(event)
+    }
+
+    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
+    /// This is more efficient than sending each event individually.
+    /// This method returns the [IDs](`EventId`) of the sent `events`.
+    #[deprecated(since = "0.17.0", note = "Use `Events<E>::write_batch` instead.")]
+    #[track_caller]
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> WriteBatchIds<E> {
+        self.write_batch(events)
+    }
+
     /// Sends the default value of the event. Useful when the event is an empty struct.
     /// This method returns the [ID](`EventId`) of the sent `event`.
+    #[deprecated(since = "0.17.0", note = "Use `Events<E>::write_default` instead.")]
     #[track_caller]
     pub fn send_default(&mut self) -> EventId<E>
     where
         E: Default,
     {
-        self.send(Default::default())
+        self.write_default()
     }
 
     /// Gets a new [`EventCursor`]. This will include all events already in the event buffers.
@@ -351,14 +380,18 @@ impl<E: BufferedEvent> DerefMut for EventSequence<E> {
     }
 }
 
-/// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
-pub struct SendBatchIds<E> {
+/// [`Iterator`] over written [`EventIds`](`EventId`) from a batch.
+pub struct WriteBatchIds<E> {
     last_count: usize,
     event_count: usize,
     _marker: PhantomData<E>,
 }
 
-impl<E: BufferedEvent> Iterator for SendBatchIds<E> {
+/// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
+#[deprecated(since = "0.17.0", note = "Use `WriteBatchIds` instead.")]
+pub type SendBatchIds<E> = WriteBatchIds<E>;
+
+impl<E: BufferedEvent> Iterator for WriteBatchIds<E> {
     type Item = EventId<E>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -378,7 +411,7 @@ impl<E: BufferedEvent> Iterator for SendBatchIds<E> {
     }
 }
 
-impl<E: BufferedEvent> ExactSizeIterator for SendBatchIds<E> {
+impl<E: BufferedEvent> ExactSizeIterator for WriteBatchIds<E> {
     fn len(&self) -> usize {
         self.event_count.saturating_sub(self.last_count)
     }
@@ -400,22 +433,22 @@ mod tests {
         assert_eq!(test_events.iter_current_update_events().count(), 0);
         test_events.update();
 
-        // Sending one event
-        test_events.send(TestEvent);
+        // Writing one event
+        test_events.write(TestEvent);
 
         assert_eq!(test_events.len(), 1);
         assert_eq!(test_events.iter_current_update_events().count(), 1);
         test_events.update();
 
-        // Sending two events on the next frame
-        test_events.send(TestEvent);
-        test_events.send(TestEvent);
+        // Writing two events on the next frame
+        test_events.write(TestEvent);
+        test_events.write(TestEvent);
 
         assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
         assert_eq!(test_events.iter_current_update_events().count(), 2);
         test_events.update();
 
-        // Sending zero events
+        // Writing zero events
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_events().count(), 0);
     }

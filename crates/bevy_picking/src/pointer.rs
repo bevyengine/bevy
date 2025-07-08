@@ -13,7 +13,7 @@ use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
-use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_render::camera::{Camera, NormalizedRenderTarget, ToNormalizedRenderTarget as _};
 use bevy_window::PrimaryWindow;
 
 use uuid::Uuid;

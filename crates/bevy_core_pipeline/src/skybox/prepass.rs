@@ -87,9 +87,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
         RenderPipelineDescriptor {
             label: Some("skybox_prepass_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
             vertex: self.fullscreen_shader.to_vertex_state(),
-            primitive: default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
@@ -104,11 +102,10 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
+                ..default()
             }),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

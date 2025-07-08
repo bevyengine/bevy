@@ -96,11 +96,11 @@ thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
-smallvec = { version = "1.11", default-features = false, optional = true }
+smallvec = { version = "1", default-features = false, optional = true }
 glam = { version = "0.29.3", default-features = false, features = [
   "serde",
 ], optional = true }
-petgraph = { version = "0.7", features = ["serde-1"], optional = true }
+petgraph = { version = "0.8", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }

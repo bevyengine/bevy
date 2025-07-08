@@ -26,10 +26,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    load_shader_library,
-    render_graph::{
-        NodeRunError, RenderGraph, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
-    },
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
@@ -556,7 +553,6 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.is_hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -566,12 +562,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            push_constant_ranges: vec![],
-            primitive: default(),
-            depth_stencil: None,
-            multisample: default(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
