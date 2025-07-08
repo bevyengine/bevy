@@ -3,7 +3,8 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        Callback, CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider,
+        popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
+        Callback, CoreButton, CoreCheckbox, CoreMenuPopup, CoreRadio, CoreRadioGroup, CoreSlider,
         CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugin, SliderRange, SliderValue,
         TrackClick,
     },
@@ -26,7 +27,7 @@ fn main() {
             TabNavigationPlugin,
         ))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
+        // .insert_resource(WinitSettings::desktop_app())
         .insert_resource(DemoWidgetStates {
             slider_value: 50.0,
             slider_click: TrackClick::Snap,
@@ -77,6 +78,10 @@ struct DemoCheckbox;
 /// behavior.
 #[derive(Component, Default)]
 struct DemoRadio(TrackClick);
+
+/// Menuy button styling marker
+#[derive(Component)]
+struct DemoMenuButton;
 
 /// A struct to hold the state of various widgets shown in the demo.
 ///
@@ -132,6 +137,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         },
     );
 
+    let on_open_menu = commands.register_system(spawn_popup);
+
     // System to update a resource when the radio group changes.
     let on_change_radio = commands.register_system(
         |value: In<Entity>,
@@ -150,6 +157,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         Callback::System(on_click),
         Callback::System(on_change_value),
         Callback::System(on_change_radio),
+        Callback::System(on_open_menu),
     ));
 }
 
@@ -158,6 +166,7 @@ fn demo_root(
     on_click: Callback,
     on_change_value: Callback<In<f32>>,
     on_change_radio: Callback<In<Entity>>,
+    on_open_menu: Callback,
 ) -> impl Bundle {
     (
         Node {
@@ -176,6 +185,7 @@ fn demo_root(
             slider(0.0, 100.0, 50.0, on_change_value),
             checkbox(asset_server, "Checkbox", Callback::Ignore),
             radio_group(asset_server, on_change_radio),
+            menu_button(asset_server, on_open_menu),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
@@ -210,6 +220,48 @@ fn button(asset_server: &AssetServer, on_click: Callback) -> impl Bundle {
             TextColor(Color::srgb(0.9, 0.9, 0.9)),
             TextShadow::default(),
         )],
+    )
+}
+
+fn menu_button(asset_server: &AssetServer, on_activate: Callback) -> impl Bundle {
+    (
+        Node {
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
+            border: UiRect::all(Val::Px(5.0)),
+            box_sizing: BoxSizing::BorderBox,
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            padding: UiRect::axes(Val::Px(16.0), Val::Px(0.0)),
+            ..default()
+        },
+        DemoMenuButton,
+        CoreButton { on_activate },
+        Hovered::default(),
+        TabIndex(0),
+        BorderColor::all(Color::BLACK),
+        BorderRadius::all(Val::Px(5.0)),
+        BackgroundColor(NORMAL_BUTTON),
+        children![
+            (
+                Text::new("Menu"),
+                TextFont {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 33.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                TextShadow::default(),
+            ),
+            (
+                Node {
+                    width: Val::Px(12.0),
+                    height: Val::Px(12.0),
+                    ..default()
+                },
+                BackgroundColor(GRAY.into()),
+            )
+        ],
     )
 }
 
@@ -737,6 +789,45 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
             )),
         )),
     )
+}
+
+fn spawn_popup(menu: Query<Entity, With<DemoMenuButton>>, mut commands: Commands) {
+    let Ok(anchor) = menu.single() else {
+        return;
+    };
+    let menu = commands
+        .spawn((
+            Node {
+                min_height: Val::Px(100.),
+                min_width: Val::Percent(100.),
+                border: UiRect::all(Val::Px(2.0)),
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            CoreMenuPopup,
+            Visibility::Hidden, // Will be visible after positioning
+            BorderColor::all(GREEN.into()),
+            BackgroundColor(GRAY.into()),
+            ZIndex(100),
+            Popover {
+                positions: vec![
+                    PopoverPlacement {
+                        side: PopoverSide::Bottom,
+                        align: PopoverAlign::Start,
+                        gap: 2.0,
+                    },
+                    PopoverPlacement {
+                        side: PopoverSide::Top,
+                        align: PopoverAlign::Start,
+                        gap: 2.0,
+                    },
+                ],
+            },
+            OverrideClip,
+        ))
+        .id();
+    commands.entity(anchor).add_child(menu);
+    info!("Open menu");
 }
 
 fn toggle_disabled(

@@ -17,15 +17,18 @@
 mod callback;
 mod core_button;
 mod core_checkbox;
+mod core_menu;
 mod core_radio;
 mod core_scrollbar;
 mod core_slider;
+pub mod popover;
 
 use bevy_app::{App, Plugin};
 
 pub use callback::{Callback, Notify};
 pub use core_button::{CoreButton, CoreButtonPlugin};
 pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
+pub use core_menu::{CoreMenuItem, CoreMenuPlugin, CoreMenuPopup};
 pub use core_radio::{CoreRadio, CoreRadioGroup, CoreRadioGroupPlugin};
 pub use core_scrollbar::{
     ControlOrientation, CoreScrollbar, CoreScrollbarDragState, CoreScrollbarPlugin,
@@ -36,6 +39,8 @@ pub use core_slider::{
     SliderRange, SliderStep, SliderValue, TrackClick,
 };
 
+use crate::popover::PopoverPlugin;
+
 /// A plugin that registers the observers for all of the core widgets. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
 pub struct CoreWidgetsPlugin;
@@ -43,8 +48,10 @@ pub struct CoreWidgetsPlugin;
 impl Plugin for CoreWidgetsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
+            PopoverPlugin,
             CoreButtonPlugin,
             CoreCheckboxPlugin,
+            CoreMenuPlugin,
             CoreRadioGroupPlugin,
             CoreScrollbarPlugin,
             CoreSliderPlugin,
