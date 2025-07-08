@@ -6,6 +6,8 @@
 
 const PI: f32 = 3.14159265358979323846;
 const TAU: f32 = 2. * PI;
+const GAMMA: f32 = 2.2;
+const INVERSE_GAMMA: f32 = 1. / GAMMA;
 
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
