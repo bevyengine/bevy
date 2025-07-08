@@ -6,8 +6,6 @@
 
 const PI: f32 = 3.14159265358979323846;
 const TAU: f32 = 2. * PI;
-const GAMMA: f32 = 2.2;
-const INVERSE_GAMMA: f32 = 1. / GAMMA;
 
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
@@ -116,12 +114,50 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     }
 }
 
+fn gamma(value: f32) -> f32 {
+    if value <= 0.0 {
+        return value;
+    }
+    if value <= 0.04045 {
+        return value / 12.92; // linear falloff in dark values
+    } else {
+        return pow((value + 0.055) / 1.055, 2.4); // gamma curve in other area
+    }
+}
+
+fn inverse_gamma(value: f32) -> f32 {
+    if value <= 0.0 {
+        return value;
+    }
+
+    if value <= 0.0031308 {
+        return value * 12.92; // linear falloff in dark values
+    } else {
+        return 1.055 * pow(value, 1.0 / 2.4) - 0.055; // gamma curve in other area
+    }
+}
+
+fn srgb_to_linear_rgb(color: vec3<f32>) -> vec3<f32> {
+    return vec3(
+        gamma(color.x),
+        gamma(color.y),
+        gamma(color.z)
+    );
+}
+fn linear_rgb_to_srgb(color: vec3<f32>) -> vec3<f32> {
+    return vec3(
+        inverse_gamma(color.x),
+        inverse_gamma(color.y),
+        inverse_gamma(color.z)
+    );
+}
+
 // This function converts two linear rgb colors to srgb space, mixes them, and then converts the result back to linear rgb space.
 fn mix_linear_rgb_in_srgb_space(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let a_srgb = pow(a.rgb, vec3(INVERSE_GAMMA));
-    let b_srgb = pow(b.rgb, vec3(INVERSE_GAMMA));
+    let a_srgb = linear_rgb_to_srgb(a);
+    let b_srgb = linear_rgb_to_srgb(b);
     let mixed_srgb = mix(a_srgb, b_srgb, t);
-    return pow(mixed_srgb, vec3(GAMMA));
+    return srgb_to_linear_rgb(mixed_srgb);
 }
 
 fn linear_rgb_to_oklab(c: vec3<f32>) -> vec3<f32> {
@@ -154,7 +190,7 @@ fn mix_linear_rgb_in_oklab_space(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32
 }
 
 fn linear_rgb_to_hsl(lrgb: vec3<f32>) -> vec3<f32> {
-    let c = pow(lrgb, vec3(INVERSE_GAMMA));
+    let c = linear_rgb_to_srgb(lrgb);
     let max = max(max(c.r, c.g), c.b);
     let min = min(min(c.r, c.g), c.b);
     let l = (max + min) * 0.5;
@@ -200,11 +236,11 @@ fn hsl_to_linear_rgb(hsl: vec3<f32>) -> vec3<f32> {
         r = c; g = 0.0; b = x;
     }
     let m = l - 0.5 * c;
-    return pow(vec3(r + m, g + m, b + m), vec3(GAMMA));
+    return srgb_to_linear_rgb(vec3(r + m, g + m, b + m));
 }
 
 fn linear_rgb_to_hsv(lrgb: vec3<f32>) -> vec3<f32> {
-    let c = pow(lrgb, vec3(INVERSE_GAMMA));
+    let c = linear_rgb_to_srgb(lrgb);
     let maxc = max(max(c.r, c.g), c.b);
     let minc = min(min(c.r, c.g), c.b);
     let delta = maxc - minc;
@@ -251,7 +287,7 @@ fn hsv_to_linear_rgb(hsv: vec3<f32>) -> vec3<f32> {
     } else if 5.0 <= h && h < 6.0 {
         r = c; g = 0.0; b = x;
     }
-    return pow(vec3(r + m, g + m, b + m), vec3(GAMMA));
+    return srgb_to_linear_rgb(vec3(r + m, g + m, b + m));
 }
 
 /// hue is left in radians and not converted to degrees
