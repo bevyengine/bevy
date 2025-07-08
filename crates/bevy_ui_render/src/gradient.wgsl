@@ -347,7 +347,7 @@ fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     } else if b.y < HUE_GUARD {
         h = a.z;
     } else {
-        h = lerp_hue(a.z, b.z, t);
+        h = lerp_hue_long(a.z, b.z, t);
     }
     return vec3(
         mix(a.xy, b.xy, t),
