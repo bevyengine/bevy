@@ -1024,6 +1024,116 @@ impl Measured2d for Annulus {
     }
 }
 
+/// A sector of an [`Annulus`] defined by a half angle.
+/// The sector middle is at `Vec2::Y`, extending by `half_angle` radians on either side.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct AnnularSector {
+    /// The annulus that the sector is taken from.
+    pub annulus: Annulus,
+    /// The half angle of the sector.
+    pub half_angle: f32,
+}
+impl Primitive2d for AnnularSector {}
+
+impl Default for AnnularSector {
+    /// Returns a sector of the default [`Annulus`] with a half angle of 1.0.
+    fn default() -> Self {
+        Self {
+            annulus: Annulus::default(),
+            half_angle: 1.0,
+        }
+    }
+}
+
+impl AnnularSector {
+    /// Create a new [`AnnularSector`] from the radii of the inner and outer circle, and the half angle.
+    /// It is created starting from `Vec2::Y`, extending by `half_angle` radians on either side.
+    #[inline(always)]
+    pub const fn new(inner_radius: f32, outer_radius: f32, half_angle: f32) -> Self {
+        Self {
+            annulus: Annulus::new(inner_radius, outer_radius),
+            half_angle,
+        }
+    }
+
+    /// Get the diameter of the outer circle.
+    #[inline(always)]
+    pub fn diameter(&self) -> f32 {
+        self.annulus.diameter()
+    }
+
+    /// Get the thickness of the annulus.
+    #[inline(always)]
+    pub fn thickness(&self) -> f32 {
+        self.annulus.thickness()
+    }
+
+    /// If `point` lies inside the annular sector, it is returned as-is.
+    /// Otherwise the closest point on the perimeter of the shape is returned.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        let distance_squared = point.length_squared();
+        let angle = ops::abs(point.angle_to(Vec2::Y));
+
+        if angle > self.half_angle {
+            // Project the point onto the nearest boundary of the sector
+            let clamped_angle = ops::copysign(self.half_angle, point.x);
+            let dir_to_point = Vec2::from_angle(clamped_angle);
+            if distance_squared > self.annulus.outer_circle.radius.squared() {
+                return self.annulus.outer_circle.radius * dir_to_point;
+            } else if distance_squared < self.annulus.inner_circle.radius.squared() {
+                return self.annulus.inner_circle.radius * dir_to_point;
+            }
+            return point;
+        }
+
+        if self.annulus.inner_circle.radius.squared() <= distance_squared {
+            if distance_squared <= self.annulus.outer_circle.radius.squared() {
+                // The point is inside the annular sector.
+                point
+            } else {
+                // The point is outside the annular sector and closer to the outer perimeter.
+                let dir_to_point = point / ops::sqrt(distance_squared);
+                self.annulus.outer_circle.radius * dir_to_point
+            }
+        } else {
+            // The point is outside the annular sector and closer to the inner perimeter.
+            let dir_to_point = point / ops::sqrt(distance_squared);
+            self.annulus.inner_circle.radius * dir_to_point
+        }
+    }
+}
+
+impl Measured2d for AnnularSector {
+    /// Get the area of the annular sector.
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        self.half_angle
+            * (self.annulus.outer_circle.radius.squared()
+                - self.annulus.inner_circle.radius.squared())
+    }
+
+    /// Get the perimeter or circumference of the annular sector.
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    fn perimeter(&self) -> f32 {
+        let arc_length_outer = 2.0 * self.half_angle * self.annulus.outer_circle.radius;
+        let arc_length_inner = 2.0 * self.half_angle * self.annulus.inner_circle.radius;
+        let radial_edges = 2.0 * self.annulus.thickness();
+        arc_length_outer + arc_length_inner + radial_edges
+    }
+}
+
 /// A rhombus primitive, also known as a diamond shape.
 /// A four sided polygon, centered on the origin, where opposite sides are parallel but without
 /// requiring right angles.

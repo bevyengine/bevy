@@ -80,6 +80,7 @@ fn setup(
         meshes.add(Extrusion::new(Rectangle::default(), 1.)),
         meshes.add(Extrusion::new(Capsule2d::default(), 1.)),
         meshes.add(Extrusion::new(Annulus::default(), 1.)),
+        meshes.add(Extrusion::new(AnnularSector::default(), 1.)),
         meshes.add(Extrusion::new(Circle::default(), 1.)),
         meshes.add(Extrusion::new(Ellipse::default(), 1.)),
         meshes.add(Extrusion::new(RegularPolygon::default(), 1.)),

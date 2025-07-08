@@ -30,7 +30,7 @@ fn main() {
     app.run();
 }
 
-const X_EXTENT: f32 = 900.;
+const X_EXTENT: f32 = 600.;
 
 fn setup(
     mut commands: Commands,
@@ -45,6 +45,7 @@ fn setup(
         meshes.add(CircularSegment::new(50.0, 1.25)),
         meshes.add(Ellipse::new(25.0, 50.0)),
         meshes.add(Annulus::new(25.0, 50.0)),
+        meshes.add(AnnularSector::new(25.0, 50.0, 1.0)),
         meshes.add(Capsule2d::new(25.0, 50.0)),
         meshes.add(Rhombus::new(75.0, 100.0)),
         meshes.add(Rectangle::new(50.0, 100.0)),
@@ -56,18 +57,23 @@ fn setup(
         )),
     ];
     let num_shapes = shapes.len();
+    let shapes_per_row = (num_shapes as f32 / 2.0).ceil() as usize;
 
     for (i, shape) in shapes.into_iter().enumerate() {
         // Distribute colors evenly across the rainbow.
         let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
 
+        let row = i / shapes_per_row;
+        let col = i % shapes_per_row;
+
         commands.spawn((
             Mesh2d(shape),
             MeshMaterial2d(materials.add(color)),
             Transform::from_xyz(
-                // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
-                -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
-                0.0,
+                // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2 in each row.
+                -X_EXTENT / 2. + col as f32 / (shapes_per_row - 1) as f32 * X_EXTENT,
+                // Position the rows 120 units apart vertically.
+                60.0 - row as f32 * 120.0,
                 0.0,
             ),
         ));
