@@ -30,12 +30,12 @@
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, Assets};
+use bevy_asset::{embedded_asset, Assets, Handle};
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
     prepare_core_3d_depth_textures,
 };
-use bevy_ecs::schedule::IntoScheduleConfigs as _;
+use bevy_ecs::{resource::Resource, schedule::IntoScheduleConfigs as _};
 use bevy_light::FogVolume;
 use bevy_math::{
     primitives::{Cuboid, Plane3d},
@@ -48,9 +48,7 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use render::{
-    VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
-};
+use render::{VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
 use crate::graph::NodePbr;
 
@@ -59,13 +57,19 @@ pub mod render;
 /// A plugin that implements volumetric fog.
 pub struct VolumetricFogPlugin;
 
+#[derive(Resource)]
+pub struct FogAssets {
+    plane_mesh: Handle<Mesh>,
+    cube_mesh: Handle<Mesh>,
+}
+
 impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "volumetric_fog.wgsl");
 
         let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
-        meshes.insert(&PLANE_MESH, Plane3d::new(Vec3::Z, Vec2::ONE).mesh().into());
-        meshes.insert(&CUBE_MESH, Cuboid::new(1.0, 1.0, 1.0).mesh().into());
+        let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
+        let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
 
         app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
 
@@ -74,6 +78,10 @@ impl Plugin for VolumetricFogPlugin {
         };
 
         render_app
+            .insert_resource(FogAssets {
+                plane_mesh,
+                cube_mesh,
+            })
             .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
             .init_resource::<VolumetricFogUniformBuffer>()
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)

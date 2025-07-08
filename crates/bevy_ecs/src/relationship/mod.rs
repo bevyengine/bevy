@@ -133,7 +133,7 @@ pub trait Relationship: Component + Sized {
                 .and_modify(move |mut relationship_target| {
                     relationship_target.collection_mut_risky().add(entity);
                 })
-                .or_insert_with(|| {
+                .or_insert_with(move || {
                     let mut target = Self::RelationshipTarget::with_capacity(1);
                     target.collection_mut_risky().add(entity);
                     target

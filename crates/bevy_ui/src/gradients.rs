@@ -631,6 +631,14 @@ pub enum InterpolationColorSpace {
     Srgb,
     /// Interpolates in linear sRGB space.
     LinearRgb,
+    /// Interpolates in HSL space, taking the shortest hue path.
+    Hsl,
+    /// Interpolates in HSL space, taking the longest hue path.
+    HslLong,
+    /// Interpolates in HSV space, taking the shortest hue path.
+    Hsv,
+    /// Interpolates in HSV space, taking the longest hue path.
+    HsvLong,
 }
 
 /// Set the color space used for interpolation.

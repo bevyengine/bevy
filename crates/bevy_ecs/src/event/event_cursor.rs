@@ -41,7 +41,7 @@ use core::marker::PhantomData;
 ///     }
 ///
 ///     for event in events_to_resend {
-///         events.send(MyEvent);
+///         events.write(MyEvent);
 ///     }
 /// }
 ///
