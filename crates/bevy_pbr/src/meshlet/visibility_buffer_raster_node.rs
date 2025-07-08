@@ -110,6 +110,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         render_context
             .command_encoder()
             .push_debug_group("meshlet_visibility_buffer_raster");
+        let time_span = diagnostics.time_span(
+            render_context.command_encoder(),
+            "meshlet_visibility_buffer_raster",
+        );
 
         let resource_manager = world.get_resource::<ResourceManager>().unwrap();
         render_context.command_encoder().clear_buffer(
