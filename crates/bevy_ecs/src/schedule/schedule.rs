@@ -390,14 +390,14 @@ impl Schedule {
         let a = a.into_system_set();
         let b = b.into_system_set();
 
-        let Some(&a_id) = self.graph.system_sets.system_set_ids.get(&a.intern()) else {
+        let Some(&a_id) = self.graph.system_sets.ids.get(&a.intern()) else {
             panic!(
                 "Could not mark system as ambiguous, `{:?}` was not found in the schedule.
                 Did you try to call `ambiguous_with` before adding the system to the world?",
                 a
             );
         };
-        let Some(&b_id) = self.graph.system_sets.system_set_ids.get(&b.intern()) else {
+        let Some(&b_id) = self.graph.system_sets.ids.get(&b.intern()) else {
             panic!(
                 "Could not mark system as ambiguous, `{:?}` was not found in the schedule.
                 Did you try to call `ambiguous_with` before adding the system to the world?",
@@ -764,18 +764,18 @@ enum UninitializedId {
 #[derive(Default)]
 struct SystemSets {
     /// List of system sets in the schedule
-    system_sets: SlotMap<SystemSetKey, SystemSetNode>,
+    sets: SlotMap<SystemSetKey, SystemSetNode>,
     /// List of conditions for each system set, in the same order as `system_sets`
-    system_set_conditions: SecondaryMap<SystemSetKey, Vec<ConditionWithAccess>>,
+    conditions: SecondaryMap<SystemSetKey, Vec<ConditionWithAccess>>,
     /// Map from system set to node id
-    system_set_ids: HashMap<InternedSystemSet, SystemSetKey>,
+    ids: HashMap<InternedSystemSet, SystemSetKey>,
 }
 
 impl SystemSets {
     fn get_or_add_set(&mut self, set: InternedSystemSet) -> SystemSetKey {
-        *self.system_set_ids.entry(set).or_insert_with(|| {
-            let key = self.system_sets.insert(SystemSetNode::new(set));
-            self.system_set_conditions.insert(key, Vec::new());
+        *self.ids.entry(set).or_insert_with(|| {
+            let key = self.sets.insert(SystemSetNode::new(set));
+            self.conditions.insert(key, Vec::new());
             key
         })
     }
@@ -841,7 +841,7 @@ impl ScheduleGraph {
 
     /// Returns `true` if the given system set is part of the graph. Otherwise, returns `false`.
     pub fn contains_set(&self, set: impl SystemSet) -> bool {
-        self.system_sets.system_set_ids.contains_key(&set.intern())
+        self.system_sets.ids.contains_key(&set.intern())
     }
 
     /// Returns the system at the given [`NodeId`].
@@ -855,7 +855,7 @@ impl ScheduleGraph {
 
     /// Returns the set at the given [`NodeId`], if it exists.
     pub fn get_set_at(&self, key: SystemSetKey) -> Option<&dyn SystemSet> {
-        self.system_sets.system_sets.get(key).map(|set| &*set.inner)
+        self.system_sets.sets.get(key).map(|set| &*set.inner)
     }
 
     /// Returns the set at the given [`NodeId`].
@@ -869,10 +869,7 @@ impl ScheduleGraph {
 
     /// Returns the conditions for the set at the given [`SystemSetKey`], if it exists.
     pub fn get_set_conditions_at(&self, key: SystemSetKey) -> Option<&[ConditionWithAccess]> {
-        self.system_sets
-            .system_set_conditions
-            .get(key)
-            .map(Vec::as_slice)
+        self.system_sets.conditions.get(key).map(Vec::as_slice)
     }
 
     /// Returns the conditions for the set at the given [`SystemSetKey`].
@@ -900,14 +897,11 @@ impl ScheduleGraph {
     pub fn system_sets(
         &self,
     ) -> impl Iterator<Item = (SystemSetKey, &dyn SystemSet, &[ConditionWithAccess])> {
-        self.system_sets
-            .system_sets
-            .iter()
-            .filter_map(|(key, set_node)| {
-                let set = &*set_node.inner;
-                let conditions = self.system_sets.system_set_conditions.get(key)?.as_slice();
-                Some((key, set, conditions))
-            })
+        self.system_sets.sets.iter().filter_map(|(key, set_node)| {
+            let set = &*set_node.inner;
+            let conditions = self.system_sets.conditions.get(key)?.as_slice();
+            Some((key, set, conditions))
+        })
     }
 
     /// Returns the [`Dag`] of the hierarchy.
@@ -1106,12 +1100,7 @@ impl ScheduleGraph {
         self.update_graphs(NodeId::Set(key), metadata);
 
         // system init has to be deferred (need `&mut World`)
-        let system_set_conditions = self
-            .system_sets
-            .system_set_conditions
-            .entry(key)
-            .unwrap()
-            .or_default();
+        let system_set_conditions = self.system_sets.conditions.entry(key).unwrap().or_default();
         self.uninit.push(UninitializedId::Set {
             key,
             first_uninit_condition: system_set_conditions.len(),
@@ -1202,7 +1191,7 @@ impl ScheduleGraph {
                     key,
                     first_uninit_condition,
                 } => {
-                    for condition in self.system_sets.system_set_conditions[key]
+                    for condition in self.system_sets.conditions[key]
                         .iter_mut()
                         .skip(first_uninit_condition)
                     {
@@ -1302,15 +1291,9 @@ impl ScheduleGraph {
         HashMap<SystemSetKey, HashSet<SystemKey>>,
     ) {
         let mut set_systems: HashMap<SystemSetKey, Vec<SystemKey>> =
-            HashMap::with_capacity_and_hasher(
-                self.system_sets.system_sets.len(),
-                Default::default(),
-            );
+            HashMap::with_capacity_and_hasher(self.system_sets.sets.len(), Default::default());
         let mut set_system_sets: HashMap<SystemSetKey, HashSet<SystemKey>> =
-            HashMap::with_capacity_and_hasher(
-                self.system_sets.system_sets.len(),
-                Default::default(),
-            );
+            HashMap::with_capacity_and_hasher(self.system_sets.sets.len(), Default::default());
         for &id in hierarchy_topsort.iter().rev() {
             let NodeId::Set(set_key) = id else {
                 continue;
@@ -1509,7 +1492,7 @@ impl ScheduleGraph {
                 // ignore system sets that have no conditions
                 // ignore system type sets (already covered, they don't have conditions)
                 let key = id.as_set()?;
-                (!self.system_sets.system_set_conditions[key].is_empty()).then_some((i, key))
+                (!self.system_sets.conditions[key].is_empty()).then_some((i, key))
             })
             .unzip();
 
@@ -1609,7 +1592,7 @@ impl ScheduleGraph {
             .drain(..)
             .zip(schedule.set_conditions.drain(..))
         {
-            self.system_sets.system_set_conditions[key] = conditions;
+            self.system_sets.conditions[key] = conditions;
         }
 
         *schedule = self.build_schedule(world, schedule_label, ignored_ambiguities)?;
@@ -1623,7 +1606,7 @@ impl ScheduleGraph {
         }
 
         for &key in &schedule.set_ids {
-            let conditions = core::mem::take(&mut self.system_sets.system_set_conditions[key]);
+            let conditions = core::mem::take(&mut self.system_sets.conditions[key]);
             schedule.set_conditions.push(conditions);
         }
 
@@ -1698,7 +1681,7 @@ impl ScheduleGraph {
                 }
             }
             NodeId::Set(key) => {
-                let set = &self.system_sets.system_sets[key];
+                let set = &self.system_sets.sets[key];
                 if set.is_anonymous() {
                     self.anonymous_set_name(id)
                 } else {
@@ -1924,7 +1907,7 @@ impl ScheduleGraph {
         set_systems: &HashMap<SystemSetKey, Vec<SystemKey>>,
     ) -> Result<(), ScheduleBuildError> {
         for (&key, systems) in set_systems {
-            let set = &self.system_sets.system_sets[key];
+            let set = &self.system_sets.sets[key];
             if set.is_system_type() {
                 let instances = systems.len();
                 let ambiguous_with = self.ambiguous_with.edges(NodeId::Set(key));
@@ -2031,7 +2014,7 @@ impl ScheduleGraph {
     fn names_of_sets_containing_node(&self, id: &NodeId) -> Vec<String> {
         let mut sets = <HashSet<_>>::default();
         self.traverse_sets_containing_node(*id, &mut |key| {
-            !self.system_sets.system_sets[key].is_system_type() && sets.insert(key)
+            !self.system_sets.sets[key].is_system_type() && sets.insert(key)
         });
         let mut sets: Vec<_> = sets
             .into_iter()
