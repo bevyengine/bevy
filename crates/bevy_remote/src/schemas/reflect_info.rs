@@ -1043,7 +1043,17 @@ impl From<&InternalSchemaType> for Option<SchemaTypeVariant> {
                 ..
             } => Some(SchemaTypeVariant::Single(*primitive)),
             InternalSchemaType::Array { .. } => Some(SchemaTypeVariant::Single(SchemaType::Array)),
-            InternalSchemaType::FieldsHolder(fields) => match fields.fields_type {
+            InternalSchemaType::FieldsHolder(fields) => match &fields.fields_type {
+                s if fields.fields.is_empty() => {
+                    let first = if s.eq(&FieldType::Named) {
+                        SchemaType::Object
+                    } else {
+                        SchemaType::Array
+                    };
+                    Some(SchemaTypeVariant::Multiple(
+                        [first, SchemaType::Null].into(),
+                    ))
+                }
                 FieldType::Named => Some(SchemaTypeVariant::Single(SchemaType::Object)),
                 FieldType::Unnamed if fields.fields.len() == 1 => {
                     let schema: SchemaType = fields.fields[0].type_id.into();
@@ -1270,6 +1280,9 @@ pub(crate) trait TypeDefinitionBuilder {
         schema: &mut JsonSchemaBevyType,
         info: &FieldsInformation,
     ) {
+        if info.fields.is_empty() {
+            return;
+        }
         match &info.fields_type {
             FieldType::Named => {
                 schema.additional_properties = Some(JsonSchemaVariant::BoolValue(false));
