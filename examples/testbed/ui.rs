@@ -556,10 +556,8 @@ mod layout_rounding {
 
 mod linear_gradient {
     use bevy::color::palettes::css::BLUE;
-    use bevy::color::palettes::css::GREEN;
     use bevy::color::palettes::css::LIME;
     use bevy::color::palettes::css::RED;
-    use bevy::color::palettes::css::WHITE;
     use bevy::color::palettes::css::YELLOW;
     use bevy::color::Color;
     use bevy::ecs::prelude::*;
@@ -594,11 +592,16 @@ mod linear_gradient {
             .with_children(|commands| {
                 commands
                     .spawn(Node {
+                        flex_wrap: bevy::ui::FlexWrap::Wrap,
                         column_gap: Val::Px(5.),
                         ..Default::default()
                     })
                     .with_children(|commands| {
                         for stops in [
+                            vec![
+                                ColorStop::new(Color::BLACK, Val::Percent(15.)),
+                                ColorStop::new(Color::WHITE, Val::Percent(85.)),
+                            ],
                             vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)],
                             vec![
                                 ColorStop::auto(Color::BLACK),
@@ -606,17 +609,10 @@ mod linear_gradient {
                                 ColorStop::auto(Color::WHITE),
                             ],
                             vec![
-                                ColorStop::auto(RED),
-                                ColorStop::auto(RED),
-                                ColorStop::auto(RED),
-                                ColorStop::auto(LIME),
-                                ColorStop::auto(LIME),
-                                ColorStop::auto(LIME),
-                                ColorStop::auto(LIME),
-                                ColorStop::auto(LIME),
-                                ColorStop::auto(BLUE),
-                                ColorStop::auto(BLUE),
-                                ColorStop::auto(BLUE),
+                                ColorStop::new(RED, Val::Percent(33.)),
+                                ColorStop::new(LIME, Val::Percent(33.)),
+                                ColorStop::new(LIME, Val::Percent(66.)),
+                                ColorStop::new(BLUE, Val::Percent(66.)),
                             ],
                             vec![
                                 ColorStop::auto(RED),
@@ -624,6 +620,34 @@ mod linear_gradient {
                                 ColorStop::auto(BLUE),
                             ],
                             vec![ColorStop::auto(LIME), ColorStop::auto(BLUE)],
+                            vec![
+                                ColorStop::auto(RED),
+                                ColorStop::auto(Color::BLACK),
+                                ColorStop::auto(RED),
+                            ],
+                            vec![
+                                ColorStop::auto(BLUE),
+                                ColorStop::auto(Color::WHITE),
+                                ColorStop::auto(BLUE),
+                            ],
+                            vec![
+                                ColorStop::auto(Color::WHITE),
+                                ColorStop::auto(BLUE),
+                                ColorStop::auto(Color::WHITE),
+                                ColorStop::auto(LIME),
+                                ColorStop::auto(Color::WHITE),
+                                ColorStop::auto(RED),
+                                ColorStop::auto(Color::WHITE),
+                            ],
+                            vec![
+                                ColorStop::auto(Color::BLACK),
+                                ColorStop::auto(BLUE),
+                                ColorStop::auto(Color::BLACK),
+                                ColorStop::auto(LIME),
+                                ColorStop::auto(Color::BLACK),
+                                ColorStop::auto(RED),
+                                ColorStop::auto(Color::BLACK),
+                            ],
                         ] {
                             commands
                                 .spawn(Node {
