@@ -609,6 +609,17 @@ mod linear_gradient {
                                 ColorStop::auto(Color::WHITE),
                             ],
                             vec![
+                                ColorStop::auto(Color::BLACK),
+                                ColorStop::auto(LIME),
+                                ColorStop::auto(Color::WHITE),
+                            ],
+                            vec![
+                                ColorStop::auto(Color::BLACK),
+                                ColorStop::auto(BLUE),
+                                ColorStop::auto(Color::WHITE),
+                            ],
+                            vec![
+                                ColorStop::auto(RED),
                                 ColorStop::new(RED, Val::Percent(33.)),
                                 ColorStop::new(LIME, Val::Percent(33.)),
                                 ColorStop::new(LIME, Val::Percent(66.)),
@@ -620,16 +631,6 @@ mod linear_gradient {
                                 ColorStop::auto(BLUE),
                             ],
                             vec![ColorStop::auto(LIME), ColorStop::auto(BLUE)],
-                            vec![
-                                ColorStop::auto(RED),
-                                ColorStop::auto(Color::BLACK),
-                                ColorStop::auto(RED),
-                            ],
-                            vec![
-                                ColorStop::auto(BLUE),
-                                ColorStop::auto(Color::WHITE),
-                                ColorStop::auto(BLUE),
-                            ],
                             vec![
                                 ColorStop::auto(Color::WHITE),
                                 ColorStop::auto(BLUE),
