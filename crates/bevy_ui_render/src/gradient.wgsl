@@ -323,6 +323,10 @@ fn lerp_hue_long(a: f32, b: f32, t: f32) -> f32 {
 
 fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     var h: f32;
+
+    // If the chroma is close to zero for one of the endpoints, don't interpolate 
+    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
+    // transition from black or white to a target color without passing through unrelated hues.
     if a.y < HUE_GUARD {
         h = b.z;
     } else if b.y < HUE_GUARD {
@@ -363,6 +367,10 @@ fn mix_linear_rgb_in_hsv_space(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32
     let a = linear_rgb_to_hsv(la);
     let b = linear_rgb_to_hsv(lb);
     var h: f32;
+
+    // If the saturation is close to zero for one of the endpoints, don't interpolate 
+    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
+    // transition from black or white to a target color without passing through unrelated hues.
     if a.y < HUE_GUARD {
         h = b.x;
     } else if b.y < HUE_GUARD {
@@ -395,6 +403,7 @@ fn mix_linear_rgb_in_hsl_space(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32
     let a = linear_rgb_to_hsl(la);
     let b = linear_rgb_to_hsl(lb);
     var h: f32;
+
     if a.y < HUE_GUARD {
         h = b.x;
     } else if b.y < HUE_GUARD {
@@ -411,6 +420,7 @@ fn mix_linear_rgb_in_hsl_space_long(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec
     let a = linear_rgb_to_hsl(la);
     let b = linear_rgb_to_hsl(lb);
     var h: f32;
+
     if a.y < HUE_GUARD {
         h = b.x;
     } else if b.y < HUE_GUARD {
