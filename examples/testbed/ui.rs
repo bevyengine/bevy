@@ -593,6 +593,7 @@ mod linear_gradient {
                 commands
                     .spawn(Node {
                         flex_wrap: bevy::ui::FlexWrap::Wrap,
+                        row_gap: Val::Px(5.),
                         column_gap: Val::Px(5.),
                         ..Default::default()
                     })
