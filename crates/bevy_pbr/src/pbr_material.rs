@@ -386,6 +386,17 @@ pub struct StandardMaterial {
     ///
     /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
     /// [`Mesh::with_generated_tangents`]: bevy_render::mesh::Mesh::with_generated_tangents
+    ///
+    /// # Usage
+    ///
+    /// ```rust
+    /// let normal_handle = asset_server.load_with_settings(
+    ///     "textures/parallax_example/cube_normal.png",
+    ///     // The normal map texture is in linear color space. Lighting won't look correct
+    ///     // if `is_srgb` is `true`, which is the default.
+    ///     |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    /// );
+    /// ```
     #[texture(9)]
     #[sampler(10)]
     #[dependency]
