@@ -40,7 +40,8 @@ pub enum TrackClick {
 
 /// A headless slider widget, which can be used to build custom sliders. Sliders have a value
 /// (represented by the [`SliderValue`] component) and a range (represented by [`SliderRange`]). An
-/// optional step size can be specified via [`SliderStep`].
+/// optional step size can be specified via [`SliderStep`], and you can control the rounding
+/// during dragging with [`SliderPrecision`].
 ///
 /// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
 /// can be useful in a console environment for controlling the value gamepad inputs.
