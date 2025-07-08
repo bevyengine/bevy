@@ -118,10 +118,10 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
 
 // This function converts two linear rgb colors to srgb space, mixes them, and then converts the result back to linear rgb space.
 fn mix_linear_rgb_in_srgb_space(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let a_srgb = pow(a.rgb, vec3(1. / 2.2));
-    let b_srgb = pow(b.rgb, vec3(1. / 2.2));
+    let a_srgb = pow(a.rgb, vec3(INVERSE_GAMMA));
+    let b_srgb = pow(b.rgb, vec3(INVERSE_GAMMA));
     let mixed_srgb = mix(a_srgb, b_srgb, t);
-    return pow(mixed_srgb, vec3(2.2));
+    return pow(mixed_srgb, vec3(GAMMA));
 }
 
 fn linear_rgb_to_oklab(c: vec3<f32>) -> vec3<f32> {
