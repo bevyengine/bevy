@@ -6,6 +6,7 @@
 
 const PI: f32 = 3.14159265358979323846;
 const TAU: f32 = 2. * PI;
+const HUE_GUARD: f32 = 0.0001;
 
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
@@ -114,6 +115,7 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     }
 }
 
+// https://en.wikipedia.org/wiki/SRGB
 fn gamma(value: f32) -> f32 {
     if value <= 0.0 {
         return value;
@@ -125,6 +127,7 @@ fn gamma(value: f32) -> f32 {
     }
 }
 
+// https://en.wikipedia.org/wiki/SRGB
 fn inverse_gamma(value: f32) -> f32 {
     if value <= 0.0 {
         return value;
@@ -320,9 +323,9 @@ fn lerp_hue_long(a: f32, b: f32, t: f32) -> f32 {
 
 fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     var h: f32;
-    if a.y < 0.0001 {
+    if a.y < HUE_GUARD {
         h = b.z;
-    } else if b.y < 0.0001 {
+    } else if b.y < HUE_GUARD {
         h = a.z;
     } else {
         h = lerp_hue(a.z, b.z, t);
@@ -335,9 +338,9 @@ fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
 
 fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     var h: f32;
-    if a.y < 0.0001 {
+    if a.y < HUE_GUARD {
         h = b.z;
-    } else if b.y < 0.0001 {
+    } else if b.y < HUE_GUARD {
         h = a.z;
     } else {
         h = lerp_hue(a.z, b.z, t);
@@ -360,9 +363,9 @@ fn mix_linear_rgb_in_hsv_space(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32
     let a = linear_rgb_to_hsv(la);
     let b = linear_rgb_to_hsv(lb);
     var h: f32;
-    if a.y < 0.0001 {
+    if a.y < HUE_GUARD {
         h = b.x;
-    } else if b.y < 0.0001 {
+    } else if b.y < HUE_GUARD {
         h = a.x;
     } else {
         h = lerp_hue(a.x * TAU, b.x * TAU, t) / TAU;
@@ -376,9 +379,9 @@ fn mix_linear_rgb_in_hsv_space_long(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec
     let a = linear_rgb_to_hsv(la);
     let b = linear_rgb_to_hsv(lb);
     var h: f32;
-    if a.y < 0.0001 {
+    if a.y < HUE_GUARD {
         h = b.z;
-    } else if b.y < 0.0001 {
+    } else if b.y < HUE_GUARD {
         h = a.z;
     } else {
         h = lerp_hue_long(a.x * TAU, b.x * TAU, t) / TAU;
@@ -392,9 +395,9 @@ fn mix_linear_rgb_in_hsl_space(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32
     let a = linear_rgb_to_hsl(la);
     let b = linear_rgb_to_hsl(lb);
     var h: f32;
-    if a.y < 0.0001 {
+    if a.y < HUE_GUARD {
         h = b.x;
-    } else if b.y < 0.0001 {
+    } else if b.y < HUE_GUARD {
         h = a.x;
     } else {
         h = lerp_hue(a.x * TAU, b.x * TAU, t) / TAU;
@@ -408,9 +411,9 @@ fn mix_linear_rgb_in_hsl_space_long(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec
     let a = linear_rgb_to_hsl(la);
     let b = linear_rgb_to_hsl(lb);
     var h: f32;
-    if a.y < 0.0001 {
+    if a.y < HUE_GUARD {
         h = b.x;
-    } else if b.y < 0.0001 {
+    } else if b.y < HUE_GUARD {
         h = a.x;
     } else {
         h = lerp_hue_long(a.x * TAU, b.x * TAU, t) / TAU;
