@@ -10,6 +10,7 @@ use crate::{
     MeshViewBindGroup, PrepassViewBindGroup, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
     ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
+use bevy_camera::Viewport;
 use bevy_core_pipeline::prepass::{
     MotionVectorPrepass, PreviousViewUniformOffset, ViewPrepassTextures,
 };
