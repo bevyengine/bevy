@@ -319,20 +319,32 @@ fn lerp_hue_long(a: f32, b: f32, t: f32) -> f32 {
 }
 
 fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let ah = select(a.z, b.z, a.y == 0.);
-    let bh = select(b.z, a.z, b.y == 0.);
+    var h: f32;
+    if a.y < 0.0001 {
+        h = b.z;
+    } else if b.y < 0.0001 {
+        h = a.z;
+    } else {
+        h = lerp_hue(a.z, b.z, t);
+    }
     return vec3(
         mix(a.xy, b.xy, t),
-        lerp_hue(ah, bh, t),
+        h,
     );
 }
 
 fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let ah = select(a.z, b.z, a.y == 0.);
-    let bh = select(b.z, a.z, b.y == 0.);
+    var h: f32;
+    if a.y < 0.0001 {
+        h = b.z;
+    } else if b.y < 0.0001 {
+        h = a.z;
+    } else {
+        h = lerp_hue(a.z, b.z, t);
+    }
     return vec3(
         mix(a.xy, b.xy, t),
-        lerp_hue_long(ah, bh, t)
+        h
     );
 }
 
@@ -344,46 +356,67 @@ fn mix_linear_rgb_in_oklch_space_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec
     return oklch_to_linear_rgb(mix_oklch_long(linear_rgb_to_oklch(a), linear_rgb_to_oklch(b), t));
 }
 
-fn mix_linear_rgb_in_hsv_space(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let ha = linear_rgb_to_hsv(a);
-    let hb = linear_rgb_to_hsv(b);
+fn mix_linear_rgb_in_hsv_space(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32> {
+    let a = linear_rgb_to_hsv(la);
+    let b = linear_rgb_to_hsv(lb);
     var h: f32;
-    if ha.y == 0. {
-        h = hb.x;
-    } else if hb.y == 0. {
-        h = ha.x;
+    if a.y < 0.0001 {
+        h = b.x;
+    } else if b.y < 0.0001 {
+        h = a.x;
     } else {
-        h = lerp_hue(ha.x * TAU, hb.x * TAU, t) / TAU;
+        h = lerp_hue(a.x * TAU, b.x * TAU, t) / TAU;
     }
-    let s = mix(ha.y, hb.y, t);
-    let v = mix(ha.z, hb.z, t);
+    let s = mix(a.y, b.y, t);
+    let v = mix(a.z, b.z, t);
     return hsv_to_linear_rgb(vec3<f32>(h, s, v));
 }
 
-fn mix_linear_rgb_in_hsv_space_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let ha = linear_rgb_to_hsv(a);
-    let hb = linear_rgb_to_hsv(b);
-    let h = lerp_hue_long(ha.x * TAU, hb.x * TAU, t) / TAU;
-    let s = mix(ha.y, hb.y, t);
-    let v = mix(ha.z, hb.z, t);
+fn mix_linear_rgb_in_hsv_space_long(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32> {
+    let a = linear_rgb_to_hsv(la);
+    let b = linear_rgb_to_hsv(lb);
+    var h: f32;
+    if a.y < 0.0001 {
+        h = b.z;
+    } else if b.y < 0.0001 {
+        h = a.z;
+    } else {
+        h = lerp_hue_long(a.x * TAU, b.x * TAU, t) / TAU;
+    }
+    let s = mix(a.y, b.y, t);
+    let v = mix(a.z, b.z, t);
     return hsv_to_linear_rgb(vec3<f32>(h, s, v));
 }
 
-fn mix_linear_rgb_in_hsl_space(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let ha = linear_rgb_to_hsl(a);
-    let hb = linear_rgb_to_hsl(b);
-    let h = lerp_hue(ha.x * TAU, hb.x * TAU, t) / TAU;
-    let s = mix(ha.y, hb.y, t);
-    let l = mix(ha.z, hb.z, t);
+fn mix_linear_rgb_in_hsl_space(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32> {
+    let a = linear_rgb_to_hsl(la);
+    let b = linear_rgb_to_hsl(lb);
+    var h: f32;
+    if a.y < 0.0001 {
+        h = b.x;
+    } else if b.y < 0.0001 {
+        h = a.x;
+    } else {
+        h = lerp_hue(a.x * TAU, b.x * TAU, t) / TAU;
+    }
+    let s = mix(a.y, b.y, t);
+    let l = mix(a.z, b.z, t);
     return hsl_to_linear_rgb(vec3<f32>(h, s, l));
 }
 
-fn mix_linear_rgb_in_hsl_space_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let ha = linear_rgb_to_hsl(a);
-    let hb = linear_rgb_to_hsl(b);
-    let h = lerp_hue_long(ha.x * TAU, hb.x * TAU, t) / TAU;
-    let s = mix(ha.y, hb.y, t);
-    let l = mix(ha.z, hb.z, t);
+fn mix_linear_rgb_in_hsl_space_long(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32> {
+    let a = linear_rgb_to_hsl(la);
+    let b = linear_rgb_to_hsl(lb);
+    var h: f32;
+    if a.y < 0.0001 {
+        h = b.x;
+    } else if b.y < 0.0001 {
+        h = a.x;
+    } else {
+        h = lerp_hue_long(a.x * TAU, b.x * TAU, t) / TAU;
+    }
+    let s = mix(a.y, b.y, t);
+    let l = mix(a.z, b.z, t);
     return hsl_to_linear_rgb(vec3<f32>(h, s, l));
 }
 

@@ -598,10 +598,7 @@ mod linear_gradient {
                     })
                     .with_children(|commands| {
                         for stops in [
-                            vec![
-                                ColorStop::new(Color::BLACK, Val::Percent(15.)),
-                                ColorStop::new(Color::WHITE, Val::Percent(85.)),
-                            ],
+                            vec![ColorStop::auto(BLUE), ColorStop::auto(Color::WHITE)],
                             vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)],
                             vec![
                                 ColorStop::auto(Color::BLACK),
