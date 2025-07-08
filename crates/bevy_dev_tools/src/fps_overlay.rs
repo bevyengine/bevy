@@ -114,7 +114,7 @@ pub struct FrameTimeGraphConfig {
     pub enabled: bool,
     /// The minimum acceptable FPS
     ///
-    /// Anything bellow this will show a red bar
+    /// Anything below this will show a red bar
     pub min_fps: f32,
     /// The target FPS
     ///

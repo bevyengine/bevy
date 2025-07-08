@@ -19,6 +19,7 @@ const FRAME_TIME_GRAPH_SHADER_HANDLE: Handle<Shader> =
 
 /// Plugin that sets up everything to render the frame time graph material
 pub struct FrameTimeGraphPlugin;
+
 impl Plugin for FrameTimeGraphPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
@@ -51,6 +52,7 @@ pub struct FrameTimeGraphConfigUniform {
     // controls whether or not the bars width are proportional to their delta time
     proportional_width: u32,
 }
+
 impl FrameTimeGraphConfigUniform {
     /// `proportional_width`: controls whether or not the bars width are proportional to their delta time
     pub fn new(target_fps: f32, min_fps: f32, proportional_width: bool) -> Self {
