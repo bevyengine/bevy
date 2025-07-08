@@ -21,7 +21,7 @@ To use DLSS in your app:
 * Check for the presence of `Option<Res<DlssSupported>>` at runtime to see if DLSS is supported on the current machine
 * Add the `Dlss` component to your camera entity, optionally setting a specific `DlssPerfQualityMode` (defaults to `Auto`)
 * Optionally add sharpening via `ContrastAdaptiveSharpening`
-* Custom rendering code, including third party crates, should account for the optional `MainPassResolutionOverride` to work with DLSS
+* Custom rendering code, including third party crates, should account for the optional `MainPassResolutionOverride` to work with DLSS (see the `custom_render_phase` example)
 
 Note that DLSS integration is expected to have some bugs in this release related to certain rendering effects not respecting upscaling settings, and possible issues with transparencies or camera exposure. Please report any bugs encountered.
 
