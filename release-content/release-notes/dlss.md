@@ -25,7 +25,7 @@ To use DLSS in your app:
 
 Note that DLSS integration is expected to have some bugs in this release related to certain rendering effects not respecting upscaling settings, and possible issues with transparencies or camera exposure. Please report any bugs encountered.
 
-Other temporal upscalers like AMD's FidelityFX™ Super Resolution (FSR), Intel's Xe Super Sampling XeSS (XeSS), and Apple's MTLFXTemporalScaler are not integrated in this release. However they all use similiar APIs, and would not be a challenge to integrate in future releases.
+Other temporal upscalers like AMD's FidelityFX™ Super Resolution (FSR), Intel's Xe Super Sampling XeSS (XeSS), and Apple's MTLFXTemporalScaler are not integrated in this release. However they all use similar APIs, and would not be a challenge to integrate in future releases.
 
 Support for other swapchain-related features like frame interpolation/extrapolation, latency reduction, or dynamic resolution scaling are not currently planned, but support for DLSS Ray Reconstruction for use in Bevy Solari _is_ planned for a future release.
 
