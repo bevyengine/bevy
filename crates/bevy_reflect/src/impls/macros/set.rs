@@ -129,12 +129,7 @@ macro_rules! impl_reflect_for_hashset {
                 fn reflect_clone(&self) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, $crate::error::ReflectCloneError> {
                     let mut set = Self::with_capacity_and_hasher(self.len(), S::default());
                     for value in self.iter() {
-                        let value = value.reflect_clone()?.take().map_err(|_| {
-                            $crate::error::ReflectCloneError::FailedDowncast {
-                                expected: alloc::borrow::Cow::Borrowed(<V as $crate::type_path::TypePath>::type_path()),
-                                received: alloc::borrow::Cow::Owned(alloc::string::ToString::to_string(value.reflect_type_path())),
-                            }
-                        })?;
+                        let value = value.reflect_clone_and_take()?;
                         set.insert(value);
                     }
 

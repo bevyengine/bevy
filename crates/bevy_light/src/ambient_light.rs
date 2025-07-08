@@ -2,7 +2,6 @@ use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::{extract_component::ExtractComponent, extract_resource::ExtractResource};
 
 /// An ambient light, which lights the entire scene equally.
 ///
@@ -16,14 +15,14 @@ use bevy_render::{extract_component::ExtractComponent, extract_resource::Extract
 ///
 /// ```
 /// # use bevy_ecs::system::ResMut;
-/// # use bevy_pbr::AmbientLight;
+/// # use bevy_light::AmbientLight;
 /// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
 ///    ambient_light.brightness = 100.0;
 /// }
 /// ```
 ///
 /// [`LightPlugin`]: crate::LightPlugin
-#[derive(Resource, Component, Clone, Debug, ExtractResource, ExtractComponent, Reflect)]
+#[derive(Resource, Component, Clone, Debug, Reflect)]
 #[reflect(Resource, Component, Debug, Default, Clone)]
 #[require(Camera)]
 pub struct AmbientLight {

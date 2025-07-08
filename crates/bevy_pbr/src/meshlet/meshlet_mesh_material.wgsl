@@ -15,7 +15,6 @@ fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f
     return vec4(uv_to_ndc(uv), material_depth, 1.0);
 }
 
-#ifdef PREPASS_FRAGMENT
 @fragment
 fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
     let vertex_output = resolve_vertex_output(frag_coord);
@@ -23,7 +22,6 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
     let color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
     return vec4(color, 1.0);
 }
-#endif
 
 #ifdef PREPASS_FRAGMENT
 @fragment

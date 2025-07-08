@@ -17,15 +17,10 @@ use bevy_image::Image;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec3Swizzles as _};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::extract_component::ExtractComponent;
 use bevy_transform::components::Transform;
 use tracing::warn;
 
-pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
-
-pub(crate) mod assign;
-mod extract_and_prepare;
-pub use extract_and_prepare::*;
+pub mod assign;
 
 #[cfg(test)]
 mod test;
@@ -106,14 +101,14 @@ pub enum ClusterConfig {
 #[derive(Component, Debug, Default)]
 pub struct Clusters {
     /// Tile size
-    pub(crate) tile_size: UVec2,
+    pub tile_size: UVec2,
     /// Number of clusters in `X` / `Y` / `Z` in the view frustum
-    pub(crate) dimensions: UVec3,
+    pub dimensions: UVec3,
     /// Distance to the far plane of the first depth slice. The first depth slice is special
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
-    pub(crate) near: f32,
-    pub(crate) far: f32,
-    pub(crate) clusterable_objects: Vec<VisibleClusterableObjects>,
+    pub near: f32,
+    pub far: f32,
+    pub clusterable_objects: Vec<VisibleClusterableObjects>,
 }
 
 /// The [`VisibilityClass`] used for clusterables (decals, point lights, directional lights, and spot lights).
@@ -123,8 +118,8 @@ pub struct ClusterVisibilityClass;
 
 #[derive(Clone, Component, Debug, Default)]
 pub struct VisibleClusterableObjects {
-    pub(crate) entities: Vec<Entity>,
-    counts: ClusterableObjectCounts,
+    pub entities: Vec<Entity>,
+    pub counts: ClusterableObjectCounts,
 }
 
 #[derive(Resource, Default)]
@@ -137,17 +132,17 @@ pub struct GlobalVisibleClusterableObjects {
 /// Note that `reflection_probes` and `irradiance_volumes` won't be clustered if
 /// fewer than 3 SSBOs are available, which usually means on WebGL 2.
 #[derive(Clone, Copy, Default, Debug)]
-struct ClusterableObjectCounts {
+pub struct ClusterableObjectCounts {
     /// The number of point lights in the cluster.
-    point_lights: u32,
+    pub point_lights: u32,
     /// The number of spot lights in the cluster.
-    spot_lights: u32,
+    pub spot_lights: u32,
     /// The number of reflection probes in the cluster.
-    reflection_probes: u32,
+    pub reflection_probes: u32,
     /// The number of irradiance volumes in the cluster.
-    irradiance_volumes: u32,
+    pub irradiance_volumes: u32,
     /// The number of decals in the cluster.
-    decals: u32,
+    pub decals: u32,
 }
 
 /// An object that projects a decal onto surfaces within its bounds.
@@ -160,7 +155,7 @@ struct ClusterableObjectCounts {
 /// but they require bindless textures. This means that they presently can't be
 /// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
 /// with forward or deferred rendering and don't require a prepass.
-#[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Clone)]
 #[require(Transform, Visibility, VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]

@@ -16,7 +16,6 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 
 # other
 # TODO: Remove `coreaudio-sys` dep below when updating `cpal`.

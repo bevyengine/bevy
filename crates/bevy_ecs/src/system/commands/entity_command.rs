@@ -143,12 +143,38 @@ pub unsafe fn insert_by_id<T: Send + 'static>(
 
 /// An [`EntityCommand`] that adds a component to an entity using
 /// the component's [`FromWorld`] implementation.
+///
+/// `T::from_world` will only be invoked if the component will actually be inserted.
+/// In other words, `T::from_world` will *not* be invoked if `mode` is [`InsertMode::Keep`]
+/// and the entity already has the component.
 #[track_caller]
 pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+        if !(mode == InsertMode::Keep && entity.contains::<T>()) {
+            let value = entity.world_scope(|world| T::from_world(world));
+            entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that adds a component to an entity using
+/// some function that returns the component.
+///
+/// The function will only be invoked if the component will actually be inserted.
+/// In other words, the function will *not* be invoked if `mode` is [`InsertMode::Keep`]
+/// and the entity already has the component.
+#[track_caller]
+pub fn insert_with<T: Component, F>(component_fn: F, mode: InsertMode) -> impl EntityCommand
+where
+    F: FnOnce() -> T + Send + 'static,
+{
+    let caller = MaybeLocation::caller();
+    move |mut entity: EntityWorldMut| {
+        if !(mode == InsertMode::Keep && entity.contains::<T>()) {
+            let value = component_fn();
+            entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+        }
     }
 }
 
