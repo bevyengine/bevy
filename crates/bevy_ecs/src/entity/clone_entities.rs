@@ -9,6 +9,7 @@ use derive_more::derive::From;
 use crate::{
     archetype::Archetype,
     bundle::{Bundle, BundleId, InsertMode},
+    change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
     query::DebugCheckedUnwrap,
@@ -76,6 +77,7 @@ impl<'a> SourceComponent<'a> {
 pub struct ComponentCloneCtx<'a, 'b> {
     component_id: ComponentId,
     target_component_written: bool,
+    target_component_moved: bool,
     bundle_scratch: &'a mut BundleScratch<'b>,
     bundle_scratch_allocator: &'b Bump,
     entities: &'a Entities,
@@ -117,6 +119,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             target,
             bundle_scratch,
             target_component_written: false,
+            target_component_moved: false,
             bundle_scratch_allocator,
             entities,
             mapper,
@@ -283,6 +286,12 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         deferred: impl FnOnce(&mut World, &mut dyn EntityMapper) + 'static,
     ) {
         self.state.deferred_commands.push_back(Box::new(deferred));
+    }
+
+    /// Marks component as moved and it's `drop` won't run.
+    fn move_component(&mut self) {
+        self.target_component_moved = true;
+        self.target_component_written = true;
     }
 }
 
@@ -527,6 +536,7 @@ impl EntityCloner {
     }
 
     /// Clones and inserts components from the `source` entity into the entity mapped by `mapper` from `source` using the stored configuration.
+    #[track_caller]
     fn clone_entity_internal(
         state: &mut EntityClonerState,
         filter: &mut impl CloneByFilter,
@@ -539,6 +549,8 @@ impl EntityCloner {
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
         let bundle_scratch_allocator = Bump::new();
         let mut bundle_scratch: BundleScratch;
+        let mut moved_components: Vec<ComponentId> = Vec::new();
+        let mut deferred_cloned_component_ids: Vec<ComponentId> = Vec::new();
         {
             let world = world.as_unsafe_world_cell();
             let source_entity = world.get_entity(source).expect("Source entity must exist");
@@ -563,6 +575,18 @@ impl EntityCloner {
                     .expect("Target entity must exist")
                     .archetype()
             });
+
+            if state.move_components {
+                fn move_handler(_src: &SourceComponent, ctx: &mut ComponentCloneCtx) {
+                    ctx.move_component();
+                }
+                moved_components.reserve(source_archetype.component_count());
+
+                // Replace default handler with special bitwise copy handler which would also
+                // track if component was moved instead of cloned. This is later used to determine
+                // whether we need to run component's drop function when removing it from the source entity or not.
+                state.default_clone_fn = move_handler;
+            }
 
             filter.clone_components(source_archetype, target_archetype, |component| {
                 let handler = match state.clone_behavior_overrides.get(&component) {
@@ -607,6 +631,19 @@ impl EntityCloner {
                 };
 
                 (handler)(&source_component, &mut ctx);
+
+                if ctx.state.move_components {
+                    if ctx.target_component_moved {
+                        moved_components.push(component);
+                    }
+                    // Component wasn't written by the clone handler, so assume it's going to be
+                    // cloned/processed using deferred_commands instead.
+                    // This means that it's ComponentId won't be present in BundleScratch's component_ids,
+                    // but it should still be removed when move_components is true.
+                    else if !ctx.target_component_written() {
+                        deferred_cloned_component_ids.push(component);
+                    }
+                }
             });
         }
 
@@ -621,9 +658,55 @@ impl EntityCloner {
         }
 
         if state.move_components {
-            world
-                .entity_mut(source)
-                .remove_by_ids(&bundle_scratch.component_ids);
+            let mut source_entity = world.entity_mut(source);
+
+            // Remove all cloned components with drop by concatenating both vectors
+            deferred_cloned_component_ids.extend(&bundle_scratch.component_ids);
+            source_entity.remove_by_ids(&deferred_cloned_component_ids);
+
+            let table_row = source_entity.location().table_row;
+
+            // Copy moved components and then forget them without calling drop
+            source_entity.remove_by_ids_with_caller(
+                &moved_components,
+                MaybeLocation::caller(),
+                |sparse_sets, mut table, components, bundle| {
+                    for &component_id in bundle {
+                        let Some(component_ptr) = sparse_sets
+                            .get(component_id)
+                            .and_then(|component| component.get(source))
+                            .or_else(|| {
+                                // SAFETY: table_row is within this table because we just got it from entity's current location
+                                table.as_mut().and_then(|table| unsafe {
+                                    table.get_component(component_id, table_row)
+                                })
+                            })
+                        else {
+                            continue;
+                        };
+
+                        // SAFETY: component_id is valid because remove_by_ids_with_caller checked it before calling this closure
+                        let info = unsafe { components.get_info_unchecked(component_id) };
+                        let layout = info.layout();
+                        let target_ptr = bundle_scratch_allocator.alloc_layout(layout);
+                        // SAFETY:
+                        // - component_ptr points to data with component layout
+                        // - target_ptr was just allocated with component layout
+                        // - component_ptr and target_ptr don't overlap
+                        // - component_ptr matches component_id
+                        unsafe {
+                            core::ptr::copy_nonoverlapping(
+                                component_ptr.as_ptr(),
+                                target_ptr.as_ptr(),
+                                layout.size(),
+                            );
+                            bundle_scratch.push_ptr(component_id, PtrMut::new(target_ptr));
+                        }
+                    }
+
+                    (/* don't drop */ false, ())
+                },
+            );
         }
 
         // SAFETY:
@@ -1333,8 +1416,9 @@ mod tests {
     use super::*;
     use crate::{
         component::{ComponentDescriptor, StorageType},
+        lifecycle::HookContext,
         prelude::{ChildOf, Children, Resource},
-        world::{FromWorld, World},
+        world::{DeferredWorld, FromWorld, World},
     };
     use bevy_ptr::OwningPtr;
     use core::marker::PhantomData;
@@ -2061,5 +2145,122 @@ mod tests {
 
         assert_eq!(world.entity(e_clone).get::<A>(), Some(&A));
         assert_eq!(world.entity(e_clone).get::<B>(), Some(&B(1)));
+    }
+
+    #[test]
+    fn move_without_clone() {
+        #[derive(Component, PartialEq, Debug)]
+        #[component(storage = "SparseSet")]
+        struct A;
+
+        #[derive(Component, PartialEq, Debug)]
+        struct B(Vec<u8>);
+
+        let mut world = World::default();
+        let e = world.spawn((A, B(alloc::vec![1, 2, 3]))).id();
+        let e_clone = world.spawn_empty().id();
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        cloner.clone_entity(&mut world, e, e_clone);
+
+        assert_eq!(world.get::<A>(e), None);
+        assert_eq!(world.get::<B>(e), None);
+
+        assert_eq!(world.get::<A>(e_clone), Some(&A));
+        assert_eq!(world.get::<B>(e_clone), Some(&B(alloc::vec![1, 2, 3])));
+    }
+
+    #[test]
+    fn move_with_remove_hook() {
+        #[derive(Component, PartialEq, Debug)]
+        #[component(on_remove=remove_hook)]
+        struct B(Option<Vec<u8>>);
+
+        fn remove_hook(mut world: DeferredWorld, ctx: HookContext) {
+            world.get_mut::<B>(ctx.entity).unwrap().0.take();
+        }
+
+        let mut world = World::default();
+        let e = world.spawn(B(Some(alloc::vec![1, 2, 3]))).id();
+        let e_clone = world.spawn_empty().id();
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        cloner.clone_entity(&mut world, e, e_clone);
+
+        assert_eq!(world.get::<B>(e), None);
+        assert_eq!(world.get::<B>(e_clone), Some(&B(None)));
+    }
+
+    #[test]
+    fn move_with_deferred() {
+        #[derive(Component, PartialEq, Debug)]
+        #[component(clone_behavior=Custom(custom))]
+        struct A(u32);
+
+        #[derive(Component, PartialEq, Debug)]
+        struct B(u32);
+
+        fn custom(_src: &SourceComponent, ctx: &mut ComponentCloneCtx) {
+            // Clone using deferred
+            let source = ctx.source();
+            ctx.queue_deferred(move |world, mapper| {
+                let target = mapper.get_mapped(source);
+                world.entity_mut(target).insert(A(10));
+            });
+        }
+
+        let mut world = World::default();
+        let e = world.spawn((A(0), B(1))).id();
+        let e_clone = world.spawn_empty().id();
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        cloner.clone_entity(&mut world, e, e_clone);
+
+        assert_eq!(world.get::<A>(e), None);
+        assert_eq!(world.get::<A>(e_clone), Some(&A(10)));
+        assert_eq!(world.get::<B>(e), None);
+        assert_eq!(world.get::<B>(e_clone), Some(&B(1)));
+    }
+
+    #[test]
+    fn move_hierarchy() {
+        #[derive(Clone, Component, PartialEq, Debug)]
+        struct A(u32);
+
+        let mut world = World::default();
+        let e_parent = world.spawn(A(1)).id();
+        let e_child1 = world.spawn((A(2), ChildOf(e_parent))).id();
+        let e_child2 = world.spawn((A(3), ChildOf(e_parent))).id();
+        let e_child1_1 = world.spawn((A(4), ChildOf(e_child1))).id();
+
+        let e_parent_clone = world.spawn_empty().id();
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true).linked_cloning(true);
+        let mut cloner = builder.finish();
+
+        cloner.clone_entity(&mut world, e_parent, e_parent_clone);
+
+        assert_eq!(world.get::<A>(e_parent), None);
+        assert_eq!(world.get::<A>(e_child1), None);
+        assert_eq!(world.get::<A>(e_child2), None);
+        assert_eq!(world.get::<A>(e_child1_1), None);
+
+        let mut children = world.get::<Children>(e_parent_clone).unwrap().iter();
+        let e_child1_clone = *children.next().unwrap();
+        let e_child2_clone = *children.next().unwrap();
+        let mut children = world.get::<Children>(e_child1_clone).unwrap().iter();
+        let e_child1_1_clone = *children.next().unwrap();
+
+        assert_eq!(world.get::<A>(e_parent_clone), Some(&A(1)));
+        assert_eq!(world.get::<A>(e_child1_clone), Some(&A(2)));
+        assert_eq!(world.get::<A>(e_child2_clone), Some(&A(3)));
+        assert_eq!(world.get::<A>(e_child1_1_clone), Some(&A(4)));
     }
 }

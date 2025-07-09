@@ -19,6 +19,7 @@ use crate::{
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
     relationship::RelationshipHookMode,
     resource::Resource,
+    storage::{SparseSets, Table},
     system::IntoObserverSystem,
     world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
 };
@@ -2264,6 +2265,25 @@ impl<'w> EntityWorldMut<'w> {
     /// entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn remove_by_ids(&mut self, component_ids: &[ComponentId]) -> &mut Self {
+        self.remove_by_ids_with_caller(
+            component_ids,
+            MaybeLocation::caller(),
+            BundleRemover::empty_pre_remove,
+        )
+    }
+
+    #[inline]
+    pub(crate) fn remove_by_ids_with_caller<T: 'static>(
+        &mut self,
+        component_ids: &[ComponentId],
+        caller: MaybeLocation,
+        pre_remove: impl FnOnce(
+            &mut SparseSets,
+            Option<&mut Table>,
+            &Components,
+            &[ComponentId],
+        ) -> (bool, T),
+    ) -> &mut Self {
         let location = self.location();
         let components = &mut self.world.components;
 
@@ -2280,15 +2300,7 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         };
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
-        let new_location = unsafe {
-            remover.remove(
-                self.entity,
-                location,
-                MaybeLocation::caller(),
-                BundleRemover::empty_pre_remove,
-            )
-        }
-        .0;
+        let new_location = unsafe { remover.remove(self.entity, location, caller, pre_remove) }.0;
 
         self.location = Some(new_location);
         self.world.flush();
