@@ -205,7 +205,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform::sync::atomic::{AtomicU32, Ordering};
+use bevy_platform::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -803,7 +803,7 @@ pub struct EntitiesAllocator {
     /// This is continually subtracted from.
     /// If it wraps to a very large number, it will be outside the bounds of `free`,
     /// and a new row will be needed.
-    free_len: AtomicU32,
+    free_len: AtomicUsize,
     /// This is the next "fresh" row to hand out.
     /// If there are no rows to reuse, this row, which has a generation of 0, is the next to return.
     next_row: AtomicU32,
@@ -822,14 +822,14 @@ impl EntitiesAllocator {
     /// Additionally, to differentiate versions of an [`Entity`], updating the [`EntityGeneration`] before freeing is a good idea
     /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
     pub(crate) fn free(&mut self, freed: Entity) {
-        let expected_len = *self.free_len.get_mut() as usize;
+        let expected_len = *self.free_len.get_mut();
         if expected_len > self.free.len() {
             self.free.clear();
         } else {
             self.free.truncate(expected_len);
         }
         self.free.push(freed);
-        *self.free_len.get_mut() = self.free.len() as u32;
+        *self.free_len.get_mut() = self.free.len();
     }
 
     pub(crate) fn alloc(&self) -> Entity {
@@ -837,7 +837,7 @@ impl EntitiesAllocator {
             .free_len
             .fetch_sub(1, Ordering::Relaxed)
             .wrapping_sub(1);
-        self.free.get(index as usize).copied().unwrap_or_else(|| {
+        self.free.get(index).copied().unwrap_or_else(|| {
             let row = self.next_row.fetch_add(1, Ordering::Relaxed);
             let row = NonMaxU32::new(row).expect("too many entities");
             Entity::from_raw(EntityRow::new(row))
@@ -845,15 +845,15 @@ impl EntitiesAllocator {
     }
 
     pub(crate) fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
-        let current_len = self.free_len.fetch_sub(count, Ordering::Relaxed);
-        let current_len = if current_len < self.free.len() as u32 {
+        let current_len = self.free_len.fetch_sub(count as usize, Ordering::Relaxed);
+        let current_len = if current_len < self.free.len() {
             current_len
         } else {
             0
         };
-        let start = current_len.saturating_sub(count);
-        let reuse = (start as usize)..(current_len as usize);
-        let still_need = count - reuse.len() as u32;
+        let start = current_len.saturating_sub(count as usize);
+        let reuse = start..current_len;
+        let still_need = (count as usize - reuse.len()) as u32;
         let new = if still_need > 0 {
             let start_new = self.next_row.fetch_add(still_need, Ordering::Relaxed);
             let end_new = start_new
