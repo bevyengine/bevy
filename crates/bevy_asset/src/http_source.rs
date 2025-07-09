@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 
 /// Adds the `http` and `https` asset sources to the app.
 ///
+/// NOTE: Make sure to add this plugin *before* `AssetPlugin` to properly register http asset sources.
+///
 /// Any asset path that begins with `http` (when the `http` feature is enabled) or `https` (when the
 /// `https` feature is enabled) will be loaded from the web via `fetch`(wasm) or `ureq`(native).
 pub struct HttpSourcePlugin;
