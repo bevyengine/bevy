@@ -16,9 +16,9 @@ struct VertexOutput {
     @location(1) tile_index: u32,
 }
 
-@group(2) @binding(0) var tileset: texture_2d_array<f32>;
-@group(2) @binding(1) var tileset_sampler: sampler;
-@group(2) @binding(2) var tile_indices: texture_2d<u32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var tileset: texture_2d_array<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var tileset_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var tile_indices: texture_2d<u32>;
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {

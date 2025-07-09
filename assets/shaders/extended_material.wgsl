@@ -19,7 +19,7 @@ struct MyExtendedMaterial {
     quantize_steps: u32,
 }
 
-@group(3) @binding(100)
+@group(#{MATERIAL_BIND_GROUP}) @binding(100)
 var<uniform> my_extended_material: MyExtendedMaterial;
 
 @fragment
