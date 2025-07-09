@@ -1257,7 +1257,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
             .id
     }
 
-    /// Queues this function to run as a resource registratorif the given
+    /// Queues this function to run as a resource registrator if the given
     /// type is not already queued as a resource.
     ///
     /// # Safety
