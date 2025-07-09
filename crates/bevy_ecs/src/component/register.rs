@@ -101,7 +101,7 @@ impl<'w> ComponentsRegistrator<'w> {
 
     /// Applies every queued registration.
     /// This ensures that every valid [`ComponentId`] is registered,
-    /// enabling retrieving [`ComponentInfo`], etc.
+    /// enabling retrieving [`ComponentInfo`](super::ComponentInfo), etc.
     pub fn apply_queued_registrations(&mut self) {
         if !self.any_queued_mut() {
             return;

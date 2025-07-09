@@ -479,6 +479,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 ///
 /// [`SyncCell`]: bevy_platform::cell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+/// [`ComponentHooks`]: crate::lifecycle::ComponentHooks
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Component`",
     label = "invalid `Component`",

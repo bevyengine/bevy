@@ -93,8 +93,8 @@ impl Tick {
 /// # Example
 ///
 /// Here a schedule is stored in a custom resource. This way the systems in it would not have their change
-/// ticks automatically updated via [`World::check_change_ticks`], possibly causing `Tick`-related bugs on
-/// long-running apps.
+/// ticks automatically updated via [`World::check_change_ticks`](crate::world::World::check_change_ticks),
+/// possibly causing `Tick`-related bugs on long-running apps.
 ///
 /// To fix that, add an observer for this event that calls the schedule's
 /// [`Schedule::check_change_ticks`](bevy_ecs::schedule::Schedule::check_change_ticks).
@@ -180,7 +180,7 @@ impl ComponentTicks {
 
     /// Manually sets the change tick.
     ///
-    /// This is normally done automatically via the [`DerefMut`] implementation
+    /// This is normally done automatically via the [`DerefMut`](core::ops::DerefMut) implementation
     /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///

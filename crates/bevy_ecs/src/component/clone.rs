@@ -73,7 +73,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 ///
 /// To clone a component using this handler, the following must be true:
 /// - World has [`AppTypeRegistry`](crate::reflect::AppTypeRegistry)
-/// - Component has [`TypeId`]
+/// - Component has [`TypeId`](core::any::TypeId)
 /// - Component is registered
 /// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
 /// - Component can be cloned via [`PartialReflect::reflect_clone`] _or_ has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),

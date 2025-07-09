@@ -23,7 +23,7 @@ use crate::{
     storage::SparseSetIndex,
 };
 
-/// Stores metadata for a type of component or resource stored in a specific [`World`].
+/// Stores metadata for a type of component or resource stored in a specific [`World`](crate::world::World).
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
     pub(super) id: ComponentId,
@@ -107,7 +107,7 @@ impl ComponentInfo {
         }
     }
 
-    /// Update the given flags to include any [`ComponentHook`] registered to self
+    /// Update the given flags to include any [`ComponentHook`](crate::component::ComponentHook) registered to self
     #[inline]
     pub(crate) fn update_archetype_flags(&self, flags: &mut ArchetypeFlags) {
         if self.hooks().on_add.is_some() {
@@ -140,11 +140,12 @@ impl ComponentInfo {
 }
 
 /// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
-/// [`World`].
+/// [`World`](crate::world::World).
 ///
 /// Each time a new `Component` type is registered within a `World` using
-/// e.g. [`World::register_component`] or [`World::register_component_with_descriptor`]
-/// or a Resource with e.g. [`World::init_resource`],
+/// e.g. [`World::register_component`](crate::world::World::register_component) or
+/// [`World::register_component_with_descriptor`](crate::world::World::register_component_with_descriptor)
+/// or a Resource with e.g. [`World::init_resource`](crate::world::World::init_resource),
 /// a corresponding `ComponentId` is created to track it.
 ///
 /// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
@@ -158,8 +159,8 @@ impl ComponentInfo {
 /// and must not be attempted.
 ///
 /// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
-/// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
-/// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
+/// from a `World` using [`World::component_id()`](crate::world::World::component_id) or via [`Components::component_id()`].
+/// Access to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -339,7 +340,7 @@ impl ComponentDescriptor {
     }
 }
 
-/// Stores metadata associated with each kind of [`Component`] in a given [`World`].
+/// Stores metadata associated with each kind of [`Component`] in a given [`World`](crate::world::World).
 #[derive(Debug, Default)]
 pub struct Components {
     pub(super) components: Vec<Option<ComponentInfo>>,
@@ -565,7 +566,7 @@ impl Components {
     ///
     /// * [`Components::get_valid_id()`]
     /// * [`Components::valid_resource_id()`]
-    /// * [`World::component_id()`]
+    /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
     pub fn valid_component_id<T: Component>(&self) -> Option<ComponentId> {
         self.get_valid_id(TypeId::of::<T>())
@@ -621,8 +622,9 @@ impl Components {
     /// it was retrieved from and should not be used with another `Components`
     /// instance.
     ///
-    /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`ComponentsRegistrator::register_component()`] or [`ComponentsQueuedRegistrator::queue_register_component()`].
+    /// Returns [`None`] if the `Component` type has not yet been initialized using
+    /// [`ComponentsRegistrator::register_component()`](super::ComponentsRegistrator::register_component) or
+    /// [`ComponentsQueuedRegistrator::queue_register_component()`](super::ComponentsQueuedRegistrator::queue_register_component).
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -641,7 +643,7 @@ impl Components {
     ///
     /// * [`Components::get_id()`]
     /// * [`Components::resource_id()`]
-    /// * [`World::component_id()`]
+    /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.get_id(TypeId::of::<T>())
@@ -666,8 +668,9 @@ impl Components {
     /// it was retrieved from and should not be used with another `Components`
     /// instance.
     ///
-    /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`ComponentsRegistrator::register_resource()`] or [`ComponentsQueuedRegistrator::queue_register_resource()`].
+    /// Returns [`None`] if the `Resource` type has not yet been initialized using
+    /// [`ComponentsRegistrator::register_resource()`](super::ComponentsRegistrator::register_resource) or
+    /// [`ComponentsQueuedRegistrator::queue_register_resource()`](super::ComponentsQueuedRegistrator::queue_register_resource).
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
