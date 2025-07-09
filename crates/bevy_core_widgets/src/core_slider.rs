@@ -355,13 +355,15 @@ pub(crate) fn slider_on_drag(
             let slider_width = ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0);
             let span = range.span();
             let new_value = if span > 0. {
-                range.clamp(drag.offset + (distance.x * span) / slider_width)
+                drag.offset + (distance.x * span) / slider_width
             } else {
                 range.start() + span * 0.5
             };
-            let rounded_value = precision
-                .map(|prec| prec.round(new_value))
-                .unwrap_or(new_value);
+            let rounded_value = range.clamp(
+                precision
+                    .map(|prec| prec.round(new_value))
+                    .unwrap_or(new_value),
+            );
 
             if matches!(slider.on_change, Callback::Ignore) {
                 commands
