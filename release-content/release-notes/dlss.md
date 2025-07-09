@@ -29,4 +29,4 @@ Other temporal upscalers like AMD's FidelityFX™ Super Resolution (FSR), Intel'
 
 Support for other swapchain-related features like frame interpolation/extrapolation, latency reduction, or dynamic resolution scaling are not currently planned, but support for DLSS Ray Reconstruction for use in Bevy Solari _is_ planned for a future release.
 
-Special thanks to @cwfitzgerald for helping with the wgpu backend interop APIs.
+Special thanks to @cwfitzgerald for helping with the [`wgpu`](https://github.com/gfx-rs/wgpu) backend interop APIs.
