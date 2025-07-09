@@ -146,7 +146,7 @@ pub struct HotPatched;
 #[cfg(test)]
 mod tests {
     use crate::{
-        bundle::Bundle,
+        bundle::{Bundle, BundleId, BundleInfo},
         change_detection::Ref,
         component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::{Entity, EntityMapper},
@@ -2474,6 +2474,26 @@ mod tests {
     }
 
     #[test]
+    fn runtime_required_components_of_remove_with_requires_bundle() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        let mut world = World::new();
+
+        // This should fail, removing A from an archetype with only B was previously noop
+        // and register_required_components cannot trivially update the edge to now cause
+        // a move to an archetype without A
+        world.spawn(B).remove_with_requires::<A>();
+        assert!(matches!(
+            world.try_register_required_components::<A, B>(),
+            Err(RequiredComponentsError::RemovedFromArchetype(_))
+        ));
+    }
+
+    #[test]
     fn required_components_inheritance_depth() {
         // Test that inheritance depths are computed correctly for requirements.
         //
@@ -2554,6 +2574,57 @@ mod tests {
         );
         assert_eq!(to_vec(required_y), vec![(b, 1), (c, 2), (z, 0)]);
         assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1)]);
+    }
+
+    #[test]
+    fn update_required_components_in_bundle() {
+        #[derive(Component)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        fn bundle_containing(world: &World, component: ComponentId) -> Option<BundleId> {
+            world
+                .bundles()
+                .iter_containing(component)
+                .next()
+                .map(BundleInfo::id)
+        }
+
+        let mut world = World::new();
+
+        let a_id = world.register_component::<A>();
+        let b_id = world.register_component::<B>();
+        let c_id = world.register_component::<C>();
+
+        let bundle = world.register_bundle::<A>();
+        let bundle_id = bundle.id();
+        let contributed: HashSet<_> = bundle.contributed_components().iter().copied().collect();
+
+        assert!(contributed.contains(&a_id));
+        assert!(contributed.contains(&b_id));
+        assert!(!contributed.contains(&c_id));
+
+        assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, c_id), None);
+
+        world.register_required_components::<B, C>();
+        let bundle = world.bundles().get(bundle_id).unwrap();
+        let contributed: HashSet<_> = bundle.contributed_components().iter().copied().collect();
+
+        assert!(contributed.contains(&a_id));
+        assert!(contributed.contains(&b_id));
+        assert!(contributed.contains(&c_id));
+
+        assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, c_id), Some(bundle_id));
     }
 
     #[test]

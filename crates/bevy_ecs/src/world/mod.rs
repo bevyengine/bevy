@@ -535,7 +535,7 @@ impl World {
     ) -> Result<(), RequiredComponentsError> {
         let requiree = self.register_component::<T>();
 
-        // TODO: Remove this panic and update archetype edges accordingly when required components are added
+        // TODO: Remove this error and update archetype edges accordingly when required components are added
         if self.archetypes().component_index().contains_key(&requiree) {
             return Err(RequiredComponentsError::ArchetypeExists(requiree));
         }
@@ -545,7 +545,13 @@ impl World {
         // SAFETY: We just created the `required` and `requiree` components.
         unsafe {
             self.components
-                .register_required_components::<R>(requiree, required, constructor)
+                .register_required_components::<R>(requiree, required, constructor)?;
+        }
+
+        // SAFETY: all bundles are created with Self::storages and Self::components
+        unsafe {
+            self.bundles
+                .refresh_required_components(&mut self.storages, &self.components, requiree)
         }
     }
 
