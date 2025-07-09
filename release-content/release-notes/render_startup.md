@@ -27,7 +27,7 @@ with systems! This has several benefits:
     `DeferredLightingLayout`.
 
 We want developers to become more familiar and comfortable with Bevy's rendering stack, and hope
-that bring the renderer closer to regular ECS code will encourage that. Code that previously looked
+that bringing the renderer closer to regular ECS code will encourage that. Code that previously looked
 like this (in Bevy 0.16):
 
 ```rust
