@@ -7,7 +7,7 @@ use bevy_tasks::ComputeTaskPool;
 use bevy_utils::WgpuWrapper;
 pub use graph_runner::*;
 pub use render_device::*;
-use tracing::{debug, error, info, info_span, trace, warn};
+use tracing::{debug, error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
@@ -157,7 +157,7 @@ fn find_adapter_by_name(
             "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
         ))
     {
-        trace!("Checking adapter: {:?}", adapter.get_info());
+        tracing::trace!("Checking adapter: {:?}", adapter.get_info());
         let info = adapter.get_info();
         if let Some(surface) = compatible_surface {
             if !adapter.is_surface_supported(surface) {
