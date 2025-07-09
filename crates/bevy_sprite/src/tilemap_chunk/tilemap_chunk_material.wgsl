@@ -10,24 +10,25 @@
 
 struct TileData {
     tileset_index: u32,
-    visible: bool,
     color: vec4<f32>,
+    visible: bool,
 }
 
 fn getTileData(coord: vec2<u32>) -> TileData {
     let data = textureLoad(tile_data, coord, 0);
 
     let tileset_index = data.r;
-    let visible = data.g != 0u;
 
-    let color_r = f32(data.b & 0xFFu) / 255.0;
-    let color_g = f32((data.b >> 8u) & 0xFFu) / 255.0;
-    let color_b = f32(data.a & 0xFFu) / 255.0;
-    let color_a = f32((data.a >> 8u) & 0xFFu) / 255.0;
+    let color_r = f32(data.g & 0xFFu) / 255.0;
+    let color_g = f32((data.g >> 8u) & 0xFFu) / 255.0;
+    let color_b = f32(data.b & 0xFFu) / 255.0;
+    let color_a = f32((data.b >> 8u) & 0xFFu) / 255.0;
 
     let color = vec4<f32>(color_r, color_g, color_b, color_a);
 
-    return TileData(tileset_index, visible, color);
+    let visible = data.a != 0u;
+
+    return TileData(tileset_index, color, visible);
 }
 
 @fragment
