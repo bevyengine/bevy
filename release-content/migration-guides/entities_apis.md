@@ -6,6 +6,7 @@ pull_requests: [19350, 19433, 19451]
 In 0.16, entities could have zero or more components.
 In 0.17, a new state for an entity is introduced: null/not constructed.
 Entities can now be constructed and destructed within their spawned life cycle.
+For a full explanation of the new entity life cycle, see the new `entity` module docs.
 This opens up a lot of room for performance improvement but also caused a lot of breaking changes:
 
 ### `Entities` rework

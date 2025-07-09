@@ -817,6 +817,10 @@ impl EntitiesAllocator {
         *self.next_row.get_mut() = 0;
     }
 
+    /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
+    /// Freeing an [`Entity`] such that one [`EntityRow`] is in the allocator in multiple places can cause panics when spawning the allocated entity.
+    /// Additionally, to differentiate versions of an [`Entity`], updating the [`EntityGeneration`] before freeing is a good idea
+    /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
     pub(crate) fn free(&mut self, freed: Entity) {
         let expected_len = *self.free_len.get_mut() as usize;
         if expected_len > self.free.len() {
@@ -1029,7 +1033,7 @@ impl Entities {
     /// This can error if the entity does not exist or if it is already constructed.
     /// See the module docs for a more precise explanation of which entities exist and what construction means.
     #[inline]
-    pub fn validate_construction(&self, entity: Entity) -> Result<(), ConstructionError> {
+    pub fn is_id_safe_to_construct(&self, entity: Entity) -> Result<(), ConstructionError> {
         match self.get(entity) {
             Ok(Some(_)) => Err(ConstructionError::AlreadyConstructed),
             Ok(None) => Ok(()),
