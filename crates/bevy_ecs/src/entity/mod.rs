@@ -897,7 +897,7 @@ impl<'a> core::iter::FusedIterator for AllocEntitiesIterator<'a> {}
 // SAFETY: Newly allocated entity values are unique.
 unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
 
-/// [`Entities`] tracks all know [`EntityRow`]s and their metadata.
+/// [`Entities`] tracks all known [`EntityRow`]s and their metadata.
 /// This is like a base table of information all entities have.
 #[derive(Debug, Clone)]
 pub struct Entities {
@@ -1009,8 +1009,7 @@ impl Entities {
     pub fn is_row_constructed(&self, row: EntityRow) -> bool {
         self.meta
             .get(row.index() as usize)
-            .map(|meta| meta.location.is_some())
-            .unwrap_or_default()
+            .is_some_and(|meta| meta.location.is_some())
     }
 
     /// Returns true if the entity exists.
@@ -1043,7 +1042,7 @@ impl Entities {
     /// Returns the previous location of the row.
     ///
     /// # Safety
-    ///  - The current location of the `row` must already be set. If not, try [`declare`](Self::declare).
+    ///  - The current location of the `row` must already be set. If not, use [`declare`](Self::declare).
     ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
@@ -1062,7 +1061,7 @@ impl Entities {
     /// Returns the previous location of the row.
     ///
     /// # Safety
-    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
+    ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
     pub(crate) unsafe fn declare(
