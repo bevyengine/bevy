@@ -686,6 +686,7 @@ impl EntityCloner {
                                 })
                             })
                         else {
+                            // Component was removed by some other component's clone side effect before we got to it.
                             continue;
                         };
 
