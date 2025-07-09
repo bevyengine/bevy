@@ -309,7 +309,6 @@ pub fn extract_skins(
     skinned_mesh_inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     changed_transforms: Extract<Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>>,
     joints: Extract<Query<&GlobalTransform>>,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_skinned_meshes_query: Extract<RemovedComponents<SkinnedMesh>>,
 ) {
     let skin_uniforms = skin_uniforms.into_inner();
@@ -335,10 +334,7 @@ pub fn extract_skins(
     );
 
     // Delete skins that became invisible.
-    for skinned_mesh_entity in removed_visibilities_query
-        .read()
-        .chain(removed_skinned_meshes_query.read())
-    {
+    for skinned_mesh_entity in removed_skinned_meshes_query.read() {
         // Only remove a skin if we didn't pick it up in `add_or_delete_skins`.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
