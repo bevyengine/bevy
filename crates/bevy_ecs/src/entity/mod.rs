@@ -624,11 +624,7 @@ impl<'de> Deserialize<'de> for Entity {
 /// For a unique [`u64`] representation, use [`Entity::to_bits`].
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self == &Self::PLACEHOLDER {
-            write!(f, "PLACEHOLDER")
-        } else {
-            write!(f, "{}v{}", self.index(), self.generation())
-        }
+        fmt::Display::fmt(self, f)
     }
 }
 
@@ -1623,7 +1619,7 @@ mod tests {
     fn entity_debug() {
         let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
         let string = format!("{entity:?}");
-        assert_eq!(string, "42v0#4294967253");
+        assert_eq!(string, "42v0");
 
         let entity = Entity::PLACEHOLDER;
         let string = format!("{entity:?}");
