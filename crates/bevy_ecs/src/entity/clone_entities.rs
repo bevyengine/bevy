@@ -577,15 +577,10 @@ impl EntityCloner {
             });
 
             if state.move_components {
-                fn move_handler(_src: &SourceComponent, ctx: &mut ComponentCloneCtx) {
-                    ctx.move_component();
-                }
                 moved_components.reserve(source_archetype.component_count());
-
-                // Replace default handler with special bitwise copy handler which would also
-                // track if component was moved instead of cloned. This is later used to determine
-                // whether we need to run component's drop function when removing it from the source entity or not.
-                state.default_clone_fn = move_handler;
+                // Replace default handler with special handler which would track if component was moved instead of cloned.
+                // This is later used to determine whether we need to run component's drop function when removing it from the source entity or not.
+                state.default_clone_fn = |_, ctx| ctx.move_component();
             }
 
             filter.clone_components(source_archetype, target_archetype, |component| {
