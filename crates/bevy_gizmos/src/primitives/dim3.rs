@@ -18,17 +18,24 @@ const DEFAULT_RESOLUTION: u32 = 5;
 const INFINITE_LEN: f32 = 10_000.0;
 
 /// A trait for rendering 3D geometric primitives (`P`) with [`GizmoBuffer`].
-pub trait GizmoPrimitive3d<Config, Clear> : Primitive3d
+///
+/// This trait is used internally when calling [`gizmos.primitive_3d`].
+///
+/// If you want to implement gizmos support for a custom primitive you should
+/// implement this trait.
+pub trait GizmoPrimitive3d<Config, Clear>: Primitive3d
 where
     Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync
+    Clear: 'static + Send + Sync,
 {
-    /// The output of `primitive_3d`. This is a builder to set non-default values.
+    /// The output of `gizmos.primitive_3d` and `self.gizmos`. This is a builder to set non-default values.
     type Output<'a>
     where
         Self: 'a;
 
     /// Renders a 3D primitive with its associated details.
+    ///
+    /// This is identical to `gizmos.primitive_3d`.
     fn gizmos<'a, 'b: 'a>(
         &'a self,
         gizmos: &'b mut GizmoBuffer<Config, Clear>,
@@ -303,11 +310,7 @@ where
 
         let isometry = isometry.into();
         gizmos.linestrip(
-            self
-                .vertices
-                .iter()
-                .copied()
-                .map(|vec3| isometry * vec3),
+            self.vertices.iter().copied().map(|vec3| isometry * vec3),
             color,
         );
     }
