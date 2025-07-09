@@ -15,7 +15,7 @@ Compared to Bevy's built-in TAA, DLSS:
 * Requires running via the Vulkan backend on Windows/Linux (no macOS, web, or mobile support)
 
 To use DLSS in your app:
-* See https://github.com/JMS55/dlss_wgpu for licensing requirements and setup instructions
+* See https://github.com/bevyengine/dlss_wgpu for licensing requirements and setup instructions
 * Enable Bevy's `dlss` feature
 * Insert the `DlssProjectId` resource before `DefaultPlugins` when setting up your app
 * Check for the presence of `Option<Res<DlssSupported>>` at runtime to see if DLSS is supported on the current machine
