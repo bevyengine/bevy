@@ -145,6 +145,33 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers!"
 };
 
+#[cfg(not(target_family = "wasm"))]
+fn find_adapter_by_name(
+    instance: &Instance,
+    options: &WgpuSettings,
+    compatible_surface: Option<&wgpu::Surface<'_>>,
+    adapter_name: &String,
+) -> Option<Adapter> {
+    for adapter in
+        instance.enumerate_adapters(options.backends.expect(
+            "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
+        ))
+    {
+        trace!("Checking adapter: {:?}", adapter.get_info());
+        let info = adapter.get_info();
+        if let Some(surface) = compatible_surface {
+            if !adapter.is_surface_supported(surface) {
+                continue;
+            }
+        }
+
+        if info.name.eq_ignore_ascii_case(&adapter_name) {
+            return Some(adapter);
+        }
+    }
+    return None;
+}
+
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
@@ -153,43 +180,24 @@ pub async fn initialize_renderer(
     request_adapter_options: &RequestAdapterOptions<'_, '_>,
     desired_adapter_name: Option<String>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
-    let mut selected_adapter;
     #[cfg(not(target_family = "wasm"))]
-    if let Some(adapter_name) = &desired_adapter_name {
-        debug!("Searching for adapter with name: {}", adapter_name);
-        selected_adapter = None;
-        for adapter in instance.enumerate_adapters(options.backends.expect(
-            "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
-        )) {
-            trace!("Checking adapter: {:?}", adapter.get_info());
-            let info = adapter.get_info();
-            if let Some(surface) = request_adapter_options.compatible_surface {
-                if !adapter.is_surface_supported(surface) {
-                    continue;
-                }
-            }
-
-            if info
-                .name
-                .to_lowercase()
-                .contains(&adapter_name.to_lowercase())
-            {
-                selected_adapter = Some(adapter);
-                break;
-            }
-        }
-    } else {
-        debug!(
-            "Searching for adapter with options: {:?}",
-            request_adapter_options
-        );
-        selected_adapter = instance.request_adapter(request_adapter_options).await.ok();
-    };
+    let mut selected_adapter = desired_adapter_name.and_then(|adapter_name| {
+        find_adapter_by_name(
+            instance,
+            options,
+            request_adapter_options.compatible_surface,
+            &adapter_name,
+        )
+    });
     #[cfg(target_family = "wasm")]
-    {
-        if desired_adapter_name.is_some() {
-            warn!("Choosing an adapter is not supported on wasm.");
-        }
+    let mut selected_adapter = None;
+
+    #[cfg(target_family = "wasm")]
+    if desired_adapter_name.is_some() {
+        warn!("Choosing an adapter is not supported on wasm.");
+    }
+
+    if selected_adapter.is_none() {
         debug!(
             "Searching for adapter with options: {:?}",
             request_adapter_options
