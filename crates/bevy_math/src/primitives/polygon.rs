@@ -2,17 +2,13 @@
 use {
     super::{Measured2d, Triangle2d},
     alloc::{collections::BTreeMap, vec::Vec},
+    core::cmp::Ordering,
 };
-
-use core::cmp::Ordering;
 
 use crate::Vec2;
 
-#[cfg_attr(
-    not(feature = "alloc"),
-    expect(dead_code, reason = "this type is only used with the alloc feature")
-)]
 #[derive(Debug, Clone, Copy)]
+#[cfg(feature = "alloc")]
 enum Endpoint {
     Left,
     Right,
@@ -24,22 +20,16 @@ enum Endpoint {
 /// If `e1.position().x == e2.position().x` the events are ordered from bottom to top.
 ///
 /// This is the order expected by the [`SweepLine`].
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(
-    not(feature = "alloc"),
-    allow(dead_code, reason = "this type is only used with the alloc feature")
-)]
 struct SweepLineEvent {
     segment: Segment,
     /// Type of the vertex (left or right)
     endpoint: Endpoint,
 }
 
+#[cfg(feature = "alloc")]
 impl SweepLineEvent {
-    #[cfg_attr(
-        not(feature = "alloc"),
-        allow(dead_code, reason = "this type is only used with the alloc feature")
-    )]
     fn position(&self) -> Vec2 {
         match self.endpoint {
             Endpoint::Left => self.segment.left,
@@ -48,20 +38,24 @@ impl SweepLineEvent {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl PartialEq for SweepLineEvent {
     fn eq(&self, other: &Self) -> bool {
         self.position() == other.position()
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Eq for SweepLineEvent {}
 
+#[cfg(feature = "alloc")]
 impl PartialOrd for SweepLineEvent {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Ord for SweepLineEvent {
     fn cmp(&self, other: &Self) -> Ordering {
         xy_order(self.position(), other.position())
@@ -69,10 +63,7 @@ impl Ord for SweepLineEvent {
 }
 
 /// Orders 2D points according to the order expected by the sweep line and event queue from -X to +X and then -Y to Y.
-#[cfg_attr(
-    not(feature = "alloc"),
-    allow(dead_code, reason = "this type is only used with the alloc feature")
-)]
+#[cfg(feature = "alloc")]
 fn xy_order(a: Vec2, b: Vec2) -> Ordering {
     a.x.total_cmp(&b.x).then_with(|| a.y.total_cmp(&b.y))
 }
@@ -129,26 +120,31 @@ impl EventQueue {
 /// Segments are ordered from bottom to top based on their left vertices if possible.
 /// If their y values are identical, the segments are ordered based on the y values of their right vertices.
 #[derive(Debug, Clone, Copy)]
+#[cfg(feature = "alloc")]
 struct Segment {
     edge_index: usize,
     left: Vec2,
     right: Vec2,
 }
 
+#[cfg(feature = "alloc")]
 impl PartialEq for Segment {
     fn eq(&self, other: &Self) -> bool {
         self.edge_index == other.edge_index
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Eq for Segment {}
 
+#[cfg(feature = "alloc")]
 impl PartialOrd for Segment {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Ord for Segment {
     fn cmp(&self, other: &Self) -> Ordering {
         self.left
@@ -159,10 +155,7 @@ impl Ord for Segment {
 }
 
 /// Holds information about which segment is above and which is below a given [`Segment`]
-#[cfg_attr(
-    not(feature = "alloc"),
-    expect(dead_code, reason = "this type is only used with the alloc feature")
-)]
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone, Copy)]
 struct SegmentOrder {
     above: Option<usize>,
@@ -173,8 +166,8 @@ struct SegmentOrder {
 ///
 /// It can be thought of as a vertical line sweeping from -X to +X across the polygon that keeps track of the order of the segments
 /// the sweep line is intersecting at any given moment.
-#[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
+#[cfg(feature = "alloc")]
 struct SweepLine<'a> {
     vertices: &'a [Vec2],
     tree: BTreeMap<Segment, SegmentOrder>,
