@@ -1,4 +1,8 @@
-//! NVIDIA Deep Learning Super Sampling.
+//! NVIDIA Deep Learning Super Sampling (DLSS).
+//!
+//! DLSS uses machine learning models to upscale and anti-alias images.
+//!
+//! Requires a NVIDIA RTX GPU, and the Windows/Linux Vulkan rendering backend. Does not work on other platforms.
 //!
 //! See https://github.com/bevyengine/dlss_wgpu for licensing requirements and setup instructions.
 //!
