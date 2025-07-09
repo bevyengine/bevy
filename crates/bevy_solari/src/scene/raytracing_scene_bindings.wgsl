@@ -34,12 +34,17 @@ fn unpack_vertex(packed: PackedVertex) -> Vertex {
 }
 
 struct Material {
-    base_color: vec4<f32>,
-    emissive: vec4<f32>,
-    base_color_texture_id: u32,
     normal_map_texture_id: u32,
+    base_color_texture_id: u32,
     emissive_texture_id: u32,
-    _padding: u32,
+    metallic_roughness_texture_id: u32,
+
+    base_color: vec3<f32>,
+    perceptual_roughness: f32,
+    emissive: vec3<f32>,
+    metallic: f32,
+    reflectance: vec3<f32>,
+    _padding: f32,
 }
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
@@ -94,6 +99,9 @@ fn sample_texture(id: u32, uv: vec2<f32>) -> vec3<f32> {
 struct ResolvedMaterial {
     base_color: vec3<f32>,
     emissive: vec3<f32>,
+    reflectance: vec3<f32>,
+    perceptual_roughness: f32,
+    metallic: f32,
 }
 
 struct ResolvedRayHitFull {
@@ -116,6 +124,16 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     m.emissive = material.emissive.rgb;
     if material.emissive_texture_id != TEXTURE_MAP_NONE {
         m.emissive *= sample_texture(material.emissive_texture_id, uv);
+    }
+
+    m.reflectance = material.reflectance;
+
+    m.perceptual_roughness = material.perceptual_roughness;
+    m.metallic = material.metallic;
+    if material.metallic_roughness_texture_id != TEXTURE_MAP_NONE {
+        let metallic_roughness = sample_texture(material.metallic_roughness_texture_id, uv);
+        m.perceptual_roughness *= metallic_roughness.g;
+        m.metallic *= metallic_roughness.b;
     }
 
     return m;
