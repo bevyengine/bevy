@@ -33,6 +33,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 ] }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev", optional = true }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev", optional = true }
+bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
 
 # other
 anyhow = "1"
@@ -41,7 +42,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 http-body-util = "0.1"
 async-channel = "2"
-bevy_log = { version = "0.17.0-dev", path = "../bevy_log" }
 
 [dev-dependencies]
 jsonschema = "0.30.0"

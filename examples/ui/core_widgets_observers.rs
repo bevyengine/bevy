@@ -3,7 +3,7 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        Callback, CoreButton, CoreCheckbox, CoreSlider, CoreSliderThumb, CoreWidgetsPlugin,
+        Callback, CoreButton, CoreCheckbox, CoreSlider, CoreSliderThumb, CoreWidgetsPlugins,
         SliderRange, SliderValue,
     },
     ecs::system::SystemId,
@@ -21,7 +21,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreWidgetsPlugin,
+            CoreWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
