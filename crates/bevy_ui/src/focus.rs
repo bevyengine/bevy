@@ -327,7 +327,7 @@ pub fn ui_focus_system(
 }
 
 /// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
-/// If `entity` has an `OverrideClip` component it ignores any inherited clipping and returns true.
+/// If `entity` has an [`OverrideClip`] component it ignores any inherited clipping and returns true.
 pub fn clip_check_recursive(
     point: Vec2,
     entity: Entity,
