@@ -1130,7 +1130,7 @@ impl World {
         bundle: B,
         caller: MaybeLocation,
     ) -> Result<EntityWorldMut<'_>, ConstructionError> {
-        self.entities.is_id_safe_to_construct(entity)?;
+        self.entities.check_can_construct_entity(entity)?;
         Ok(self.construct_unchecked(entity, bundle, caller))
     }
 
@@ -1182,7 +1182,7 @@ impl World {
         entity: Entity,
         caller: MaybeLocation,
     ) -> Result<EntityWorldMut<'_>, ConstructionError> {
-        self.entities.is_id_safe_to_construct(entity)?;
+        self.entities.check_can_construct_entity(entity)?;
         Ok(self.construct_empty_unchecked(entity, caller))
     }
 
