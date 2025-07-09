@@ -33,7 +33,7 @@ pub use core_scrollbar::{
 };
 pub use core_slider::{
     CoreSlider, CoreSliderDragState, CoreSliderPlugin, CoreSliderThumb, SetSliderValue,
-    SliderRange, SliderStep, SliderValue, TrackClick,
+    SliderPrecision, SliderRange, SliderStep, SliderValue, TrackClick,
 };
 
 /// A plugin group that registers the observers for all of the core widgets. If you don't want to
