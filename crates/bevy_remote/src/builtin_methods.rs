@@ -1866,12 +1866,12 @@ mod tests {
 
         let atr = AppTypeRegistry::default();
         {
-            use crate::schemas::ReflectJsonSchemaForceAsArray;
+            use crate::schemas::RegisterReflectJsonSchemas;
 
             let mut register = atr.write();
             register.register::<NestedStruct>();
             register.register::<bevy_math::Vec3>();
-            register.register_type_data::<bevy_math::Vec3, ReflectJsonSchemaForceAsArray>();
+            register.register_force_as_array::<bevy_math::Vec3>();
         }
         let mut world = World::new();
         world.insert_resource(atr);

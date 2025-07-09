@@ -2,7 +2,7 @@
 use crate::schemas::json_schema::{
     JsonSchemaBevyType, JsonSchemaVariant, SchemaKind, SchemaType, SchemaTypeVariant,
 };
-use crate::schemas::{ReflectJsonSchemaForceAsArray, SchemaTypesMetadata};
+use crate::schemas::{CustomInternalSchemaData, SchemaTypesMetadata};
 use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
@@ -298,8 +298,8 @@ impl From<&TypePathTable> for TypeReferenceId {
 }
 
 /// Information about the field type.
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, Default)]
-pub(crate) enum FieldType {
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, Default, Reflect)]
+pub enum FieldType {
     /// Named field type.
     Named,
     /// Unnamed field type.
@@ -310,13 +310,26 @@ pub(crate) enum FieldType {
 }
 
 /// Information about the attributes of a field.
-#[derive(Clone, Debug, Deref, DerefMut, Default)]
-pub(crate) struct FieldsInformation {
+#[derive(Clone, Debug, Deref, DerefMut, Default, Reflect)]
+pub struct FieldsInformation {
     /// Fields information.
     #[deref]
     fields: Vec<SchemaFieldData>,
     /// Field type information.
     fields_type: FieldType,
+}
+
+impl FieldsInformation {
+    /// Creates a new instance of `FieldsInformation`.
+    pub fn new<'a, 'b, T>(iterator: Iter<'a, T>, fields_type: FieldType) -> Self
+    where
+        SchemaFieldData: From<&'a T>,
+    {
+        FieldsInformation {
+            fields: get_fields_information(iterator),
+            fields_type,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deref)]
@@ -385,28 +398,18 @@ fn try_get_regex_for_type(id: TypeId) -> Option<Cow<'static, str>> {
 }
 
 /// Represents the data of a field in a schema.
-#[derive(Clone)]
-pub(crate) struct SchemaFieldData {
+#[derive(Clone, Reflect, Debug)]
+pub struct SchemaFieldData {
     /// Name of the field.
     pub name: Option<Cow<'static, str>>,
     /// Index of the field. Can be provided for named fields when the data is obtained from containing struct definition.
     pub index: Option<usize>,
     /// Description of the field.
     pub description: Option<Cow<'static, str>>,
-    /// Attributes of the field.
-    pub attributes: AttributesInformation,
+    /// Custom of the field.
+    pub range: Option<MinMaxValues>,
     /// Type of the field.
     pub type_id: TypeId,
-}
-
-impl Debug for SchemaFieldData {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SchemaFieldData")
-            .field("name", &self.name)
-            .field("index", &self.index)
-            .field("description", &self.description)
-            .finish()
-    }
 }
 
 impl SchemaFieldData {
@@ -810,11 +813,28 @@ impl From<TypeId> for MinMaxValues {
         }
     }
 }
+/// Enum representing the internal schema type information for different Rust types.
+#[derive(Clone, Debug, Reflect)]
+pub enum SchemaEnumType {
+    /// Represents a constant value.
+    Const,
+    /// Represents a set of fields with their respective types.
+    Fields(FieldsInformation),
+}
+
+/// Represents a variant of an enum type.
+#[derive(Clone, Debug, Reflect)]
+pub struct EnumVariantInfo {
+    /// Field data for the enum variant.
+    pub field_data: SchemaFieldData,
+    /// Information about the enum variant.
+    pub info: SchemaEnumType,
+}
 
 /// Enum representing the internal schema type information for different Rust types.
 /// This enum categorizes how different types should be represented in JSON schema.
-#[derive(Clone, Debug)]
-pub(crate) enum InternalSchemaType {
+#[derive(Clone, Debug, Reflect)]
+pub enum InternalSchemaType {
     /// Represents array-like types (Vec, arrays, lists, sets).
     Array {
         /// Element type information for the array.
@@ -825,13 +845,13 @@ pub(crate) enum InternalSchemaType {
         max_size: Option<u64>,
     },
     /// Holds all variants of an enum type.
-    EnumHolder(Vec<VariantInfo>),
+    EnumHolder(Vec<EnumVariantInfo>),
     /// Holds named fields for struct, tuple, and tuple struct types.
     FieldsHolder(FieldsInformation),
     /// Represents an Optional type (e.g., `Option<T>`).
     Optional {
-        /// Generic information about the wrapped type `T` in `Option<T>`.
-        generic: GenericInfo,
+        /// Type information for the wrapped type `T` in `Option<T>`.
+        generic: TypeId,
     },
     /// Represents a Map type (e.g., `HashMap`<K, V>).
     Map {
@@ -867,6 +887,9 @@ impl InternalSchemaType {
         value: &TypeRegistration,
         registry: &TypeRegistry,
     ) -> InternalSchemaType {
+        if let Some(data) = value.data::<CustomInternalSchemaData>() {
+            return data.0.clone();
+        }
         if let Some(primitive) =
             SchemaType::try_get_primitive_type_from_type_id(value.type_info().type_id())
         {
@@ -879,14 +902,9 @@ impl InternalSchemaType {
         match value.type_info() {
             TypeInfo::Struct(struct_info) => {
                 let fields = get_fields_information(struct_info.iter());
-                let fields_type = if value.data::<ReflectJsonSchemaForceAsArray>().is_some() {
-                    FieldType::ForceUnnamed
-                } else {
-                    FieldType::Named
-                };
                 InternalSchemaType::FieldsHolder(FieldsInformation {
                     fields,
-                    fields_type,
+                    fields_type: FieldType::Named,
                 })
             }
             TypeInfo::TupleStruct(info) => {
@@ -916,8 +934,10 @@ impl InternalSchemaType {
                 fields_type: FieldType::Unnamed,
             }),
             TypeInfo::Enum(enum_info) => match enum_info.try_get_optional() {
-                Some(e) => InternalSchemaType::Optional { generic: e.clone() },
-                None => InternalSchemaType::EnumHolder(enum_info.iter().cloned().collect()),
+                Some(e) => InternalSchemaType::Optional {
+                    generic: e.ty().id(),
+                },
+                None => InternalSchemaType::EnumHolder(get_enum_information(enum_info.iter())),
             },
 
             TypeInfo::List(list_info) => InternalSchemaType::Array {
@@ -960,23 +980,15 @@ impl InternalSchemaType {
                 }
             }
             InternalSchemaType::EnumHolder(variant_infos) => {
-                for variant_info in variant_infos {
-                    let subschema = match variant_info {
-                        VariantInfo::Struct(struct_variant_info) => {
-                            InternalSchemaType::FieldsHolder(FieldsInformation {
-                                fields: get_fields_information(struct_variant_info.iter()),
-                                fields_type: FieldType::Named,
-                            })
+                for variant_info in variant_infos.iter() {
+                    let variant_dependencies = match &variant_info.info {
+                        SchemaEnumType::Const => continue,
+                        SchemaEnumType::Fields(fields_information) => {
+                            InternalSchemaType::FieldsHolder(fields_information.clone())
+                                .get_dependencies(registry)
                         }
-                        VariantInfo::Tuple(tuple_variant_info) => {
-                            InternalSchemaType::FieldsHolder(FieldsInformation {
-                                fields: get_fields_information(tuple_variant_info.iter()),
-                                fields_type: FieldType::Unnamed,
-                            })
-                        }
-                        VariantInfo::Unit(_) => continue,
                     };
-                    dependencies.extend(subschema.get_dependencies(registry));
+                    dependencies.extend(variant_dependencies);
                 }
             }
             InternalSchemaType::FieldsHolder(fields_information) => {
@@ -995,7 +1007,7 @@ impl InternalSchemaType {
                 }
             }
             InternalSchemaType::Optional { generic } => {
-                if let Some(reg) = registry.get(generic.type_id()) {
+                if let Some(reg) = registry.get(*generic) {
                     if SchemaType::try_get_primitive_type_from_type_id(reg.type_id()).is_none() {
                         let subschema = InternalSchemaType::from_type_registration(reg, registry);
                         if !subschema.is_optional() {
@@ -1157,13 +1169,13 @@ pub trait AttributeInfoReflect {
 
 impl From<&UnnamedField> for SchemaFieldData {
     fn from(value: &UnnamedField) -> Self {
-        let attributes: AttributesInformation = value.custom_attributes().into();
+        let range = value.custom_attributes().get_range_by_id(value.type_id());
         #[cfg(feature = "documentation")]
         let description = value.docs().map(|s| Cow::Owned(s.to_owned()));
         #[cfg(not(feature = "documentation"))]
         let description = None;
         SchemaFieldData {
-            attributes,
+            range,
             name: None,
             index: Some(value.index()),
             description,
@@ -1173,7 +1185,7 @@ impl From<&UnnamedField> for SchemaFieldData {
 }
 impl From<&NamedField> for SchemaFieldData {
     fn from(value: &NamedField) -> Self {
-        let attributes: AttributesInformation = value.custom_attributes().into();
+        let range = value.custom_attributes().get_range_by_id(value.type_id());
         #[cfg(feature = "documentation")]
         let description = value.docs().map(|s| Cow::Owned(s.to_owned()));
         #[cfg(not(feature = "documentation"))]
@@ -1182,7 +1194,7 @@ impl From<&NamedField> for SchemaFieldData {
             name: Some(value.name().into()),
             index: None,
             description,
-            attributes,
+            range,
             type_id: value.type_id(),
         }
     }
@@ -1190,6 +1202,7 @@ impl From<&NamedField> for SchemaFieldData {
 
 impl From<&VariantInfo> for SchemaFieldData {
     fn from(value: &VariantInfo) -> Self {
+        let range = value.custom_attributes().get_range_by_id(value.type_id());
         #[cfg(feature = "documentation")]
         let description = value.docs().map(|s| Cow::Owned(s.to_owned()));
         #[cfg(not(feature = "documentation"))]
@@ -1198,10 +1211,36 @@ impl From<&VariantInfo> for SchemaFieldData {
             name: Some(value.name().to_owned().into()),
             index: None,
             description,
-            attributes: value.custom_attributes().into(),
+            range,
             type_id: value.type_id(),
         }
     }
+}
+
+fn get_enum_information<'a>(iterator: Iter<'a, VariantInfo>) -> Vec<EnumVariantInfo> {
+    iterator
+        .map(|variant| {
+            let info = match variant {
+                VariantInfo::Struct(struct_variant_info) => {
+                    SchemaEnumType::Fields(FieldsInformation {
+                        fields: get_fields_information(struct_variant_info.iter()),
+                        fields_type: FieldType::Named,
+                    })
+                }
+                VariantInfo::Tuple(tuple_variant_info) => {
+                    SchemaEnumType::Fields(FieldsInformation {
+                        fields: get_fields_information(tuple_variant_info.iter()),
+                        fields_type: FieldType::Unnamed,
+                    })
+                }
+                VariantInfo::Unit(_) => SchemaEnumType::Const,
+            };
+            EnumVariantInfo {
+                info,
+                field_data: variant.into(),
+            }
+        })
+        .collect()
 }
 
 fn get_fields_information<'a, 'b, T>(iterator: Iter<'a, T>) -> Vec<SchemaFieldData>
@@ -1218,36 +1257,29 @@ where
 }
 
 pub(crate) fn variant_to_definition(
-    variant: &VariantInfo,
+    variant: &EnumVariantInfo,
     registry: &TypeRegistry,
 ) -> JsonSchemaBevyType {
-    let field_data: SchemaFieldData = variant.into();
     let mut schema = JsonSchemaBevyType {
-        description: field_data.to_description(),
+        description: variant.field_data.to_description(),
         kind: Some(SchemaKind::Value),
         schema_type: Some(SchemaTypeVariant::Single(SchemaType::Object)),
         additional_properties: Some(JsonSchemaVariant::BoolValue(false)),
         ..Default::default()
     };
-    let fields_info = match variant {
-        VariantInfo::Unit(unit_variant_info) => {
-            schema.const_value = Some(unit_variant_info.name().to_string().into());
+    let name = variant.field_data.name.as_ref().expect("").to_string();
+    let fields_info = match &variant.info {
+        SchemaEnumType::Const => {
+            schema.const_value = Some(name.into());
             schema.schema_type = Some(SchemaTypeVariant::Single(SchemaType::String));
             schema.additional_properties = None;
             return schema;
         }
-        VariantInfo::Struct(struct_variant_info) => FieldsInformation {
-            fields: get_fields_information(struct_variant_info.iter()),
-            fields_type: FieldType::Named,
-        },
-        VariantInfo::Tuple(tuple_variant_info) => FieldsInformation {
-            fields: get_fields_information(tuple_variant_info.iter()),
-            fields_type: FieldType::Unnamed,
-        },
+        SchemaEnumType::Fields(fields_information) => fields_information,
     };
     let mut subschema = JsonSchemaBevyType::default();
-    registry.update_schema_with_fields_info(&mut subschema, &fields_info);
-    schema.properties = [(variant.name().into(), subschema.into())].into();
+    registry.update_schema_with_fields_info(&mut subschema, fields_info);
+    schema.properties = [(name.into(), subschema.into())].into();
     schema
 }
 
@@ -1444,7 +1476,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
             InternalSchemaType::Optional { generic } => {
                 id = None;
                 let optional_schema = self
-                    .build_schema_reference_for_type_id(generic.type_id(), None)
+                    .build_schema_reference_for_type_id(generic, None)
                     .unwrap_or_default();
 
                 schema.ref_type = None;
@@ -1529,16 +1561,10 @@ impl TypeDefinitionBuilder for TypeRegistry {
                     });
                     schema.kind = Some(data.schema_kind);
                 }
-                if let Some(field_range) = field_data
-                    .as_ref()
-                    .and_then(|d| d.attributes.get_range_by_id(type_id))
-                {
+                if let Some(field_range) = field_data.as_ref().and_then(|d| d.range) {
                     range = range.with(field_range);
                 }
-                if let Some(field_range) = p_field_data
-                    .as_ref()
-                    .and_then(|d| d.attributes.get_range_by_id(type_id))
-                {
+                if let Some(field_range) = p_field_data.as_ref().and_then(|d| d.range) {
                     range = range.with(field_range);
                 }
 
@@ -1584,7 +1610,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
             }
             InternalSchemaType::Optional { generic } => {
                 let schema_optional = self
-                    .build_schema_reference_for_type_id(generic.ty().id(), None)
+                    .build_schema_reference_for_type_id(generic, None)
                     .unwrap_or_default();
                 schema.ref_type = None;
                 schema.one_of = vec![
@@ -1749,10 +1775,12 @@ pub(super) mod tests {
         }
         let atr = AppTypeRegistry::default();
         {
+            use crate::schemas::RegisterReflectJsonSchemas;
+
             let mut register = atr.write();
             register.register::<bevy_math::Vec3>();
             register.register::<Foo>();
-            register.register_type_data::<bevy_math::Vec3, ReflectJsonSchemaForceAsArray>();
+            register.register_force_as_array::<bevy_math::Vec3>();
         }
         let type_registry = atr.read();
         let (_, schema) = type_registry
