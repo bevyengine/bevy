@@ -1,6 +1,6 @@
 //! NVIDIA Deep Learning Super Sampling.
 //!
-//! See https://github.com/JMS55/dlss_wgpu for licensing requirements and setup instructions.
+//! See https://github.com/bevyengine/dlss_wgpu for licensing requirements and setup instructions.
 //!
 //! # Usage
 //! 1. Enable Bevy's `dlss` feature

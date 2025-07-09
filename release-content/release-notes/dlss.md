@@ -6,7 +6,7 @@ pull_requests: [19817, 19864]
 
 For users with NVIDIA RTX GPUs, Bevy now offers yet another form of anti-aliasing: DLSS.
 
-Try it out by running Bevy's anti_aliasing example: `cargo run --example anti_aliasing --features dlss --release` (after performing setup from https://github.com/JMS55/dlss_wgpu).
+Try it out by running Bevy's anti_aliasing example: `cargo run --example anti_aliasing --features dlss --release` (after performing setup from https://github.com/bevyengine/dlss_wgpu).
 
 Compared to Bevy's built-in TAA, DLSS:
 * Is much higher quality
