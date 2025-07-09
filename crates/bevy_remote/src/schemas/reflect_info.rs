@@ -273,15 +273,7 @@ impl Display for TypeReferenceId {
 
 impl From<&str> for TypeReferenceId {
     fn from(t: &str) -> Self {
-        TypeReferenceId(
-            t.replace("::", "__")
-                .replace(", ", ".")
-                .replace(")", "~")
-                .replace("(", "~")
-                .replace(">", "-")
-                .replace("<", "-")
-                .into(),
-        )
+        TypeReferenceId(t.to_string().into())
     }
 }
 
@@ -436,6 +428,25 @@ pub struct TypeReferencePath {
     /// The id of the reference.
     pub id: TypeReferenceId,
 }
+/// Encodes a string into a valid RFC 3986 URI string.
+fn encode_to_uri(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+
+    for &b in input.as_bytes() {
+        if matches!(b,
+            b'A'..=b'Z' |
+            b'a'..=b'z' |
+            b'0'..=b'9' |
+            b'-' | b'.' | b'_' | b'~'
+        ) {
+            out.push(b as char);
+        } else {
+            out.push('%');
+            out.push_str(&format!("{b:02X}"));
+        }
+    }
+    out
+}
 
 impl TypeReferencePath {
     /// Checks if the reference is local.
@@ -471,7 +482,7 @@ impl TypeReferencePath {
 }
 impl Display for TypeReferencePath {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.localization, self.id)
+        write!(f, "{}{}", self.localization, encode_to_uri(&self.id))
     }
 }
 
