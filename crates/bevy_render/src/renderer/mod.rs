@@ -154,6 +154,7 @@ pub async fn initialize_renderer(
     desired_adapter_name: Option<String>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
     let mut selected_adapter = None;
+    #[cfg(not(target_family = "wasm"))]
     if let Some(adapter_name) = &desired_adapter_name {
         debug!("Searching for adapter with name: {}", adapter_name);
         for adapter in instance.enumerate_adapters(options.backends.expect(
@@ -183,6 +184,17 @@ pub async fn initialize_renderer(
         );
         selected_adapter = instance.request_adapter(request_adapter_options).await.ok();
     };
+    #[cfg(target_family = "wasm")]
+    {
+        if desired_adapter_name.is_some() {
+            warn!("Choosing an adapter is not supported on wasm.");
+        }
+        debug!(
+            "Searching for adapter with options: {:?}",
+            request_adapter_options
+        );
+        selected_adapter = instance.request_adapter(request_adapter_options).await.ok();
+    }
 
     let adapter = selected_adapter.expect(GPU_NOT_FOUND_ERROR_MESSAGE);
     let adapter_info = adapter.get_info();
