@@ -95,7 +95,6 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 
     match AGENT.get(str_path).call() {
         Ok(mut response) => {
-            // let mut reader = response.into_reader();
             let mut reader = BufReader::new(response.body_mut().with_config().reader());
 
             let mut buffer = Vec::new();
