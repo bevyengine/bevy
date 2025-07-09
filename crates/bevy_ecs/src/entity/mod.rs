@@ -1033,7 +1033,7 @@ impl Entities {
     /// This can error if the entity does not exist or if it is already constructed.
     /// See the module docs for a more precise explanation of which entities exist and what construction means.
     #[inline]
-    pub fn is_id_safe_to_construct(&self, entity: Entity) -> Result<(), ConstructionError> {
+    pub fn check_can_construct_entity(&self, entity: Entity) -> Result<(), ConstructionError> {
         match self.get(entity) {
             Ok(Some(_)) => Err(ConstructionError::AlreadyConstructed),
             Ok(None) => Ok(()),
