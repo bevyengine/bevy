@@ -1,10 +1,12 @@
-use crate::{ui_transform::UiGlobalTransform, ComputedNode, ComputedNodeTarget, Node, UiStack};
+use crate::{
+    ui_transform::UiGlobalTransform, ComputedNode, ComputedNodeTarget, Node, OverrideClip, UiStack,
+};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
     hierarchy::ChildOf,
     prelude::{Component, With},
-    query::QueryData,
+    query::{Has, QueryData, Without},
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
@@ -157,7 +159,7 @@ pub fn ui_focus_system(
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: Query<&ChildOf>,
+    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -325,11 +327,12 @@ pub fn ui_focus_system(
 }
 
 /// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
+/// If `entity has an `OverrideClip` component it ignores any inherited clipping and returns true.
 pub fn clip_check_recursive(
     point: Vec2,
     entity: Entity,
     clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: &Query<&ChildOf>,
+    child_of_query: &Query<&ChildOf, Without<OverrideClip>>,
 ) -> bool {
     if let Ok(child_of) = child_of_query.get(entity) {
         let parent = child_of.0;
