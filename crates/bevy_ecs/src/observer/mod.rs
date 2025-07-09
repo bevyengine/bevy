@@ -379,7 +379,7 @@ impl World {
         };
         let descriptor = &observer_state.descriptor;
 
-        for &event_key in &descriptor.events {
+        for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
 
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
@@ -430,7 +430,7 @@ impl World {
         let archetypes = &mut self.archetypes;
         let observers = &mut self.observers;
 
-        for &event_key in &descriptor.events {
+        for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache.global_observers.remove(&entity);
