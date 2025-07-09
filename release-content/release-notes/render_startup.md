@@ -28,7 +28,7 @@ with systems! This has several benefits:
 
 We want developers to become more familiar and comfortable with Bevy's rendering stack, and hope
 that bring the renderer closer to regular ECS code will encourage that. Code that previously looked
-like this:
+like this (in Bevy 0.16):
 
 ```rust
 impl Plugin for MyRenderingPlugin {

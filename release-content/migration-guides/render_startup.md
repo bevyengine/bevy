@@ -21,7 +21,7 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `UiMaterialPipeline<M>`
 - `UiTextureSlicePipeline`
 
-The vast majority of cases for initializing render resources look like so:
+The vast majority of cases for initializing render resources look like so (in Bevy 0.16):
 
 ```rust
 impl Plugin for MyRenderingPlugin {
