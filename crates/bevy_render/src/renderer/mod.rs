@@ -150,7 +150,7 @@ fn find_adapter_by_name(
     instance: &Instance,
     options: &WgpuSettings,
     compatible_surface: Option<&wgpu::Surface<'_>>,
-    adapter_name: &String,
+    adapter_name: &str,
 ) -> Option<Adapter> {
     for adapter in
         instance.enumerate_adapters(options.backends.expect(
