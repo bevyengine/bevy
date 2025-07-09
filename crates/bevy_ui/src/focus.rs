@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::{ContainsEntity, Entity},
     hierarchy::ChildOf,
     prelude::{Component, With},
-    query::{Has, QueryData, Without},
+    query::{QueryData, Without},
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
