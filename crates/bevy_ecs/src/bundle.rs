@@ -2,6 +2,57 @@
 //!
 //! This module contains the [`Bundle`] trait and some other helper types.
 
+/// Derive the [`Bundle`] trait
+///
+/// You can apply this derive macro to structs that are
+/// composed of [`Component`]s or
+/// other [`Bundle`]s.
+///
+/// ## Attributes
+///
+/// Sometimes parts of the Bundle should not be inserted.
+/// Those can be marked with `#[bundle(ignore)]`, and they will be skipped.
+/// In that case, the field needs to implement [`Default`] unless you also ignore
+/// the [`BundleFromComponents`] implementation.
+///
+/// ```rust
+/// # use bevy_ecs::prelude::{Component, Bundle};
+/// # #[derive(Component)]
+/// # struct Hitpoint;
+/// #
+/// #[derive(Bundle)]
+/// struct HitpointMarker {
+///     hitpoints: Hitpoint,
+///
+///     #[bundle(ignore)]
+///     creator: Option<String>
+/// }
+/// ```
+///
+/// Some fields may be bundles that do not implement
+/// [`BundleFromComponents`]. This happens for bundles that cannot be extracted.
+/// For example with [`SpawnRelatedBundle`](bevy_ecs::spawn::SpawnRelatedBundle), see below for an
+/// example usage.
+/// In those cases you can either ignore it as above,
+/// or you can opt out the whole Struct by marking it as ignored with
+/// `#[bundle(ignore_from_components)]`.
+///
+/// ```rust
+/// # use bevy_ecs::prelude::{Component, Bundle, ChildOf, Spawn};
+/// # #[derive(Component)]
+/// # struct Hitpoint;
+/// # #[derive(Component)]
+/// # struct Marker;
+/// #
+/// use bevy_ecs::spawn::SpawnRelatedBundle;
+///
+/// #[derive(Bundle)]
+/// #[bundle(ignore_from_components)]
+/// struct HitpointMarker {
+///     hitpoints: Hitpoint,
+///     related_spawner: SpawnRelatedBundle<ChildOf, Spawn<Marker>>,
+/// }
+/// ```
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
@@ -15,15 +66,13 @@ use crate::{
         RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
+    lifecycle::{ADD, INSERT, REMOVE, REPLACE},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REMOVE,
-        ON_REPLACE,
-    },
+    world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -158,12 +207,6 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
-
-    /// Registers components that are required by the components in this [`Bundle`].
-    fn register_required_components(
-        _components: &mut ComponentsRegistrator,
-        _required_components: &mut RequiredComponents,
-    );
 }
 
 /// Creates a [`Bundle`] by taking it from internal storage.
@@ -230,20 +273,6 @@ unsafe impl<C: Component> Bundle for C {
         ids(components.register_component::<C>());
     }
 
-    fn register_required_components(
-        components: &mut ComponentsRegistrator,
-        required_components: &mut RequiredComponents,
-    ) {
-        let component_id = components.register_component::<C>();
-        <C as Component>::register_required_components(
-            component_id,
-            components,
-            required_components,
-            0,
-            &mut Vec::new(),
-        );
-    }
-
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
         ids(components.get_id(TypeId::of::<C>()));
     }
@@ -297,13 +326,6 @@ macro_rules! tuple_impl {
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
-            }
-
-            fn register_required_components(
-                components: &mut ComponentsRegistrator,
-                required_components: &mut RequiredComponents,
-            ) {
-                $(<$name as Bundle>::register_required_components(components, required_components);)*
             }
         }
 
@@ -501,10 +523,9 @@ impl BundleInfo {
                     // SAFETY: the caller ensures component_id is valid.
                     unsafe { components.get_info_unchecked(id).name() }
                 })
-                .collect::<Vec<_>>()
-                .join(", ");
+                .collect::<Vec<_>>();
 
-            panic!("Bundle {bundle_type_name} has duplicate components: {names}");
+            panic!("Bundle {bundle_type_name} has duplicate components: {names:?}");
         }
 
         // handle explicit components
@@ -1142,8 +1163,8 @@ impl<'w> BundleInserter<'w> {
             if insert_mode == InsertMode::Replace {
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
-                        ON_REPLACE,
-                        entity,
+                        REPLACE,
+                        Some(entity),
                         archetype_after_insert.iter_existing(),
                         caller,
                     );
@@ -1327,8 +1348,8 @@ impl<'w> BundleInserter<'w> {
             );
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    ON_ADD,
-                    entity,
+                    ADD,
+                    Some(entity),
                     archetype_after_insert.iter_added(),
                     caller,
                 );
@@ -1345,8 +1366,8 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            ON_INSERT,
-                            entity,
+                            INSERT,
+                            Some(entity),
                             archetype_after_insert.iter_inserted(),
                             caller,
                         );
@@ -1364,8 +1385,8 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            ON_INSERT,
-                            entity,
+                            INSERT,
+                            Some(entity),
                             archetype_after_insert.iter_added(),
                             caller,
                         );
@@ -1518,8 +1539,8 @@ impl<'w> BundleRemover<'w> {
             };
             if self.old_archetype.as_ref().has_replace_observer() {
                 deferred_world.trigger_observers(
-                    ON_REPLACE,
-                    entity,
+                    REPLACE,
+                    Some(entity),
                     bundle_components_in_archetype(),
                     caller,
                 );
@@ -1533,8 +1554,8 @@ impl<'w> BundleRemover<'w> {
             );
             if self.old_archetype.as_ref().has_remove_observer() {
                 deferred_world.trigger_observers(
-                    ON_REMOVE,
-                    entity,
+                    REMOVE,
+                    Some(entity),
                     bundle_components_in_archetype(),
                     caller,
                 );
@@ -1563,7 +1584,7 @@ impl<'w> BundleRemover<'w> {
         // Handle sparse set removes
         for component_id in self.bundle_info.as_ref().iter_explicit_components() {
             if self.old_archetype.as_ref().contains(component_id) {
-                world.removed_components.send(component_id, entity);
+                world.removed_components.write(component_id, entity);
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
@@ -1784,8 +1805,8 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    ON_ADD,
-                    entity,
+                    ADD,
+                    Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
                 );
@@ -1799,8 +1820,8 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
-                    ON_INSERT,
-                    entity,
+                    INSERT,
+                    Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
                 );
@@ -2072,7 +2093,7 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 #[cfg(test)]
 mod tests {
     use crate::{
-        archetype::ArchetypeCreated, component::HookContext, prelude::*, world::DeferredWorld,
+        archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*, world::DeferredWorld,
     };
     use alloc::vec;
 
@@ -2120,6 +2141,26 @@ mod tests {
             assert_eq!(count, self.0);
             self.0 += 1;
         }
+    }
+
+    #[derive(Bundle)]
+    #[bundle(ignore_from_components)]
+    struct BundleNoExtract {
+        b: B,
+        no_from_comp: crate::spawn::SpawnRelatedBundle<ChildOf, Spawn<C>>,
+    }
+
+    #[test]
+    fn can_spawn_bundle_without_extract() {
+        let mut world = World::new();
+        let id = world
+            .spawn(BundleNoExtract {
+                b: B,
+                no_from_comp: Children::spawn(Spawn(C)),
+            })
+            .id();
+
+        assert!(world.entity(id).get::<Children>().is_some());
     }
 
     #[test]
@@ -2317,7 +2358,7 @@ mod tests {
         #[derive(Resource, Default)]
         struct Count(u32);
         world.init_resource::<Count>();
-        world.add_observer(|_t: Trigger<ArchetypeCreated>, mut count: ResMut<Count>| {
+        world.add_observer(|_t: On<ArchetypeCreated>, mut count: ResMut<Count>| {
             count.0 += 1;
         });
 
@@ -2328,5 +2369,14 @@ mod tests {
         e.insert(A);
 
         assert_eq!(world.resource::<Count>().0, 3);
+    }
+
+    #[derive(Bundle)]
+    #[expect(unused, reason = "tests the output of the derive macro is valid")]
+    struct Ignore {
+        #[bundle(ignore)]
+        foo: i32,
+        #[bundle(ignore)]
+        bar: i32,
     }
 }

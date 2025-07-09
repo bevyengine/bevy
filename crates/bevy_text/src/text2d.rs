@@ -51,7 +51,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, Text2d, TextLayout, TextFont, TextColor, TextSpan};
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -73,7 +73,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// // With text justification.
 /// world.spawn((
 ///     Text2d::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(JustifyText::Center)
+///     TextLayout::new_with_justify(Justify::Center)
 /// ));
 ///
 /// // With spans
@@ -213,7 +213,7 @@ pub fn extract_text2d_sprite(
                 current_span = *span_index;
             }
             let rect = texture_atlases
-                .get(&atlas_info.texture_atlas)
+                .get(atlas_info.texture_atlas)
                 .unwrap()
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
@@ -232,7 +232,7 @@ pub fn extract_text2d_sprite(
                     render_entity,
                     transform,
                     color,
-                    image_handle_id: atlas_info.texture.id(),
+                    image_handle_id: atlas_info.texture,
                     flip_x: false,
                     flip_y: false,
                     kind: bevy_sprite::ExtractedSpriteKind::Slices {

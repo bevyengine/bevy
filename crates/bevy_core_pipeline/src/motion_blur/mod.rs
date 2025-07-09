@@ -18,7 +18,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{ShaderType, SpecializedRenderPipelines},
     Render, RenderApp, RenderSystems,
 };

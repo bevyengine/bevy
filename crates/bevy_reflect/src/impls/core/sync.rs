@@ -10,7 +10,6 @@ use crate::{
 };
 use bevy_platform::prelude::*;
 use bevy_reflect_derive::impl_type_path;
-use core::any::Any;
 use core::fmt;
 
 macro_rules! impl_reflect_for_atomic {
@@ -21,10 +20,7 @@ macro_rules! impl_reflect_for_atomic {
             #[cfg(feature = "functions")]
             crate::func::macros::impl_function_traits!($ty);
 
-            impl GetTypeRegistration for $ty
-            where
-                $ty: Any + Send + Sync,
-            {
+            impl GetTypeRegistration for $ty {
                 fn get_type_registration() -> TypeRegistration {
                     let mut registration = TypeRegistration::of::<Self>();
                     registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
@@ -42,10 +38,7 @@ macro_rules! impl_reflect_for_atomic {
                 }
             }
 
-            impl Typed for $ty
-            where
-                $ty: Any + Send + Sync,
-            {
+            impl Typed for $ty {
                 fn type_info() -> &'static TypeInfo {
                     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
                     CELL.get_or_set(|| {
@@ -55,10 +48,7 @@ macro_rules! impl_reflect_for_atomic {
                 }
             }
 
-            impl PartialReflect for $ty
-            where
-                $ty: Any + Send + Sync,
-            {
+            impl PartialReflect for $ty {
                 #[inline]
                 fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                     Some(<Self as Typed>::type_info())
@@ -128,10 +118,7 @@ macro_rules! impl_reflect_for_atomic {
                 }
             }
 
-            impl FromReflect for $ty
-            where
-                $ty: Any + Send + Sync,
-            {
+            impl FromReflect for $ty {
                 fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
                     Some(<$ty>::new(
                         reflect.try_downcast_ref::<$ty>()?.load($ordering),
@@ -140,7 +127,7 @@ macro_rules! impl_reflect_for_atomic {
             }
         };
 
-        impl_full_reflect!(for $ty where $ty: Any + Send + Sync);
+        impl_full_reflect!(for $ty);
     };
 }
 

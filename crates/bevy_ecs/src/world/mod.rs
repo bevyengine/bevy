@@ -1,7 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
-mod component_constants;
 mod deferred_world;
 mod entity_fetch;
 mod entity_ref;
@@ -14,18 +13,24 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::error::{DefaultErrorHandler, ErrorHandler};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
+use crate::{
+    error::{DefaultErrorHandler, ErrorHandler},
+    event::BufferedEvent,
+    lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
+    prelude::{Add, Despawn, Insert, Remove, Replace},
+};
 pub use bevy_ecs_macros::FromWorld;
-pub use component_constants::*;
+use bevy_utils::prelude::DebugName;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
-    DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
-    Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
+    ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
+    EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
+    TryFromFilteredError, VacantComponentEntry,
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;
@@ -39,17 +44,17 @@ use crate::{
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentIds, ComponentInfo,
+        CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
-    event::{Event, EventId, Events, SendBatchIds},
+    event::{Event, EventId, Events, WriteBatchIds},
+    lifecycle::RemovedComponentEvents,
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    removal_detection::RemovedComponentEvents,
     resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -147,20 +152,20 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
-        let on_add = OnAdd::register_component_id(self);
-        assert_eq!(ON_ADD, on_add);
+        let on_add = Add::register_event_key(self);
+        assert_eq!(ADD, on_add);
 
-        let on_insert = OnInsert::register_component_id(self);
-        assert_eq!(ON_INSERT, on_insert);
+        let on_insert = Insert::register_event_key(self);
+        assert_eq!(INSERT, on_insert);
 
-        let on_replace = OnReplace::register_component_id(self);
-        assert_eq!(ON_REPLACE, on_replace);
+        let on_replace = Replace::register_event_key(self);
+        assert_eq!(REPLACE, on_replace);
 
-        let on_remove = OnRemove::register_component_id(self);
-        assert_eq!(ON_REMOVE, on_remove);
+        let on_remove = Remove::register_event_key(self);
+        assert_eq!(REMOVE, on_remove);
 
-        let on_despawn = OnDespawn::register_component_id(self);
-        assert_eq!(ON_DESPAWN, on_despawn);
+        let on_despawn = Despawn::register_event_key(self);
+        assert_eq!(DESPAWN, on_despawn);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
@@ -211,6 +216,14 @@ impl World {
         &mut self.entities
     }
 
+    /// Retrieves the number of [`Entities`] in the world.
+    ///
+    /// This is helpful as a diagnostic, but it can also be used effectively in tests.
+    #[inline]
+    pub fn entity_count(&self) -> u32 {
+        self.entities.len()
+    }
+
     /// Retrieves this world's [`Archetypes`] collection.
     #[inline]
     pub fn archetypes(&self) -> &Archetypes {
@@ -257,6 +270,12 @@ impl World {
         &self.removed_components
     }
 
+    /// Retrieves this world's [`Observers`] list
+    #[inline]
+    pub fn observers(&self) -> &Observers {
+        &self.observers
+    }
+
     /// Creates a new [`Commands`] instance that writes to the world's command queue
     /// Use [`World::flush`] to apply all queued commands
     #[inline]
@@ -285,6 +304,7 @@ impl World {
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
     ///
     /// Will panic if `T` exists in any archetypes.
+    #[must_use]
     pub fn register_component_hooks<T: Component>(&mut self) -> &mut ComponentHooks {
         let index = self.register_component::<T>();
         assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if {} may already be in use", core::any::type_name::<T>());
@@ -531,7 +551,7 @@ impl World {
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
     pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
-        let id = self.components().component_id::<C>()?;
+        let id = self.components().valid_component_id::<C>()?;
         let component_info = self.components().get_info(id)?;
         Some(component_info.required_components())
     }
@@ -1270,7 +1290,7 @@ impl World {
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
     /// runs the provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -1300,6 +1320,7 @@ impl World {
     /// # assert_eq!(world.get::<Foo>(entity), Some(&Foo(true)));
     /// ```
     #[inline]
+    #[track_caller]
     pub fn modify_component<T: Component, R>(
         &mut self,
         entity: Entity,
@@ -1307,7 +1328,11 @@ impl World {
     ) -> Result<Option<R>, EntityMutableFetchError> {
         let mut world = DeferredWorld::from(&mut *self);
 
-        let result = world.modify_component(entity, f)?;
+        let result = world.modify_component_with_relationship_hook_mode(
+            entity,
+            RelationshipHookMode::Run,
+            f,
+        )?;
 
         self.flush();
         Ok(result)
@@ -1316,7 +1341,7 @@ impl World {
     /// Temporarily removes a [`Component`] identified by the provided
     /// [`ComponentId`] from the provided [`Entity`] and runs the provided
     /// closure on it, returning the result if the component was available.
-    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// This will trigger the `Remove` and `Replace` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -1328,6 +1353,7 @@ impl World {
     /// You should prefer the typed [`modify_component`](World::modify_component)
     /// whenever possible.
     #[inline]
+    #[track_caller]
     pub fn modify_component_by_id<R>(
         &mut self,
         entity: Entity,
@@ -1336,7 +1362,12 @@ impl World {
     ) -> Result<Option<R>, EntityMutableFetchError> {
         let mut world = DeferredWorld::from(&mut *self);
 
-        let result = world.modify_component_by_id(entity, component_id, f)?;
+        let result = world.modify_component_by_id_with_relationship_hook_mode(
+            entity,
+            component_id,
+            RelationshipHookMode::Run,
+            f,
+        )?;
 
         self.flush();
         Ok(result)
@@ -1444,7 +1475,7 @@ impl World {
     /// assert!(!transform.is_changed());
     /// ```
     ///
-    /// [`RemovedComponents`]: crate::removal_detection::RemovedComponents
+    /// [`RemovedComponents`]: crate::lifecycle::RemovedComponents
     pub fn clear_trackers(&mut self) {
         self.removed_components.update();
         self.last_change_tick = self.increment_change_tick();
@@ -1623,7 +1654,7 @@ impl World {
     /// since the last call to [`World::clear_trackers`].
     pub fn removed<T: Component>(&self) -> impl Iterator<Item = Entity> + '_ {
         self.components
-            .get_id(TypeId::of::<T>())
+            .get_valid_id(TypeId::of::<T>())
             .map(|component_id| self.removed_with_id(component_id))
             .into_iter()
             .flatten()
@@ -1772,7 +1803,7 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
@@ -1791,7 +1822,7 @@ impl World {
     /// thread than where the value was inserted from.
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self
             .storages
             .non_send_resources
@@ -1805,7 +1836,7 @@ impl World {
     #[inline]
     pub fn contains_resource<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
             .is_some_and(ResourceData::is_present)
     }
@@ -1823,7 +1854,7 @@ impl World {
     #[inline]
     pub fn contains_non_send<R: 'static>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
             .is_some_and(ResourceData::is_present)
     }
@@ -1846,7 +1877,7 @@ impl World {
     ///   was called.
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .is_some_and(|component_id| self.is_resource_added_by_id(component_id))
     }
 
@@ -1877,7 +1908,7 @@ impl World {
     ///   was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .is_some_and(|component_id| self.is_resource_changed_by_id(component_id))
     }
 
@@ -1902,7 +1933,7 @@ impl World {
     /// Retrieves the change ticks for the given resource.
     pub fn get_resource_change_ticks<R: Resource>(&self) -> Option<ComponentTicks> {
         self.components
-            .get_resource_id(TypeId::of::<R>())
+            .get_valid_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.get_resource_change_ticks_by_id(component_id))
     }
 
@@ -1938,7 +1969,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                core::any::type_name::<R>()
+                DebugName::type_name::<R>()
             ),
         }
     }
@@ -1962,7 +1993,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                core::any::type_name::<R>()
+                DebugName::type_name::<R>()
             ),
         }
     }
@@ -1986,7 +2017,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                core::any::type_name::<R>()
+                DebugName::type_name::<R>()
             ),
         }
     }
@@ -2150,7 +2181,7 @@ impl World {
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
-                core::any::type_name::<R>()
+                DebugName::type_name::<R>()
             ),
         }
     }
@@ -2172,7 +2203,7 @@ impl World {
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
-                core::any::type_name::<R>()
+                DebugName::type_name::<R>()
             ),
         }
     }
@@ -2339,11 +2370,11 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevy.org/learn/errors/b0003", DebugName::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevy.org/learn/errors/b0003", DebugName::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
             }
         }
     }
@@ -2507,7 +2538,7 @@ impl World {
             Ok(())
         } else {
             Err(TryInsertBatchError {
-                bundle_type: core::any::type_name::<B>(),
+                bundle_type: DebugName::type_name::<B>(),
                 entities: invalid_entities,
             })
         }
@@ -2541,7 +2572,7 @@ impl World {
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
         self.try_resource_scope(f)
-            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()))
+            .unwrap_or_else(|| panic!("resource does not exist: {}", DebugName::type_name::<R>()))
     }
 
     /// Temporarily removes the requested resource from this [`World`] if it exists, runs custom user code,
@@ -2558,7 +2589,7 @@ impl World {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let (ptr, mut ticks, mut caller) = self
             .storages
             .resources
@@ -2581,7 +2612,7 @@ impl World {
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
-            core::any::type_name::<R>());
+            DebugName::type_name::<R>());
 
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
@@ -2595,38 +2626,68 @@ impl World {
         Some(result)
     }
 
-    /// Sends an [`Event`].
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn send_event<E: Event>(&mut self, event: E) -> Option<EventId<E>> {
-        self.send_event_batch(core::iter::once(event))?.next()
+    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
+        self.write_event_batch(core::iter::once(event))?.next()
     }
 
-    /// Sends the default value of the [`Event`] of type `E`.
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn send_event_default<E: Event + Default>(&mut self) -> Option<EventId<E>> {
-        self.send_event(E::default())
+    #[deprecated(since = "0.17.0", note = "Use `World::write_event` instead.")]
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
+        self.write_event(event)
     }
 
-    /// Sends a batch of [`Event`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the sent `events`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn send_event_batch<E: Event>(
+    pub fn write_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
+        self.write_event(E::default())
+    }
+
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(since = "0.17.0", note = "Use `World::write_event_default` instead.")]
+    pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
+        self.write_event_default::<E>()
+    }
+
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    pub fn write_event_batch<E: BufferedEvent>(
         &mut self,
         events: impl IntoIterator<Item = E>,
-    ) -> Option<SendBatchIds<E>> {
+    ) -> Option<WriteBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
             log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                core::any::type_name::<E>()
+                DebugName::type_name::<E>()
             );
             return None;
         };
-        Some(events_resource.send_batch(events))
+        Some(events_resource.write_batch(events))
+    }
+
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(since = "0.17.0", note = "Use `World::write_event_batch` instead.")]
+    pub fn send_event_batch<E: BufferedEvent>(
+        &mut self,
+        events: impl IntoIterator<Item = E>,
+    ) -> Option<WriteBatchIds<E>> {
+        self.write_event_batch(events)
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
@@ -2934,16 +2995,20 @@ impl World {
     }
 
     /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
-    /// This prevents overflow and thus prevents false positives.
+    /// This also triggers [`CheckChangeTicks`] observers and returns the same event here.
     ///
-    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
+    /// Calling this method prevents [`Tick`]s overflowing and thus prevents false positives when comparing them.
+    ///
+    /// **Note:** Does nothing and returns `None` if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
     /// times since the previous pass.
     // TODO: benchmark and optimize
-    pub fn check_change_ticks(&mut self) {
+    pub fn check_change_ticks(&mut self) -> Option<CheckChangeTicks> {
         let change_tick = self.change_tick();
         if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD {
-            return;
+            return None;
         }
+
+        let check = CheckChangeTicks(change_tick);
 
         let Storages {
             ref mut tables,
@@ -2954,17 +3019,22 @@ impl World {
 
         #[cfg(feature = "trace")]
         let _span = tracing::info_span!("check component ticks").entered();
-        tables.check_change_ticks(change_tick);
-        sparse_sets.check_change_ticks(change_tick);
-        resources.check_change_ticks(change_tick);
-        non_send_resources.check_change_ticks(change_tick);
-        self.entities.check_change_ticks(change_tick);
+        tables.check_change_ticks(check);
+        sparse_sets.check_change_ticks(check);
+        resources.check_change_ticks(check);
+        non_send_resources.check_change_ticks(check);
+        self.entities.check_change_ticks(check);
 
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
-            schedules.check_change_ticks(change_tick);
+            schedules.check_change_ticks(check);
         }
 
+        self.trigger(check);
+        self.flush();
+
         self.last_check_tick = change_tick;
+
+        Some(check)
     }
 
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
@@ -3614,6 +3684,7 @@ mod tests {
     };
     use bevy_ecs_macros::Component;
     use bevy_platform::collections::{HashMap, HashSet};
+    use bevy_utils::prelude::DebugName;
     use core::{
         any::TypeId,
         panic,
@@ -3750,7 +3821,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(TypeId::of::<TestResource>())
+            .get_valid_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -3766,7 +3837,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(TypeId::of::<TestResource>())
+            .get_valid_resource_id(TypeId::of::<TestResource>())
             .unwrap();
 
         {
@@ -3797,12 +3868,12 @@ mod tests {
         let mut iter = world.iter_resources();
 
         let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), core::any::type_name::<TestResource>());
+        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
 
         let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), core::any::type_name::<TestResource2>());
+        assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         assert_eq!(
             // SAFETY: We know that the resource is of type `TestResource2`
             unsafe { &ptr.deref::<TestResource2>().0 },
@@ -3825,14 +3896,14 @@ mod tests {
         let mut iter = world.iter_resources_mut();
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), core::any::type_name::<TestResource>());
+        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
         };
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), core::any::type_name::<TestResource2>());
+        assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();

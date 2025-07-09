@@ -8,8 +8,8 @@
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -28,6 +28,7 @@ mod main_schedule;
 mod panic_handler;
 mod plugin;
 mod plugin_group;
+mod propagate;
 mod schedule_runner;
 mod sub_app;
 mod task_pool_plugin;
@@ -42,6 +43,7 @@ pub use main_schedule::*;
 pub use panic_handler::*;
 pub use plugin::*;
 pub use plugin_group::*;
+pub use propagate::*;
 pub use schedule_runner::*;
 pub use sub_app::*;
 pub use task_pool_plugin::*;
