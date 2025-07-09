@@ -165,11 +165,11 @@ fn find_adapter_by_name(
             }
         }
 
-        if info.name.eq_ignore_ascii_case(&adapter_name) {
+        if info.name.eq_ignore_ascii_case(adapter_name) {
             return Some(adapter);
         }
     }
-    return None;
+    None
 }
 
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
