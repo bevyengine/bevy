@@ -113,8 +113,14 @@ fn add_raytracing_meshes_on_scene_load(
         }
     }
 
-    // Increase material emissive intensity to make it prettier for the example
+    // Adjust scene materials to better demo bevy_solari features
     for (_, material) in materials.iter_mut() {
         material.emissive *= 200.0;
+
+        if material.base_color.to_linear() == LinearRgba::new(0.5, 0.5, 0.5, 1.0) {
+            material.metallic = 1.0;
+            material.perceptual_roughness = 0.0;
+            material.reflectance = 1.0;
+        }
     }
 }
