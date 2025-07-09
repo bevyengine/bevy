@@ -359,9 +359,16 @@ pub struct BrpJsonSchemaQueryFilter {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub with_crates: Vec<String>,
 
-    /// Constrain resource by type
+    /// Constrain resource by data type.
+    /// Mapping of data types to their corresponding JSON schema types
+    /// is provided by the [`crate::schemas::SchemaTypesMetadata`] resource.
     #[serde(default)]
     pub type_limit: JsonSchemaTypeLimit,
+
+    /// Add `one_of` field to the root of the schema.
+    /// It will allow to use the schema for validation values if they match the format used by the Bevy reflect serialization.
+    #[serde(default)]
+    pub meta_schemas_export: bool,
 }
 
 impl BrpJsonSchemaQueryFilter {
@@ -402,12 +409,12 @@ impl JsonSchemaTypeLimit {
     }
 
     /// Check if the type limit should skip a type.
-    pub fn should_skip_type(&self, registered_types: &[Cow<'_, str>]) -> bool {
+    pub fn should_skip_type(&self, registered_types: &[&Cow<'_, str>]) -> bool {
         if !self.with.is_empty()
             && !self
                 .with
                 .iter()
-                .any(|c| registered_types.iter().any(|cc| c.eq(cc)))
+                .any(|c| registered_types.iter().any(|cc| c.eq(*cc)))
         {
             return true;
         }
@@ -415,7 +422,7 @@ impl JsonSchemaTypeLimit {
             && self
                 .without
                 .iter()
-                .any(|c| registered_types.iter().any(|cc| c.eq(cc)))
+                .any(|c| registered_types.iter().any(|cc| c.eq(*cc)))
         {
             return true;
         }
@@ -1411,15 +1418,15 @@ fn export_registry_types_typed(
             if filter.should_skip_for_crate(type_reg) {
                 return None;
             }
-            if !filter.type_limit.is_empty() {
-                let registered_types = metadata.get_registered_reflect_types(type_reg);
-                if filter
-                    .type_limit
-                    .should_skip_type(registered_types.as_slice())
-                {
-                    return None;
-                }
+            let registered_types = metadata.get_registered_reflect_types(type_reg);
+
+            if filter
+                .type_limit
+                .should_skip_type(registered_types.as_slice())
+            {
+                return None;
             }
+
             let type_id = type_reg.type_id();
             let mut dep_ids = types.get_type_dependencies(type_id);
             dep_ids.insert(type_id);
@@ -1437,35 +1444,37 @@ fn export_registry_types_typed(
             Some((schema_id, Box::new(schema)))
         })
         .collect();
-    schema.one_of = schema
-        .definitions
-        .iter()
-        .flat_map(|(id, schema)| {
-            if !schema.reflect_type_data.contains(&"Serialize".into())
-                || !schema.reflect_type_data.contains(&"Deserialize".into())
-            {
-                return None;
-            }
-            let schema = JsonSchemaBevyType {
-                properties: [(
-                    schema.type_path.clone(),
-                    JsonSchemaBevyType {
-                        ref_type: Some(TypeReferencePath::definition(id.clone())),
-                        description: schema.description.clone(),
-                        ..Default::default()
-                    }
+    if filter.meta_schemas_export {
+        schema.one_of = schema
+            .definitions
+            .iter()
+            .flat_map(|(id, schema)| {
+                if !schema.reflect_type_data.contains(&"Serialize".into())
+                    || !schema.reflect_type_data.contains(&"Deserialize".into())
+                {
+                    return None;
+                }
+                let schema = JsonSchemaBevyType {
+                    properties: [(
+                        schema.type_path.clone(),
+                        JsonSchemaBevyType {
+                            ref_type: Some(TypeReferencePath::definition((*id).clone())),
+                            description: schema.description.clone(),
+                            ..Default::default()
+                        }
+                        .into(),
+                    )]
                     .into(),
-                )]
-                .into(),
-                schema_type: Some(crate::schemas::json_schema::SchemaType::Object.into()),
-                additional_properties: Some(JsonSchemaVariant::BoolValue(false)),
-                description: schema.description.clone(),
-                reflect_type_data: schema.reflect_type_data.clone(),
-                ..Default::default()
-            };
-            Some(schema.into())
-        })
-        .collect();
+                    schema_type: Some(crate::schemas::json_schema::SchemaType::Object.into()),
+                    additional_properties: Some(JsonSchemaVariant::BoolValue(false)),
+                    description: schema.description.clone(),
+                    reflect_type_data: schema.reflect_type_data.clone(),
+                    ..Default::default()
+                };
+                Some(schema.into())
+            })
+            .collect();
+    }
     Ok(schema)
 }
 
@@ -1828,7 +1837,7 @@ mod tests {
     #[cfg(feature = "bevy_math")]
     fn export_schema_test() {
         #[derive(Reflect, Default, Deserialize, Serialize, Component)]
-        #[reflect(Component)]
+        #[reflect(Component, Serialize, Deserialize)]
         pub struct OtherStruct {
             /// FIELD DOC
             pub field: String,
@@ -1836,18 +1845,18 @@ mod tests {
         }
         /// STRUCT DOC
         #[derive(Reflect, Default, Deserialize, Serialize, Component)]
-        #[reflect(Component)]
+        #[reflect(Component, Serialize, Deserialize)]
         pub struct SecondStruct;
         /// STRUCT DOC
         #[derive(Reflect, Default, Deserialize, Serialize, Component)]
-        #[reflect(Component)]
+        #[reflect(Component, Serialize, Deserialize)]
         pub struct ThirdStruct {
             pub array_strings: Vec<String>,
             pub array_structs: [OtherStruct; 5],
             // pub map_strings: HashMap<String, i32>,
         }
         #[derive(Reflect, Default, Deserialize, Serialize, Component)]
-        #[reflect(Component)]
+        #[reflect(Component, Serialize, Deserialize)]
         pub struct NestedStruct {
             pub other: OtherStruct,
             pub second: SecondStruct,

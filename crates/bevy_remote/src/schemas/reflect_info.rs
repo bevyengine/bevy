@@ -1367,7 +1367,11 @@ impl TypeDefinitionBuilder for TypeRegistry {
             .map(|docs| docs.trim().replace("\n", "").into());
         #[cfg(not(feature = "documentation"))]
         let description = None;
-
+        let reflect_type_data = metadata
+            .get_registered_reflect_types(type_reg)
+            .iter()
+            .map(|c| Cow::Owned(c.to_string()))
+            .collect();
         let mut schema = JsonSchemaBevyType {
             description,
             type_path,
@@ -1380,7 +1384,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
             exclusive_minimum: range.min.get_exclusive(),
             exclusive_maximum: range.max.get_exclusive(),
             schema_type: (&internal).into(),
-            reflect_type_data: metadata.get_registered_reflect_types(type_reg),
+            reflect_type_data,
             ..default()
         };
         schema.schema_type = (&internal).into();
