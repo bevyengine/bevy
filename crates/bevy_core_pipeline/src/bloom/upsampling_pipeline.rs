@@ -161,7 +161,7 @@ impl Specializer<RenderPipeline> for BloomUpsamplingSpecializer {
             write_mask: ColorWrites::ALL,
         };
 
-        descriptor.get_fragment_mut()?.set_target(0, target);
+        descriptor.fragment_mut()?.set_target(0, target);
 
         Ok(key)
     }

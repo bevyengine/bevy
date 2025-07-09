@@ -118,7 +118,7 @@ pub struct RenderPipelineDescriptor {
 pub struct NoFragmentStateError;
 
 impl RenderPipelineDescriptor {
-    pub fn get_fragment_mut(&mut self) -> Result<&mut FragmentState, NoFragmentStateError> {
+    pub fn fragment_mut(&mut self) -> Result<&mut FragmentState, NoFragmentStateError> {
         self.fragment.as_mut().ok_or(NoFragmentStateError)
     }
 }
