@@ -68,14 +68,14 @@ fn mat4x4_to_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
 // The results are equivalent to the Gram-Schmidt process [1].
 //
 // [1]: https://math.stackexchange.com/a/1849294
-fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
+fn orthonormalize(z_normalized: vec3<f32>) -> mat3x3<f32> {
     var up = vec3(0.0, 1.0, 0.0);
-    if (abs(dot(up, z_basis)) > 0.99) {
+    if (abs(dot(up, z_normalized)) > 0.99) {
         up = vec3(1.0, 0.0, 0.0); // Avoid creating a degenerate basis.
     }
-    let x_basis = normalize(cross(z_basis, up));
-    let y_basis = cross(z_basis, x_basis);
-    return mat3x3(x_basis, y_basis, z_basis);
+    let x_basis = normalize(cross(z_normalized, up));
+    let y_basis = cross(z_normalized, x_basis);
+    return mat3x3(x_basis, y_basis, z_normalized);
 }
 
 // Returns true if any part of a sphere is on the positive side of a plane.
