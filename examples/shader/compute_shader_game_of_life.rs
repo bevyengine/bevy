@@ -14,6 +14,7 @@ use bevy::{
         texture::GpuImage,
         Render, RenderApp, RenderSystems,
     },
+    window::PrimaryWindow,
 };
 use std::borrow::Cow;
 
@@ -28,26 +29,23 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins((
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        resolution: (
-                            (SIZE.0 * DISPLAY_FACTOR) as f32,
-                            (SIZE.1 * DISPLAY_FACTOR) as f32,
-                        )
-                            .into(),
-                        // uncomment for unthrottled FPS
-                        // present_mode: bevy::window::PresentMode::AutoNoVsync,
-                        ..default()
-                    }),
-                    ..default()
-                })
-                .set(ImagePlugin::default_nearest()),
+            DefaultPlugins.set(ImagePlugin::default_nearest()),
             GameOfLifeComputePlugin,
         ))
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(Update, switch_textures)
         .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.resolution = (
+        (SIZE.0 * DISPLAY_FACTOR) as f32,
+        (SIZE.1 * DISPLAY_FACTOR) as f32,
+    )
+        .into();
+    // Optional: set the present mode to AutoNoVsync for unthrottled FPS
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {

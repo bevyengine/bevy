@@ -20,7 +20,7 @@ use {
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use crate::VideoMode;
+use crate::{RawHandleWrapperHolder, VideoMode};
 
 /// Default string used for the window title.
 ///
@@ -53,6 +53,7 @@ static DEFAULT_WINDOW_TITLE: LazyLock<String> = LazyLock::new(|| {
     derive(Reflect),
     reflect(Component, Debug, Default, PartialEq, Clone)
 )]
+#[require(Window, RawHandleWrapperHolder)]
 pub struct PrimaryWindow;
 
 /// Reference to a [`Window`], whether it be a direct link to a specific entity or
@@ -469,8 +470,8 @@ impl Default for Window {
     fn default() -> Self {
         Self {
             title: DEFAULT_WINDOW_TITLE.to_owned(),
+            present_mode: PresentMode::default(),
             name: None,
-            present_mode: Default::default(),
             mode: Default::default(),
             position: Default::default(),
             resolution: Default::default(),
