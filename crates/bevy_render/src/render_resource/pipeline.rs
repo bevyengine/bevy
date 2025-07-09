@@ -8,6 +8,7 @@ use alloc::borrow::Cow;
 use bevy_asset::Handle;
 use bevy_utils::WgpuWrapper;
 use core::{iter, ops::Deref};
+use thiserror::Error;
 use wgpu::{
     ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
 };
@@ -112,6 +113,16 @@ pub struct RenderPipelineDescriptor {
     pub zero_initialize_workgroup_memory: bool,
 }
 
+#[derive(Copy, Clone, Debug, Error)]
+#[error("RenderPipelineDescriptor has no FragmentState configured")]
+pub struct NoFragmentStateError;
+
+impl RenderPipelineDescriptor {
+    pub fn get_fragment_mut(&mut self) -> Result<&mut FragmentState, NoFragmentStateError> {
+        self.fragment.as_mut().ok_or(NoFragmentStateError)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
@@ -139,7 +150,7 @@ pub struct FragmentState {
 
 impl FragmentState {
     pub fn set_target(&mut self, index: usize, target: ColorTargetState) {
-        filling_insert_at(&mut self.targets, index, None, Some(target));
+        filling_set_at(&mut self.targets, index, None, Some(target));
     }
 }
 
@@ -160,7 +171,9 @@ pub struct ComputePipelineDescriptor {
     pub zero_initialize_workgroup_memory: bool,
 }
 
-fn filling_insert_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T) {
+// utility function to set a value at the specified index, extending with
+// a filler value if the index is out of bounds.
+fn filling_set_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T) {
     let num_to_fill = index.saturating_sub(vec.len() - 1);
     vec.extend(iter::repeat_n(filler, num_to_fill));
     vec[index] = value;

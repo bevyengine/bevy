@@ -109,10 +109,6 @@ impl Specializer<RenderPipeline> for BloomUpsamplingSpecializer {
         key: Self::Key,
         descriptor: &mut RenderPipelineDescriptor,
     ) -> Result<Canonical<Self::Key>, BevyError> {
-        let Some(fragment) = &mut descriptor.fragment else {
-            return Ok(key);
-        };
-
         let texture_format = if key.final_pipeline {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -165,7 +161,7 @@ impl Specializer<RenderPipeline> for BloomUpsamplingSpecializer {
             write_mask: ColorWrites::ALL,
         };
 
-        fragment.set_target(0, target);
+        descriptor.get_fragment_mut()?.set_target(0, target);
 
         Ok(key)
     }
