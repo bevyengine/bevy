@@ -1,10 +1,7 @@
-use alloc::boxed::Box;
-use bevy_ptr::OwningPtr;
 use core::marker::PhantomData;
 
 use crate::component::Component;
-use crate::entity::{ComponentCloneCtx, EntityMapper, SourceComponent};
-use crate::world::World;
+use crate::entity::{ComponentCloneCtx, SourceComponent};
 
 /// Function type that can be used to clone an entity.
 pub type ComponentCloneFn = fn(&SourceComponent, &mut ComponentCloneCtx);
@@ -142,6 +139,8 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
     if let Some(reflect_from_world) =
         registry.get_type_data::<crate::reflect::ReflectFromWorld>(type_id)
     {
+        use crate::{entity::EntityMapper, world::World};
+
         let reflect_from_world = reflect_from_world.clone();
         let source_component_cloned = source_component_reflect.to_dynamic();
         let component_layout = component_info.layout();
@@ -162,6 +161,9 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
             // - component_id is from the same world as target entity
             // - component is a valid value represented by component_id
             unsafe {
+                use alloc::boxed::Box;
+                use bevy_ptr::OwningPtr;
+
                 let raw_component_ptr =
                     core::ptr::NonNull::new_unchecked(Box::into_raw(component).cast::<u8>());
                 world
