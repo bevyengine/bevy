@@ -845,10 +845,12 @@ impl EntitiesAllocator {
     }
 
     pub(crate) fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
-        let current_len = self
-            .free_len
-            .fetch_sub(count, Ordering::Relaxed)
-            .min(self.free.len() as u32);
+        let current_len = self.free_len.fetch_sub(count, Ordering::Relaxed);
+        let current_len = if current_len < self.free.len() as u32 {
+            current_len
+        } else {
+            0
+        };
         let start = current_len.saturating_sub(count);
         let reuse = (start as usize)..(current_len as usize);
         let still_need = count - reuse.len() as u32;
@@ -926,45 +928,23 @@ impl Entities {
         &self,
         entity: Entity,
     ) -> Result<EntityLocation, ConstructedEntityDoesNotExistError> {
-        match self.meta.get(entity.index() as usize) {
-            Some(meta) => {
-                if meta.generation != entity.generation {
-                    Err(ConstructedEntityDoesNotExistError::DidNotExist(
-                        EntityDoesNotExistError {
-                            entity,
-                            current_generation: meta.generation,
-                        },
-                    ))
-                } else {
-                    match meta.location {
-                        Some(location) => Ok(location),
-                        None => Err(ConstructedEntityDoesNotExistError::WasNotConstructed(
-                            EntityNotConstructedError {
-                                entity,
-                                location: meta.spawned_or_despawned.by.map(Some),
-                            },
-                        )),
-                    }
-                }
-            }
-            None => {
-                if entity.generation() == EntityGeneration::FIRST {
-                    Err(ConstructedEntityDoesNotExistError::WasNotConstructed(
-                        EntityNotConstructedError {
-                            entity,
-                            location: MaybeLocation::new(None),
-                        },
-                    ))
-                } else {
-                    Err(ConstructedEntityDoesNotExistError::DidNotExist(
-                        EntityDoesNotExistError {
-                            entity,
-                            current_generation: EntityGeneration::FIRST,
-                        },
-                    ))
-                }
-            }
-        }
+        let meta = self.meta.get(entity.index() as usize);
+        let meta = meta.unwrap_or(&EntityMeta::FRESH);
+        if entity.generation() != meta.generation {
+            return Err(ConstructedEntityDoesNotExistError::DidNotExist(
+                EntityDoesNotExistError {
+                    entity,
+                    current_generation: meta.generation,
+                },
+            ));
+        };
+        meta.location
+            .ok_or(ConstructedEntityDoesNotExistError::WasNotConstructed(
+                EntityNotConstructedError {
+                    entity,
+                    location: meta.spawned_or_despawned.by,
+                },
+            ))
     }
 
     /// Returns the [`EntityIdLocation`] of an [`Entity`] if it exists.
@@ -972,27 +952,10 @@ impl Entities {
     /// See the module docs for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<EntityIdLocation, EntityDoesNotExistError> {
-        match self.meta.get(entity.index() as usize) {
-            Some(meta) => {
-                if meta.generation == entity.generation {
-                    Ok(meta.location)
-                } else {
-                    Err(EntityDoesNotExistError {
-                        entity,
-                        current_generation: meta.generation,
-                    })
-                }
-            }
-            None => {
-                if entity.generation() == EntityGeneration::FIRST {
-                    Ok(None)
-                } else {
-                    Err(EntityDoesNotExistError {
-                        entity,
-                        current_generation: EntityGeneration::FIRST,
-                    })
-                }
-            }
+        match self.get_constructed(entity) {
+            Ok(location) => Ok(Some(location)),
+            Err(ConstructedEntityDoesNotExistError::WasNotConstructed { .. }) => Ok(None),
+            Err(ConstructedEntityDoesNotExistError::DidNotExist(err)) => Err(err),
         }
     }
 
@@ -1250,18 +1213,14 @@ pub struct EntityNotConstructedError {
     /// The entity's ID.
     pub entity: Entity,
     /// The location of what last destructed the entity.
-    pub location: MaybeLocation<Option<&'static Location<'static>>>,
+    pub location: MaybeLocation<&'static Location<'static>>,
 }
 
 impl fmt::Display for EntityNotConstructedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let entity = self.entity;
         match self.location.into_option() {
-            Some(Some(location)) => write!(f, "The entity with ID {entity} is not constructed; its row was last destructed by {location}."),
-            Some(None) => write!(
-                f,
-                "The entity with ID {entity} is not constructed; its row has never been constructed."
-            ),
+            Some(location) => write!(f, "The entity with ID {entity} is not constructed; its row was last destructed by {location}."),
             None => write!(
                 f,
                 "The entity with ID {entity} is not constructed; enable `track_location` feature for more details."
@@ -1622,5 +1581,29 @@ mod tests {
         let entity = Entity::PLACEHOLDER;
         let string = format!("{entity}");
         assert_eq!(string, "PLACEHOLDER");
+    }
+
+    #[test]
+    fn allocator() {
+        let mut allocator = EntitiesAllocator::default();
+        let mut entities = allocator.alloc_many(2048).collect::<Vec<_>>();
+        for _ in 0..2048 {
+            entities.push(allocator.alloc());
+        }
+
+        let pre_len = entities.len();
+        entities.sort();
+        entities.dedup();
+        assert_eq!(pre_len, entities.len());
+
+        for e in entities.drain(..) {
+            allocator.free(e);
+        }
+
+        entities.extend(allocator.alloc_many(5000));
+        let pre_len = entities.len();
+        entities.sort();
+        entities.dedup();
+        assert_eq!(pre_len, entities.len());
     }
 }
