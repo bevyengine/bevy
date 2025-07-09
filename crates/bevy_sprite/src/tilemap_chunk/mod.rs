@@ -57,8 +57,8 @@ pub struct TilemapChunk {
 #[derive(Clone, Copy, Debug)]
 pub struct TileData {
     pub tileset_index: u16,
-    pub visible: bool,
     pub color: Color,
+    pub visible: bool,
 }
 
 impl TileData {
@@ -74,8 +74,8 @@ impl Default for TileData {
     fn default() -> Self {
         Self {
             tileset_index: 0,
-            visible: true,
             color: Color::WHITE,
+            visible: true,
         }
     }
 }

@@ -48,22 +48,21 @@ impl Material2d for TilemapChunkMaterial {
     }
 }
 
+/// Packed per-tile data for use in the `Rgba16Uint` tile data texture in `TilemapChunkMaterial`.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct PackedTileData {
-    tileset_index: u16,
-    flags: u16,            // flags (visibility, etc.)
-    color_red_green: u16,  // r in low 8 bits, g in high 8 bits
-    color_blue_alpha: u16, // b in low 8 bits, a in high 8 bits
+    tileset_index: u16, // red channel
+    color: [u8; 4],     // green and blue channels
+    flags: u16,         // alpha channel
 }
 
 impl PackedTileData {
     fn empty() -> Self {
         Self {
             tileset_index: u16::MAX,
+            color: [0, 0, 0, 0],
             flags: 0,
-            color_red_green: 0,
-            color_blue_alpha: 0,
         }
     }
 }
@@ -72,17 +71,14 @@ impl From<TileData> for PackedTileData {
     fn from(
         TileData {
             tileset_index,
-            visible,
             color,
+            visible,
         }: TileData,
     ) -> Self {
-        let [r, g, b, a] = color.to_srgba().to_u8_array();
-
         Self {
             tileset_index,
+            color: color.to_srgba().to_u8_array(),
             flags: visible as u16,
-            color_red_green: (r as u16) | ((g as u16) << 8),
-            color_blue_alpha: (b as u16) | ((a as u16) << 8),
         }
     }
 }
