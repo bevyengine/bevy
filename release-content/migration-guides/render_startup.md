@@ -80,7 +80,7 @@ fn init_my_resource(
 }
 ```
 
-Each case will be a slightly different. Two notes to be wary of:
+Each case will be slightly different. Two notes to be wary of:
 
 1. Functions that accept `&RenderDevice` for example may no longer compile after switching to
     `Res<RenderDevice>`. This can be resolved by passing `&render_device` instead of
