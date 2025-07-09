@@ -153,10 +153,11 @@ pub async fn initialize_renderer(
     request_adapter_options: &RequestAdapterOptions<'_, '_>,
     desired_adapter_name: Option<String>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
-    let mut selected_adapter = None;
+    let mut selected_adapter;
     #[cfg(not(target_family = "wasm"))]
     if let Some(adapter_name) = &desired_adapter_name {
         debug!("Searching for adapter with name: {}", adapter_name);
+        selected_adapter = None;
         for adapter in instance.enumerate_adapters(options.backends.expect(
             "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
         )) {
