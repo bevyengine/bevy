@@ -70,7 +70,7 @@ fn mat4x4_to_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
 // [1]: https://math.stackexchange.com/a/1849294
 fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
     var up = vec3(0.0, 1.0, 0.0);
-    if (dot(up, z_basis) > 0.99) {
+    if (abs(dot(up, z_basis)) > 0.99) {
         up = vec3(1.0, 0.0, 0.0); // Avoid creating a degenerate basis.
     }
     let x_basis = normalize(cross(z_basis, up));
