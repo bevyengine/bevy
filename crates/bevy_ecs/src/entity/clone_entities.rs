@@ -589,13 +589,18 @@ impl EntityCloner {
             }
 
             filter.clone_components(source_archetype, target_archetype, |component| {
-                let handler = match state.clone_behavior_overrides.get(&component) {
-                    Some(clone_behavior) => clone_behavior.resolve(state.default_clone_fn),
-                    None => world
+                let handler = match state.clone_behavior_overrides.get(&component).or_else(|| {
+                    world
                         .components()
                         .get_info(component)
-                        .map(|info| info.clone_behavior().resolve(state.default_clone_fn))
-                        .unwrap_or(state.default_clone_fn),
+                        .map(ComponentInfo::clone_behavior)
+                }) {
+                    Some(behavior) => match behavior {
+                        ComponentCloneBehavior::Default => state.default_clone_fn,
+                        ComponentCloneBehavior::Ignore => return,
+                        ComponentCloneBehavior::Custom(custom) => *custom,
+                    },
+                    None => state.default_clone_fn,
                 };
 
                 // SAFETY: This component exists because it is present on the archetype.
