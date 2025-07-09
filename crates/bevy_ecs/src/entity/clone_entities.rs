@@ -661,8 +661,12 @@ impl EntityCloner {
             let mut source_entity = world.entity_mut(source);
 
             // Remove all cloned components with drop by concatenating both vectors
-            deferred_cloned_component_ids.extend(&bundle_scratch.component_ids);
-            source_entity.remove_by_ids(&deferred_cloned_component_ids);
+            if deferred_cloned_component_ids.is_empty() {
+                source_entity.remove_by_ids(&bundle_scratch.component_ids);
+            } else {
+                deferred_cloned_component_ids.extend(&bundle_scratch.component_ids);
+                source_entity.remove_by_ids(&deferred_cloned_component_ids);
+            }
 
             let table_row = source_entity.location().table_row;
 
