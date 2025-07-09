@@ -57,7 +57,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             ray_t_min = RAY_T_MIN;
 
             // Update throughput for next bounce
-            let cos_theta = dot(-ray_direction, ray_hit.world_normal);
+            let cos_theta = dot(ray_direction, ray_hit.world_normal);
             let cosine_hemisphere_pdf = cos_theta / PI; // Weight for the next bounce because we importance sampled the diffuse BRDF for the next ray direction
             throughput *= (diffuse_brdf * cos_theta) / cosine_hemisphere_pdf;
 
