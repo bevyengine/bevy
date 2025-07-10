@@ -1122,9 +1122,10 @@ impl FromWorld for GpuPreprocessingSupport {
             // `max_compute_*` limits to zero, so we arbitrarily pick one as a canary.
             device.limits().max_compute_workgroup_storage_size != 0;
 
-        let downlevel_support = adapter.get_downlevel_capabilities().flags.contains(
-            DownlevelFlags::COMPUTE_SHADERS
-        );
+        let downlevel_support = adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::COMPUTE_SHADERS);
 
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
             || is_non_supported_android_device(adapter)

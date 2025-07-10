@@ -322,7 +322,8 @@ pub async fn initialize_renderer(
             max_non_sampler_bindings: limits
                 .max_non_sampler_bindings
                 .min(constrained_limits.max_non_sampler_bindings),
-            max_blas_primitive_count: limits.max_blas_primitive_count
+            max_blas_primitive_count: limits
+                .max_blas_primitive_count
                 .min(constrained_limits.max_blas_primitive_count),
             max_blas_geometry_count: limits
                 .max_blas_geometry_count
