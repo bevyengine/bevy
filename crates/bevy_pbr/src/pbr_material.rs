@@ -392,7 +392,7 @@ pub struct StandardMaterial {
     /// ```
     /// # use bevy_asset::AssetServer;
     /// # use bevy_ecs::change_detection::Res;
-    /// # use bevy_image::ImageLoaderSettings;
+    /// # use bevy_image::{Image, ImageLoaderSettings};
     /// #
     /// fn load_normal_map(asset_server: Res<AssetServer>) {
     ///     let normal_handle: Handle<Image> = asset_server.load_with_settings(
