@@ -795,47 +795,34 @@ impl<'w> EntityClonerBuilder<'w, OptOut> {
     /// this behavior.
     pub fn deny<T: Bundle>(&mut self) -> &mut Self {
         let bundle_id = self.world.register_bundle::<T>().id();
-        self.deny_by_bundle_id(bundle_id)
-    }
-
-    /// Disallows all components of the bundle ID from being cloned.
-    ///
-    /// If component `A` is denied here and component `B` requires `A`, then `A`
-    /// is denied as well. See [`Self::without_required_by_components`] to alter
-    /// this behavior.
-    pub fn deny_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
-        if let Some(bundle) = self.world.bundles().get(bundle_id) {
-            let ids = bundle.explicit_components().iter();
-            for &id in ids {
-                self.filter.filter_deny(id, self.world);
-            }
-        }
-        self
+        self.deny_by_ids(bundle_id)
     }
 
     /// Extends the list of components that shouldn't be cloned.
+    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`], and [`IntoIterator`] yielding one of these.
     ///
     /// If component `A` is denied here and component `B` requires `A`, then `A`
     /// is denied as well. See [`Self::without_required_by_components`] to alter
     /// this behavior.
-    pub fn deny_by_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
-        for id in ids {
-            self.filter.filter_deny(id, self.world);
-        }
-        self
-    }
-
-    /// Extends the list of components that shouldn't be cloned by type ids.
-    ///
-    /// If component `A` is denied here and component `B` requires `A`, then `A`
-    /// is denied as well. See [`Self::without_required_by_components`] to alter
-    /// this behavior.
-    pub fn deny_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
-        for type_id in ids {
-            if let Some(id) = self.world.components().get_valid_id(type_id) {
-                self.filter.filter_deny(id, self.world);
+    pub fn deny_by_ids<M: Marker>(&mut self, ids: impl FilterableIds<M>) -> &mut Self {
+        ids.filter_ids(&mut |ids| match ids {
+            FilterableId::Type(type_id) => {
+                if let Some(id) = self.world.components().get_valid_id(type_id) {
+                    self.filter.filter_deny(id, self.world);
+                }
             }
-        }
+            FilterableId::Component(component_id) => {
+                self.filter.filter_deny(component_id, self.world);
+            }
+            FilterableId::Bundle(bundle_id) => {
+                if let Some(bundle) = self.world.bundles().get(bundle_id) {
+                    let ids = bundle.explicit_components().iter();
+                    for &id in ids {
+                        self.filter.filter_deny(id, self.world);
+                    }
+                }
+            }
+        });
         self
     }
 }
@@ -865,7 +852,7 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     /// to alter this behavior.
     pub fn allow<T: Bundle>(&mut self) -> &mut Self {
         let bundle_id = self.world.register_bundle::<T>().id();
-        self.allow_by_bundle_id(bundle_id)
+        self.allow_by_ids(bundle_id)
     }
 
     /// Adds all components of the bundle to the list of components to clone if
@@ -876,94 +863,55 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     /// to alter this behavior.
     pub fn allow_if_new<T: Bundle>(&mut self) -> &mut Self {
         let bundle_id = self.world.register_bundle::<T>().id();
-        self.allow_by_bundle_id_if_new(bundle_id)
-    }
-
-    /// Adds all components of the bundle ID to the list of components to clone.
-    ///
-    /// If component `A` is allowed here and requires component `B`, then `B`
-    /// is allowed as well. See [`Self::without_required_components`]
-    /// to alter this behavior.
-    pub fn allow_by_bundle_id(&mut self, bundle_id: BundleId) -> &mut Self {
-        if let Some(bundle) = self.world.bundles().get(bundle_id) {
-            let ids = bundle.explicit_components().iter();
-            for &id in ids {
-                self.filter
-                    .filter_allow(id, self.world, InsertMode::Replace);
-            }
-        }
-        self
-    }
-
-    /// Adds all components of the bundle ID to the list of components to clone
-    /// if the target does not contain them.
-    ///
-    /// If component `A` is allowed here and requires component `B`, then `B`
-    /// is allowed as well. See [`Self::without_required_components`]
-    /// to alter this behavior.
-    pub fn allow_by_bundle_id_if_new(&mut self, bundle_id: BundleId) -> &mut Self {
-        if let Some(bundle) = self.world.bundles().get(bundle_id) {
-            let ids = bundle.explicit_components().iter();
-            for &id in ids {
-                self.filter.filter_allow(id, self.world, InsertMode::Keep);
-            }
-        }
-        self
+        self.allow_by_ids_if_new(bundle_id)
     }
 
     /// Extends the list of components to clone.
+    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`], and [`IntoIterator`] yielding one of these.
     ///
     /// If component `A` is allowed here and requires component `B`, then `B`
     /// is allowed as well. See [`Self::without_required_components`]
     /// to alter this behavior.
-    pub fn allow_by_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
-        for id in ids {
-            self.filter
-                .filter_allow(id, self.world, InsertMode::Replace);
-        }
+    pub fn allow_by_ids<M: Marker>(&mut self, ids: impl FilterableIds<M>) -> &mut Self {
+        self.allow_by_ids_inner(ids, InsertMode::Replace);
         self
     }
 
     /// Extends the list of components to clone if the target does not contain them.
+    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`], and [`IntoIterator`] yielding one of these.
     ///
     /// If component `A` is allowed here and requires component `B`, then `B`
     /// is allowed as well. See [`Self::without_required_components`]
     /// to alter this behavior.
-    pub fn allow_by_ids_if_new(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
-        for id in ids {
-            self.filter.filter_allow(id, self.world, InsertMode::Keep);
-        }
+    pub fn allow_by_ids_if_new<M: Marker>(&mut self, ids: impl FilterableIds<M>) -> &mut Self {
+        self.allow_by_ids_inner(ids, InsertMode::Keep);
         self
     }
 
-    /// Extends the list of components to clone using [`TypeId`]s.
-    ///
-    /// If component `A` is allowed here and requires component `B`, then `B`
-    /// is allowed as well. See [`Self::without_required_components`]
-    /// to alter this behavior.
-    pub fn allow_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
-        for type_id in ids {
-            if let Some(id) = self.world.components().get_valid_id(type_id) {
+    fn allow_by_ids_inner<M: Marker>(
+        &mut self,
+        ids: impl FilterableIds<M>,
+        insert_mode: InsertMode,
+    ) {
+        ids.filter_ids(&mut |id| match id {
+            FilterableId::Type(type_id) => {
+                if let Some(id) = self.world.components().get_valid_id(type_id) {
+                    self.filter.filter_allow(id, self.world, insert_mode);
+                }
+            }
+            FilterableId::Component(component_id) => {
                 self.filter
-                    .filter_allow(id, self.world, InsertMode::Replace);
+                    .filter_allow(component_id, self.world, insert_mode);
             }
-        }
-        self
-    }
-
-    /// Extends the list of components to clone using [`TypeId`]s if the target
-    /// does not contain them.
-    ///
-    /// If component `A` is allowed here and requires component `B`, then `B`
-    /// is allowed as well. See [`Self::without_required_components`]
-    /// to alter this behavior.
-    pub fn allow_by_type_ids_if_new(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
-        for type_id in ids {
-            if let Some(id) = self.world.components().get_valid_id(type_id) {
-                self.filter.filter_allow(id, self.world, InsertMode::Keep);
+            FilterableId::Bundle(bundle_id) => {
+                if let Some(bundle) = self.world.bundles().get(bundle_id) {
+                    let ids = bundle.explicit_components().iter();
+                    for &id in ids {
+                        self.filter.filter_allow(id, self.world, insert_mode);
+                    }
+                }
             }
-        }
-        self
+        });
     }
 }
 
@@ -1308,6 +1256,77 @@ impl Required {
         self.required_by_reduced = self.required_by;
     }
 }
+
+mod private {
+    use super::*;
+
+    /// Marker trait to allow multiple blanket implementations for [`FilterableIds`].
+    pub trait Marker {}
+    /// Marker struct for [`FilterableIds`] implementation for single-value types.
+    pub struct ScalarType {}
+    impl Marker for ScalarType {}
+    /// Marker struct for [`FilterableIds`] implementation for [`IntoIterator`] types.
+    pub struct VectorType {}
+    impl Marker for VectorType {}
+
+    /// Defines types of ids that [`EntityClonerBuilder`] can filter components by.
+    #[derive(From)]
+    pub enum FilterableId {
+        Type(TypeId),
+        Component(ComponentId),
+        Bundle(BundleId),
+    }
+
+    impl<'a, T> From<&'a T> for FilterableId
+    where
+        T: Into<FilterableId> + Copy,
+    {
+        #[inline]
+        fn from(value: &'a T) -> Self {
+            (*value).into()
+        }
+    }
+
+    /// A trait to allow [`EntityClonerBuilder`] filter by any supported id type and their iterators,
+    /// reducing the number of method permutations required for all id types.
+    ///
+    /// The supported id types that can be used to filter components are defined by [`FilterableId`], which allows following types: [`TypeId`], [`ComponentId`] and [`BundleId`].
+    ///
+    /// `M` is a generic marker to allow multiple blanket implementations of this trait.
+    /// This works because `FilterableId<M1>` is a different trait from `FilterableId<M2>`, so multiple blanket implementations for different `M` are allowed.
+    /// The reason this is required is because supporting `IntoIterator` requires blanket implementation, but that will conflict with implementation for `TypeId`
+    /// since `IntoIterator` can technically be implemented for `TypeId` in the future.
+    /// Functions like `allow_by_ids` rely on type inference to automatically select proper type for `M` at call site.
+    pub trait FilterableIds<M: Marker> {
+        /// Takes in a function that processes all types of [`FilterableId`] one-by-one.
+        fn filter_ids(self, ids: &mut impl FnMut(FilterableId));
+    }
+
+    impl<I, T> FilterableIds<VectorType> for I
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<FilterableId>,
+    {
+        #[inline]
+        fn filter_ids(self, ids: &mut impl FnMut(FilterableId)) {
+            for id in self.into_iter() {
+                ids(id.into());
+            }
+        }
+    }
+
+    impl<T> FilterableIds<ScalarType> for T
+    where
+        T: Into<FilterableId>,
+    {
+        #[inline]
+        fn filter_ids(self, ids: &mut impl FnMut(FilterableId)) {
+            ids(self.into());
+        }
+    }
+}
+
+use private::{FilterableId, FilterableIds, Marker};
 
 #[cfg(test)]
 mod tests {

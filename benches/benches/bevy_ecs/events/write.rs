@@ -21,7 +21,7 @@ impl<const SIZE: usize> Benchmark<SIZE> {
         // Force both internal buffers to be allocated.
         for _ in 0..2 {
             for _ in 0..count {
-                events.send(BenchEvent([0u8; SIZE]));
+                events.write(BenchEvent([0u8; SIZE]));
             }
             events.update();
         }
@@ -32,7 +32,7 @@ impl<const SIZE: usize> Benchmark<SIZE> {
     pub fn run(&mut self) {
         for _ in 0..self.count {
             self.events
-                .send(core::hint::black_box(BenchEvent([0u8; SIZE])));
+                .write(core::hint::black_box(BenchEvent([0u8; SIZE])));
         }
         self.events.update();
     }
