@@ -150,6 +150,12 @@ macro_rules! define_label {
             }
         }
 
+        impl ::core::borrow::Borrow<dyn $label_trait_name> for $crate::intern::Interned<dyn $label_trait_name> {
+            fn borrow(&self) -> &dyn $label_trait_name {
+                &**self
+            }
+        }
+
         impl $crate::intern::Internable for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
                 $crate::label::Box::leak(self.dyn_clone())

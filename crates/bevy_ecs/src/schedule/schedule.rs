@@ -841,7 +841,7 @@ impl ScheduleGraph {
 
     /// Returns `true` if the given system set is part of the graph. Otherwise, returns `false`.
     pub fn contains_set(&self, set: impl SystemSet) -> bool {
-        self.system_sets.ids.contains_key(&set.intern())
+        self.system_sets.ids.contains_key(&set as &dyn SystemSet)
     }
 
     /// Returns the system at the given [`NodeId`].
