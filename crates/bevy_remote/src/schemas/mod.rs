@@ -1,6 +1,5 @@
 //! Module with schemas used for various BRP endpoints
 use alloc::borrow::Cow;
-use bevy_derive::Deref;
 use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
@@ -13,9 +12,8 @@ use bevy_reflect::{
 use core::any::TypeId;
 
 use crate::schemas::{
-    json_schema::JsonSchemaBevyType,
     open_rpc::OpenRpcDocument,
-    reflect_info::{FieldsInformation, InternalSchemaType},
+    reflect_info::{FieldsInformation, InternalSchemaType, TypeReferencePath},
 };
 
 pub mod json_schema;
@@ -36,18 +34,17 @@ pub struct SchemaTypesMetadata {
 #[reflect(Resource)]
 pub struct CustomInternalSchemaData(pub InternalSchemaType);
 
-impl CustomInternalSchemaData {
-    /// Creates a new `CustomInternalSchema` with a forced array type. Works for structs only.
-    pub fn force_array<T: GetTypeRegistration>() -> Option<Self> {
-        match T::get_type_registration().type_info() {
-            bevy_reflect::TypeInfo::Struct(struct_info) => Some(CustomInternalSchemaData(
-                InternalSchemaType::FieldsHolder(FieldsInformation::new(
-                    struct_info.iter(),
-                    reflect_info::FieldType::ForceUnnamed(struct_info.ty().id()),
-                )),
-            )),
-            _ => None,
-        }
+/// Trait for external schema sources.
+pub trait ExternalSchemaSource {
+    /// Get the external schema source.
+    fn get_external_schema_source() -> TypeReferencePath;
+}
+
+impl<T: Reflect + ExternalSchemaSource> FromType<T> for CustomInternalSchemaData {
+    fn from_type() -> Self {
+        Self(InternalSchemaType::ExternalSource(
+            T::get_external_schema_source(),
+        ))
     }
 }
 
@@ -57,60 +54,60 @@ pub(crate) trait RegisterReflectJsonSchemas {
     fn register_schema_base_types(&mut self) {
         #[cfg(feature = "bevy_math")]
         {
-            self.register_force_as_array::<bevy_math::Vec2>();
-            self.register_force_as_array::<bevy_math::DVec2>();
-            self.register_force_as_array::<bevy_math::I8Vec2>();
-            self.register_force_as_array::<bevy_math::U8Vec2>();
-            self.register_force_as_array::<bevy_math::I16Vec2>();
-            self.register_force_as_array::<bevy_math::U16Vec2>();
-            self.register_force_as_array::<bevy_math::IVec2>();
-            self.register_force_as_array::<bevy_math::UVec2>();
-            self.register_force_as_array::<bevy_math::I64Vec2>();
-            self.register_force_as_array::<bevy_math::U64Vec2>();
-            self.register_force_as_array::<bevy_math::BVec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::Vec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::DVec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::I8Vec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::U8Vec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::I16Vec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::U16Vec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::IVec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::UVec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::I64Vec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::U64Vec2>();
+            self.registry_force_schema_to_be_array::<bevy_math::BVec2>();
 
-            self.register_force_as_array::<bevy_math::Vec3A>();
-            self.register_force_as_array::<bevy_math::Vec3>();
-            self.register_force_as_array::<bevy_math::DVec3>();
-            self.register_force_as_array::<bevy_math::I8Vec3>();
-            self.register_force_as_array::<bevy_math::U8Vec3>();
-            self.register_force_as_array::<bevy_math::I16Vec3>();
-            self.register_force_as_array::<bevy_math::U16Vec3>();
-            self.register_force_as_array::<bevy_math::IVec3>();
-            self.register_force_as_array::<bevy_math::UVec3>();
-            self.register_force_as_array::<bevy_math::I64Vec3>();
-            self.register_force_as_array::<bevy_math::U64Vec3>();
-            self.register_force_as_array::<bevy_math::BVec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::Vec3A>();
+            self.registry_force_schema_to_be_array::<bevy_math::Vec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::DVec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::I8Vec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::U8Vec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::I16Vec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::U16Vec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::IVec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::UVec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::I64Vec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::U64Vec3>();
+            self.registry_force_schema_to_be_array::<bevy_math::BVec3>();
 
-            self.register_force_as_array::<bevy_math::Vec4>();
-            self.register_force_as_array::<bevy_math::DVec4>();
-            self.register_force_as_array::<bevy_math::I8Vec4>();
-            self.register_force_as_array::<bevy_math::U8Vec4>();
-            self.register_force_as_array::<bevy_math::I16Vec4>();
-            self.register_force_as_array::<bevy_math::U16Vec4>();
-            self.register_force_as_array::<bevy_math::IVec4>();
-            self.register_force_as_array::<bevy_math::UVec4>();
-            self.register_force_as_array::<bevy_math::I64Vec4>();
-            self.register_force_as_array::<bevy_math::U64Vec4>();
-            self.register_force_as_array::<bevy_math::BVec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::Vec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::DVec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::I8Vec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::U8Vec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::I16Vec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::U16Vec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::IVec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::UVec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::I64Vec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::U64Vec4>();
+            self.registry_force_schema_to_be_array::<bevy_math::BVec4>();
 
-            self.register_force_as_array::<bevy_math::Quat>();
-            self.register_force_as_array::<bevy_math::DQuat>();
+            self.registry_force_schema_to_be_array::<bevy_math::Quat>();
+            self.registry_force_schema_to_be_array::<bevy_math::DQuat>();
 
-            self.register_force_as_array::<bevy_math::Mat2>();
-            self.register_force_as_array::<bevy_math::DMat2>();
-            self.register_force_as_array::<bevy_math::DMat3>();
-            self.register_force_as_array::<bevy_math::Mat3A>();
-            self.register_force_as_array::<bevy_math::Mat3>();
-            self.register_force_as_array::<bevy_math::DMat4>();
-            self.register_force_as_array::<bevy_math::Mat4>();
-            self.register_force_as_array::<bevy_math::Affine2>();
-            self.register_force_as_array::<bevy_math::DAffine2>();
-            self.register_force_as_array::<bevy_math::DAffine3>();
-            self.register_force_as_array::<bevy_math::Affine3A>();
+            self.registry_force_schema_to_be_array::<bevy_math::Mat2>();
+            self.registry_force_schema_to_be_array::<bevy_math::DMat2>();
+            self.registry_force_schema_to_be_array::<bevy_math::DMat3>();
+            self.registry_force_schema_to_be_array::<bevy_math::Mat3A>();
+            self.registry_force_schema_to_be_array::<bevy_math::Mat3>();
+            self.registry_force_schema_to_be_array::<bevy_math::DMat4>();
+            self.registry_force_schema_to_be_array::<bevy_math::Mat4>();
+            self.registry_force_schema_to_be_array::<bevy_math::Affine2>();
+            self.registry_force_schema_to_be_array::<bevy_math::DAffine2>();
+            self.registry_force_schema_to_be_array::<bevy_math::DAffine3>();
+            self.registry_force_schema_to_be_array::<bevy_math::Affine3A>();
         }
         self.register_type_internal::<OpenRpcDocument>();
-        self.register_type_data_internal::<OpenRpcDocument, ReflectJsonSchema>();
+        self.register_type_data_internal::<OpenRpcDocument, CustomInternalSchemaData>();
     }
     /// Registers a type by value.
     fn register_data_type_by_value<T, D>(&mut self, data: D)
@@ -125,13 +122,21 @@ pub(crate) trait RegisterReflectJsonSchemas {
     where
         T: Reflect + TypePath + GetTypeRegistration,
         D: TypeData + FromType<T>;
-    fn register_force_as_array<T>(&mut self)
+    /// Registers a [`CustomInternalSchemaData`] data type for a type that will force to treat the type as an array during building the [`JsonSchemaBevyType`] for given type.
+    /// It is useful when you want to force the type to be treated as an array in the schema, for example when type has custom serialization.
+    fn registry_force_schema_to_be_array<T>(&mut self)
     where
         T: Reflect + TypePath + GetTypeRegistration,
     {
-        let Some(data) = CustomInternalSchemaData::force_array::<T>() else {
+        let bevy_reflect::TypeInfo::Struct(struct_info) = T::get_type_registration().type_info()
+        else {
             return;
         };
+        let data =
+            CustomInternalSchemaData(InternalSchemaType::FieldsHolder(FieldsInformation::new(
+                struct_info.iter(),
+                reflect_info::FieldType::ForceUnnamed(struct_info.ty().id()),
+            )));
         self.register_data_type_by_value::<T, CustomInternalSchemaData>(data);
     }
 }
@@ -192,22 +197,6 @@ impl RegisterReflectJsonSchemas for bevy_app::App {
         let registry = world.resource_mut::<bevy_ecs::reflect::AppTypeRegistry>();
         let mut r = registry.write();
         r.register_data_type_by_value::<T, D>(data);
-    }
-}
-
-/// Reflect-compatible custom JSON Schema for this type
-#[derive(Clone, Deref)]
-pub struct ReflectJsonSchema(pub JsonSchemaBevyType);
-
-impl From<&JsonSchemaBevyType> for ReflectJsonSchema {
-    fn from(schema: &JsonSchemaBevyType) -> Self {
-        Self(schema.clone())
-    }
-}
-
-impl From<JsonSchemaBevyType> for ReflectJsonSchema {
-    fn from(schema: JsonSchemaBevyType) -> Self {
-        Self(schema)
     }
 }
 

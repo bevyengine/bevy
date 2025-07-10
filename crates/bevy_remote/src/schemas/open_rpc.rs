@@ -1,15 +1,12 @@
 //! Module with trimmed down `OpenRPC` document structs.
 //! It tries to follow this standard: <https://spec.open-rpc.org>
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{FromType, Reflect};
+use bevy_reflect::Reflect;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    schemas::{
-        reflect_info::{ReferenceLocation, TypeReferencePath},
-        ReflectJsonSchema,
-    },
+    schemas::reflect_info::{ReferenceLocation, TypeReferencePath},
     RemoteMethods,
 };
 
@@ -29,20 +26,12 @@ pub struct OpenRpcDocument {
     pub servers: Option<Vec<ServerObject>>,
 }
 
-impl FromType<OpenRpcDocument> for ReflectJsonSchema {
-    fn from_type() -> Self {
-        JsonSchemaBevyType {
-            ref_type: Some(TypeReferencePath::new_ref(
-                ReferenceLocation::Url,
-                "raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json",
-            )),
-            description: Some(
-                "Represents an `OpenRPC` document as defined by the `OpenRPC` specification."
-                    .into(),
-            ),
-            ..default()
-        }
-        .into()
+impl super::ExternalSchemaSource for OpenRpcDocument {
+    fn get_external_schema_source() -> TypeReferencePath {
+        TypeReferencePath::new_ref(
+            ReferenceLocation::Url,
+            "raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json",
+        )
     }
 }
 

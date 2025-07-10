@@ -531,7 +531,16 @@ impl TypeReferencePath {
 }
 impl Display for TypeReferencePath {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.location, encode_to_uri(&self.id))
+        write!(
+            f,
+            "{}{}",
+            self.location,
+            if self.location == ReferenceLocation::Definitions {
+                encode_to_uri(&self.id)
+            } else {
+                (*self.id).to_string()
+            }
+        )
     }
 }
 
@@ -929,6 +938,8 @@ pub enum InternalSchemaType {
         /// Optional field data for the primitive type.
         field_data: Option<SchemaFieldData>,
     },
+    /// Variant for external source types.
+    ExternalSource(TypeReferencePath),
     /// Variant for regular primitive types and other simple types.
     Regular(TypeId),
 }
@@ -1100,7 +1111,7 @@ impl InternalSchemaType {
             InternalSchemaType::Regular(t) => {
                 _ = dependencies.insert(*t);
             }
-            InternalSchemaType::PrimitiveType { .. } => {}
+            InternalSchemaType::PrimitiveType { .. } | InternalSchemaType::ExternalSource(_) => {}
         }
         dependencies
     }
@@ -1137,7 +1148,9 @@ impl From<&InternalSchemaType> for Option<SchemaTypeVariant> {
             InternalSchemaType::Regular(type_id) => {
                 Some(SchemaTypeVariant::Single((*type_id).into()))
             }
-            InternalSchemaType::EnumHolder(_) | InternalSchemaType::Optional { generic: _ } => None,
+            InternalSchemaType::EnumHolder(_)
+            | InternalSchemaType::Optional { generic: _ }
+            | InternalSchemaType::ExternalSource(_) => None,
         }
     }
 }
@@ -1472,9 +1485,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
         let internal = InternalSchemaType::from_type_registration(type_reg, self);
 
         let mut id: Option<TypeReferenceId> = Some(type_reg.type_info().type_path().into());
-        if let Some(custom_schema) = &type_reg.data::<super::ReflectJsonSchema>() {
-            return Some((id, custom_schema.0.clone()));
-        }
+
         let range: MinMaxValues = type_id.into();
         let type_path_table = type_reg.type_info().type_path_table();
         let (type_path, short_path, crate_name, module_path) = (
@@ -1512,6 +1523,16 @@ impl TypeDefinitionBuilder for TypeRegistry {
         };
         schema.schema_type = (&internal).into();
         match internal {
+            InternalSchemaType::ExternalSource(source) => {
+                return Some((
+                    None,
+                    JsonSchemaBevyType {
+                        description: schema.description,
+                        ref_type: Some(source),
+                        ..Default::default()
+                    },
+                ));
+            }
             InternalSchemaType::PrimitiveType {
                 type_id: _,
                 primitive: _,
@@ -1641,6 +1662,13 @@ impl TypeDefinitionBuilder for TypeRegistry {
         let internal = InternalSchemaType::from_type_registration(type_reg, self);
         schema.schema_type = (&internal).into();
         match internal {
+            InternalSchemaType::ExternalSource(source) => {
+                return Some(JsonSchemaBevyType {
+                    description: schema.description,
+                    ref_type: Some(source),
+                    ..Default::default()
+                });
+            }
             InternalSchemaType::PrimitiveType {
                 type_id,
                 primitive: _,

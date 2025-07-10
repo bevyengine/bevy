@@ -449,7 +449,8 @@ impl SchemaType {
 mod tests {
     use crate::schemas::open_rpc::OpenRpcDocument;
     use crate::schemas::reflect_info::ReferenceLocation;
-    use crate::schemas::ReflectJsonSchema;
+    use crate::schemas::CustomInternalSchemaData;
+    use crate::schemas::ExternalSchemaSource;
 
     use super::*;
     use bevy_ecs::prelude::ReflectComponent;
@@ -631,7 +632,7 @@ mod tests {
         {
             let mut register = atr.write();
             register.register::<OpenRpcDocument>();
-            register.register_type_data::<OpenRpcDocument, ReflectJsonSchema>();
+            register.register_type_data::<OpenRpcDocument, CustomInternalSchemaData>();
         }
         let type_registry = atr.read();
         let schema = type_registry
@@ -656,20 +657,16 @@ mod tests {
 
     #[test]
     fn reflect_export_with_custom_schema() {
+        /// Custom type for testing purposes.
         #[derive(Reflect, Component)]
         struct SomeType;
 
-        impl bevy_reflect::FromType<SomeType> for ReflectJsonSchema {
-            fn from_type() -> Self {
-                JsonSchemaBevyType {
-                    ref_type: Some(TypeReferencePath::new_ref(
-                        ReferenceLocation::Url,
-                        "raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json",
-                    )),
-                    description: Some("Custom type for testing purposes.".into()),
-                    ..Default::default()
-                }
-                .into()
+        impl ExternalSchemaSource for SomeType {
+            fn get_external_schema_source() -> TypeReferencePath {
+                TypeReferencePath::new_ref(
+                    ReferenceLocation::Url,
+                    "raw.githubusercontent.com/open-rpc/meta-schema/master/schema.json",
+                )
             }
         }
 
@@ -677,7 +674,7 @@ mod tests {
         {
             let mut register = atr.write();
             register.register::<SomeType>();
-            register.register_type_data::<SomeType, ReflectJsonSchema>();
+            register.register_type_data::<SomeType, CustomInternalSchemaData>();
         }
         let type_registry = atr.read();
         let schema = type_registry

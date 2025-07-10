@@ -1871,7 +1871,7 @@ mod tests {
             let mut register = atr.write();
             register.register::<NestedStruct>();
             register.register::<bevy_math::Vec3>();
-            register.register_force_as_array::<bevy_math::Vec3>();
+            register.registry_force_schema_to_be_array::<bevy_math::Vec3>();
         }
         let mut world = World::new();
         world.insert_resource(atr);
