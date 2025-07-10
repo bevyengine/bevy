@@ -213,8 +213,8 @@ mod tests {
         app.add_event::<StateScopedEvent>()
             .clear_events_on_exit_state::<StateScopedEvent>(TestState::A);
 
-        app.world_mut().send_event(StandardEvent).unwrap();
-        app.world_mut().send_event(StateScopedEvent).unwrap();
+        app.world_mut().write_event(StandardEvent).unwrap();
+        app.world_mut().write_event(StateScopedEvent).unwrap();
         assert!(!app.world().resource::<Events<StandardEvent>>().is_empty());
         assert!(!app
             .world()
@@ -243,8 +243,8 @@ mod tests {
         app.add_event::<StateScopedEvent>()
             .clear_events_on_enter_state::<StateScopedEvent>(TestState::B);
 
-        app.world_mut().send_event(StandardEvent).unwrap();
-        app.world_mut().send_event(StateScopedEvent).unwrap();
+        app.world_mut().write_event(StandardEvent).unwrap();
+        app.world_mut().write_event(StateScopedEvent).unwrap();
         assert!(!app.world().resource::<Events<StandardEvent>>().is_empty());
         assert!(!app
             .world()

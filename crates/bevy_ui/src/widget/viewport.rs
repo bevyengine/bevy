@@ -147,7 +147,7 @@ pub fn viewport_picking(
             };
             viewport_pointer_location.location = Some(location.clone());
 
-            commands.send_event(PointerInput {
+            commands.write_event(PointerInput {
                 location,
                 pointer_id: viewport_pointer_id,
                 action: input.action,

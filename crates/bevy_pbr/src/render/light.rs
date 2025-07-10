@@ -1,5 +1,3 @@
-use self::assign::ClusterableObjectType;
-use crate::assign::calculate_cluster_factors;
 use crate::*;
 use bevy_asset::UntypedAssetId;
 pub use bevy_camera::primitives::{face_index_to_name, CubeMapFace, CUBE_MAP_FACES};
@@ -12,6 +10,13 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
     system::lifetimeless::Read,
+};
+use bevy_light::cascade::Cascade;
+use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
+use bevy_light::cluster::GlobalVisibleClusterableObjects;
+use bevy_light::{
+    spot_light_clip_from_view, spot_light_world_from_view, DirectionalLightShadowMap,
+    NotShadowCaster, PointLightShadowMap,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -797,7 +802,7 @@ pub fn prepare_lights(
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by_cached_key(|(entity, _, light, _)| {
         (
-            ClusterableObjectType::from_point_or_spot_light(light).ordering(),
+            point_or_spot_light_to_clusterable(light).ordering(),
             *entity,
         )
     });
@@ -2262,5 +2267,20 @@ impl ShadowPassNode {
         }
 
         Ok(())
+    }
+}
+
+/// Creates the [`ClusterableObjectType`] data for a point or spot light.
+fn point_or_spot_light_to_clusterable(point_light: &ExtractedPointLight) -> ClusterableObjectType {
+    match point_light.spot_light_angles {
+        Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
+            outer_angle,
+            shadows_enabled: point_light.shadows_enabled,
+            volumetric: point_light.volumetric,
+        },
+        None => ClusterableObjectType::PointLight {
+            shadows_enabled: point_light.shadows_enabled,
+            volumetric: point_light.volumetric,
+        },
     }
 }

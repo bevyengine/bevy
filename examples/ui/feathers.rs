@@ -1,7 +1,9 @@
 //! This example shows off the various Bevy Feathers widgets.
 
 use bevy::{
-    core_widgets::{Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugin, SliderStep},
+    core_widgets::{
+        Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision, SliderStep,
+    },
     feathers::{
         controls::{
             button, checkbox, radio, slider, toggle_switch, ButtonProps, ButtonVariant,
@@ -25,7 +27,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreWidgetsPlugin,
+            CoreWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
             FeathersPlugin,
@@ -259,7 +261,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         value: 20.0,
                         ..default()
                     },
-                    SliderStep(10.)
+                    (SliderStep(10.), SliderPrecision(2)),
                 ),
             ]
         ),],

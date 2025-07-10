@@ -18,8 +18,6 @@ bevy_input_focus = { path = "../bevy_input_focus", version = "0.17.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bevy_ui = { path = "../bevy_ui", version = "0.17.0-dev", features = [
   "bevy_ui_picking_backend",
 ] }

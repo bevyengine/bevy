@@ -2,7 +2,7 @@
 
 use core::array;
 
-use bevy_asset::{load_embedded_asset, uuid_handle, AssetId, Handle};
+use bevy_asset::{load_embedded_asset, AssetId, Handle};
 use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -54,6 +54,8 @@ use crate::{
     VolumetricLight,
 };
 
+use super::FogAssets;
+
 bitflags! {
     /// Flags that describe the bind group layout used to render volumetric fog.
     #[derive(Clone, Copy, PartialEq)]
@@ -76,20 +78,6 @@ bitflags! {
         const DENSITY_TEXTURE = 0x2;
     }
 }
-
-/// The plane mesh, which is used to render a fog volume that the camera is
-/// inside.
-///
-/// This mesh is simply stretched to the size of the framebuffer, as when the
-/// camera is inside a fog volume it's essentially a full-screen effect.
-pub const PLANE_MESH: Handle<Mesh> = uuid_handle!("92523617-c708-4fd0-b42f-ceb4300c930b");
-
-/// The cube mesh, which is used to render a fog volume that the camera is
-/// outside.
-///
-/// Note that only the front faces of this cuboid will be rasterized in
-/// hardware. The back faces will be calculated in the shader via raytracing.
-pub const CUBE_MESH: Handle<Mesh> = uuid_handle!("4a1dd661-2d91-4377-a17a-a914e21e277e");
 
 /// The total number of bind group layouts.
 ///
@@ -370,6 +358,7 @@ impl ViewNode for VolumetricFogNode {
             return Ok(());
         };
 
+        let fog_assets = world.resource::<FogAssets>();
         let render_meshes = world.resource::<RenderAssets<RenderMesh>>();
 
         for view_fog_volume in view_fog_volumes.iter() {
@@ -377,9 +366,9 @@ impl ViewNode for VolumetricFogNode {
             // otherwise, pick the plane mesh. In the latter case we'll be
             // effectively rendering a full-screen quad.
             let mesh_handle = if view_fog_volume.exterior {
-                CUBE_MESH.clone()
+                fog_assets.cube_mesh.clone()
             } else {
-                PLANE_MESH.clone()
+                fog_assets.plane_mesh.clone()
             };
 
             let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_handle.id())
@@ -615,6 +604,7 @@ pub fn prepare_volumetric_fog_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<VolumetricFogPipeline>>,
     volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
+    fog_assets: Res<FogAssets>,
     view_targets: Query<
         (
             Entity,
@@ -629,7 +619,7 @@ pub fn prepare_volumetric_fog_pipelines(
     >,
     meshes: Res<RenderAssets<RenderMesh>>,
 ) {
-    let Some(plane_mesh) = meshes.get(&PLANE_MESH) else {
+    let Some(plane_mesh) = meshes.get(&fog_assets.plane_mesh) else {
         // There's an off chance that the mesh won't be prepared yet if `RenderAssetBytesPerFrame` limiting is in use.
         return;
     };
