@@ -11,7 +11,7 @@
 //!
 //! This module contains four main things:
 //!
-//!  - Core ecs types like [`Entity`], [`Entities`], and [`EntitiesAllocator`].
+//!  - Core ECS types like [`Entity`], [`Entities`], and [`EntitiesAllocator`].
 //!  - Utilities for [`Entity`] ids like [`MapEntities`], [`EntityHash`], and [`UniqueEntityVec`].
 //!  - Helpers for entity tasks like [`EntityCloner`].
 //!  - Entity-related error types like [`EntityDoesNotExistError`].
@@ -48,7 +48,7 @@
 //! Not all [`Entity`] ids refer to active entities.
 //! If an [`Entity`] id is used when its entity no longer exists, an [`EntityDoesNotExistError`] is emitted.
 //! Any [`System`](crate::system) could despawn any entity; even if you never share an entity's id, it could still be despawned unexpectedly.
-//! Handle these errors gracefully.
+//! Your code should do its best to handle these errors gracefully.
 //!
 //! In short:
 //!
@@ -66,7 +66,7 @@
 //! This [`Entity`] id is the combination of two ideas: [`EntityRow`] and [`EntityGeneration`].
 //! You can think of the [`Entity`] type as a `struct Entity { row: u32, generation: u32 }`.
 //!
-//! To understand these ids, picture the ecs [`World`] as a spreadsheet.
+//! To understand these ids, picture the ECS [`World`] as a spreadsheet.
 //! Each kind of component is represented by a column in the spreadsheet and each entity is a row.
 //! That's what the `row` does in [`Entity`]; it identifies where in the spreadsheet to find component values.
 //! If an entity doesn't have a component, picture leaving the cell at that entity row and component column blank or `None`.
@@ -128,13 +128,13 @@
 //! But there are risks when used improperly:
 //! Losing a null entity row without returning it to bevy's allocator will cause that row to be unreachable, effectively a memory leak.
 //! Further, constructing an arbitrary [`EntityRow`] can cause problems if that same row is queued for reuse in the allocator.
-//! Use this powerfully but with caution.
+//! This is powerful, but use it with caution.
 //!
 //! Lots of information about the state of an [`EntityRow`] can be obtained through [`Entities`].
 //! For example, this can be used to get the most recent [`Entity`] of an [`EntityRow`] in [`Entities::resolve_from_row`].
 //! See its docs for more.
 //!
-//! In short:
+//! To summarize:
 //!
 //! - An [`Entity`] id is just a [`EntityRow`] and a [`EntityGeneration`] of that row.
 //! - [`EntityRow`]s can be constructed and destructed repeatedly, where each construction gets its own [`EntityGeneration`].
@@ -146,7 +146,7 @@
 //!
 //! As mentioned above, an ecs [`World`] can be imagined as a spreadsheet.
 //! One way that spreadsheet could be implemented is a list of [`Entity`]s and a hashmap for each component that maps an [`EntityRow`] to a component value if that row has the entity.
-//! Bevy's ecs is quite different from that implementation (and much, much faster).
+//! Bevy's ECS is quite different from that implementation (and much, much faster).
 //! For details on how component storage actually works, see [`storage`](crate::storage).
 //!
 //! Regardless, the spreadsheet also needs a special column that tracks metadata about an entity.
@@ -403,7 +403,7 @@ impl EntityGeneration {
     }
 }
 
-/// This uniquely identifies an entity in a [`World`].
+/// Unique identifier for an entity in a [`World`].
 /// Note that this is just an id, not the entity itself.
 /// Further, the entity this id refers to may no longer exist in the [`World`].
 /// For more information about entities, their ids, and how to use them, see the module [docs](crate::entity).
