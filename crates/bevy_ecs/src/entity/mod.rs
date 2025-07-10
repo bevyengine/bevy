@@ -1029,7 +1029,7 @@ impl Entities {
     /// Returns the previous location of the row.
     ///
     /// # Safety
-    ///  - The current location of the `row` must already be set. If not, use [`declare`](Self::declare).
+    ///  - The current location of the `row` must already be set. If not, use [`new_location`](Self::new_location).
     ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
