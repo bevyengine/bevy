@@ -36,11 +36,9 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 taffy = { version = "0.7" }
 serde = { version = "1", features = ["derive"], optional = true }
 uuid = { version = "1.1", features = ["v4"], optional = true }
-bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
-nonmax = "0.5"
-smallvec = "1.11"
+smallvec = { version = "1", default-features = false }
 accesskit = "0.19"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
@@ -54,7 +52,6 @@ serialize = [
   "bevy_render/serialize",
 ]
 bevy_ui_picking_backend = ["bevy_picking", "dep:uuid"]
-bevy_ui_debug = []
 
 # Experimental features
 ghost_nodes = []

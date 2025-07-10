@@ -95,7 +95,7 @@ fn setup(world: &mut World) {
                     .resource_mut::<MyComponentIndex>()
                     .insert(value, entity);
                 // Or send events
-                world.send_event(MyEvent);
+                world.write_event(MyEvent);
             },
         )
         // `on_insert` will trigger when a component is inserted onto an entity,

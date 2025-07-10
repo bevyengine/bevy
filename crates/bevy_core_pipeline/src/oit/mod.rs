@@ -7,10 +7,10 @@ use bevy_platform::collections::HashSet;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::{Camera, ExtractedCamera, ToNormalizedRenderTarget as _},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     load_shader_library,
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, ShaderType, TextureUsages},
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,

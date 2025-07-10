@@ -55,6 +55,10 @@ pub struct WgpuSettings {
     pub memory_hints: MemoryHints,
     /// The thresholds for device memory budget.
     pub instance_memory_budget_thresholds: MemoryBudgetThresholds,
+    /// If true, will force wgpu to use a software renderer, if available.
+    pub force_fallback_adapter: bool,
+    /// The name of the adapter to use.
+    pub adapter_name: Option<String>,
 }
 
 impl Default for WgpuSettings {
@@ -136,6 +140,8 @@ impl Default for WgpuSettings {
             instance_flags,
             memory_hints: MemoryHints::default(),
             instance_memory_budget_thresholds:MemoryBudgetThresholds::default(),
+            force_fallback_adapter: false,
+            adapter_name: None,
         }
     }
 }

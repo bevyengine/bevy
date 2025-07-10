@@ -293,20 +293,31 @@ pub struct DefaultPickingPlugins;
 impl PluginGroup for DefaultPickingPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(input::PointerInputPlugin::default())
-            .add(PickingPlugin::default())
+            .add(input::PointerInputPlugin)
+            .add(PickingPlugin)
             .add(InteractionPlugin)
     }
 }
 
-/// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
-/// types used by other picking plugins.
-///
-/// This plugin contains several settings, and is added to the world as a resource after initialization. You
-/// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug, Clone)]
-pub struct PickingPlugin {
+/// Controls the behavior of picking
+///
+/// ## Custom initialization
+/// ```
+/// # use bevy_app::App;
+/// # use bevy_picking::{PickingSettings, PickingPlugin};
+/// App::new()
+///     .insert_resource(PickingSettings {
+///         is_enabled: true,
+///         is_input_enabled: false,
+///         is_hover_enabled: true,
+///         is_window_picking_enabled: false,
+///     })
+///     // or DefaultPlugins
+///     .add_plugins(PickingPlugin);
+/// ```
+pub struct PickingSettings {
     /// Enables and disables all picking features.
     pub is_enabled: bool,
     /// Enables and disables input collection.
@@ -317,7 +328,7 @@ pub struct PickingPlugin {
     pub is_window_picking_enabled: bool,
 }
 
-impl PickingPlugin {
+impl PickingSettings {
     /// Whether or not input collection systems should be running.
     pub fn input_should_run(state: Res<Self>) -> bool {
         state.is_input_enabled && state.is_enabled
@@ -335,7 +346,7 @@ impl PickingPlugin {
     }
 }
 
-impl Default for PickingPlugin {
+impl Default for PickingSettings {
     fn default() -> Self {
         Self {
             is_enabled: true,
@@ -346,9 +357,18 @@ impl Default for PickingPlugin {
     }
 }
 
+/// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
+/// types used by other picking plugins.
+///
+/// Behavior of picking can be controlled by modifying [`PickingSettings`].
+///
+/// [`PickingSettings`] will be initialized with default values if it
+/// is not present at the moment this is added to the app.
+pub struct PickingPlugin;
+
 impl Plugin for PickingPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(*self)
+        app.init_resource::<PickingSettings>()
             .init_resource::<pointer::PointerMap>()
             .init_resource::<backend::ray::RayMap>()
             .add_event::<pointer::PointerInput>()
@@ -369,7 +389,7 @@ impl Plugin for PickingPlugin {
             .add_systems(
                 PreUpdate,
                 window::update_window_hits
-                    .run_if(Self::window_picking_should_run)
+                    .run_if(PickingSettings::window_picking_should_run)
                     .in_set(PickingSystems::Backend),
             )
             .configure_sets(
@@ -382,15 +402,15 @@ impl Plugin for PickingPlugin {
             .configure_sets(
                 PreUpdate,
                 (
-                    PickingSystems::ProcessInput.run_if(Self::input_should_run),
+                    PickingSystems::ProcessInput.run_if(PickingSettings::input_should_run),
                     PickingSystems::Backend,
-                    PickingSystems::Hover.run_if(Self::hover_should_run),
+                    PickingSystems::Hover.run_if(PickingSettings::hover_should_run),
                     PickingSystems::PostHover,
                     PickingSystems::Last,
                 )
                     .chain(),
             )
-            .register_type::<Self>()
+            .register_type::<PickingSettings>()
             .register_type::<Pickable>()
             .register_type::<hover::PickingInteraction>()
             .register_type::<hover::Hovered>()

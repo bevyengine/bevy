@@ -34,7 +34,7 @@ use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_graph::{
-        NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
+        NodeRunError, RenderGraphContext, RenderGraphExt as _, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{
@@ -802,23 +802,19 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
         RenderPipelineDescriptor {
             label: Some("depth of field pipeline".into()),
             layout,
-            push_constant_ranges: vec![],
             vertex: self.fullscreen_shader.to_vertex_state(),
-            primitive: default(),
-            depth_stencil: None,
-            multisample: default(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: match key.pass {
+                entry_point: Some(match key.pass {
                     DofPass::GaussianHorizontal => "gaussian_horizontal".into(),
                     DofPass::GaussianVertical => "gaussian_vertical".into(),
                     DofPass::BokehPass0 => "bokeh_pass_0".into(),
                     DofPass::BokehPass1 => "bokeh_pass_1".into(),
-                },
+                }),
                 targets,
             }),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

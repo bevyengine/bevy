@@ -3,10 +3,10 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
-    view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
     bundle::NoBundleEffect,
     component::Component,
