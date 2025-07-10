@@ -390,7 +390,7 @@ pub struct StandardMaterial {
     /// # Usage
     ///
     /// ```
-    /// # use bevy_asset::AssetServer;
+    /// # use bevy_asset::{AssetServer, Handle};
     /// # use bevy_ecs::change_detection::Res;
     /// # use bevy_image::{Image, ImageLoaderSettings};
     /// #
