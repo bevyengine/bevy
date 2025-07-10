@@ -45,7 +45,7 @@ impl ProcessorGatedReader {
         let infos = self.processor_data.asset_infos.read().await;
         let info = infos
             .get(path)
-            .ok_or_else(|| AssetReaderError::NotFound(path.path().to_owned()))?;
+            .ok_or_else(|| AssetReaderError::NotFound(path.internal_path().to_owned()))?;
         Ok(info.file_transaction_lock.read_arc().await)
     }
 }
@@ -61,7 +61,9 @@ impl AssetReader for ProcessorGatedReader {
         match process_result {
             ProcessStatus::Processed => {}
             ProcessStatus::Failed | ProcessStatus::NonExistent => {
-                return Err(AssetReaderError::NotFound(path.to_owned()));
+                return Err(AssetReaderError::NotFound(
+                    path.to_path_buf().to_str().unwrap().to_owned(),
+                ));
             }
         }
         trace!("Processing finished with {asset_path}, reading {process_result:?}",);
@@ -81,7 +83,9 @@ impl AssetReader for ProcessorGatedReader {
         match process_result {
             ProcessStatus::Processed => {}
             ProcessStatus::Failed | ProcessStatus::NonExistent => {
-                return Err(AssetReaderError::NotFound(path.to_owned()));
+                return Err(AssetReaderError::NotFound(
+                    path.to_path_buf().to_str().unwrap().to_owned(),
+                ));
             }
         }
         trace!("Processing finished with {process_result:?}, reading meta for {asset_path}",);
