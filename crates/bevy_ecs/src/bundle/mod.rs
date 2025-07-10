@@ -19,7 +19,7 @@ pub use info::*;
 /// Derive the [`Bundle`] trait
 ///
 /// You can apply this derive macro to structs that are
-/// composed of [`Component`]s or
+/// composed of [`Component`](crate::component::Component)s or
 /// other [`Bundle`]s.
 ///
 /// ## Attributes
@@ -183,6 +183,7 @@ use bevy_ptr::OwningPtr;
 /// That is, there is no safe way to implement this trait, and you must not do so.
 /// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`](derive@Bundle).
 ///
+/// [`Component`]: crate::component::Component
 /// [`Query`]: crate::system::Query
 // Some safety points:
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
@@ -246,7 +247,8 @@ pub trait DynamicBundle {
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
 }
 
-/// An operation on an [`Entity`] that occurs _after_ inserting the [`Bundle`] that defined this bundle effect.
+/// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the
+/// [`Bundle`] that defined this bundle effect.
 /// The order of operations is:
 ///
 /// 1. The [`Bundle`] is inserted on the entity
