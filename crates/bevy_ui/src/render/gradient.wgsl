@@ -117,7 +117,6 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
 // Mix colors in sRGB space and convert back to linear for GPU output
 fn mix_srgb_colors(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
     let mixed_srgb = mix(a, b, t);
-    // Convert from sRGB back to linear RGB for GPU output
     return vec4(pow(mixed_srgb.rgb, vec3(2.2)), mixed_srgb.a);
 }
 
