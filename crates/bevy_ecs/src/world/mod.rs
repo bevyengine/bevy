@@ -1205,7 +1205,7 @@ impl World {
             // empty
             let location = archetype.allocate(entity, table_row);
             let change_tick = self.change_tick();
-            let was_at = self.entities.declare(entity.row(), Some(location));
+            let was_at = self.entities.new_location(entity.row(), Some(location));
             assert!(
                 was_at.is_none(),
                 "Attempting to construct an empty entity, but it was already constructed."

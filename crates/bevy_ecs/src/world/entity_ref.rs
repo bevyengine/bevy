@@ -2468,7 +2468,7 @@ impl<'w> EntityWorldMut<'w> {
         }
         // SAFETY: Since we had a location, and it was valid, this is safe.
         unsafe {
-            let was_at = self.world.entities.update(self.entity.row(), None);
+            let was_at = self.world.entities.update_location(self.entity.row(), None);
             debug_assert_eq!(was_at, Some(location));
             self.world
                 .entities
@@ -2485,7 +2485,7 @@ impl<'w> EntityWorldMut<'w> {
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
-                    self.world.entities.update(
+                    self.world.entities.update_location(
                         swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -2520,7 +2520,7 @@ impl<'w> EntityWorldMut<'w> {
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
-                self.world.entities.update(
+                self.world.entities.update_location(
                     moved_entity.row(),
                     Some(EntityLocation {
                         archetype_id: moved_location.archetype_id,

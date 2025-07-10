@@ -1222,7 +1222,7 @@ impl<'w> BundleInserter<'w> {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { entities.get_constructed(swapped_entity).debug_checked_unwrap() };
-                    entities.update(
+                    entities.update_location(
                         swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -1233,7 +1233,7 @@ impl<'w> BundleInserter<'w> {
                     );
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                entities.update(entity.row(), Some(new_location));
+                entities.update_location(entity.row(), Some(new_location));
                 let after_effect = bundle_info.write_components(
                     table,
                     sparse_sets,
@@ -1271,7 +1271,7 @@ impl<'w> BundleInserter<'w> {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { entities.get_constructed(swapped_entity).debug_checked_unwrap() };
-                    entities.update(
+                    entities.update_location(
                         swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -1285,7 +1285,7 @@ impl<'w> BundleInserter<'w> {
                 // redundant copies
                 let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                entities.update(entity.row(), Some(new_location));
+                entities.update_location(entity.row(), Some(new_location));
 
                 // If an entity was moved into this entity's table spot, update its table row.
                 if let Some(swapped_entity) = move_result.swapped_entity {
@@ -1293,7 +1293,7 @@ impl<'w> BundleInserter<'w> {
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { entities.get_constructed(swapped_entity).debug_checked_unwrap() };
 
-                    entities.update(
+                    entities.update_location(
                         swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -1612,7 +1612,7 @@ impl<'w> BundleRemover<'w> {
         if let Some(swapped_entity) = remove_result.swapped_entity {
             let swapped_location = world.entities.get_constructed(swapped_entity).unwrap();
 
-            world.entities.update(
+            world.entities.update_location(
                 swapped_entity.row(),
                 Some(EntityLocation {
                     archetype_id: swapped_location.archetype_id,
@@ -1653,7 +1653,7 @@ impl<'w> BundleRemover<'w> {
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = world.entities.get_constructed(swapped_entity).unwrap();
 
-                world.entities.update(
+                world.entities.update_location(
                     swapped_entity.row(),
                     Some(EntityLocation {
                         archetype_id: swapped_location.archetype_id,
@@ -1676,7 +1676,9 @@ impl<'w> BundleRemover<'w> {
 
         // SAFETY: The entity is valid and has been moved to the new location already.
         unsafe {
-            world.entities.update(entity.row(), Some(new_location));
+            world
+                .entities
+                .update_location(entity.row(), Some(new_location));
         }
 
         (new_location, pre_remove_result)
@@ -1790,7 +1792,7 @@ impl<'w> BundleSpawner<'w> {
                 caller,
             );
 
-            let was_at = entities.declare(entity.row(), Some(location));
+            let was_at = entities.new_location(entity.row(), Some(location));
             // We need to assert here.
             // Even if we can ensure that this entity is fresh from an allocator,
             // it does not prevent users constructing arbitrary rows, which may overlap with the allocator.

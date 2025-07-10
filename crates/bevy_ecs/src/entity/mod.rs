@@ -1013,7 +1013,7 @@ impl Entities {
     ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn update(
+    pub(crate) unsafe fn update_location(
         &mut self,
         row: EntityRow,
         location: EntityIdLocation,
@@ -1031,14 +1031,14 @@ impl Entities {
     ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn declare(
+    pub(crate) unsafe fn new_location(
         &mut self,
         row: EntityRow,
         location: EntityIdLocation,
     ) -> EntityIdLocation {
         self.ensure_row_index_is_valid(row);
         // SAFETY: We just did `ensure_row`
-        self.update(row, location)
+        self.update_location(row, location)
     }
 
     /// Ensures the row is within the bounds of [`Self::meta`], expanding it if necessary.
