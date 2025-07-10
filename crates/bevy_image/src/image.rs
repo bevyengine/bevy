@@ -877,6 +877,7 @@ impl Image {
 
         Image {
             data: Some(data),
+            data_order: TextureDataOrder::default(),
             texture_descriptor: TextureDescriptor {
                 size,
                 format,
@@ -890,6 +891,7 @@ impl Image {
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
             asset_usage: RenderAssetUsages::default(),
+            copy_on_resize: true,
         }
     }
 
