@@ -1,7 +1,6 @@
 use crate::{
     archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*, world::DeferredWorld,
 };
-use alloc::vec;
 
 #[derive(Component)]
 struct A;
@@ -235,27 +234,6 @@ fn sparse_set_insert_if_new() {
     let entity = world.entity(id);
     assert!(entity.contains::<SparseA>());
     assert_eq!(entity.get(), Some(&SparseV("one")));
-}
-
-#[test]
-fn sorted_remove() {
-    let mut a = vec![1, 2, 3, 4, 5, 6, 7];
-    let b = vec![1, 2, 3, 5, 7];
-    super::sorted_remove(&mut a, &b);
-
-    assert_eq!(a, vec![4, 6]);
-
-    let mut a = vec![1];
-    let b = vec![1];
-    super::sorted_remove(&mut a, &b);
-
-    assert_eq!(a, vec![]);
-
-    let mut a = vec![1];
-    let b = vec![2];
-    super::sorted_remove(&mut a, &b);
-
-    assert_eq!(a, vec![1]);
 }
 
 #[test]
