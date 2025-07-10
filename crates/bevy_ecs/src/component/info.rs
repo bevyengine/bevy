@@ -348,7 +348,7 @@ pub struct Components {
     pub(super) indices: TypeIdMap<ComponentId>,
     pub(super) resource_indices: TypeIdMap<ComponentId>,
     /// A lookup for the entities on which resources are stored.
-    /// It uses ComponentIds instead of TypeIds for untyped APIs
+    /// It uses `ComponentId`s instead of `TypeId`s for untyped APIs
     pub(crate) resource_entities: HashMap<ComponentId, Entity>,
     // This is kept internal and local to verify that no deadlocks can occor.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
