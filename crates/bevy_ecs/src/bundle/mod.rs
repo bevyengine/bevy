@@ -9,6 +9,10 @@ mod spawner;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use insert::BundleInserter;
+pub(crate) use remove::BundleRemover;
+pub(crate) use spawner::BundleSpawner;
+
 /// Derive the [`Bundle`] trait
 ///
 /// You can apply this derive macro to structs that are
