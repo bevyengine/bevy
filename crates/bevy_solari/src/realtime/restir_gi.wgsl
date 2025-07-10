@@ -43,7 +43,7 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let world_normal = octahedral_decode(unpack_24bit_normal(gpixel.a));
 
     let initial_reservoir = generate_initial_reservoir(world_position, world_normal, &rng);
-    let temporal_reservoir = load_temporal_reservoir(global_id.xy, depth, world_position, world_normal, &rng);
+    let temporal_reservoir = load_temporal_reservoir(global_id.xy, depth, world_position, world_normal);
     let combined_reservoir = merge_reservoirs(initial_reservoir, temporal_reservoir, &rng);
 
     gi_reservoirs_b[pixel_index] = combined_reservoir;
@@ -110,7 +110,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     return reservoir;
 }
 
-fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> Reservoir {
+fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> Reservoir {
     let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.viewport.zw));
     let temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
