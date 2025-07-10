@@ -6,7 +6,7 @@ mod types;
 pub use binder::RaytracingSceneBindings;
 pub use types::RaytracingMesh3d;
 
-use crate::SolariPlugin;
+use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
@@ -41,10 +41,10 @@ impl Plugin for RaytracingScenePlugin {
         let render_app = app.sub_app_mut(RenderApp);
         let render_device = render_app.world().resource::<RenderDevice>();
         let features = render_device.features();
-        if !features.contains(SolariPlugin::required_wgpu_features()) {
+        if !features.contains(SolariPlugins::required_wgpu_features()) {
             warn!(
                 "RaytracingScenePlugin not loaded. GPU lacks support for required features: {:?}.",
-                SolariPlugin::required_wgpu_features().difference(features)
+                SolariPlugins::required_wgpu_features().difference(features)
             );
             return;
         }
