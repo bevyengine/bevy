@@ -56,7 +56,7 @@ approx = { version = "0.5", default-features = false }
 cfg-if = "1.0"
 raw-window-handle = "0.6"
 bytemuck = { version = "1.5", optional = true }
-wgpu-types = { version= "26", optional = true }
+wgpu-types = { version = "26", optional = true }
 accesskit = "0.19"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
