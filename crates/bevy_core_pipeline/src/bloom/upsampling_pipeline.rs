@@ -18,6 +18,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::ViewTarget,
 };
+use bevy_utils::default;
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -115,8 +116,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                shader_defs: vec![],
-                entry_point: "upsample".into(),
+                entry_point: Some("upsample".into()),
                 targets: vec![Some(ColorTargetState {
                     format: texture_format,
                     blend: Some(BlendState {
@@ -129,12 +129,9 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

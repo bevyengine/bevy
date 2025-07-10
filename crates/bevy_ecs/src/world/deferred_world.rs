@@ -7,7 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{BufferedEvent, EntityEvent, Event, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EntityEvent, Event, EventId, EventKey, Events, WriteBatchIds},
     lifecycle::{HookContext, INSERT, REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
@@ -507,30 +507,51 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_non_send_resource_mut() }
     }
 
-    /// Sends a [`BufferedEvent`].
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
+    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
+        self.write_event_batch(core::iter::once(event))?.next()
+    }
+
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(since = "0.17.0", note = "Use `DeferredWorld::write_event` instead.")]
     pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
-        self.send_event_batch(core::iter::once(event))?.next()
+        self.write_event(event)
     }
 
-    /// Sends the default value of the [`BufferedEvent`] of type `E`.
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
+    pub fn write_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
+        self.write_event(E::default())
+    }
+
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use `DeferredWorld::write_event_default` instead."
+    )]
     pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
-        self.send_event(E::default())
+        self.write_event_default::<E>()
     }
 
-    /// Sends a batch of [`BufferedEvent`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the sent `events`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn send_event_batch<E: BufferedEvent>(
+    pub fn write_event_batch<E: BufferedEvent>(
         &mut self,
         events: impl IntoIterator<Item = E>,
-    ) -> Option<SendBatchIds<E>> {
+    ) -> Option<WriteBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
             log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
@@ -538,7 +559,22 @@ impl<'w> DeferredWorld<'w> {
             );
             return None;
         };
-        Some(events_resource.send_batch(events))
+        Some(events_resource.write_batch(events))
+    }
+
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use `DeferredWorld::write_event_batch` instead."
+    )]
+    pub fn send_event_batch<E: BufferedEvent>(
+        &mut self,
+        events: impl IntoIterator<Item = E>,
+    ) -> Option<WriteBatchIds<E>> {
+        self.write_event_batch(events)
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
@@ -749,7 +785,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers(
         &mut self,
-        event: ComponentId,
+        event: EventKey,
         target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
@@ -773,7 +809,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
-        event: ComponentId,
+        event: EventKey,
         current_target: Option<Entity>,
         original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,

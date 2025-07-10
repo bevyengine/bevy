@@ -2,22 +2,32 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::EventReader,
     query::{Changed, Or},
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut},
+    system::{Query, ResMut},
+};
+#[cfg(feature = "bevy_ui_picking_backend")]
+use bevy_ecs::{
+    event::EventReader,
+    system::{Commands, Res},
 };
 use bevy_image::{Image, ToExtents};
-use bevy_math::{Rect, UVec2};
+#[cfg(feature = "bevy_ui_picking_backend")]
+use bevy_math::Rect;
+use bevy_math::UVec2;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_picking::{
     events::PointerState,
     hover::HoverMap,
     pointer::{Location, PointerId, PointerInput, PointerLocation},
 };
+#[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
-use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_render::camera::Camera;
+#[cfg(feature = "bevy_ui_picking_backend")]
+use bevy_render::camera::NormalizedRenderTarget;
+#[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_transform::components::GlobalTransform;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use uuid::Uuid;
@@ -137,7 +147,7 @@ pub fn viewport_picking(
             };
             viewport_pointer_location.location = Some(location.clone());
 
-            commands.send_event(PointerInput {
+            commands.write_event(PointerInput {
                 location,
                 pointer_id: viewport_pointer_id,
                 action: input.action,

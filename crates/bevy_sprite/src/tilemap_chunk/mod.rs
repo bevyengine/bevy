@@ -16,7 +16,9 @@ use bevy_math::{FloatOrd, UVec2, Vec2, Vec3};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     mesh::{Indices, Mesh, Mesh2d, PrimitiveTopology},
-    render_resource::{TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
+    render_resource::{
+        TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    },
 };
 use tracing::warn;
 
@@ -198,6 +200,7 @@ fn make_chunk_image(size: &UVec2, indices: &[Option<u16>]) -> Image {
                 .flat_map(|i| u16::to_ne_bytes(i.unwrap_or(u16::MAX)))
                 .collect(),
         ),
+        data_order: TextureDataOrder::default(),
         texture_descriptor: TextureDescriptor {
             size: size.to_extents(),
             dimension: TextureDimension::D2,

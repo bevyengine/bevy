@@ -3,8 +3,8 @@ use bevy_utils::prelude::DebugName;
 use core::ops::Not;
 
 use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
-    SystemInput,
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, RunSystemError,
+    System, SystemIn, SystemInput,
 };
 
 /// A type-erased run condition stored in a [`Box`].
@@ -12,18 +12,8 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 
 /// A system that determines if one or more scheduled systems should run.
 ///
-/// `SystemCondition` is sealed and implemented for functions and closures with
-/// [read-only](crate::system::ReadOnlySystemParam) parameters that convert into
-/// [`System<Out = bool>`](System), [`System<Out = Result<(), BevyError>>`](System) or
-/// [`System<Out = Result<bool, BevyError>>`](System).
-///
-/// `SystemCondition` offers a private method
-/// (called by [`run_if`](crate::schedule::IntoScheduleConfigs::run_if) and the provided methods)
-/// that converts the implementing system into a condition (system) returning a bool.
-/// Depending on the output type of the implementing system:
-/// - `bool`: the implementing system is used as the condition;
-/// - `Result<(), BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(())`;
-/// - `Result<bool, BevyError>`: the condition returns `true` if and only if the implementing system returns `Ok(true)`.
+/// Implemented for functions and closures that convert into [`System<Out=bool>`](System)
+/// with [read-only](crate::system::ReadOnlySystemParam) parameters.
 ///
 /// # Marker type parameter
 ///
@@ -42,7 +32,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// ```
 ///
 /// # Examples
-/// A condition that returns `true` every other time it's called.
+/// A condition that returns true every other time it's called.
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn every_other_time() -> impl SystemCondition<()> {
@@ -65,12 +55,12 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # assert!(!world.resource::<DidRun>().0);
 /// ```
 ///
-/// A condition that takes a `bool` as an input and returns it unchanged.
+/// A condition that takes a bool as an input and returns it unchanged.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn identity() -> impl SystemCondition<(), In<bool>> {
-///     IntoSystem::into_system(|In(x)| x)
+///     IntoSystem::into_system(|In(x): In<bool>| x)
 /// }
 ///
 /// # fn always_true() -> bool { true }
@@ -82,30 +72,8 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-/// ```
-///
-/// A condition returning a `Result<(), BevyError>`
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # #[derive(Component)] struct Player;
-/// fn player_exists(q_player: Query<(), With<Player>>) -> Result {
-///     Ok(q_player.single()?)
-/// }
-///
-/// # let mut app = Schedule::default();
-/// # #[derive(Resource)] struct DidRun(bool);
-/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// app.add_systems(my_system.run_if(player_exists));
-/// # let mut world = World::new();
-/// # world.insert_resource(DidRun(false));
-/// # app.run(&mut world);
-/// # assert!(!world.resource::<DidRun>().0);
-/// # world.spawn(Player);
-/// # app.run(&mut world);
-/// # assert!(world.resource::<DidRun>().0);
-pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
-    sealed::SystemCondition<Marker, In, Out>
+pub trait SystemCondition<Marker, In: SystemInput = ()>:
+    sealed::SystemCondition<Marker, In>
 {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
@@ -404,61 +372,28 @@ pub trait SystemCondition<Marker, In: SystemInput = (), Out = bool>:
     }
 }
 
-impl<Marker, In: SystemInput, Out, F> SystemCondition<Marker, In, Out> for F where
-    F: sealed::SystemCondition<Marker, In, Out>
+impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where
+    F: sealed::SystemCondition<Marker, In>
 {
 }
 
 mod sealed {
-    use crate::{
-        error::BevyError,
-        system::{IntoSystem, ReadOnlySystem, SystemInput},
-    };
+    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
 
-    pub trait SystemCondition<Marker, In: SystemInput, Out>:
-        IntoSystem<In, Out, Marker, System = Self::ReadOnlySystem>
+    pub trait SystemCondition<Marker, In: SystemInput>:
+        IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
         // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = In, Out = Out>;
-
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool>;
+        type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
     }
 
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, bool> for F
+    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F
     where
         F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
     {
         type ReadOnlySystem = F::System;
-
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
-            IntoSystem::into_system(self)
-        }
-    }
-
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<(), BevyError>> for F
-    where
-        F: IntoSystem<In, Result<(), BevyError>, Marker>,
-        F::System: ReadOnlySystem,
-    {
-        type ReadOnlySystem = F::System;
-
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
-            IntoSystem::into_system(self.map(|result| result.is_ok()))
-        }
-    }
-
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In, Result<bool, BevyError>> for F
-    where
-        F: IntoSystem<In, Result<bool, BevyError>, Marker>,
-        F::System: ReadOnlySystem,
-    {
-        type ReadOnlySystem = F::System;
-
-        fn into_condition_system(self) -> impl ReadOnlySystem<In = In, Out = bool> {
-            IntoSystem::into_system(self.map(|result| matches!(result, Ok(true))))
-        }
     }
 }
 
@@ -940,7 +875,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
-    /// world.resource_mut::<Events<MyEvent>>().send(MyEvent);
+    /// world.resource_mut::<Events<MyEvent>>().write(MyEvent);
     ///
     /// // A `MyEvent` event has been pushed so `my_system` will run
     /// app.run(&mut world);
@@ -1176,9 +1111,9 @@ impl<S: System<Out: Not>> Adapt<S> for NotMarker {
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out {
-        !run_system(input)
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        run_system(input).map(Not::not)
     }
 }
 
@@ -1214,10 +1149,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, A>) -> B::Out,
-    ) -> Self::Out {
-        a(input) && b(input)
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input)? && b(input)?)
     }
 }
 
@@ -1235,10 +1170,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) && b(input))
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input)? && b(input)?))
     }
 }
 
@@ -1256,10 +1191,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) || b(input))
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input)? || b(input)?))
     }
 }
 
@@ -1277,10 +1212,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) || b(input)
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input)? || b(input)?)
     }
 }
 
@@ -1298,10 +1233,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) ^ b(input))
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input)? ^ b(input)?))
     }
 }
 
@@ -1319,10 +1254,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) ^ b(input)
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input)? ^ b(input)?)
     }
 }
 
