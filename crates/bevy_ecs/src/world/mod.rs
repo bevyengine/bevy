@@ -216,12 +216,14 @@ impl World {
         &mut self.entities
     }
 
-    /// Retrieves the number of [`Entities`] in the world.
+    /// Retrieves the number of [`Entities`] in the world. This count does not include resource entities.
     ///
     /// This is helpful as a diagnostic, but it can also be used effectively in tests.
     #[inline]
-    pub fn num_entities(&self) -> u32 {
-        self.entities.len()
+    pub fn entity_count(&self) -> u32 {
+        self.entities
+            .len()
+            .saturating_sub(self.components.resource_entities.len() as u32)
     }
 
     /// Retrieves this world's [`Archetypes`] collection.

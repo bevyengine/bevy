@@ -332,6 +332,9 @@ mod tests {
     #[test]
     fn builder_or() {
         let mut world = World::new();
+        // We don't want to query resources for this test.
+        world.register_disabling_component::<IsResource>();
+
         world.spawn((A(0), B(0)));
         world.spawn(B(0));
         world.spawn(C(0));

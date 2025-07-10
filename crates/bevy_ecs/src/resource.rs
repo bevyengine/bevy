@@ -1,5 +1,10 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
+use crate::prelude::Component;
+use crate::prelude::ReflectComponent;
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
+use core::marker::PhantomData;
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
 
@@ -73,3 +78,89 @@ pub use bevy_ecs_macros::Resource;
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
 pub trait Resource: Send + Sync + 'static {}
+
+/// A marker component for the entity that stores the resource of type `T`.
+///
+/// This component is automatically inserted when a resource of type `T` is inserted into the world,
+/// and can be used to find the entity that stores a particular resource.
+///
+/// By contrast, the [`IsResource`] component is used to find all entities that store resources,
+/// regardless of the type of resource they store.
+///
+/// This component comes with a hook that ensures that at most one entity has this component for any given `R`:
+/// adding this component to an entity (or spawning an entity with this component) will despawn any other entity with this component.
+#[derive(Component, Debug)]
+#[require(IsResource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Default))]
+pub struct ResourceEntity<R: Resource>(#[reflect(ignore)] PhantomData<R>);
+
+impl<R: Resource> Default for ResourceEntity<R> {
+    fn default() -> Self {
+        ResourceEntity(PhantomData)
+    }
+}
+
+/// A marker component for entities which store resources.
+///
+/// By contrast, the [`ResourceEntity<R>`] component is used to find the entity that stores a particular resource.
+/// This component is required by the [`ResourceEntity<R>`] component, and will automatically be added.
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, Debug)
+)]
+#[derive(Component, Default, Debug)]
+pub struct IsResource;
+
+#[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
+mod tests {
+    use crate::change_detection::MaybeLocation;
+    use crate::ptr::PtrMut;
+    use crate::resource::Resource;
+    use crate::world::World;
+    use bevy_platform::prelude::String;
+    use core::mem::ManuallyDrop;
+
+    #[test]
+    fn unique_resource_entities() {
+        #[derive(Default, Resource)]
+        struct TestResource1;
+
+        #[derive(Resource)]
+        #[expect(dead_code, reason = "field needed for testing")]
+        struct TestResource2(String);
+
+        #[derive(Resource)]
+        #[expect(dead_code, reason = "field needed for testing")]
+        struct TestResource3(u8);
+
+        let mut world = World::new();
+        let start = world.entities().len();
+        world.init_resource::<TestResource1>();
+        assert_eq!(world.entities().len(), start + 1);
+        world.insert_resource(TestResource2(String::from("Foo")));
+        assert_eq!(world.entities().len(), start + 2);
+        // like component registration, which just makes it known to the world that a component exists,
+        // registering a resource should not spawn an entity.
+        let id = world.register_resource::<TestResource3>();
+        assert_eq!(world.entities().len(), start + 2);
+        unsafe {
+            // SAFETY
+            // *
+            world.insert_resource_by_id(
+                id,
+                PtrMut::from(&mut ManuallyDrop::new(20 as u8)).promote(),
+                MaybeLocation::caller(),
+            );
+        }
+        assert_eq!(world.entities().len(), start + 3);
+        assert!(world.remove_resource_by_id(id).is_some());
+        assert_eq!(world.entities().len(), start + 2);
+        world.remove_resource::<TestResource1>();
+        assert_eq!(world.entities().len(), start + 1);
+        // make sure that trying to add a resource twice results, doesn't change the entity count
+        world.insert_resource(TestResource2(String::from("Bar")));
+        assert_eq!(world.entities().len(), start + 1);
+    }
+}
