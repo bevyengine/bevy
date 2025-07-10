@@ -3,11 +3,11 @@ use crate::renderer::{
 };
 use alloc::borrow::Cow;
 
-use wgpu::{DxcShaderModel, MemoryBudgetThresholds};
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
     Limits as WgpuLimits, MemoryHints, PowerPreference,
 };
+use wgpu::{DxcShaderModel, MemoryBudgetThresholds};
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
 #[derive(Clone)]
@@ -110,9 +110,7 @@ impl Default for WgpuSettings {
             } else {
                 let dxc = "dxcompiler.dll";
 
-                if cfg!(target_os = "windows")
-                    && std::fs::metadata(dxc).is_ok()
-                {
+                if cfg!(target_os = "windows") && std::fs::metadata(dxc).is_ok() {
                     Dx12Compiler::DynamicDxc {
                         dxc_path: String::from(dxc),
                         max_shader_model: DxcShaderModel::V6_7,
@@ -139,7 +137,7 @@ impl Default for WgpuSettings {
             gles3_minor_version,
             instance_flags,
             memory_hints: MemoryHints::default(),
-            instance_memory_budget_thresholds:MemoryBudgetThresholds::default(),
+            instance_memory_budget_thresholds: MemoryBudgetThresholds::default(),
             force_fallback_adapter: false,
             adapter_name: None,
         }
