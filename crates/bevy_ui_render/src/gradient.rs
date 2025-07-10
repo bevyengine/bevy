@@ -7,7 +7,7 @@ use core::{
 use super::shader_flags::BORDER_ALL;
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{ColorToComponents, LinearRgba};
+use bevy_color::{ColorToComponents, LinearRgba, Srgba};
 use bevy_ecs::{
     prelude::Component,
     system::{
@@ -804,8 +804,8 @@ pub fn prepare_gradient(
                                 continue;
                             }
                         }
-                        let start_color = start_stop.0.to_f32_array();
-                        let end_color = end_stop.0.to_f32_array();
+                        let start_color = Srgba::from(start_stop.0).to_f32_array();
+                        let end_color = Srgba::from(end_stop.0).to_f32_array();
                         let mut stop_flags = flags;
                         if 0. < start_stop.1
                             && (stop_index == gradient.stops_range.start || segment_count == 0)
