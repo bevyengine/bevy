@@ -832,6 +832,15 @@ impl EntitiesAllocator {
         *self.free_len.get_mut() = self.free.len();
     }
 
+    /// Allocates some [`Entity`].
+    /// The result could have come from a [`free`](Self::free) or be a brand new [`EntityRow`].
+    ///
+    /// These ids must be used; otherwise, they will be forgotten.
+    /// For example, the result must be eventually used to either construct an entity or be [`free`](Self::free)d.
+    ///
+    /// # Panics
+    ///
+    /// If there are no more entities available, this panics.
     pub(crate) fn alloc(&self) -> Entity {
         let index = self
             .free_len
@@ -844,6 +853,8 @@ impl EntitiesAllocator {
         })
     }
 
+    /// A more efficient way of calling [`alloc`](Self::alloc) repeatedly `count` times.
+    /// See [`alloc`](Self::alloc) for details.
     pub(crate) fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
         let current_len = self.free_len.fetch_sub(count as usize, Ordering::Relaxed);
         let current_len = if current_len < self.free.len() {
