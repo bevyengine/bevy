@@ -66,7 +66,7 @@ fn list_all_named_entities(
     // Query iteration order is not guaranteed, so we sort the names
     // to ensure the output is consistent.
     for name in query.iter().sort::<&Name>() {
-        text_string.push_str(&format!("{:?}\n", name));
+        text_string.push_str(&format!("{name:?}\n"));
     }
 
     if let Ok(mut text) = name_text_query.single_mut() {

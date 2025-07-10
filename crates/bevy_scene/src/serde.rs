@@ -545,7 +545,7 @@ mod tests {
         where
             S: Serializer,
         {
-            serializer.serialize_str(&format!("{:X}", value))
+            serializer.serialize_str(&format!("{value:X}"))
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<u32, D::Error>

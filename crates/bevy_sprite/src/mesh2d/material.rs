@@ -331,7 +331,6 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
             Or<(Changed<ViewVisibility>, Changed<MeshMaterial2d<M>>)>,
         >,
     >,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_materials_query: Extract<RemovedComponents<MeshMaterial2d<M>>>,
 ) {
     for (entity, view_visibility, material) in &changed_meshes_query {
@@ -342,10 +341,7 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         }
     }
 
-    for entity in removed_visibilities_query
-        .read()
-        .chain(removed_materials_query.read())
-    {
+    for entity in removed_materials_query.read() {
         // Only queue a mesh for removal if we didn't pick it up above.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
@@ -410,7 +406,7 @@ where
     fn clone(&self) -> Self {
         Self {
             mesh_key: self.mesh_key,
-            bind_group_data: self.bind_group_data.clone(),
+            bind_group_data: self.bind_group_data,
         }
     }
 }
@@ -753,7 +749,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 &material2d_pipeline,
                 Material2dKey {
                     mesh_key,
-                    bind_group_data: material_2d.key.clone(),
+                    bind_group_data: material_2d.key,
                 },
                 &mesh.layout,
             );
@@ -967,7 +963,9 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             transparent_draw_functions,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let bind_group_data = material.bind_group_data();
         match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
             Ok(prepared) => {
                 let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
@@ -986,7 +984,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
                 Ok(PreparedMaterial2d {
                     bindings: prepared.bindings,
                     bind_group: prepared.bind_group,
-                    key: prepared.data,
+                    key: bind_group_data,
                     properties: Material2dProperties {
                         depth_bias: material.depth_bias(),
                         alpha_mode: material.alpha_mode(),

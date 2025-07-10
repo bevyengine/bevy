@@ -1,3 +1,4 @@
+use crate::FullscreenShader;
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_ecs::prelude::*;
@@ -9,8 +10,7 @@ use bevy_render::{
     renderer::RenderDevice,
     RenderApp,
 };
-
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_utils::default;
 
 /// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
 pub struct BlitPlugin;
@@ -38,7 +38,8 @@ impl Plugin for BlitPlugin {
 pub struct BlitPipeline {
     pub texture_bind_group: BindGroupLayout,
     pub sampler: Sampler,
-    pub shader: Handle<Shader>,
+    pub fullscreen_shader: FullscreenShader,
+    pub fragment_shader: Handle<Shader>,
 }
 
 impl FromWorld for BlitPipeline {
@@ -61,7 +62,8 @@ impl FromWorld for BlitPipeline {
         BlitPipeline {
             texture_bind_group,
             sampler,
-            shader: load_embedded_asset!(render_world, "blit.wgsl"),
+            fullscreen_shader: render_world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(render_world, "blit.wgsl"),
         }
     }
 }
@@ -80,25 +82,21 @@ impl SpecializedRenderPipeline for BlitPipeline {
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
             layout: vec![self.texture_bind_group.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
-                shader_defs: vec![],
-                entry_point: "fs_main".into(),
+                shader: self.fragment_shader.clone(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
                     blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
             multisample: MultisampleState {
                 count: key.samples,
-                ..Default::default()
+                ..default()
             },
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

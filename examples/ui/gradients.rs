@@ -245,6 +245,18 @@ fn setup(mut commands: Commands) {
                                             InterpolationColorSpace::LinearRgb
                                         }
                                         InterpolationColorSpace::LinearRgb => {
+                                            InterpolationColorSpace::Hsl
+                                        }
+                                        InterpolationColorSpace::Hsl => {
+                                            InterpolationColorSpace::HslLong
+                                        }
+                                        InterpolationColorSpace::HslLong => {
+                                            InterpolationColorSpace::Hsv
+                                        }
+                                        InterpolationColorSpace::Hsv => {
+                                            InterpolationColorSpace::HsvLong
+                                        }
+                                        InterpolationColorSpace::HsvLong => {
                                             InterpolationColorSpace::OkLab
                                         }
                                     };
@@ -252,7 +264,7 @@ fn setup(mut commands: Commands) {
                                 }
                             }
                             for mut label in label_query.iter_mut() {
-                                label.0 = format!("{:?}", current_space);
+                                label.0 = format!("{current_space:?}");
                             }
                         }
                     ).id();

@@ -55,7 +55,7 @@ use crate::{
     entity::Entity,
     event::{
         BufferedEvent, EntityEvent, Event, EventCursor, EventId, EventIterator,
-        EventIteratorWithId, Events,
+        EventIteratorWithId, EventKey, Events,
     },
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
@@ -314,16 +314,16 @@ impl ComponentHooks {
     }
 }
 
-/// [`ComponentId`] for [`Add`]
-pub const ADD: ComponentId = ComponentId::new(0);
-/// [`ComponentId`] for [`Insert`]
-pub const INSERT: ComponentId = ComponentId::new(1);
-/// [`ComponentId`] for [`Replace`]
-pub const REPLACE: ComponentId = ComponentId::new(2);
-/// [`ComponentId`] for [`Remove`]
-pub const REMOVE: ComponentId = ComponentId::new(3);
-/// [`ComponentId`] for [`Despawn`]
-pub const DESPAWN: ComponentId = ComponentId::new(4);
+/// [`EventKey`] for [`Add`]
+pub const ADD: EventKey = EventKey(ComponentId::new(0));
+/// [`EventKey`] for [`Insert`]
+pub const INSERT: EventKey = EventKey(ComponentId::new(1));
+/// [`EventKey`] for [`Replace`]
+pub const REPLACE: EventKey = EventKey(ComponentId::new(2));
+/// [`EventKey`] for [`Remove`]
+pub const REMOVE: EventKey = EventKey(ComponentId::new(3));
+/// [`EventKey`] for [`Despawn`]
+pub const DESPAWN: EventKey = EventKey(ComponentId::new(4));
 
 /// Trigger emitted when a component is inserted onto an entity that does not already have that
 /// component. Runs before `Insert`.
@@ -465,10 +465,16 @@ impl RemovedComponentEvents {
     }
 
     /// Sends a removal event for the specified component.
+    #[deprecated(since = "0.17.0", note = "Use `RemovedComponentEvents:write` instead.")]
     pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
+        self.write(component_id, entity);
+    }
+
+    /// Writes a removal event for the specified component.
+    pub fn write(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
-            .send(RemovedComponentEntity(entity));
+            .write(RemovedComponentEntity(entity));
     }
 }
 

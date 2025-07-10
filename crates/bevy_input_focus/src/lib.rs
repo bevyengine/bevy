@@ -546,7 +546,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(child_of_b));
 
         // entity_a should receive this event
-        app.world_mut().send_event(key_a_event());
+        app.world_mut().write_event(key_a_event());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -559,7 +559,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(entity_a));
 
         // This event should be lost
-        app.world_mut().send_event(key_a_event());
+        app.world_mut().write_event(key_a_event());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -580,7 +580,7 @@ mod tests {
 
         // These events should be received by entity_b and child_of_b
         app.world_mut()
-            .send_event_batch(core::iter::repeat_n(key_a_event(), 4));
+            .write_event_batch(core::iter::repeat_n(key_a_event(), 4));
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");

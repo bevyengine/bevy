@@ -622,6 +622,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<When<P>
 mod tests {
     use crate::{
         entity::Entities,
+        error::Result,
         prelude::{Component, Query},
         reflect::ReflectResource,
         system::{Local, RunSystemOnce},
@@ -652,6 +653,10 @@ mod tests {
 
     fn query_system(query: Query<()>) -> usize {
         query.iter().count()
+    }
+
+    fn query_system_result(query: Query<()>) -> Result<usize> {
+        Ok(query.iter().count())
     }
 
     fn multi_param_system(a: Local<u64>, b: Local<u64>) -> u64 {
@@ -685,6 +690,44 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 1);
+    }
+
+    #[test]
+    fn query_builder_result_fallible() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = (QueryParamBuilder::new(|query| {
+            query.with::<A>();
+        }),)
+            .build_state(&mut world)
+            .build_system(query_system_result);
+
+        // The type annotation here is necessary since the system
+        // could also return `Result<usize>`
+        let output: usize = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
+    }
+
+    #[test]
+    fn query_builder_result_infallible() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = (QueryParamBuilder::new(|query| {
+            query.with::<A>();
+        }),)
+            .build_state(&mut world)
+            .build_system(query_system_result);
+
+        // The type annotation here is necessary since the system
+        // could also return `usize`
+        let output: Result<usize> = world.run_system_once(system).unwrap();
+        assert_eq!(output.unwrap(), 1);
     }
 
     #[test]
