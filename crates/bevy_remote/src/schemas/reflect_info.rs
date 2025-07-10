@@ -263,6 +263,8 @@ pub(super) static BASE_TYPES_INFO: LazyLock<HashMap<TypeId, PrimitiveTypeInfo>> 
     Deserialize,
 )]
 /// Reference id of the type.
+/// Serialization format matches RFC 3986, which means that the reference must be a valid URI.
+/// During serialization, all the reserved characters are encoded as percent-encoded sequences.
 pub struct TypeReferenceId(Cow<'static, str>);
 
 impl Display for TypeReferenceId {
@@ -273,7 +275,8 @@ impl Display for TypeReferenceId {
 
 impl From<&str> for TypeReferenceId {
     fn from(t: &str) -> Self {
-        TypeReferenceId(t.to_string().into())
+        let data = decode_from_uri(t).unwrap_or(t.to_string());
+        TypeReferenceId(data.into())
     }
 }
 
@@ -290,7 +293,7 @@ impl From<&TypePathTable> for TypeReferenceId {
 }
 
 /// Information about the field type.
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, Default, Reflect)]
+#[derive(Clone, Debug, PartialEq, Default, Reflect)]
 pub enum FieldType {
     /// Named field type.
     Named,
@@ -298,7 +301,7 @@ pub enum FieldType {
     #[default]
     Unnamed,
     /// Named field type that is stored as unnamed. Example: glam Vec3.
-    ForceUnnamed,
+    ForceUnnamed(TypeId),
 }
 
 /// Information about the attributes of a field.
@@ -321,6 +324,48 @@ impl FieldsInformation {
             fields: get_fields_information(iterator),
             fields_type,
         }
+    }
+    /// Creates a new instance of `FieldsInformation` with given fields.
+    pub fn with_fields(fields: Vec<SchemaFieldData>, fields_type: FieldType) -> Self {
+        FieldsInformation {
+            fields,
+            fields_type,
+        }
+    }
+    fn try_get_fields_recursively(
+        registry: &TypeRegistry,
+        type_id: TypeId,
+        field_prefix: &str,
+    ) -> Option<Vec<SchemaFieldData>> {
+        let type_reg = registry.get(type_id)?;
+        let internal = InternalSchemaType::from_type_registration(type_reg, registry);
+        let InternalSchemaType::FieldsHolder(fields_info) = internal else {
+            return None;
+        };
+        let mut fields = Vec::new();
+        for field in fields_info.fields.iter() {
+            let new_prefix = if field_prefix.is_empty() {
+                field.to_name().to_string()
+            } else {
+                format!("{}.{}", field_prefix, field.to_name())
+            };
+            let extra_fields =
+                Self::try_get_fields_recursively(registry, field.type_id, &new_prefix);
+            if let Some(extra_fields) = extra_fields {
+                for extra_field in extra_fields {
+                    fields.push(SchemaFieldData {
+                        name: Some(extra_field.to_name()),
+                        ..extra_field
+                    });
+                }
+            } else {
+                fields.push(SchemaFieldData {
+                    name: Some(new_prefix.into()),
+                    ..field.clone()
+                });
+            }
+        }
+        Some(fields)
     }
 }
 
@@ -390,7 +435,7 @@ fn try_get_regex_for_type(id: TypeId) -> Option<Cow<'static, str>> {
 }
 
 /// Represents the data of a field in a schema.
-#[derive(Clone, Reflect, Debug)]
+#[derive(Clone, Reflect, Debug, PartialEq)]
 pub struct SchemaFieldData {
     /// Name of the field.
     pub name: Option<Cow<'static, str>>,
@@ -447,6 +492,28 @@ fn encode_to_uri(input: &str) -> String {
         }
     }
     out
+}
+
+fn decode_from_uri(encoded: &str) -> Option<String> {
+    let bytes = encoded.as_bytes();
+    let length = bytes.len();
+    let mut decoded: Vec<u8> = Vec::with_capacity(length);
+    let mut i = 0;
+    while i < length - 2 {
+        match bytes[i] {
+            b'%' => {
+                i += 3;
+            }
+            b => {
+                decoded.push(b);
+                i += 1;
+            }
+        }
+    }
+    decoded.push(bytes[length - 2]);
+    decoded.push(bytes[length - 1]);
+
+    String::from_utf8(decoded).ok()
 }
 
 impl TypeReferencePath {
@@ -1277,6 +1344,8 @@ pub(crate) fn variant_to_definition(
 }
 
 pub(crate) trait TypeDefinitionBuilder {
+    /// Returns the type registry.
+    fn get_type_registry(&self) -> &TypeRegistry;
     /// Builds a JSON schema for a given type ID.
     fn build_schema_for_type_id(
         &self,
@@ -1343,20 +1412,46 @@ pub(crate) trait TypeDefinitionBuilder {
                 *schema = new_schema;
                 schema.kind = Some(SchemaKind::Tuple);
             }
-            FieldType::Unnamed | FieldType::ForceUnnamed => {
+            FieldType::Unnamed => {
                 schema.min_items = Some(info.fields.len() as u64);
                 schema.max_items = Some(info.fields.len() as u64);
                 schema.prefix_items = info
                     .fields
                     .iter()
                     .map(|field| {
-                        let mut schema = self
-                            .build_schema_reference_for_type_id(field.type_id, Some(field))
-                            .unwrap_or_default();
-                        if schema.description.is_none() && field.name.is_some() {
-                            schema.description = field.name.clone();
-                        }
-                        JsonSchemaVariant::Schema(Box::new(schema))
+                        self.build_schema_reference_for_type_id(field.type_id, Some(field))
+                            .unwrap_or_default()
+                            .into()
+                    })
+                    .collect();
+            }
+            FieldType::ForceUnnamed(type_id) => {
+                let fields = FieldsInformation::try_get_fields_recursively(
+                    self.get_type_registry(),
+                    *type_id,
+                    "",
+                )
+                .unwrap_or_default();
+                schema.min_items = Some(fields.len() as u64);
+                schema.max_items = Some(fields.len() as u64);
+                schema.prefix_items = fields
+                    .iter()
+                    .map(|field| {
+                        self.build_schema_reference_for_type_id(field.type_id, Some(field))
+                            .unwrap_or_default()
+                            .into()
+                    })
+                    .collect();
+                schema.rust_fields_info = info
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        (
+                            field.to_name(),
+                            self.build_schema_reference_for_type_id(field.type_id, Some(field))
+                                .unwrap_or_default()
+                                .into(),
+                        )
                     })
                     .collect();
             }
@@ -1365,6 +1460,9 @@ pub(crate) trait TypeDefinitionBuilder {
 }
 
 impl TypeDefinitionBuilder for TypeRegistry {
+    fn get_type_registry(&self) -> &TypeRegistry {
+        self
+    }
     fn build_schema_for_type_id(
         &self,
         type_id: TypeId,
@@ -1428,14 +1526,16 @@ impl TypeDefinitionBuilder for TypeRegistry {
                 schema.value_type = self
                     .build_schema_reference_for_type_id(value, None)
                     .map(Box::new);
-                if let Some(p) = try_get_regex_for_type(key) {
-                    schema.pattern_properties =
-                        [(p, schema.value_type.clone().unwrap_or_default())].into();
-                    schema.additional_properties = Some(JsonSchemaVariant::BoolValue(false));
-                } else {
-                    schema.additional_properties =
-                        schema.value_type.clone().map(JsonSchemaVariant::Schema);
-                }
+                schema.property_names = Some(
+                    JsonSchemaBevyType {
+                        pattern: try_get_regex_for_type(key),
+                        schema_type: SchemaType::String.into(),
+                        ..default()
+                    }
+                    .into(),
+                );
+                schema.additional_properties =
+                    schema.value_type.clone().map(JsonSchemaVariant::Schema);
                 schema.key_type = self
                     .build_schema_reference_for_type_id(key, None)
                     .map(Box::new);
@@ -1523,6 +1623,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
     ) -> Option<JsonSchemaBevyType> {
         let type_reg = self.get(type_id)?;
         let description = field_data.and_then(SchemaFieldData::to_description);
+        let title = field_data.map(SchemaFieldData::to_name).unwrap_or_default();
 
         let ref_type = Some(TypeReferencePath::definition(
             type_reg.type_info().type_path(),
@@ -1532,6 +1633,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
             description,
             kind: Some(SchemaKind::from_type_reg(type_reg)),
             ref_type,
+            title,
             type_path: type_reg.type_info().type_path().into(),
             schema_type: None,
             ..default()
@@ -1591,15 +1693,16 @@ impl TypeDefinitionBuilder for TypeRegistry {
                 schema.value_type = self
                     .build_schema_reference_for_type_id(value, None)
                     .map(Box::new);
-
-                if let Some(p) = try_get_regex_for_type(key) {
-                    schema.pattern_properties =
-                        [(p, schema.value_type.clone().unwrap_or_default())].into();
-                    schema.additional_properties = Some(JsonSchemaVariant::BoolValue(false));
-                } else {
-                    schema.additional_properties =
-                        schema.value_type.clone().map(JsonSchemaVariant::Schema);
-                }
+                schema.additional_properties =
+                    schema.value_type.clone().map(JsonSchemaVariant::Schema);
+                schema.property_names = Some(
+                    JsonSchemaBevyType {
+                        pattern: try_get_regex_for_type(key),
+                        schema_type: SchemaType::String.into(),
+                        ..default()
+                    }
+                    .into(),
+                );
             }
             InternalSchemaType::Optional { generic } => {
                 let schema_optional = self
@@ -1772,8 +1875,9 @@ pub(super) mod tests {
 
             let mut register = atr.write();
             register.register::<bevy_math::Vec3>();
+            register.register::<bevy_math::DAffine3>();
             register.register::<Foo>();
-            register.register_force_as_array::<bevy_math::Vec3>();
+            register.register_schema_base_types();
         }
         let type_registry = atr.read();
         let (_, schema) = type_registry

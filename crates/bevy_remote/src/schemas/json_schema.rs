@@ -101,9 +101,21 @@ pub struct JsonSchemaBevyType {
     pub schema: Option<Cow<'static, str>>,
     /// JSON Schema specific field.
     /// This keyword is used to reference a statically identified schema.
+    ///
+    /// Serialization format matches RFC 3986, which means that the reference must be a valid URI.
+    /// During serialization, all the reserved characters are encoded as percent-encoded sequences.
     #[serde(rename = "$ref")]
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub ref_type: Option<TypeReferencePath>,
+    /// JSON Schema specific field.
+    ///
+    /// The title keyword is a placeholder for a concise human-readable string
+    /// summary of what a schema or any of its subschemas are about.
+    ///
+    /// Bevy uses this field to provide a field name for the schema.
+    /// It can contain dots to indicate nested fields.
+    #[serde(skip_serializing_if = "str::is_empty", default)]
+    pub title: Cow<'static, str>,
     /// Bevy specific field, short path of the type.
     #[serde(skip_serializing_if = "str::is_empty", default)]
     pub short_path: Cow<'static, str>,
@@ -140,6 +152,13 @@ pub struct JsonSchemaBevyType {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     #[reflect(ignore)]
     pub key_type: Option<Box<JsonSchemaBevyType>>,
+    /// Bevy specific field.
+    ///
+    /// It is provided when type is serialized as array, but the type is not an array.
+    /// It is done to provide additional information about the fields in the schema.
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
+    #[reflect(ignore)]
+    pub rust_fields_info: HashMap<Cow<'static, str>, Box<JsonSchemaBevyType>>,
     /// The type keyword is fundamental to JSON Schema. It specifies the data type for a schema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     #[serde(rename = "type")]
@@ -150,13 +169,14 @@ pub struct JsonSchemaBevyType {
     /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub additional_properties: Option<JsonSchemaVariant>,
-    /// The behavior of this keyword depends on the presence and annotation results of "properties"
-    /// and "patternProperties" within the same schema object.
-    /// Validation with "additionalProperties" applies only to the child
-    /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
-    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
+    /// This keyword restricts object instances to only define properties whose names match the given schema.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     #[reflect(ignore)]
-    pub pattern_properties: HashMap<Cow<'static, str>, Box<JsonSchemaBevyType>>,
+    pub property_names: Option<Box<JsonSchemaBevyType>>,
+    /// The pattern keyword restricts string instances to match the given regular expression.
+    /// For now used mostly when limiting property names for Map types.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub pattern: Option<Cow<'static, str>>,
     /// Validation succeeds if, for each name that appears in both the instance and as a name
     /// within this keyword's value, the child instance for that name successfully validates
     /// against the corresponding schema.
@@ -732,11 +752,13 @@ mod tests {
           "additionalProperties": false,
           "properties": {
             "a": {
+              "title": "a",
               "type": "number",
               "kind": "Value",
               "typePath": "f32"
             },
             "b": {
+              "title": "b",
               "minimum": 0,
               "maximum": 255,
               "type": "integer",

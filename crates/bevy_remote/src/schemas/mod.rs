@@ -43,7 +43,7 @@ impl CustomInternalSchemaData {
             bevy_reflect::TypeInfo::Struct(struct_info) => Some(CustomInternalSchemaData(
                 InternalSchemaType::FieldsHolder(FieldsInformation::new(
                     struct_info.iter(),
-                    reflect_info::FieldType::ForceUnnamed,
+                    reflect_info::FieldType::ForceUnnamed(struct_info.ty().id()),
                 )),
             )),
             _ => None,
@@ -69,6 +69,7 @@ pub(crate) trait RegisterReflectJsonSchemas {
             self.register_force_as_array::<bevy_math::U64Vec2>();
             self.register_force_as_array::<bevy_math::BVec2>();
 
+            self.register_force_as_array::<bevy_math::Vec3A>();
             self.register_force_as_array::<bevy_math::Vec3>();
             self.register_force_as_array::<bevy_math::DVec3>();
             self.register_force_as_array::<bevy_math::I8Vec3>();
@@ -95,6 +96,18 @@ pub(crate) trait RegisterReflectJsonSchemas {
 
             self.register_force_as_array::<bevy_math::Quat>();
             self.register_force_as_array::<bevy_math::DQuat>();
+
+            self.register_force_as_array::<bevy_math::Mat2>();
+            self.register_force_as_array::<bevy_math::DMat2>();
+            self.register_force_as_array::<bevy_math::DMat3>();
+            self.register_force_as_array::<bevy_math::Mat3A>();
+            self.register_force_as_array::<bevy_math::Mat3>();
+            self.register_force_as_array::<bevy_math::DMat4>();
+            self.register_force_as_array::<bevy_math::Mat4>();
+            self.register_force_as_array::<bevy_math::Affine2>();
+            self.register_force_as_array::<bevy_math::DAffine2>();
+            self.register_force_as_array::<bevy_math::DAffine3>();
+            self.register_force_as_array::<bevy_math::Affine3A>();
         }
         self.register_type_internal::<OpenRpcDocument>();
         self.register_type_data_internal::<OpenRpcDocument, ReflectJsonSchema>();
@@ -147,9 +160,9 @@ impl RegisterReflectJsonSchemas for bevy_reflect::TypeRegistry {
         T: Reflect + TypePath + GetTypeRegistration,
         D: TypeData,
     {
-        self.get_mut(TypeId::of::<T>())
-            .expect("SHOULD NOT HAPPENED")
-            .insert(data);
+        if let Some(type_reg) = self.get_mut(TypeId::of::<T>()) {
+            type_reg.insert(data);
+        }
     }
 }
 impl RegisterReflectJsonSchemas for bevy_app::App {
