@@ -155,6 +155,15 @@
 //! It also stores more information like the [`Tick`] a row was last constructed or destructed, and the [`EntityIdLocation`] itself.
 //! For more information about what's stored here, see [`Entities`], Bevy's implementation of this special column.
 //!
+//! Entity spawning is done in two stages:
+//! First we create an entity id (alloc step), and then we construct it (add components and other metadata).
+//! The reason for this is that we need to be able to assign entity ids concurrently,
+//! while for construction we need exclusive (non-concurrent) access to the world.
+//! That leaves three states for any given [`EntityRow`], where those two spawning stages serve to transition between states.
+//! First, a row could be unallocated; only the allocator has any knowledge of this [`Entity`].
+//! Second, the row is allocated, making it a "null" entity; it exists, and other code can have knowledge of its existence, but it is not constructed.
+//! Third, the row is constructed, adding any (or no) components to the entity; it is now discoverable through queries, etc.
+//!
 //! [`World`]: crate::world::World
 //! [`Query`]: crate::system::Query
 //! [`Bundle`]: crate::bundle::Bundle
