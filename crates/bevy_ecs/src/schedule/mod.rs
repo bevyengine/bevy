@@ -563,10 +563,21 @@ mod tests {
         use super::*;
 
         #[test]
-        #[should_panic]
         fn dependency_loop() {
             let mut schedule = Schedule::default();
             schedule.configure_sets(TestSystems::X.after(TestSystems::X));
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Err(ScheduleBuildError::DependencyLoop(_))));
+        }
+
+        #[test]
+        fn dependency_loop_from_chain() {
+            let mut schedule = Schedule::default();
+            schedule.configure_sets((TestSystems::X, TestSystems::X).chain());
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Err(ScheduleBuildError::DependencyLoop(_))));
         }
 
         #[test]
@@ -598,10 +609,12 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
         fn hierarchy_loop() {
             let mut schedule = Schedule::default();
             schedule.configure_sets(TestSystems::X.in_set(TestSystems::X));
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Err(ScheduleBuildError::HierarchyLoop(_))));
         }
 
         #[test]
