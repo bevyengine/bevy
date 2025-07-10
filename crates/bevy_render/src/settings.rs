@@ -53,6 +53,10 @@ pub struct WgpuSettings {
     pub instance_flags: InstanceFlags,
     /// This hints to the WGPU device about the preferred memory allocation strategy.
     pub memory_hints: MemoryHints,
+    /// If true, will force wgpu to use a software renderer, if available.
+    pub force_fallback_adapter: bool,
+    /// The name of the adapter to use.
+    pub adapter_name: Option<String>,
 }
 
 impl Default for WgpuSettings {
@@ -136,6 +140,8 @@ impl Default for WgpuSettings {
             gles3_minor_version,
             instance_flags,
             memory_hints: MemoryHints::default(),
+            force_fallback_adapter: false,
+            adapter_name: None,
         }
     }
 }

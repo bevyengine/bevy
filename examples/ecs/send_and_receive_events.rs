@@ -160,6 +160,6 @@ fn send_and_receive_manual_event_reader(
 
     for mut event in events_to_resend {
         event.times_sent += 1;
-        events.send(event);
+        events.write(event);
     }
 }

@@ -12,7 +12,6 @@
 
 pub mod interaction_states;
 pub mod measurement;
-pub mod ui_material;
 pub mod update;
 pub mod widget;
 
@@ -32,7 +31,6 @@ pub mod experimental;
 mod focus;
 mod geometry;
 mod layout;
-mod render;
 mod stack;
 mod ui_node;
 
@@ -42,8 +40,6 @@ pub use gradients::*;
 pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
 pub use layout::*;
 pub use measurement::*;
-pub use render::*;
-pub use ui_material::*;
 pub use ui_node::*;
 pub use ui_transform::*;
 
@@ -53,12 +49,9 @@ use widget::{ImageNode, ImageNodeSize, ViewportNode};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[doc(hidden)]
     #[cfg(feature = "bevy_ui_picking_backend")]
-    #[doc(hidden)]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::render::UiDebugOptions;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
     #[doc(hidden)]
@@ -66,11 +59,10 @@ pub mod prelude {
         crate::{
             geometry::*,
             gradients::*,
-            ui_material::*,
             ui_node::*,
             ui_transform::*,
             widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
-            Interaction, MaterialNode, UiMaterialPlugin, UiScale,
+            Interaction, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
@@ -81,7 +73,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, AnimationSystems};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
-use bevy_render::{camera::CameraUpdateSystems, RenderApp};
+use bevy_render::camera::CameraUpdateSystems;
 use bevy_transform::TransformSystems;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
@@ -89,19 +81,8 @@ pub use stack::UiStack;
 use update::{update_clipping_system, update_ui_context_system};
 
 /// The basic plugin for Bevy UI
-pub struct UiPlugin {
-    /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
-    /// The layout and interaction components will still be updated as normal.
-    pub enable_rendering: bool,
-}
-
-impl Default for UiPlugin {
-    fn default() -> Self {
-        Self {
-            enable_rendering: true,
-        }
-    }
-}
+#[derive(Default)]
+pub struct UiPlugin;
 
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -182,8 +163,6 @@ impl Plugin for UiPlugin {
             .register_type::<ZIndex>()
             .register_type::<GlobalZIndex>()
             .register_type::<Outline>()
-            .register_type::<BoxShadowSamples>()
-            .register_type::<UiAntiAlias>()
             .register_type::<ColorStop>()
             .register_type::<AngularColorStop>()
             .register_type::<UiPosition>()
@@ -256,27 +235,6 @@ impl Plugin for UiPlugin {
         );
 
         build_text_interop(app);
-
-        if !self.enable_rendering {
-            return;
-        }
-
-        #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
-
-        build_ui_render(app);
-    }
-
-    fn finish(&self, app: &mut App) {
-        if !self.enable_rendering {
-            return;
-        }
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<UiPipeline>();
     }
 }
 

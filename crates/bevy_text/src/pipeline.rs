@@ -340,7 +340,7 @@ impl TextPipeline {
                             )
                         })?;
 
-                    let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                    let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
                     let location = atlas_info.location;
                     let glyph_rect = texture_atlas.textures[location.glyph_index];
                     let left = location.offset.x as f32;

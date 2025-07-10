@@ -43,7 +43,7 @@ impl DebugName {
             reason = "The value will be ignored if the `debug` feature is not enabled"
         )
     )]
-    pub fn borrowed(value: &'static str) -> Self {
+    pub const fn borrowed(value: &'static str) -> Self {
         DebugName {
             #[cfg(feature = "debug")]
             name: Cow::Borrowed(value),
@@ -79,7 +79,7 @@ impl DebugName {
         }
     }
 
-    /// Get the [`ShortName`] corresping to this debug name
+    /// Get the [`ShortName`] corresponding to this debug name
     ///
     /// The value will be a static string if the `debug` feature is not enabled
     pub fn shortname(&self) -> ShortName {

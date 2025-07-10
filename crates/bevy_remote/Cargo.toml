@@ -30,6 +30,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
   "serialize",
 ] }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev", optional = true }
+bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
 
 # other
 anyhow = "1"

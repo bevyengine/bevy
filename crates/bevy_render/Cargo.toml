@@ -76,6 +76,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", features = [
 bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
+bevy_light = { path = "../bevy_light", optional = true, version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
   "serialize",
@@ -113,7 +115,7 @@ profiling = { version = "1", features = [
 ], optional = true }
 async-channel = "2.3.0"
 nonmax = "0.5"
-smallvec = { version = "1.11", features = ["const_new"] }
+smallvec = { version = "1", default-features = false, features = ["const_new"] }
 offset-allocator = "0.2"
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }

@@ -10,7 +10,7 @@ impl<const SIZE: usize> Benchmark<SIZE> {
         let mut events = Events::default();
 
         for _ in 0..count {
-            events.send(BenchEvent([0u8; SIZE]));
+            events.write(BenchEvent([0u8; SIZE]));
         }
 
         Self(events)

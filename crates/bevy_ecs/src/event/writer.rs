@@ -1,9 +1,9 @@
 use bevy_ecs::{
-    event::{BufferedEvent, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EventId, Events, WriteBatchIds},
     system::{ResMut, SystemParam},
 };
 
-/// Sends [`BufferedEvent`]s of type `T`.
+/// Writes [`BufferedEvent`]s of type `T`.
 ///
 /// # Usage
 ///
@@ -34,14 +34,14 @@ use bevy_ecs::{
 ///
 /// `EventWriter` can only write events of one specific type, which must be known at compile-time.
 /// This is not a problem most of the time, but you may find a situation where you cannot know
-/// ahead of time every kind of event you'll need to send. In this case, you can use the "type-erased event" pattern.
+/// ahead of time every kind of event you'll need to write. In this case, you can use the "type-erased event" pattern.
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, event::Events};
 /// # #[derive(Event, BufferedEvent)]
 /// # pub struct MyEvent;
-/// fn send_untyped(mut commands: Commands) {
-///     // Send an event of a specific type without having to declare that
+/// fn write_untyped(mut commands: Commands) {
+///     // Write an event of a specific type without having to declare that
 ///     // type as a SystemParam.
 ///     //
 ///     // Effectively, we're just moving the type parameter from the /type/ to the /method/,
@@ -51,7 +51,7 @@ use bevy_ecs::{
 ///     // NOTE: the event won't actually be sent until commands get applied during
 ///     // apply_deferred.
 ///     commands.queue(|w: &mut World| {
-///         w.send_event(MyEvent);
+///         w.write_event(MyEvent);
 ///     });
 /// }
 /// ```
@@ -72,18 +72,18 @@ impl<'w, E: BufferedEvent> EventWriter<'w, E> {
     #[doc(alias = "send")]
     #[track_caller]
     pub fn write(&mut self, event: E) -> EventId<E> {
-        self.events.send(event)
+        self.events.write(event)
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than sending each event individually.
+    /// Writes a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
+    /// This is more efficient than writing each event individually.
     /// This method returns the [IDs](`EventId`) of the written `events`.
     ///
     /// See [`Events`] for details.
     #[doc(alias = "send_batch")]
     #[track_caller]
-    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
-        self.events.send_batch(events)
+    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> WriteBatchIds<E> {
+        self.events.write_batch(events)
     }
 
     /// Writes the default value of the event. Useful when the event is an empty struct.
@@ -96,6 +96,6 @@ impl<'w, E: BufferedEvent> EventWriter<'w, E> {
     where
         E: Default,
     {
-        self.events.send_default()
+        self.events.write_default()
     }
 }

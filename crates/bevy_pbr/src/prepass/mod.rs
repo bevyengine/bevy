@@ -66,6 +66,7 @@ use bevy_render::{
     view::RenderVisibleEntities,
     RenderSystems::{PrepareAssets, PrepareResources},
 };
+use bevy_utils::default;
 use core::marker::PhantomData;
 
 /// Sets up everything required to use the prepass pipeline.
@@ -254,14 +255,6 @@ pub fn update_mesh_previous_global_transforms(
 
 #[derive(Resource, Clone)]
 pub struct PrepassPipeline {
-    pub internal: PrepassPipelineInternal,
-    pub material_pipeline: MaterialPipeline,
-}
-
-/// Internal fields of the `PrepassPipeline` that don't need the generic bound
-/// This is done as an optimization to not recompile the same code multiple time
-#[derive(Clone)]
-pub struct PrepassPipelineInternal {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layouts: MeshLayouts,
@@ -277,6 +270,7 @@ pub struct PrepassPipelineInternal {
     /// Whether binding arrays (a.k.a. bindless textures) are usable on the
     /// current render device.
     pub binding_arrays_are_usable: bool,
+    pub material_pipeline: MaterialPipeline,
 }
 
 impl FromWorld for PrepassPipeline {
@@ -339,7 +333,7 @@ impl FromWorld for PrepassPipeline {
         let depth_clip_control_supported = render_device
             .features()
             .contains(WgpuFeatures::DEPTH_CLIP_CONTROL);
-        let internal = PrepassPipelineInternal {
+        PrepassPipeline {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
             mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
@@ -348,9 +342,6 @@ impl FromWorld for PrepassPipeline {
             depth_clip_control_supported,
             binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
             empty_layout: render_device.create_bind_group_layout("prepass_empty_layout", &[]),
-        };
-        PrepassPipeline {
-            internal,
             material_pipeline: world.resource::<MaterialPipeline>().clone(),
         }
     }
@@ -373,12 +364,9 @@ impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
         if self.properties.bindless {
             shader_defs.push("BINDLESS".into());
         }
-        let mut descriptor = self.pipeline.internal.specialize(
-            key.mesh_key,
-            shader_defs,
-            layout,
-            &self.properties,
-        )?;
+        let mut descriptor =
+            self.pipeline
+                .specialize(key.mesh_key, shader_defs, layout, &self.properties)?;
 
         // This is a bit risky because it's possible to change something that would
         // break the prepass but be fine in the main pass.
@@ -396,7 +384,7 @@ impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
     }
 }
 
-impl PrepassPipelineInternal {
+impl PrepassPipeline {
     fn specialize(
         &self,
         mesh_key: MeshPipelineKey,
@@ -584,9 +572,9 @@ impl PrepassPipelineInternal {
 
             FragmentState {
                 shader: frag_shader_handle,
-                entry_point: "fragment".into(),
                 shader_defs: shader_defs.clone(),
                 targets,
+                ..default()
             }
         });
 
@@ -605,20 +593,16 @@ impl PrepassPipelineInternal {
         let descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: vert_shader_handle,
-                entry_point: "vertex".into(),
                 shader_defs,
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment,
             layout: bind_group_layouts,
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
-                strip_index_format: None,
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
                 unclipped_depth,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
+                ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
@@ -641,9 +625,8 @@ impl PrepassPipelineInternal {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            push_constant_ranges: vec![],
             label: Some("prepass_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         };
         Ok(descriptor)
     }
@@ -726,7 +709,7 @@ impl FromWorld for PrepassViewBindGroup {
         let render_device = world.resource::<RenderDevice>();
         let empty_bind_group = render_device.create_bind_group(
             "prepass_view_empty_bind_group",
-            &pipeline.internal.empty_layout,
+            &pipeline.empty_layout,
             &[],
         );
         PrepassViewBindGroup {
@@ -753,7 +736,7 @@ pub fn prepare_prepass_view_bind_group(
     ) {
         prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
-            &prepass_pipeline.internal.view_layout_no_motion_vectors,
+            &prepass_pipeline.view_layout_no_motion_vectors,
             &BindGroupEntries::with_indices((
                 (0, view_binding.clone()),
                 (1, globals_binding.clone()),
@@ -764,7 +747,7 @@ pub fn prepare_prepass_view_bind_group(
         if let Some(previous_view_uniforms_binding) = previous_view_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
-                &prepass_pipeline.internal.view_layout_motion_vectors,
+                &prepass_pipeline.view_layout_motion_vectors,
                 &BindGroupEntries::with_indices((
                     (0, view_binding),
                     (1, globals_binding),

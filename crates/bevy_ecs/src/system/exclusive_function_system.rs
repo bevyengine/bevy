@@ -1,10 +1,11 @@
 use crate::{
     component::{CheckChangeTicks, ComponentId, Tick},
+    error::Result,
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
-        System, SystemIn, SystemInput, SystemMeta,
+        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoResult,
+        IntoSystem, System, SystemIn, SystemInput, SystemMeta,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -14,7 +15,7 @@ use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
-use super::{SystemParamValidationError, SystemStateFlags};
+use super::{RunSystemError, SystemParamValidationError, SystemStateFlags};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -22,7 +23,7 @@ use super::{SystemParamValidationError, SystemStateFlags};
 /// [`ExclusiveSystemParam`]s.
 ///
 /// [`ExclusiveFunctionSystem`] must be `.initialized` before they can be run.
-pub struct ExclusiveFunctionSystem<Marker, F>
+pub struct ExclusiveFunctionSystem<Marker, Out, F>
 where
     F: ExclusiveSystemParamFunction<Marker>,
 {
@@ -32,10 +33,10 @@ where
     param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> Marker>,
+    marker: PhantomData<fn() -> (Marker, Out)>,
 }
 
-impl<Marker, F> ExclusiveFunctionSystem<Marker, F>
+impl<Marker, Out, F> ExclusiveFunctionSystem<Marker, Out, F>
 where
     F: ExclusiveSystemParamFunction<Marker>,
 {
@@ -52,12 +53,14 @@ where
 #[doc(hidden)]
 pub struct IsExclusiveFunctionSystem;
 
-impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F
+impl<Out, Marker, F> IntoSystem<F::In, Out, (IsExclusiveFunctionSystem, Marker, Out)> for F
 where
+    Out: 'static,
     Marker: 'static,
+    F::Out: IntoResult<Out>,
     F: ExclusiveSystemParamFunction<Marker>,
 {
-    type System = ExclusiveFunctionSystem<Marker, F>;
+    type System = ExclusiveFunctionSystem<Marker, Out, F>;
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
@@ -75,13 +78,15 @@ where
 
 const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
-impl<Marker, F> System for ExclusiveFunctionSystem<Marker, F>
+impl<Marker, Out, F> System for ExclusiveFunctionSystem<Marker, Out, F>
 where
     Marker: 'static,
+    Out: 'static,
+    F::Out: IntoResult<Out>,
     F: ExclusiveSystemParamFunction<Marker>,
 {
     type In = F::In;
-    type Out = F::Out;
+    type Out = Out;
 
     #[inline]
     fn name(&self) -> DebugName {
@@ -102,7 +107,7 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         // SAFETY: The safety is upheld by the caller.
         let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
@@ -132,7 +137,7 @@ where
             world.flush();
             self.system_meta.last_run = world.increment_change_tick();
 
-            out
+            IntoResult::into_result(out)
         })
     }
 

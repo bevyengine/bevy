@@ -215,7 +215,7 @@ pub fn extract_text2d_sprite(
                 current_span = *span_index;
             }
             let rect = texture_atlases
-                .get(&atlas_info.texture_atlas)
+                .get(atlas_info.texture_atlas)
                 .unwrap()
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
@@ -234,7 +234,7 @@ pub fn extract_text2d_sprite(
                     render_entity,
                     transform,
                     color,
-                    image_handle_id: atlas_info.texture.id(),
+                    image_handle_id: atlas_info.texture,
                     flip_x: false,
                     flip_y: false,
                     kind: bevy_sprite::ExtractedSpriteKind::Slices {

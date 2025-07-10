@@ -1,7 +1,7 @@
 use super::resource_manager::ResourceManager;
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+    core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DownsampleDepthShader,
     FullscreenShader,
 };
 use bevy_ecs::{
@@ -9,6 +9,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::render_resource::*;
+use bevy_utils::default;
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
@@ -83,6 +84,7 @@ impl FromWorld for MeshletPipelines {
             .remap_1d_to_2d_dispatch_bind_group_layout
             .clone();
 
+        let downsample_depth_shader = (*world.resource::<DownsampleDepthShader>()).clone();
         let vertex_state = world.resource::<FullscreenShader>().to_vertex_state();
         let fill_counts_layout = resource_manager.fill_counts_bind_group_layout.clone();
 
@@ -112,8 +114,7 @@ impl FromWorld for MeshletPipelines {
                     }],
                     shader: clear_visibility_buffer.clone(),
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
-                    entry_point: "clear_visibility_buffer".into(),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 },
             ),
 
@@ -126,9 +127,7 @@ impl FromWorld for MeshletPipelines {
                         range: 0..8,
                     }],
                     shader: clear_visibility_buffer,
-                    shader_defs: vec![],
-                    entry_point: "clear_visibility_buffer".into(),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 },
             ),
 
@@ -144,8 +143,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_INSTANCE_CULLING_PASS".into(),
                     "MESHLET_FIRST_CULLING_PASS".into(),
                 ],
-                entry_point: "cull_instances".into(),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             }),
 
             second_instance_cull: pipeline_cache.queue_compute_pipeline(
@@ -161,8 +159,7 @@ impl FromWorld for MeshletPipelines {
                         "MESHLET_INSTANCE_CULLING_PASS".into(),
                         "MESHLET_SECOND_CULLING_PASS".into(),
                     ],
-                    entry_point: "cull_instances".into(),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 },
             ),
 
@@ -178,8 +175,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_BVH_CULLING_PASS".into(),
                     "MESHLET_FIRST_CULLING_PASS".into(),
                 ],
-                entry_point: "cull_bvh".into(),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             }),
 
             second_bvh_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -194,8 +190,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_BVH_CULLING_PASS".into(),
                     "MESHLET_SECOND_CULLING_PASS".into(),
                 ],
-                entry_point: "cull_bvh".into(),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             }),
 
             first_meshlet_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -210,8 +205,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_CLUSTER_CULLING_PASS".into(),
                     "MESHLET_FIRST_CULLING_PASS".into(),
                 ],
-                entry_point: "cull_clusters".into(),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             }),
 
             second_meshlet_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -226,8 +220,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_CLUSTER_CULLING_PASS".into(),
                     "MESHLET_SECOND_CULLING_PASS".into(),
                 ],
-                entry_point: "cull_clusters".into(),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             }),
 
             downsample_depth_first: pipeline_cache.queue_compute_pipeline(
@@ -238,13 +231,13 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader: downsample_depth_shader.clone(),
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
                         "MESHLET".into(),
                     ],
-                    entry_point: "downsample_depth_first".into(),
-                    zero_initialize_workgroup_memory: false,
+                    entry_point: Some("downsample_depth_first".into()),
+                    ..default()
                 },
             ),
 
@@ -256,13 +249,13 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader: downsample_depth_shader.clone(),
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
                         "MESHLET".into(),
                     ],
-                    entry_point: "downsample_depth_second".into(),
-                    zero_initialize_workgroup_memory: false,
+                    entry_point: Some("downsample_depth_second".into()),
+                    ..default()
                 },
             ),
 
@@ -274,10 +267,10 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader: downsample_depth_shader.clone(),
                     shader_defs: vec!["MESHLET".into()],
-                    entry_point: "downsample_depth_first".into(),
-                    zero_initialize_workgroup_memory: false,
+                    entry_point: Some("downsample_depth_first".into()),
+                    ..default()
                 },
             ),
 
@@ -289,9 +282,9 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader: downsample_depth_shader,
                     shader_defs: vec!["MESHLET".into()],
-                    entry_point: "downsample_depth_second".into(),
+                    entry_point: Some("downsample_depth_second".into()),
                     zero_initialize_workgroup_memory: false,
                 },
             ),
@@ -312,8 +305,7 @@ impl FromWorld for MeshletPipelines {
                         }
                         .into(),
                     ],
-                    entry_point: "rasterize_cluster".into(),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 },
             ),
 
@@ -334,8 +326,7 @@ impl FromWorld for MeshletPipelines {
                         }
                         .into(),
                     ],
-                    entry_point: "rasterize_cluster".into(),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 },
             ),
 
@@ -353,34 +344,22 @@ impl FromWorld for MeshletPipelines {
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
                         ],
-                        entry_point: "vertex".into(),
-                        buffers: vec![],
+                        ..default()
                     },
-                    primitive: PrimitiveState {
-                        topology: PrimitiveTopology::TriangleList,
-                        strip_index_format: None,
-                        front_face: FrontFace::Ccw,
-                        cull_mode: Some(Face::Back),
-                        unclipped_depth: false,
-                        polygon_mode: PolygonMode::Fill,
-                        conservative: false,
-                    },
-                    depth_stencil: None,
-                    multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
                         shader: visibility_buffer_hardware_raster.clone(),
                         shader_defs: vec![
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
                         ],
-                        entry_point: "fragment".into(),
                         targets: vec![Some(ColorTargetState {
                             format: TextureFormat::R8Uint,
                             blend: None,
                             write_mask: ColorWrites::empty(),
                         })],
+                        ..default()
                     }),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 },
             ),
 
@@ -397,31 +376,19 @@ impl FromWorld for MeshletPipelines {
                     vertex: VertexState {
                         shader: visibility_buffer_hardware_raster.clone(),
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
-                        entry_point: "vertex".into(),
-                        buffers: vec![],
+                        ..default()
                     },
-                    primitive: PrimitiveState {
-                        topology: PrimitiveTopology::TriangleList,
-                        strip_index_format: None,
-                        front_face: FrontFace::Ccw,
-                        cull_mode: Some(Face::Back),
-                        unclipped_depth: false,
-                        polygon_mode: PolygonMode::Fill,
-                        conservative: false,
-                    },
-                    depth_stencil: None,
-                    multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
                         shader: visibility_buffer_hardware_raster.clone(),
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
-                        entry_point: "fragment".into(),
                         targets: vec![Some(ColorTargetState {
                             format: TextureFormat::R8Uint,
                             blend: None,
                             write_mask: ColorWrites::empty(),
                         })],
+                        ..default()
                     }),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 },
             ),
 
@@ -439,39 +406,25 @@ impl FromWorld for MeshletPipelines {
                     vertex: VertexState {
                         shader: visibility_buffer_hardware_raster.clone(),
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
-                        entry_point: "vertex".into(),
-                        buffers: vec![],
+                        ..default()
                     },
-                    primitive: PrimitiveState {
-                        topology: PrimitiveTopology::TriangleList,
-                        strip_index_format: None,
-                        front_face: FrontFace::Ccw,
-                        cull_mode: Some(Face::Back),
-                        unclipped_depth: true,
-                        polygon_mode: PolygonMode::Fill,
-                        conservative: false,
-                    },
-                    depth_stencil: None,
-                    multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
                         shader: visibility_buffer_hardware_raster,
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
-                        entry_point: "fragment".into(),
                         targets: vec![Some(ColorTargetState {
                             format: TextureFormat::R8Uint,
                             blend: None,
                             write_mask: ColorWrites::empty(),
                         })],
+                        ..default()
                     }),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 }),
 
             resolve_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("meshlet_resolve_depth_pipeline".into()),
                 layout: vec![resolve_depth_layout],
-                push_constant_ranges: vec![],
                 vertex: vertex_state.clone(),
-                primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
                     format: CORE_3D_DEPTH_FORMAT,
                     depth_write_enabled: true,
@@ -479,23 +432,20 @@ impl FromWorld for MeshletPipelines {
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),
-                multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: resolve_render_targets.clone(),
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
-                    entry_point: "resolve_depth".into(),
-                    targets: vec![],
+                    entry_point: Some("resolve_depth".into()),
+                    ..default()
                 }),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             }),
 
             resolve_depth_shadow_view: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
                     label: Some("meshlet_resolve_depth_pipeline".into()),
                     layout: vec![resolve_depth_shadow_view_layout],
-                    push_constant_ranges: vec![],
                     vertex: vertex_state.clone(),
-                    primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
                         format: CORE_3D_DEPTH_FORMAT,
                         depth_write_enabled: true,
@@ -503,14 +453,12 @@ impl FromWorld for MeshletPipelines {
                         stencil: StencilState::default(),
                         bias: DepthBiasState::default(),
                     }),
-                    multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
                         shader: resolve_render_targets.clone(),
-                        shader_defs: vec![],
-                        entry_point: "resolve_depth".into(),
-                        targets: vec![],
+                        entry_point: Some("resolve_depth".into()),
+                        ..default()
                     }),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 },
             ),
 
@@ -518,7 +466,6 @@ impl FromWorld for MeshletPipelines {
                 RenderPipelineDescriptor {
                     label: Some("meshlet_resolve_material_depth_pipeline".into()),
                     layout: vec![resolve_material_depth_layout],
-                    push_constant_ranges: vec![],
                     vertex: vertex_state,
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
@@ -528,21 +475,19 @@ impl FromWorld for MeshletPipelines {
                         stencil: StencilState::default(),
                         bias: DepthBiasState::default(),
                     }),
-                    multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
                         shader: resolve_render_targets,
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
-                        entry_point: "resolve_material_depth".into(),
+                        entry_point: Some("resolve_material_depth".into()),
                         targets: vec![],
                     }),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 },
             ),
 
             fill_counts: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("meshlet_fill_counts_pipeline".into()),
                 layout: vec![fill_counts_layout],
-                push_constant_ranges: vec![],
                 shader: fill_counts,
                 shader_defs: vec![if remap_1d_to_2d_dispatch_layout.is_some() {
                     "MESHLET_2D_DISPATCH"
@@ -550,8 +495,7 @@ impl FromWorld for MeshletPipelines {
                     ""
                 }
                 .into()],
-                entry_point: "fill_counts".into(),
-                zero_initialize_workgroup_memory: false,
+                ..default()
             }),
 
             remap_1d_to_2d_dispatch: remap_1d_to_2d_dispatch_layout.map(|layout| {
@@ -563,9 +507,7 @@ impl FromWorld for MeshletPipelines {
                         range: 0..4,
                     }],
                     shader: remap_1d_to_2d_dispatch,
-                    shader_defs: vec![],
-                    entry_point: "remap_dispatch".into(),
-                    zero_initialize_workgroup_memory: false,
+                    ..default()
                 })
             }),
 
