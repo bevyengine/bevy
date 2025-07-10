@@ -191,8 +191,9 @@ fn trace_emissive_mesh_visibility(light_sample: LightSample, instance_id: u32, r
 }
 
 fn trace_point_visibility(ray_origin: vec3<f32>, point: vec3<f32>) -> f32 {
-    let dist = distance(ray_origin, point);
-    let ray_direction = (point - ray_origin) / dist;
+    let ray = point - ray_origin;
+    let dist = length(ray);
+    let ray_direction = ray / dist;
 
     let ray_t_max = dist - RAY_T_MIN - RAY_T_MIN;
     if ray_t_max < RAY_T_MIN { return 0.0; }

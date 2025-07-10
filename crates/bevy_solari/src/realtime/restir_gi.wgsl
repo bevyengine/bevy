@@ -98,6 +98,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     }
 
     reservoir.sample_point_world_position = sample_point.world_position;
+    reservoir.sample_point_world_normal = sample_point.world_normal;
     reservoir.confidence_weight = 1.0;
 
     let sample_point_diffuse_brdf = sample_point.material.base_color / PI;
@@ -203,10 +204,8 @@ struct Reservoir {
     weight_sum: f32,
     radiance: vec3<f32>,
     confidence_weight: f32,
+    sample_point_world_normal: vec3<f32>,
     unbiased_contribution_weight: f32,
-    padding1: f32,
-    padding2: f32,
-    padding3: f32,
 }
 
 fn empty_reservoir() -> Reservoir {
@@ -215,9 +214,7 @@ fn empty_reservoir() -> Reservoir {
         0.0,
         vec3(0.0),
         0.0,
-        0.0,
-        0.0,
-        0.0,
+        vec3(0.0),
         0.0,
     );
 }
@@ -243,12 +240,14 @@ fn merge_reservoirs(canonical_reservoir: Reservoir, other_reservoir: Reservoir, 
 
     if rand_f(rng) < other_resampling_weight / combined_reservoir.weight_sum {
         combined_reservoir.sample_point_world_position = other_reservoir.sample_point_world_position;
+        combined_reservoir.sample_point_world_normal = other_reservoir.sample_point_world_normal;
         combined_reservoir.radiance = other_reservoir.radiance;
 
         let inverse_target_function = select(0.0, 1.0 / other_target_function, other_target_function > 0.0);
         combined_reservoir.unbiased_contribution_weight = combined_reservoir.weight_sum * inverse_target_function;
     } else {
         combined_reservoir.sample_point_world_position = canonical_reservoir.sample_point_world_position;
+        combined_reservoir.sample_point_world_normal = canonical_reservoir.sample_point_world_normal;
         combined_reservoir.radiance = canonical_reservoir.radiance;
 
         let inverse_target_function = select(0.0, 1.0 / canonical_target_function, canonical_target_function > 0.0);
