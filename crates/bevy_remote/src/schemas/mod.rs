@@ -122,7 +122,7 @@ pub(crate) trait RegisterReflectJsonSchemas {
     where
         T: Reflect + TypePath + GetTypeRegistration,
         D: TypeData + FromType<T>;
-    /// Registers a [`CustomInternalSchemaData`] data type for a type that will force to treat the type as an array during building the [`JsonSchemaBevyType`] for given type.
+    /// Registers a [`CustomInternalSchemaData`] data type for a type that will force to treat the type as an array during building the [`json_schema::JsonSchemaBevyType`] for given type.
     /// It is useful when you want to force the type to be treated as an array in the schema, for example when type has custom serialization.
     fn registry_force_schema_to_be_array<T>(&mut self)
     where
