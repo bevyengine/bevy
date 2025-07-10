@@ -423,11 +423,12 @@ impl SchemaFieldData {
 /// Stores information about the location and id of a reference in a JSON schema.
 #[derive(Debug, Clone, PartialEq, Default, Reflect, Hash, Eq, Ord, PartialOrd)]
 pub struct TypeReferencePath {
-    /// The location of the reference in the JSON schema.
-    pub localization: ReferenceLocation,
+    /// The location of the JSON schema reference.
+    pub location: ReferenceLocation,
     /// The id of the reference.
     pub id: TypeReferenceId,
 }
+
 /// Encodes a string into a valid RFC 3986 URI string.
 fn encode_to_uri(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
@@ -449,40 +450,21 @@ fn encode_to_uri(input: &str) -> String {
 }
 
 impl TypeReferencePath {
-    /// Checks if the reference is local.
-    pub fn is_local(&self) -> bool {
-        self.localization == ReferenceLocation::Definitions
-            || self.localization == ReferenceLocation::Components
-    }
-
     /// Creates a new `TypeReferencePath` with the given type path at the Definitions location.
     pub fn definition(id: impl Into<TypeReferenceId>) -> Self {
         TypeReferencePath::new_ref(ReferenceLocation::Definitions, id)
     }
     /// Creates a new `TypeReferencePath` with the given location and type path.
-    pub fn new_ref<I: Into<TypeReferenceId>>(localization: ReferenceLocation, id: I) -> Self {
+    pub fn new_ref<I: Into<TypeReferenceId>>(location: ReferenceLocation, id: I) -> Self {
         TypeReferencePath {
-            localization,
+            location,
             id: id.into(),
         }
-    }
-
-    /// Returns the type path of the reference.
-    pub fn type_path(&self) -> String {
-        self.id.replace("-", "::")
-    }
-
-    /// Changes the localization of the reference.
-    pub fn change_localization(&mut self, new_localization: ReferenceLocation) {
-        if self.localization.eq(&ReferenceLocation::Url) {
-            return;
-        }
-        self.localization = new_localization;
     }
 }
 impl Display for TypeReferencePath {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.localization, encode_to_uri(&self.id))
+        write!(f, "{}{}", self.location, encode_to_uri(&self.id))
     }
 }
 
