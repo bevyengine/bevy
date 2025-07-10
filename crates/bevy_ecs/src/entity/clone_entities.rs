@@ -15,7 +15,7 @@ use bumpalo::Bump;
 use core::{any::TypeId, cell::LazyCell, ops::Range};
 use derive_more::From;
 
-use super::EntitiesAllocator;
+use super::{super::world::unsafe_world_cell::UnsafeEntityCell, EntitiesAllocator};
 
 /// Provides read access to the source component (the component being cloned) in a [`ComponentCloneFn`].
 pub struct SourceComponent<'a> {
@@ -546,7 +546,11 @@ impl EntityCloner {
         let mut bundle_scratch: BundleScratch;
         {
             let world = world.as_unsafe_world_cell();
-            let source_entity = world.get_entity(source).expect("Source entity must exist");
+            let (source_archetype, source_entity) = world
+                .get_entity(source)
+                .ok()
+                .and_then(|source| source.archetype().map(|archetype| (archetype, source)))
+                .expect("Source entity must exist constructed");
 
             #[cfg(feature = "bevy_reflect")]
             // SAFETY: we have unique access to `world`, nothing else accesses the registry at this moment, and we clone
@@ -559,16 +563,13 @@ impl EntityCloner {
             #[cfg(not(feature = "bevy_reflect"))]
             let app_registry = Option::<()>::None;
 
-            let source_archetype = source_entity
-                .archetype()
-                .expect("Source entity must exist constructed");
             bundle_scratch = BundleScratch::with_capacity(source_archetype.component_count());
 
             let target_archetype = LazyCell::new(|| {
                 world
                     .get_entity(target)
-                    .expect("Target entity must exist")
-                    .archetype()
+                    .ok()
+                    .and_then(UnsafeEntityCell::archetype)
                     .expect("Target entity must exist constructed")
             });
 
