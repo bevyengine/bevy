@@ -1,5 +1,5 @@
 use alloc::{borrow::Cow, vec::Vec};
-use bevy_platform::{collections::HashSet, sync::PoisonError, collections::HashMap};
+use bevy_platform::{collections::HashMap, collections::HashSet, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
