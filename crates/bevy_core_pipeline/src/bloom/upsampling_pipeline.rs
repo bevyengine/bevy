@@ -61,23 +61,6 @@ impl FromWorld for BloomUpsamplingPipeline {
             fragment: Some(FragmentState {
                 shader: fragment_shader.clone(),
                 entry_point: Some("upsample".into()),
-                targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::Rgba8Unorm, // placeholder
-                    blend: Some(BlendState {
-                        // placeholder
-                        color: BlendComponent {
-                            src_factor: BlendFactor::Zero,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Add,
-                        },
-                        alpha: BlendComponent {
-                            src_factor: BlendFactor::Zero,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Add,
-                        },
-                    }),
-                    write_mask: ColorWrites::ALL,
-                })],
                 ..default()
             }),
             ..default()
@@ -150,7 +133,6 @@ impl Specializer<RenderPipeline> for BloomUpsamplingSpecializer {
         let target = ColorTargetState {
             format: texture_format,
             blend: Some(BlendState {
-                // placeholder
                 color: color_blend,
                 alpha: BlendComponent {
                     src_factor: BlendFactor::Zero,
