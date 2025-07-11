@@ -958,13 +958,13 @@ unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, Enti
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
 unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator
-    for QueryIter<'w, 's, FilteredEntityRef<'_>, F>
+    for QueryIter<'w, 's, FilteredEntityRef<'_, '_>, F>
 {
 }
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
 unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator
-    for QueryIter<'w, 's, FilteredEntityMut<'_>, F>
+    for QueryIter<'w, 's, FilteredEntityMut<'_, '_>, F>
 {
 }
 
