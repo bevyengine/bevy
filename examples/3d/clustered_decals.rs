@@ -165,7 +165,7 @@ fn setup(
     // Error out if clustered decals aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         error!("Clustered decals aren't usable on this platform.");
-        commands.send_event(AppExit::error());
+        commands.write_event(AppExit::error());
     }
 
     spawn_cube(&mut commands, &mut meshes, &mut materials);

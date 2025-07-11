@@ -1,7 +1,7 @@
 use super::resource_manager::ResourceManager;
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+    core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DownsampleDepthShader,
     FullscreenShader,
 };
 use bevy_ecs::{
@@ -84,6 +84,7 @@ impl FromWorld for MeshletPipelines {
             .remap_1d_to_2d_dispatch_bind_group_layout
             .clone();
 
+        let downsample_depth_shader = (*world.resource::<DownsampleDepthShader>()).clone();
         let vertex_state = world.resource::<FullscreenShader>().to_vertex_state();
         let fill_counts_layout = resource_manager.fill_counts_bind_group_layout.clone();
 
@@ -230,7 +231,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader: downsample_depth_shader.clone(),
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
                         "MESHLET".into(),
@@ -248,7 +249,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader: downsample_depth_shader.clone(),
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
                         "MESHLET".into(),
@@ -266,7 +267,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader: downsample_depth_shader.clone(),
                     shader_defs: vec!["MESHLET".into()],
                     entry_point: Some("downsample_depth_first".into()),
                     ..default()
@@ -281,7 +282,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader: downsample_depth_shader,
                     shader_defs: vec!["MESHLET".into()],
                     entry_point: Some("downsample_depth_second".into()),
                     zero_initialize_workgroup_memory: false,

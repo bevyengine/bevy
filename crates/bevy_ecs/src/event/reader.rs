@@ -61,7 +61,7 @@ impl<'w, 's, E: BufferedEvent> EventReader<'w, 's, E> {
     ///     });
     /// });
     /// for value in 0..100 {
-    ///     world.send_event(MyEvent { value });
+    ///     world.write_event(MyEvent { value });
     /// }
     /// schedule.run(&mut world);
     /// let Counter(counter) = world.remove_resource::<Counter>().unwrap();
