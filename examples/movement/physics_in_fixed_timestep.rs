@@ -124,7 +124,7 @@ fn main() {
                     .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
                 (
                     // Clear our accumulated input after it was processed during the fixed timestep.
-                    clear_input,
+                    clear_input.run_if(did_fixed_timestep_run_this_frame),
                     // The player's visual representation needs to be updated after the physics simulation has been advanced.
                     // This could be run in `Update`, but if we run it here instead, the systems in `Update`
                     // will be working with the `Transform` that will actually be shown on screen.
@@ -353,14 +353,15 @@ fn set_fixed_time_step_flag(
     did_fixed_timestep_run_this_frame.0 = true;
 }
 
-// Clear the input after it was processed in the fixed timestep.
-fn clear_input(
-    mut input: Single<&mut AccumulatedInput>,
+fn did_fixed_timestep_run_this_frame(
     did_fixed_timestep_run_this_frame: Res<DidFixedTimestepRunThisFrame>,
-) {
-    if did_fixed_timestep_run_this_frame.0 {
-        **input = AccumulatedInput::default();
-    }
+) -> bool {
+    did_fixed_timestep_run_this_frame.0
+}
+
+// Clear the input after it was processed in the fixed timestep.
+fn clear_input(mut input: Single<&mut AccumulatedInput>) {
+    **input = AccumulatedInput::default();
 }
 
 /// Advance the physics simulation by one fixed timestep. This may run zero or multiple times per frame.
