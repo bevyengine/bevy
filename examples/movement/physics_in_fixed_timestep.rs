@@ -166,7 +166,7 @@ struct PhysicalTranslation(Vec3);
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
 struct PreviousPhysicalTranslation(Vec3);
 
-/// Spawn the player, and a 3D camera. We could also spawn the camera as a child of the player,
+/// Spawn the player and a 3D camera. We could also spawn the camera as a child of the player,
 /// but in practice, they are usually spawned separately so that the player's rotation does not
 /// influence the camera's rotation.
 fn spawn_player(mut commands: Commands) {
