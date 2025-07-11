@@ -54,7 +54,7 @@ fn compute_normals(c: &mut Criterion) {
         });
     });
 
-    c.bench_function("face_weighted_normals", |b| {
+    c.bench_function("angle_weighted_normals", |b| {
         b.iter_custom(|iters| {
             let mut total = Duration::default();
             for _ in 0..iters {
@@ -70,11 +70,23 @@ fn compute_normals(c: &mut Criterion) {
         });
     });
 
-    let new_mesh = || {
-        new_mesh()
-            .with_duplicated_vertices()
-            .with_computed_flat_normals()
-    };
+    c.bench_function("face_weighted_normals", |b| {
+        b.iter_custom(|iters| {
+            let mut total = Duration::default();
+            for _ in 0..iters {
+                let mut mesh = new_mesh();
+                black_box(mesh.attribute(Mesh::ATTRIBUTE_NORMAL));
+                let start = Instant::now();
+                mesh.compute_area_weighted_normals();
+                let end = Instant::now();
+                black_box(mesh.attribute(Mesh::ATTRIBUTE_NORMAL));
+                total += end.duration_since(start);
+            }
+            total
+        });
+    });
+
+    let new_mesh = || new_mesh().with_duplicated_vertices();
 
     c.bench_function("flat_normals", |b| {
         b.iter_custom(|iters| {
