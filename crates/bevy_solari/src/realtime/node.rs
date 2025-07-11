@@ -125,6 +125,9 @@ impl ViewNode for SolariLightingNode {
         });
         let pass_span = diagnostics.pass_span(&mut pass, "solari_lighting");
 
+        let dx = solari_lighting_resources.view_size.x.div_ceil(8);
+        let dy = solari_lighting_resources.view_size.y.div_ceil(8);
+
         pass.set_bind_group(0, scene_bindings, &[]);
         pass.set_bind_group(
             1,
@@ -140,10 +143,10 @@ impl ViewNode for SolariLightingNode {
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
         );
-        pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
+        pass.dispatch_workgroups(dx, dy, 1);
 
         pass.set_pipeline(spatial_and_shade_pipeline);
-        pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
+        pass.dispatch_workgroups(dx, dy, 1);
 
         pass_span.end(&mut pass);
         drop(pass);
