@@ -10,7 +10,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::With,
-    system::{Commands, Query, ResMut},
+    system::{Query, ResMut},
     world::Ref,
 };
 
