@@ -5,6 +5,7 @@ use thiserror::Error;
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
     ops::{self, FloatPow},
+    prelude::{ScaleNonUniform2d, ScaleUniform},
     Dir2, InvalidDirectionError, Isometry2d, Ray2d, Rot2, Vec2,
 };
 
@@ -90,6 +91,20 @@ impl Measured2d for Circle {
     #[doc(alias = "circumference")]
     fn perimeter(&self) -> f32 {
         2.0 * PI * self.radius
+    }
+}
+
+impl ScaleUniform for Circle {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(scale * self.radius)
+    }
+}
+
+impl ScaleNonUniform2d for Circle {
+    type Output = Ellipse;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Ellipse::from_size(scale * self.radius)
     }
 }
 
@@ -1830,6 +1845,24 @@ impl Measured2d for Rectangle {
     #[inline(always)]
     fn perimeter(&self) -> f32 {
         4.0 * (self.half_size.x + self.half_size.y)
+    }
+}
+
+impl ScaleUniform for Rectangle {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            half_size: scale * self.half_size,
+        }
+    }
+}
+
+impl ScaleNonUniform2d for Rectangle {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec2) -> Self::Output {
+        Self {
+            half_size: scale * self.half_size,
+        }
     }
 }
 

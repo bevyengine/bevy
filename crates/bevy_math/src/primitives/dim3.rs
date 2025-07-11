@@ -3,6 +3,7 @@ use core::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{
     ops::{self, FloatPow},
+    prelude::{ScaleNonUniform3d, ScaleUniform},
     Dir3, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3,
 };
 
@@ -85,6 +86,12 @@ impl Measured3d for Sphere {
     #[inline(always)]
     fn volume(&self) -> f32 {
         4.0 * FRAC_PI_3 * self.radius.cubed()
+    }
+}
+
+impl ScaleUniform for Sphere {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self::new(scale * self.radius)
     }
 }
 
@@ -728,6 +735,24 @@ impl Measured3d for Cuboid {
     #[inline(always)]
     fn volume(&self) -> f32 {
         8.0 * self.half_size.x * self.half_size.y * self.half_size.z
+    }
+}
+
+impl ScaleUniform for Cuboid {
+    fn scale_uniform(&self, scale: f32) -> Self {
+        Self {
+            half_size: scale * self.half_size,
+        }
+    }
+}
+
+impl ScaleNonUniform3d for Cuboid {
+    type Output = Self;
+
+    fn scale(&self, scale: Vec3) -> Self::Output {
+        Self {
+            half_size: scale * self.half_size,
+        }
     }
 }
 
