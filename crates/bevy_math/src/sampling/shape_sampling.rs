@@ -224,6 +224,30 @@ impl ShapeSample for Annulus {
     }
 }
 
+impl ShapeSample for Rhombus {
+    type Output = Vec2;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
+        let x: f32 = rng.gen_range(0.0..1.0);
+        let y: f32 = rng.gen_range(0.0..1.0);
+        let sign = if rng.r#gen() { Vec2::ONE } else { Vec2::new(-1.0, 1.0) };
+        let p = if ops::abs(x) + ops::abs(y) > 1.0 {
+            Vec2::new(x, y) - Vec2::ONE
+        } else {
+            Vec2::new(x, y)
+        };
+        p * sign * self.half_diagonals
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
+        let x: f32 = rng.gen_range(-1.0..=1.0);
+        let y_sign = if rng.r#gen() { -1.0 } else { 1.0 };
+
+        let y = (1.0 - ops::abs(x)) * y_sign;
+        Vec2::new(x, y) * self.half_diagonals
+    }
+}
+
 impl ShapeSample for Rectangle {
     type Output = Vec2;
 
