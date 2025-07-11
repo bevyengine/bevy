@@ -3833,6 +3833,17 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "ui_coords_debug"
+path = "examples/ui/ui_coords_debug.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_coords_debug]
+name = "UI Coords Debug"
+description = "This example tests scale factor and scrolling"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_material"
 path = "examples/ui/ui_material.rs"
 doc-scrape-examples = true
