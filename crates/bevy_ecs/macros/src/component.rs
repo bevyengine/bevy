@@ -344,6 +344,35 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         #relationship_target
     })
 }
+pub fn derive_packet(input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    let bevy_ecs_path: Path = crate::bevy_ecs_path();
+
+    ast.generics
+        .make_where_clause()
+        .predicates
+        .push(parse_quote! { Self: Send + Sync + 'static });
+
+    let struct_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+    let inner_generic = if type_generics.to_token_stream().is_empty() {
+        quote! {}
+    } else {
+        quote! {<'i>}
+    };
+
+    let ts = TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::packet::Packet for #struct_name #type_generics #where_clause { }
+        impl #impl_generics #bevy_ecs_path::packet::SystemInput for #struct_name #type_generics {
+            type Param<'i> = #struct_name #inner_generic;
+            type Inner<'i> = #struct_name #inner_generic;
+            fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
+                this
+            }
+        }
+    });
+    return ts;
+}
 
 const ENTITIES: &str = "entities";
 

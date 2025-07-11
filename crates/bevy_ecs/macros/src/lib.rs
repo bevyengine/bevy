@@ -672,6 +672,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
 
+#[proc_macro_derive(Packet)]
+pub fn derive_packet(input: TokenStream) -> TokenStream {
+    component::derive_packet(input)
+}
 /// Implement the `FromWorld` trait.
 #[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {

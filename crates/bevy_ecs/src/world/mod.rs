@@ -106,6 +106,7 @@ pub struct World {
     pub(crate) last_check_tick: Tick,
     pub(crate) last_trigger_id: u32,
     pub(crate) command_queue: RawCommandQueue,
+    pub(crate) packet_systems: bevy_platform::collections::HashMap<TypeId, Box<dyn core::any::Any>>,
 }
 
 impl Default for World {
@@ -127,6 +128,7 @@ impl Default for World {
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
             component_ids: ComponentIds::default(),
+            packet_systems: Default::default(),
         };
         world.bootstrap();
         world
