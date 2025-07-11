@@ -752,10 +752,33 @@ new_key_type! {
     pub struct SystemSetKey;
 }
 
+/// Systems and system sets in a [`ScheduleGraph`] which have not been
+/// initialized yet.
+///
+/// We have to defer initialization of nodes in the graph until we have
+/// `&mut World` access, so we store these in a list ([`ScheduleGraph::uninit`])
+/// until then. In most cases, initialization occurs upon the first run of the
+/// schedule.
 enum UninitializedId {
+    /// A system and its conditions that have not been initialized yet.
     System(SystemKey),
+    /// A system set's conditions that have not been initialized yet.
     Set {
         key: SystemSetKey,
+        /// The index in [`SystemSets::conditions`] where the first
+        /// uninitialized condition is. All conditions after this index also
+        /// still need to be initialized.
+        ///
+        /// Conditions might be added multiple times to a system set (e.g. when
+        /// `configure_sets` is called multiple times with the same set), So we
+        /// need to track where the newly added conditions start in the
+        /// `conditions` list.
+        ///
+        /// Note: We don't need to do this for systems because calling
+        /// `add_systems` multiple times with the same system results in
+        /// multiple duplicates of that system in the graph, each with their own
+        /// separate list of conditions. That means all of a system's conditions
+        /// are always initialized together.
         first_uninit_condition: usize,
     },
 }
@@ -793,8 +816,8 @@ pub struct ScheduleGraph {
     pub system_conditions: SecondaryMap<SystemKey, Vec<ConditionWithAccess>>,
     /// Data about system sets in the schedule
     system_sets: SystemSets,
-    /// Systems that have not been initialized yet; for system sets, we store the index of the first uninitialized condition
-    /// (all the conditions after that index still need to be initialized)
+    /// Systems, their conditions, and system set conditions that need to be
+    /// initialized before the schedule can be run.
     uninit: Vec<UninitializedId>,
     /// Directed acyclic graph of the hierarchy (which systems/sets are children of which sets)
     hierarchy: Dag,
@@ -807,7 +830,6 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-
     passes: BTreeMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
 }
 
