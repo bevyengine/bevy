@@ -20,14 +20,12 @@ fn main() {
         .run();
 }
 
-
 #[derive(Component)]
 struct ScrollStart(Vec2);
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.insert_resource(UiScale(0.5));
-        
 
     commands
         .spawn((
@@ -55,10 +53,9 @@ fn setup(mut commands: Commands) {
                 }
             },
         )
-          .observe(
+        .observe(
             |
-            _: On<Pointer<DragEnd>>,
-             
+            _: On<Pointer<DragStart>>,
              mut scroll_position_query: Query<(
                 &ScrollPosition,
                 &mut ScrollStart),
@@ -66,7 +63,6 @@ fn setup(mut commands: Commands) {
             >| {
                 if let Ok((scroll_pos,mut start)) = scroll_position_query.single_mut() {
                     start.0 = scroll_pos.0;
-                    
                 }
             },
         )
@@ -106,7 +102,7 @@ fn setup(mut commands: Commands) {
                                 })
                                 .observe(|on_enter: On<Pointer<Out>>, mut query: Query<(&mut BackgroundColor, &Tile)>,| {
                                     if let Ok((mut background_color, tile)) = query.get_mut(on_enter.target()) {
-                                        background_color.0 = 
+                                        background_color.0 =
                                             if tile.0 == 1 {
                                                 NAVY.into()
                                             } else {
