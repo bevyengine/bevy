@@ -642,7 +642,16 @@ fn apply_pbr_lighting(
 #endif  // ENVIRONMENT_MAP
 
     // Ambient light (indirect)
-    indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+    // If we are lightmapped, disable the ambient contribution if requested.
+    // This is to avoid double-counting ambient light. (It might be part of the lightmap)
+#ifdef LIGHTMAP
+    let enable_ambient = view_bindings::lights.ambient_light_affects_lightmapped_meshes != 0u;
+#else   // LIGHTMAP
+    let enable_ambient = true;
+#endif  // LIGHTMAP
+    if (enable_ambient) {
+        indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+    }
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below
