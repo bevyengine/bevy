@@ -290,7 +290,7 @@ impl Default for CameraSensitivity {
 /// There are many strategies for how to handle all the input that happened since the last fixed timestep.
 /// This is a very simple one: we just use the last available input.
 /// That strategy works fine for us since the user continuously presses the input keys in this example.
-/// If we had some kind of instantaneous action like jumping, we would need to remember that that input
+/// If we had some kind of instantaneous action like activating a boost ability, we would need to remember that that input
 /// was pressed at some point since the last fixed timestep.
 fn accumulate_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
