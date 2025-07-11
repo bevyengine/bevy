@@ -23,6 +23,7 @@ mod core_slider;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
+use bevy_ecs::entity::Entity;
 pub use callback::{Callback, Notify};
 pub use core_button::{CoreButton, CoreButtonPlugin};
 pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
@@ -49,4 +50,17 @@ impl PluginGroup for CoreWidgetsPlugins {
             .add(CoreScrollbarPlugin)
             .add(CoreSliderPlugin)
     }
+}
+
+/// Notification sent by a button or menu item.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Activate(pub Entity);
+
+/// Notification sent by a widget that edits a scalar value.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ValueChange<T> {
+    /// The id of the widget that produced this value.
+    pub source: Entity,
+    /// The new value.
+    pub value: T,
 }
