@@ -282,6 +282,9 @@ impl Default for CameraSensitivity {
 ///
 /// There are many strategies for how to handle all the input that happened since the last fixed timestep.
 /// This is a very simple one: we just use the last available input.
+/// That strategy works fine for us since the user continuously presses the input keys in this example.
+/// If we had some kind of instantaneous action like jumping, we would need to remember that that input
+/// was pressed at some point since the last fixed timestep.
 fn accumulate_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     player: Single<(&mut AccumulatedInput, &mut Velocity)>,
@@ -291,6 +294,8 @@ fn accumulate_input(
     /// Note that about 1.5 is the average walking speed of a human.
     const SPEED: f32 = 4.0;
     let (mut input, mut velocity) = player.into_inner();
+    // Reset the input to zero before reading the new input. As mentioned above, we can only do this
+    // because this is continuously pressed by the user. Do not reset e.g. whether the user wants to jump here.
     input.0 = Vec2::ZERO;
     if keyboard_input.pressed(KeyCode::KeyW) {
         input.y += 1.0;
