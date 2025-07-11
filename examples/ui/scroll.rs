@@ -153,6 +153,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     align_self: AlignSelf::Stretch,
                     height: Val::Percent(50.),
                     overflow: Overflow::scroll(), // n.b.
+                    scrollbar_width: 20.,
                     ..default()
                 },
                 ScrollingList,
