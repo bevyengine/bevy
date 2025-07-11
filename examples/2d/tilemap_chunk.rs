@@ -28,21 +28,32 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
     let chunk_size = UVec2::splat(64);
     let tile_display_size = UVec2::splat(8);
-    let indices: Vec<Option<u16>> = (0..chunk_size.element_product())
-        .map(|_| rng.gen_range(0..5))
-        .map(|i| if i == 0 { None } else { Some(i - 1) })
-        .collect();
 
-    commands.spawn((
-        TilemapChunk {
-            chunk_size,
-            tile_display_size,
-            tileset: assets.load("textures/array_texture.png"),
-            ..default()
-        },
-        TilemapChunkIndices(indices),
-        UpdateTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-    ));
+    let tileset = assets.load("textures/array_texture.png");
+
+    for x in 0..2 {
+        for y in 0..2 {
+            let indices: Vec<Option<u16>> = (0..chunk_size.element_product())
+                .map(|_| rng.gen_range(0..5))
+                .map(|i| if i == 0 { None } else { Some(i - 1) })
+                .collect();
+            commands.spawn((
+                TilemapChunk {
+                    chunk_size,
+                    tile_display_size,
+                    tileset: tileset.clone(),
+                    ..default()
+                },
+                TilemapChunkIndices(indices),
+                Transform::from_translation(Vec3::new(
+                    x as f32 * 512.0 - 256.0,
+                    y as f32 * 512.0 - 256.0,
+                    0.0,
+                )),
+                UpdateTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            ));
+        }
+    }
 
     commands.spawn(Camera2d);
 
@@ -50,15 +61,19 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 }
 
 fn update_tileset_image(
-    chunk_query: Single<&TilemapChunk>,
+    chunk_query: Query<&TilemapChunk>,
     mut events: EventReader<AssetEvent<Image>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let chunk = *chunk_query;
     for event in events.read() {
-        if event.is_loaded_with_dependencies(chunk.tileset.id()) {
-            let image = images.get_mut(&chunk.tileset).unwrap();
-            image.reinterpret_stacked_2d_as_array(4);
+        if let AssetEvent::LoadedWithDependencies { id } = event {
+            for chunk in chunk_query.iter() {
+                if chunk.tileset.id() == *id {
+                    let image = images.get_mut(&chunk.tileset).unwrap();
+                    image.reinterpret_stacked_2d_as_array(4);
+                    break;
+                }
+            }
         }
     }
 }
