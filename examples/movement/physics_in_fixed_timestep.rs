@@ -140,7 +140,12 @@ fn main() {
 /// A vector representing the player's input, accumulated over all frames that ran
 /// since the last time the physics simulation was advanced.
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
-struct AccumulatedInput(Vec2);
+struct AccumulatedInput {
+    // The player's movement input (WASD).
+    movement: Vec2,
+    // Other input that could make sense would be e.g.
+    // boost: bool
+}
 
 /// A vector representing the player's velocity in the physics simulation.
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
@@ -296,27 +301,27 @@ fn accumulate_input(
     const SPEED: f32 = 4.0;
     let (mut input, mut velocity) = player.into_inner();
     // Reset the input to zero before reading the new input. As mentioned above, we can only do this
-    // because this is continuously pressed by the user. Do not reset e.g. whether the user wants to jump here.
-    input.0 = Vec2::ZERO;
+    // because this is continuously pressed by the user. Do not reset e.g. whether the user wants to boost.
+    input.movement = Vec2::ZERO;
     if keyboard_input.pressed(KeyCode::KeyW) {
-        input.y += 1.0;
+        input.movement.y += 1.0;
     }
     if keyboard_input.pressed(KeyCode::KeyS) {
-        input.y -= 1.0;
+        input.movement.y -= 1.0;
     }
     if keyboard_input.pressed(KeyCode::KeyA) {
-        input.x -= 1.0;
+        input.movement.x -= 1.0;
     }
     if keyboard_input.pressed(KeyCode::KeyD) {
-        input.x += 1.0;
+        input.movement.x += 1.0;
     }
 
     // Remap the 2D input to Bevy's 3D coordinate system.
     // Pressing W makes `input.y` go up. Since Bevy assumes that -Z is forward, we make our new Z equal to -input.y
     let input_3d = Vec3 {
-        x: input.x,
+        x: input.movement.x,
         y: 0.0,
-        z: -input.y,
+        z: -input.movement.y,
     };
 
     // Rotate the input so that forward is aligned with the camera's forward direction.
@@ -352,7 +357,7 @@ fn clear_input(
     did_fixed_timestep_run_this_frame: Res<DidFixedTimestepRunThisFrame>,
 ) {
     if did_fixed_timestep_run_this_frame.0 {
-        input.0 = Vec2::ZERO;
+        **input = AccumulatedInput::default();
     }
 }
 
