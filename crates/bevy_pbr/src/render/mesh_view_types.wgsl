@@ -66,6 +66,7 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
+    ambient_light_affects_lightmapped_meshes: u32
 };
 
 struct Fog {
