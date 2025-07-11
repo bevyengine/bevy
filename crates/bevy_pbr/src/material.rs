@@ -459,19 +459,15 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             .pipeline
             .mesh_pipeline
             .specialize(key.mesh_key, layout)?;
-        descriptor.vertex.shader_defs.push(
-            ShaderDefVal::UInt(
+        descriptor.vertex.shader_defs.push(ShaderDefVal::UInt(
+            "MATERIAL_BIND_GROUP".into(),
+            MATERIAL_BIND_GROUP_INDEX as u32,
+        ));
+        if let Some(ref mut fragment) = descriptor.fragment {
+            fragment.shader_defs.push(ShaderDefVal::UInt(
                 "MATERIAL_BIND_GROUP".into(),
                 MATERIAL_BIND_GROUP_INDEX as u32,
-            )
-        );
-        if let Some(ref mut fragment) = descriptor.fragment {
-            fragment.shader_defs.push(
-                ShaderDefVal::UInt(
-                    "MATERIAL_BIND_GROUP".into(),
-                    MATERIAL_BIND_GROUP_INDEX as u32,
-                )
-            );
+            ));
         };
         if let Some(vertex_shader) = self.properties.get_shader(MaterialVertexShader) {
             descriptor.vertex.shader = vertex_shader.clone();

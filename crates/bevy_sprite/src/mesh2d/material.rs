@@ -451,19 +451,15 @@ where
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
-        descriptor.vertex.shader_defs.push(
-            ShaderDefVal::UInt(
+        descriptor.vertex.shader_defs.push(ShaderDefVal::UInt(
+            "MATERIAL_BIND_GROUP".into(),
+            MATERIAL_2D_BIND_GROUP_INDEX as u32,
+        ));
+        if let Some(ref mut fragment) = descriptor.fragment {
+            fragment.shader_defs.push(ShaderDefVal::UInt(
                 "MATERIAL_BIND_GROUP".into(),
                 MATERIAL_2D_BIND_GROUP_INDEX as u32,
-            )
-        );
-        if let Some(ref mut fragment) = descriptor.fragment {
-            fragment.shader_defs.push(
-                ShaderDefVal::UInt(
-                    "MATERIAL_BIND_GROUP".into(),
-                    MATERIAL_2D_BIND_GROUP_INDEX as u32,
-                )
-            );
+            ));
         }
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
