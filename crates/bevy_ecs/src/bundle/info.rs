@@ -209,12 +209,12 @@ impl BundleInfo {
     /// For example, if the original archetype already has `ComponentA` and `T` also has `ComponentA`, the status
     /// should be `Existing`. If the original archetype does not have `ComponentA`, the status should be `Added`.
     ///
-    /// When "inserting" a bundle into an existing entity, [`ArchetypeAfterBundleInsert`]
+    /// When "inserting" a bundle into an existing entity, [`ArchetypeAfterBundleInsert`](crate::archetype::SpawnBundleStatus)
     /// should be used, which will report `Added` vs `Existing` status based on the current archetype's structure.
     ///
-    /// When spawning a bundle, [`SpawnBundleStatus`] can be used instead, which removes the need
-    /// to look up the [`ArchetypeAfterBundleInsert`] in the archetype graph, which requires
-    /// ownership of the entity's current archetype.
+    /// When spawning a bundle, [`SpawnBundleStatus`](crate::archetype::SpawnBundleStatus) can be used instead,
+    /// which removes the need to look up the [`ArchetypeAfterBundleInsert`](crate::archetype::ArchetypeAfterBundleInsert)
+    /// in the archetype graph, which requires ownership of the entity's current archetype.
     ///
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
@@ -462,7 +462,8 @@ impl Bundles {
     }
 
     /// # Safety
-    /// This [`BundleId`] must have been initialized with a single [`Component`] (via [`init_component_info`](Self::init_dynamic_info))
+    /// This [`BundleId`] must have been initialized with a single [`Component`](crate::component::Component)
+    /// (via [`init_component_info`](Self::init_dynamic_info))
     pub(crate) unsafe fn get_storage_unchecked(&self, id: BundleId) -> StorageType {
         *self
             .dynamic_component_storages
@@ -471,7 +472,8 @@ impl Bundles {
     }
 
     /// # Safety
-    /// This [`BundleId`] must have been initialized with multiple [`Component`]s (via [`init_dynamic_info`](Self::init_dynamic_info))
+    /// This [`BundleId`] must have been initialized with multiple [`Component`](crate::component::Component)s
+    /// (via [`init_dynamic_info`](Self::init_dynamic_info))
     pub(crate) unsafe fn get_storages_unchecked(&mut self, id: BundleId) -> &mut Vec<StorageType> {
         self.dynamic_bundle_storages
             .get_mut(&id)
