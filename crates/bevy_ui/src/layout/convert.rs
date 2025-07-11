@@ -73,7 +73,7 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
             x: node.overflow.x.into(),
             y: node.overflow.y.into(),
         },
-        scrollbar_width: node.scrollbar_width,
+        scrollbar_width: node.scrollbar_width * context.scale_factor,
         position: node.position_type.into(),
         flex_direction: node.flex_direction.into(),
         flex_wrap: node.flex_wrap.into(),
