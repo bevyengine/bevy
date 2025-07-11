@@ -112,12 +112,13 @@ fn main() {
             RunFixedMainLoop,
             (
                 (
-                    // The physics simulation needs to know the player's input, so we run this before the fixed timestep loop.
+                    // The camera needs to be rotated before the physics simulation is advanced in before the fixed timestep loop,
+                    // so that the physics simulation can use the current rotation.
                     // Note that if we ran it in `Update`, it would be too late, as the physics simulation would already have been advanced.
                     // If we ran this in `FixedUpdate`, it would sometimes not register player input, as that schedule may run zero times per frame.
-                    accumulate_input,
-                    // The camera needs to also be rotated before the physics simulation is advanced, so that the physics simulation can use the current rotation.
                     rotate_camera,
+                    // Accumulate our input before the fixed timestep loop to tell the physics simulation what it should do during the fixed timestep.
+                    accumulate_input,
                 )
                     .chain()
                     .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
