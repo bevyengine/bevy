@@ -110,23 +110,24 @@ fn main() {
             // The `RunFixedMainLoop` schedule allows us to schedule systems to run before and after the fixed timestep loop.
             RunFixedMainLoop,
             (
-                // The physics simulation needs to know the player's input, so we run this before the fixed timestep loop.
-                // Note that if we ran it in `Update`, it would be too late, as the physics simulation would already have been advanced.
-                // If we ran this in `FixedUpdate`, it would sometimes not register player input, as that schedule may run zero times per frame.
-                // The camera needs to also be rotated before the physics simulation is advanced, so that the physics simulation can use the current rotation.
-                (accumulate_input, rotate_camera)
+                (
+                    // The physics simulation needs to know the player's input, so we run this before the fixed timestep loop.
+                    // Note that if we ran it in `Update`, it would be too late, as the physics simulation would already have been advanced.
+                    // If we ran this in `FixedUpdate`, it would sometimes not register player input, as that schedule may run zero times per frame.
+                    accumulate_input,
+                    // The camera needs to also be rotated before the physics simulation is advanced, so that the physics simulation can use the current rotation.
+                    rotate_camera,
+                )
                     .chain()
                     .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
-                // Clear our accumulated input.
-                //
-                // The player's visual representation needs to be updated after the physics simulation has been advanced.
-                // This could be run in `Update`, but if we run it here instead, the systems in `Update`
-                // will be working with the `Transform` that will actually be shown on screen.
-                //
-                // The camera can then use the interpolated transform to position itself correctly.
                 (
+                    // Clear our accumulated input after it was processed during the fixed timestep.
                     clear_input,
+                    // The player's visual representation needs to be updated after the physics simulation has been advanced.
+                    // This could be run in `Update`, but if we run it here instead, the systems in `Update`
+                    // will be working with the `Transform` that will actually be shown on screen.
                     interpolate_rendered_transform,
+                    // The camera can then use the interpolated transform to position itself correctly.
                     translate_camera,
                 )
                     .chain()
