@@ -363,11 +363,3 @@ pub fn update_scroll_position(
         }
     }
 }
-
-fn report(sq: Query<Ref<ComputedNode>, With<ScrollingList>>) {
-    for node in sq {
-        println!("node size = {} ", node.size());
-        println!("content size = {} ", node.content_size());
-        println!("scrollbar size = {}", node.scrollbar_size);
-    }
-}
