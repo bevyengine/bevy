@@ -46,10 +46,10 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub scrollbar_size: Vec2,
-    /// Offset of scrolled content
+    /// Resolved offset of scrolled content
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub scroll_offset: Vec2,
+    pub scroll_position: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
@@ -314,7 +314,7 @@ impl ComputedNode {
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
         scrollbar_size: Vec2::ZERO,
-        scroll_offset: Vec2::ZERO,
+        scroll_position: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,

@@ -333,7 +333,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let physical_scroll_position = clamped_scroll_position.floor();
 
-            node.bypass_change_detection().scroll_offset = physical_scroll_position;
+            node.bypass_change_detection().scroll_position = physical_scroll_position;
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
