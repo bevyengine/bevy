@@ -104,7 +104,9 @@ impl ScaleNonUniform2d for Circle {
     type Output = Ellipse;
 
     fn scale(&self, scale: Vec2) -> Self::Output {
-        Ellipse::from_size(scale * self.radius)
+        Ellipse {
+            half_size: scale * self.radius,
+        }
     }
 }
 
