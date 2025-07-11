@@ -71,7 +71,6 @@ pub enum LayoutError {
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    mut commands: Commands,
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     mut node_query: Query<(
@@ -172,7 +171,6 @@ with UI components as a child of an entity without UI components, your UI layout
         );
 
         update_uinode_geometry_recursive(
-            &mut commands,
             ui_root_entity,
             &mut ui_surface,
             true,
@@ -188,7 +186,6 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
-        commands: &mut Commands,
         entity: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
@@ -337,7 +334,6 @@ with UI components as a child of an entity without UI components, your UI layout
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
-                    commands,
                     child_uinode,
                     ui_surface,
                     use_rounding,
