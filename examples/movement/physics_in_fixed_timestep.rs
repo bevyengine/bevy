@@ -90,6 +90,7 @@
 //! | `S`                  | Move down     |
 //! | `A`                  | Move left     |
 //! | `D`                  | Move right    |
+//! | Mouse                | Rotate camera |
 
 use std::f32::consts::FRAC_PI_2;
 
