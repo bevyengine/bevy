@@ -44,9 +44,9 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let initial_reservoir = generate_initial_reservoir(world_position, world_normal, &rng);
     let temporal_reservoir = load_temporal_reservoir(global_id.xy, depth, world_position, world_normal);
-    let combined_reservoir = merge_reservoirs(initial_reservoir, temporal_reservoir, &rng);
+    let merge_result = merge_reservoirs(initial_reservoir, temporal_reservoir, vec3(1.0), vec3(1.0), &rng);
 
-    gi_reservoirs_b[pixel_index] = combined_reservoir;
+    gi_reservoirs_b[pixel_index] = merge_result.merged_reservoir;
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -69,15 +69,17 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let input_reservoir = gi_reservoirs_b[pixel_index];
     let spatial_reservoir = load_spatial_reservoir(global_id.xy, depth, world_position, world_normal, &rng);
-    let combined_reservoir = merge_reservoirs(input_reservoir, spatial_reservoir, &rng);
+
+    let input_factor = dot(normalize(input_reservoir.sample_point_world_position - world_position), world_normal) * diffuse_brdf;
+    let spatial_factor = dot(normalize(spatial_reservoir.sample_point_world_position - world_position), world_normal) * diffuse_brdf;
+
+    let merge_result = merge_reservoirs(input_reservoir, spatial_reservoir, input_factor, spatial_factor, &rng);
+    let combined_reservoir = merge_result.merged_reservoir;
 
     gi_reservoirs_a[pixel_index] = combined_reservoir;
 
-    let cos_theta = dot(normalize(combined_reservoir.sample_point_world_position - world_position), world_normal);
-    let radiance = combined_reservoir.radiance * diffuse_brdf * cos_theta;
-
     var pixel_color = textureLoad(view_output, global_id.xy);
-    pixel_color += vec4(radiance * combined_reservoir.unbiased_contribution_weight * view.exposure, 0.0);
+    pixel_color += vec4(merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight * view.exposure, 0.0);
     textureStore(view_output, global_id.xy, pixel_color);
 }
 
@@ -254,21 +256,34 @@ fn empty_reservoir() -> Reservoir {
     );
 }
 
-fn merge_reservoirs(canonical_reservoir: Reservoir, other_reservoir: Reservoir, rng: ptr<function, u32>) -> Reservoir {
+struct ReservoirMergeResult {
+    merged_reservoir: Reservoir,
+    selected_sample_radiance: vec3<f32>,
+}
+
+fn merge_reservoirs(
+    canonical_reservoir: Reservoir,
+    other_reservoir: Reservoir,
+    canonical_factor: vec3<f32>,
+    other_factor: vec3<f32>,
+    rng: ptr<function, u32>,
+) -> ReservoirMergeResult {
     var combined_reservoir = empty_reservoir();
     combined_reservoir.confidence_weight = canonical_reservoir.confidence_weight + other_reservoir.confidence_weight;
 
-    if combined_reservoir.confidence_weight == 0.0 { return combined_reservoir; }
+    if combined_reservoir.confidence_weight == 0.0 { return ReservoirMergeResult(combined_reservoir, vec3(0.0)); }
 
     // TODO: Balance heuristic MIS weights
     let mis_weight_denominator = 1.0 / combined_reservoir.confidence_weight;
 
     let canonical_mis_weight = canonical_reservoir.confidence_weight * mis_weight_denominator;
-    let canonical_target_function = luminance(canonical_reservoir.radiance);
+    let canonical_radiance = canonical_reservoir.radiance * canonical_factor;
+    let canonical_target_function = luminance(canonical_radiance);
     let canonical_resampling_weight = canonical_mis_weight * (canonical_target_function * canonical_reservoir.unbiased_contribution_weight);
 
     let other_mis_weight = other_reservoir.confidence_weight * mis_weight_denominator;
-    let other_target_function = luminance(other_reservoir.radiance);
+    let other_radiance = other_reservoir.radiance * other_factor;
+    let other_target_function = luminance(other_radiance);
     let other_resampling_weight = other_mis_weight * (other_target_function * other_reservoir.unbiased_contribution_weight);
 
     combined_reservoir.weight_sum = canonical_resampling_weight + other_resampling_weight;
@@ -280,6 +295,8 @@ fn merge_reservoirs(canonical_reservoir: Reservoir, other_reservoir: Reservoir, 
 
         let inverse_target_function = select(0.0, 1.0 / other_target_function, other_target_function > 0.0);
         combined_reservoir.unbiased_contribution_weight = combined_reservoir.weight_sum * inverse_target_function;
+
+        return ReservoirMergeResult(combined_reservoir, other_radiance);
     } else {
         combined_reservoir.sample_point_world_position = canonical_reservoir.sample_point_world_position;
         combined_reservoir.sample_point_world_normal = canonical_reservoir.sample_point_world_normal;
@@ -287,7 +304,7 @@ fn merge_reservoirs(canonical_reservoir: Reservoir, other_reservoir: Reservoir, 
 
         let inverse_target_function = select(0.0, 1.0 / canonical_target_function, canonical_target_function > 0.0);
         combined_reservoir.unbiased_contribution_weight = combined_reservoir.weight_sum * inverse_target_function;
-    }
 
-    return combined_reservoir;
+        return ReservoirMergeResult(combined_reservoir, canonical_radiance);
+    }
 }

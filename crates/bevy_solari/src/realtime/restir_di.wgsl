@@ -49,9 +49,9 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let initial_reservoir = generate_initial_reservoir(world_position, world_normal, diffuse_brdf, &rng);
     let temporal_reservoir = load_temporal_reservoir(global_id.xy, depth, world_position, world_normal);
-    let combined_reservoir = merge_reservoirs(initial_reservoir, temporal_reservoir, world_position, world_normal, diffuse_brdf, &rng);
+    let merge_result = merge_reservoirs(initial_reservoir, temporal_reservoir, world_position, world_normal, diffuse_brdf, &rng);
 
-    di_reservoirs_b[pixel_index] = combined_reservoir.merged_reservoir;
+    di_reservoirs_b[pixel_index] = merge_result.merged_reservoir;
 }
 
 @compute @workgroup_size(8, 8, 1)
