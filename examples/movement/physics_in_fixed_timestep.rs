@@ -124,6 +124,7 @@ fn main() {
                     .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
                 (
                     // Clear our accumulated input after it was processed during the fixed timestep.
+                    // By clearing the input *after* the fixed timestep, we can still use `AccumulatedInput` inside `FixedUpdate` if we need it.
                     clear_input.run_if(did_fixed_timestep_run_this_frame),
                     // The player's visual representation needs to be updated after the physics simulation has been advanced.
                     // This could be run in `Update`, but if we run it here instead, the systems in `Update`
