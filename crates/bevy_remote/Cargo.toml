@@ -9,7 +9,8 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["http", "bevy_asset"]
+default = ["http", "bevy_asset", "documentation"]
+documentation = ["bevy_reflect/documentation"]
 http = ["dep:async-io", "dep:smol-hyper"]
 bevy_asset = ["dep:bevy_asset"]
 

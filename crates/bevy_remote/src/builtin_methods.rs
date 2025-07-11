@@ -18,11 +18,18 @@ use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    GetPath, PartialReflect, TypeRegistration, TypeRegistry,
+    GetPath, PartialReflect, Reflect, TypeRegistration, TypeRegistry,
 };
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::{
+    cmd::{RemoteCommand, RemoteCommandInstant},
+    schemas::{
+        json_schema::TypeRegistrySchemaReader,
+        open_rpc::{MethodObject, Parameter, ServerObject},
+    },
+};
 use crate::{
     error_codes,
     schemas::{
@@ -31,9 +38,6 @@ use crate::{
     },
     BrpError, BrpResult,
 };
-
-#[cfg(all(feature = "http", not(target_family = "wasm")))]
-use {crate::schemas::open_rpc::ServerObject, bevy_utils::default};
 
 /// The method path for a `bevy/get` request.
 pub const BRP_GET_METHOD: &str = "bevy/get";
@@ -953,42 +957,106 @@ pub fn process_remote_spawn_request(In(params): In<Option<Value>>, world: &mut W
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
+/// Returns an OpenRPC schema as a description of this service
+#[derive(Reflect)]
+pub struct RpcDiscoverCommand;
+
+impl RemoteCommand for RpcDiscoverCommand {
+    type ParameterType = ();
+    type ResponseType = OpenRpcDocument;
+
+    const RPC_PATH: &str = RPC_DISCOVER_METHOD;
+}
+
+impl RemoteCommandInstant for RpcDiscoverCommand {
+    fn method_impl(
+        _: Option<Self::ParameterType>,
+        world: &mut World,
+    ) -> Result<Self::ResponseType, BrpError> {
+        process_remote_list_methods_request_typed(In(None), world)
+    }
+}
+
 /// Handles a `rpc.discover` request coming from a client.
-pub fn process_remote_list_methods_request(
-    In(_params): In<Option<Value>>,
+pub fn process_remote_list_methods_request_typed(
+    In(_): In<Option<Value>>,
     world: &mut World,
-) -> BrpResult {
-    let remote_methods = world.resource::<crate::RemoteMethods>();
+) -> Result<OpenRpcDocument, BrpError> {
+    let remote_methods = world
+        .get_resource::<crate::RemoteMethods>()
+        .ok_or(BrpError::resource_not_present("bevy_remote::RemoteMethods"))?;
 
-    #[cfg(all(feature = "http", not(target_family = "wasm")))]
-    let servers = match (
-        world.get_resource::<crate::http::HostAddress>(),
-        world.get_resource::<crate::http::HostPort>(),
-    ) {
-        (Some(url), Some(port)) => Some(vec![ServerObject {
-            name: "Server".to_owned(),
-            url: format!("{}:{}", url.0, port.0),
-            ..default()
-        }]),
-        (Some(url), None) => Some(vec![ServerObject {
-            name: "Server".to_owned(),
-            url: url.0.to_string(),
-            ..default()
-        }]),
-        _ => None,
-    };
+    let servers: Vec<ServerObject> = remote_methods
+        .server_list()
+        .into_iter()
+        .map(|server| server.clone())
+        .collect();
+    let types = world.resource::<AppTypeRegistry>();
+    let types = types.read();
+    let extra_info = world.resource::<crate::schemas::SchemaTypesMetadata>();
 
-    #[cfg(any(not(feature = "http"), target_family = "wasm"))]
-    let servers = None;
+    let methods = remote_methods
+        .mappings
+        .iter()
+        .map(|(name, info)| {
+            let Some(type_info) = info.remote_type_info() else {
+                return MethodObject {
+                    name: name.to_string(),
+                    ..Default::default()
+                };
+            };
+            #[cfg(feature = "documentation")]
+            let summary = types
+                .get(type_info.command_type)
+                .and_then(|t| t.type_info().docs().map(|s| s.to_string()));
+            #[cfg(not(feature = "documentation"))]
+            let summary = None;
+            let params = if type_info.arg_type.eq(&TypeId::of::<()>()) {
+                [].into()
+            } else {
+                let parameter =
+                    match types.export_type_json_schema_for_id(extra_info, type_info.arg_type) {
+                        Some(s) => Parameter {
+                            name: "input".to_string(),
+                            summary: Some(s.short_path.clone()),
+                            // description: Some(s.description.clone()),
+                            schema: s,
+                            ..Default::default()
+                        },
+                        None => Parameter::default(),
+                    };
+                [parameter].into()
+            };
+            let result = if type_info.response_type.eq(&TypeId::of::<()>()) {
+                None
+            } else {
+                let result_schema =
+                    types.export_type_json_schema_for_id(extra_info, type_info.response_type);
+                result_schema.map(|schema| Parameter {
+                    name: "Result".to_string(),
+                    summary: Some(schema.short_path.clone()),
+                    schema,
+                    ..Default::default()
+                })
+            };
+            MethodObject {
+                name: name.to_string(),
+                summary,
+                params,
+                result,
+                ..Default::default()
+            }
+        })
+        .collect();
 
     let doc = OpenRpcDocument {
         info: Default::default(),
-        methods: remote_methods.into(),
+        methods,
         openrpc: "1.3.2".to_owned(),
         servers,
     };
 
-    serde_json::to_value(doc).map_err(BrpError::internal)
+    Ok(doc)
 }
 
 /// Handles a `bevy/insert` request (insert components) coming from a client.

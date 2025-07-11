@@ -7,16 +7,26 @@
 //! example for a trivial example of use.
 
 #![cfg(not(target_family = "wasm"))]
-
+use crate::schemas::open_rpc::ServerObject;
 use crate::{
     error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpResult, BrpSender,
+    RemoteMethods,
 };
 use anyhow::Result as AnyhowResult;
 use async_channel::{Receiver, Sender};
 use async_io::Async;
-use bevy_app::{App, Plugin, Startup};
+use bevy_app::{App, Plugin, Update};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::change_detection::DetectChanges;
+use bevy_ecs::prelude::ReflectResource;
 use bevy_ecs::resource::Resource;
-use bevy_ecs::system::Res;
+use bevy_ecs::schedule::common_conditions::resource_changed_or_removed;
+use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_ecs::system::{Res, ResMut};
+use bevy_platform::collections::HashMap;
+use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use bevy_tasks::Task;
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::{
     convert::Infallible,
@@ -31,12 +41,12 @@ use hyper::{
     server::conn::http1,
     service, Request, Response,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use smol_hyper::rt::{FuturesIo, SmolTimer};
-use std::{
-    collections::HashMap,
-    net::{TcpListener, TcpStream},
-};
+use std::any::TypeId;
+use std::net::Ipv6Addr;
+use std::net::{TcpListener, TcpStream};
 
 /// The default port that Bevy will listen on.
 ///
@@ -51,41 +61,8 @@ pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 /// This struct is used to store a set of HTTP headers as key-value pairs, where the keys are
 /// of type [`HeaderName`] and the values are of type [`HeaderValue`].
 ///
-#[derive(Debug, Resource, Clone)]
-pub struct Headers {
-    headers: HashMap<HeaderName, HeaderValue>,
-}
-
-impl Headers {
-    /// Create a new instance of `Headers`.
-    pub fn new() -> Self {
-        Self {
-            headers: HashMap::default(),
-        }
-    }
-
-    /// Insert a key value pair to the `Headers` instance.
-    pub fn insert(
-        mut self,
-        name: impl TryInto<HeaderName>,
-        value: impl TryInto<HeaderValue>,
-    ) -> Self {
-        let Ok(header_name) = name.try_into() else {
-            panic!("Invalid header name")
-        };
-        let Ok(header_value) = value.try_into() else {
-            panic!("Invalid header value")
-        };
-        self.headers.insert(header_name, header_value);
-        self
-    }
-}
-
-impl Default for Headers {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+#[derive(Debug, Clone, Deref, DerefMut, Default)]
+pub struct Headers(HashMap<HeaderName, HeaderValue>);
 
 /// Add this plugin to your [`App`] to allow remote connections over HTTP to inspect and modify entities.
 /// It requires the [`RemotePlugin`](super::RemotePlugin).
@@ -110,17 +87,50 @@ impl Default for RemoteHttpPlugin {
         Self {
             address: DEFAULT_ADDR,
             port: DEFAULT_PORT,
-            headers: Headers::new(),
+            headers: Headers::default(),
         }
     }
 }
 
 impl Plugin for RemoteHttpPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(HostAddress(self.address))
-            .insert_resource(HostPort(self.port))
-            .insert_resource(HostHeaders(self.headers.clone()))
-            .add_systems(Startup, start_http_server);
+        app.register_type::<HttpServerConfig>();
+        app.insert_resource(HttpServerConfig {
+            address: self.address.into(),
+            port: self.port,
+            headers: self.headers.clone(),
+            task: None,
+        })
+        .add_systems(
+            Update,
+            update_server.run_if(resource_changed_or_removed::<HttpServerConfig>),
+        );
+    }
+}
+
+fn update_server(
+    server_config: Option<ResMut<HttpServerConfig>>,
+    request_sender: Res<BrpSender>,
+    mut remote_methods: ResMut<RemoteMethods>,
+) {
+    if server_config.is_none() {
+        remote_methods.remove_server(TypeId::of::<HttpServerConfig>());
+    }
+    bevy_log::info!("exist: {}", server_config.is_some());
+    if let Some(mut config) = server_config {
+        let should_start_server = (config.is_added() && config.task.is_none())
+            || (config.is_changed() && config.task.is_some());
+        bevy_log::info!(
+            "added: {}, changed: {}, should_start_server: {}, config: {:?}",
+            config.is_added(),
+            config.is_changed(),
+            should_start_server,
+            &config
+        );
+
+        if should_start_server && config.start_server(request_sender).is_ok() {
+            remote_methods.register_server(TypeId::of::<HttpServerConfig>(), (&*config).into());
+        };
     }
 }
 
@@ -152,7 +162,7 @@ impl RemoteHttpPlugin {
     /// fn main() {
     ///     App::new()
     ///     .add_plugins(DefaultPlugins)
-    ///     .add_plugins(RemotePlugin::default())
+    ///     .add_plugins(RemotePlugin)
     ///     .add_plugins(RemoteHttpPlugin::default()
     ///         .with_headers(cors_headers))
     ///     .run();
@@ -170,66 +180,102 @@ impl RemoteHttpPlugin {
         name: impl TryInto<HeaderName>,
         value: impl TryInto<HeaderValue>,
     ) -> Self {
-        self.headers = self.headers.insert(name, value);
+        match (name.try_into(), value.try_into()) {
+            (Ok(name), Ok(value)) => _ = self.headers.insert(name, value),
+            _ => {}
+        }
         self
     }
 }
-
-/// A resource containing the IP address that Bevy will host on.
+/// A reflectable representation of an IP address.
 ///
-/// Currently, changing this while the application is running has no effect; this merely
-/// reflects the IP address that is set during the setup of the [`RemoteHttpPlugin`].
-#[derive(Debug, Resource)]
-pub struct HostAddress(pub IpAddr);
-
-/// A resource containing the port number that Bevy will listen on.
-///
-/// Currently, changing this while the application is running has no effect; this merely
-/// reflects the host that is set during the setup of the [`RemoteHttpPlugin`].
-#[derive(Debug, Resource)]
-pub struct HostPort(pub u16);
-
-/// A resource containing the headers that Bevy will include in its HTTP responses.
-///
-#[derive(Debug, Resource)]
-struct HostHeaders(pub Headers);
-
-/// A system that starts up the Bevy Remote Protocol HTTP server.
-fn start_http_server(
-    request_sender: Res<BrpSender>,
-    address: Res<HostAddress>,
-    remote_port: Res<HostPort>,
-    headers: Res<HostHeaders>,
-) {
-    IoTaskPool::get()
-        .spawn(server_main(
-            address.0,
-            remote_port.0,
-            request_sender.clone(),
-            headers.0.clone(),
-        ))
-        .detach();
+/// This enum provides a serializable and reflectable alternative to [`std::net::IpAddr`]
+/// for use in Bevy's reflection system. It can represent both IPv4 and IPv6 addresses
+/// as byte arrays.
+#[derive(Debug, Resource, Reflect, Clone, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
+pub enum IpAddressReflect {
+    /// An IPv4 address represented as a 4-byte array.
+    V4([u8; 4]),
+    /// An IPv6 address represented as a 16-byte array.
+    V6([u8; 16]),
 }
 
+impl From<IpAddr> for IpAddressReflect {
+    fn from(value: IpAddr) -> Self {
+        match value {
+            IpAddr::V4(addr) => IpAddressReflect::V4(addr.octets()),
+            IpAddr::V6(addr) => IpAddressReflect::V6(addr.octets()),
+        }
+    }
+}
+
+impl From<IpAddressReflect> for IpAddr {
+    fn from(value: IpAddressReflect) -> Self {
+        match value {
+            IpAddressReflect::V4(addr) => IpAddr::V4(Ipv4Addr::from(addr)),
+            IpAddressReflect::V6(addr) => IpAddr::V6(Ipv6Addr::from(addr)),
+        }
+    }
+}
+
+#[derive(Debug, Resource, Reflect, Serialize, Deserialize)]
+#[reflect(Resource, Serialize, Deserialize)]
+/// A resource containing the data for the HTTP server.
+pub struct HttpServerConfig {
+    /// The address to bind the server to.
+    pub address: IpAddressReflect,
+    /// The port to bind the server to.
+    pub port: u16,
+    #[reflect(ignore)]
+    #[serde(skip)]
+    /// The headers to send with each response.
+    pub headers: Headers,
+    #[reflect(ignore)]
+    #[serde(skip)]
+    /// The task that is running the server.
+    pub task: Option<Task<AnyhowResult<()>>>,
+}
+
+impl From<&HttpServerConfig> for ServerObject {
+    fn from(value: &HttpServerConfig) -> Self {
+        let ip: IpAddr = value.address.clone().into();
+        ServerObject {
+            name: HttpServerConfig::short_type_path().into(),
+            url: format!("{}:{}", ip, value.port),
+            ..Default::default()
+        }
+    }
+}
+
+impl HttpServerConfig {
+    fn build_listener(&self) -> AnyhowResult<Async<TcpListener>> {
+        let ip: IpAddr = self.address.clone().into();
+        let listener = Async::<TcpListener>::bind((ip, self.port))?;
+        Ok(listener)
+    }
+
+    fn start_server(&mut self, request_sender: Res<BrpSender>) -> AnyhowResult<()> {
+        let listener = self.build_listener()?;
+        let headers = self.headers.clone();
+        self.task =
+            Some(IoTaskPool::get().spawn(server_main(listener, request_sender.clone(), headers)));
+        Ok(())
+    }
+}
 /// The Bevy Remote Protocol server main loop.
 async fn server_main(
-    address: IpAddr,
-    port: u16,
+    listener: Async<TcpListener>,
     request_sender: Sender<BrpMessage>,
     headers: Headers,
 ) -> AnyhowResult<()> {
-    listen(
-        Async::<TcpListener>::bind((address, port))?,
-        &request_sender,
-        &headers,
-    )
-    .await
+    listen(listener, &request_sender, headers).await
 }
 
 async fn listen(
     listener: Async<TcpListener>,
     request_sender: &Sender<BrpMessage>,
-    headers: &Headers,
+    headers: Headers,
 ) -> AnyhowResult<()> {
     loop {
         let (client, _) = listener.accept().await?;
@@ -238,7 +284,7 @@ async fn listen(
         let headers = headers.clone();
         IoTaskPool::get()
             .spawn(async move {
-                let _ = handle_client(client, request_sender, headers).await;
+                let _ = handle_client(client, request_sender, &headers).await;
             })
             .detach();
     }
@@ -247,15 +293,13 @@ async fn listen(
 async fn handle_client(
     client: Async<TcpStream>,
     request_sender: Sender<BrpMessage>,
-    headers: Headers,
+    headers: &Headers,
 ) -> AnyhowResult<()> {
     http1::Builder::new()
         .timer(SmolTimer::new())
         .serve_connection(
             FuturesIo::new(client),
-            service::service_fn(|request| {
-                process_request_batch(request, &request_sender, &headers)
-            }),
+            service::service_fn(|request| process_request_batch(request, &request_sender, headers)),
         )
         .await?;
 
@@ -338,7 +382,7 @@ async fn process_request_batch(
             response
         }
     };
-    for (key, value) in &headers.headers {
+    for (key, value) in headers.iter() {
         response.headers_mut().insert(key, value.clone());
     }
     Ok(response)
