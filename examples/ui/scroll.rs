@@ -16,8 +16,7 @@ fn main() {
     app.add_plugins(DefaultPlugins)
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, update_scroll_position)
-        .add_systems(Update, report);
+        .add_systems(Update, update_scroll_position);
     app.run();
 }
 
