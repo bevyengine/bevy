@@ -307,6 +307,9 @@ with UI components as a child of an entity without UI components, your UI layout
                     .max(0.);
             }
 
+            node.bypass_change_detection().scrollbar_size =
+                Vec2::new(layout.scrollbar_size.width, layout.scrollbar_size.height);
+
             let scroll_position: Vec2 = maybe_scroll_position
                 .map(|scroll_pos| {
                     Vec2::new(
