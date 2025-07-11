@@ -770,7 +770,7 @@ enum UninitializedId {
         /// still need to be initialized.
         ///
         /// Conditions might be added multiple times to a system set (e.g. when
-        /// `configure_sets` is called multiple times with the same set), So we
+        /// `configure_sets` is called multiple times with the same set), so we
         /// need to track where the newly added conditions start in the
         /// `conditions` list.
         ///
