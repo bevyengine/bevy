@@ -20,12 +20,21 @@ use bevy_render::{
 use dlss_wgpu::{DlssContext, DlssFeatureFlags, DlssPerfQualityMode};
 use std::sync::{Arc, Mutex};
 
+#[derive(Component)]
+pub struct ViewDlssContext {
+    pub context: Mutex<DlssContext>,
+    pub perf_quality_mode: DlssPerfQualityMode,
+    pub feature_flags: DlssFeatureFlags,
+}
+
 pub fn prepare_dlss(
     mut query: Query<
         (
             Entity,
             &ExtractedView,
             &Dlss,
+            &mut Camera3d,
+            &mut CameraMainTextureUsages,
             &mut TemporalJitter,
             &mut MipBias,
             Option<&mut ViewDlssContext>,
@@ -43,7 +52,23 @@ pub fn prepare_dlss(
     frame_count: Res<FrameCount>,
     mut commands: Commands,
 ) {
-    for (entity, view, dlss, mut temporal_jitter, mut mip_bias, mut dlss_context) in &mut query {
+    for (
+        entity,
+        view,
+        dlss,
+        mut camera_3d,
+        mut camera_main_texture_usages,
+        mut temporal_jitter,
+        mut mip_bias,
+        mut dlss_context,
+    ) in &mut query
+    {
+        camera_main_texture_usages.0 |= TextureUsages::STORAGE_BINDING;
+
+        let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
+        depth_texture_usages |= TextureUsages::TEXTURE_BINDING;
+        camera_3d.depth_texture_usages = depth_texture_usages.into();
+
         let upscaled_resolution = view.viewport.zw();
 
         let dlss_feature_flags = DlssFeatureFlags::LowResolutionMotionVectors
@@ -88,24 +113,5 @@ pub fn prepare_dlss(
                 ));
             }
         }
-    }
-}
-
-#[derive(Component)]
-pub struct ViewDlssContext {
-    pub context: Mutex<DlssContext>,
-    pub perf_quality_mode: DlssPerfQualityMode,
-    pub feature_flags: DlssFeatureFlags,
-}
-
-pub fn configure_dlss_view_targets(
-    mut view_targets: Query<(&mut Camera3d, &mut CameraMainTextureUsages), With<Dlss>>,
-) {
-    for (mut camera_3d, mut camera_main_texture_usages) in view_targets.iter_mut() {
-        camera_main_texture_usages.0 |= TextureUsages::STORAGE_BINDING;
-
-        let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
-        depth_texture_usages |= TextureUsages::TEXTURE_BINDING;
-        camera_3d.depth_texture_usages = depth_texture_usages.into();
     }
 }

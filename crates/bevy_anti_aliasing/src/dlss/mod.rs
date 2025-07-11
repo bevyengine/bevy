@@ -72,15 +72,9 @@ impl Plugin for DlssPlugin {
             .add_systems(ExtractSchedule, extract::extract_dlss)
             .add_systems(
                 Render,
-                prepare::configure_dlss_view_targets
+                prepare::prepare_dlss
                     .in_set(RenderSystems::ManageViews)
                     .before(prepare_view_targets),
-            )
-            .add_systems(
-                Render,
-                prepare::prepare_dlss
-                    .in_set(RenderSystems::PrepareResources)
-                    .before(prepare_view_uniforms),
             )
             .add_render_graph_node::<ViewNodeRunner<node::DlssNode>>(Core3d, Node3d::Dlss)
             .add_render_graph_edges(
