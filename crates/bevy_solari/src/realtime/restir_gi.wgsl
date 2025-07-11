@@ -153,6 +153,17 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.viewport.z);
     var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
 
+    var jacobian = jacobian(
+        world_position,
+        spatial_world_position,
+        spatial_reservoir.sample_point_world_position,
+        spatial_reservoir.sample_point_world_normal
+    );
+    if jacobian > 10.0 || jacobian < 0.1 {
+        return empty_reservoir();
+    }
+    spatial_reservoir.unbiased_contribution_weight *= jacobian;
+
     spatial_reservoir.unbiased_contribution_weight *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
 
     return spatial_reservoir;
@@ -162,6 +173,30 @@ fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) ->
     var spatial_id = vec2<i32>(center_pixel_id) + vec2<i32>(sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng));
     spatial_id = clamp(spatial_id, vec2(0i), vec2<i32>(view.viewport.zw) - 1i);
     return vec2<u32>(spatial_id);
+}
+
+fn jacobian(
+    world_position: vec3<f32>,
+    spatial_world_position: vec3<f32>,
+    sample_point_world_position: vec3<f32>,
+    sample_point_world_normal: vec3<f32>,
+) -> f32 {
+    let r = world_position - sample_point_world_position;
+    let q = spatial_world_position - sample_point_world_position;
+    let rl = length(r);
+    let ql = length(q);
+    let phi_r = saturate(dot(r / rl, sample_point_world_normal));
+    let phi_q = saturate(dot(q / ql, sample_point_world_normal));
+    let jacobian = (phi_r * ql * ql) / (phi_q * rl * rl);
+    return select(jacobian, 0.0, isinf(jacobian) || isnan(jacobian));
+}
+
+fn isinf(x: f32) -> bool {
+    return (bitcast<u32>(x) & 0x7fffffffu) == 0x7f800000u;
+}
+
+fn isnan(x: f32) -> bool {
+    return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
 }
 
 fn reconstruct_world_position(pixel_id: vec2<u32>, depth: f32) -> vec3<f32> {
