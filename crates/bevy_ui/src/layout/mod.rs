@@ -327,20 +327,11 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(
-                Vec2::ZERO,
-                max_possible_offset * inverse_target_scale_factor,
-            );
+            let max_possible_offset =
+                (content_size - layout_size + node.scrollbar_size).max(Vec2::ZERO);
+            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
-            if clamped_scroll_position != scroll_position {
-                commands
-                    .entity(entity)
-                    .insert(ScrollPosition(clamped_scroll_position));
-            }
-
-            let physical_scroll_position =
-                (clamped_scroll_position / inverse_target_scale_factor).round();
+            let physical_scroll_position = clamped_scroll_position.floor();
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
