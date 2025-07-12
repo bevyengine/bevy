@@ -1,4 +1,4 @@
-use bevy_asset::{load_embedded_asset, weak_handle, Assets, Handle};
+use bevy_asset::{load_embedded_asset, uuid_handle, Assets, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -30,11 +30,11 @@ use bevy_render::{
     Extract,
 };
 
-use crate::light_probe::environment_map::EnvironmentMapLight;
+use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
 
 /// Sphere Cosine Weighted Irradiance shader handle
-pub const STBN_SPHERE: Handle<Image> = weak_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
-pub const STBN_VEC2: Handle<Image> = weak_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
+pub const STBN_SPHERE: Handle<Image> = uuid_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
+pub const STBN_VEC2: Handle<Image> = uuid_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
 
 /// Labels for the environment map generation nodes
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
@@ -292,7 +292,7 @@ impl FromWorld for GeneratorPipelines {
             push_constant_ranges: vec![],
             shader: load_embedded_asset!(world, "spd.wgsl"),
             shader_defs: shader_defs.clone(),
-            entry_point: "spd_downsample_first".into(),
+            entry_point: Some("spd_downsample_first".into()),
             zero_initialize_workgroup_memory: false,
         });
 
@@ -303,7 +303,7 @@ impl FromWorld for GeneratorPipelines {
             push_constant_ranges: vec![],
             shader: load_embedded_asset!(world, "spd.wgsl"),
             shader_defs,
-            entry_point: "spd_downsample_second".into(),
+            entry_point: Some("spd_downsample_second".into()),
             zero_initialize_workgroup_memory: false,
         });
 
@@ -314,7 +314,7 @@ impl FromWorld for GeneratorPipelines {
             push_constant_ranges: vec![],
             shader: load_embedded_asset!(world, "environment_filter.wgsl"),
             shader_defs: vec![],
-            entry_point: "generate_radiance_map".into(),
+            entry_point: Some("generate_radiance_map".into()),
             zero_initialize_workgroup_memory: false,
         });
 
@@ -325,7 +325,7 @@ impl FromWorld for GeneratorPipelines {
             push_constant_ranges: vec![],
             shader: load_embedded_asset!(world, "environment_filter.wgsl"),
             shader_defs: vec![],
-            entry_point: "generate_irradiance_map".into(),
+            entry_point: Some("generate_irradiance_map".into()),
             zero_initialize_workgroup_memory: false,
         });
 
@@ -336,7 +336,7 @@ impl FromWorld for GeneratorPipelines {
             push_constant_ranges: vec![],
             shader: load_embedded_asset!(world, "copy_mip0.wgsl"),
             shader_defs: vec![],
-            entry_point: "copy_mip0".into(),
+            entry_point: Some("copy_mip0".into()),
             zero_initialize_workgroup_memory: false,
         });
 
@@ -346,27 +346,6 @@ impl FromWorld for GeneratorPipelines {
             radiance,
             irradiance,
             copy,
-        }
-    }
-}
-
-#[derive(Component, Clone, Reflect, ExtractComponent)]
-pub struct GeneratedEnvironmentMapLight {
-    pub environment_map: Handle<Image>,
-    pub intensity: f32,
-    pub rotation: Quat,
-    pub affects_lightmapped_mesh_diffuse: bool,
-    pub white_point: f32,
-}
-
-impl Default for GeneratedEnvironmentMapLight {
-    fn default() -> Self {
-        GeneratedEnvironmentMapLight {
-            environment_map: Handle::default(),
-            intensity: 0.0,
-            rotation: Quat::IDENTITY,
-            affects_lightmapped_mesh_diffuse: true,
-            white_point: 1.0,
         }
     }
 }

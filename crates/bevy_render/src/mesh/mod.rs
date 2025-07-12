@@ -1,14 +1,11 @@
-use bevy_math::Vec3;
+use bevy_camera::visibility::VisibilitySystems;
 pub use bevy_mesh::*;
 use morph::{MeshMorphWeights, MorphWeights};
 pub mod allocator;
-mod components;
 use crate::{
-    primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_resource::TextureView,
     texture::GpuImage,
-    view::VisibilitySystems,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
@@ -21,7 +18,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, MeshTag};
+pub use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, MeshTag};
 use wgpu::IndexFormat;
 
 /// Registers all [`MeshBuilder`] types.
@@ -112,26 +109,6 @@ pub fn inherit_weights(
     }
 }
 
-pub trait MeshAabb {
-    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
-    ///
-    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
-    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    fn compute_aabb(&self) -> Option<Aabb>;
-}
-
-impl MeshAabb for Mesh {
-    fn compute_aabb(&self) -> Option<Aabb> {
-        let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
-        else {
-            return None;
-        };
-
-        Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
-    }
-}
-
 /// The render world representation of a [`Mesh`].
 #[derive(Debug, Clone)]
 pub struct RenderMesh {
@@ -209,6 +186,7 @@ impl RenderAsset for RenderMesh {
         mesh: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         (images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {

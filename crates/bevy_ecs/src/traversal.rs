@@ -1,6 +1,10 @@
 //! A trait for components that let you traverse the ECS.
 
-use crate::{entity::Entity, query::ReadOnlyQueryData, relationship::Relationship};
+use crate::{
+    entity::Entity,
+    query::{ReadOnlyQueryData, ReleaseStateQueryData},
+    relationship::Relationship,
+};
 
 /// A component that can point to another entity, and which can be used to define a path through the ECS.
 ///
@@ -14,19 +18,19 @@ use crate::{entity::Entity, query::ReadOnlyQueryData, relationship::Relationship
 /// avoiding infinite loops in their code.
 ///
 /// Traversals may be parameterized with additional data. For example, in observer event propagation, the
-/// parameter `D` is the event type given in `Trigger<E>`. This allows traversal to differ depending on event
+/// parameter `D` is the event type given in `On<E>`. This allows traversal to differ depending on event
 /// data.
 ///
-/// [specify the direction]: crate::event::Event::Traversal
-/// [event propagation]: crate::observer::Trigger::propagate
+/// [specify the direction]: crate::event::EntityEvent::Traversal
+/// [event propagation]: crate::observer::On::propagate
 /// [observers]: crate::observer::Observer
-pub trait Traversal<D: ?Sized>: ReadOnlyQueryData {
+pub trait Traversal<D: ?Sized>: ReadOnlyQueryData + ReleaseStateQueryData {
     /// Returns the next entity to visit.
-    fn traverse(item: Self::Item<'_>, data: &D) -> Option<Entity>;
+    fn traverse(item: Self::Item<'_, '_>, data: &D) -> Option<Entity>;
 }
 
 impl<D> Traversal<D> for () {
-    fn traverse(_: Self::Item<'_>, _data: &D) -> Option<Entity> {
+    fn traverse(_: Self::Item<'_, '_>, _data: &D) -> Option<Entity> {
         None
     }
 }
@@ -37,9 +41,9 @@ impl<D> Traversal<D> for () {
 ///
 /// Traversing in a loop could result in infinite loops for relationship graphs with loops.
 ///
-/// [event propagation]: crate::observer::Trigger::propagate
+/// [event propagation]: crate::observer::On::propagate
 impl<R: Relationship, D> Traversal<D> for &R {
-    fn traverse(item: Self::Item<'_>, _data: &D) -> Option<Entity> {
+    fn traverse(item: Self::Item<'_, '_>, _data: &D) -> Option<Entity> {
         Some(item.get())
     }
 }

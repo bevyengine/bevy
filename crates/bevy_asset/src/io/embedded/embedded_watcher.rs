@@ -56,6 +56,7 @@ pub(crate) struct EmbeddedEventHandler {
     dir: Dir,
     last_event: Option<AssetSourceEvent>,
 }
+
 impl FilesystemEventHandler for EmbeddedEventHandler {
     fn begin(&mut self) {
         self.last_event = None;

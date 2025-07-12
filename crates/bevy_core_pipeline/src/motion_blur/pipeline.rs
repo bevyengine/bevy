@@ -1,3 +1,4 @@
+use crate::FullscreenShader;
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{
     component::Component,
@@ -16,16 +17,14 @@ use bevy_render::{
             texture_depth_2d_multisampled, uniform_buffer_sized,
         },
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
-        ColorWrites, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderDefVal, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, ViewTarget},
 };
-
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_utils::default;
 
 use super::MotionBlurUniform;
 
@@ -34,11 +33,16 @@ pub struct MotionBlurPipeline {
     pub(crate) sampler: Sampler,
     pub(crate) layout: BindGroupLayout,
     pub(crate) layout_msaa: BindGroupLayout,
-    pub(crate) shader: Handle<Shader>,
+    pub(crate) fullscreen_shader: FullscreenShader,
+    pub(crate) fragment_shader: Handle<Shader>,
 }
 
 impl MotionBlurPipeline {
-    pub(crate) fn new(render_device: &RenderDevice, shader: Handle<Shader>) -> Self {
+    pub(crate) fn new(
+        render_device: &RenderDevice,
+        fullscreen_shader: FullscreenShader,
+        fragment_shader: Handle<Shader>,
+    ) -> Self {
         let mb_layout = &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
             (
@@ -84,7 +88,8 @@ impl MotionBlurPipeline {
             sampler,
             layout,
             layout_msaa,
-            shader,
+            fullscreen_shader,
+            fragment_shader,
         }
     }
 }
@@ -93,8 +98,9 @@ impl FromWorld for MotionBlurPipeline {
     fn from_world(render_world: &mut bevy_ecs::world::World) -> Self {
         let render_device = render_world.resource::<RenderDevice>().clone();
 
-        let shader = load_embedded_asset!(render_world, "motion_blur.wgsl");
-        MotionBlurPipeline::new(&render_device, shader)
+        let fullscreen_shader = render_world.resource::<FullscreenShader>().clone();
+        let fragment_shader = load_embedded_asset!(render_world, "motion_blur.wgsl");
+        MotionBlurPipeline::new(&render_device, fullscreen_shader, fragment_shader)
     }
 }
 
@@ -128,11 +134,10 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
         RenderPipelineDescriptor {
             label: Some("motion_blur_pipeline".into()),
             layout,
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -142,12 +147,9 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

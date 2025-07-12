@@ -1,7 +1,7 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, load_internal_binary_asset, AssetId};
+use bevy_asset::{embedded_asset, load_internal_binary_asset, AssetId, RenderAssetUsages};
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
     Camera3d,
@@ -11,35 +11,34 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::With,
-    reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::Image;
+use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight, LightProbe};
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     extract_instances::ExtractInstancesPlugin,
     load_shader_library,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
-    render_graph::RenderGraphApp,
+    render_graph::RenderGraphExt,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, Visibility},
+    view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use generate::{
     extract_generator_entities, generate_environment_map_light, prepare_generator_bind_groups,
-    prepare_intermediate_textures, GeneratedEnvironmentMapLight, GeneratorPipelines, SpdNode,
-    STBN_SPHERE, STBN_VEC2,
+    prepare_intermediate_textures, GeneratorPipelines, SpdNode, STBN_SPHERE, STBN_VEC2,
 };
 use tracing::error;
 
@@ -50,7 +49,7 @@ use crate::{
         GeneratorBindGroupLayouts, GeneratorNode, GeneratorSamplers, IrradianceMapNode,
         RadianceMapNode,
     },
-    light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight},
+    light_probe::environment_map::EnvironmentMapIds,
 };
 
 use self::irradiance_volume::IrradianceVolume;
@@ -75,50 +74,6 @@ const STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS: usize = 16;
 /// This also adds support for view environment maps: diffuse and specular
 /// cubemaps applied to all objects that a view renders.
 pub struct LightProbePlugin;
-
-/// A marker component for a light probe, which is a cuboid region that provides
-/// global illumination to all fragments inside it.
-///
-/// Note that a light probe will have no effect unless the entity contains some
-/// kind of illumination, which can either be an [`EnvironmentMapLight`] or an
-/// [`IrradianceVolume`].
-///
-/// The light probe range is conceptually a unit cube (1×1×1) centered on the
-/// origin. The [`Transform`] applied to this entity can scale, rotate, or translate
-/// that cube so that it contains all fragments that should take this light probe into account.
-///
-/// When multiple sources of indirect illumination can be applied to a fragment,
-/// the highest-quality one is chosen. Diffuse and specular illumination are
-/// considered separately, so, for example, Bevy may decide to sample the
-/// diffuse illumination from an irradiance volume and the specular illumination
-/// from a reflection probe. From highest priority to lowest priority, the
-/// ranking is as follows:
-///
-/// | Rank | Diffuse              | Specular             |
-/// | ---- | -------------------- | -------------------- |
-/// | 1    | Lightmap             | Lightmap             |
-/// | 2    | Irradiance volume    | Reflection probe     |
-/// | 3    | Reflection probe     | View environment map |
-/// | 4    | View environment map |                      |
-///
-/// Note that ambient light is always added to the diffuse component and does
-/// not participate in the ranking. That is, ambient light is applied in
-/// addition to, not instead of, the light sources above.
-///
-/// A terminology note: Unfortunately, there is little agreement across game and
-/// graphics engines as to what to call the various techniques that Bevy groups
-/// under the term *light probe*. In Bevy, a *light probe* is the generic term
-/// that encompasses both *reflection probes* and *irradiance volumes*. In
-/// object-oriented terms, *light probe* is the superclass, and *reflection
-/// probe* and *irradiance volume* are subclasses. In other engines, you may see
-/// the term *light probe* refer to an irradiance volume with a single voxel, or
-/// perhaps some other technique, while in Bevy *light probe* refers not to a
-/// specific technique but rather to a class of techniques. Developers familiar
-/// with other engines should be aware of this terminology difference.
-#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-#[require(Transform, Visibility)]
-pub struct LightProbe;
 
 /// A GPU type that stores information about a light probe.
 #[derive(Clone, Copy, ShaderType, Default)]
@@ -319,14 +274,6 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
     ) -> RenderViewLightProbes<Self>;
 }
 
-impl LightProbe {
-    /// Creates a new light probe component.
-    #[inline]
-    pub fn new() -> Self {
-        Self
-    }
-}
-
 /// The uniform struct extracted from [`EnvironmentMapLight`].
 /// Will be available for use in the Environment Map shader.
 #[derive(Component, ShaderType, Clone)]
@@ -368,11 +315,11 @@ impl Plugin for LightProbePlugin {
             "noise/sphere_coshemi_gauss1_0.png",
             |bytes, _: String| Image::from_buffer(
                 bytes,
-                bevy_image::ImageType::Format(bevy_image::ImageFormat::Png),
-                bevy_image::CompressedImageFormats::NONE,
+                ImageType::Extension("png"),
+                CompressedImageFormats::NONE,
                 false,
-                bevy_image::ImageSampler::Default,
-                bevy_asset::RenderAssetUsages::RENDER_WORLD,
+                ImageSampler::Default,
+                RenderAssetUsages::RENDER_WORLD,
             )
             .expect("Failed to load sphere cosine weighted blue noise texture")
         );
@@ -382,19 +329,17 @@ impl Plugin for LightProbePlugin {
             "noise/vector2_uniform_gauss1_0.png",
             |bytes, _: String| Image::from_buffer(
                 bytes,
-                bevy_image::ImageType::Format(bevy_image::ImageFormat::Png),
-                bevy_image::CompressedImageFormats::NONE,
+                ImageType::Extension("png"),
+                CompressedImageFormats::NONE,
                 false,
-                bevy_image::ImageSampler::Default,
-                bevy_asset::RenderAssetUsages::RENDER_WORLD,
+                ImageSampler::Default,
+                RenderAssetUsages::RENDER_WORLD,
             )
             .expect("Failed to load vector2 uniform blue noise texture")
         );
 
-        app.register_type::<LightProbe>()
-            .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>()
-            .add_plugins(ExtractComponentPlugin::<GeneratedEnvironmentMapLight>::default())
+        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
+            .add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
             .add_systems(Update, generate_environment_map_light);
     }
 
@@ -404,7 +349,6 @@ impl Plugin for LightProbePlugin {
         };
 
         render_app
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
             .init_resource::<GeneratorBindGroupLayouts>()
@@ -458,7 +402,7 @@ fn gather_environment_map_uniform(
         let environment_map_uniform = if let Some(environment_map_light) = environment_map_light {
             EnvironmentMapUniform {
                 transform: Transform::from_rotation(environment_map_light.rotation)
-                    .compute_matrix()
+                    .to_matrix()
                     .inverse(),
             }
         } else {
@@ -675,7 +619,7 @@ where
     ) -> Option<LightProbeInfo<C>> {
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             world_from_light: light_probe_transform.affine(),
-            light_from_world: light_probe_transform.compute_matrix().inverse(),
+            light_from_world: light_probe_transform.to_matrix().inverse(),
             asset_id: id,
             intensity: environment_map.intensity(),
             affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),

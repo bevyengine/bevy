@@ -1,4 +1,4 @@
-#import bevy_render::maths::{PI, PI_2, fast_sqrt};
+#import bevy_render::maths::{PI, PI_2};
 #import bevy_pbr::lighting::perceptualRoughnessToRoughness;
 
 struct FilteringConstants {
@@ -143,8 +143,8 @@ fn importance_sample_ggx(xi: vec2f, roughness: f32, normal: vec3f) -> vec3f {
     let phi = PI_2 * xi.x;
     
     // GGX mapping from uniform random to GGX distribution
-    let cos_theta = fast_sqrt((1.0 - xi.y) / (1.0 + (a * a - 1.0) * xi.y));
-    let sin_theta = fast_sqrt(1.0 - cos_theta * cos_theta);
+    let cos_theta = sqrt((1.0 - xi.y) / (1.0 + (a * a - 1.0) * xi.y));
+    let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
     
     // Convert to cartesian
     let h = vec3f(
@@ -281,7 +281,7 @@ fn uniform_sample_sphere(i: u32, normal: vec3f) -> vec3f {
     let golden_angle = 2.4;
     let full_sphere = f32(constants.sample_count) * 2.0;
     let z = 1.0 - (2.0 * f32(index) + 1.0) / full_sphere;
-    let r = fast_sqrt(1.0 - z * z);
+    let r = sqrt(1.0 - z * z);
     
     let phi = f32(index) * golden_angle;
     

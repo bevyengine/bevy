@@ -227,7 +227,7 @@ impl ExtractComponent for Bloom {
     type QueryFilter = With<Hdr>;
     type Out = (Self, BloomUniforms);
 
-    fn extract_component((bloom, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component((bloom, camera): QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         match (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
