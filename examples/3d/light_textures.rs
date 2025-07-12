@@ -22,8 +22,8 @@ use widgets::{
 #[path = "../helpers/widgets.rs"]
 mod widgets;
 
-/// The speed at which the cube rotates, in radians per frame.
-const CUBE_ROTATION_SPEED: f32 = 0.02;
+/// The speed at which the cube rotates, in radians per second.
+const CUBE_ROTATION_SPEED: f32 = FRAC_PI_2;
 
 /// The speed at which the selection can be moved, in spherical coordinate
 /// radians per mouse unit.
@@ -381,9 +381,9 @@ fn draw_gizmos(mut gizmos: Gizmos, spotlight: Query<(&GlobalTransform, &SpotLigh
 }
 
 /// Rotates the cube a bit every frame.
-fn rotate_cube(mut meshes: Query<&mut Transform, With<Rotate>>) {
+fn rotate_cube(mut meshes: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
     for mut transform in &mut meshes {
-        transform.rotate_y(CUBE_ROTATION_SPEED);
+        transform.rotate_y(CUBE_ROTATION_SPEED * time.delta_secs());
     }
 }
 
