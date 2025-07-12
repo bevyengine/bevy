@@ -335,7 +335,7 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
     commands.spawn((
         Camera3d::default(),
         Hdr,
-        Transform::from_xyz(-0.7, 0.7, -1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         color_grading,
         DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
@@ -356,9 +356,12 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
 
 fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
-    )));
+    commands.spawn((
+        SceneRoot(asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+        )),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
+    ));
 
     // Spawn the flight helmet.
     commands.spawn((
@@ -366,7 +369,7 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
-        Transform::from_xyz(-0.5, 0.0, 0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
+        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI + PI)),
     ));
 
     // Spawn the light.
