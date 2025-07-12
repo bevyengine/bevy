@@ -275,6 +275,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 mod tests {
     use crate::{
         prelude::*,
+        resource::IsResource,
         world::{EntityMutExcept, EntityRefExcept, FilteredEntityMut, FilteredEntityRef},
     };
     use std::dbg;
@@ -332,6 +333,7 @@ mod tests {
     #[test]
     fn builder_or() {
         let mut world = World::new();
+
         world.spawn((A(0), B(0)));
         world.spawn(B(0));
         world.spawn(C(0));
@@ -485,6 +487,7 @@ mod tests {
 
         let mut query = QueryBuilder::<(FilteredEntityMut, EntityMutExcept<A>)>::new(&mut world)
             .data::<EntityMut>()
+            .filter::<Without<IsResource>>()
             .build();
 
         // Removing `EntityMutExcept<A>` just leaves A
@@ -496,6 +499,7 @@ mod tests {
 
         let mut query = QueryBuilder::<(FilteredEntityMut, EntityRefExcept<A>)>::new(&mut world)
             .data::<EntityMut>()
+            .filter::<Without<IsResource>>()
             .build();
 
         // Removing `EntityRefExcept<A>` just leaves A, plus read access

@@ -494,9 +494,9 @@ mod tests {
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.entities.len(), 0);
+        assert_eq!(world.entity_count(), 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.entities.len(), 1);
+        assert_eq!(world.entity_count(), 1);
     }
 
     #[test]

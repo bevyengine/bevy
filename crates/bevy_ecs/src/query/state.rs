@@ -1777,6 +1777,7 @@ mod tests {
         component::Component,
         entity_disabling::DefaultQueryFilters,
         prelude::*,
+        resource::IsResource,
         system::{QueryLens, RunSystemOnce},
         world::{FilteredEntityMut, FilteredEntityRef},
     };
@@ -1850,6 +1851,7 @@ mod tests {
     #[test]
     fn can_transmute_empty_tuple() {
         let mut world = World::new();
+
         world.register_component::<A>();
         let entity = world.spawn(A(10)).id();
 
@@ -2175,6 +2177,7 @@ mod tests {
         let mut df = DefaultQueryFilters::empty();
         df.register_disabling_component(world.register_component::<C>());
         world.insert_resource(df);
+        world.register_disabling_component::<IsResource>();
 
         // Without<C> only matches the first entity
         let mut query = QueryState::<()>::new(&mut world);
@@ -2219,6 +2222,7 @@ mod tests {
         let mut df = DefaultQueryFilters::empty();
         df.register_disabling_component(world.register_component::<Sparse>());
         world.insert_resource(df);
+        world.register_disabling_component::<IsResource>();
 
         let mut query = QueryState::<()>::new(&mut world);
         // The query doesn't ask for sparse components, but the default filters adds
@@ -2229,6 +2233,7 @@ mod tests {
         let mut df = DefaultQueryFilters::empty();
         df.register_disabling_component(world.register_component::<Table>());
         world.insert_resource(df);
+        world.register_disabling_component::<IsResource>();
 
         let mut query = QueryState::<()>::new(&mut world);
         // If the filter is instead a table components, the query can still be dense

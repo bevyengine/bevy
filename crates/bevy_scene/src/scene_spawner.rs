@@ -609,7 +609,7 @@ mod tests {
         assert_eq!(scene_component_a.y, 4.0);
         assert_eq!(
             app.world().entity(entity).get::<Children>().unwrap().len(),
-            1
+            3 // two resources-as-entities are also counted
         );
 
         // let's try to delete the scene
