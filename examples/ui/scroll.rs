@@ -3,6 +3,7 @@
 use accesskit::{Node as Accessible, Role};
 use bevy::{
     a11y::AccessibilityNode,
+    color::palettes::css::{GREEN, RED},
     ecs::spawn::SpawnIter,
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
@@ -16,7 +17,6 @@ fn main() {
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, update_scroll_position);
-
     app.run();
 }
 
@@ -122,6 +122,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
+#[derive(Component)]
+struct ScrollingList;
+
 fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
     (
         Node {
@@ -149,35 +152,49 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     align_self: AlignSelf::Stretch,
                     height: Val::Percent(50.),
                     overflow: Overflow::scroll_y(), // n.b.
+                    scrollbar_width: 20.,
                     ..default()
                 },
+                ScrollingList,
                 BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
-                Children::spawn(SpawnIter((0..25).map(move |i| {
-                    (
-                        Node {
-                            min_height: Val::Px(LINE_HEIGHT),
-                            max_height: Val::Px(LINE_HEIGHT),
-                            ..default()
-                        },
-                        Pickable {
-                            should_block_lower: false,
-                            ..default()
-                        },
-                        children![(
-                            Text(format!("Item {i}")),
-                            TextFont {
-                                font: font_handle.clone(),
+                children![(
+                    Pickable {
+                        should_block_lower: false,
+                        ..default()
+                    },
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    Children::spawn(SpawnIter((0..25).map(move |i| {
+                        (
+                            Node {
+                                min_height: Val::Px(LINE_HEIGHT),
+                                max_height: Val::Px(LINE_HEIGHT),
                                 ..default()
                             },
-                            Label,
-                            AccessibilityNode(Accessible::new(Role::ListItem)),
                             Pickable {
                                 should_block_lower: false,
                                 ..default()
-                            }
-                        )],
-                    )
-                })))
+                            },
+                            children![(
+                                Text(format!("Item {i}")),
+                                TextFont {
+                                    font: font_handle.clone(),
+                                    ..default()
+                                },
+                                Label,
+                                AccessibilityNode(Accessible::new(Role::ListItem)),
+                                Pickable {
+                                    should_block_lower: false,
+                                    ..default()
+                                },
+                                BackgroundColor(GREEN.into())
+                            )],
+                        )
+                    })))
+                )]
             ),
         ],
     )
