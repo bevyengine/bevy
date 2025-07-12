@@ -98,6 +98,7 @@ impl Node for CasNode {
             label: Some("contrast_adaptive_sharpening"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],

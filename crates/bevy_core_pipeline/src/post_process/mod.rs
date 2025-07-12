@@ -384,6 +384,7 @@ impl ViewNode for PostProcessingNode {
             label: Some("postprocessing pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
