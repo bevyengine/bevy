@@ -4,13 +4,14 @@ mod auto_insert_apply_deferred;
 mod condition;
 mod config;
 mod executor;
+mod node;
 mod pass;
 mod schedule;
 mod set;
 mod stepping;
 
 use self::graph::*;
-pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
+pub use self::{condition::*, config::*, executor::*, node::*, schedule::*, set::*};
 pub use pass::ScheduleBuildPass;
 
 pub use self::graph::NodeId;

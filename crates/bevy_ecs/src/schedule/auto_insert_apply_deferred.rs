@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     is_apply_deferred, ApplyDeferred, DiGraph, Direction, NodeId, ReportCycles, ScheduleBuildError,
-    ScheduleBuildPass, ScheduleGraph, SystemNode,
+    ScheduleBuildPass, ScheduleGraph,
 };
 
 /// A [`ScheduleBuildPass`] that inserts [`ApplyDeferred`] systems into the schedule graph
@@ -49,10 +49,7 @@ impl AutoInsertApplyDeferredPass {
     fn add_auto_sync(&mut self, graph: &mut ScheduleGraph) -> SystemKey {
         let key = graph
             .systems
-            .insert(SystemNode::new(Box::new(IntoSystem::into_system(
-                ApplyDeferred,
-            ))));
-        graph.system_conditions.insert(key, Vec::new());
+            .insert(Box::new(IntoSystem::into_system(ApplyDeferred)), Vec::new());
 
         // ignore ambiguities with auto sync points
         // They aren't under user control, so no one should know or care.
@@ -81,7 +78,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
         fn set_has_conditions(graph: &ScheduleGraph, set: SystemSetKey) -> bool {
-            !graph.set_conditions_at(set).is_empty()
+            graph.system_sets.has_conditions(set)
                 || graph
                     .hierarchy()
                     .graph()
@@ -94,7 +91,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         }
 
         fn system_has_conditions(graph: &ScheduleGraph, key: SystemKey) -> bool {
-            !graph.system_conditions[key].is_empty()
+            graph.systems.has_conditions(key)
                 || graph
                     .hierarchy()
                     .graph()
@@ -108,7 +105,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
         let mut system_has_conditions_cache = HashMap::<SystemKey, bool>::default();
         let mut is_valid_explicit_sync_point = |key: SystemKey| {
-            is_apply_deferred(&graph.systems[key].get().unwrap().system)
+            is_apply_deferred(&graph.systems[key])
                 && !*system_has_conditions_cache
                     .entry(key)
                     .or_insert_with(|| system_has_conditions(graph, key))
@@ -148,7 +145,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
             } else if !node_needs_sync {
                 // No previous node has postponed sync points to add so check if the system itself
                 // has deferred params that require a sync point to apply them.
-                node_needs_sync = graph.systems[key].get().unwrap().system.has_deferred();
+                node_needs_sync = graph.systems[key].has_deferred();
             }
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
@@ -160,7 +157,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
                 let mut edge_needs_sync = node_needs_sync;
                 if node_needs_sync
-                    && !graph.systems[target].get().unwrap().system.is_exclusive()
+                    && !graph.systems[target].is_exclusive()
                     && self
                         .no_sync_edges
                         .contains(&(*node, NodeId::System(target)))
@@ -210,7 +207,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     continue;
                 }
 
-                if is_apply_deferred(&graph.systems[target].get().unwrap().system) {
+                if is_apply_deferred(&graph.systems[target]) {
                     // We don't need to insert a sync point since ApplyDeferred is a sync point
                     // already!
                     continue;
