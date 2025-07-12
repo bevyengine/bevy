@@ -1437,7 +1437,7 @@ fn export_registry_types_typed(
     schema.definitions = definitions
         .into_iter()
         .flat_map(|id| {
-            let result = types.build_schema_for_type_id(id, metadata);
+            let result = types.build_schema_for_type_id(id, metadata, true);
             let Some((Some(schema_id), schema)) = result else {
                 return None;
             };

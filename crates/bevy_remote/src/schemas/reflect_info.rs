@@ -1,6 +1,7 @@
 //! Module containing information about reflected types.
 use crate::schemas::json_schema::{
     JsonSchemaBevyType, JsonSchemaVariant, SchemaKind, SchemaType, SchemaTypeVariant,
+    TypeRegistrySchemaReader,
 };
 use crate::schemas::{CustomInternalSchemaData, SchemaTypesMetadata};
 use alloc::borrow::Cow;
@@ -1364,6 +1365,7 @@ pub(crate) trait TypeDefinitionBuilder {
         &self,
         type_id: TypeId,
         metadata: &SchemaTypesMetadata,
+        try_add_default_value: bool,
     ) -> Option<(Option<TypeReferenceId>, JsonSchemaBevyType)>;
     /// Returns a set of type IDs that are dependencies of the given type ID.
     fn get_type_dependencies(&self, type_id: TypeId) -> HashSet<TypeId>;
@@ -1372,6 +1374,7 @@ pub(crate) trait TypeDefinitionBuilder {
         &self,
         type_id: TypeId,
         metadata: &SchemaTypesMetadata,
+        try_add_default_value: bool,
     ) -> Option<JsonSchemaBevyType>;
 
     /// Builds a schema reference for a given type ID.
@@ -1480,6 +1483,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
         &self,
         type_id: TypeId,
         metadata: &SchemaTypesMetadata,
+        try_add_default_value: bool,
     ) -> Option<(Option<TypeReferenceId>, JsonSchemaBevyType)> {
         let type_reg = self.get(type_id)?;
         let internal = InternalSchemaType::from_type_registration(type_reg, self);
@@ -1506,12 +1510,18 @@ impl TypeDefinitionBuilder for TypeRegistry {
             .iter()
             .map(|c| Cow::Owned(c.to_string()))
             .collect();
+        let default_value = if try_add_default_value {
+            self.try_get_default_value_for_type_id(type_id)
+        } else {
+            None
+        };
         let mut schema = JsonSchemaBevyType {
             description,
             type_path,
             short_path,
             crate_name,
             module_path,
+            default_value,
             kind: Some(SchemaKind::from_type_reg(type_reg)),
             minimum: range.min.get_inclusive(),
             maximum: range.max.get_inclusive(),
@@ -1620,14 +1630,16 @@ impl TypeDefinitionBuilder for TypeRegistry {
         &self,
         type_id: TypeId,
         metadata: &SchemaTypesMetadata,
+        try_add_default_value: bool,
     ) -> Option<JsonSchemaBevyType> {
-        let (_, mut schema) = self.build_schema_for_type_id(type_id, metadata)?;
+        let (_, mut schema) =
+            self.build_schema_for_type_id(type_id, metadata, try_add_default_value)?;
         let dependencies = self.get_type_dependencies(type_id);
         schema.schema = Some(super::json_schema::SchemaMarker.into());
         schema.definitions = dependencies
             .into_iter()
             .flat_map(|id| {
-                let result = self.build_schema_for_type_id(id, metadata);
+                let result = self.build_schema_for_type_id(id, metadata, false);
                 let Some((Some(schema_id), schema)) = result else {
                     return None;
                 };
@@ -1841,7 +1853,7 @@ pub(super) mod tests {
         }
         let type_registry = atr.read();
         let (_, schema) = type_registry
-            .build_schema_for_type_id(TypeId::of::<StructTest>(), &Default::default())
+            .build_schema_for_type_id(TypeId::of::<StructTest>(), &Default::default(), false)
             .expect("");
         let JsonSchemaVariant::Schema(field_schema) = &schema.properties["value"] else {
             panic!("Should be a schema");
@@ -1872,7 +1884,7 @@ pub(super) mod tests {
         }
         let type_registry = atr.read();
         let (_, schema) = type_registry
-            .build_schema_for_type_id(TypeId::of::<StructTest>(), &Default::default())
+            .build_schema_for_type_id(TypeId::of::<StructTest>(), &Default::default(), false)
             .expect("");
         validate::<StructTest>(
             schema,
@@ -1909,7 +1921,7 @@ pub(super) mod tests {
         }
         let type_registry = atr.read();
         let (_, schema) = type_registry
-            .build_schema_for_type_id(TypeId::of::<Foo>(), &Default::default())
+            .build_schema_for_type_id(TypeId::of::<Foo>(), &Default::default(), false)
             .expect("");
         validate::<Foo>(
             schema,
@@ -1922,7 +1934,7 @@ pub(super) mod tests {
             ],
         );
         let (_, schema) = type_registry
-            .build_schema_for_type_id(TypeId::of::<bevy_math::Vec3>(), &Default::default())
+            .build_schema_for_type_id(TypeId::of::<bevy_math::Vec3>(), &Default::default(), false)
             .expect("");
 
         validate::<bevy_math::Vec3>(
@@ -1961,6 +1973,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<TupleTest>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         let range: MinMaxValues = (&schema).into();
@@ -2004,6 +2017,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<EnumTest>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         validate::<EnumTest>(
@@ -2065,6 +2079,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<ArrayComponent>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         validate::<ArrayComponent>(
@@ -2115,12 +2130,14 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<ArrayComponent>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         let schema_second = types
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<ArrayComponentWithMoreVariants>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         assert_eq!(schema.definitions.len(), schema_second.definitions.len());
@@ -2140,7 +2157,11 @@ pub(super) mod tests {
         }
         let types = atr.read();
         let schema = types
-            .build_schema_for_type_id_with_definitions(TypeId::of::<S>(), &Default::default())
+            .build_schema_for_type_id_with_definitions(
+                TypeId::of::<S>(),
+                &Default::default(),
+                false,
+            )
             .expect("");
         validate::<S>(
             schema,
@@ -2179,6 +2200,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<HashMapStruct>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         validate::<HashMapStruct>(
@@ -2231,6 +2253,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<NestedStruct>(),
                 &Default::default(),
+                false,
             )
             .expect("");
 
@@ -2277,6 +2300,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<StructWithNameField>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         validate::<StructWithNameField>(
@@ -2313,6 +2337,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<Option<(i8, Option<i16>)>>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         validate::<Option<(i8, Option<i16>)>>(schema, &[None], &[], &[]);
@@ -2342,6 +2367,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<TupleStruct>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         validate::<TupleStruct>(
@@ -2379,6 +2405,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<TupleStruct>(),
                 &Default::default(),
+                false,
             )
             .expect("");
 
@@ -2417,6 +2444,7 @@ pub(super) mod tests {
             .build_schema_for_type_id_with_definitions(
                 TypeId::of::<TupleStruct>(),
                 &Default::default(),
+                false,
             )
             .expect("");
         let range: MinMaxValues = (&schema).into();

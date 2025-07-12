@@ -43,7 +43,8 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         type_id: TypeId,
         extra_info: &SchemaTypesMetadata,
     ) -> Option<JsonSchemaBevyType> {
-        let mut schema = self.build_schema_for_type_id_with_definitions(type_id, extra_info)?;
+        let mut schema =
+            self.build_schema_for_type_id_with_definitions(type_id, extra_info, true)?;
         schema.schema = Some(SchemaMarker.into());
         schema.default_value = self.try_get_default_value_for_type_id(type_id);
 
