@@ -29,12 +29,12 @@ struct ColorOverride(Color);
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0., 1., 2.5).looking_at(Vec3::new(0., 0.25, 0.), Dir3::Y),
+        Transform::from_xyz(0., 1., -2.5).looking_at(Vec3::new(0., 0.25, 0.), Dir3::Y),
     ));
 
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(0., 1., 0.25).looking_at(Vec3::ZERO, Dir3::Y),
+        Transform::from_xyz(0., 1., -0.25).looking_at(Vec3::ZERO, Dir3::Y),
     ));
 
     // FlightHelmet handle
@@ -42,17 +42,17 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     // This model will keep its original materials
     commands.spawn(SceneRoot(flight_helmet.clone()));
-    // This model will be tinted red
-    commands.spawn((
-        SceneRoot(flight_helmet.clone()),
-        Transform::from_xyz(-1.25, 0., 0.),
-        ColorOverride(palettes::tailwind::RED_300.into()),
-    ));
     // This model will be tinted green
     commands.spawn((
-        SceneRoot(flight_helmet),
+        SceneRoot(flight_helmet.clone()),
         Transform::from_xyz(1.25, 0., 0.),
         ColorOverride(palettes::tailwind::GREEN_300.into()),
+    ));
+    // This model will be tinted red
+    commands.spawn((
+        SceneRoot(flight_helmet),
+        Transform::from_xyz(-1.25, 0., 0.),
+        ColorOverride(palettes::tailwind::RED_300.into()),
     ));
 }
 
