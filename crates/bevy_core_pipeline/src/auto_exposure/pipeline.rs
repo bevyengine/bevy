@@ -47,31 +47,31 @@ pub enum AutoExposurePass {
 
 pub const HISTOGRAM_BIN_COUNT: u64 = 64;
 
-impl FromWorld for AutoExposurePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        Self {
-            histogram_layout: render_device.create_bind_group_layout(
-                "compute histogram bind group",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::COMPUTE,
-                    (
-                        uniform_buffer::<GlobalsUniform>(false),
-                        uniform_buffer::<AutoExposureUniform>(false),
-                        texture_2d(TextureSampleType::Float { filterable: false }),
-                        texture_2d(TextureSampleType::Float { filterable: false }),
-                        texture_1d(TextureSampleType::Float { filterable: false }),
-                        uniform_buffer::<AutoExposureCompensationCurveUniform>(false),
-                        storage_buffer_sized(false, NonZero::<u64>::new(HISTOGRAM_BIN_COUNT * 4)),
-                        storage_buffer_sized(false, NonZero::<u64>::new(4)),
-                        storage_buffer::<ViewUniform>(true),
-                    ),
+pub fn init_auto_exposure_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(AutoExposurePipeline {
+        histogram_layout: render_device.create_bind_group_layout(
+            "compute histogram bind group",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    uniform_buffer::<GlobalsUniform>(false),
+                    uniform_buffer::<AutoExposureUniform>(false),
+                    texture_2d(TextureSampleType::Float { filterable: false }),
+                    texture_2d(TextureSampleType::Float { filterable: false }),
+                    texture_1d(TextureSampleType::Float { filterable: false }),
+                    uniform_buffer::<AutoExposureCompensationCurveUniform>(false),
+                    storage_buffer_sized(false, NonZero::<u64>::new(HISTOGRAM_BIN_COUNT * 4)),
+                    storage_buffer_sized(false, NonZero::<u64>::new(4)),
+                    storage_buffer::<ViewUniform>(true),
                 ),
             ),
-            histogram_shader: load_embedded_asset!(world, "auto_exposure.wgsl"),
-        }
-    }
+        ),
+        histogram_shader: load_embedded_asset!(asset_server.as_ref(), "auto_exposure.wgsl"),
+    });
 }
 
 impl SpecializedComputePipeline for AutoExposurePipeline {

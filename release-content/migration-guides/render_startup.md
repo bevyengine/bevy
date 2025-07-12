@@ -15,6 +15,16 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `FxaaPipeline`
 - `SmaaPipelines`
 - `TaaPipeline`
+- `AutoExposurePipeline`
+- `MotionBlurPipeline`
+- `SkyboxPrepassPipeline`
+- `CopyDeferredLightingIdPipeline`
+- `BlitPipeline`
+- `DepthOfFieldGlobalBindGroupLayout`
+- `DepthPyramidDummyTexture`
+- `OitBuffers`
+- `PostProcessingPipeline`
+- `TonemappingPipeline`
 - `BoxShadowPipeline`
 - `GradientPipeline`
 - `UiPipeline`
