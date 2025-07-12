@@ -40,9 +40,9 @@ use {
 /// # Example
 ///
 /// ```
-/// use bevy_ecs::event::{BufferedEvent, Event, Events};
+/// use bevy_ecs::event::{BufferedEvent, Events};
 ///
-/// #[derive(Event, BufferedEvent)]
+/// #[derive(BufferedEvent)]
 /// struct MyEvent {
 ///     value: usize
 /// }
@@ -419,11 +419,11 @@ impl<E: BufferedEvent> ExactSizeIterator for WriteBatchIds<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::event::{BufferedEvent, Event, Events};
+    use crate::event::{BufferedEvent, Events};
 
     #[test]
     fn iter_current_update_events_iterates_over_current_events() {
-        #[derive(Event, BufferedEvent, Clone)]
+        #[derive(BufferedEvent, Clone)]
         struct TestEvent;
 
         let mut test_events = Events::<TestEvent>::default();

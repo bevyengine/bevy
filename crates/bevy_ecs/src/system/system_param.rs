@@ -57,7 +57,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Resource)]
 /// # struct SomeResource;
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct SomeEvent;
 /// # #[derive(Resource)]
 /// # struct SomeOtherResource;
@@ -601,7 +601,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct MyEvent;
 /// # impl MyEvent {
 /// #   pub fn new() -> Self { Self }
@@ -2853,7 +2853,7 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{event::Event, system::assert_is_system};
+    use crate::system::assert_is_system;
     use core::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
@@ -3103,7 +3103,7 @@ mod tests {
     fn missing_event_error() {
         use crate::prelude::{BufferedEvent, EventReader};
 
-        #[derive(Event, BufferedEvent)]
+        #[derive(BufferedEvent)]
         pub struct MissingEvent;
 
         let mut schedule = crate::schedule::Schedule::default();

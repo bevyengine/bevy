@@ -52,7 +52,7 @@ pub enum CiTestingEvent {
 }
 
 /// A custom event that can be configured from a configuration file for CI testing.
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 pub struct CiTestingCustomEvent(pub String);
 
 #[cfg(test)]

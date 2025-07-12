@@ -230,7 +230,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// #[derive(Resource, PartialEq, Eq)]
     /// pub struct Score(u32);
     ///
-    /// #[derive(Event, BufferedEvent, PartialEq, Eq)]
+    /// #[derive(BufferedEvent, PartialEq, Eq)]
     /// pub struct ScoreChanged {
     ///     current: u32,
     ///     previous: u32,

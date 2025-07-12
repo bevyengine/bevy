@@ -285,7 +285,7 @@ They can be sent using the `EventWriter` system parameter and received with `Eve
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct Message(String);
 
 fn writer(mut writer: EventWriter<Message>) {

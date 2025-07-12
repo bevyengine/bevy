@@ -72,7 +72,7 @@ enum LightingMode {
 /// An event that's fired whenever the user changes the lighting mode.
 ///
 /// This is also fired when the scene loads for the first time.
-#[derive(Clone, Copy, Default, Event, BufferedEvent)]
+#[derive(Clone, Copy, Default, BufferedEvent)]
 struct LightingModeChanged;
 
 #[derive(Clone, Copy, Component, Debug)]

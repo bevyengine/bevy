@@ -156,7 +156,7 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, Event, BufferedEvent, Reflect)]
+#[derive(Debug, Default, Clone, Copy, BufferedEvent, Reflect)]
 #[reflect(Debug, Default, Clone)]
 pub struct WakeUp;
 
@@ -167,7 +167,7 @@ pub struct WakeUp;
 ///
 /// When you receive this event it has already been handled by Bevy's main loop.
 /// Sending these events will NOT cause them to be processed by Bevy.
-#[derive(Debug, Clone, Event, BufferedEvent)]
+#[derive(Debug, Clone, BufferedEvent)]
 pub struct RawWinitWindowEvent {
     /// The window for which the event was fired.
     pub window_id: WindowId,

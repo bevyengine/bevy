@@ -783,7 +783,7 @@ mod tests {
         #[derive(Component)]
         struct B;
 
-        #[derive(Event, BufferedEvent)]
+        #[derive(BufferedEvent)]
         struct E;
 
         #[derive(Resource, Component)]

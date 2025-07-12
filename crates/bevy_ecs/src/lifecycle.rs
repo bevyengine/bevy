@@ -393,7 +393,7 @@ pub type OnDespawn = Despawn;
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
-#[derive(Event, BufferedEvent, Debug, Clone, Into)]
+#[derive(BufferedEvent, Debug, Clone, Into)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Clone))]
 pub struct RemovedComponentEntity(Entity);
