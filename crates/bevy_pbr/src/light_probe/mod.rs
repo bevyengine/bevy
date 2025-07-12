@@ -20,7 +20,6 @@ use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight, LightProbe};
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
     extract_instances::ExtractInstancesPlugin,
     load_shader_library,
     primitives::{Aabb, Frustum},

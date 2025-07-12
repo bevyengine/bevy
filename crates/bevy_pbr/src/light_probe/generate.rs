@@ -1,3 +1,24 @@
+//! Generated environment map filtering.
+//!
+//! A *generated environment map* converts a single, high-resolution cubemap
+//! into the pair of diffuse and specular cubemaps required by the PBR
+//! shader.  Add [`bevy_light::GeneratedEnvironmentMapLight`] (together with
+//! [`bevy_light::LightProbe`]) to an entity and Bevy will, each frame:
+//!
+//! 1. Copy the base mip (level 0) of the source cubemap into an
+//!    intermediate storage texture.
+//! 2. Generate mipmaps using single-pass down-sampling (SPD).
+//! 3. Convolve the mip chain twice:
+//!    * a Lambertian convolution for the 32 × 32 diffuse cubemap;
+//!    * a GGX convolution, once per mip level, for the specular cubemap.
+//!
+//! The filtered results are then consumed exactly like the textures supplied
+//! by [`bevy_light::EnvironmentMapLight`]. This is useful when you only have a
+//! raw HDR environment map or when you need reflections generated at run time.
+//!
+//! [single-pass down-sampling]: <SPD-paper-URL>
+//! [Lambertian convolution]: <reference-URL>
+//! [GGX convolution]: <reference-URL>
 use bevy_asset::{load_embedded_asset, uuid_handle, Assets, Handle};
 use bevy_ecs::{
     component::Component,
@@ -9,9 +30,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{Quat, Vec2};
-use bevy_reflect::Reflect;
 use bevy_render::{
-    extract_component::ExtractComponent,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel},
     render_resource::{

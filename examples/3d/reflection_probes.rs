@@ -1,8 +1,9 @@
 //! This example shows how to place reflection probes in the scene.
 //!
-//! Press Space to switch between no reflections, environment map reflections
-//! (i.e. the skybox only, not the cubes), and a full reflection probe that
-//! reflects the skybox and the cubes. Press Enter to pause rotation.
+//! Press Space to cycle through the reflection modes: an environment-map mode
+//! that shows only the skybox, a reflection-probe mode that reflects both the
+//! skybox and the cubes, and a generated environment map mode that filters an
+//! unfiltered cubemap on the GPU. Press Enter to pause or resume rotation.
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
@@ -37,37 +38,29 @@ struct AppStatus {
 // Which environment maps the user has requested to display.
 #[derive(Clone, Copy, PartialEq)]
 enum ReflectionMode {
-    // No environment maps are shown.
-    None = 0,
     // Only a world environment map is shown.
-    EnvironmentMap = 1,
+    EnvironmentMap = 0,
     // Both a world environment map and a reflection probe are present. The
     // reflection probe is shown in the sphere.
-    ReflectionProbe = 2,
+    ReflectionProbe = 1,
     // A generated environment map is shown.
-    GeneratedEnvironmentMap = 3,
+    GeneratedEnvironmentMap = 2,
 }
 
 // The various reflection maps.
 #[derive(Resource)]
 struct Cubemaps {
-    // The blurry diffuse cubemap. This is used for both the world environment
-    // map and the reflection probe. (In reality you wouldn't do this, but this
-    // reduces complexity of this example a bit.)
-    diffuse: Handle<Image>,
+    // The blurry diffuse cubemap that reflects the world, but not the cubes.
+    diffuse_environment_map: Handle<Image>,
 
     // The specular cubemap that reflects the world, but not the cubes.
     specular_environment_map: Handle<Image>,
 
+    // The blurry diffuse cubemap that reflects both the world and the cubes.
+    diffuse_reflection_probe: Handle<Image>,
+
     // The specular cubemap that reflects both the world and the cubes.
     specular_reflection_probe: Handle<Image>,
-
-    // Unfiltered environment map
-    unfiltered_environment_map: Handle<Image>,
-
-    // The skybox cubemap image. This is almost the same as
-    // `specular_environment_map`.
-    skybox: Handle<Image>,
 }
 
 fn main() {
@@ -163,7 +156,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn((
         LightProbe,
         EnvironmentMapLight {
-            diffuse_map: cubemaps.diffuse.clone(),
+            diffuse_map: cubemaps.diffuse_reflection_probe.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
             intensity: 5000.0,
             ..default()
@@ -171,12 +164,13 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
         Transform::from_scale(Vec3::splat(2.0)),
     ));
-    // spawn directional light
+    // spawn directional light for the sun
     commands.spawn((
         DirectionalLight {
             illuminance: 10_000.0,
             ..default()
         },
+        // Roughly match the position of the sun in the environment map
         Transform::from_xyz(1.0, 0.5, 0.7).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
@@ -185,7 +179,11 @@ fn spawn_generated_environment_map(commands: &mut Commands, cubemaps: &Cubemaps)
     commands.spawn((
         LightProbe,
         GeneratedEnvironmentMapLight {
-            environment_map: cubemaps.unfiltered_environment_map.clone(),
+            // Reuse the specular map for the generated environment map, even
+            // though it already has mip levels. In reality you would use a
+            // cubemap texture without mip levels and generate the mips using
+            // this component by filtering the cubemap on the GPU.
+            environment_map: cubemaps.specular_environment_map.clone(),
             intensity: 5000.0,
             ..default()
         },
@@ -228,7 +226,10 @@ fn add_environment_map_to_camera(
             .entity(camera_entity)
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
-                image: cubemaps.skybox.clone(),
+                // Reuse the specular map for the skybox since it's not too blurry.
+                // In reality you wouldn't do this--you'd use a real skybox texture--but
+                // reusing the textures like this saves space in the Bevy repository.
+                image: cubemaps.specular_environment_map.clone(),
                 brightness: 5000.0,
                 ..default()
             });
@@ -250,15 +251,9 @@ fn change_reflection_type(
         return;
     }
 
-    // Switch reflection mode.
+    // Advance to the next reflection mode.
     app_status.reflection_mode =
-        ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 4).unwrap();
-
-    // skip the no reflection mode and switch to the next mode
-    if app_status.reflection_mode == ReflectionMode::None {
-        app_status.reflection_mode =
-            ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 4).unwrap();
-    }
+        ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 3).unwrap();
 
     // Add or remove the light probe.
     for light_probe in light_probe_query.iter() {
@@ -268,7 +263,7 @@ fn change_reflection_type(
         commands.entity(skybox).remove::<Skybox>();
     }
     match app_status.reflection_mode {
-        ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
+        ReflectionMode::EnvironmentMap => {}
         ReflectionMode::ReflectionProbe => spawn_reflection_probe(&mut commands, &cubemaps),
         ReflectionMode::GeneratedEnvironmentMap => {
             spawn_generated_environment_map(&mut commands, &cubemaps);
@@ -278,18 +273,10 @@ fn change_reflection_type(
     // Add or remove the environment map from the camera.
     for camera in camera_query.iter() {
         match app_status.reflection_mode {
-            ReflectionMode::None => {
-                commands.entity(camera).remove::<EnvironmentMapLight>();
-            }
             ReflectionMode::EnvironmentMap
             | ReflectionMode::ReflectionProbe
             | ReflectionMode::GeneratedEnvironmentMap => {
-                let image = match app_status.reflection_mode {
-                    ReflectionMode::GeneratedEnvironmentMap => {
-                        cubemaps.unfiltered_environment_map.clone()
-                    }
-                    _ => cubemaps.skybox.clone(),
-                };
+                let image = cubemaps.specular_environment_map.clone();
                 commands
                     .entity(camera)
                     .insert(create_camera_environment_map_light(&cubemaps))
@@ -322,10 +309,9 @@ impl TryFrom<u32> for ReflectionMode {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(ReflectionMode::None),
-            1 => Ok(ReflectionMode::EnvironmentMap),
-            2 => Ok(ReflectionMode::ReflectionProbe),
-            3 => Ok(ReflectionMode::GeneratedEnvironmentMap),
+            0 => Ok(ReflectionMode::EnvironmentMap),
+            1 => Ok(ReflectionMode::ReflectionProbe),
+            2 => Ok(ReflectionMode::GeneratedEnvironmentMap),
             _ => Err(()),
         }
     }
@@ -334,7 +320,6 @@ impl TryFrom<u32> for ReflectionMode {
 impl Display for ReflectionMode {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         let text = match *self {
-            ReflectionMode::None => "No reflections",
             ReflectionMode::EnvironmentMap => "Environment map",
             ReflectionMode::ReflectionProbe => "Reflection probe",
             ReflectionMode::GeneratedEnvironmentMap => "Generated environment map",
@@ -368,7 +353,7 @@ impl AppStatus {
 // probe is applicable to a mesh.
 fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLight {
     EnvironmentMapLight {
-        diffuse_map: cubemaps.diffuse.clone(),
+        diffuse_map: cubemaps.diffuse_environment_map.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
         intensity: 5000.0,
         ..default()
@@ -397,27 +382,21 @@ fn rotate_camera(
 // Loads the cubemaps from the assets directory.
 impl FromWorld for Cubemaps {
     fn from_world(world: &mut World) -> Self {
-        // Just use the specular map for the skybox since it's not too blurry.
-        // In reality you wouldn't do this--you'd use a real skybox texture--but
-        // reusing the textures like this saves space in the Bevy repository.
-        let specular_map =
-            world.load_asset("environment_maps/spiaggia_di_mondello_2k_specular_rgb5e9.ktx2");
-
         Cubemaps {
-            diffuse: world
+            diffuse_environment_map: world
                 .load_asset("environment_maps/spiaggia_di_mondello_2k_probe_diffuse_rgb5e9.ktx2"),
+            specular_environment_map: world
+                .load_asset("environment_maps/spiaggia_di_mondello_2k_specular_rgb5e9.ktx2"),
             specular_reflection_probe: world
                 .load_asset("environment_maps/spiaggia_di_mondello_2k_probe_specular_rgb5e9.ktx2"),
-            specular_environment_map: specular_map.clone(),
-            unfiltered_environment_map: world
-                .load_asset("environment_maps/spiaggia_di_mondello_2k_specular_rgb5e9.ktx2"),
-            skybox: specular_map,
+            diffuse_reflection_probe: world
+                .load_asset("environment_maps/spiaggia_di_mondello_2k_probe_diffuse_rgb5e9.ktx2"),
         }
     }
 }
 
 fn setup_environment_map_usage(cubemaps: Res<Cubemaps>, mut images: ResMut<Assets<Image>>) {
-    if let Some(image) = images.get_mut(&cubemaps.unfiltered_environment_map) {
+    if let Some(image) = images.get_mut(&cubemaps.specular_environment_map) {
         if !image
             .texture_descriptor
             .usage

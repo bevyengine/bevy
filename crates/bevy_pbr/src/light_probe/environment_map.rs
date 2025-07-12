@@ -47,7 +47,7 @@
 use bevy_asset::AssetId;
 use bevy_ecs::{query::QueryItem, system::lifetimeless::Read};
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
+use bevy_light::EnvironmentMapLight;
 use bevy_render::{
     extract_instances::ExtractInstance,
     render_asset::RenderAssets,
