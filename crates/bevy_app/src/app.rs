@@ -108,7 +108,12 @@ impl Default for App {
         {
             use bevy_ecs::observer::ObservedBy;
 
+            #[cfg(not(feature = "reflect_auto_register"))]
             app.init_resource::<AppTypeRegistry>();
+
+            #[cfg(feature = "reflect_auto_register")]
+            app.insert_resource(AppTypeRegistry::new_with_derived_types());
+
             app.register_type::<Name>();
             app.register_type::<ChildOf>();
             app.register_type::<Children>();
