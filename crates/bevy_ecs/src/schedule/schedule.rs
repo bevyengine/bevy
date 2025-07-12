@@ -15,6 +15,7 @@ use bevy_utils::{default, prelude::DebugName, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
+    ops::Range,
 };
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
@@ -765,21 +766,20 @@ enum UninitializedId {
     /// A system set's conditions that have not been initialized yet.
     Set {
         key: SystemSetKey,
-        /// The index in [`SystemSets::conditions`] where the first
-        /// uninitialized condition is. All conditions after this index also
-        /// still need to be initialized.
+        /// The range of indices in [`SystemSets::conditions`] that correspond
+        /// to conditions that have not been initialized yet.
         ///
-        /// Conditions might be added multiple times to a system set (e.g. when
-        /// `configure_sets` is called multiple times with the same set), so we
-        /// need to track where the newly added conditions start in the
-        /// `conditions` list.
+        /// [`SystemSets::conditions`] for a given set may be appended to
+        /// multiple times (e.g. when `configure_sets` is called multiple with
+        /// the same set), so we need to track which conditions in that list
+        /// are newly added and not yet initialized.
         ///
         /// Note: We don't need to do this for systems because calling
         /// `add_systems` multiple times with the same system results in
         /// multiple duplicates of that system in the graph, each with their own
         /// separate list of conditions. That means all of a system's conditions
         /// are always initialized together.
-        first_uninit_condition: usize,
+        uninitialized_conditions: Range<usize>,
     },
 }
 
@@ -1123,9 +1123,10 @@ impl ScheduleGraph {
 
         // system init has to be deferred (need `&mut World`)
         let system_set_conditions = self.system_sets.conditions.entry(key).unwrap().or_default();
+        let start = system_set_conditions.len();
         self.uninit.push(UninitializedId::Set {
             key,
-            first_uninit_condition: system_set_conditions.len(),
+            uninitialized_conditions: start..(start + conditions.len()),
         });
         system_set_conditions.extend(conditions.into_iter().map(ConditionWithAccess::new));
 
@@ -1211,11 +1212,9 @@ impl ScheduleGraph {
                 }
                 UninitializedId::Set {
                     key,
-                    first_uninit_condition,
+                    uninitialized_conditions,
                 } => {
-                    for condition in self.system_sets.conditions[key]
-                        .iter_mut()
-                        .skip(first_uninit_condition)
+                    for condition in &mut self.system_sets.conditions[key][uninitialized_conditions]
                     {
                         condition.access = condition.condition.initialize(world);
                     }
