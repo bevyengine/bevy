@@ -64,6 +64,7 @@ impl ComponentIds {
 pub struct ComponentsRegistrator<'w> {
     components: &'w mut Components,
     ids: &'w mut ComponentIds,
+    pub(super) recursion_check_stack: Vec<ComponentId>,
 }
 
 impl Deref for ComponentsRegistrator<'_> {
@@ -88,7 +89,11 @@ impl<'w> ComponentsRegistrator<'w> {
     /// The [`Components`] and [`ComponentIds`] must match.
     /// For example, they must be from the same world.
     pub unsafe fn new(components: &'w mut Components, ids: &'w mut ComponentIds) -> Self {
-        Self { components, ids }
+        Self {
+            components,
+            ids,
+            recursion_check_stack: Vec::new(),
+        }
     }
 
     /// Converts this [`ComponentsRegistrator`] into a [`ComponentsQueuedRegistrator`].
@@ -177,15 +182,12 @@ impl<'w> ComponentsRegistrator<'w> {
     /// * [`ComponentsRegistrator::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.register_component_checked::<T>(&mut Vec::new())
+        self.register_component_checked::<T>()
     }
 
     /// Same as [`Self::register_component_unchecked`] but keeps a checks for safety.
     #[inline]
-    pub(super) fn register_component_checked<T: Component>(
-        &mut self,
-        recursion_check_stack: &mut Vec<ComponentId>,
-    ) -> ComponentId {
+    pub(super) fn register_component_checked<T: Component>(&mut self) -> ComponentId {
         let type_id = TypeId::of::<T>();
         if let Some(id) = self.indices.get(&type_id) {
             return *id;
@@ -207,7 +209,7 @@ impl<'w> ComponentsRegistrator<'w> {
         let id = self.ids.next_mut();
         // SAFETY: The component is not currently registered, and the id is fresh.
         unsafe {
-            self.register_component_unchecked::<T>(recursion_check_stack, id);
+            self.register_component_unchecked::<T>(id);
         }
         id
     }
@@ -216,11 +218,7 @@ impl<'w> ComponentsRegistrator<'w> {
     ///
     /// Neither this component, nor its id may be registered or queued. This must be a new registration.
     #[inline]
-    unsafe fn register_component_unchecked<T: Component>(
-        &mut self,
-        recursion_check_stack: &mut Vec<ComponentId>,
-        id: ComponentId,
-    ) {
+    unsafe fn register_component_unchecked<T: Component>(&mut self, id: ComponentId) {
         // SAFETY: ensured by caller.
         unsafe {
             self.register_component_inner(id, ComponentDescriptor::new::<T>());
@@ -229,14 +227,10 @@ impl<'w> ComponentsRegistrator<'w> {
         let prev = self.indices.insert(type_id, id);
         debug_assert!(prev.is_none());
 
+        self.recursion_check_stack.push(id);
         let mut required_components = RequiredComponents::default();
-        T::register_required_components(
-            id,
-            self,
-            &mut required_components,
-            0,
-            recursion_check_stack,
-        );
+        T::register_required_components(id, self, &mut required_components, 0);
+        self.recursion_check_stack.pop();
         // SAFETY: we just inserted it in `register_component_inner`
         let info = unsafe {
             &mut self
@@ -563,7 +557,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                         // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
                         #[expect(unused_unsafe, reason = "More precise to specify.")]
                         unsafe {
-                            registrator.register_component_unchecked::<T>(&mut Vec::new(), id);
+                            registrator.register_component_unchecked::<T>(id);
                         }
                     },
                 )

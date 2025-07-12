@@ -18,7 +18,6 @@ use crate::{
     system::{Local, SystemParam},
     world::{FromWorld, World},
 };
-use alloc::vec::Vec;
 pub use bevy_ecs_macros::Component;
 use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 
@@ -528,7 +527,6 @@ pub trait Component: Send + Sync + 'static {
         _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
         _inheritance_depth: u16,
-        _recursion_check_stack: &mut Vec<ComponentId>,
     ) {
     }
 
