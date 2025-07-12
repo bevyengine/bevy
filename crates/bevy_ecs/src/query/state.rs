@@ -1777,6 +1777,7 @@ mod tests {
         component::Component,
         entity_disabling::DefaultQueryFilters,
         prelude::*,
+        resource::IsResource,
         system::{QueryLens, RunSystemOnce},
         world::{FilteredEntityMut, FilteredEntityRef},
     };
@@ -2176,6 +2177,7 @@ mod tests {
         let mut df = DefaultQueryFilters::empty();
         df.register_disabling_component(world.register_component::<C>());
         world.insert_resource(df);
+        world.register_disabling_component::<IsResource>();
 
         // Without<C> only matches the first entity
         let mut query = QueryState::<()>::new(&mut world);
@@ -2208,7 +2210,6 @@ mod tests {
     #[test]
     fn query_default_filters_updates_is_dense() {
         let mut world = World::new();
-        let num_resources = world.resource_count() as usize;
         world.spawn((Table, Sparse));
         world.spawn(Table);
         world.spawn(Sparse);
@@ -2216,11 +2217,12 @@ mod tests {
         let mut query = QueryState::<()>::new(&mut world);
         // There are no sparse components involved thus the query is dense
         assert!(query.is_dense);
-        assert_eq!(3, query.iter(&world).count() - num_resources);
+        assert_eq!(3, query.iter(&world).count());
 
         let mut df = DefaultQueryFilters::empty();
         df.register_disabling_component(world.register_component::<Sparse>());
         world.insert_resource(df);
+        world.register_disabling_component::<IsResource>();
 
         let mut query = QueryState::<()>::new(&mut world);
         // The query doesn't ask for sparse components, but the default filters adds
@@ -2231,6 +2233,7 @@ mod tests {
         let mut df = DefaultQueryFilters::empty();
         df.register_disabling_component(world.register_component::<Table>());
         world.insert_resource(df);
+        world.register_disabling_component::<IsResource>();
 
         let mut query = QueryState::<()>::new(&mut world);
         // If the filter is instead a table components, the query can still be dense
