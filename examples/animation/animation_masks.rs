@@ -143,7 +143,7 @@ fn setup_scene(
         SceneRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ),
-        Transform::from_scale(Vec3::splat(0.07)),
+        Transform::from_scale(Vec3::splat(0.07)).looking_to(Vec3::Z, Vec3::Y),
     ));
 
     // Spawn the ground.
