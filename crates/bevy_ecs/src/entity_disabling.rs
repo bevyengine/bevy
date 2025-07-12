@@ -207,7 +207,6 @@ mod tests {
     use crate::{
         prelude::World,
         query::{Has, With},
-        resource::IsResource,
     };
     use alloc::{vec, vec::Vec};
 
@@ -278,9 +277,6 @@ mod tests {
     fn multiple_disabling_components() {
         let mut world = World::new();
         world.register_disabling_component::<CustomDisabled>();
-
-        // We don't want to query resources for this test.
-        world.register_disabling_component::<IsResource>();
 
         world.spawn_empty();
         world.spawn(Disabled);

@@ -1850,8 +1850,6 @@ mod tests {
     #[test]
     fn can_transmute_empty_tuple() {
         let mut world = World::new();
-        // We don't want to query resources for this test.
-        world.register_disabling_component::<IsResource>();
 
         world.register_component::<A>();
         let entity = world.spawn(A(10)).id();
@@ -2210,7 +2208,7 @@ mod tests {
     #[test]
     fn query_default_filters_updates_is_dense() {
         let mut world = World::new();
-        let num_resources = world.components().num_resources();
+        let num_resources = world.resource_count() as usize;
         world.spawn((Table, Sparse));
         world.spawn(Table);
         world.spawn(Sparse);

@@ -112,6 +112,11 @@ impl<R: Resource> Default for ResourceEntity<R> {
 #[derive(Component, Default, Debug)]
 pub struct IsResource;
 
+/// Used in conjunction with [`ResourceEntity<R>`], when no type information is available.
+/// This is used by [`insert_resource_by_id`].
+#[derive(Resource)]
+pub(crate) struct TypeErasedResource;
+
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {

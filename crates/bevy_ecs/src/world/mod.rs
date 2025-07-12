@@ -22,6 +22,7 @@ use crate::{
     event::BufferedEvent,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     prelude::{Add, Despawn, Insert, Remove, Replace},
+    resource::{IsResource, ResourceEntity, TypeErasedResource},
 };
 pub use bevy_ecs_macros::FromWorld;
 use bevy_utils::prelude::DebugName;
@@ -169,6 +170,7 @@ impl World {
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
+        self.register_disabling_component::<IsResource>();
     }
     /// Creates a new empty [`World`].
     ///
@@ -224,6 +226,12 @@ impl World {
         self.entities
             .len()
             .saturating_sub(self.components.resource_entities.len() as u32)
+    }
+
+    /// Retrieves the number of [`Resource`]s in the world.
+    #[inline]
+    pub fn resource_count(&self) -> u32 {
+        self.components.resource_entities.len() as u32
     }
 
     /// Retrieves this world's [`Archetypes`] collection.
@@ -1702,6 +1710,18 @@ impl World {
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let caller = MaybeLocation::caller();
         let component_id = self.components_registrator().register_resource::<R>();
+
+        if !self
+            .components
+            .resource_entities
+            .contains_key(&component_id)
+        {
+            let entity = self.spawn(ResourceEntity::<R>::default()).id();
+            self.components
+                .resource_entities
+                .insert(component_id, entity);
+        }
+
         if self
             .storages
             .resources
@@ -1739,6 +1759,17 @@ impl World {
         caller: MaybeLocation,
     ) {
         let component_id = self.components_registrator().register_resource::<R>();
+        if !self
+            .components
+            .resource_entities
+            .contains_key(&component_id)
+        {
+            let entity = self.spawn(ResourceEntity::<R>::default()).id();
+            self.components
+                .resource_entities
+                .insert(component_id, entity);
+        }
+
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -1806,6 +1837,10 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
+        if let Some(entity) = self.components.resource_entities.remove(&component_id) {
+            self.despawn(entity);
+        }
+
         let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
@@ -2709,6 +2744,20 @@ impl World {
     ) {
         let change_tick = self.change_tick();
 
+        if !self
+            .components
+            .resource_entities
+            .contains_key(&component_id)
+        {
+            // Since we don't know the type, we use a placeholder type.
+            let entity = self
+                .spawn(ResourceEntity::<TypeErasedResource>::default())
+                .id();
+            self.components
+                .resource_entities
+                .insert(component_id, entity);
+        }
+
         let resource = self.initialize_resource_internal(component_id);
         // SAFETY: `value` is valid for `component_id`, ensured by caller
         unsafe {
@@ -3401,6 +3450,10 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
+        if let Some(entity) = self.components.resource_entities.remove(&component_id) {
+            self.despawn(entity);
+        }
+
         self.storages
             .resources
             .get_mut(component_id)?
