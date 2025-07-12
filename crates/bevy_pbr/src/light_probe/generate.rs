@@ -50,6 +50,7 @@ pub struct GeneratorBindGroupLayouts {
     pub spd: BindGroupLayout,
     pub radiance: BindGroupLayout,
     pub irradiance: BindGroupLayout,
+    pub copy: BindGroupLayout,
 }
 
 impl FromWorld for GeneratorBindGroupLayouts {
@@ -204,10 +205,34 @@ impl FromWorld for GeneratorBindGroupLayouts {
             ),
         );
 
+        // Copy bind group layout
+        let copy = render_device.create_bind_group_layout(
+            "copy_mip0_bind_group_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::COMPUTE,
+                (
+                    // source cubemap
+                    (
+                        0,
+                        texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    ),
+                    // destination mip0 storage of the intermediate texture
+                    (
+                        1,
+                        texture_storage_2d_array(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
+                ),
+            ),
+        );
+
         Self {
             spd,
             radiance,
             irradiance,
+            copy,
         }
     }
 }
@@ -244,6 +269,7 @@ pub struct GeneratorPipelines {
     pub spd_second: CachedComputePipelineId,
     pub radiance: CachedComputePipelineId,
     pub irradiance: CachedComputePipelineId,
+    pub copy: CachedComputePipelineId,
 }
 
 impl FromWorld for GeneratorPipelines {
@@ -303,11 +329,23 @@ impl FromWorld for GeneratorPipelines {
             zero_initialize_workgroup_memory: false,
         });
 
+        // Copy pipeline handles format conversion and populates mip0 when formats differ
+        let copy = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("copy_mip0_pipeline".into()),
+            layout: vec![layouts.copy.clone()],
+            push_constant_ranges: vec![],
+            shader: load_embedded_asset!(world, "copy_mip0.wgsl"),
+            shader_defs: vec![],
+            entry_point: "copy_mip0".into(),
+            zero_initialize_workgroup_memory: false,
+        });
+
         Self {
             spd_first,
             spd_second,
             radiance,
             irradiance,
+            copy,
         }
     }
 }
@@ -454,6 +492,7 @@ pub struct GeneratorBindGroups {
     pub spd: BindGroup,
     pub radiance: Vec<BindGroup>, // One per mip level
     pub irradiance: BindGroup,
+    pub copy: BindGroup,
 }
 
 /// Prepares bind groups for environment map generation pipelines
@@ -638,10 +677,28 @@ pub fn prepare_generator_bind_groups(
             )),
         );
 
+        // Create copy bind group (source env map → destination mip0)
+        let src_view = env_map_light
+            .environment_map
+            .texture
+            .create_view(&TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::D2Array),
+                ..Default::default()
+            });
+
+        let dst_view = create_storage_view(&textures.environment_map.texture, 0, &render_device);
+
+        let copy_bind_group = render_device.create_bind_group(
+            "copy_mip0_bind_group",
+            &layouts.copy,
+            &BindGroupEntries::with_indices(((0, &src_view), (1, &dst_view))),
+        );
+
         commands.entity(entity).insert(GeneratorBindGroups {
             spd: spd_bind_group,
             radiance: radiance_bind_groups,
             irradiance: irradiance_bind_group,
+            copy: copy_bind_group,
         });
     }
 }
@@ -704,19 +761,29 @@ impl Node for SpdNode {
             return Ok(());
         };
 
-        for (entity, bind_groups, env_map_light) in self.query.iter_manual(world) {
-            // Copy original environment map to mip 0 of the intermediate environment map
-            let textures = world.get::<IntermediateTextures>(entity).unwrap();
+        for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
+            // Copy base mip using compute shader with pre-built bind group
+            let Some(copy_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.copy) else {
+                return Ok(());
+            };
 
-            render_context.command_encoder().copy_texture_to_texture(
-                env_map_light.environment_map.texture.as_image_copy(),
-                textures.environment_map.texture.as_image_copy(),
-                Extent3d {
-                    width: 512,
-                    height: 512,
-                    depth_or_array_layers: 6,
-                },
-            );
+            {
+                let mut compute_pass =
+                    render_context
+                        .command_encoder()
+                        .begin_compute_pass(&ComputePassDescriptor {
+                            label: Some("copy_mip0_pass"),
+                            timestamp_writes: None,
+                        });
+
+                compute_pass.set_pipeline(copy_pipeline);
+                compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
+
+                let tex_size = env_map_light.environment_map.size;
+                let wg_x = (tex_size.width / 8).max(1);
+                let wg_y = (tex_size.height / 8).max(1);
+                compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
+            }
 
             // First pass - process mips 0-5
             {

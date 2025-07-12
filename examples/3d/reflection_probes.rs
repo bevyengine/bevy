@@ -241,7 +241,6 @@ fn change_reflection_type(
     light_probe_query: Query<Entity, With<LightProbe>>,
     sky_box_query: Query<Entity, With<Skybox>>,
     camera_query: Query<Entity, With<Camera3d>>,
-    directional_light_query: Query<Entity, With<DirectionalLight>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
     cubemaps: Res<Cubemaps>,

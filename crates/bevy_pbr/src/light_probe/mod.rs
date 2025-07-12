@@ -360,6 +360,7 @@ impl Plugin for LightProbePlugin {
 
         embedded_asset!(app, "environment_filter.wgsl");
         embedded_asset!(app, "spd.wgsl");
+        embedded_asset!(app, "copy_mip0.wgsl");
 
         load_internal_binary_asset!(
             app,
