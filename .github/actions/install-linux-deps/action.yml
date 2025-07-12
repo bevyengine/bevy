@@ -28,7 +28,7 @@ inputs:
   wayland:
     description: Install Wayland (libwayland-dev)
     required: false
-    default: "false"
+    default: "true"
   xkb:
     description: Install xkb (libxkbcommon-dev)
     required: false
