@@ -77,7 +77,7 @@ fn setup(
 
     commands.spawn((
         SceneRoot(helmet_scene.clone()),
-        Transform::from_rotation(Quat::from_rotation_y(PI)),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
     ));
     commands.spawn((
         SceneRoot(helmet_scene),

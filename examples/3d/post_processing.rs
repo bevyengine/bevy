@@ -92,7 +92,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
         SceneRoot(asset_server.load(
             GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
         )),
-        Transform::from_rotation(Quat::from_rotation_y(PI)),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
     ));
 
     // Spawn the flight helmet.

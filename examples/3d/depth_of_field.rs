@@ -9,8 +9,6 @@
 //!
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
-use std::f32::consts::PI;
-
 use bevy::{
     core_pipeline::{
         bloom::Bloom,
@@ -93,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
                     .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
             ),
         ),
-        Transform::from_rotation(Quat::from_rotation_y(PI)),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
     ));
 
     // Spawn the help text.

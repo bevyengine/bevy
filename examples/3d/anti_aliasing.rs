@@ -284,7 +284,7 @@ fn setup(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
-        Transform::from_rotation(Quat::from_rotation_y(PI)),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
     ));
 
     // Light

@@ -46,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
                 asset_server
                     .load(GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb")),
             ),
-            Transform::from_rotation(Quat::from_rotation_y(PI)),
+            Transform::default().looking_to(Vec3::Z, Vec3::Y),
         ))
         .observe(add_raytracing_meshes_on_scene_load);
 
