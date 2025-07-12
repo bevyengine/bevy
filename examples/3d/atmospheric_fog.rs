@@ -7,6 +7,8 @@
 //! | `Spacebar`         | Toggle Atmospheric Fog                 |
 //! | `S`                | Toggle Directional Light Fog Influence |
 
+use std::f32::consts::PI;
+
 use bevy::{
     pbr::{CascadeShadowConfigBuilder, NotShadowCaster},
     prelude::*,
@@ -66,9 +68,12 @@ fn setup_terrain_scene(
     ));
 
     // Terrain
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf"),
-    )));
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf")),
+        ),
+        Transform::from_rotation(Quat::from_rotation_y(PI)),
+    ));
 
     // Sky
     commands.spawn((
