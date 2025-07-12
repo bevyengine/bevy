@@ -1,7 +1,7 @@
 use super::{QueryData, QueryFilter, ReadOnlyQueryData};
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
-    bundle::Bundle,
+    bundle::StaticBundle,
     component::Tick,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
@@ -969,13 +969,13 @@ unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator
 }
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter, B: Bundle> EntitySetIterator
+unsafe impl<'w, 's, F: QueryFilter, B: StaticBundle> EntitySetIterator
     for QueryIter<'w, 's, EntityRefExcept<'_, B>, F>
 {
 }
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter, B: Bundle> EntitySetIterator
+unsafe impl<'w, 's, F: QueryFilter, B: StaticBundle> EntitySetIterator
     for QueryIter<'w, 's, EntityMutExcept<'_, B>, F>
 {
 }
