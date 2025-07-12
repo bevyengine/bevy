@@ -268,7 +268,8 @@ pub fn ui_focus_system(
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position
             {
                 // Avoid triggering change detection when not necessary.
-                node_relative_cursor_position_component.set_if_neq(relative_cursor_position_component);
+                node_relative_cursor_position_component
+                    .set_if_neq(relative_cursor_position_component);
             }
 
             if contains_cursor {
