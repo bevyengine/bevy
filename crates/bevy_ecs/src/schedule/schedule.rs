@@ -752,7 +752,7 @@ new_key_type! {
     pub struct SystemSetKey;
 }
 
-/// Systems and system sets in a [`ScheduleGraph`] which have not been
+/// A node in a [`ScheduleGraph`] with a system or conditions that have not been
 /// initialized yet.
 ///
 /// We have to defer initialization of nodes in the graph until we have
