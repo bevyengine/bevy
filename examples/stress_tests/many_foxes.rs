@@ -133,8 +133,6 @@ fn setup(
     // Foxes
     // Concentric rings of foxes, running in opposite directions. The rings are spaced at 2m radius intervals.
     // The foxes in each ring are spaced at least 2m apart around its circumference.'
-
-    // NOTE: This fox model faces +z
     let fox_handle =
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
 
