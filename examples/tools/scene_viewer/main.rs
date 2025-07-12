@@ -173,6 +173,7 @@ fn setup_scene_after_load(
         let mut camera = commands.spawn((
             Camera3d::default(),
             Projection::from(projection),
+            // Spawn the camera so that it is facing the model's forward direction
             Transform::from_translation(
                 Vec3::from(aabb.center) + size * Vec3::new(-0.5, 0.25, -0.5),
             )
