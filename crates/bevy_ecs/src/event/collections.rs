@@ -40,7 +40,7 @@ use {
 /// # Example
 ///
 /// ```
-/// use bevy_ecs::event::{BufferedEvent, Event, Events};
+/// use bevy_ecs::event::{BufferedEvent, Events};
 ///
 /// #[derive(BufferedEvent)]
 /// struct MyEvent {
