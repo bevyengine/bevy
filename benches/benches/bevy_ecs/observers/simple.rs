@@ -1,7 +1,7 @@
 use core::hint::black_box;
 
 use bevy_ecs::{
-    event::{EntityEvent, Event},
+    event::EntityEvent,
     observer::{On, TriggerTargets},
     world::World,
 };
