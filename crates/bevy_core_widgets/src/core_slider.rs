@@ -3,7 +3,7 @@ use core::ops::RangeInclusive;
 use accesskit::{Orientation, Role};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
-use bevy_ecs::event::{EntityEvent, Event};
+use bevy_ecs::event::EntityEvent;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
@@ -480,7 +480,7 @@ pub(crate) fn slider_on_insert_step(trigger: On<Insert, SliderStep>, mut world: 
 ///     commands.trigger_targets(SetSliderValue::Relative(-0.25), slider);
 /// }
 /// ```
-#[derive(Event, EntityEvent, Clone)]
+#[derive(EntityEvent, Clone)]
 pub enum SetSliderValue {
     /// Set the slider value to a specific value.
     Absolute(f32),

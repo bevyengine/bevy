@@ -557,7 +557,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// see full explanation on `EntityEvent` trait docs.
 ///
 /// ```ignore
-/// #[derive(Event, EntityEvent)]
+/// #[derive(EntityEvent)]
 /// /// Traversal component
 /// #[entity_event(traversal = &'static ChildOf)]
 /// /// Always propagate
