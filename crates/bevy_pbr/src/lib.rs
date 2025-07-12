@@ -88,8 +88,8 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use bevy_light::{
-        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight, LightProbe, PointLight,
-        SpotLight,
+        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
+        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
     };
 }
 
