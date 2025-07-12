@@ -65,7 +65,7 @@ use crate::{
         Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
         RequiredComponents, StorageType, Tick,
     },
-    entity::{Entities, Entity, EntityLocation},
+    entity::{Entities, EntitiesAllocator, Entity, EntityLocation},
     lifecycle::{ADD, INSERT, REMOVE, REPLACE},
     observer::Observers,
     prelude::World,
@@ -1221,9 +1221,9 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
-                    entities.set(
-                        swapped_entity.index(),
+                        unsafe { entities.get_constructed(swapped_entity).debug_checked_unwrap() };
+                    entities.update_location(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
@@ -1233,7 +1233,7 @@ impl<'w> BundleInserter<'w> {
                     );
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                entities.set(entity.index(), Some(new_location));
+                entities.update_location(entity.row(), Some(new_location));
                 let after_effect = bundle_info.write_components(
                     table,
                     sparse_sets,
@@ -1270,9 +1270,9 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
-                    entities.set(
-                        swapped_entity.index(),
+                        unsafe { entities.get_constructed(swapped_entity).debug_checked_unwrap() };
+                    entities.update_location(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
@@ -1285,16 +1285,16 @@ impl<'w> BundleInserter<'w> {
                 // redundant copies
                 let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                entities.set(entity.index(), Some(new_location));
+                entities.update_location(entity.row(), Some(new_location));
 
                 // If an entity was moved into this entity's table spot, update its table row.
                 if let Some(swapped_entity) = move_result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
+                        unsafe { entities.get_constructed(swapped_entity).debug_checked_unwrap() };
 
-                    entities.set(
-                        swapped_entity.index(),
+                    entities.update_location(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: swapped_location.archetype_row,
@@ -1610,10 +1610,10 @@ impl<'w> BundleRemover<'w> {
             .swap_remove(location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            let swapped_location = world.entities.get(swapped_entity).unwrap();
+            let swapped_location = world.entities.get_constructed(swapped_entity).unwrap();
 
-            world.entities.set(
-                swapped_entity.index(),
+            world.entities.update_location(
+                swapped_entity.row(),
                 Some(EntityLocation {
                     archetype_id: swapped_location.archetype_id,
                     archetype_row: location.archetype_row,
@@ -1651,10 +1651,10 @@ impl<'w> BundleRemover<'w> {
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
-                let swapped_location = world.entities.get(swapped_entity).unwrap();
+                let swapped_location = world.entities.get_constructed(swapped_entity).unwrap();
 
-                world.entities.set(
-                    swapped_entity.index(),
+                world.entities.update_location(
+                    swapped_entity.row(),
                     Some(EntityLocation {
                         archetype_id: swapped_location.archetype_id,
                         archetype_row: swapped_location.archetype_row,
@@ -1676,7 +1676,9 @@ impl<'w> BundleRemover<'w> {
 
         // SAFETY: The entity is valid and has been moved to the new location already.
         unsafe {
-            world.entities.set(entity.index(), Some(new_location));
+            world
+                .entities
+                .update_location(entity.row(), Some(new_location));
         }
 
         (new_location, pre_remove_result)
@@ -1751,10 +1753,14 @@ impl<'w> BundleSpawner<'w> {
     }
 
     /// # Safety
-    /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
+    ///  `T` must match this [`BundleInfo`]'s type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity has already been constructed.
     #[inline]
     #[track_caller]
-    pub unsafe fn spawn_non_existent<T: DynamicBundle>(
+    pub unsafe fn construct<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         bundle: T,
@@ -1785,8 +1791,17 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.set(entity.index(), Some(location));
-            entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
+
+            let was_at = entities.new_location(entity.row(), Some(location));
+            // We need to assert here.
+            // Even if we can ensure that this entity is fresh from an allocator,
+            // it does not prevent users constructing arbitrary rows, which may overlap with the allocator.
+            // One alternative would be making `Entity` creation unsafe, but this is a good safety net anyway.
+            assert!(
+                was_at.is_none(),
+                "Constructing an {entity} that was already constructed is not allowed."
+            );
+            entities.mark_construct_or_destruct(entity.row(), caller, self.change_tick);
             (location, after_effect)
         };
 
@@ -1831,6 +1846,12 @@ impl<'w> BundleSpawner<'w> {
         (location, after_effect)
     }
 
+    #[inline]
+    pub fn allocator(&self) -> &'w EntitiesAllocator {
+        // SAFETY: No outstanding references to self.world, changes to allocator cannot invalidate our internal pointers
+        unsafe { &self.world.world().allocator }
+    }
+
     /// # Safety
     /// `T` must match this [`BundleInfo`]'s type
     #[inline]
@@ -1839,16 +1860,10 @@ impl<'w> BundleSpawner<'w> {
         bundle: T,
         caller: MaybeLocation,
     ) -> (Entity, T::Effect) {
-        let entity = self.entities().alloc();
+        let entity = self.allocator().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        let (_, after_effect) = unsafe { self.spawn_non_existent(entity, bundle, caller) };
+        let (_, after_effect) = unsafe { self.construct(entity, bundle, caller) };
         (entity, after_effect)
-    }
-
-    #[inline]
-    pub(crate) fn entities(&mut self) -> &mut Entities {
-        // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
-        unsafe { &mut self.world.world_mut().entities }
     }
 
     /// # Safety
