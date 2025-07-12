@@ -7,7 +7,7 @@ use core::{
 use super::shader_flags::BORDER_ALL;
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{ColorToComponents, LinearRgba};
+use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Oklaba, Oklcha, Srgba};
 use bevy_ecs::{
     prelude::Component,
     system::{
@@ -654,6 +654,36 @@ struct UiGradientVertex {
     hint: f32,
 }
 
+fn convert_color_to_space(color: LinearRgba, space: InterpolationColorSpace) -> [f32; 4] {
+    match space {
+        InterpolationColorSpace::OkLab => {
+            let oklaba: Oklaba = color.into();
+            [oklaba.lightness, oklaba.a, oklaba.b, oklaba.alpha]
+        }
+        InterpolationColorSpace::OkLch | InterpolationColorSpace::OkLchLong => {
+            let oklcha: Oklcha = color.into();
+            [oklcha.lightness, oklcha.chroma, oklcha.hue.to_radians(), oklcha.alpha]
+        }
+        InterpolationColorSpace::Srgb => {
+            let srgba: Srgba = color.into();
+            [srgba.red, srgba.green, srgba.blue, srgba.alpha]
+        }
+        InterpolationColorSpace::LinearRgb => {
+            color.to_f32_array()
+        }
+        InterpolationColorSpace::Hsl | InterpolationColorSpace::HslLong => {
+            let hsla: Hsla = color.into();
+            // Normalize hue to 0..1 range for shader
+            [hsla.hue / 360.0, hsla.saturation, hsla.lightness, hsla.alpha]
+        }
+        InterpolationColorSpace::Hsv | InterpolationColorSpace::HsvLong => {
+            let hsva: Hsva = color.into();
+            // Normalize hue to 0..1 range for shader
+            [hsva.hue / 360.0, hsva.saturation, hsva.value, hsva.alpha]
+        }
+    }
+}
+
 pub fn prepare_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -804,8 +834,8 @@ pub fn prepare_gradient(
                                 continue;
                             }
                         }
-                        let start_color = start_stop.0.to_f32_array();
-                        let end_color = end_stop.0.to_f32_array();
+                        let start_color = convert_color_to_space(start_stop.0, gradient.color_space);
+                        let end_color = convert_color_to_space(end_stop.0, gradient.color_space);
                         let mut stop_flags = flags;
                         if 0. < start_stop.1
                             && (stop_index == gradient.stops_range.start || segment_count == 0)
