@@ -140,7 +140,7 @@ pub mod __macro_exports {
 ///
 /// Systems should refresh their inner pointers.
 #[cfg(feature = "hotpatching")]
-#[derive(Event, BufferedEvent, Default)]
+#[derive(BufferedEvent, Default)]
 pub struct HotPatched;
 
 #[cfg(test)]

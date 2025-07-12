@@ -95,7 +95,7 @@ commands.trigger_targets(Damage { amount: 10.0 }, armor_piece);
 To allow an event to be used with the buffered API, you can also derive `BufferedEvent`:
 
 ```rust
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct Message(String);
 ```
 
