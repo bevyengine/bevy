@@ -11,7 +11,7 @@ use bevy::{
 };
 
 /// The initial position of the camera.
-const CAMERA_INITIAL_POSITION: Vec3 = vec3(-0.4, 0.0, 0.0);
+const CAMERA_INITIAL_POSITION: Vec3 = vec3(0.4, 0.0, 0.0);
 
 /// The current settings of the app, as chosen by the user.
 #[derive(Resource)]
@@ -107,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 
     commands.spawn((
         SceneRoot(asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0")),
-        Transform::from_xyz(0.0, 0.07, -0.13),
+        Transform::from_xyz(0.0, 0.07, 0.13),
         Scene::BarnLamp,
     ));
 
