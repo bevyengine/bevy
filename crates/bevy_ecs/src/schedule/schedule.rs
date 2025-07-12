@@ -1680,7 +1680,7 @@ impl ScheduleGraph {
                 if set.is_anonymous() {
                     self.anonymous_set_name(id)
                 } else {
-                    set.debug_name()
+                    format!("{set:?}")
                 }
             }
         }
@@ -1903,7 +1903,7 @@ impl ScheduleGraph {
     ) -> Result<(), ScheduleBuildError> {
         for (&key, systems) in set_systems {
             let set = &self.system_sets.sets[key];
-            if set.is_system_type() {
+            if set.system_type().is_some() {
                 let instances = systems.len();
                 let ambiguous_with = self.ambiguous_with.edges(NodeId::Set(key));
                 let before = self
@@ -2009,7 +2009,7 @@ impl ScheduleGraph {
     fn names_of_sets_containing_node(&self, id: &NodeId) -> Vec<String> {
         let mut sets = <HashSet<_>>::default();
         self.traverse_sets_containing_node(*id, &mut |key| {
-            !self.system_sets.sets[key].is_system_type() && sets.insert(key)
+            self.system_sets.sets[key].system_type().is_none() && sets.insert(key)
         });
         let mut sets: Vec<_> = sets
             .into_iter()

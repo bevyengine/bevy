@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, format, string::String};
+use alloc::boxed::Box;
 use bevy_utils::prelude::DebugName;
 use core::{
     any::TypeId,
@@ -174,18 +174,6 @@ define_label!(
         }
     }
 );
-
-impl dyn SystemSet {
-    /// Returns the name of this system set for debugging purposes.
-    pub fn debug_name(&self) -> String {
-        format!("{self:?}")
-    }
-
-    /// Returns `true` if this system set is a [`SystemTypeSet`].
-    pub fn is_system_type(&self) -> bool {
-        self.system_type().is_some()
-    }
-}
 
 /// A shorthand for `Interned<dyn SystemSet>`.
 pub type InternedSystemSet = Interned<dyn SystemSet>;
