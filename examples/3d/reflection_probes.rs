@@ -7,8 +7,11 @@
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
 use bevy::{
-    core_pipeline::Skybox, prelude::*, render::render_resource::TextureUsages, render::view::Hdr,
+    core_pipeline::{tonemapping::Tonemapping, Skybox},
+    prelude::*,
+    render::{render_resource::TextureUsages, view::Hdr},
 };
+use bevy_render::camera::Exposure;
 
 use std::{
     f32::consts::PI,
@@ -32,7 +35,7 @@ struct AppStatus {
 }
 
 // Which environment maps the user has requested to display.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum ReflectionMode {
     // No environment maps are shown.
     None = 0,
@@ -110,14 +113,25 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
     ));
+
+    // spawn directional light
+    commands.spawn((
+        DirectionalLight {
+            illuminance: 30_000.0,
+            ..default()
+        },
+        Transform::from_xyz(1.0, 0.5, 0.7).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // Spawns the camera.
 fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
+        Exposure { ev100: 12.5 },
+        Tonemapping::AcesFitted,
+        Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -157,6 +171,14 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
         Transform::from_scale(Vec3::splat(2.0)),
     ));
+    // spawn directional light
+    commands.spawn((
+        DirectionalLight {
+            illuminance: 10_000.0,
+            ..default()
+        },
+        Transform::from_xyz(1.0, 0.5, 0.7).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 fn spawn_generated_environment_map(commands: &mut Commands, cubemaps: &Cubemaps) {
@@ -169,14 +191,13 @@ fn spawn_generated_environment_map(commands: &mut Commands, cubemaps: &Cubemaps)
         },
         Transform::from_scale(Vec3::splat(2.0)),
     ));
-
     // spawn directional light
     commands.spawn((
         DirectionalLight {
             illuminance: 30_000.0,
             ..default()
         },
-        Transform::from_xyz(1.0, 0.5, 0.6).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(1.0, 0.5, 0.7).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -234,15 +255,18 @@ fn change_reflection_type(
     app_status.reflection_mode =
         ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 4).unwrap();
 
+    // skip the no reflection mode and switch to the next mode
+    if app_status.reflection_mode == ReflectionMode::None {
+        app_status.reflection_mode =
+            ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 4).unwrap();
+    }
+
     // Add or remove the light probe.
     for light_probe in light_probe_query.iter() {
         commands.entity(light_probe).despawn();
     }
     for skybox in sky_box_query.iter() {
         commands.entity(skybox).remove::<Skybox>();
-    }
-    for directional_light in directional_light_query.iter() {
-        commands.entity(directional_light).despawn();
     }
     match app_status.reflection_mode {
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
@@ -377,15 +401,17 @@ impl FromWorld for Cubemaps {
         // Just use the specular map for the skybox since it's not too blurry.
         // In reality you wouldn't do this--you'd use a real skybox texture--but
         // reusing the textures like this saves space in the Bevy repository.
-        let specular_map = world.load_asset("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
+        let specular_map =
+            world.load_asset("environment_maps/spiaggia_di_mondello_2k_specular_rgb5e9.ktx2");
 
         Cubemaps {
-            diffuse: world.load_asset("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            diffuse: world
+                .load_asset("environment_maps/spiaggia_di_mondello_2k_probe_diffuse_rgb5e9.ktx2"),
             specular_reflection_probe: world
-                .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
+                .load_asset("environment_maps/spiaggia_di_mondello_2k_probe_specular_rgb5e9.ktx2"),
             specular_environment_map: specular_map.clone(),
             unfiltered_environment_map: world
-                .load_asset("environment_maps/spiaggia_di_mondello_2k_skybox.ktx2"),
+                .load_asset("environment_maps/spiaggia_di_mondello_2k_specular_rgb5e9.ktx2"),
             skybox: specular_map,
         }
     }
