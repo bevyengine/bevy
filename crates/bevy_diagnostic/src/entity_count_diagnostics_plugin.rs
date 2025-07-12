@@ -30,8 +30,10 @@ impl EntityCountDiagnosticsPlugin {
 
 impl Plugin for EntityCountDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.register_diagnostic(Diagnostic::new(Self::ENTITY_COUNT))
-            .add_systems(Update, Self::diagnostic_system);
+        app.register_diagnostic(
+            Diagnostic::new(Self::ENTITY_COUNT).with_max_history_length(self.max_history_length),
+        )
+        .add_systems(Update, Self::diagnostic_system);
     }
 }
 
