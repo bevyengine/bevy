@@ -15,7 +15,7 @@ use bevy::{
         tokens, FeathersPlugin,
     },
     input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
+        tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
     },
     prelude::*,
@@ -215,6 +215,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     CoreRadioGroup {
                         on_change: Callback::System(radio_exclusion),
                     },
+                    TabIndex(0),
                     children![
                         radio(Checked, Spawn((Text::new("One"), ThemedText))),
                         radio((), Spawn((Text::new("Two"), ThemedText))),

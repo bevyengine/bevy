@@ -2,18 +2,21 @@ use bevy_app::{Plugin, PreUpdate};
 use bevy_core_widgets::{Callback, CoreButton};
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
-    query::{Added, Changed, Has, Or},
+    query::{Added, Changed, Has, Or, With},
     schedule::IntoScheduleConfigs,
     spawn::{SpawnRelated, SpawnableList},
-    system::{Commands, Query},
+    system::{Commands, Query, Res},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
+use bevy_input_focus::{tab_navigation::TabIndex, InputFocus};
 use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
+use bevy_ui::{
+    AlignItems, InteractionDisabled, JustifyContent, Node, Outline, Pressed, UiRect, Val,
+};
 use bevy_winit::cursor::CursorIcon;
 
 use crate::{
@@ -21,7 +24,7 @@ use crate::{
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
-    theme::{ThemeBackgroundColor, ThemeFontColor},
+    theme::{ThemeBackgroundColor, ThemeFontColor, UiTheme},
     tokens,
 };
 
@@ -195,6 +198,27 @@ fn set_button_colors(
     }
 }
 
+fn update_button_focus(
+    mut commands: Commands,
+    focus: Res<InputFocus>,
+    theme: Res<UiTheme>,
+    query: Query<Entity, With<ButtonVariant>>,
+) {
+    if focus.is_changed() {
+        for button in query.iter() {
+            if focus.0 == Some(button) {
+                commands.entity(button).insert(Outline {
+                    color: theme.color(tokens::FOCUS_RING),
+                    width: Val::Px(2.0),
+                    offset: Val::Px(2.0),
+                });
+            } else {
+                commands.entity(button).remove::<Outline>();
+            }
+        }
+    }
+}
+
 /// Plugin which registers the systems for updating the button styles.
 pub struct ButtonPlugin;
 
@@ -202,7 +226,12 @@ impl Plugin for ButtonPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_button_styles, update_button_styles_remove).in_set(PickingSystems::Last),
+            (
+                update_button_styles,
+                update_button_styles_remove,
+                update_button_focus,
+            )
+                .in_set(PickingSystems::Last),
         );
     }
 }

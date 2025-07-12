@@ -4,6 +4,7 @@ use bevy_app::{Plugin, PreUpdate};
 use bevy_core_widgets::{Callback, CoreCheckbox};
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::DetectChanges,
     children,
     component::Component,
     entity::Entity,
@@ -12,17 +13,19 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
-    system::{Commands, In, Query},
+    system::{Commands, In, Query, Res},
     world::Mut,
 };
-use bevy_input_focus::tab_navigation::TabIndex;
+use bevy_input_focus::{tab_navigation::TabIndex, InputFocus};
 use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
+use bevy_ui::{
+    BorderRadius, Checked, InteractionDisabled, Node, Outline, PositionType, UiRect, Val,
+};
 use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::size,
-    theme::{ThemeBackgroundColor, ThemeBorderColor},
+    theme::{ThemeBackgroundColor, ThemeBorderColor, UiTheme},
     tokens,
 };
 
@@ -236,6 +239,27 @@ fn set_switch_colors(
     }
 }
 
+fn update_switch_focus(
+    mut commands: Commands,
+    focus: Res<InputFocus>,
+    theme: Res<UiTheme>,
+    q_switches: Query<Entity, With<ToggleSwitchOutline>>,
+) {
+    if focus.is_changed() {
+        for switch in q_switches.iter() {
+            if focus.0 == Some(switch) {
+                commands.entity(switch).insert(Outline {
+                    color: theme.color(tokens::FOCUS_RING),
+                    width: Val::Px(2.0),
+                    offset: Val::Px(2.0),
+                });
+            } else {
+                commands.entity(switch).remove::<Outline>();
+            }
+        }
+    }
+}
+
 /// Plugin which registers the systems for updating the toggle switch styles.
 pub struct ToggleSwitchPlugin;
 
@@ -243,7 +267,12 @@ impl Plugin for ToggleSwitchPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_switch_styles, update_switch_styles_remove).in_set(PickingSystems::Last),
+            (
+                update_switch_styles,
+                update_switch_styles_remove,
+                update_switch_focus,
+            )
+                .in_set(PickingSystems::Last),
         );
     }
 }

@@ -10,6 +10,7 @@ pub fn create_dark_theme() -> ThemeProps {
     ThemeProps {
         color: HashMap::from([
             (tokens::WINDOW_BG.into(), palette::GRAY_0),
+            (tokens::FOCUS_RING.into(), palette::ACCENT.with_alpha(0.5)),
             // Button
             (tokens::BUTTON_BG.into(), palette::GRAY_3),
             (

@@ -5,6 +5,7 @@ use bevy_color::Color;
 use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick};
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::DetectChanges,
     children,
     component::Component,
     entity::Entity,
@@ -13,14 +14,14 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, Spawned, With},
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
-    system::{In, Query, Res},
+    system::{Commands, In, Query, Res},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
+use bevy_input_focus::{tab_navigation::TabIndex, InputFocus};
 use bevy_picking::PickingSystems;
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
-    InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node, UiRect,
-    Val,
+    InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node, Outline,
+    UiRect, Val,
 };
 use bevy_winit::cursor::CursorIcon;
 
@@ -190,6 +191,27 @@ fn update_slider_pos(
     }
 }
 
+fn update_slider_focus(
+    mut commands: Commands,
+    focus: Res<InputFocus>,
+    theme: Res<UiTheme>,
+    q_sliders: Query<Entity, With<SliderStyle>>,
+) {
+    if focus.is_changed() {
+        for slider in q_sliders.iter() {
+            if focus.0 == Some(slider) {
+                commands.entity(slider).insert(Outline {
+                    color: theme.color(tokens::FOCUS_RING),
+                    width: Val::Px(2.0),
+                    offset: Val::Px(2.0),
+                });
+            } else {
+                commands.entity(slider).remove::<Outline>();
+            }
+        }
+    }
+}
+
 /// Plugin which registers the systems for updating the slider styles.
 pub struct SliderPlugin;
 
@@ -201,6 +223,7 @@ impl Plugin for SliderPlugin {
                 update_slider_colors,
                 update_slider_colors_remove,
                 update_slider_pos,
+                update_slider_focus,
             )
                 .in_set(PickingSystems::Last),
         );
