@@ -113,7 +113,7 @@ impl<R: Resource> Default for ResourceEntity<R> {
 pub struct IsResource;
 
 /// Used in conjunction with [`ResourceEntity<R>`], when no type information is available.
-/// This is used by [`insert_resource_by_id`].
+/// This is used by [`World::insert_resource_by_id`](crate::world::World).
 #[derive(Resource)]
 pub(crate) struct TypeErasedResource;
 
