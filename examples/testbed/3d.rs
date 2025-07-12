@@ -217,6 +217,7 @@ mod gltf {
             SceneRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
             )),
+            Transform::default().looking_to(Vec3::Z, Vec3::Y),
             DespawnOnExitState(CURRENT_SCENE),
         ));
     }
@@ -269,6 +270,7 @@ mod animation {
         commands
             .spawn((
                 SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
+                Transform::default().looking_to(Vec3::Z, Vec3::Y),
                 DespawnOnExitState(CURRENT_SCENE),
             ))
             .observe(pause_animation_frame);
