@@ -3,10 +3,10 @@ title: Resources as Components
 pull_requests: [19711]
 ---
 
-Resources are very similair to Components: they are both data that can be stored in the ECS and queried.
+Resources are very similar to Components: they are both data that can be stored in the ECS and queried.
 The only real difference between them is that querying a resource will return either one or zero resources, whereas querying for a component can return any number of entities that match it.
 
-Even so, resources and components have always been seperate concepts within the ECS.
+Even so, resources and components have always been separate concepts within the ECS.
 This leads to some annoying restrictions.
 While components have [`ComponentHooks`](https://docs.rs/bevy/latest/bevy/ecs/component/struct.ComponentHooks.html), it's not possible to add lifecycle hooks to resources.
 Moreover, the engine internals contain a lot of duplication because of it.
