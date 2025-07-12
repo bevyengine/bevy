@@ -41,9 +41,13 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
     commands
-        .spawn(SceneRoot(asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
-        )))
+        .spawn((
+            SceneRoot(
+                asset_server
+                    .load(GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb")),
+            ),
+            Transform::from_rotation(Quat::from_rotation_y(PI)),
+        ))
         .observe(add_raytracing_meshes_on_scene_load);
 
     commands.spawn((
