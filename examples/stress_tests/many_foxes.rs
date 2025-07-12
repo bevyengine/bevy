@@ -139,11 +139,8 @@ fn setup(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
 
     let ring_directions = [
-        (
-            Quat::from_rotation_y(PI),
-            RotationDirection::CounterClockwise,
-        ),
-        (Quat::IDENTITY, RotationDirection::Clockwise),
+        (Quat::IDENTITY, RotationDirection::CounterClockwise),
+        (Quat::from_rotation_y(PI), RotationDirection::Clockwise),
     ];
 
     let mut ring_index = 0;
