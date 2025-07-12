@@ -1,5 +1,5 @@
 #import bevy_render::maths::{PI, PI_2};
-#import bevy_pbr::lighting::perceptualRoughnessToRoughness;
+#import bevy_pbr::utils::{build_orthonormal_basis};
 
 struct FilteringConstants {
     mip_level: f32,
@@ -92,18 +92,6 @@ fn sample_environment(dir: vec3f, level: f32) -> vec4f {
     return textureSampleLevel(input_texture, input_sampler, cube_uv.uv, cube_uv.face, level);
 }
 
-// Calculate tangent space for the given normal
-fn calculate_tangent_frame(normal: vec3f) -> mat3x3f {
-    // Use a robust method to pick a tangent
-    var up = vec3f(1.0, 0.0, 0.0);
-    if abs(normal.z) < 0.999 {
-        up = vec3f(0.0, 0.0, 1.0);
-    }
-    let tangent = normalize(cross(up, normal));
-    let bitangent = cross(normal, tangent);
-    return mat3x3f(tangent, bitangent, normal);
-}
-
 // Hammersley sequence for quasi-random points
 fn hammersley_2d(i: u32, n: u32) -> vec2f {
     // Van der Corput sequence
@@ -125,7 +113,17 @@ fn sample_noise(pixel_coords: vec2u) -> vec4f {
     return textureSampleLevel(blue_noise_texture, input_sampler, uv, 0.0);
 }
 
+// from bevy_pbr/src/render/pbr_lighting.wgsl
+fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
+    // clamp perceptual roughness to prevent precision problems
+    // According to Filament design 0.089 is recommended for mobile
+    // Filament uses 0.045 for non-mobile
+    let clampedPerceptualRoughness = clamp(perceptualRoughness, 0.089, 1.0);
+    return clampedPerceptualRoughness * clampedPerceptualRoughness;
+}
+
 // GGX/Trowbridge-Reitz normal distribution function (D term)
+// from bevy_pbr/src/render/pbr_lighting.wgsl
 fn D_GGX(roughness: f32, NdotH: f32) -> f32 {
     let oneMinusNdotHSquared = 1.0 - NdotH * NdotH;
     let a = NdotH * roughness;
@@ -136,14 +134,11 @@ fn D_GGX(roughness: f32, NdotH: f32) -> f32 {
 
 // Importance sample GGX normal distribution function for a given roughness
 fn importance_sample_ggx(xi: vec2f, roughness: f32, normal: vec3f) -> vec3f {
-    // Use roughness^2 to ensure correct specular highlights
-    let a = roughness * roughness;
-    
     // Sample in spherical coordinates
     let phi = PI_2 * xi.x;
     
     // GGX mapping from uniform random to GGX distribution
-    let cos_theta = sqrt((1.0 - xi.y) / (1.0 + (a * a - 1.0) * xi.y));
+    let cos_theta = sqrt((1.0 - xi.y) / (1.0 + (roughness * roughness - 1.0) * xi.y));
     let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
     
     // Convert to cartesian
@@ -154,7 +149,7 @@ fn importance_sample_ggx(xi: vec2f, roughness: f32, normal: vec3f) -> vec3f {
     );
     
     // Transform from tangent to world space
-    return calculate_tangent_frame(normal) * h;
+    return build_orthonormal_basis(normal) * h;
 }
 
 // Calculate LOD for environment map lookup using filtered importance sampling
@@ -171,7 +166,7 @@ fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
 
 // Smith geometric shadowing function
 fn G_Smith(NoV: f32, NoL: f32, roughness: f32) -> f32 {
-    let k = (roughness * roughness) / 2.0;
+    let k = roughness / 2.0;
     let GGXL = NoL / (NoL * (1.0 - k) + k);
     let GGXV = NoV / (NoV * (1.0 - k) + k);
     return GGXL * GGXV;
@@ -197,8 +192,9 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     // For radiance map, view direction = normal for perfect reflection
     let view = normal;
     
-    // Get the roughness parameter
-    let roughness = constants.roughness;
+    // Convert perceptual roughness to physical microfacet roughness
+    let perceptual_roughness = constants.roughness;
+    let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
     
     // Get blue noise offset for stratification
     let vector_noise = sample_noise(coords);
@@ -292,7 +288,7 @@ fn uniform_sample_sphere(i: u32, normal: vec3f) -> vec3f {
         z
     );
 
-    let tangent_frame = calculate_tangent_frame(normal);
+    let tangent_frame = build_orthonormal_basis(normal);
     return normalize(tangent_frame * dir_uniform);
 }
 

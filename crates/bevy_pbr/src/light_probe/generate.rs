@@ -51,9 +51,8 @@ use bevy_render::{
 
 use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
 
-/// Sphere Cosine Weighted Irradiance shader handle
-pub const STBN_SPHERE: Handle<Image> = uuid_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
-pub const STBN_VEC2: Handle<Image> = uuid_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
+/// Handle for Spatio-Temporal Blue Noise texture
+pub const SBTN: Handle<Image> = uuid_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
 
 /// Labels for the environment map generation nodes
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
@@ -506,13 +505,8 @@ pub fn prepare_generator_bind_groups(
     render_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
-    // Get blue noise texture
-    let sphere_cosine_weights = render_images
-        .get(&STBN_SPHERE)
-        .expect("Sphere cosine weights texture not loaded");
-
     let vector2_uniform = render_images
-        .get(&STBN_VEC2)
+        .get(&SBTN)
         .expect("Vector2 uniform texture not loaded");
 
     for (entity, textures, env_map_light) in &light_probes {
@@ -644,8 +638,8 @@ pub fn prepare_generator_bind_groups(
             sample_count: 1024,
             roughness: 1.0,
             blue_noise_size: Vec2::new(
-                sphere_cosine_weights.size.width as f32,
-                sphere_cosine_weights.size.height as f32,
+                vector2_uniform.size.width as f32,
+                vector2_uniform.size.height as f32,
             ),
             white_point: env_map_light.white_point,
         };
@@ -671,7 +665,7 @@ pub fn prepare_generator_bind_groups(
                 (1, &samplers.linear),
                 (2, &irradiance_map),
                 (3, &irradiance_constants_buffer),
-                (4, &sphere_cosine_weights.texture_view),
+                (4, &vector2_uniform.texture_view),
             )),
         );
 

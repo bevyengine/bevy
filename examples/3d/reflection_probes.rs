@@ -53,14 +53,17 @@ struct Cubemaps {
     // The blurry diffuse cubemap that reflects the world, but not the cubes.
     diffuse_environment_map: Handle<Image>,
 
-    // The specular cubemap that reflects the world, but not the cubes.
+    // The specular cubemap mip chain that reflects the world, but not the cubes.
     specular_environment_map: Handle<Image>,
 
     // The blurry diffuse cubemap that reflects both the world and the cubes.
     diffuse_reflection_probe: Handle<Image>,
 
-    // The specular cubemap that reflects both the world and the cubes.
+    // The specular cubemap mip chain that reflects both the world and the cubes.
     specular_reflection_probe: Handle<Image>,
+
+    // Environment map with a single mip level
+    environment_map: Handle<Image>,
 }
 
 fn main() {
@@ -164,38 +167,17 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
         Transform::from_scale(Vec3::splat(2.0)),
     ));
-    // spawn directional light for the sun
-    commands.spawn((
-        DirectionalLight {
-            illuminance: 10_000.0,
-            ..default()
-        },
-        // Roughly match the position of the sun in the environment map
-        Transform::from_xyz(1.0, 0.5, 0.7).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
 }
 
 fn spawn_generated_environment_map(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn((
         LightProbe,
         GeneratedEnvironmentMapLight {
-            // Reuse the specular map for the generated environment map, even
-            // though it already has mip levels. In reality you would use a
-            // cubemap texture without mip levels and generate the mips using
-            // this component by filtering the cubemap on the GPU.
-            environment_map: cubemaps.specular_environment_map.clone(),
+            environment_map: cubemaps.environment_map.clone(),
             intensity: 5000.0,
             ..default()
         },
         Transform::from_scale(Vec3::splat(2.0)),
-    ));
-    // spawn directional light
-    commands.spawn((
-        DirectionalLight {
-            illuminance: 30_000.0,
-            ..default()
-        },
-        Transform::from_xyz(1.0, 0.5, 0.7).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -226,10 +208,7 @@ fn add_environment_map_to_camera(
             .entity(camera_entity)
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
-                // Reuse the specular map for the skybox since it's not too blurry.
-                // In reality you wouldn't do this--you'd use a real skybox texture--but
-                // reusing the textures like this saves space in the Bevy repository.
-                image: cubemaps.specular_environment_map.clone(),
+                image: cubemaps.environment_map.clone(),
                 brightness: 5000.0,
                 ..default()
             });
@@ -384,13 +363,15 @@ impl FromWorld for Cubemaps {
     fn from_world(world: &mut World) -> Self {
         Cubemaps {
             diffuse_environment_map: world
-                .load_asset("environment_maps/spiaggia_di_mondello_2k_probe_diffuse_rgb5e9.ktx2"),
+                .load_asset("environment_maps/spiaggia_di_mondello_probe_diffuse.ktx2"),
             specular_environment_map: world
-                .load_asset("environment_maps/spiaggia_di_mondello_2k_specular_rgb5e9.ktx2"),
+                .load_asset("environment_maps/spiaggia_di_mondello_specular.ktx2"),
             specular_reflection_probe: world
-                .load_asset("environment_maps/spiaggia_di_mondello_2k_probe_specular_rgb5e9.ktx2"),
+                .load_asset("environment_maps/spiaggia_di_mondello_probe_specular.ktx2"),
             diffuse_reflection_probe: world
-                .load_asset("environment_maps/spiaggia_di_mondello_2k_probe_diffuse_rgb5e9.ktx2"),
+                .load_asset("environment_maps/spiaggia_di_mondello_probe_diffuse.ktx2"),
+            environment_map: world
+                .load_asset("environment_maps/spiaggia_di_mondello_environment_map.ktx2"),
         }
     }
 }

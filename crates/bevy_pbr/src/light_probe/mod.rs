@@ -35,18 +35,15 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
-use generate::{
-    extract_generator_entities, generate_environment_map_light, prepare_generator_bind_groups,
-    prepare_intermediate_textures, GeneratorPipelines, SpdNode, STBN_SPHERE, STBN_VEC2,
-};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
 use crate::{
     generate::{
-        GeneratorBindGroupLayouts, GeneratorNode, GeneratorSamplers, IrradianceMapNode,
-        RadianceMapNode,
+        extract_generator_entities, generate_environment_map_light, prepare_generator_bind_groups,
+        prepare_intermediate_textures, GeneratorBindGroupLayouts, GeneratorNode,
+        GeneratorPipelines, GeneratorSamplers, IrradianceMapNode, RadianceMapNode, SpdNode, SBTN,
     },
     light_probe::environment_map::EnvironmentMapIds,
 };
@@ -308,11 +305,8 @@ impl Plugin for LightProbePlugin {
         embedded_asset!(app, "spd.wgsl");
         embedded_asset!(app, "copy_mip0.wgsl");
 
-        load_internal_binary_asset!(
-            app,
-            STBN_SPHERE,
-            "noise/sphere_coshemi_gauss1_0.png",
-            |bytes, _: String| Image::from_buffer(
+        load_internal_binary_asset!(app, SBTN, "sbtn_vec2.png", |bytes, _: String| {
+            Image::from_buffer(
                 bytes,
                 ImageType::Extension("png"),
                 CompressedImageFormats::NONE,
@@ -320,22 +314,8 @@ impl Plugin for LightProbePlugin {
                 ImageSampler::Default,
                 RenderAssetUsages::RENDER_WORLD,
             )
-            .expect("Failed to load sphere cosine weighted blue noise texture")
-        );
-        load_internal_binary_asset!(
-            app,
-            STBN_VEC2,
-            "noise/vector2_uniform_gauss1_0.png",
-            |bytes, _: String| Image::from_buffer(
-                bytes,
-                ImageType::Extension("png"),
-                CompressedImageFormats::NONE,
-                false,
-                ImageSampler::Default,
-                RenderAssetUsages::RENDER_WORLD,
-            )
-            .expect("Failed to load vector2 uniform blue noise texture")
-        );
+            .expect("Failed to load spatio-temporal blue noise texture")
+        });
 
         app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
