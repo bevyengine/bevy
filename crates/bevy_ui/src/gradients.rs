@@ -63,7 +63,7 @@ impl ColorStop {
     }
 
     // Set the interpolation midpoint between this and the following stop
-    pub fn with_hint(mut self, hint: f32) -> Self {
+    pub const fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
     }
@@ -175,7 +175,7 @@ impl AngularColorStop {
     }
 
     // Set the interpolation midpoint between this and the following stop
-    pub fn with_hint(mut self, hint: f32) -> Self {
+    pub const fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
     }
@@ -387,7 +387,7 @@ impl RadialGradient {
         }
     }
 
-    pub fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+    pub const fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
         self.color_space = color_space;
         self
     }
@@ -437,18 +437,18 @@ impl ConicGradient {
     }
 
     /// Sets the starting angle of the gradient in radians
-    pub fn with_start(mut self, start: f32) -> Self {
+    pub const fn with_start(mut self, start: f32) -> Self {
         self.start = start;
         self
     }
 
     /// Sets the position of the gradient
-    pub fn with_position(mut self, position: UiPosition) -> Self {
+    pub const fn with_position(mut self, position: UiPosition) -> Self {
         self.position = position;
         self
     }
 
-    pub fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
+    pub const fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
         self.color_space = color_space;
         self
     }
@@ -478,7 +478,7 @@ pub enum Gradient {
 
 impl Gradient {
     /// Returns true if the gradient has no stops.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         match self {
             Gradient::Linear(gradient) => gradient.stops.is_empty(),
             Gradient::Radial(gradient) => gradient.stops.is_empty(),
@@ -578,19 +578,19 @@ pub enum RadialGradientShape {
     Ellipse(Val, Val),
 }
 
-fn close_side(p: f32, h: f32) -> f32 {
+const fn close_side(p: f32, h: f32) -> f32 {
     (-h - p).abs().min((h - p).abs())
 }
 
-fn far_side(p: f32, h: f32) -> f32 {
+const fn far_side(p: f32, h: f32) -> f32 {
     (-h - p).abs().max((h - p).abs())
 }
 
-fn close_side2(p: Vec2, h: Vec2) -> f32 {
+const fn close_side2(p: Vec2, h: Vec2) -> f32 {
     close_side(p.x, h.x).min(close_side(p.y, h.y))
 }
 
-fn far_side2(p: Vec2, h: Vec2) -> f32 {
+const fn far_side2(p: Vec2, h: Vec2) -> f32 {
     far_side(p.x, h.x).max(far_side(p.y, h.y))
 }
 
