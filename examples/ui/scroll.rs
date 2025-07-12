@@ -151,7 +151,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     flex_direction: FlexDirection::Column,
                     align_self: AlignSelf::Stretch,
                     height: Val::Percent(50.),
-                    overflow: Overflow::scroll(), // n.b.
+                    overflow: Overflow::scroll_y(), // n.b.
                     scrollbar_width: 20.,
                     ..default()
                 },
