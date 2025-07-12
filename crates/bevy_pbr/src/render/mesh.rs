@@ -3016,7 +3016,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             );
         };
 
-        let mut dynamic_offsets: [u32; 3] = Default::default();
+        let mut dynamic_offsets: [u32; 5] = Default::default();
         let mut offset_count = 0;
         if let PhaseItemExtraIndex::DynamicOffset(dynamic_offset) = item.extra_index() {
             dynamic_offsets[offset_count] = dynamic_offset;
