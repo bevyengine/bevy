@@ -81,7 +81,7 @@ fn setup(
     ));
     commands.spawn((
         SceneRoot(helmet_scene),
-        Transform::from_xyz(-4.0, 0.0, -3.0).with_rotation(Quat::from_rotation_y(PI)),
+        Transform::from_xyz(-4.0, 0.0, -3.0).looking_to(Vec3::Z, Vec3::Y),
     ));
 
     let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
