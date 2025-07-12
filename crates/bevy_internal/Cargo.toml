@@ -195,6 +195,7 @@ bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
 bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_image"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
+bevy_fbx = ["dep:bevy_fbx", "bevy_image", "bevy_animation"]
 bevy_ui = ["dep:bevy_ui", "bevy_image"]
 bevy_ui_render = ["dep:bevy_ui_render"]
 bevy_image = ["dep:bevy_image"]
@@ -430,6 +431,7 @@ bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.17.
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.17.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.17.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.17.0-dev" }
+bevy_fbx = { path = "../bevy_fbx", optional = true, version = "0.17.0-dev" }
 bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.17.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", optional = true, version = "0.17.0-dev" }
