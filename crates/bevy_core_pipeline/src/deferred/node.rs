@@ -1,3 +1,4 @@
+use bevy_camera::Viewport;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::camera::MainPassResolutionOverride;
 use bevy_render::experimental::occlusion_culling::OcclusionCulling;
@@ -221,8 +222,10 @@ fn run_deferred_prepass<'w>(
             occlusion_query_set: None,
         });
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
         }
 
         // Opaque draws

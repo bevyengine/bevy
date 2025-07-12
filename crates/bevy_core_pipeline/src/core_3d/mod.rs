@@ -30,6 +30,7 @@ pub mod graph {
         Wireframe,
         LateDownsampleDepth,
         Taa,
+        Dlss,
         MotionBlur,
         Bloom,
         AutoExposure,
