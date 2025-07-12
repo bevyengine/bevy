@@ -659,29 +659,6 @@ impl Dag {
     }
 }
 
-/// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
-struct SystemSetNode {
-    inner: InternedSystemSet,
-}
-
-impl SystemSetNode {
-    pub fn new(set: InternedSystemSet) -> Self {
-        Self { inner: set }
-    }
-
-    pub fn name(&self) -> String {
-        format!("{:?}", &self.inner)
-    }
-
-    pub fn is_system_type(&self) -> bool {
-        self.inner.system_type().is_some()
-    }
-
-    pub fn is_anonymous(&self) -> bool {
-        self.inner.is_anonymous()
-    }
-}
-
 /// A [`SystemWithAccess`] stored in a [`ScheduleGraph`].
 pub struct SystemNode {
     inner: Option<SystemWithAccess>,
@@ -785,7 +762,7 @@ enum UninitializedId {
 #[derive(Default)]
 struct SystemSets {
     /// List of system sets in the schedule
-    sets: SlotMap<SystemSetKey, SystemSetNode>,
+    sets: SlotMap<SystemSetKey, InternedSystemSet>,
     /// List of conditions for each system set, in the same order as `system_sets`
     conditions: SecondaryMap<SystemSetKey, Vec<ConditionWithAccess>>,
     /// Map from system set to node id
@@ -795,7 +772,7 @@ struct SystemSets {
 impl SystemSets {
     fn get_or_add_set(&mut self, set: InternedSystemSet) -> SystemSetKey {
         *self.ids.entry(set).or_insert_with(|| {
-            let key = self.sets.insert(SystemSetNode::new(set));
+            let key = self.sets.insert(set);
             self.conditions.insert(key, Vec::new());
             key
         })
@@ -875,7 +852,7 @@ impl ScheduleGraph {
 
     /// Returns the set at the given [`NodeId`], if it exists.
     pub fn get_set_at(&self, key: SystemSetKey) -> Option<&dyn SystemSet> {
-        self.system_sets.sets.get(key).map(|set| &*set.inner)
+        self.system_sets.sets.get(key).map(|set| &**set)
     }
 
     /// Returns the set at the given [`NodeId`].
@@ -917,10 +894,9 @@ impl ScheduleGraph {
     pub fn system_sets(
         &self,
     ) -> impl Iterator<Item = (SystemSetKey, &dyn SystemSet, &[ConditionWithAccess])> {
-        self.system_sets.sets.iter().filter_map(|(key, set_node)| {
-            let set = &*set_node.inner;
+        self.system_sets.sets.iter().filter_map(|(key, set)| {
             let conditions = self.system_sets.conditions.get(key)?.as_slice();
-            Some((key, set, conditions))
+            Some((key, &**set, conditions))
         })
     }
 
@@ -1704,7 +1680,7 @@ impl ScheduleGraph {
                 if set.is_anonymous() {
                     self.anonymous_set_name(id)
                 } else {
-                    set.name()
+                    set.debug_name()
                 }
             }
         }
