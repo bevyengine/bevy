@@ -35,7 +35,8 @@ const CAMERA_ZOOM_RANGE: Range<f32> = 2.0..12.0;
 
 static TURN_SSR_OFF_HELP_TEXT: &str = "Press Space to turn screen-space reflections off";
 static TURN_SSR_ON_HELP_TEXT: &str = "Press Space to turn screen-space reflections on";
-static MOVE_CAMERA_HELP_TEXT: &str = "Press WASD or use the mouse wheel to orbit the camera";
+static MOVE_CAMERA_HELP_TEXT: &str =
+    "Press WASD to orbit and use the mouse wheel to zoom the camera";
 static SWITCH_TO_FLIGHT_HELMET_HELP_TEXT: &str = "Press Enter to switch to the flight helmet model";
 static SWITCH_TO_CUBE_HELP_TEXT: &str = "Press Enter to switch to the cube model";
 
