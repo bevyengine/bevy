@@ -23,7 +23,7 @@ use bevy_math::ops;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
 
-use crate::{Callback, Notify};
+use crate::{Callback, Notify, ValueChange};
 
 /// Defines how the slider should behave when you click on the track (not the thumb).
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
@@ -78,7 +78,7 @@ pub struct CoreSlider {
     /// Callback which is called when the slider is dragged or the value is changed via other user
     /// interaction. If this value is `Callback::Ignore`, then the slider will update it's own
     /// internal [`SliderValue`] state without notification.
-    pub on_change: Callback<In<f32>>,
+    pub on_change: Callback<In<ValueChange<f32>>>,
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,
     // TODO: Think about whether we want a "vertical" option.
@@ -298,7 +298,13 @@ pub(crate) fn slider_on_pointer_down(
                 .entity(trigger.target())
                 .insert(SliderValue(new_value));
         } else {
-            commands.notify_with(&slider.on_change, new_value);
+            commands.notify_with(
+                &slider.on_change,
+                ValueChange {
+                    source: trigger.target(),
+                    value: new_value,
+                },
+            );
         }
     }
 }
@@ -370,7 +376,13 @@ pub(crate) fn slider_on_drag(
                     .entity(trigger.target())
                     .insert(SliderValue(rounded_value));
             } else {
-                commands.notify_with(&slider.on_change, rounded_value);
+                commands.notify_with(
+                    &slider.on_change,
+                    ValueChange {
+                        source: trigger.target(),
+                        value: rounded_value,
+                    },
+                );
             }
         }
     }
@@ -417,7 +429,13 @@ fn slider_on_key_input(
                     .entity(trigger.target())
                     .insert(SliderValue(new_value));
             } else {
-                commands.notify_with(&slider.on_change, new_value);
+                commands.notify_with(
+                    &slider.on_change,
+                    ValueChange {
+                        source: trigger.target(),
+                        value: new_value,
+                    },
+                );
             }
         }
     }
@@ -509,7 +527,13 @@ fn slider_on_set_value(
                 .entity(trigger.target())
                 .insert(SliderValue(new_value));
         } else {
-            commands.notify_with(&slider.on_change, new_value);
+            commands.notify_with(
+                &slider.on_change,
+                ValueChange {
+                    source: trigger.target(),
+                    value: new_value,
+                },
+            );
         }
     }
 }

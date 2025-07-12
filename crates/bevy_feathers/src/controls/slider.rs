@@ -2,7 +2,7 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_color::Color;
-use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick};
+use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -42,7 +42,7 @@ pub struct SliderProps {
     /// Slider maximum value
     pub max: f32,
     /// On-change handler
-    pub on_change: Callback<In<f32>>,
+    pub on_change: Callback<In<ValueChange<f32>>>,
 }
 
 impl Default for SliderProps {

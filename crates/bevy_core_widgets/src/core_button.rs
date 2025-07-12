@@ -2,6 +2,7 @@ use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::query::Has;
+use bevy_ecs::system::In;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -15,7 +16,7 @@ use bevy_input_focus::FocusedInput;
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_ui::{InteractionDisabled, Pressed};
 
-use crate::{Callback, Notify};
+use crate::{Activate, Callback, Notify};
 
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
 /// indicate whether the button is currently being pressed by the user. It emits a `ButtonClicked`
@@ -25,7 +26,7 @@ use crate::{Callback, Notify};
 pub struct CoreButton {
     /// Callback to invoke when the button is clicked, or when the `Enter` or `Space` key
     /// is pressed while the button is focused.
-    pub on_activate: Callback,
+    pub on_activate: Callback<In<Activate>>,
 }
 
 fn button_on_key_event(
@@ -41,7 +42,7 @@ fn button_on_key_event(
                 && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
             {
                 trigger.propagate(false);
-                commands.notify(&bstate.on_activate);
+                commands.notify_with(&bstate.on_activate, Activate(trigger.target()));
             }
         }
     }
@@ -55,7 +56,7 @@ fn button_on_pointer_click(
     if let Ok((bstate, pressed, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
         if pressed && !disabled {
-            commands.notify(&bstate.on_activate);
+            commands.notify_with(&bstate.on_activate, Activate(trigger.target()));
         }
     }
 }
