@@ -289,9 +289,7 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "irradiance_volume.wgsl");
 
         app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
-    }
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

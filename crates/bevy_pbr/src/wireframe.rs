@@ -6,7 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
-    AssetEventSystems, AssetId, Assets, Handle, UntypedAssetId,
+    AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::core_3d::{
@@ -25,7 +25,6 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::camera::extract_cameras;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::ExtractedCamera,
@@ -54,6 +53,7 @@ use bevy_render::{
     },
     Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
+use bevy_render::{camera::extract_cameras, RenderStartup};
 use core::{hash::Hash, ops::Range};
 use tracing::error;
 
@@ -132,6 +132,7 @@ impl Plugin for WireframePlugin {
                     Node3d::PostProcessing,
                 ),
             )
+            .add_systems(RenderStartup, init_wireframe_3d_pipeline)
             .add_systems(
                 ExtractSchedule,
                 (
@@ -152,13 +153,6 @@ impl Plugin for WireframePlugin {
                         .after(prepare_assets::<RenderWireframeMaterial>),
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<Wireframe3dPipeline>();
     }
 }
 
@@ -331,13 +325,15 @@ pub struct Wireframe3dPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for Wireframe3dPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        Wireframe3dPipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: load_embedded_asset!(render_world, "render/wireframe.wgsl"),
-        }
-    }
+pub fn init_wireframe_3d_pipeline(
+    mut commands: Commands,
+    mesh_pipeline: Res<MeshPipeline>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(Wireframe3dPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wgsl"),
+    });
 }
 
 impl SpecializedMeshPipeline for Wireframe3dPipeline {
