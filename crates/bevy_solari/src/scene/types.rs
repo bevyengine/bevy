@@ -10,8 +10,8 @@ use derive_more::derive::From;
 
 /// A mesh component used for raytracing.
 ///
-/// The mesh used in this component must have [`bevy_render::mesh::Mesh::enable_raytracing`] set to true,
-/// use the following set of vertex attributes: `{POSITION, NORMAL, UV_0, TANGENT}`, use [`bevy_render::render_resource::PrimitiveTopology::TriangleList`],
+/// The mesh used in this component must have [`Mesh::enable_raytracing`] set to true,
+/// use the following set of vertex attributes: `{POSITION, NORMAL, UV_0, TANGENT}`, use [`bevy_mesh::PrimitiveTopology::TriangleList`],
 /// and use [`bevy_mesh::Indices::U32`].
 ///
 /// The material used for this entity must be [`MeshMaterial3d<StandardMaterial>`].
