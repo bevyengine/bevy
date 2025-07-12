@@ -774,11 +774,9 @@ enum UninitializedId {
         /// the same set), so we need to track which conditions in that list
         /// are newly added and not yet initialized.
         ///
-        /// Note: We don't need to do this for systems because calling
-        /// `add_systems` multiple times with the same system results in
-        /// multiple duplicates of that system in the graph, each with their own
-        /// separate list of conditions. That means all of a system's conditions
-        /// are always initialized together.
+        /// Systems don't need this tracking because each `add_systems` call
+        /// creates separate nodes in the graph with their own conditions,
+        /// so all conditions are initialized together.
         uninitialized_conditions: Range<usize>,
     },
 }
