@@ -267,7 +267,10 @@ pub fn ui_focus_system(
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position
             {
-                *node_relative_cursor_position_component = relative_cursor_position_component;
+                // Check that the values are different before save to enable Changed<> query filter
+                if *node_relative_cursor_position_component != relative_cursor_position_component {
+                    *node_relative_cursor_position_component = relative_cursor_position_component;
+                }
             }
 
             if contains_cursor {
