@@ -3727,7 +3727,7 @@ mod tests {
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
-        resource::Resource,
+        resource::{IsResource, Resource},
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
@@ -4159,8 +4159,10 @@ mod tests {
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
             for entity in world.iter_entities() {
-                let counter = entity_counters.entry(entity.id()).or_insert(0);
-                *counter += 1;
+                if !entity.contains::<IsResource>() {
+                    let counter = entity_counters.entry(entity.id()).or_insert(0);
+                    *counter += 1;
+                }
             }
         };
 
@@ -4257,9 +4259,9 @@ mod tests {
 
         let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
         entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
-        let (a, b) = entities.split_at_mut(2);
+        let (a, b) = entities.split_at_mut(3);
         core::mem::swap(
-            &mut a[1].get_mut::<A>().unwrap().0,
+            &mut a[2].get_mut::<A>().unwrap().0,
             &mut b[0].get_mut::<B>().unwrap().0,
         );
         assert_eq!(world.entity(a1).get(), Some(&A(0)));
