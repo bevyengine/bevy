@@ -88,9 +88,12 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 /// variety of colors.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
-    )));
+    commands.spawn((
+        SceneRoot(asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+        )),
+        Transform::from_rotation(Quat::from_rotation_y(PI)),
+    ));
 
     // Spawn the flight helmet.
     commands.spawn((
@@ -98,7 +101,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
-        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
+        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI + PI)),
     ));
 
     // Spawn the light.
