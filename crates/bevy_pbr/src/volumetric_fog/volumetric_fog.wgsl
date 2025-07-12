@@ -103,6 +103,13 @@ fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
 }
 
+fn simple_wrap_3(index: i32) -> i32 {
+    if (index >= 3) {
+        return index - 3;
+    }
+    return index;
+}
+
 @fragment
 fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // Unpack the `volumetric_fog` settings.
@@ -140,8 +147,8 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     var end_depth_view = 0.0;
     for (var plane_index = 0; plane_index < 3; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
-        let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 3];
-        let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 3];
+        let other_plane_a = volumetric_fog.far_planes[simple_wrap_3(plane_index + 1)];
+        let other_plane_b = volumetric_fog.far_planes[simple_wrap_3(plane_index + 2)];
 
         // Calculate the intersection of the ray and the plane. The ray must
         // intersect in front of us (t > 0).

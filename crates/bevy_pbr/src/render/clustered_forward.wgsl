@@ -129,9 +129,9 @@ fn get_clusterable_object_id(index: u32) -> u32 {
     // The index is correct but in clusterable_object_index_lists we pack 4 u8s into a u32
     // This means the index into clusterable_object_index_lists is index / 4
     let indices = bindings::clusterable_object_index_lists.data[index >> 4u][(index >> 2u) &
-        ((1u << 2u) - 1u)];
+        3u];
     // And index % 4 gives the sub-index of the u8 within the u32 so we shift by 8 * sub-index
-    return (indices >> (8u * (index & ((1u << 2u) - 1u)))) & ((1u << 8u) - 1u);
+    return (indices >> (8u * (index & 3u))) & 255u;
 #endif
 }
 
@@ -151,7 +151,7 @@ fn cluster_debug_visualization(
     var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
     // A hack to make the colors alternate a bit more
     if (z_slice & 1u) == 1u {
-        z_slice = z_slice + bindings::lights.cluster_dimensions.z / 2u;
+        z_slice = z_slice + bindings::lights.cluster_dimensions.z >> 1u;
     }
     let slice_color_hsv = vec3(
         f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u) * PI_2,

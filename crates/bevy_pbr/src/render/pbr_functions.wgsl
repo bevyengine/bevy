@@ -85,7 +85,7 @@ fn visibility_range_dither(frag_coord: vec4<f32>, dither: i32) {
     }
 
     // Otherwise, check the dither pattern.
-    let coords = vec2<u32>(floor(frag_coord.xy)) % 4u;
+    let coords = vec2<u32>(floor(frag_coord.xy)) & 3u;
     let threshold = i32((DITHER_THRESHOLD_MAP[coords.y] >> (coords.x * 8)) & 0xff);
     if ((dither >= 0 && dither + threshold >= 16) || (dither < 0 && 1 + dither + threshold <= 0)) {
         discard;
