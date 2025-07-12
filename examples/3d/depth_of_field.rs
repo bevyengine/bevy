@@ -9,6 +9,8 @@
 //!
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
+use std::f32::consts::PI;
+
 use bevy::{
     core_pipeline::{
         bloom::Bloom,
@@ -84,9 +86,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     }
 
     // Spawn the scene.
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
-    )));
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(
+                GltfAssetLabel::Scene(0)
+                    .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
+            ),
+        ),
+        Transform::from_rotation(Quat::from_rotation_y(PI)),
+    ));
 
     // Spawn the help text.
     commands.spawn((
