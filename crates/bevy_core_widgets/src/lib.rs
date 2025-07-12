@@ -20,10 +20,11 @@ mod core_checkbox;
 mod core_radio;
 mod core_scrollbar;
 mod core_slider;
+pub mod owner;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
-pub use callback::{Callback, Notify};
+pub use callback::{Callback, Notify, RegisterOwnedCallback};
 pub use core_button::{CoreButton, CoreButtonPlugin};
 pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
 pub use core_radio::{CoreRadio, CoreRadioGroup, CoreRadioGroupPlugin};
