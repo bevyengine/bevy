@@ -970,13 +970,13 @@ unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
 unsafe impl<'w, 's, F: QueryFilter, B: Bundle> EntitySetIterator
-    for QueryIter<'w, 's, EntityRefExcept<'_, B>, F>
+    for QueryIter<'w, 's, EntityRefExcept<'_, '_, B>, F>
 {
 }
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
 unsafe impl<'w, 's, F: QueryFilter, B: Bundle> EntitySetIterator
-    for QueryIter<'w, 's, EntityMutExcept<'_, B>, F>
+    for QueryIter<'w, 's, EntityMutExcept<'_, '_, B>, F>
 {
 }
 

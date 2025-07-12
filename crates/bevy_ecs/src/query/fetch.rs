@@ -14,7 +14,6 @@ use crate::{
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
-use smallvec::SmallVec;
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -1160,12 +1159,12 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
 /// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<'a, B> WorldQuery for EntityRefExcept<'a, B>
+unsafe impl<'a, 'b, B> WorldQuery for EntityRefExcept<'a, 'b, B>
 where
     B: Bundle,
 {
     type Fetch<'w> = EntityFetch<'w>;
-    type State = SmallVec<[ComponentId; 4]>;
+    type State = Access<ComponentId>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -1197,15 +1196,9 @@ where
     unsafe fn set_table<'w, 's>(_: &mut Self::Fetch<'w>, _: &'s Self::State, _: &'w Table) {}
 
     fn update_component_access(
-        state: &Self::State,
+        my_access: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        let mut my_access = Access::new();
-        my_access.read_all_components();
-        for id in state {
-            my_access.remove_component_read(*id);
-        }
-
         let access = filtered_access.access_mut();
         assert!(
             access.is_compatible(&my_access),
@@ -1216,17 +1209,29 @@ where
     }
 
     fn init_state(world: &mut World) -> Self::State {
-        Self::get_state(world.components()).unwrap()
+        let mut access = Access::new();
+        access.read_all_components();
+        B::component_ids(&mut world.components_registrator(), &mut |id| {
+            access.remove_component_read(id);
+        });
+        access
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        let mut ids = SmallVec::new();
+        let mut access = Access::new();
+        access.read_all_components();
         B::get_component_ids(components, &mut |maybe_id| {
+            // If the component isn't registered, we don't have a `ComponentId`
+            // to use to exclude its access.
+            // Rather than fail, just try to take additional access.
+            // This is sound because access checks will run on the resulting access.
+            // Since the component isn't registered, there are no entities with that
+            // component, and the extra access will usually have no effect.
             if let Some(id) = maybe_id {
-                ids.push(id);
+                access.remove_component_read(id);
             }
         });
-        Some(ids)
+        Some(access)
     }
 
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1235,13 +1240,13 @@ where
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`.
-unsafe impl<'a, B> QueryData for EntityRefExcept<'a, B>
+unsafe impl<'a, 'b, B> QueryData for EntityRefExcept<'a, 'b, B>
 where
     B: Bundle,
 {
     const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
-    type Item<'w, 's> = EntityRefExcept<'w, B>;
+    type Item<'w, 's> = EntityRefExcept<'w, 's, B>;
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
@@ -1250,7 +1255,7 @@ where
     }
 
     unsafe fn fetch<'w, 's>(
-        _state: &'s Self::State,
+        access: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _: TableRow,
@@ -1259,23 +1264,23 @@ where
             .world
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
             .unwrap();
-        EntityRefExcept::new(cell)
+        EntityRefExcept::new(cell, access)
     }
 }
 
 /// SAFETY: `EntityRefExcept` enforces read-only access to its contained
 /// components.
-unsafe impl<'a, B> ReadOnlyQueryData for EntityRefExcept<'a, B> where B: Bundle {}
+unsafe impl<B> ReadOnlyQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
 
 /// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<'a, B> WorldQuery for EntityMutExcept<'a, B>
+unsafe impl<'a, 'b, B> WorldQuery for EntityMutExcept<'a, 'b, B>
 where
     B: Bundle,
 {
     type Fetch<'w> = EntityFetch<'w>;
-    type State = SmallVec<[ComponentId; 4]>;
+    type State = Access<ComponentId>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -1307,15 +1312,9 @@ where
     unsafe fn set_table<'w, 's>(_: &mut Self::Fetch<'w>, _: &'s Self::State, _: &'w Table) {}
 
     fn update_component_access(
-        state: &Self::State,
+        my_access: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        let mut my_access = Access::new();
-        my_access.write_all_components();
-        for id in state {
-            my_access.remove_component_read(*id);
-        }
-
         let access = filtered_access.access_mut();
         assert!(
             access.is_compatible(&my_access),
@@ -1326,17 +1325,29 @@ where
     }
 
     fn init_state(world: &mut World) -> Self::State {
-        Self::get_state(world.components()).unwrap()
+        let mut access = Access::new();
+        access.write_all_components();
+        B::component_ids(&mut world.components_registrator(), &mut |id| {
+            access.remove_component_read(id);
+        });
+        access
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        let mut ids = SmallVec::new();
+        let mut access = Access::new();
+        access.write_all_components();
         B::get_component_ids(components, &mut |maybe_id| {
+            // If the component isn't registered, we don't have a `ComponentId`
+            // to use to exclude its access.
+            // Rather than fail, just try to take additional access.
+            // This is sound because access checks will run on the resulting access.
+            // Since the component isn't registered, there are no entities with that
+            // component, and the extra access will usually have no effect.
             if let Some(id) = maybe_id {
-                ids.push(id);
+                access.remove_component_read(id);
             }
         });
-        Some(ids)
+        Some(access)
     }
 
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1346,13 +1357,13 @@ where
 
 /// SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
 /// `EntityMutExcept` provides.
-unsafe impl<'a, B> QueryData for EntityMutExcept<'a, B>
+unsafe impl<'a, 'b, B> QueryData for EntityMutExcept<'a, 'b, B>
 where
     B: Bundle,
 {
     const IS_READ_ONLY: bool = false;
-    type ReadOnly = EntityRefExcept<'a, B>;
-    type Item<'w, 's> = EntityMutExcept<'w, B>;
+    type ReadOnly = EntityRefExcept<'a, 'b, B>;
+    type Item<'w, 's> = EntityMutExcept<'w, 's, B>;
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
@@ -1361,7 +1372,7 @@ where
     }
 
     unsafe fn fetch<'w, 's>(
-        _state: &'s Self::State,
+        access: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _: TableRow,
@@ -1370,7 +1381,7 @@ where
             .world
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
             .unwrap();
-        EntityMutExcept::new(cell)
+        EntityMutExcept::new(cell, access)
     }
 }
 
