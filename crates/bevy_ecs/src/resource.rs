@@ -118,14 +118,12 @@ pub struct IsResource;
 pub(crate) struct TypeErasedResource;
 
 #[cfg(test)]
-#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::change_detection::MaybeLocation;
-    use crate::ptr::PtrMut;
+    use crate::ptr::OwningPtr;
     use crate::resource::Resource;
     use crate::world::World;
     use bevy_platform::prelude::String;
-    use core::mem::ManuallyDrop;
 
     #[test]
     fn unique_resource_entities() {
@@ -150,15 +148,12 @@ mod tests {
         // registering a resource should not spawn an entity.
         let id = world.register_resource::<TestResource3>();
         assert_eq!(world.entities().len(), start + 2);
-        unsafe {
-            // SAFETY
-            // *
-            world.insert_resource_by_id(
-                id,
-                PtrMut::from(&mut ManuallyDrop::new(20 as u8)).promote(),
-                MaybeLocation::caller(),
-            );
-        }
+        OwningPtr::make(20_u8, |ptr| {
+            // SAFETY: id was just initialized and corresponds to a resource.
+            unsafe {
+                world.insert_resource_by_id(id, ptr, MaybeLocation::caller());
+            }
+        });
         assert_eq!(world.entities().len(), start + 3);
         assert!(world.remove_resource_by_id(id).is_some());
         assert_eq!(world.entities().len(), start + 2);
