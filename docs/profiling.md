@@ -74,7 +74,7 @@ To determine which Tracy version to install
 
 It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml).
 
-On macOS, Tracy can be installed through Homebrew by running `brew install tracy`, and the GUI client can be launched by running `tracy`. Note that `brew` does not always have the latest version of Tracy avaliable, in which cases you may be required to build from source.
+On macOS, Tracy can be installed through Homebrew by running `brew install tracy`, and the GUI client can be launched by running `tracy`. Note that `brew` does not always have the latest version of Tracy available, in which cases you may be required to build from source.
 
 In one terminal, run:
 `./capture-release -o my_capture.tracy`
