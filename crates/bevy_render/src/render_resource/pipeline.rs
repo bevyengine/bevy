@@ -174,7 +174,7 @@ pub struct ComputePipelineDescriptor {
 // utility function to set a value at the specified index, extending with
 // a filler value if the index is out of bounds.
 fn filling_set_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T) {
-    let num_to_fill = index.saturating_sub(vec.len() - 1);
+    let num_to_fill = (index + 1).saturating_sub(vec.len());
     vec.extend(iter::repeat_n(filler, num_to_fill));
     vec[index] = value;
 }
