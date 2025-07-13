@@ -145,11 +145,13 @@ After:
 ```rust
 #[derive(Resource)]
 pub struct MyPipeline {
+    specialized_cache: SpecializedCache<RenderPipeline, MySpecializer>,
+
+    // these fields are unused, they're just here for demonstration purposes
     layout: BindGroupLayout,
     layout_msaa: BindGroupLayout,
     vertex: Handle<Shader>,
     fragment: Handle<Shader>,
-    specialized_cache: SpecializedCache<RenderPipeline, MySpecializer>,
 }
 
 pub struct MySpecializer {
