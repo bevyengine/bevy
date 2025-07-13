@@ -172,8 +172,8 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
 }
 
 fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
-    var spatial_id = vec2<i32>(center_pixel_id) + vec2<i32>(sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng));
-    spatial_id = clamp(spatial_id, vec2(0i), vec2<i32>(view.viewport.zw) - 1i);
+    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng);
+    spatial_id = clamp(spatial_id, vec2(0.0), view.viewport.zw - 1.0);
     return vec2<u32>(spatial_id);
 }
 
