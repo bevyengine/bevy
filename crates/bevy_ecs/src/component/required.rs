@@ -1,5 +1,5 @@
 use alloc::{format, vec::Vec};
-use bevy_platform::sync::Arc;
+use bevy_platform::{hash::FixedHasher, sync::Arc};
 use bevy_ptr::OwningPtr;
 use core::fmt::Debug;
 use indexmap::{IndexMap, IndexSet};
@@ -119,7 +119,7 @@ pub struct RequiredComponents {
     ///
     /// # Safety
     /// The [`RequiredComponent`] instance associated to each ID must be valid for its component.
-    pub(crate) direct: IndexMap<ComponentId, RequiredComponent>,
+    pub(crate) direct: IndexMap<ComponentId, RequiredComponent, FixedHasher>,
     /// All the components that are required (i.e. including inherited ones), in depth-first order. Most importantly,
     /// components in this list always appear after all the components that they require.
     ///
@@ -128,7 +128,7 @@ pub struct RequiredComponents {
     ///
     /// # Safety
     /// The [`RequiredComponent`] instance associated to each ID must be valid for its component.
-    pub(crate) all: IndexMap<ComponentId, RequiredComponent>,
+    pub(crate) all: IndexMap<ComponentId, RequiredComponent, FixedHasher>,
 }
 
 impl Debug for RequiredComponents {
@@ -149,7 +149,7 @@ impl RequiredComponents {
     ///
     /// # Safety
     ///
-    /// - all other components in this [`RequiredComponents`] instance must have been registrated in `components`.
+    /// - all other components in this [`RequiredComponents`] instance must have been registered in `components`.
     pub unsafe fn register<C: Component>(
         &mut self,
         components: &mut ComponentsRegistrator<'_>,
@@ -171,7 +171,7 @@ impl RequiredComponents {
     /// # Safety
     ///
     /// - `component_id` must be a valid component in `components` for the type `C`;
-    /// - all other components in this [`RequiredComponents`] instance must have been registrated in `components`.
+    /// - all other components in this [`RequiredComponents`] instance must have been registered in `components`.
     pub unsafe fn register_by_id<C: Component>(
         &mut self,
         component_id: ComponentId,
@@ -198,7 +198,7 @@ impl RequiredComponents {
     /// # Safety
     ///
     /// - `component_id` must be a valid component in `components`;
-    /// - all other components in this [`RequiredComponents`] instance must have been registrated in `components`;
+    /// - all other components in `self` must have been registered in `components`;
     /// - `constructor` must return a [`RequiredComponentConstructor`] that constructs a valid instance for the
     ///   component with ID `component_id`.
     pub unsafe fn register_dynamic_with(
@@ -219,14 +219,17 @@ impl RequiredComponents {
         entry.insert(required_component.clone());
 
         // Register inherited required components.
+        // SAFETY:
+        // - the caller guarantees all components that were in `self` have been registered in `components`;
+        // - `component_id` has just been added, but is also guaranteed by the called to be valid in `components`.
         unsafe {
             Self::register_inherited_required_components_unchecked(
                 &mut self.all,
                 component_id,
                 required_component,
                 components,
-            )
-        };
+            );
+        }
 
         true
     }
@@ -235,7 +238,7 @@ impl RequiredComponents {
     ///
     /// # Safety
     ///
-    /// - all components in this [`RequiredComponents`] instance must have been registrated in `components`.
+    /// - all components in `self` must have been registered in `components`.
     unsafe fn rebuild_inherited_required_components(&mut self, components: &Components) {
         // Clear `all`, we are re-initializing it.
         self.all.clear();
@@ -252,7 +255,7 @@ impl RequiredComponents {
                     required_id,
                     required_component.clone(),
                     components,
-                )
+                );
             }
         }
     }
@@ -265,7 +268,7 @@ impl RequiredComponents {
     /// - `required_id` must have been registered in `components`;
     /// - `required_component` must hold a valid constructor for the component with id `required_id`.
     unsafe fn register_inherited_required_components_unchecked(
-        all: &mut IndexMap<ComponentId, RequiredComponent>,
+        all: &mut IndexMap<ComponentId, RequiredComponent, FixedHasher>,
         required_id: ComponentId,
         required_component: RequiredComponent,
         components: &Components,
@@ -281,7 +284,7 @@ impl RequiredComponents {
             for (&inherited_id, inherited_required) in &info.required_components().all {
                 // This is an inherited required component: insert it only if not already present.
                 // By the invariants of `RequiredComponents`, `info.required_components().all` holds the required
-                // components in a depth-first order, and this makes us store teh components in `self.all` also
+                // components in a depth-first order, and this makes us store the components in `self.all` also
                 // in depth-first order, as long as we don't overwrite existing ones.
                 //
                 // SAFETY:
@@ -407,7 +410,7 @@ impl Components {
         let new_required_components = required_components.all[old_required_count..]
             .keys()
             .copied()
-            .collect::<IndexSet<_>>();
+            .collect::<IndexSet<_, FixedHasher>>();
 
         // Get all the new requiree components, i.e. `requiree` and all the components that `requiree` is required by.
         // SAFETY: The caller ensures that the `requiree` is valid.
@@ -426,7 +429,7 @@ impl Components {
         for &indirect_requiree in &new_requiree_components {
             // Extract the required components to avoid conflicting borrows. Remember to put this back before continuing!
             // SAFETY: `indirect_requiree` comes from `self`, so it must be valid.
-            let mut required_components = std::mem::take(unsafe {
+            let mut required_components = core::mem::take(unsafe {
                 self.get_required_components_mut(indirect_requiree)
                     .debug_checked_unwrap()
             });
@@ -474,7 +477,7 @@ impl Components {
     ) {
         // Extract the required components to avoid conflicting borrows. Remember to put this back before returning!
         // SAFETY: The caller ensures that the `requiree` is valid.
-        let mut required_components = std::mem::take(unsafe {
+        let mut required_components = core::mem::take(unsafe {
             self.get_required_components_mut(requiree)
                 .debug_checked_unwrap()
         });
@@ -537,7 +540,7 @@ pub(super) fn enforce_no_required_components_recursion(
 
 #[cfg(test)]
 mod tests {
-    use std::string::{String, ToString};
+    use alloc::string::{String, ToString};
 
     use crate::{
         bundle::Bundle,
@@ -1251,14 +1254,14 @@ mod tests {
     #[test]
     fn regression_19333() {
         #[derive(Component)]
-        struct X(bool);
+        struct X(usize);
 
         #[derive(Default, Component)]
-        #[require(X(false))]
+        #[require(X(0))]
         struct Base;
 
         #[derive(Default, Component)]
-        #[require(X(true), Base)]
+        #[require(X(1), Base)]
         struct A;
 
         #[derive(Default, Component)]
@@ -1271,7 +1274,7 @@ mod tests {
 
         let mut w = World::new();
 
-        assert_eq!(w.spawn(B).get::<X>().unwrap().0, true);
-        assert_eq!(w.spawn(C).get::<X>().unwrap().0, true);
+        assert_eq!(w.spawn(B).get::<X>().unwrap().0, 1);
+        assert_eq!(w.spawn(C).get::<X>().unwrap().0, 1);
     }
 }

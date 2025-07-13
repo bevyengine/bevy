@@ -1,5 +1,8 @@
 use alloc::{boxed::Box, vec, vec::Vec};
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    hash::FixedHasher,
+};
 use bevy_ptr::OwningPtr;
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};
@@ -89,7 +92,10 @@ impl BundleInfo {
         mut component_ids: Vec<ComponentId>,
         id: BundleId,
     ) -> BundleInfo {
-        let explicit_component_ids = component_ids.iter().copied().collect::<IndexSet<_>>();
+        let explicit_component_ids = component_ids
+            .iter()
+            .copied()
+            .collect::<IndexSet<_, FixedHasher>>();
 
         // check for duplicates
         if explicit_component_ids.len() != component_ids.len() {
@@ -113,7 +119,7 @@ impl BundleInfo {
             panic!("Bundle {bundle_type_name} has duplicate components: {names:?}");
         }
 
-        let mut depth_first_components = IndexMap::new();
+        let mut depth_first_components = IndexMap::<_, _, FixedHasher>::default();
         for &component_id in &component_ids {
             // SAFETY: caller has verified that all ids are valid
             let info = unsafe { components.get_info_unchecked(component_id) };
@@ -155,7 +161,7 @@ impl BundleInfo {
         self.id
     }
 
-    /// Returns the length of the explicit components part of the [contributed_components](Self::contributed_components) list.
+    /// Returns the length of the explicit components part of the [`contributed_components`](Self::contributed_components) list.
     pub(super) fn explicit_components_len(&self) -> usize {
         self.contributed_components.len() - self.required_component_constructors.len()
     }

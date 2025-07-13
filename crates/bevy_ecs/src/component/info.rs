@@ -1,5 +1,5 @@
 use alloc::{borrow::Cow, vec::Vec};
-use bevy_platform::sync::PoisonError;
+use bevy_platform::{hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -34,7 +34,7 @@ pub struct ComponentInfo {
     /// The set of components that require this components.
     /// Invariant: this is stored in a depth-first order, that is components are stored after the components
     /// that they depend on.
-    pub(super) required_by: IndexSet<ComponentId>,
+    pub(super) required_by: IndexSet<ComponentId, FixedHasher>,
 }
 
 impl ComponentInfo {
@@ -527,7 +527,10 @@ impl Components {
     }
 
     #[inline]
-    pub(crate) fn get_required_by(&self, id: ComponentId) -> Option<&IndexSet<ComponentId>> {
+    pub(crate) fn get_required_by(
+        &self,
+        id: ComponentId,
+    ) -> Option<&IndexSet<ComponentId, FixedHasher>> {
         self.components
             .get(id.0)
             .and_then(|info| info.as_ref().map(|info| &info.required_by))
@@ -537,7 +540,7 @@ impl Components {
     pub(crate) fn get_required_by_mut(
         &mut self,
         id: ComponentId,
-    ) -> Option<&mut IndexSet<ComponentId>> {
+    ) -> Option<&mut IndexSet<ComponentId, FixedHasher>> {
         self.components
             .get_mut(id.0)
             .and_then(|info| info.as_mut().map(|info| &mut info.required_by))
