@@ -139,6 +139,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
             intensity: 5000.0,
+            rotation: Quat::from_rotation_y(PI),
             ..default()
         },
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
@@ -175,7 +176,7 @@ fn add_environment_map_to_camera(
             .insert(Skybox {
                 image: cubemaps.skybox.clone(),
                 brightness: 5000.0,
-                ..default()
+                rotation: Quat::from_rotation_y(PI),
             });
     }
 }
@@ -285,6 +286,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
         diffuse_map: cubemaps.diffuse.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
         intensity: 5000.0,
+        rotation: Quat::from_rotation_y(PI),
         ..default()
     }
 }
