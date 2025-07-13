@@ -281,7 +281,7 @@ struct CustomPhaseSpecializer;
 #[derive(Resource)]
 struct CustomPhasePipeline {
     /// Holds a reference to our shader.
-    shader: Handle<Shader>,
+    _shader: Handle<Shader>,
     specialized_cache: SpecializedCache<RenderPipeline, CustomPhaseSpecializer>,
 }
 
@@ -341,7 +341,7 @@ impl FromWorld for CustomPhasePipeline {
             SpecializedCache::new(CustomPhaseSpecializer, None, base_descriptor);
 
         Self {
-            shader,
+            _shader: shader,
             specialized_cache,
         }
     }
