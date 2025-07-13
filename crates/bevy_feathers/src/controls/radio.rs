@@ -1,7 +1,8 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::CoreRadio;
+use bevy_core_widgets::{CoreRadio, CoreRadioGroup};
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::DetectChanges,
     children,
     component::Component,
     entity::Entity,
@@ -10,14 +11,14 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     schedule::IntoScheduleConfigs,
     spawn::{Spawn, SpawnRelated, SpawnableList},
-    system::{Commands, Query},
+    system::{Commands, Query, Res},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
+use bevy_input_focus::InputFocus;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_render::view::Visibility;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
-    Node, UiRect, Val,
+    Node, Outline, UiRect, Val,
 };
 use bevy_winit::cursor::CursorIcon;
 
@@ -25,7 +26,7 @@ use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
+    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor, UiTheme},
     tokens,
 };
 
@@ -59,7 +60,6 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         CoreRadio,
         Hovered::default(),
         CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
         ThemeFontColor(tokens::RADIO_TEXT),
         InheritableFont {
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
@@ -255,6 +255,27 @@ fn set_radio_colors(
     }
 }
 
+fn update_radio_group_focus(
+    mut commands: Commands,
+    focus: Res<InputFocus>,
+    theme: Res<UiTheme>,
+    q_groups: Query<Entity, With<CoreRadioGroup>>,
+) {
+    if focus.is_changed() {
+        for group in q_groups.iter() {
+            if focus.0 == Some(group) {
+                commands.entity(group).insert(Outline {
+                    color: theme.color(tokens::FOCUS_RING),
+                    width: Val::Px(2.0),
+                    offset: Val::Px(2.0),
+                });
+            } else {
+                commands.entity(group).remove::<Outline>();
+            }
+        }
+    }
+}
+
 /// Plugin which registers the systems for updating the radio styles.
 pub struct RadioPlugin;
 
@@ -262,7 +283,12 @@ impl Plugin for RadioPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_radio_styles, update_radio_styles_remove).in_set(PickingSystems::Last),
+            (
+                update_radio_styles,
+                update_radio_styles_remove,
+                update_radio_group_focus,
+            )
+                .in_set(PickingSystems::Last),
         );
     }
 }

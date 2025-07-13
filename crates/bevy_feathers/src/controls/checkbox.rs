@@ -2,6 +2,7 @@ use bevy_app::{Plugin, PreUpdate};
 use bevy_core_widgets::{Callback, CoreCheckbox};
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::DetectChanges,
     children,
     component::Component,
     entity::Entity,
@@ -10,15 +11,15 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     schedule::IntoScheduleConfigs,
     spawn::{Spawn, SpawnRelated, SpawnableList},
-    system::{Commands, In, Query},
+    system::{Commands, In, Query, Res},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
+use bevy_input_focus::{tab_navigation::TabIndex, InputFocus};
 use bevy_math::Rot2;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_render::view::Visibility;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
-    Node, PositionType, UiRect, UiTransform, Val,
+    Node, Outline, PositionType, UiRect, UiTransform, Val,
 };
 use bevy_winit::cursor::CursorIcon;
 
@@ -26,7 +27,7 @@ use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
+    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor, UiTheme},
     tokens,
 };
 
@@ -296,6 +297,37 @@ fn set_checkbox_colors(
     }
 }
 
+fn update_checkbox_focus(
+    mut commands: Commands,
+    focus: Res<InputFocus>,
+    theme: Res<UiTheme>,
+    q_checkbox: Query<Entity, With<CheckboxFrame>>,
+    q_children: Query<&Children>,
+    q_outline: Query<(), With<CheckboxOutline>>,
+) {
+    if focus.is_changed() {
+        for checkbox_ent in q_checkbox.iter() {
+            // For a checkbox, we want to outline just the box, not the entire wiget with the label.
+            let Some(outline_ent) = q_children
+                .iter_descendants(checkbox_ent)
+                .find(|en| q_outline.contains(*en))
+            else {
+                return;
+            };
+
+            if focus.0 == Some(checkbox_ent) {
+                commands.entity(outline_ent).insert(Outline {
+                    color: theme.color(tokens::FOCUS_RING),
+                    width: Val::Px(2.0),
+                    offset: Val::Px(2.0),
+                });
+            } else {
+                commands.entity(outline_ent).remove::<Outline>();
+            }
+        }
+    }
+}
+
 /// Plugin which registers the systems for updating the checkbox styles.
 pub struct CheckboxPlugin;
 
@@ -303,7 +335,12 @@ impl Plugin for CheckboxPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_checkbox_styles, update_checkbox_styles_remove).in_set(PickingSystems::Last),
+            (
+                update_checkbox_styles,
+                update_checkbox_styles_remove,
+                update_checkbox_focus,
+            )
+                .in_set(PickingSystems::Last),
         );
     }
 }
