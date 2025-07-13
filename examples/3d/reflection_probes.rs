@@ -12,7 +12,6 @@ use bevy::{
     prelude::*,
     render::{render_resource::TextureUsages, view::Hdr},
 };
-use bevy_render::camera::Exposure;
 
 use std::{
     f32::consts::PI,
@@ -56,14 +55,8 @@ struct Cubemaps {
     // The specular cubemap mip chain that reflects the world, but not the cubes.
     specular_environment_map: Handle<Image>,
 
-    // The blurry diffuse cubemap that reflects both the world and the cubes.
-    diffuse_reflection_probe: Handle<Image>,
-
     // The specular cubemap mip chain that reflects both the world and the cubes.
     specular_reflection_probe: Handle<Image>,
-
-    // Environment map with a single mip level
-    environment_map: Handle<Image>,
 }
 
 fn main() {
@@ -109,15 +102,6 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
     ));
-
-    // spawn directional light
-    commands.spawn((
-        DirectionalLight {
-            illuminance: 30_000.0,
-            ..default()
-        },
-        Transform::from_xyz(1.0, 0.5, 0.7).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
 }
 
 // Spawns the camera.
@@ -125,7 +109,6 @@ fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
         Camera3d::default(),
         Hdr,
-        Exposure { ev100: 12.5 },
         Tonemapping::AcesFitted,
         Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
     ));
@@ -159,7 +142,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn((
         LightProbe,
         EnvironmentMapLight {
-            diffuse_map: cubemaps.diffuse_reflection_probe.clone(),
+            diffuse_map: cubemaps.diffuse_environment_map.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
             intensity: 5000.0,
             ..default()
@@ -173,7 +156,7 @@ fn spawn_generated_environment_map(commands: &mut Commands, cubemaps: &Cubemaps)
     commands.spawn((
         LightProbe,
         GeneratedEnvironmentMapLight {
-            environment_map: cubemaps.environment_map.clone(),
+            environment_map: cubemaps.specular_environment_map.clone(),
             intensity: 5000.0,
             ..default()
         },
@@ -208,7 +191,7 @@ fn add_environment_map_to_camera(
             .entity(camera_entity)
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
-                image: cubemaps.environment_map.clone(),
+                image: cubemaps.specular_environment_map.clone(),
                 brightness: 5000.0,
                 ..default()
             });
@@ -363,15 +346,11 @@ impl FromWorld for Cubemaps {
     fn from_world(world: &mut World) -> Self {
         Cubemaps {
             diffuse_environment_map: world
-                .load_asset("environment_maps/spiaggia_di_mondello_probe_diffuse.ktx2"),
+                .load_asset("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_environment_map: world
-                .load_asset("environment_maps/spiaggia_di_mondello_specular.ktx2"),
+                .load_asset("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             specular_reflection_probe: world
-                .load_asset("environment_maps/spiaggia_di_mondello_probe_specular.ktx2"),
-            diffuse_reflection_probe: world
-                .load_asset("environment_maps/spiaggia_di_mondello_probe_diffuse.ktx2"),
-            environment_map: world
-                .load_asset("environment_maps/spiaggia_di_mondello_environment_map.ktx2"),
+                .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
         }
     }
 }

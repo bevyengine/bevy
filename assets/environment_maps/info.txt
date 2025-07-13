@@ -1,7 +1,6 @@
-The the spiaggia_di_mondello_*.ktx2 files were downloaded from https://polyhaven.com/a/spiaggia_di_mondello distributed under the CC0 license by Andreas Mischok.
-- IBL environment map prefiltering to cubemaps: https://github.com/mate-h/blender-envmap
-  - Imported the GLTF scene into Blender and saved the scene into the blend file
-  - Exported the reflection probe and the environment map as KTX2 files using the command line tool
-  - blender-envmap spiaggia_di_mondello_2k.exr --resolution 512
+The pisa_*.ktx2 files were generated from https://github.com/KhronosGroup/glTF-Sample-Environments/blob/master/pisa.hdr using the following tools and commands:
+- IBL environment map prefiltering to cubemaps: https://github.com/KhronosGroup/glTF-IBL-Sampler
+  - Diffuse: ./cli -inputPath pisa.hdr -outCubeMap pisa_diffuse.ktx2 -distribution Lambertian -cubeMapResolution 32
+  - Specular: ./cli -inputPath pisa.hdr -outCubeMap pisa_specular.ktx2 -distribution GGX -cubeMapResolution 512
 - Converting to rgb9e5 format with zstd 'supercompression': https://github.com/DGriffin91/bevy_mod_environment_map_tools
-  - cargo run --release -- --inputs spiaggia_di_mondello_*.ktx2 --outputs spiaggia_di_mondello_*_rgb9e5_zstd.ktx2
+  - cargo run --release -- --inputs pisa_diffuse.ktx2,pisa_specular.ktx2 --outputs pisa_diffuse_rgb9e5_zstd.ktx2,pisa_specular_rgb9e5_zstd.ktx2

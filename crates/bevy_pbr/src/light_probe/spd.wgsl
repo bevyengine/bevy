@@ -334,10 +334,10 @@ fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
         case 5u: { textureStore(mip_6, pix, slice, value); }
         case 6u: { textureStore(mip_7, pix, slice, value); }
         case 7u: { textureStore(mip_8, pix, slice, value); }
-        // case 8u: { textureStore(mip_9, pix, slice, value); }
-        // case 9u: { textureStore(mip_10, pix, slice, value); }
-        // case 10u: { textureStore(mip_11, pix, slice, value); }
-        // case 11u: { textureStore(mip_12, pix, slice, value); }
+        case 8u: { textureStore(mip_9, pix, slice, value); }
+        case 9u: { textureStore(mip_10, pix, slice, value); }
+        case 10u: { textureStore(mip_11, pix, slice, value); }
+        case 11u: { textureStore(mip_12, pix, slice, value); }
         default: {}
     }
 }

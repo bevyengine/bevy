@@ -50,6 +50,7 @@ use bevy_render::{
 };
 
 use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
+use core::cmp::min;
 
 /// Handle for Spatio-Temporal Blue Noise texture
 pub const SBTN: Handle<Image> = uuid_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
@@ -141,34 +142,34 @@ impl FromWorld for GeneratorBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ), // Output mip 8
-                    // (
-                    //     9,
-                    //     texture_storage_2d_array(
-                    //         TextureFormat::Rgba16Float,
-                    //         StorageTextureAccess::WriteOnly,
-                    //     ),
-                    // ), // Output mip 9
-                    // (
-                    //     10,
-                    //     texture_storage_2d_array(
-                    //         TextureFormat::Rgba16Float,
-                    //         StorageTextureAccess::WriteOnly,
-                    //     ),
-                    // ), // Output mip 10
-                    // (
-                    //     11,
-                    //     texture_storage_2d_array(
-                    //         TextureFormat::Rgba16Float,
-                    //         StorageTextureAccess::WriteOnly,
-                    //     ),
-                    // ), // Output mip 11
-                    // (
-                    //     12,
-                    //     texture_storage_2d_array(
-                    //         TextureFormat::Rgba16Float,
-                    //         StorageTextureAccess::WriteOnly,
-                    //     ),
-                    // ), // Output mip 12
+                    (
+                        9,
+                        texture_storage_2d_array(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ), // Output mip 9
+                    (
+                        10,
+                        texture_storage_2d_array(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ), // Output mip 10
+                    (
+                        11,
+                        texture_storage_2d_array(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ), // Output mip 11
+                    (
+                        12,
+                        texture_storage_2d_array(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ), // Output mip 12
                     (13, sampler(SamplerBindingType::Filtering)), // Linear sampler
                     (14, uniform_buffer::<SpdConstants>(false)),  // Uniforms
                 ),
@@ -428,25 +429,35 @@ pub struct IntermediateTextures {
     pub environment_map: CachedTexture,
 }
 
+/// Returns the total number of mip levels for the provided square texture size.
+/// `size` must be a power of two greater than zero. For example, `size = 512` → `9`.
+#[inline]
+fn compute_mip_count(size: u32) -> u32 {
+    debug_assert!(size.is_power_of_two());
+    32 - size.leading_zeros()
+}
+
 /// Prepares textures needed for single pass downsampling
 pub fn prepare_intermediate_textures(
-    light_probes: Query<Entity, With<RenderEnvironmentMap>>,
+    light_probes: Query<(Entity, &RenderEnvironmentMap)>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     mut commands: Commands,
 ) {
-    for entity in &light_probes {
-        // Create environment map with 8 mip levels (512x512 -> 1x1)
+    for (entity, env_map_light) in &light_probes {
+        let base_size = env_map_light.environment_map.size.width;
+        let mip_level_count = compute_mip_count(base_size);
+
         let environment_map = texture_cache.get(
             &render_device,
             TextureDescriptor {
                 label: Some("intermediate_environment_map"),
                 size: Extent3d {
-                    width: 512,
-                    height: 512,
+                    width: base_size,
+                    height: base_size,
                     depth_or_array_layers: 6, // Cubemap faces
                 },
-                mip_level_count: 9, // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1
+                mip_level_count,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
@@ -505,15 +516,22 @@ pub fn prepare_generator_bind_groups(
     render_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
-    let vector2_uniform = render_images
-        .get(&SBTN)
-        .expect("Vector2 uniform texture not loaded");
+    let stbn_texture = render_images.get(&SBTN).expect("STBN texture not loaded");
+    let texture_size = Vec2::new(
+        stbn_texture.size.width as f32,
+        stbn_texture.size.height as f32,
+    );
 
     for (entity, textures, env_map_light) in &light_probes {
-        // Create SPD bind group
+        // Determine mip chain based on input size
+        let base_size = env_map_light.environment_map.size.width;
+        let mip_count = compute_mip_count(base_size);
+        let last_mip = mip_count - 1;
+
+        // Create SPD constants
         let spd_constants = SpdConstants {
-            mips: 8,                                                 // Number of mip levels
-            inverse_input_size: Vec2::new(1.0 / 512.0, 1.0 / 512.0), // 1.0 / input size
+            mips: mip_count - 1, // Number of mips we are generating (excluding mip 0)
+            inverse_input_size: Vec2::new(1.0 / base_size as f32, 1.0 / base_size as f32),
             _padding: 0,
         };
 
@@ -533,78 +551,125 @@ pub fn prepare_generator_bind_groups(
             "spd_bind_group",
             &layouts.spd,
             &BindGroupEntries::with_indices((
+                // Source mip0
                 (0, &input_env_map),
+                // Destination mips 1 – 12 (duplicate the last valid view if the chain is shorter)
                 (
                     1,
-                    &create_storage_view(&textures.environment_map.texture, 1, &render_device),
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(1, last_mip),
+                        &render_device,
+                    ),
                 ),
                 (
                     2,
-                    &create_storage_view(&textures.environment_map.texture, 2, &render_device),
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(2, last_mip),
+                        &render_device,
+                    ),
                 ),
                 (
                     3,
-                    &create_storage_view(&textures.environment_map.texture, 3, &render_device),
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(3, last_mip),
+                        &render_device,
+                    ),
                 ),
                 (
                     4,
-                    &create_storage_view(&textures.environment_map.texture, 4, &render_device),
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(4, last_mip),
+                        &render_device,
+                    ),
                 ),
                 (
                     5,
-                    &create_storage_view(&textures.environment_map.texture, 5, &render_device),
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(5, last_mip),
+                        &render_device,
+                    ),
                 ),
                 (
                     6,
-                    &create_storage_view(&textures.environment_map.texture, 6, &render_device),
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(6, last_mip),
+                        &render_device,
+                    ),
                 ),
                 (
                     7,
-                    &create_storage_view(&textures.environment_map.texture, 7, &render_device),
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(7, last_mip),
+                        &render_device,
+                    ),
                 ),
                 (
                     8,
-                    &create_storage_view(&textures.environment_map.texture, 8, &render_device),
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(8, last_mip),
+                        &render_device,
+                    ),
                 ),
-                // (
-                //     9,
-                //     &create_storage_view(&textures.environment_map.texture, 9, &render_device),
-                // ),
-                // (
-                //     10,
-                //     &create_storage_view(&textures.environment_map.texture, 10, &render_device),
-                // ),
-                // (
-                //     11,
-                //     &create_storage_view(&textures.environment_map.texture, 11, &render_device),
-                // ),
-                // (
-                //     12,
-                //     &create_storage_view(&textures.environment_map.texture, 12, &render_device),
-                // ),
+                (
+                    9,
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(9, last_mip),
+                        &render_device,
+                    ),
+                ),
+                (
+                    10,
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(10, last_mip),
+                        &render_device,
+                    ),
+                ),
+                (
+                    11,
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(11, last_mip),
+                        &render_device,
+                    ),
+                ),
+                (
+                    12,
+                    &create_storage_view(
+                        &textures.environment_map.texture,
+                        min(12, last_mip),
+                        &render_device,
+                    ),
+                ),
                 (13, &samplers.linear),
                 (14, &spd_constants_buffer),
             )),
         );
 
         // Create radiance map bind groups for each mip level
-        let num_mips = 9;
+        let num_mips = mip_count as usize;
         let mut radiance_bind_groups = Vec::with_capacity(num_mips);
 
         for mip in 0..num_mips {
             // Calculate roughness from 0.0 (mip 0) to 0.889 (mip 8)
             // We don't need roughness=1.0 as a mip level because it's handled by the separate diffuse irradiance map
-            let roughness = mip as f32 / num_mips as f32;
+            let roughness = mip as f32 / (num_mips - 1) as f32;
             let sample_count = 32u32 * 2u32.pow((roughness * 4.0) as u32);
 
             let radiance_constants = FilteringConstants {
                 mip_level: mip as f32,
                 sample_count,
                 roughness,
-                blue_noise_size: Vec2::new(
-                    vector2_uniform.size.width as f32,
-                    vector2_uniform.size.height as f32,
-                ),
+                blue_noise_size: texture_size,
                 white_point: env_map_light.white_point,
             };
 
@@ -617,14 +682,14 @@ pub fn prepare_generator_bind_groups(
                 &render_device,
             );
             let bind_group = render_device.create_bind_group(
-                Some(format!("radiance_bind_group_mip_{}", mip).as_str()),
+                Some(format!("radiance_bind_group_mip_{mip}").as_str()),
                 &layouts.radiance,
                 &BindGroupEntries::with_indices((
                     (0, &textures.environment_map.default_view),
                     (1, &samplers.linear),
                     (2, &mip_storage_view),
                     (3, &radiance_constants_buffer),
-                    (4, &vector2_uniform.texture_view),
+                    (4, &stbn_texture.texture_view),
                 )),
             );
 
@@ -637,10 +702,7 @@ pub fn prepare_generator_bind_groups(
             // 32 phi, 32 theta = 1024 samples total
             sample_count: 1024,
             roughness: 1.0,
-            blue_noise_size: Vec2::new(
-                vector2_uniform.size.width as f32,
-                vector2_uniform.size.height as f32,
-            ),
+            blue_noise_size: texture_size,
             white_point: env_map_light.white_point,
         };
 
@@ -665,7 +727,7 @@ pub fn prepare_generator_bind_groups(
                 (1, &samplers.linear),
                 (2, &irradiance_map),
                 (3, &irradiance_constants_buffer),
-                (4, &vector2_uniform.texture_view),
+                (4, &stbn_texture.texture_view),
             )),
         );
 
@@ -698,7 +760,7 @@ pub fn prepare_generator_bind_groups(
 /// Helper function to create a storage texture view for a specific mip level
 fn create_storage_view(texture: &Texture, mip: u32, _render_device: &RenderDevice) -> TextureView {
     texture.create_view(&TextureViewDescriptor {
-        label: Some(format!("storage_view_mip_{}", mip).as_str()),
+        label: Some(format!("storage_view_mip_{mip}").as_str()),
         format: Some(texture.format()),
         dimension: Some(TextureViewDimension::D2Array),
         aspect: TextureAspect::All,
@@ -790,11 +852,10 @@ impl Node for SpdNode {
                 compute_pass.set_pipeline(spd_first_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
-                // Calculate the optimal dispatch size based on our shader's workgroup size and thread mapping
-                // The workgroup size is 256x1x1, and our remap_for_wave_reduction maps these threads to a 8x8 block
-                // For a 512x512 texture, we need 512/64 = 8 workgroups in X and 512/64 = 8 workgroups in Y
-                // Each workgroup processes 64x64 pixels (256 threads each handling 16 pixels)
-                compute_pass.dispatch_workgroups(8, 8, 6); // 6 faces of cubemap
+                let tex_size = env_map_light.environment_map.size;
+                let wg_x = (tex_size.width / 64).max(1);
+                let wg_y = (tex_size.height / 64).max(1);
+                compute_pass.dispatch_workgroups(wg_x, wg_y, 6); // 6 faces
             }
 
             // Second pass - process mips 6-12
@@ -810,8 +871,10 @@ impl Node for SpdNode {
                 compute_pass.set_pipeline(spd_second_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
-                // Dispatch workgroups - for each face
-                compute_pass.dispatch_workgroups(2, 2, 6);
+                let tex_size = env_map_light.environment_map.size;
+                let wg_x = (tex_size.width / 256).max(1);
+                let wg_y = (tex_size.height / 256).max(1);
+                compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
             }
         }
 
@@ -821,7 +884,11 @@ impl Node for SpdNode {
 
 /// Radiance map node for generating specular environment maps
 pub struct RadianceMapNode {
-    query: QueryState<(Entity, Read<GeneratorBindGroups>)>,
+    query: QueryState<(
+        Entity,
+        Read<GeneratorBindGroups>,
+        Read<RenderEnvironmentMap>,
+    )>,
 }
 
 impl FromWorld for RadianceMapNode {
@@ -851,7 +918,7 @@ impl Node for RadianceMapNode {
             return Ok(());
         };
 
-        for (_, bind_groups) in self.query.iter_manual(world) {
+        for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
             let mut compute_pass =
                 render_context
                     .command_encoder()
@@ -862,12 +929,14 @@ impl Node for RadianceMapNode {
 
             compute_pass.set_pipeline(radiance_pipeline);
 
+            let base_size = env_map_light.specular_map.size.width;
+
             // Process each mip level
             for (mip, bind_group) in bind_groups.radiance.iter().enumerate() {
                 compute_pass.set_bind_group(0, bind_group, &[]);
 
                 // Calculate dispatch size based on mip level
-                let mip_size = 512u32 >> mip;
+                let mip_size = base_size >> mip;
                 let workgroup_count = mip_size.max(8) / 8;
 
                 // Dispatch for all 6 faces
@@ -938,6 +1007,27 @@ pub fn generate_environment_map_light(
     query: Query<(Entity, &GeneratedEnvironmentMapLight), Without<EnvironmentMapLight>>,
 ) {
     for (entity, filtered_env_map) in &query {
+        // Validate and fetch the source cubemap so we can size our targets correctly
+        let Some(src_image) = images.get(&filtered_env_map.environment_map) else {
+            // Texture not ready yet – try again next frame
+            continue;
+        };
+
+        let base_size = src_image.texture_descriptor.size.width;
+
+        // Sanity checks – square, power-of-two, ≤ 8192
+        if src_image.texture_descriptor.size.height != base_size
+            || !base_size.is_power_of_two()
+            || base_size > 8192
+        {
+            panic!(
+                "GeneratedEnvironmentMapLight source cubemap must be square power-of-two ≤ 8192, got {}×{}",
+                base_size, src_image.texture_descriptor.size.height
+            );
+        }
+
+        let mip_count = compute_mip_count(base_size);
+
         // Create a placeholder for the irradiance map
         let mut diffuse = Image::new_fill(
             Extent3d {
@@ -961,11 +1051,11 @@ pub fn generate_environment_map_light(
 
         let diffuse_handle = images.add(diffuse);
 
-        // Create a placeholder for the specular map
+        // Create a placeholder for the specular map. It matches the input cubemap resolution.
         let mut specular = Image::new_fill(
             Extent3d {
-                width: 512,
-                height: 512,
+                width: base_size,
+                height: base_size,
                 depth_or_array_layers: 6,
             },
             TextureDimension::D2,
@@ -977,7 +1067,7 @@ pub fn generate_environment_map_light(
         // Set up for mipmaps
         specular.texture_descriptor.usage =
             TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
-        specular.texture_descriptor.mip_level_count = 9;
+        specular.texture_descriptor.mip_level_count = mip_count;
 
         // When setting mip_level_count, we need to allocate appropriate data size
         // For GPU-generated mipmaps, we can set data to None since the GPU will generate the data
@@ -985,7 +1075,7 @@ pub fn generate_environment_map_light(
 
         specular.texture_view_descriptor = Some(TextureViewDescriptor {
             dimension: Some(TextureViewDimension::Cube),
-            mip_level_count: Some(9),
+            mip_level_count: Some(mip_count),
             ..Default::default()
         });
 
