@@ -285,6 +285,17 @@ where
     }
 }
 
+impl<A, B> Clone for IntoPipeSystem<A, B>
+where
+    A: Clone,
+    B: Clone,
+{
+    /// Clone the piped system. The cloned instance must be `.initialize()`d before it can run.
+    fn clone(&self) -> Self {
+        IntoPipeSystem::new(self.a.clone(), self.b.clone())
+    }
+}
+
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
 /// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
