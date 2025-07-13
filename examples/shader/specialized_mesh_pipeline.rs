@@ -35,7 +35,7 @@ use bevy::{
 };
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport, extract_component::ExtractComponent,
-    mesh::allocator::MeshAllocator,
+    mesh::allocator::MeshAllocator, RenderStartup,
 };
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
@@ -113,19 +113,11 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
             .init_resource::<SpecializedMeshPipelines<CustomMeshPipeline>>()
             // We need to use a custom draw command so we need to register it
             .add_render_command::<Opaque3d, DrawSpecializedPipelineCommands>()
+            .add_systems(RenderStartup, init_pipeline)
             .add_systems(
                 Render,
                 queue_custom_mesh_pipeline.in_set(RenderSystems::Queue),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        // Creating this pipeline needs the RenderDevice and RenderQueue
-        // which are only available once rendering plugins are initialized.
-        render_app.init_resource::<CustomMeshPipeline>();
     }
 }
 
@@ -169,15 +161,15 @@ struct CustomMeshPipeline {
     shader_handle: Handle<Shader>,
 }
 
-impl FromWorld for CustomMeshPipeline {
-    fn from_world(world: &mut World) -> Self {
-        // Load the shader
-        let shader_handle: Handle<Shader> = world.resource::<AssetServer>().load(SHADER_ASSET_PATH);
-        Self {
-            mesh_pipeline: MeshPipeline::from_world(world),
-            shader_handle,
-        }
-    }
+fn init_pipeline(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mesh_pipeline: Res<MeshPipeline>,
+) {
+    commands.insert_resource(CustomMeshPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        shader_handle: asset_server.load(SHADER_ASSET_PATH),
+    });
 }
 
 impl SpecializedMeshPipeline for CustomMeshPipeline {
