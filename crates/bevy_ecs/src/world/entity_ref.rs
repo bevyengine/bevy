@@ -2268,6 +2268,7 @@ impl<'w> EntityWorldMut<'w> {
         self.remove_by_ids_with_caller(
             component_ids,
             MaybeLocation::caller(),
+            RelationshipHookMode::Run,
             BundleRemover::empty_pre_remove,
         )
     }
@@ -2277,6 +2278,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_ids: &[ComponentId],
         caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
         pre_remove: impl FnOnce(
             &mut SparseSets,
             Option<&mut Table>,
@@ -2299,6 +2301,7 @@ impl<'w> EntityWorldMut<'w> {
         }) else {
             return self;
         };
+        remover.relationship_hook_mode = relationship_hook_mode;
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe { remover.remove(self.entity, location, caller, pre_remove) }.0;
 

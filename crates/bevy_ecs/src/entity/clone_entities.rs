@@ -8,7 +8,7 @@ use derive_more::derive::From;
 
 use crate::{
     archetype::Archetype,
-    bundle::{Bundle, BundleId, InsertMode},
+    bundle::{Bundle, BundleId, BundleRemover, InsertMode},
     change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
@@ -132,6 +132,11 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// Returns true if [`write_target_component`](`Self::write_target_component`) was called before.
     pub fn target_component_written(&self) -> bool {
         self.target_component_written
+    }
+
+    /// Returns `true` if used in moving context
+    pub fn moving(&self) -> bool {
+        self.state.move_components
     }
 
     /// Returns the current source entity.
@@ -674,13 +679,19 @@ impl EntityCloner {
         if state.move_components {
             let mut source_entity = world.entity_mut(source);
 
-            // Remove all cloned components with drop by concatenating both vectors
-            if deferred_cloned_component_ids.is_empty() {
-                source_entity.remove_by_ids(&bundle_scratch.component_ids);
+            let cloned_components = if deferred_cloned_component_ids.is_empty() {
+                &bundle_scratch.component_ids
             } else {
+                // Remove all cloned components with drop by concatenating both vectors
                 deferred_cloned_component_ids.extend(&bundle_scratch.component_ids);
-                source_entity.remove_by_ids(&deferred_cloned_component_ids);
-            }
+                &deferred_cloned_component_ids
+            };
+            source_entity.remove_by_ids_with_caller(
+                cloned_components,
+                MaybeLocation::caller(),
+                RelationshipHookMode::RunIfNotLinked,
+                BundleRemover::empty_pre_remove,
+            );
 
             let table_row = source_entity.location().table_row;
 
@@ -688,6 +699,7 @@ impl EntityCloner {
             source_entity.remove_by_ids_with_caller(
                 &moved_components,
                 MaybeLocation::caller(),
+                RelationshipHookMode::RunIfNotLinked,
                 |sparse_sets, mut table, components, bundle| {
                     for &component_id in bundle {
                         let Some(component_ptr) = sparse_sets
@@ -2137,10 +2149,21 @@ mod tests {
 
         assert!(root_children.iter().all(|e| *e != child1 && *e != child2));
         assert_eq!(root_children.len(), 2);
+        assert_eq!(
+            (
+                world.get::<ChildOf>(root_children[0]),
+                world.get::<ChildOf>(root_children[1])
+            ),
+            (Some(&ChildOf(clone_root)), Some(&ChildOf(clone_root)))
+        );
         let child1_children = world.entity(root_children[0]).get::<Children>().unwrap();
         assert_eq!(child1_children.len(), 1);
         assert_ne!(child1_children[0], grandchild);
         assert!(world.entity(root_children[1]).get::<Children>().is_none());
+        assert_eq!(
+            world.get::<ChildOf>(child1_children[0]),
+            Some(&ChildOf(root_children[0]))
+        );
 
         assert_eq!(
             world.entity(root).get::<Children>().unwrap().deref(),
@@ -2252,8 +2275,59 @@ mod tests {
     }
 
     #[test]
+    fn move_relationship() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship(relationship_target=Target)]
+        struct Source(Entity);
+
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship_target(relationship=Source)]
+        struct Target(Vec<Entity>);
+
+        #[derive(Component, PartialEq, Debug)]
+        struct A(u32);
+
+        let mut world = World::default();
+        let e_target = world.spawn(A(1)).id();
+        let e_source = world.spawn((A(2), Source(e_target))).id();
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        let e_source_moved = world.spawn_empty().id();
+
+        cloner.clone_entity(&mut world, e_source, e_source_moved);
+
+        assert_eq!(world.get::<A>(e_source), None);
+        assert_eq!(world.get::<A>(e_source_moved), Some(&A(2)));
+        assert_eq!(world.get::<Source>(e_source), None);
+        assert_eq!(world.get::<Source>(e_source_moved), Some(&Source(e_target)));
+        assert_eq!(
+            world.get::<Target>(e_target),
+            Some(&Target(alloc::vec![e_source_moved]))
+        );
+
+        let e_target_moved = world.spawn_empty().id();
+
+        cloner.clone_entity(&mut world, e_target, e_target_moved);
+
+        assert_eq!(world.get::<A>(e_target), None);
+        assert_eq!(world.get::<A>(e_target_moved), Some(&A(1)));
+        assert_eq!(world.get::<Target>(e_target), None);
+        assert_eq!(
+            world.get::<Target>(e_target_moved),
+            Some(&Target(alloc::vec![e_source_moved]))
+        );
+        assert_eq!(
+            world.get::<Source>(e_source_moved),
+            Some(&Source(e_target_moved))
+        );
+    }
+
+    #[test]
     fn move_hierarchy() {
-        #[derive(Clone, Component, PartialEq, Debug)]
+        #[derive(Component, PartialEq, Debug)]
         struct A(u32);
 
         let mut world = World::default();
@@ -2283,7 +2357,238 @@ mod tests {
 
         assert_eq!(world.get::<A>(e_parent_clone), Some(&A(1)));
         assert_eq!(world.get::<A>(e_child1_clone), Some(&A(2)));
+        assert_eq!(
+            world.get::<ChildOf>(e_child1_clone),
+            Some(&ChildOf(e_parent_clone))
+        );
         assert_eq!(world.get::<A>(e_child2_clone), Some(&A(3)));
+        assert_eq!(
+            world.get::<ChildOf>(e_child2_clone),
+            Some(&ChildOf(e_parent_clone))
+        );
         assert_eq!(world.get::<A>(e_child1_1_clone), Some(&A(4)));
+        assert_eq!(
+            world.get::<ChildOf>(e_child1_1_clone),
+            Some(&ChildOf(e_child1_clone))
+        );
+    }
+
+    // Original: E1 Target{target: [E2], data: [4,5,6]}
+    //            | E2 Source{target: E1, data: [1,2,3]}
+    //
+    // Cloned:   E3 Target{target: [], data: [4,5,6]}
+    #[test]
+    fn clone_relationship_with_data() {
+        #[derive(Component, Clone)]
+        #[relationship(relationship_target=Target)]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            data: Vec<u8>,
+        }
+
+        #[derive(Component, Clone)]
+        #[relationship_target(relationship=Source)]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            data: Vec<u8>,
+        }
+
+        let mut world = World::default();
+        let e_target = world.spawn_empty().id();
+        let e_source = world
+            .spawn(Source {
+                target: e_target,
+                data: alloc::vec![1, 2, 3],
+            })
+            .id();
+        world.get_mut::<Target>(e_target).unwrap().data = alloc::vec![4, 5, 6];
+
+        let builder = EntityCloner::build_opt_out(&mut world);
+        let mut cloner = builder.finish();
+
+        let e_target_clone = world.spawn_empty().id();
+        cloner.clone_entity(&mut world, e_target, e_target_clone);
+
+        let target = world.get::<Target>(e_target).unwrap();
+        let cloned_target = world.get::<Target>(e_target_clone).unwrap();
+
+        assert_eq!(cloned_target.data, target.data);
+        assert_eq!(target.target, alloc::vec![e_source]);
+        assert_eq!(cloned_target.target.len(), 0);
+
+        let source = world.get::<Source>(e_source).unwrap();
+
+        assert_eq!(source.data, alloc::vec![1, 2, 3]);
+    }
+
+    // Original: E1 Target{target: [E2], data: [4,5,6]}
+    //            | E2 Source{target: E1, data: [1,2,3]}
+    //
+    // Cloned:   E3 Target{target: [E4], data: [4,5,6]}
+    //            | E4 Source{target: E3, data: [1,2,3]}
+    #[test]
+    fn clone_linked_relationship_with_data() {
+        #[derive(Component, Clone)]
+        #[relationship(relationship_target=Target)]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            data: Vec<u8>,
+        }
+
+        #[derive(Component, Clone)]
+        #[relationship_target(relationship=Source, linked_spawn)]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            data: Vec<u8>,
+        }
+
+        let mut world = World::default();
+        let e_target = world.spawn_empty().id();
+        let e_source = world
+            .spawn(Source {
+                target: e_target,
+                data: alloc::vec![1, 2, 3],
+            })
+            .id();
+        world.get_mut::<Target>(e_target).unwrap().data = alloc::vec![4, 5, 6];
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.linked_cloning(true);
+        let mut cloner = builder.finish();
+
+        let e_target_clone = world.spawn_empty().id();
+        cloner.clone_entity(&mut world, e_target, e_target_clone);
+
+        let target = world.get::<Target>(e_target).unwrap();
+        let cloned_target = world.get::<Target>(e_target_clone).unwrap();
+
+        assert_eq!(cloned_target.data, target.data);
+        assert_eq!(target.target, alloc::vec![e_source]);
+        assert_eq!(cloned_target.target.len(), 1);
+
+        let source = world.get::<Source>(e_source).unwrap();
+        let cloned_source = world.get::<Source>(cloned_target.target[0]).unwrap();
+
+        assert_eq!(cloned_source.data, source.data);
+        assert_eq!(source.target, e_target);
+        assert_eq!(cloned_source.target, e_target_clone);
+    }
+
+    // Original: E1
+    //           E2
+    //
+    // Moved:    E3 Target{target: [], data: [4,5,6]}
+    #[test]
+    fn move_relationship_with_data() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship(relationship_target=Target)]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            data: Vec<u8>,
+        }
+
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship_target(relationship=Source)]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            data: Vec<u8>,
+        }
+
+        let source_data = alloc::vec![1, 2, 3];
+        let target_data = alloc::vec![4, 5, 6];
+
+        let mut world = World::default();
+        let e_target = world.spawn_empty().id();
+        let e_source = world
+            .spawn(Source {
+                target: e_target,
+                data: source_data.clone(),
+            })
+            .id();
+        world.get_mut::<Target>(e_target).unwrap().data = target_data.clone();
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true);
+        let mut cloner = builder.finish();
+
+        let e_target_moved = world.spawn_empty().id();
+        cloner.clone_entity(&mut world, e_target, e_target_moved);
+
+        assert_eq!(world.get::<Target>(e_target), None);
+        assert_eq!(
+            world.get::<Source>(e_source),
+            Some(&Source {
+                data: source_data,
+                target: e_target_moved,
+            })
+        );
+        assert_eq!(
+            world.get::<Target>(e_target_moved),
+            Some(&Target {
+                target: alloc::vec![e_source],
+                data: target_data
+            })
+        );
+    }
+
+    // Original: E1
+    //           E2
+    //
+    // Moved:    E3 Target{target: [E4], data: [4,5,6]}
+    //            | E4 Source{target: E3, data: [1,2,3]}
+    #[test]
+    fn move_linked_relationship_with_data() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship(relationship_target=Target)]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            data: Vec<u8>,
+        }
+
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[relationship_target(relationship=Source, linked_spawn)]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            data: Vec<u8>,
+        }
+
+        let source_data = alloc::vec![1, 2, 3];
+        let target_data = alloc::vec![4, 5, 6];
+
+        let mut world = World::default();
+        let e_target = world.spawn_empty().id();
+        let e_source = world
+            .spawn(Source {
+                target: e_target,
+                data: source_data.clone(),
+            })
+            .id();
+        world.get_mut::<Target>(e_target).unwrap().data = target_data.clone();
+
+        let mut builder = EntityCloner::build_opt_out(&mut world);
+        builder.move_components(true).linked_cloning(true);
+        let mut cloner = builder.finish();
+
+        let e_target_moved = world.spawn_empty().id();
+        cloner.clone_entity(&mut world, e_target, e_target_moved);
+
+        assert_eq!(world.get::<Target>(e_target), None);
+        assert_eq!(world.get::<Source>(e_source), None);
+
+        let moved_target = world.get::<Target>(e_target_moved).unwrap();
+        assert_eq!(moved_target.data, target_data);
+        assert_eq!(moved_target.target.len(), 1);
+
+        let moved_source = world.get::<Source>(moved_target.target[0]).unwrap();
+        assert_eq!(moved_source.data, source_data);
+        assert_eq!(moved_source.target, e_target_moved);
     }
 }

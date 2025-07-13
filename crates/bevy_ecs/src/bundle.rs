@@ -1412,6 +1412,7 @@ pub(crate) struct BundleRemover<'w> {
     old_and_new_table: Option<(NonNull<Table>, NonNull<Table>)>,
     old_archetype: NonNull<Archetype>,
     new_archetype: NonNull<Archetype>,
+    pub(crate) relationship_hook_mode: RelationshipHookMode,
 }
 
 impl<'w> BundleRemover<'w> {
@@ -1487,6 +1488,7 @@ impl<'w> BundleRemover<'w> {
             old_archetype: old_archetype.into(),
             old_and_new_table: tables,
             world: world.as_unsafe_world_cell(),
+            relationship_hook_mode: RelationshipHookMode::Run,
         };
         if is_new_created {
             remover
@@ -1550,7 +1552,7 @@ impl<'w> BundleRemover<'w> {
                 entity,
                 bundle_components_in_archetype(),
                 caller,
-                RelationshipHookMode::Run,
+                self.relationship_hook_mode,
             );
             if self.old_archetype.as_ref().has_remove_observer() {
                 deferred_world.trigger_observers(
