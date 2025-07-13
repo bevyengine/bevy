@@ -291,7 +291,7 @@ impl Observer {
     /// # Safety
     /// The type of the `event_key` [`EventKey`] _must_ match the actual value
     /// of the event passed into the observer system.
-    pub unsafe fn with_event(mut self, event_key: EventKey) -> Self {
+    pub unsafe fn with_event_key(mut self, event_key: EventKey) -> Self {
         self.descriptor.event_keys.push(event_key);
         self
     }
@@ -364,7 +364,7 @@ impl ObserverDescriptor {
     /// # Safety
     /// The type of each [`EventKey`] in `event_keys` _must_ match the actual value
     /// of the event passed into the observer.
-    pub unsafe fn with_events(mut self, event_keys: Vec<EventKey>) -> Self {
+    pub unsafe fn with_event_keys(mut self, event_keys: Vec<EventKey>) -> Self {
         self.event_keys = event_keys;
         self
     }

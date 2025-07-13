@@ -741,7 +741,7 @@ mod tests {
                 Observer::new(|_: On<Add, A>, mut res: ResMut<Order>| {
                     res.observed("add/remove");
                 })
-                .with_event(on_remove)
+                .with_event_key(on_remove)
             },
         );
 
@@ -1015,7 +1015,7 @@ mod tests {
             Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
             })
-            .with_event(event_a)
+            .with_event_key(event_a)
         };
         world.spawn(observe);
 
