@@ -148,8 +148,8 @@ pub struct MyPipeline {
     // the base_descriptor and specializer each hold onto the static
     // wgpu resources (layout, shader handles), so we don't need
     // explicit fields for them here. However, real-world cases
-    // may still need to duplicate them as fields to create bind
-    // groups from, etc.
+    // may still need to expose them as fields to create bind groups
+    // from, for example.
     specialized_cache: SpecializedCache<RenderPipeline, MySpecializer>,
 }
 
