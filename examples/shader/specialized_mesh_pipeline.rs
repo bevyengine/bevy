@@ -44,9 +44,14 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(CustomRenderedMeshPipelinePlugin)
-        .add_systems(Startup, setup)
+        .add_systems(
+            Startup,
+            (setup, setup2).run_if(resource_exists::<AssetServer>),
+        )
         .run();
 }
+
+fn setup2() {}
 
 /// Spawns the objects in the scene.
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
@@ -291,7 +296,6 @@ fn queue_custom_mesh_pipeline(
         let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
-        info!("queue view {:?}", view.retained_view_entity.main_entity);
 
         // Create the key based on the view. In this case we only care about MSAA and HDR
         let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
