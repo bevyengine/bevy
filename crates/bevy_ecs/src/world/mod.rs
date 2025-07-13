@@ -22,7 +22,7 @@ use crate::{
     event::BufferedEvent,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     prelude::{Add, Despawn, Insert, Remove, Replace},
-    resource::{IsResource, ResourceEntity, TypeErasedResource},
+    resource::{ResourceEntity, TypeErasedResource},
 };
 pub use bevy_ecs_macros::FromWorld;
 use bevy_utils::prelude::DebugName;
@@ -170,7 +170,6 @@ impl World {
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
-        self.register_disabling_component::<IsResource>();
     }
     /// Creates a new empty [`World`].
     ///

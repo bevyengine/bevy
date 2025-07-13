@@ -2174,10 +2174,7 @@ mod tests {
         world.spawn((B(0), C(0)));
         world.spawn(C(0));
 
-        let mut df = DefaultQueryFilters::empty();
-        df.register_disabling_component(world.register_component::<C>());
-        world.insert_resource(df);
-        world.register_disabling_component::<IsResource>();
+        world.register_disabling_component::<C>();
 
         // Without<C> only matches the first entity
         let mut query = QueryState::<()>::new(&mut world);
