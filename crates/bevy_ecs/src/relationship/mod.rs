@@ -4,6 +4,8 @@ mod related_methods;
 mod relationship_query;
 mod relationship_source_collection;
 
+use core::marker::PhantomData;
+
 use alloc::format;
 
 use bevy_utils::prelude::DebugName;
@@ -12,7 +14,7 @@ pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
 use crate::{
-    component::{Component, Mutable},
+    component::{Component, ComponentCloneBehavior, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     error::CommandWithEntity,
     lifecycle::HookContext,
@@ -321,6 +323,67 @@ pub enum RelationshipHookMode {
     RunIfNotLinked,
     /// Relationship insert/replace hooks will always be skipped
     Skip,
+}
+
+/// Wrapper for components clone specialization using autoderef.
+#[doc(hidden)]
+#[derive(Default)]
+pub struct RelationshipCloneBehaviorSpecialization<T>(PhantomData<T>);
+
+/// Base trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorBase {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C> RelationshipCloneBehaviorBase for RelationshipCloneBehaviorSpecialization<C> {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        // Relationships currently must have `Clone`/`Reflect`-based handler for cloning/moving logic to properly work.
+        ComponentCloneBehavior::Ignore
+    }
+}
+
+/// Specialized trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorViaReflect {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+#[cfg(feature = "bevy_reflect")]
+impl<C: Relationship + bevy_reflect::Reflect> RelationshipCloneBehaviorViaReflect
+    for &RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::reflect()
+    }
+}
+
+/// Specialized trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorViaClone {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C: Relationship + Clone> RelationshipCloneBehaviorViaClone
+    for &&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::clone::<C>()
+    }
+}
+
+/// Specialized trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehavior {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C: RelationshipTarget> RelationshipTargetCloneBehavior
+    for &&&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(clone_relationship_target::<C>)
+    }
 }
 
 #[cfg(test)]
