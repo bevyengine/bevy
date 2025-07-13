@@ -85,7 +85,7 @@ After opting into the new behavior, your scene will be oriented such that your m
 For example, Blender assumes -Y to be forward, so exporting the following model to glTF and loading it in Bevy with the new settings will ensure everything is
 oriented the right way across all programs in your pipeline:
 
-<!-- TODO: Add png from PR description -->
+<!-- TODO: Add Fox PNG from https://github.com/bevyengine/bevy/pull/19633 description -->
 ![Blender Coordinate System](blender-coords.png)
 
 If you opt into this, please let us know how it's working out! Is your scene looking like you expected? Are the animations playing correctly? Is the camera at the right place? Are the lights shining from the right spots?
