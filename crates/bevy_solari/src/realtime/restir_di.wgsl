@@ -112,7 +112,6 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         reservoir.unbiased_contribution_weight = reservoir.weight_sum * inverse_target_function;
 
         reservoir.visibility = trace_light_visibility(reservoir.sample, world_position);
-        reservoir.unbiased_contribution_weight *= reservoir.visibility;
     }
 
     reservoir.confidence_weight = 1.0;
@@ -288,7 +287,7 @@ fn merge_reservoirs(
 
 fn reservoir_target_function(reservoir: Reservoir, world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>) -> vec4<f32> {
     if !reservoir_valid(reservoir) { return vec4(0.0); }
-    let light_contribution = calculate_light_contribution(reservoir.sample, world_position, world_normal).radiance;
+    let light_contribution = calculate_light_contribution(reservoir.sample, world_position, world_normal).radiance * reservoir.visibility;
     let target_function = luminance(light_contribution * diffuse_brdf);
     return vec4(light_contribution, target_function);
 }
