@@ -145,13 +145,12 @@ After:
 ```rust
 #[derive(Resource)]
 pub struct MyPipeline {
+    // the base_descriptor and specializer each hold onto the static
+    // wgpu resources (layout, shader handles), so we don't need
+    // explicit fields for them here. However, real-world cases
+    // may still need to duplicate them as fields to create bind
+    // groups from, etc.
     specialized_cache: SpecializedCache<RenderPipeline, MySpecializer>,
-
-    // these fields are unused, they're just here for demonstration purposes
-    layout: BindGroupLayout,
-    layout_msaa: BindGroupLayout,
-    vertex: Handle<Shader>,
-    fragment: Handle<Shader>,
 }
 
 pub struct MySpecializer {
