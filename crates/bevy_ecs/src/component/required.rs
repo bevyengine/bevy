@@ -1247,4 +1247,31 @@ mod tests {
 
         World::new().register_component::<A>();
     }
+
+    #[test]
+    fn regression_19333() {
+        #[derive(Component)]
+        struct X(bool);
+
+        #[derive(Default, Component)]
+        #[require(X(false))]
+        struct Base;
+
+        #[derive(Default, Component)]
+        #[require(X(true), Base)]
+        struct A;
+
+        #[derive(Default, Component)]
+        #[require(A, Base)]
+        struct B;
+
+        #[derive(Default, Component)]
+        #[require(B, Base)]
+        struct C;
+
+        let mut w = World::new();
+
+        assert_eq!(w.spawn(B).get::<X>().unwrap().0, true);
+        assert_eq!(w.spawn(C).get::<X>().unwrap().0, true);
+    }
 }
