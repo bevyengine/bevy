@@ -280,7 +280,7 @@ struct CustomPhaseSpecializer;
 
 #[derive(Resource)]
 struct CustomPhasePipeline {
-    /// the specialized_cache holds onto the shader handle through the base descriptor
+    /// the `specialized_cache` holds onto the shader handle through the base descriptor
     specialized_cache: SpecializedCache<RenderPipeline, CustomPhaseSpecializer>,
 }
 
