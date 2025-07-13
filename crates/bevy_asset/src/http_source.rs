@@ -12,6 +12,15 @@ use std::path::{Path, PathBuf};
 ///
 /// Any asset path that begins with `http` (when the `http` feature is enabled) or `https` (when the
 /// `https` feature is enabled) will be loaded from the web via `fetch`(wasm) or `ureq`(native).
+///
+/// By default, `ureq`'s HTTP compression is disabled. To enable gzip and brotli decompression, add
+/// the following dependency and features to your Cargo.toml. This will improve bandwidth
+/// utilization when its supported by the server.
+///
+/// ```toml
+/// [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
+/// ureq = { version = "3", default-features = false, features = ["gzip", "brotli"] }
+/// ```
 pub struct HttpSourcePlugin;
 
 impl Plugin for HttpSourcePlugin {
