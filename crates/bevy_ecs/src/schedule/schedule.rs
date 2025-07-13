@@ -15,6 +15,7 @@ use bevy_utils::{default, prelude::DebugName, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
+    ops::Range,
 };
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
@@ -752,11 +753,31 @@ new_key_type! {
     pub struct SystemSetKey;
 }
 
+/// A node in a [`ScheduleGraph`] with a system or conditions that have not been
+/// initialized yet.
+///
+/// We have to defer initialization of nodes in the graph until we have
+/// `&mut World` access, so we store these in a list ([`ScheduleGraph::uninit`])
+/// until then. In most cases, initialization occurs upon the first run of the
+/// schedule.
 enum UninitializedId {
+    /// A system and its conditions that have not been initialized yet.
     System(SystemKey),
+    /// A system set's conditions that have not been initialized yet.
     Set {
         key: SystemSetKey,
-        first_uninit_condition: usize,
+        /// The range of indices in [`SystemSets::conditions`] that correspond
+        /// to conditions that have not been initialized yet.
+        ///
+        /// [`SystemSets::conditions`] for a given set may be appended to
+        /// multiple times (e.g. when `configure_sets` is called multiple with
+        /// the same set), so we need to track which conditions in that list
+        /// are newly added and not yet initialized.
+        ///
+        /// Systems don't need this tracking because each `add_systems` call
+        /// creates separate nodes in the graph with their own conditions,
+        /// so all conditions are initialized together.
+        uninitialized_conditions: Range<usize>,
     },
 }
 
@@ -793,8 +814,8 @@ pub struct ScheduleGraph {
     pub system_conditions: SecondaryMap<SystemKey, Vec<ConditionWithAccess>>,
     /// Data about system sets in the schedule
     system_sets: SystemSets,
-    /// Systems that have not been initialized yet; for system sets, we store the index of the first uninitialized condition
-    /// (all the conditions after that index still need to be initialized)
+    /// Systems, their conditions, and system set conditions that need to be
+    /// initialized before the schedule can be run.
     uninit: Vec<UninitializedId>,
     /// Directed acyclic graph of the hierarchy (which systems/sets are children of which sets)
     hierarchy: Dag,
@@ -807,7 +828,6 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-
     passes: BTreeMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
 }
 
@@ -1101,9 +1121,10 @@ impl ScheduleGraph {
 
         // system init has to be deferred (need `&mut World`)
         let system_set_conditions = self.system_sets.conditions.entry(key).unwrap().or_default();
+        let start = system_set_conditions.len();
         self.uninit.push(UninitializedId::Set {
             key,
-            first_uninit_condition: system_set_conditions.len(),
+            uninitialized_conditions: start..(start + conditions.len()),
         });
         system_set_conditions.extend(conditions.into_iter().map(ConditionWithAccess::new));
 
@@ -1189,11 +1210,9 @@ impl ScheduleGraph {
                 }
                 UninitializedId::Set {
                     key,
-                    first_uninit_condition,
+                    uninitialized_conditions,
                 } => {
-                    for condition in self.system_sets.conditions[key]
-                        .iter_mut()
-                        .skip(first_uninit_condition)
+                    for condition in &mut self.system_sets.conditions[key][uninitialized_conditions]
                     {
                         condition.access = condition.condition.initialize(world);
                     }
