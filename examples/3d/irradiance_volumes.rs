@@ -13,6 +13,8 @@
 //!
 //! * Clicking anywhere moves the object.
 
+use std::f32::consts::PI;
+
 use bevy::{
     color::palettes::css::*,
     core_pipeline::Skybox,
@@ -57,8 +59,8 @@ static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
 static GIZMO_COLOR: Color = Color::Srgba(YELLOW);
 
 static VOXEL_FROM_WORLD: Mat4 = Mat4::from_cols_array_2d(&[
-    [-42.317566, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 44.601563, 0.0],
+    [42.317566, 0.0, 0.0, 0.0],
+    [0.0, 0.0, -44.601563, 0.0],
     [0.0, 16.73776, 0.0, 0.0],
     [0.0, 6.544792, 0.0, 1.0],
 ]);
