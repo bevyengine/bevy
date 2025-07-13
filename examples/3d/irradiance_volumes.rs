@@ -13,8 +13,6 @@
 //!
 //! * Clicking anywhere moves the object.
 
-use std::f32::consts::PI;
-
 use bevy::{
     color::palettes::css::*,
     core_pipeline::Skybox,
