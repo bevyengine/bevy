@@ -16,8 +16,12 @@ use bevy::{
     },
     prelude::*,
     render::{
-        extract_component::ExtractComponentPlugin,
-        mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology, RenderMesh},
+        batching::gpu_preprocessing::GpuPreprocessingSupport,
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        mesh::{
+            allocator::MeshAllocator, Indices, MeshVertexBufferLayoutRef, PrimitiveTopology,
+            RenderMesh,
+        },
         render_asset::{RenderAssetUsages, RenderAssets},
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, SetItemPipeline,
@@ -30,12 +34,8 @@ use bevy::{
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
         view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
-        Render, RenderApp, RenderSystems,
+        Render, RenderApp, RenderStartup, RenderSystems,
     },
-};
-use bevy_render::{
-    batching::gpu_preprocessing::GpuPreprocessingSupport, extract_component::ExtractComponent,
-    mesh::allocator::MeshAllocator, RenderStartup,
 };
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
