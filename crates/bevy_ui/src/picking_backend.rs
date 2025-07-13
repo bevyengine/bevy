@@ -109,7 +109,7 @@ pub fn ui_picking(
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: Query<&ChildOf>,
+    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
     // For each camera, the pointer and its position
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
