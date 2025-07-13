@@ -1033,7 +1033,7 @@ unsafe impl QueryData for FilteredEntityRef<'_, '_> {
                 .debug_checked_unwrap()
         };
         // SAFETY: mutable access to every component has been registered.
-        unsafe { FilteredEntityRef::new(cell, &access) }
+        unsafe { FilteredEntityRef::new(cell, access) }
     }
 }
 
@@ -1152,7 +1152,7 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
                 .debug_checked_unwrap()
         };
         // SAFETY: mutable access to every component has been registered.
-        unsafe { FilteredEntityMut::new(cell, &access) }
+        unsafe { FilteredEntityMut::new(cell, access) }
     }
 }
 
@@ -1196,16 +1196,16 @@ where
     unsafe fn set_table<'w, 's>(_: &mut Self::Fetch<'w>, _: &'s Self::State, _: &'w Table) {}
 
     fn update_component_access(
-        my_access: &Self::State,
+        state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
         let access = filtered_access.access_mut();
         assert!(
-            access.is_compatible(&my_access),
+            access.is_compatible(state),
             "`EntityRefExcept<{}>` conflicts with a previous access in this query.",
             DebugName::type_name::<B>(),
         );
-        access.extend(&my_access);
+        access.extend(state);
     }
 
     fn init_state(world: &mut World) -> Self::State {
@@ -1312,16 +1312,16 @@ where
     unsafe fn set_table<'w, 's>(_: &mut Self::Fetch<'w>, _: &'s Self::State, _: &'w Table) {}
 
     fn update_component_access(
-        my_access: &Self::State,
+        state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
         let access = filtered_access.access_mut();
         assert!(
-            access.is_compatible(&my_access),
+            access.is_compatible(state),
             "`EntityMutExcept<{}>` conflicts with a previous access in this query.",
             DebugName::type_name::<B>()
         );
-        access.extend(&my_access);
+        access.extend(state);
     }
 
     fn init_state(world: &mut World) -> Self::State {
