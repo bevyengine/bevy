@@ -44,14 +44,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(CustomRenderedMeshPipelinePlugin)
-        .add_systems(
-            Startup,
-            (setup, setup2).run_if(resource_exists::<AssetServer>),
-        )
+        .add_systems(Startup, setup)
         .run();
 }
-
-fn setup2() {}
 
 /// Spawns the objects in the scene.
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
