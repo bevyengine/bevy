@@ -339,10 +339,7 @@ impl FromWorld for CustomPhasePipeline {
         let specialized_cache =
             SpecializedCache::new(CustomPhaseSpecializer, None, base_descriptor);
 
-        Self {
-            _shader: shader,
-            specialized_cache,
-        }
+        Self { specialized_cache }
     }
 }
 
