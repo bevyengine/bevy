@@ -5,6 +5,7 @@ use core::any::Any;
 use core::ops::DerefMut;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
+use crate::component::enforce_no_required_components_recursion;
 use crate::query::DebugCheckedUnwrap as _;
 use crate::{
     component::{
@@ -189,8 +190,9 @@ impl<'w> ComponentsRegistrator<'w> {
     #[inline]
     pub(super) fn register_component_checked<T: Component>(&mut self) -> ComponentId {
         let type_id = TypeId::of::<T>();
-        if let Some(id) = self.indices.get(&type_id) {
-            return *id;
+        if let Some(&id) = self.indices.get(&type_id) {
+            enforce_no_required_components_recursion(self, &self.recursion_check_stack, id);
+            return id;
         }
 
         if let Some(registrator) = self
@@ -229,8 +231,15 @@ impl<'w> ComponentsRegistrator<'w> {
 
         self.recursion_check_stack.push(id);
         let mut required_components = RequiredComponents::default();
-        T::register_required_components(id, self, &mut required_components, 0);
+        // SAFETY: `required_components` is empty
+        unsafe { T::register_required_components(id, self, &mut required_components) };
+        // SAFETY:
+        // - `id` was just registered in `self`
+        // - `register_required_components` have been given `self` to register components in
+        //   (TODO: this is not really true... but the alternative would be making `Component` `unsafe`...)
+        unsafe { self.register_required_by(id, &required_components) };
         self.recursion_check_stack.pop();
+
         // SAFETY: we just inserted it in `register_component_inner`
         let info = unsafe {
             &mut self

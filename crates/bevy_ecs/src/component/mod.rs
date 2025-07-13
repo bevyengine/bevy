@@ -522,11 +522,14 @@ pub trait Component: Send + Sync + 'static {
     }
 
     /// Registers required components.
-    fn register_required_components(
+    ///
+    /// # Safety
+    ///
+    /// - `_required_components` must only contain components valid in `_components`.
+    unsafe fn register_required_components(
         _component_id: ComponentId,
         _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
-        _inheritance_depth: u16,
     ) {
     }
 
