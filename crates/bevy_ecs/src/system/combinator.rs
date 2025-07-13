@@ -252,6 +252,7 @@ where
 }
 
 /// An [`IntoSystem`] creating an instance of [`PipeSystem`].
+#[derive(Clone)]
 pub struct IntoPipeSystem<A, B> {
     a: A,
     b: B,
@@ -282,17 +283,6 @@ where
         let system_b = IntoSystem::into_system(this.b);
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
         PipeSystem::new(system_a, system_b, DebugName::owned(name))
-    }
-}
-
-impl<A, B> Clone for IntoPipeSystem<A, B>
-where
-    A: Clone,
-    B: Clone,
-{
-    /// Clone the piped system. The cloned instance must be `.initialize()`d before it can run.
-    fn clone(&self) -> Self {
-        IntoPipeSystem::new(self.a.clone(), self.b.clone())
     }
 }
 
