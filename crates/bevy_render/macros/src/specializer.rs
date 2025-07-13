@@ -20,8 +20,6 @@ const SPECIALIZE_ALL_IDENT: &str = "all";
 const KEY_ATTR_IDENT: &str = "key";
 const KEY_DEFAULT_IDENT: &str = "default";
 
-const BASE_DESCRIPTOR_ATTR_IDENT: &str = "base_descriptor";
-
 enum SpecializeImplTargets {
     All,
     Specific(Vec<Path>),
@@ -141,12 +139,8 @@ fn get_field_info(
 
         let mut use_key_field = true;
         let mut key = Key::Index(key_index);
-        let mut use_base_descriptor = false;
         for attr in &field.attrs {
             match &attr.meta {
-                Meta::Path(path) if path.is_ident(&BASE_DESCRIPTOR_ATTR_IDENT) => {
-                    use_base_descriptor = true;
-                }
                 Meta::List(MetaList { path, tokens, .. }) if path.is_ident(&KEY_ATTR_IDENT) => {
                     let owned_tokens = tokens.clone().into();
                     let Ok(parsed_key) = syn::parse::<Key>(owned_tokens) else {
