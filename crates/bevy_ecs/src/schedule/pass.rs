@@ -2,7 +2,10 @@ use alloc::{boxed::Box, vec::Vec};
 use core::any::{Any, TypeId};
 
 use super::{DiGraph, NodeId, ScheduleBuildError, ScheduleGraph};
-use crate::world::World;
+use crate::{
+    schedule::{SystemKey, SystemSetKey},
+    world::World,
+};
 use bevy_utils::TypeIdMap;
 use core::fmt::Debug;
 
@@ -19,8 +22,8 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
     /// Instead of modifying the graph directly, this method should return an iterator of edges to add to the graph.
     fn collapse_set(
         &mut self,
-        set: NodeId,
-        systems: &[NodeId],
+        set: SystemSetKey,
+        systems: &[SystemKey],
         dependency_flattened: &DiGraph,
     ) -> impl Iterator<Item = (NodeId, NodeId)>;
 
@@ -44,13 +47,14 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
 
     fn collapse_set(
         &mut self,
-        set: NodeId,
-        systems: &[NodeId],
+        set: SystemSetKey,
+        systems: &[SystemKey],
         dependency_flattened: &DiGraph,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     );
     fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &TypeIdMap<Box<dyn Any>>);
 }
+
 impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
     fn build(
         &mut self,
@@ -62,8 +66,8 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
     }
     fn collapse_set(
         &mut self,
-        set: NodeId,
-        systems: &[NodeId],
+        set: SystemSetKey,
+        systems: &[SystemKey],
         dependency_flattened: &DiGraph,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     ) {

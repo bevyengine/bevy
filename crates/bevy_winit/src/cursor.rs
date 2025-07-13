@@ -22,11 +22,12 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    observer::Trigger,
+    lifecycle::Remove,
+    observer::On,
     query::With,
     reflect::ReflectComponent,
     system::{Commands, Local, Query},
-    world::{OnRemove, Ref},
+    world::Ref,
 };
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
@@ -38,6 +39,13 @@ use tracing::warn;
 
 #[cfg(feature = "custom_cursor")]
 pub use crate::custom_cursor::{CustomCursor, CustomCursorImage};
+
+#[cfg(all(
+    feature = "custom_cursor",
+    target_family = "wasm",
+    target_os = "unknown"
+))]
+pub use crate::custom_cursor::CustomCursorUrl;
 
 pub(crate) struct CursorPlugin;
 
@@ -184,7 +192,7 @@ fn update_cursors(
 }
 
 /// Resets the cursor to the default icon when `CursorIcon` is removed.
-fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
+fn on_remove_cursor_icon(trigger: On<Remove, CursorIcon>, mut commands: Commands) {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
         .entity(trigger.target())

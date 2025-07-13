@@ -57,6 +57,7 @@ pub struct PlaybackRemoveMarker;
 pub(crate) struct EarPositions<'w, 's> {
     pub(crate) query: Query<'w, 's, (Entity, &'static GlobalTransform, &'static SpatialListener)>,
 }
+
 impl<'w, 's> EarPositions<'w, 's> {
     /// Gets a set of transformed ear positions.
     ///
@@ -102,7 +103,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             Entity,
             &AudioPlayer<Source>,
             &PlaybackSettings,
-            Option<&GlobalTransform>,
+            &GlobalTransform,
         ),
         (Without<AudioSink>, Without<SpatialAudioSink>),
     >,
@@ -117,7 +118,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         return;
     };
 
-    for (entity, source_handle, settings, maybe_emitter_transform) in &query_nonplaying {
+    for (entity, source_handle, settings, emitter_transform) in &query_nonplaying {
         let Some(audio_source) = audio_sources.get(&source_handle.0) else {
             continue;
         };
@@ -135,14 +136,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             let scale = settings.spatial_scale.unwrap_or(default_spatial_scale.0).0;
-
-            let emitter_translation = if let Some(emitter_transform) = maybe_emitter_transform {
-                (emitter_transform.translation() * scale).into()
-            } else {
-                warn!("Spatial AudioPlayer with no GlobalTransform component. Using zero.");
-                Vec3::ZERO.into()
-            };
-
+            let emitter_translation = (emitter_transform.translation() * scale).into();
             let sink = match SpatialSink::try_new(
                 stream_handle,
                 emitter_translation,
@@ -156,12 +150,49 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 }
             };
 
+            let decoder = audio_source.decoder();
+
             match settings.mode {
-                PlaybackMode::Loop => sink.append(audio_source.decoder().repeat_infinite()),
+                PlaybackMode::Loop => match (settings.start_position, settings.duration) {
+                    // custom start position and duration
+                    (Some(start_position), Some(duration)) => sink.append(
+                        decoder
+                            .skip_duration(start_position)
+                            .take_duration(duration)
+                            .repeat_infinite(),
+                    ),
+
+                    // custom start position
+                    (Some(start_position), None) => {
+                        sink.append(decoder.skip_duration(start_position).repeat_infinite());
+                    }
+
+                    // custom duration
+                    (None, Some(duration)) => {
+                        sink.append(decoder.take_duration(duration).repeat_infinite());
+                    }
+
+                    // full clip
+                    (None, None) => sink.append(decoder.repeat_infinite()),
+                },
                 PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
-                    sink.append(audio_source.decoder());
+                    match (settings.start_position, settings.duration) {
+                        (Some(start_position), Some(duration)) => sink.append(
+                            decoder
+                                .skip_duration(start_position)
+                                .take_duration(duration),
+                        ),
+
+                        (Some(start_position), None) => {
+                            sink.append(decoder.skip_duration(start_position));
+                        }
+
+                        (None, Some(duration)) => sink.append(decoder.take_duration(duration)),
+
+                        (None, None) => sink.append(decoder),
+                    }
                 }
-            };
+            }
 
             let mut sink = SpatialAudioSink::new(sink);
 
@@ -196,12 +227,49 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 }
             };
 
+            let decoder = audio_source.decoder();
+
             match settings.mode {
-                PlaybackMode::Loop => sink.append(audio_source.decoder().repeat_infinite()),
+                PlaybackMode::Loop => match (settings.start_position, settings.duration) {
+                    // custom start position and duration
+                    (Some(start_position), Some(duration)) => sink.append(
+                        decoder
+                            .skip_duration(start_position)
+                            .take_duration(duration)
+                            .repeat_infinite(),
+                    ),
+
+                    // custom start position
+                    (Some(start_position), None) => {
+                        sink.append(decoder.skip_duration(start_position).repeat_infinite());
+                    }
+
+                    // custom duration
+                    (None, Some(duration)) => {
+                        sink.append(decoder.take_duration(duration).repeat_infinite());
+                    }
+
+                    // full clip
+                    (None, None) => sink.append(decoder.repeat_infinite()),
+                },
                 PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
-                    sink.append(audio_source.decoder());
+                    match (settings.start_position, settings.duration) {
+                        (Some(start_position), Some(duration)) => sink.append(
+                            decoder
+                                .skip_duration(start_position)
+                                .take_duration(duration),
+                        ),
+
+                        (Some(start_position), None) => {
+                            sink.append(decoder.skip_duration(start_position));
+                        }
+
+                        (None, Some(duration)) => sink.append(decoder.take_duration(duration)),
+
+                        (None, None) => sink.append(decoder),
+                    }
                 }
-            };
+            }
 
             let mut sink = AudioSink::new(sink);
 
