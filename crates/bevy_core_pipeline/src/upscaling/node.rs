@@ -3,9 +3,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{
-        BindGroup, BindGroupEntries, PipelineCache, RenderPassDescriptor, TextureViewId,
-    },
+    render_resource::{BindGroup, PipelineCache, RenderPassDescriptor, TextureViewId},
     renderer::RenderContext,
     view::ViewTarget,
 };
