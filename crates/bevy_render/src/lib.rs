@@ -96,6 +96,7 @@ use render_asset::{
     extract_render_asset_bytes_per_frame, reset_render_asset_bytes_per_frame,
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
+use render_resource::init_empty_bind_group_layout;
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
@@ -465,6 +466,8 @@ impl Plugin for RenderPlugin {
                     Render,
                     reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
                 );
+
+            render_app.add_systems(RenderStartup, init_empty_bind_group_layout);
         }
 
         app.register_type::<alpha::AlphaMode>()
