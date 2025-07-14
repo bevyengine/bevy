@@ -22,6 +22,6 @@ To remove this dependency, disable default-features, and manually enable any def
 ```toml
 bevy = { version = "0.17.0", default-features = false, features = [
     "zstd_c",
-    "bevy_render", // etc..
+    "bevy_render", # etc..
 ] }
 ```
