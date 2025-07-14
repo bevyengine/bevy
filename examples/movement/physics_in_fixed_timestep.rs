@@ -333,8 +333,9 @@ fn accumulate_input(
 
     // We need to normalize and scale because otherwise
     // diagonal movement would be faster than horizontal or vertical movement.
-    // This effectively averages the accumulated input.
-    velocity.0 = rotated_input.normalize_or_zero() * SPEED;
+    // We use `clamp_length_max` instead of `.normalize_or_zero()` because gamepad input
+    // may be smaller than 1.0 when the player is pushing the stick just a little bit.
+    velocity.0 = rotated_input.clamp_length_max(1.0) * SPEED;
 }
 
 /// A simple resource that tells us whether the fixed timestep ran this frame.
