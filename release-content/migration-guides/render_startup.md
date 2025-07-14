@@ -20,6 +20,13 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `UiPipeline`
 - `UiMaterialPipeline<M>`
 - `UiTextureSlicePipeline`
+- `VolumetricFogPipeline`
+- `DeferredLightingLayout`
+- `RenderLightmaps`
+- `PrepassPipeline`
+- `PrepassViewBindGroup`
+- `Wireframe3dPipeline`
+- `MaterialPipeline`
 
 The vast majority of cases for initializing render resources look like so (in Bevy 0.16):
 
