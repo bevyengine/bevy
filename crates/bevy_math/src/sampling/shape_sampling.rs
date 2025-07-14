@@ -40,11 +40,12 @@
 
 use core::f32::consts::{PI, TAU};
 
-use crate::{ops, primitives::*, NormedVectorSpace, Vec2, Vec3};
+use crate::{ops, primitives::*, NormedVectorSpace, ScalarField, Vec2, Vec3};
 use rand::{
     distributions::{Distribution, WeightedIndex},
     Rng,
 };
+use rand_distr::uniform::SampleUniform;
 
 /// Exposes methods to uniformly sample a variety of primitive shapes.
 pub trait ShapeSample {
@@ -223,6 +224,26 @@ impl ShapeSample for Annulus {
     }
 }
 
+impl ShapeSample for Rhombus {
+    type Output = Vec2;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
+        let x: f32 = rng.gen_range(0.0..=1.0);
+        let y: f32 = rng.gen_range(0.0..=1.0);
+
+        let unit_p = Vec2::NEG_X + x * Vec2::ONE + Vec2::new(y, -y);
+        unit_p * self.half_diagonals
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
+        let x: f32 = rng.gen_range(-1.0..=1.0);
+        let y_sign = if rng.r#gen() { -1.0 } else { 1.0 };
+
+        let y = (1.0 - ops::abs(x)) * y_sign;
+        Vec2::new(x, y) * self.half_diagonals
+    }
+}
+
 impl ShapeSample for Rectangle {
     type Output = Vec2;
 
@@ -281,22 +302,24 @@ impl ShapeSample for Cuboid {
 }
 
 /// Interior sampling for triangles which doesn't depend on the ambient dimension.
-fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
-    vertices: [P; 3],
-    rng: &mut R,
-) -> P {
+fn sample_triangle_interior<P, R>(vertices: [P; 3], rng: &mut R) -> P
+where
+    P: NormedVectorSpace,
+    P::Scalar: SampleUniform + PartialOrd,
+    R: Rng + ?Sized,
+{
     let [a, b, c] = vertices;
     let ab = b - a;
     let ac = c - a;
 
     // Generate random points on a parallelepiped and reflect so that
     // we can use the points that lie outside the triangle
-    let u = rng.gen_range(0.0..=1.0);
-    let v = rng.gen_range(0.0..=1.0);
+    let u = rng.gen_range(P::Scalar::ZERO..=P::Scalar::ONE);
+    let v = rng.gen_range(P::Scalar::ZERO..=P::Scalar::ONE);
 
-    if u + v > 1. {
-        let u1 = 1. - v;
-        let v1 = 1. - u;
+    if u + v > P::Scalar::ONE {
+        let u1 = P::Scalar::ONE - v;
+        let v1 = P::Scalar::ONE - u;
         a + (ab * u1 + ac * v1)
     } else {
         a + (ab * u + ac * v)
@@ -304,16 +327,18 @@ fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
 }
 
 /// Boundary sampling for triangles which doesn't depend on the ambient dimension.
-fn sample_triangle_boundary<P: NormedVectorSpace, R: Rng + ?Sized>(
-    vertices: [P; 3],
-    rng: &mut R,
-) -> P {
+fn sample_triangle_boundary<P, R>(vertices: [P; 3], rng: &mut R) -> P
+where
+    P: NormedVectorSpace,
+    P::Scalar: SampleUniform + PartialOrd + for<'a> ::core::ops::AddAssign<&'a P::Scalar>,
+    R: Rng + ?Sized,
+{
     let [a, b, c] = vertices;
     let ab = b - a;
     let ac = c - a;
     let bc = c - b;
 
-    let t = rng.gen_range(0.0..=1.0);
+    let t = rng.gen_range(P::Scalar::ZERO..=P::Scalar::ONE);
 
     if let Ok(dist) = WeightedIndex::new([ab.norm(), ac.norm(), bc.norm()]) {
         match dist.sample(rng) {

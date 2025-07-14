@@ -46,7 +46,7 @@ use bevy_window::{
     WindowScaleFactorChanged, WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
-use bevy_window::{PrimaryWindow, RawHandleWrapper};
+use bevy_window::{CursorOptions, PrimaryWindow, RawHandleWrapper};
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
@@ -58,7 +58,7 @@ use crate::{
 
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
-struct WinitAppRunnerState<T: Event> {
+struct WinitAppRunnerState<T: BufferedEvent> {
     /// The running app.
     app: App,
     /// Exit value once the loop is finished.
@@ -106,10 +106,11 @@ struct WinitAppRunnerState<T: Event> {
     )>,
 }
 
-impl<T: Event> WinitAppRunnerState<T> {
+impl<T: BufferedEvent> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
+        app.add_event::<T>();
         #[cfg(feature = "custom_cursor")]
-        app.add_event::<T>().init_resource::<CustomCursorCache>();
+        app.init_resource::<CustomCursorCache>();
 
         let event_writer_system_state: SystemState<(
             EventWriter<WindowResized>,
@@ -197,7 +198,7 @@ pub enum CursorSource {
 #[derive(Component, Debug)]
 pub struct PendingCursor(pub Option<CursorSource>);
 
-impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
+impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if event_loop.exiting() {
             return;
@@ -239,7 +240,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: T) {
         self.user_event_received = true;
 
-        self.world_mut().send_event(event);
+        self.world_mut().write_event(event);
         self.redraw_requested = true;
     }
 
@@ -473,7 +474,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 if let Ok((window_component, mut cache)) = windows.get_mut(self.world_mut(), window)
                 {
                     if window_component.is_changed() {
-                        cache.window = window_component.clone();
+                        **cache = window_component.clone();
                     }
                 }
             });
@@ -548,7 +549,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     }
 }
 
-impl<T: Event> WinitAppRunnerState<T> {
+impl<T: BufferedEvent> WinitAppRunnerState<T> {
     fn redraw_requested(&mut self, event_loop: &ActiveEventLoop) {
         let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
 
@@ -604,10 +605,12 @@ impl<T: Event> WinitAppRunnerState<T> {
             {
                 // Get windows that are cached but without raw handles. Those window were already created, but got their
                 // handle wrapper removed when the app was suspended.
+
                 let mut query = self.world_mut()
-                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.single(&self.world()) {
+                    .query_filtered::<(Entity, &Window, &CursorOptions), (With<CachedWindow>, Without<RawHandleWrapper>)>();
+                if let Ok((entity, window, cursor_options)) = query.single(&self.world()) {
                     let window = window.clone();
+                    let cursor_options = cursor_options.clone();
 
                     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
                         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
@@ -621,6 +624,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                                 event_loop,
                                 entity,
                                 &window,
+                                &cursor_options,
                                 adapters,
                                 &mut handlers,
                                 &accessibility_requested,
@@ -786,91 +790,91 @@ impl<T: Event> WinitAppRunnerState<T> {
         if !raw_winit_events.is_empty() {
             world
                 .resource_mut::<Events<RawWinitWindowEvent>>()
-                .send_batch(raw_winit_events);
+                .write_batch(raw_winit_events);
         }
 
         for winit_event in buffered_events.iter() {
             match winit_event.clone() {
                 BevyWindowEvent::AppLifecycle(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::CursorEntered(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::CursorLeft(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::CursorMoved(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::FileDragAndDrop(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::Ime(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::RequestRedraw(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowBackendScaleFactorChanged(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowCloseRequested(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowCreated(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowDestroyed(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowFocused(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowMoved(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowOccluded(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowResized(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowScaleFactorChanged(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowThemeChanged(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::MouseButtonInput(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::MouseMotion(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::MouseWheel(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::PinchGesture(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::RotationGesture(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::DoubleTapGesture(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::PanGesture(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::TouchInput(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::KeyboardInput(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::KeyboardFocusLost(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
             }
         }
@@ -878,7 +882,7 @@ impl<T: Event> WinitAppRunnerState<T> {
         if !buffered_events.is_empty() {
             world
                 .resource_mut::<Events<BevyWindowEvent>>()
-                .send_batch(buffered_events);
+                .write_batch(buffered_events);
         }
     }
 
@@ -933,7 +937,7 @@ impl<T: Event> WinitAppRunnerState<T> {
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
-pub fn winit_runner<T: Event>(mut app: App, event_loop: EventLoop<T>) -> AppExit {
+pub fn winit_runner<T: BufferedEvent>(mut app: App, event_loop: EventLoop<T>) -> AppExit {
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();

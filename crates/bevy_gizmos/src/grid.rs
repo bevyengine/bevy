@@ -172,6 +172,7 @@ where
         );
     }
 }
+
 impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,

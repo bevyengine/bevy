@@ -386,6 +386,23 @@ pub struct StandardMaterial {
     ///
     /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
     /// [`Mesh::with_generated_tangents`]: bevy_render::mesh::Mesh::with_generated_tangents
+    ///
+    /// # Usage
+    ///
+    /// ```
+    /// # use bevy_asset::{AssetServer, Handle};
+    /// # use bevy_ecs::change_detection::Res;
+    /// # use bevy_image::{Image, ImageLoaderSettings};
+    /// #
+    /// fn load_normal_map(asset_server: Res<AssetServer>) {
+    ///     let normal_handle: Handle<Image> = asset_server.load_with_settings(
+    ///         "textures/parallax_example/cube_normal.png",
+    ///         // The normal map texture is in linear color space. Lighting won't look correct
+    ///         // if `is_srgb` is `true`, which is the default.
+    ///         |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    ///     );
+    /// }
+    /// ```
     #[texture(9)]
     #[sampler(10)]
     #[dependency]
@@ -1185,7 +1202,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
 bitflags! {
     /// The pipeline key for `StandardMaterial`, packed into 64 bits.
-    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    #[repr(C)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, bytemuck::Pod, bytemuck::Zeroable)]
     pub struct StandardMaterialKey: u64 {
         const CULL_FRONT               = 0x000001;
         const CULL_BACK                = 0x000002;
@@ -1345,7 +1363,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 
 impl Material for StandardMaterial {
     fn fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
     }
 
     #[inline]
@@ -1381,11 +1399,11 @@ impl Material for StandardMaterial {
     }
 
     fn prepass_fragment_shader() -> ShaderRef {
-        PBR_PREPASS_SHADER_HANDLE.into()
+        shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wgsl"))
     }
 
     fn deferred_fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
     }
 
     #[cfg(feature = "meshlet")]
@@ -1404,7 +1422,7 @@ impl Material for StandardMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
