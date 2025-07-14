@@ -76,9 +76,6 @@ jobs:
             target: thumbv6m-none-eabi
           - os: ubuntu-latest
             toolchain: stable
-            target: thumbv6m-none-eabi
-          - os: ubuntu-latest
-            toolchain: stable
             target: aarch64-linux-android
           - os: macos-latest
             toolchain: stable
