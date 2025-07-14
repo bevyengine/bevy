@@ -542,17 +542,28 @@ impl World {
 
         let required = self.register_component::<R>();
 
+        let update_bundles = self
+            .bundles
+            .verify_to_refresh_required_components(requiree)?;
+
         // SAFETY: We just created the `required` and `requiree` components.
         unsafe {
             self.components
                 .register_required_components::<R>(requiree, required, constructor)?;
         }
 
-        // SAFETY: all bundles are created with Self::storages and Self::components
-        unsafe {
-            self.bundles
-                .refresh_required_components(&mut self.storages, &self.components, requiree)
+        if update_bundles {
+            // SAFETY: all bundles are created with Self::storages and Self::components
+            unsafe {
+                self.bundles.refresh_required_components(
+                    &mut self.storages,
+                    &self.components,
+                    requiree,
+                );
+            }
         }
+
+        Ok(())
     }
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.

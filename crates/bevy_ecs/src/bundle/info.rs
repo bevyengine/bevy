@@ -625,25 +625,24 @@ impl Bundles {
         *bundle_id
     }
 
-    /// Updates the required components of bundles that contain `requiree`.
+    /// Checks if the bundles containing `requiree` can have their required components be updated,
+    /// in which case this returns `Ok(true)`.
     ///
-    /// # Safety
+    /// Returns `Ok(false)` if there are no known bundles with this component.
     ///
-    /// The caller must pass the same `storages` and `components` to this method that were used
-    /// to create the stored bundles.
-    pub(crate) unsafe fn refresh_required_components(
-        &mut self,
-        storages: &mut Storages,
-        components: &Components,
+    /// Returns the [`RequiredComponentsError::RemovedFromArchetype`] error if bundles cannot be updated
+    /// in which case the registration of any new required component must be refused.
+    pub(crate) fn verify_to_refresh_required_components(
+        &self,
         requiree: ComponentId,
-    ) -> Result<(), RequiredComponentsError> {
+    ) -> Result<bool, RequiredComponentsError> {
         let Some(bundles_with_requiree) = self
             .components_in_bundles
-            .get_mut(requiree.index())
+            .get(requiree.index())
             .filter(|bundles| !bundles.is_empty())
         else {
             // no bundle with `requiree` exists
-            return Ok(());
+            return Ok(false);
         };
 
         // `EntityWorldMut::remove_with_requires` generate edges between archetypes where the required
@@ -660,8 +659,29 @@ impl Bundles {
             return Err(RequiredComponentsError::RemovedFromArchetype(requiree));
         }
 
-        // take it to update `Self::bundles_with_requiree` while iterating this vector
-        let taken_bundles_with_requiree = core::mem::take(bundles_with_requiree);
+        Ok(true)
+    }
+
+    /// Updates the required components of bundles that contain `requiree`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must have confirmed [`Self::verify_to_refresh_required_components`] returned `Ok(true)`
+    /// for this `requiree` and must pass the same `storages` and `components` to this method that were used
+    /// to create the stored bundles.
+    pub(crate) unsafe fn refresh_required_components(
+        &mut self,
+        storages: &mut Storages,
+        components: &Components,
+        requiree: ComponentId,
+    ) {
+        // take list of bundles to update `Self::bundles_with_requiree` while iterating this
+        let taken_bundles_with_requiree = self
+            .components_in_bundles
+            .get_mut(requiree.index())
+            .filter(|bundles| !bundles.is_empty())
+            .map(core::mem::take)
+            .expect("verify_to_refresh_required_components confirmed existing bundles to refresh");
 
         for bundle_id in taken_bundles_with_requiree.iter() {
             let bundle_info = self.bundle_infos.get_mut(bundle_id.index());
@@ -686,8 +706,6 @@ impl Bundles {
         let replaced = unsafe { replaced.debug_checked_unwrap() };
 
         *replaced = taken_bundles_with_requiree;
-
-        Ok(())
     }
 }
 
