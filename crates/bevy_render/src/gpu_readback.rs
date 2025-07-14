@@ -79,7 +79,7 @@ pub enum Readback {
     Texture(Handle<Image>),
     Buffer {
         buffer: Handle<ShaderStorageBuffer>,
-        start_and_size: Option<(u64, u64)>,
+        start_offset_and_size: Option<(u64, u64)>,
     },
 }
 
@@ -93,16 +93,16 @@ impl Readback {
     pub fn buffer(buffer: Handle<ShaderStorageBuffer>) -> Self {
         Self::Buffer {
             buffer,
-            start_and_size: None,
+            start_offset_and_size: None,
         }
     }
 
     /// Create a readback component for a buffer range using the given handle, a start offset in bytes
     /// and a number of bytes to read.
-    pub fn buffer_range(buffer: Handle<ShaderStorageBuffer>, start: u64, size: u64) -> Self {
+    pub fn buffer_range(buffer: Handle<ShaderStorageBuffer>, start_offset: u64, size: u64) -> Self {
         Self::Buffer {
             buffer,
-            start_and_size: Some((start, size)),
+            start_offset_and_size: Some((start_offset, size)),
         }
     }
 }
@@ -209,7 +209,7 @@ enum ReadbackSource {
     },
     Buffer {
         buffer: Buffer,
-        start_and_size: Option<(u64, u64)>,
+        start_offset_and_size: Option<(u64, u64)>,
     },
 }
 
@@ -282,11 +282,11 @@ fn prepare_buffers(
             }
             Readback::Buffer {
                 buffer,
-                start_and_size,
+                start_offset_and_size,
             } => {
                 if let Some(ssbo) = ssbos.get(buffer) {
                     let full_size = ssbo.buffer.size();
-                    let size = start_and_size
+                    let size = start_offset_and_size
                         .map(|(start, size)| {
                             let end = start + size;
                             if end > full_size {
@@ -303,7 +303,7 @@ fn prepare_buffers(
                     readbacks.requested.push(GpuReadback {
                         entity: entity.id(),
                         src: ReadbackSource::Buffer {
-                            start_and_size: *start_and_size,
+                            start_offset_and_size: *start_offset_and_size,
                             buffer: ssbo.buffer.clone(),
                         },
                         buffer,
@@ -336,9 +336,9 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
             }
             ReadbackSource::Buffer {
                 buffer,
-                start_and_size,
+                start_offset_and_size,
             } => {
-                let (src_start, size) = start_and_size.unwrap_or((0, buffer.size()));
+                let (src_start, size) = start_offset_and_size.unwrap_or((0, buffer.size()));
                 command_encoder.copy_buffer_to_buffer(buffer, src_start, &readback.buffer, 0, size);
             }
         }
