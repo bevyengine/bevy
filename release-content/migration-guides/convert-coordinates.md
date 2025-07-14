@@ -41,7 +41,7 @@ In other words, the glTF imported simply assumed that glTF models used -Z as the
 But that meant that a glTF model's `Transform::forward()` would actually point backwards from the point of view of the model,
 which is counterintuitive and very annoying when working across different art pipelines.
 
-To remedy this, we want to change the default glTF import behavior to instead load the scene so that the coordinate system of models is aligned with Bevy.
+To remedy this, we want to change the default glTF import behavior to instead load the scene so that the coordinate system of *models* instead of *cameras* is aligned with Bevy.
 In practice, this means rotating the scene as described above.
 The downside is that glTF cameras that have an identity transform in glTF will now look to +Z instead of -Z in Bevy. In practice, this should not be a problem,
 as the whole scene rotated anyways, so the end result on your screen will look the exact same.
