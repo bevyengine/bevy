@@ -336,8 +336,7 @@ impl FromWorld for CustomPhasePipeline {
             ..default()
         };
 
-        let specialized_cache =
-            SpecializedCache::new(CustomPhaseSpecializer, None, base_descriptor);
+        let specialized_cache = SpecializedCache::new(CustomPhaseSpecializer, base_descriptor);
 
         Self { specialized_cache }
     }
