@@ -13,7 +13,7 @@ use core::time::Duration;
 ///
 /// - Non repeating timers will stop tracking and stay in the finished state until reset.
 /// - Repeating timers will only be in the finished state on each tick `duration` is reached or
-/// exceeded, and can still be reset at any given point.
+///   exceeded, and can still be reset at any given point.
 ///
 /// # Pausing timers
 ///
