@@ -1,0 +1,21 @@
+[package]
+name = "bevy_scene2"
+version = "0.17.0-dev"
+edition = "2024"
+
+[dependencies]
+bevy_scene2_macros = { path = "macros", version = "0.17.0-dev" }
+
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
+
+variadics_please = "1.0"
+
+[lints]
+workspace = true

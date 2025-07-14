@@ -87,10 +87,19 @@ impl AssetLoader for GzAssetLoader {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component)]
 struct Compressed<T> {
     compressed: Handle<GzAsset>,
     _phantom: PhantomData<T>,
+}
+
+impl<T: Default> Default for Compressed<T> {
+    fn default() -> Self {
+        Self {
+            compressed: Handle::default(),
+            _phantom: Default::default(),
+        }
+    }
 }
 
 fn main() {

@@ -58,12 +58,22 @@ struct Player {
     move_cooldown: Timer,
 }
 
-#[derive(Default)]
 struct Bonus {
     entity: Option<Entity>,
     i: usize,
     j: usize,
     handle: Handle<Scene>,
+}
+
+impl Default for Bonus {
+    fn default() -> Self {
+        Self {
+            entity: Default::default(),
+            i: Default::default(),
+            j: Default::default(),
+            handle: Handle::default(),
+        }
+    }
 }
 
 #[derive(Resource, Default)]

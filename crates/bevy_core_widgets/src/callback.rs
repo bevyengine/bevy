@@ -1,5 +1,7 @@
-use bevy_ecs::system::{Commands, SystemId, SystemInput};
+use bevy_ecs::system::{Commands, IntoSystem, SystemId, SystemInput};
+use bevy_ecs::template::{GetTemplate, Template};
 use bevy_ecs::world::{DeferredWorld, World};
+use std::marker::PhantomData;
 
 /// A callback defines how we want to be notified when a widget changes state. Unlike an event
 /// or observer, callbacks are intended for "point-to-point" communication that cuts across the
@@ -27,13 +29,117 @@ use bevy_ecs::world::{DeferredWorld, World};
 /// // Later, when we want to execute the callback:
 /// app.world_mut().commands().notify(&callback);
 /// ```
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub enum Callback<I: SystemInput = ()> {
     /// Invoke a one-shot system
     System(SystemId<I>),
     /// Ignore this notification
+    Ignore,
+}
+
+impl<I: SystemInput> Copy for Callback<I> {}
+impl<I: SystemInput> Clone for Callback<I> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::System(arg0) => Self::System(arg0.clone()),
+            Self::Ignore => Self::Ignore,
+        }
+    }
+}
+
+impl<In: SystemInput + 'static> GetTemplate for Callback<In> {
+    type Template = CallbackTemplate<In>;
+}
+
+#[derive(Default)]
+pub enum CallbackTemplate<In: SystemInput = ()> {
+    System(Box<dyn RegisterSystem<In>>),
+    SystemId(SystemId<In>),
     #[default]
     Ignore,
+}
+
+impl<In: SystemInput + 'static> CallbackTemplate<In> {
+    pub fn clone(&self) -> CallbackTemplate<In> {
+        match self {
+            CallbackTemplate::System(register_system) => {
+                CallbackTemplate::System(register_system.box_clone())
+            }
+            CallbackTemplate::SystemId(system_id) => CallbackTemplate::SystemId(*system_id),
+            CallbackTemplate::Ignore => CallbackTemplate::Ignore,
+        }
+    }
+}
+
+pub trait RegisterSystem<In: SystemInput>: Send + Sync + 'static {
+    fn register_system(&mut self, world: &mut World) -> SystemId<In>;
+    fn box_clone(&self) -> Box<dyn RegisterSystem<In>>;
+}
+
+pub struct IntoWrapper<I, In, Marker> {
+    into_system: Option<I>,
+    marker: PhantomData<fn() -> (In, Marker)>,
+}
+
+pub fn callback<
+    I: IntoSystem<In, (), Marker> + Send + Sync + Clone + 'static,
+    In: SystemInput + 'static,
+    Marker: 'static,
+>(
+    system: I,
+) -> CallbackTemplate<In> {
+    CallbackTemplate::from(IntoWrapper {
+        into_system: Some(system),
+        marker: PhantomData,
+    })
+}
+
+impl<
+        I: IntoSystem<In, (), Marker> + Clone + Send + Sync + 'static,
+        In: SystemInput + 'static,
+        Marker: 'static,
+    > RegisterSystem<In> for IntoWrapper<I, In, Marker>
+{
+    fn register_system(&mut self, world: &mut World) -> SystemId<In> {
+        world.register_system(self.into_system.take().unwrap())
+    }
+
+    fn box_clone(&self) -> Box<dyn RegisterSystem<In>> {
+        Box::new(IntoWrapper {
+            into_system: self.into_system.clone(),
+            marker: PhantomData,
+        })
+    }
+}
+
+impl<
+        I: IntoSystem<In, (), Marker> + Clone + Send + Sync + 'static,
+        In: SystemInput + 'static,
+        Marker: 'static,
+    > From<IntoWrapper<I, In, Marker>> for CallbackTemplate<In>
+{
+    fn from(value: IntoWrapper<I, In, Marker>) -> Self {
+        CallbackTemplate::System(Box::new(value))
+    }
+}
+
+impl<In: SystemInput + 'static> Template for CallbackTemplate<In> {
+    type Output = Callback<In>;
+
+    fn build(
+        &mut self,
+        entity: &mut bevy_ecs::world::EntityWorldMut,
+    ) -> bevy_ecs::error::Result<Self::Output> {
+        Ok(match self {
+            CallbackTemplate::System(register) => {
+                let id = entity.world_scope(move |world| register.register_system(world));
+                *self = CallbackTemplate::SystemId(id);
+                Callback::System(id)
+            }
+            CallbackTemplate::SystemId(id) => Callback::System(*id),
+            CallbackTemplate::Ignore => Callback::Ignore,
+        })
+    }
 }
 
 /// Trait used to invoke a [`Callback`], unifying the API across callers.

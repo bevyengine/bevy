@@ -1,0 +1,19 @@
+[package]
+name = "bevy_scene2_macros"
+version = "0.17.0-dev"
+edition = "2024"
+description = "Derive implementations for bevy_scene"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.17.0-dev" }
+
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+proc-macro2 = "1.0"
+quote = "1.0"

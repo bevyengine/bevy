@@ -12,16 +12,28 @@ use crate::{DynamicScene, Scene};
 
 /// Adding this component will spawn the scene as a child of that entity.
 /// Once it's spawned, the entity will have a [`SceneInstance`](crate::SceneInstance) component.
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(Transform)]
 #[cfg_attr(feature = "bevy_render", require(Visibility))]
 pub struct SceneRoot(pub Handle<Scene>);
 
+impl Default for SceneRoot {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
+
 /// Adding this component will spawn the scene as a child of that entity.
 /// Once it's spawned, the entity will have a [`SceneInstance`](crate::SceneInstance) component.
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(Transform)]
 #[cfg_attr(feature = "bevy_render", require(Visibility))]
 pub struct DynamicSceneRoot(pub Handle<DynamicScene>);
+
+impl Default for DynamicSceneRoot {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}

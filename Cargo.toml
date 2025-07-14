@@ -145,6 +145,7 @@ default = [
   "bevy_picking",
   "bevy_render",
   "bevy_scene",
+  "bevy_scene2",
   "bevy_sprite",
   "bevy_sprite_picking_backend",
   "bevy_state",
@@ -167,6 +168,7 @@ default = [
   "x11",
   "debug",
   "zstd_rust",
+  "experimental_bevy_feathers",
 ]
 
 # Recommended defaults for no_std applications
@@ -248,6 +250,9 @@ bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
+
+# Provides scene functionality
+bevy_scene2 = ["bevy_internal/bevy_scene2", "bevy_asset"]
 
 # Provides raytraced lighting (experimental)
 bevy_solari = [
@@ -598,8 +603,9 @@ flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1"
-bevy_render = { path = "crates/bevy_render", version = "0.17.0-dev", default-features = false }
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
+bevy_render = { path = "crates/bevy_render", version = "0.17.0-dev", default-features = false }
+bevy_scene2 = { path = "crates/bevy_scene2", version = "0.17.0-dev", default-features = false }
 bevy_ecs = { path = "crates/bevy_ecs", version = "0.17.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.17.0-dev", default-features = false }
 bevy_asset = { path = "crates/bevy_asset", version = "0.17.0-dev", default-features = false }
@@ -619,6 +625,7 @@ anyhow = "1"
 macro_rules_attribute = "0.2"
 accesskit = "0.19"
 nonmax = "0.5"
+variadics_please = "1"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 smol = "2"
@@ -2787,6 +2794,14 @@ name = "Scene"
 description = "Demonstrates loading from and saving scenes to files"
 category = "Scene"
 wasm = false
+
+[[example]]
+name = "bsn"
+path = "examples/scene/bsn.rs"
+
+[[example]]
+name = "ui_scene"
+path = "examples/scene/ui_scene.rs"
 
 # Shaders
 [[package.metadata.example_category]]

@@ -24,7 +24,7 @@ mod core_slider;
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
 use bevy_ecs::entity::Entity;
-pub use callback::{Callback, Notify};
+pub use callback::{callback, Callback, CallbackTemplate, Notify};
 pub use core_button::{CoreButton, CoreButtonPlugin};
 pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
 pub use core_radio::{CoreRadio, CoreRadioGroup, CoreRadioGroupPlugin};

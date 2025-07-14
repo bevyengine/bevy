@@ -104,6 +104,13 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
     }
 }
 
+impl<V: Hash, H: BuildHasher + Default> From<V> for Hashed<V, H> {
+    #[inline]
+    fn from(value: V) -> Self {
+        Self::new(value)
+    }
+}
+
 impl<V: Copy, H> Copy for Hashed<V, H> {}
 
 impl<V: Eq, H> Eq for Hashed<V, H> {}

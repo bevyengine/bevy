@@ -37,10 +37,16 @@ use derive_more::derive::From;
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform)]
 pub struct Mesh2d(pub Handle<Mesh>);
+
+impl Default for Mesh2d {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
 
 impl From<Mesh2d> for AssetId<Mesh> {
     fn from(mesh: Mesh2d) -> Self {
@@ -92,10 +98,16 @@ impl AsAssetId for Mesh2d {
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform)]
 pub struct Mesh3d(pub Handle<Mesh>);
+
+impl Default for Mesh3d {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
 
 impl From<Mesh3d> for AssetId<Mesh> {
     fn from(mesh: Mesh3d) -> Self {

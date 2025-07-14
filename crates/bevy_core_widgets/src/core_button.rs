@@ -17,11 +17,12 @@ use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_ui::{InteractionDisabled, Pressed};
 
 use crate::{Activate, Callback, Notify};
+use bevy_ecs::template::GetTemplate;
 
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
 /// indicate whether the button is currently being pressed by the user. It emits a `ButtonClicked`
 /// event when the button is un-pressed.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Clone, Debug, GetTemplate)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
 pub struct CoreButton {
     /// Callback to invoke when the button is clicked, or when the `Enter` or `Space` key

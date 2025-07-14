@@ -2,7 +2,7 @@
 
 use bevy::{
     core_widgets::{
-        Activate, Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
+        callback, Activate, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
         SliderStep,
     },
     feathers::{
@@ -20,6 +20,7 @@ use bevy::{
         InputDispatchPlugin,
     },
     prelude::*,
+    scene2::prelude::{Scene, *},
     ui::{Checked, InteractionDisabled},
     winit::WinitSettings,
 };
@@ -43,25 +44,11 @@ fn main() {
 fn setup(mut commands: Commands) {
     // ui camera
     commands.spawn(Camera2d);
-    let root = demo_root(&mut commands);
-    commands.spawn(root);
+    commands.spawn_scene(demo_root());
 }
 
-fn demo_root(commands: &mut Commands) -> impl Bundle {
-    // Update radio button states based on notification from radio group.
-    let radio_exclusion = commands.register_system(
-        |ent: In<Activate>, q_radio: Query<Entity, With<CoreRadio>>, mut commands: Commands| {
-            for radio in q_radio.iter() {
-                if radio == ent.0 .0 {
-                    commands.entity(radio).insert(Checked);
-                } else {
-                    commands.entity(radio).remove::<Checked>();
-                }
-            }
-        },
-    );
-
-    (
+fn demo_root() -> impl Scene {
+    bsn! {
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
@@ -70,11 +57,10 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
             row_gap: Val::Px(10.0),
-            ..default()
-        },
-        TabGroup::default(),
-        ThemeBackgroundColor(tokens::WINDOW_BG),
-        children![(
+        }
+        TabGroup
+        ThemeBackgroundColor(tokens::WINDOW_BG)
+        [
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
@@ -84,199 +70,153 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 row_gap: Val::Px(8.0),
                 width: Val::Percent(30.),
                 min_width: Val::Px(200.),
-                ..default()
-            },
-            children![
-                (
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Start,
-                        column_gap: Val::Px(8.0),
-                        ..default()
-                    },
-                    children![
-                        button(
+            } [
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: Val::Px(8.0),
+                } [
+                    (
+                        :button(ButtonProps {
+                            on_click: callback(|_: In<Activate>| {
+                                info!("Normal button clicked!");
+                            }),
+                            ..default()
+                        }) [(Text::new("Normal") ThemedText)]
+                    ),
+                    (
+                        :button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Normal button clicked!");
-                                    }
-                                )),
+                                on_click: callback(|_: In<Activate>| {
+                                    info!("Disabled button clicked!");
+                                }),
                                 ..default()
                             },
-                            (),
-                            Spawn((Text::new("Normal"), ThemedText))
-                        ),
-                        button(
+                        )
+                        InteractionDisabled::default()
+                        [(Text::new("Disabled") ThemedText)]
+                    ),
+                    (
+                        :button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Disabled button clicked!");
-                                    }
-                                )),
-                                ..default()
-                            },
-                            InteractionDisabled,
-                            Spawn((Text::new("Disabled"), ThemedText))
-                        ),
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Primary button clicked!");
-                                    }
-                                )),
+                                on_click: callback(|_: In<Activate>| {
+                                    info!("Primary button clicked!");
+                                }),
                                 variant: ButtonVariant::Primary,
                                 ..default()
                             },
-                            (),
-                            Spawn((Text::new("Primary"), ThemedText))
-                        ),
-                    ]
-                ),
-                (
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Start,
-                        column_gap: Val::Px(1.0),
-                        ..default()
-                    },
-                    children![
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Left button clicked!");
-                                    }
-                                )),
-                                corners: RoundedCorners::Left,
-                                ..default()
-                            },
-                            (),
-                            Spawn((Text::new("Left"), ThemedText))
-                        ),
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Center button clicked!");
-                                    }
-                                )),
-                                corners: RoundedCorners::None,
-                                ..default()
-                            },
-                            (),
-                            Spawn((Text::new("Center"), ThemedText))
-                        ),
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Right button clicked!");
-                                    }
-                                )),
-                                variant: ButtonVariant::Primary,
-                                corners: RoundedCorners::Right,
-                            },
-                            (),
-                            Spawn((Text::new("Right"), ThemedText))
-                        ),
-                    ]
-                ),
-                button(
+                        ) [(Text::new("Primary") ThemedText)]
+                    ),
+                ],
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: Val::Px(1.0),
+                } [
+                    (
+                        :button(ButtonProps {
+                            on_click: callback(|_: In<Activate>| {
+                                info!("Left button clicked!");
+                            }),
+                            corners: RoundedCorners::Left,
+                            ..default()
+                        }) [(Text::new("Left") ThemedText)]
+                    ),
+                    (
+                        :button(ButtonProps {
+                            on_click: callback(|_: In<Activate>| {
+                                info!("Center button clicked!");
+                            }),
+                            corners: RoundedCorners::None,
+                            ..default()
+                        }) [(Text::new("Center") ThemedText)]
+                    ),
+                    (
+                        :button(ButtonProps {
+                            on_click: callback(|_: In<Activate>| {
+                                info!("Right button clicked!");
+                            }),
+                            variant: ButtonVariant::Primary,
+                            corners: RoundedCorners::Right,
+                        }) [(Text::new("Right") ThemedText)]
+                    ),
+                ],
+                :button(
                     ButtonProps {
-                        on_click: Callback::System(commands.register_system(|_: In<Activate>| {
+                        on_click: callback(|_: In<Activate>| {
                             info!("Wide button clicked!");
-                        })),
+                        }),
                         ..default()
-                    },
-                    (),
-                    Spawn((Text::new("Button"), ThemedText))
+                    }
+                ) [(Text::new("Button") ThemedText)],
+                (
+                    :checkbox(CheckboxProps::default())
+                    Checked::default()
+                    [(Text::new("Checkbox") ThemedText)]
                 ),
-                checkbox(
-                    CheckboxProps {
-                        on_change: Callback::Ignore,
-                    },
-                    Checked,
-                    Spawn((Text::new("Checkbox"), ThemedText))
+                (
+                    :checkbox(CheckboxProps::default())
+                    InteractionDisabled::default()
+                    [(Text::new("Disabled") ThemedText)]
                 ),
-                checkbox(
-                    CheckboxProps {
-                        on_change: Callback::Ignore,
-                    },
-                    InteractionDisabled,
-                    Spawn((Text::new("Disabled"), ThemedText))
-                ),
-                checkbox(
-                    CheckboxProps {
-                        on_change: Callback::Ignore,
-                    },
-                    (InteractionDisabled, Checked),
-                    Spawn((Text::new("Disabled+Checked"), ThemedText))
+                (
+                    :checkbox(CheckboxProps::default())
+                    InteractionDisabled
+                    Checked::default()
+                    [(Text::new("Disabled+Checked") ThemedText)]
                 ),
                 (
                     Node {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Column,
                         row_gap: Val::Px(4.0),
-                        ..default()
-                    },
+                    }
                     CoreRadioGroup {
-                        on_change: Callback::System(radio_exclusion),
-                    },
-                    children![
-                        radio(Checked, Spawn((Text::new("One"), ThemedText))),
-                        radio((), Spawn((Text::new("Two"), ThemedText))),
-                        radio((), Spawn((Text::new("Three"), ThemedText))),
-                        radio(
-                            InteractionDisabled,
-                            Spawn((Text::new("Disabled"), ThemedText))
+                        // Update radio button states based on notification from radio group.
+                        on_change: callback(
+                            |ent: In<Activate>, q_radio: Query<Entity, With<CoreRadio>>, mut commands: Commands| {
+                                for radio in q_radio.iter() {
+                                    if radio == ent.0.0 {
+                                        commands.entity(radio).insert(Checked);
+                                    } else {
+                                        commands.entity(radio).remove::<Checked>();
+                                    }
+                                }
+                            },
                         ),
+                    }
+                    [
+                        :radio Checked::default() [(Text::new("One") ThemedText)],
+                        :radio [(Text::new("Two") ThemedText)],
+                        :radio [(Text::new("Three") ThemedText)],
+                        :radio InteractionDisabled::default() [(Text::new("Disabled") ThemedText)],
                     ]
                 ),
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: Val::Px(8.0),
+                } [
+                    :toggle_switch(ToggleSwitchProps::default()),
+                    :toggle_switch(ToggleSwitchProps::default()) InteractionDisabled,
+                    :toggle_switch(ToggleSwitchProps::default()) InteractionDisabled Checked,
+                ],
                 (
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Start,
-                        column_gap: Val::Px(8.0),
-                        ..default()
-                    },
-                    children![
-                        toggle_switch(
-                            ToggleSwitchProps {
-                                on_change: Callback::Ignore,
-                            },
-                            (),
-                        ),
-                        toggle_switch(
-                            ToggleSwitchProps {
-                                on_change: Callback::Ignore,
-                            },
-                            InteractionDisabled,
-                        ),
-                        toggle_switch(
-                            ToggleSwitchProps {
-                                on_change: Callback::Ignore,
-                            },
-                            (InteractionDisabled, Checked),
-                        ),
-                    ]
-                ),
-                slider(
-                    SliderProps {
+                    :slider(SliderProps {
                         max: 100.0,
                         value: 20.0,
                         ..default()
-                    },
-                    (SliderStep(10.), SliderPrecision(2)),
+                    })
+                    SliderStep(10.)
+                    SliderPrecision(2)
                 ),
             ]
-        ),],
-    )
+        ]
+    }
 }

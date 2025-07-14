@@ -1,29 +1,26 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Activate, Callback, CoreButton};
+use bevy_core_widgets::{Activate, CallbackTemplate, CoreButton};
 use bevy_ecs::{
-    bundle::Bundle,
     component::Component,
     entity::Entity,
-    hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or},
     schedule::IntoScheduleConfigs,
-    spawn::{SpawnRelated, SpawnableList},
     system::{Commands, In, Query},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_scene2::{prelude::*, template_value};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
     theme::{ThemeBackgroundColor, ThemeFontColor},
     tokens,
 };
+use bevy_input_focus::tab_navigation::TabIndex;
+use bevy_winit::cursor::CursorIcon;
 
 /// Color variants for buttons. This also functions as a component used by the dynamic styling
 /// system to identify which entities are buttons.
@@ -45,46 +42,38 @@ pub struct ButtonProps {
     /// Rounded corners options
     pub corners: RoundedCorners,
     /// Click handler
-    pub on_click: Callback<In<Activate>>,
+    pub on_click: CallbackTemplate<In<Activate>>,
 }
 
-/// Template function to spawn a button.
+/// Button scene function.
 ///
 /// # Arguments
 /// * `props` - construction properties for the button.
-/// * `overrides` - a bundle of components that are merged in with the normal button components.
-/// * `children` - a [`SpawnableList`] of child elements, such as a label or icon for the button.
-pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
-    props: ButtonProps,
-    overrides: B,
-    children: C,
-) -> impl Bundle {
-    (
+pub fn button(props: ButtonProps) -> impl Scene {
+    bsn! {
         Node {
             height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
             flex_grow: 1.0,
-            ..Default::default()
-        },
+        }
         CoreButton {
-            on_activate: props.on_click,
-        },
-        props.variant,
-        Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
-        props.corners.to_border_radius(4.0),
-        ThemeBackgroundColor(tokens::BUTTON_BG),
-        ThemeFontColor(tokens::BUTTON_TEXT),
+            on_activate: {props.on_click.clone()},
+        }
+        template_value(props.variant)
+        template_value(props.corners.to_border_radius(4.0))
+        Hovered
+        // TODO: port CursonIcon to GetTemplate
+        // CursorIcon::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        ThemeBackgroundColor(tokens::BUTTON_BG)
+        ThemeFontColor(tokens::BUTTON_TEXT)
         InheritableFont {
-            font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
+            font: fonts::REGULAR,
             font_size: 14.0,
-        },
-        overrides,
-        Children::spawn(children),
-    )
+        }
+    }
 }
 
 fn update_button_styles(

@@ -24,6 +24,7 @@ use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
 
 use crate::{Callback, Notify, ValueChange};
+use bevy_ecs::template::GetTemplate;
 
 /// Defines how the slider should behave when you click on the track (not the thumb).
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
@@ -66,7 +67,7 @@ pub enum TrackClick {
 ///
 /// In cases where overhang is desired for artistic reasons, the thumb may have additional
 /// decorative child elements, absolutely positioned, which don't affect the size measurement.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, GetTemplate, Clone)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::Slider)),
     CoreSliderDragState,

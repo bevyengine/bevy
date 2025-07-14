@@ -45,7 +45,7 @@ pub struct Pressed;
 pub struct Checkable;
 
 /// Component that indicates whether a checkbox or radio button is in a checked state.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Clone)]
 pub struct Checked;
 
 pub(crate) fn on_add_checkable(trigger: On<Add, Checked>, mut world: DeferredWorld) {

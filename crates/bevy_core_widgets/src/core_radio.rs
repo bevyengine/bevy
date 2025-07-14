@@ -17,6 +17,7 @@ use bevy_picking::events::{Click, Pointer};
 use bevy_ui::{Checkable, Checked, InteractionDisabled};
 
 use crate::{Activate, Callback, Notify};
+use bevy_ecs::template::GetTemplate;
 
 /// Headless widget implementation for a "radio button group". This component is used to group
 /// multiple [`CoreRadio`] components together, allowing them to behave as a single unit. It
@@ -33,7 +34,7 @@ use crate::{Activate, Callback, Notify};
 /// associated with a particular constant value, and would be checked whenever that value is equal
 /// to the group's value. This also means that as long as each button's associated value is unique
 /// within the group, it should never be the case that more than one button is selected at a time.
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, GetTemplate)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)))]
 pub struct CoreRadioGroup {
     /// Callback which is called when the selected radio button changes.
@@ -46,7 +47,7 @@ pub struct CoreRadioGroup {
 /// According to the WAI-ARIA best practices document, radio buttons should not be focusable,
 /// but rather the enclosing group should be focusable.
 /// See <https://www.w3.org/WAI/ARIA/apg/patterns/radio>/
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioButton)), Checkable)]
 pub struct CoreRadio;
 

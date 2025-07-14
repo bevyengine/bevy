@@ -2,21 +2,21 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_color::Color;
-use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick, ValueChange};
+use bevy_core_widgets::{
+    CallbackTemplate, CoreSlider, SliderRange, SliderValue, TrackClick, ValueChange,
+};
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
     component::Component,
     entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, Spawned, With},
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
     system::{In, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
+use bevy_scene2::{prelude::*, template_value};
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node, UiRect,
@@ -27,7 +27,6 @@ use bevy_winit::cursor::CursorIcon;
 use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
     theme::{ThemeFontColor, ThemedText, UiTheme},
     tokens,
@@ -42,7 +41,7 @@ pub struct SliderProps {
     /// Slider maximum value
     pub max: f32,
     /// On-change handler
-    pub on_change: Callback<In<ValueChange<f32>>>,
+    pub on_change: CallbackTemplate<In<ValueChange<f32>>>,
 }
 
 impl Default for SliderProps {
@@ -51,47 +50,45 @@ impl Default for SliderProps {
             value: 0.0,
             min: 0.0,
             max: 1.0,
-            on_change: Callback::Ignore,
+            on_change: CallbackTemplate::Ignore,
         }
     }
 }
 
 #[derive(Component, Default, Clone)]
-#[require(CoreSlider)]
 struct SliderStyle;
 
 /// Marker for the text
 #[derive(Component, Default, Clone)]
 struct SliderValueText;
 
-/// Spawn a new slider widget.
+/// Slider scene function.
 ///
 /// # Arguments
 ///
 /// * `props` - construction properties for the slider.
-/// * `overrides` - a bundle of components that are merged in with the normal slider components.
-pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
-    (
+pub fn slider(props: SliderProps) -> impl Scene {
+    bsn! {
         Node {
             height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
             flex_grow: 1.0,
-            ..Default::default()
-        },
+        }
         CoreSlider {
-            on_change: props.on_change,
+            on_change: {props.on_change.clone()},
             track_click: TrackClick::Drag,
-        },
-        SliderStyle,
-        SliderValue(props.value),
-        SliderRange::new(props.min, props.max),
-        CursorIcon::System(bevy_window::SystemCursorIcon::EwResize),
-        TabIndex(0),
-        RoundedCorners::All.to_border_radius(6.0),
+        }
+        SliderStyle
+        SliderValue({props.value})
+        SliderRange::new(props.min, props.max)
+        // TODO: port CursorIcon to GetTemplate
+        // CursorIcon::System(bevy_window::SystemCursorIcon::EwResize)
+        TabIndex(0)
+        template_value(RoundedCorners::All.to_border_radius(6.0))
         // Use a gradient to draw the moving bar
-        BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+        BackgroundGradient({vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
             stops: vec![
                 ColorStop::new(Color::NONE, Val::Percent(0.)),
@@ -100,25 +97,23 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
                 ColorStop::new(Color::NONE, Val::Percent(100.)),
             ],
             color_space: InterpolationColorSpace::Srgb,
-        })]),
-        overrides,
-        children![(
+        })]})
+        [(
             // Text container
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..Default::default()
-            },
-            ThemeFontColor(tokens::SLIDER_TEXT),
+            }
+            ThemeFontColor(tokens::SLIDER_TEXT)
             InheritableFont {
-                font: HandleOrPath::Path(fonts::MONO.to_owned()),
+                font: fonts::MONO,
                 font_size: 12.0,
-            },
-            children![(Text::new("10.0"), ThemedText, SliderValueText,)],
-        )],
-    )
+            }
+            [(Text::new("10.0") ThemedText SliderValueText)]
+        )]
+    }
 }
 
 fn update_slider_colors(
