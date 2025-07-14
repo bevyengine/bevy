@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct BenchEvent<const SIZE: usize>([u8; SIZE]);
 
 pub struct Benchmark<const SIZE: usize>(Events<BenchEvent<SIZE>>);

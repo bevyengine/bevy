@@ -89,7 +89,7 @@ struct Ball;
 #[derive(Component, Deref, DerefMut)]
 struct Velocity(Vec2);
 
-#[derive(Event, BufferedEvent, Default)]
+#[derive(BufferedEvent, Default)]
 struct CollisionEvent;
 
 #[derive(Component)]
