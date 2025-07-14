@@ -13,7 +13,7 @@ As a workaround, you can transform any entity-event into a buffered event that c
 an observer than emits events.
 
 ```rust
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct TransformedEntityEvent<E: EntityEvent> {
     entity: Entity,
     event: E,

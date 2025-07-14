@@ -74,7 +74,7 @@ fn setup(
     mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
 ) {
     // Create a storage buffer with some data
-    let buffer = vec![0u32; BUFFER_LEN];
+    let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
     let mut buffer = ShaderStorageBuffer::from(buffer);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
     buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
@@ -110,6 +110,19 @@ fn setup(
             let data: Vec<u32> = trigger.event().to_shader_type();
             info!("Buffer {:?}", data);
         });
+
+    // It is also possible to read only a range of the buffer.
+    commands
+        .spawn(Readback::buffer_range(
+            buffer.clone(),
+            4 * u32::SHADER_SIZE.get(), // skip the first four elements
+            8 * u32::SHADER_SIZE.get(), // read eight elements
+        ))
+        .observe(|trigger: On<ReadbackComplete>| {
+            let data: Vec<u32> = trigger.event().to_shader_type();
+            info!("Buffer range {:?}", data);
+        });
+
     // This is just a simple way to pass the buffer handle to the render app for our compute node
     commands.insert_resource(ReadbackBuffer(buffer));
 
