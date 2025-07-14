@@ -59,18 +59,13 @@ macro_rules! impl_from_arg {
     (
         $ty: ty
         $(;
-            <
-                $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
-            >
+            < $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),* >
         )?
         $(
-            [
-                $(const $N: ident : $size: ident),*
-            ]
+            [ $(const $N: ident : $size: ident),* ]
         )?
         $(
-            where
-                $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
+            where $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
         )?
     ) => {
         impl <
@@ -78,12 +73,13 @@ macro_rules! impl_from_arg {
             $(, $(const $N : $size),*)?
         > $crate::func::args::FromArg for $ty
         $(
-            where
-                $($U $(: $U1 $(+ $U2)*)?),*
+            where $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
             type This<'from_arg> = $ty;
-            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
+            fn from_arg(arg: $crate::func::args::Arg) ->
+                Result<Self::This<'_>, $crate::func::args::ArgError>
+            {
                 arg.take_owned()
             }
         }

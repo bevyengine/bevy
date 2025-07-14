@@ -65,18 +65,13 @@ macro_rules! impl_get_ownership {
     (
         $ty: ty
         $(;
-            <
-                $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
-            >
+            < $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),* >
         )?
         $(
-            [
-                $(const $N: ident : $size: ident),*
-            ]
+            [ $(const $N: ident : $size: ident),* ]
         )?
         $(
-            where
-                $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
+            where $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
         )?
     ) => {
         impl <
@@ -84,8 +79,7 @@ macro_rules! impl_get_ownership {
             $(, $(const $N : $size),*)?
         > $crate::func::args::GetOwnership for $ty
         $(
-            where
-                $($U $(: $U1 $(+ $U2)*)?),*
+            where $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {}
     };

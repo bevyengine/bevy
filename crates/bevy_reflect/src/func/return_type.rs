@@ -126,18 +126,13 @@ macro_rules! impl_into_return {
     (
         $ty: ty
         $(;
-            <
-                $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
-            >
+            < $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),* >
         )?
         $(
-            [
-                $(const $N: ident : $size: ident),*
-            ]
+            [ $(const $N: ident : $size: ident),* ]
         )?
         $(
-            where
-                $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
+            where $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
         )?
     ) => {
         impl <
@@ -145,11 +140,12 @@ macro_rules! impl_into_return {
             $(, $(const $N : $size),*)?
         > $crate::func::IntoReturn for $ty
         $(
-            where
-                $($U $(: $U1 $(+ $U2)*)?),*
+            where $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return>
+                where Self: 'into_return
+            {
                 $crate::func::Return::Owned(bevy_platform::prelude::Box::new(self))
             }
         }
