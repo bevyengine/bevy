@@ -23,11 +23,16 @@ use node::SolariLightingNode;
 use prepare::prepare_solari_lighting_resources;
 use tracing::warn;
 
+/// Raytraced direct and indirect lighting.
+///
+/// When using this plugin, it's highly recommended to set `shadows_enabled: false` on all lights, as Solari replaces
+/// traditional shadow mapping.
 pub struct SolariLightingPlugin;
 
 impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "restir_di.wgsl");
+        embedded_asset!(app, "restir_gi.wgsl");
 
         app.register_type::<SolariLighting>()
             .insert_resource(DefaultOpaqueRendererMethod::deferred());
