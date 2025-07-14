@@ -44,7 +44,7 @@ which is counterintuitive and very annoying when working across different art pi
 To remedy this, we want to change the default glTF import behavior so that the coordinate system of glTF *models* instead of glTF *cameras* is aligned with Bevy.
 In practice, this means rotating the scene as described above.
 The downside is that glTF cameras that have an identity transform in glTF will now look to +Z instead of -Z in Bevy.
-This should not be a problem, as the whole scene rotated anyways, so the end result on your screen will look the exact same.
+This should not be a problem, as the whole scene is rotated anyways, so the end result on your screen will look the exact same.
 
 But, since most users load only models and not cameras through glTF,
 changing the import behavior in one big swoop would mean that most imported glTF models would suddenly look different, breaking users' scenes!
