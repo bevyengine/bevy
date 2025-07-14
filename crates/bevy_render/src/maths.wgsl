@@ -63,17 +63,19 @@ fn mat4x4_to_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
     return mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
 }
 
-// Creates an orthonormal basis given a Z vector and an up vector (which becomes
-// Y after orthonormalization).
+// Creates an orthonormal basis given a normalized Z vector.
 //
 // The results are equivalent to the Gram-Schmidt process [1].
 //
 // [1]: https://math.stackexchange.com/a/1849294
-fn orthonormalize(z_unnormalized: vec3<f32>, up: vec3<f32>) -> mat3x3<f32> {
-    let z_basis = normalize(z_unnormalized);
-    let x_basis = normalize(cross(z_basis, up));
-    let y_basis = cross(z_basis, x_basis);
-    return mat3x3(x_basis, y_basis, z_basis);
+fn orthonormalize(z_normalized: vec3<f32>) -> mat3x3<f32> {
+    var up = vec3(0.0, 1.0, 0.0);
+    if (abs(dot(up, z_normalized)) > 0.99) {
+        up = vec3(1.0, 0.0, 0.0); // Avoid creating a degenerate basis.
+    }
+    let x_basis = normalize(cross(z_normalized, up));
+    let y_basis = cross(z_normalized, x_basis);
+    return mat3x3(x_basis, y_basis, z_normalized);
 }
 
 // Returns true if any part of a sphere is on the positive side of a plane.
@@ -104,17 +106,11 @@ fn project_onto(lhs: vec3<f32>, rhs: vec3<f32>) -> vec3<f32> {
 // are likely most useful when raymarching, for example, where complete numeric
 // accuracy can be sacrificed for greater sample count.
 
-fn fast_sqrt(x: f32) -> f32 {
-    let n = bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
-    // One Newton's method iteration for better precision
-    return 0.5 * (n + x / n);
-}
-
 // Slightly less accurate than fast_acos_4, but much simpler.
 fn fast_acos(in_x: f32) -> f32 {
     let x = abs(in_x);
     var res = -0.156583 * x + HALF_PI;
-    res *= fast_sqrt(1.0 - x);
+    res *= sqrt(1.0 - x);
     return select(PI - res, res, in_x >= 0.0);
 }
 
@@ -131,7 +127,7 @@ fn fast_acos_4(x: f32) -> f32 {
     s = -0.2121144 * x1 + 1.5707288;
     s = 0.0742610 * x2 + s;
     s = -0.0187293 * x3 + s;
-    s = fast_sqrt(1.0 - x1) * s;
+    s = sqrt(1.0 - x1) * s;
 
 	// acos function mirroring
     return select(PI - s, s, x >= 0.0);

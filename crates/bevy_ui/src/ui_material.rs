@@ -146,7 +146,7 @@ where
     }
 }
 
-impl<M: UiMaterial> Hash for UiMaterialKey<M>
+impl<M: UiMaterial> core::hash::Hash for UiMaterialKey<M>
 where
     M::Data: Hash,
 {

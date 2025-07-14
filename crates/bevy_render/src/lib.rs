@@ -38,7 +38,6 @@ pub mod gpu_readback;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
-pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;
@@ -50,6 +49,9 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
+pub use bevy_camera::primitives;
+#[cfg(feature = "bevy_light")]
+mod extract_impls;
 
 /// The render prelude.
 ///
@@ -58,18 +60,21 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        camera::{
-            Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
-            Projection,
-        },
+        camera::ToNormalizedRenderTarget as _,
         mesh::{
             morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
             Mesh3d,
         },
         render_resource::Shader,
-        texture::ImagePlugin,
+        texture::{ImagePlugin, ManualTextureViews},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
         ExtractSchedule,
+    };
+    // TODO: Remove this in a follow-up
+    #[doc(hidden)]
+    pub use bevy_camera::{
+        Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
+        Projection,
     };
 }
 use batching::gpu_preprocessing::BatchingPlugin;
@@ -215,22 +220,6 @@ pub enum RenderSystems {
     ///
     /// Runs after [`Cleanup`](RenderSystems::Cleanup).
     PostCleanup,
-}
-
-/// The schedule that contains the app logic that is evaluated each tick
-///
-/// This is highly inspired by [`bevy_app::Main`]
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct MainRender;
-impl MainRender {
-    pub fn run(world: &mut World, mut run_at_least_once: Local<bool>) {
-        if !*run_at_least_once {
-            let _ = world.try_run_schedule(RenderStartup);
-            *run_at_least_once = true;
-        }
-
-        let _ = world.try_run_schedule(Render);
-    }
 }
 
 /// Deprecated alias for [`RenderSystems`].
@@ -399,10 +388,19 @@ impl Plugin for RenderPlugin {
                             }
                         });
 
+                        let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
+                            .map_or(settings.force_fallback_adapter, |v| {
+                                !(v.is_empty() || v == "0" || v == "false")
+                            });
+
+                        let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
+                            .as_deref()
+                            .map_or(settings.adapter_name.clone(), |x| Some(x.to_lowercase()));
+
                         let request_adapter_options = wgpu::RequestAdapterOptions {
                             power_preference: settings.power_preference,
                             compatible_surface: surface.as_ref(),
-                            ..Default::default()
+                            force_fallback_adapter,
                         };
 
                         let (device, queue, adapter_info, render_adapter) =
@@ -410,6 +408,7 @@ impl Plugin for RenderPlugin {
                                 &instance,
                                 &settings,
                                 &request_adapter_options,
+                                desired_adapter_name,
                             )
                             .await;
                         debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
@@ -471,10 +470,6 @@ impl Plugin for RenderPlugin {
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
             .register_type::<bevy_color::Color>()
-            .register_type::<primitives::Aabb>()
-            .register_type::<primitives::CascadesFrusta>()
-            .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>()
             .register_type::<RenderEntity>()
             .register_type::<TemporaryRenderEntity>()
             .register_type::<MainEntity>()
@@ -551,7 +546,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = SubApp::new();
-    render_app.update_schedule = Some(MainRender.intern());
+    render_app.update_schedule = Some(Render.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     // We skip applying any commands during the ExtractSchedule
@@ -566,7 +561,6 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
         .init_resource::<render_graph::RenderGraph>()
-        .add_systems(MainRender, MainRender::run)
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(
@@ -582,7 +576,19 @@ unsafe fn initialize_render_app(app: &mut App) {
             ),
         );
 
-    render_app.set_extract(|main_world, render_world| {
+    // We want the closure to have a flag to only run the RenderStartup schedule once, but the only
+    // way to have the closure store this flag is by capturing it. This variable is otherwise
+    // unused.
+    let mut should_run_startup = true;
+    render_app.set_extract(move |main_world, render_world| {
+        if should_run_startup {
+            // Run the `RenderStartup` if it hasn't run yet. This does mean `RenderStartup` blocks
+            // the rest of the app extraction, but this is necessary since extraction itself can
+            // depend on resources initialized in `RenderStartup`.
+            render_world.run_schedule(RenderStartup);
+            should_run_startup = false;
+        }
+
         {
             #[cfg(feature = "trace")]
             let _stage_span = tracing::info_span!("entity_sync").entered();

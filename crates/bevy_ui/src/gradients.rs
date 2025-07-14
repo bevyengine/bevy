@@ -44,6 +44,24 @@ impl ColorStop {
         }
     }
 
+    /// A color stop with its position in logical pixels.
+    pub fn px(color: impl Into<Color>, px: f32) -> Self {
+        Self {
+            color: color.into(),
+            point: Val::Px(px),
+            hint: 0.5,
+        }
+    }
+
+    /// A color stop with a percentage position.
+    pub fn percent(color: impl Into<Color>, percent: f32) -> Self {
+        Self {
+            color: color.into(),
+            point: Val::Percent(percent),
+            hint: 0.5,
+        }
+    }
+
     // Set the interpolation midpoint between this and the following stop
     pub fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
@@ -631,6 +649,14 @@ pub enum InterpolationColorSpace {
     Srgb,
     /// Interpolates in linear sRGB space.
     LinearRgb,
+    /// Interpolates in HSL space, taking the shortest hue path.
+    Hsl,
+    /// Interpolates in HSL space, taking the longest hue path.
+    HslLong,
+    /// Interpolates in HSV space, taking the shortest hue path.
+    Hsv,
+    /// Interpolates in HSV space, taking the longest hue path.
+    HsvLong,
 }
 
 /// Set the color space used for interpolation.

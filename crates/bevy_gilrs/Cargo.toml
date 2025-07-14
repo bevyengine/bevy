@@ -13,7 +13,6 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.17.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",

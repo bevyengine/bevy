@@ -1,15 +1,15 @@
 use alloc::vec::Vec;
 use bevy_ecs::{
     change_detection::{DetectChangesMut, MutUntyped},
-    component::{ComponentId, Tick},
-    event::{BufferedEvent, Events},
+    component::Tick,
+    event::{BufferedEvent, EventKey, Events},
     resource::Resource,
     world::World,
 };
 
 #[doc(hidden)]
 struct RegisteredEvent {
-    component_id: ComponentId,
+    event_key: EventKey,
     // Required to flush the secondary buffer and drop events even if left unchanged.
     previously_updated: bool,
     // SAFETY: The component ID and the function must be used to fetch the Events<T> resource
@@ -51,7 +51,7 @@ impl EventRegistry {
         let component_id = world.init_resource::<Events<T>>();
         let mut registry = world.get_resource_or_init::<Self>();
         registry.event_updates.push(RegisteredEvent {
-            component_id,
+            event_key: EventKey(component_id),
             previously_updated: false,
             update: |ptr| {
                 // SAFETY: The resource was initialized with the type Events<T>.
@@ -66,7 +66,9 @@ impl EventRegistry {
     pub fn run_updates(&mut self, world: &mut World, last_change_tick: Tick) {
         for registered_event in &mut self.event_updates {
             // Bypass the type ID -> Component ID lookup with the cached component ID.
-            if let Some(events) = world.get_resource_mut_by_id(registered_event.component_id) {
+            if let Some(events) =
+                world.get_resource_mut_by_id(registered_event.event_key.component_id())
+            {
                 let has_changed = events.has_changed_since(last_change_tick);
                 if registered_event.previously_updated || has_changed {
                     // SAFETY: The update function pointer is called with the resource
@@ -87,7 +89,7 @@ impl EventRegistry {
         let mut registry = world.get_resource_or_init::<Self>();
         registry
             .event_updates
-            .retain(|e| e.component_id != component_id);
+            .retain(|e| e.event_key.component_id() != component_id);
         world.remove_resource::<Events<T>>();
     }
 }

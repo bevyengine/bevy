@@ -476,7 +476,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     // Return from the system successfully.
     ///     Ok(())
     /// }
-    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// # bevy_ecs::system::assert_is_system::<(), (), _>(example_system);
     /// ```
     ///
     /// # See also
@@ -877,7 +877,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system<O: 'static>(&mut self, id: SystemId<(), O>) {
+    pub fn run_system(&mut self, id: SystemId) {
         self.queue(command::run_system(id).handle_error_with(warn));
     }
 
@@ -970,7 +970,7 @@ impl<'w, 's> Commands<'w, 's> {
     ) -> SystemId<I, O>
     where
         I: SystemInput + Send + 'static,
-        O: 'static,
+        O: Send + 'static,
     {
         let entity = self.spawn_empty().id();
         let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
@@ -995,7 +995,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
     where
         I: SystemInput + Send + 'static,
-        O: 'static,
+        O: Send + 'static,
     {
         self.queue(command::unregister_system(system_id).handle_error_with(warn));
     }
@@ -1044,11 +1044,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// consider passing them in as inputs via [`Commands::run_system_cached_with`].
     ///
     /// If that's not an option, consider [`Commands::register_system`] instead.
-    pub fn run_system_cached<O, M, S>(&mut self, system: S)
+    pub fn run_system_cached<M, S>(&mut self, system: S)
     where
-        O: 'static,
         M: 'static,
-        S: IntoSystem<(), O, M> + Send + 'static,
+        S: IntoSystem<(), (), M> + Send + 'static,
     {
         self.queue(command::run_system_cached(system).handle_error_with(warn));
     }
@@ -1075,12 +1074,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// consider passing them in as inputs.
     ///
     /// If that's not an option, consider [`Commands::register_system`] instead.
-    pub fn run_system_cached_with<I, O, M, S>(&mut self, system: S, input: I::Inner<'static>)
+    pub fn run_system_cached_with<I, M, S>(&mut self, system: S, input: I::Inner<'static>)
     where
         I: SystemInput<Inner<'static>: Send> + Send + 'static,
-        O: 'static,
         M: 'static,
-        S: IntoSystem<I, O, M> + Send + 'static,
+        S: IntoSystem<I, (), M> + Send + 'static,
     {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
@@ -1126,9 +1124,9 @@ impl<'w, 's> Commands<'w, 's> {
         self.spawn(Observer::new(observer))
     }
 
-    /// Sends an arbitrary [`BufferedEvent`].
+    /// Writes an arbitrary [`BufferedEvent`].
     ///
-    /// This is a convenience method for sending events
+    /// This is a convenience method for writing events
     /// without requiring an [`EventWriter`](crate::event::EventWriter).
     ///
     /// # Performance
@@ -1139,9 +1137,27 @@ impl<'w, 's> Commands<'w, 's> {
     /// If these events are performance-critical or very frequently sent,
     /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
     #[track_caller]
-    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
-        self.queue(command::send_event(event));
+    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
+        self.queue(command::write_event(event));
         self
+    }
+
+    /// Writes an arbitrary [`BufferedEvent`].
+    ///
+    /// This is a convenience method for writing events
+    /// without requiring an [`EventWriter`](crate::event::EventWriter).
+    ///
+    /// # Performance
+    ///
+    /// Since this is a command, exclusive world access is used, which means that it will not profit from
+    /// system-level parallelism on supported platforms.
+    ///
+    /// If these events are performance-critical or very frequently sent,
+    /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
+    #[track_caller]
+    #[deprecated(since = "0.17.0", note = "Use `Commands::write_event` instead.")]
+    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
+        self.write_event(event)
     }
 
     /// Runs the schedule corresponding to the given [`ScheduleLabel`].
@@ -2275,35 +2291,53 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// [Insert](EntityCommands::insert) the value returned from `default` into this entity,
     /// if `T` is not already present.
+    ///
+    /// `default` will only be invoked if the component will actually be inserted.
     #[track_caller]
-    pub fn or_insert_with(&mut self, default: impl Fn() -> T) -> &mut Self {
-        self.or_insert(default())
+    pub fn or_insert_with<F>(&mut self, default: F) -> &mut Self
+    where
+        F: FnOnce() -> T + Send + 'static,
+    {
+        self.entity_commands
+            .queue(entity_command::insert_with(default, InsertMode::Keep));
+        self
     }
 
     /// [Insert](EntityCommands::insert) the value returned from `default` into this entity,
     /// if `T` is not already present.
+    ///
+    /// `default` will only be invoked if the component will actually be inserted.
     ///
     /// # Note
     ///
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn or_try_insert_with(&mut self, default: impl Fn() -> T) -> &mut Self {
-        self.or_try_insert(default())
+    pub fn or_try_insert_with<F>(&mut self, default: F) -> &mut Self
+    where
+        F: FnOnce() -> T + Send + 'static,
+    {
+        self.entity_commands
+            .queue_silenced(entity_command::insert_with(default, InsertMode::Keep));
+        self
     }
 
     /// [Insert](EntityCommands::insert) `T::default` into this entity,
     /// if `T` is not already present.
+    ///
+    /// `T::default` will only be invoked if the component will actually be inserted.
     #[track_caller]
     pub fn or_default(&mut self) -> &mut Self
     where
         T: Default,
     {
-        self.or_insert(T::default())
+        self.or_insert_with(T::default)
     }
 
     /// [Insert](EntityCommands::insert) `T::from_world` into this entity,
     /// if `T` is not already present.
+    ///
+    /// `T::from_world` will only be invoked if the component will actually be inserted.
     #[track_caller]
     pub fn or_from_world(&mut self) -> &mut Self
     where
@@ -2398,6 +2432,12 @@ mod tests {
         }
     }
 
+    impl Default for W<u8> {
+        fn default() -> Self {
+            unreachable!()
+        }
+    }
+
     #[test]
     fn entity_commands_entry() {
         let mut world = World::default();
@@ -2437,6 +2477,17 @@ mod tests {
         let id = commands.entity(entity).entry::<W<u64>>().entity().id();
         queue.apply(&mut world);
         assert_eq!(id, entity);
+        let mut commands = Commands::new(&mut queue, &world);
+        commands
+            .entity(entity)
+            .entry::<W<u8>>()
+            .or_insert_with(|| W(5))
+            .or_insert_with(|| unreachable!())
+            .or_try_insert_with(|| unreachable!())
+            .or_default()
+            .or_from_world();
+        queue.apply(&mut world);
+        assert_eq!(5, world.get::<W<u8>>(entity).unwrap().0);
     }
 
     #[test]

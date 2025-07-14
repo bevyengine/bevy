@@ -9,19 +9,19 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-webgl = []
-webgpu = []
+webgl = ["bevy_light/webgl"]
+webgpu = ["bevy_light/webgpu"]
 pbr_transmission_textures = []
 pbr_multi_layer_material_textures = []
 pbr_anisotropy_texture = []
-experimental_pbr_pcss = []
+experimental_pbr_pcss = ["bevy_light/experimental_pbr_pcss"]
 pbr_specular_textures = []
 pbr_clustered_decals = []
 pbr_light_textures = []
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = ["dep:lz4_flex", "dep:range-alloc", "dep:half", "dep:bevy_tasks"]
+meshlet = ["dep:lz4_flex", "dep:range-alloc", "dep:bevy_tasks"]
 # Enables processing meshes into meshlet meshes
 meshlet_processor = [
   "meshlet",
@@ -40,14 +40,17 @@ bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
+bevy_light = { path = "../bevy_light", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
+bevy_render = { path = "../bevy_render", features = [
+  "bevy_light",
+], version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
 ] }
@@ -62,15 +65,13 @@ lz4_flex = { version = "0.11", default-features = false, features = [
   "frame",
 ], optional = true }
 range-alloc = { version = "0.1.3", optional = true }
-half = { version = "2", features = ["bytemuck"], optional = true }
 meshopt = { version = "0.4.1", optional = true }
 metis = { version = "0.2", optional = true }
 itertools = { version = "0.14", optional = true }
 bitvec = { version = "1", optional = true }
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
-radsort = "0.1"
-smallvec = "1.6"
+smallvec = { version = "1", default-features = false }
 nonmax = "0.5"
 static_assertions = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }

@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.86.0"
+rust-version = "1.88.0"
 
 [workspace]
 resolver = "2"
@@ -151,6 +151,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_ui_render",
   "bevy_window",
   "bevy_winit",
   "custom_cursor",
@@ -278,6 +279,9 @@ bevy_ui = [
   "bevy_color",
   "bevy_anti_aliasing",
 ]
+
+# Provides rendering functionality for bevy_ui
+bevy_ui_render = ["bevy_internal/bevy_ui_render", "bevy_render", "bevy_ui"]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
@@ -864,6 +868,7 @@ doc-scrape-examples = true
 name = "Texture Atlas"
 description = "Generates a texture atlas (sprite sheet) from individual sprites"
 category = "2D Rendering"
+# Loading asset folders is not supported in Wasm, but required to create the atlas.
 wasm = false
 
 [[example]]
@@ -941,6 +946,7 @@ doc-scrape-examples = true
 name = "2D Wireframe"
 description = "Showcases wireframes for 2d meshes"
 category = "2D Rendering"
+# PolygonMode::Line wireframes are not supported by WebGL
 wasm = false
 
 # 3D Rendering
@@ -1008,6 +1014,7 @@ doc-scrape-examples = true
 name = "Anti-aliasing"
 description = "Compares different anti-aliasing methods"
 category = "3D Rendering"
+# TAA not supported by WebGL
 wasm = false
 
 [[example]]
@@ -1052,6 +1059,7 @@ doc-scrape-examples = true
 name = "Auto Exposure"
 description = "A scene showcasing auto exposure"
 category = "3D Rendering"
+# Requires compute shaders, which are not supported by WebGL.
 wasm = false
 
 [[example]]
@@ -1119,6 +1127,7 @@ doc-scrape-examples = true
 name = "Screen Space Ambient Occlusion"
 description = "A scene showcasing screen space ambient occlusion"
 category = "3D Rendering"
+# Requires compute shaders, which are not supported by WebGL.
 wasm = false
 
 [[example]]
@@ -1218,6 +1227,7 @@ doc-scrape-examples = true
 name = "Order Independent Transparency"
 description = "Demonstrates how to use OIT"
 category = "3D Rendering"
+# Not supported by WebGL
 wasm = false
 
 [[example]]
@@ -1317,7 +1327,7 @@ doc-scrape-examples = true
 name = "Skybox"
 description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats."
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "solari"
@@ -1428,6 +1438,7 @@ doc-scrape-examples = true
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
+# Not supported on WebGL
 wasm = false
 
 [[example]]
@@ -1439,6 +1450,8 @@ doc-scrape-examples = true
 name = "Irradiance Volumes"
 description = "Demonstrates irradiance volumes"
 category = "3D Rendering"
+# On WebGL and WebGPU, the number of texture bindings is too low
+# See <https://github.com/bevyengine/bevy/issues/11885>
 wasm = false
 
 [[example]]
@@ -1451,6 +1464,7 @@ required-features = ["meshlet"]
 name = "Meshlet"
 description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
+# Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
 wasm = false
 setup = [
   [
@@ -1486,7 +1500,7 @@ doc-scrape-examples = true
 name = "Lightmaps"
 description = "Rendering a scene with baked lightmaps"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "no_prepass"
@@ -1639,6 +1653,7 @@ doc-scrape-examples = true
 name = "Custom Loop"
 description = "Demonstrates how to create a custom runner (to update an app manually)"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -1650,6 +1665,7 @@ doc-scrape-examples = true
 name = "Drag and Drop"
 description = "An example that shows how to handle drag and drop in an app"
 category = "Application"
+# Browser drag and drop is not supported
 wasm = false
 
 [[example]]
@@ -1661,6 +1677,7 @@ doc-scrape-examples = true
 name = "Empty"
 description = "An empty application (does nothing)"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -1684,6 +1701,7 @@ required-features = ["bevy_log"]
 name = "Headless"
 description = "An application that runs without default plugins"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -1706,6 +1724,8 @@ doc-scrape-examples = true
 name = "Log layers"
 description = "Illustrate how to add custom log layers"
 category = "Application"
+# Accesses `time`, which is not available on the web
+# Also doesn't render anything
 wasm = false
 
 [[example]]
@@ -1717,6 +1737,7 @@ doc-scrape-examples = true
 name = "Advanced log layers"
 description = "Illustrate how to transfer data between log layers and Bevy's ECS"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -2089,12 +2110,6 @@ doc-scrape-examples = true
 [package.metadata.example.ecs_guide]
 name = "ECS Guide"
 description = "Full guide to Bevy's ECS"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[package.metadata.example.apply_deferred]
-name = "Apply System Buffers"
-description = "Show how to use `ApplyDeferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -4326,6 +4341,14 @@ name = "Specular Tint"
 description = "Demonstrates specular tints and maps"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "test_invalid_skinned_mesh"
+path = "tests/3d/test_invalid_skinned_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_invalid_skinned_mesh]
+hidden = true
 
 [profile.wasm-release]
 inherits = "release"

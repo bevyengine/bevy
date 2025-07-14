@@ -51,8 +51,8 @@ use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_render::{
     batching::sort_binned_render_phase,
     load_shader_library,
-    mesh::{Mesh, Mesh2d, MeshAabb},
-    primitives::Aabb,
+    mesh::{Mesh, Mesh2d},
+    primitives::{Aabb, MeshAabb},
     render_phase::AddRenderCommand,
     render_resource::SpecializedRenderPipelines,
     view::{NoFrustumCulling, VisibilitySystems},
