@@ -12,12 +12,15 @@ use bevy_render::{
 };
 use bevy_utils::default;
 use core::num::NonZero;
+use std::result::Result;
 
 #[derive(Resource)]
 pub struct AutoExposurePipeline {
-    pub histogram_layout: BindGroupLayout,
-    pub histogram_shader: Handle<Shader>,
+    pub layout: BindGroupLayout,
+    pub variants: SpecializedCache<ComputePipeline, AutoExposureSpecializer>,
 }
+
+pub struct AutoExposureSpecializer;
 
 #[derive(Component)]
 pub struct ViewAutoExposurePipeline {
@@ -39,7 +42,7 @@ pub struct AutoExposureUniform {
     pub(super) exponential_transition_distance: f32,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, SpecializerKey)]
 pub enum AutoExposurePass {
     Histogram,
     Average,
@@ -51,43 +54,60 @@ impl FromWorld for AutoExposurePipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        Self {
-            histogram_layout: render_device.create_bind_group_layout(
-                "compute histogram bind group",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::COMPUTE,
-                    (
-                        uniform_buffer::<GlobalsUniform>(false),
-                        uniform_buffer::<AutoExposureUniform>(false),
-                        texture_2d(TextureSampleType::Float { filterable: false }),
-                        texture_2d(TextureSampleType::Float { filterable: false }),
-                        texture_1d(TextureSampleType::Float { filterable: false }),
-                        uniform_buffer::<AutoExposureCompensationCurveUniform>(false),
-                        storage_buffer_sized(false, NonZero::<u64>::new(HISTOGRAM_BIN_COUNT * 4)),
-                        storage_buffer_sized(false, NonZero::<u64>::new(4)),
-                        storage_buffer::<ViewUniform>(true),
-                    ),
+        let layout = render_device.create_bind_group_layout(
+            "compute histogram bind group",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    uniform_buffer::<GlobalsUniform>(false),
+                    uniform_buffer::<AutoExposureUniform>(false),
+                    texture_2d(TextureSampleType::Float { filterable: false }),
+                    texture_2d(TextureSampleType::Float { filterable: false }),
+                    texture_1d(TextureSampleType::Float { filterable: false }),
+                    uniform_buffer::<AutoExposureCompensationCurveUniform>(false),
+                    storage_buffer_sized(false, NonZero::<u64>::new(HISTOGRAM_BIN_COUNT * 4)),
+                    storage_buffer_sized(false, NonZero::<u64>::new(4)),
+                    storage_buffer::<ViewUniform>(true),
                 ),
             ),
-            histogram_shader: load_embedded_asset!(world, "auto_exposure.wgsl"),
-        }
+        );
+
+        let shader = load_embedded_asset!(world, "auto_exposure.wgsl");
+
+        let base_descriptor = ComputePipelineDescriptor {
+            layout: vec![layout.clone()],
+            shader,
+            ..default()
+        };
+
+        let variants = SpecializedCache::new(AutoExposureSpecializer, None, base_descriptor);
+
+        Self { layout, variants }
     }
 }
 
-impl SpecializedComputePipeline for AutoExposurePipeline {
+impl Specializer<ComputePipeline> for AutoExposureSpecializer {
     type Key = AutoExposurePass;
 
-    fn specialize(&self, pass: AutoExposurePass) -> ComputePipelineDescriptor {
-        ComputePipelineDescriptor {
-            label: Some("luminance compute pipeline".into()),
-            layout: vec![self.histogram_layout.clone()],
-            shader: self.histogram_shader.clone(),
-            shader_defs: vec![],
-            entry_point: Some(match pass {
-                AutoExposurePass::Histogram => "compute_histogram".into(),
-                AutoExposurePass::Average => "compute_average".into(),
-            }),
-            ..default()
-        }
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut ComputePipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        let (label, entry_point) = match key {
+            AutoExposurePass::Histogram => (
+                "auto_exposure_compute_histogram".into(),
+                "compute_histogram".into(),
+            ),
+            AutoExposurePass::Average => (
+                "auto_exposure_compute_average".into(),
+                "compute_average".into(),
+            ),
+        };
+
+        descriptor.label = Some(label);
+        descriptor.entry_point = Some(entry_point);
+
+        Ok(key)
     }
 }
