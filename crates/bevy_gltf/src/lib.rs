@@ -169,7 +169,7 @@ pub struct GltfPlugin {
     ///   - glTF models: global -Z.
     ///
     /// The default is `false`.
-    pub favor_model_coordinates: bool,
+    pub use_model_forward_direction: bool,
 
     /// Registry for custom vertex attributes.
     ///
@@ -182,7 +182,7 @@ impl Default for GltfPlugin {
         GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
-            favor_model_coordinates: false,
+            use_model_forward_direction: false,
         }
     }
 }
@@ -238,7 +238,7 @@ impl Plugin for GltfPlugin {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
-            default_favor_model_coordinates: self.favor_model_coordinates,
+            default_use_model_forward_direction: self.use_model_forward_direction,
         });
     }
 }

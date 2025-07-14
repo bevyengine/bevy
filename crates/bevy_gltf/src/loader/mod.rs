@@ -161,7 +161,7 @@ pub struct GltfLoader {
     ///   - glTF models: global -Z.
     ///
     /// The default is `false`.
-    pub default_favor_model_coordinates: bool,
+    pub default_use_model_forward_direction: bool,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -212,8 +212,8 @@ pub struct GltfLoaderSettings {
     ///   - glTF cameras and glTF lights: global +Z,
     ///   - glTF models: global -Z.
     ///
-    /// If `None`, uses the global default set by [`GltfPlugin::favor_model_coordinates`](crate::GltfPlugin::favor_model_coordinates).
-    pub favor_model_coordinates: Option<bool>,
+    /// If `None`, uses the global default set by [`GltfPlugin::use_model_forward_direction`](crate::GltfPlugin::use_model_forward_direction).
+    pub use_model_forward_direction: Option<bool>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -226,7 +226,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
-            favor_model_coordinates: None,
+            use_model_forward_direction: None,
         }
     }
 }
@@ -286,9 +286,9 @@ async fn load_gltf<'a, 'b, 'c>(
         paths
     };
 
-    let convert_coordinates = match settings.favor_model_coordinates {
+    let convert_coordinates = match settings.use_model_forward_direction {
         Some(convert_coordinates) => convert_coordinates,
-        None => loader.default_favor_model_coordinates,
+        None => loader.default_use_model_forward_direction,
     };
 
     #[cfg(feature = "bevy_animation")]

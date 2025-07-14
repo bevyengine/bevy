@@ -33,12 +33,12 @@ To remedy this, users can now change the import behavior to instead favor correc
 The downside is that glTF cameras and lights that have a global identity transform in glTF will now look to +Z instead of -Z in Bevy.
 This should not be a problem in many cases, as the whole scene is rotated so that the end result on your screen will be rendered the exact same way.
 
-To globally opt into the behavior that favors glTF models over glTF cameras, you can set `GltfPlugin::favor_model_coordinates`:
+To globally opt into the behavior that favors glTF models over glTF cameras, you can set `GltfPlugin::use_model_forward_direction`:
 
 ```rust
 App::new()
     .add_plugins(DefaultPlugins.set(GltfPlugin {
-        favor_model_coordinates: true,
+        use_model_forward_direction: true,
         ..default()
     }))
     .run();
@@ -50,9 +50,9 @@ You can also control this on a per-asset-level:
 let handle = asset_server.load_with_settings(
     "fox.gltf#Scene0",
     |settings: &mut GltfLoaderSettings| {
-        settings.favor_model_coordinates = Some(true);
+        settings.use_model_forward_direction = Some(true);
     },
 );
 ```
 
-Setting the above to `None` will fall back to the global setting taken from `GltfPlugin::favor_model_coordinates`.
+Setting the above to `None` will fall back to the global setting taken from `GltfPlugin::use_model_forward_direction`.
