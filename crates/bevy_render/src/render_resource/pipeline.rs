@@ -1,4 +1,4 @@
-use super::ShaderDefVal;
+use super::{empty_bind_group_layout, ShaderDefVal};
 use crate::mesh::VertexBufferLayout;
 use crate::WgpuWrapper;
 use crate::{
@@ -112,6 +112,20 @@ pub struct RenderPipelineDescriptor {
     /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
     /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
     pub zero_initialize_workgroup_memory: bool,
+}
+
+#[derive(Copy, Clone, Debug, Error)]
+#[error("RenderPipelineDescriptor has no FragmentState configured")]
+pub struct NoFragmentStateError;
+
+impl RenderPipelineDescriptor {
+    pub fn fragment_mut(&mut self) -> Result<&mut FragmentState, NoFragmentStateError> {
+        self.fragment.as_mut().ok_or(NoFragmentStateError)
+    }
+
+    pub fn set_layout(&mut self, index: usize, layout: BindGroupLayout) {
+        filling_set_at(&mut self.layout, index, empty_bind_group_layout(), layout);
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
