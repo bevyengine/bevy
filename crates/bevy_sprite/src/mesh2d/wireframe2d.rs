@@ -5,7 +5,7 @@ use crate::{
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
-    AssetEventSystems, AssetId, Assets, Handle, UntypedAssetId,
+    AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::core_2d::{
@@ -49,7 +49,7 @@ use bevy_render::{
     view::{
         ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
+    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 use core::{hash::Hash, ops::Range};
 use tracing::error;
@@ -129,6 +129,7 @@ impl Plugin for Wireframe2dPlugin {
                     Node2d::PostProcessing,
                 ),
             )
+            .add_systems(RenderStartup, init_wireframe_2d_pipeline)
             .add_systems(
                 ExtractSchedule,
                 (
@@ -149,13 +150,6 @@ impl Plugin for Wireframe2dPlugin {
                         .after(prepare_assets::<RenderWireframeMaterial>),
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<Wireframe2dPipeline>();
     }
 }
 
@@ -327,13 +321,15 @@ pub struct Wireframe2dPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for Wireframe2dPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        Wireframe2dPipeline {
-            mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
-            shader: load_embedded_asset!(render_world, "wireframe2d.wgsl"),
-        }
-    }
+pub fn init_wireframe_2d_pipeline(
+    mut commands: Commands,
+    mesh_2d_pipeline: Res<Mesh2dPipeline>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(Wireframe2dPipeline {
+        mesh_pipeline: mesh_2d_pipeline.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "wireframe2d.wgsl"),
+    });
 }
 
 impl SpecializedMeshPipeline for Wireframe2dPipeline {
