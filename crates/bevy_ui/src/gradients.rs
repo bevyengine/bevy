@@ -638,25 +638,25 @@ impl RadialGradientShape {
     reflect(Serialize, Deserialize)
 )]
 pub enum InterpolationColorSpace {
-    /// Interpolates in `OKLab` space.
+    /// Interpolates in OKLABA space.
     #[default]
-    OkLab,
-    /// Interpolates in OKLCH space, taking the shortest hue path.
-    OkLch,
-    /// Interpolates in OKLCH space, taking the longest hue path.
-    OkLchLong,
-    /// Interpolates in sRGB space.
-    Srgb,
-    /// Interpolates in linear sRGB space.
-    LinearRgb,
-    /// Interpolates in HSL space, taking the shortest hue path.
-    Hsl,
-    /// Interpolates in HSL space, taking the longest hue path.
-    HslLong,
-    /// Interpolates in HSV space, taking the shortest hue path.
-    Hsv,
-    /// Interpolates in HSV space, taking the longest hue path.
-    HsvLong,
+    Oklaba,
+    /// Interpolates in OKLCHA space, taking the shortest hue path.
+    Oklcha,
+    /// Interpolates in OKLCHA space, taking the longest hue path.
+    OklchaLong,
+    /// Interpolates in sRGBA space.
+    Srgba,
+    /// Interpolates in linear sRGBA space.
+    LinearRgba,
+    /// Interpolates in HSLA space, taking the shortest hue path.
+    Hsla,
+    /// Interpolates in HSLA space, taking the longest hue path.
+    HslaLong,
+    /// Interpolates in HSVA space, taking the shortest hue path.
+    Hsva,
+    /// Interpolates in HSVA space, taking the longest hue path.
+    HsvaLong,
 }
 
 /// Set the color space used for interpolation.
@@ -665,28 +665,28 @@ pub trait InColorSpace: Sized {
     fn in_color_space(self, color_space: InterpolationColorSpace) -> Self;
 
     /// Interpolate in `OKLab` space.
-    fn in_oklab(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::OkLab)
+    fn in_oklaba(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::Oklaba)
     }
 
     /// Interpolate in OKLCH space (short hue path).
     fn in_oklch(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::OkLch)
+        self.in_color_space(InterpolationColorSpace::Oklcha)
     }
 
     /// Interpolate in OKLCH space (long hue path).
     fn in_oklch_long(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::OkLchLong)
+        self.in_color_space(InterpolationColorSpace::OklchaLong)
     }
 
     /// Interpolate in sRGB space.
     fn in_srgb(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::Srgb)
+        self.in_color_space(InterpolationColorSpace::Srgba)
     }
 
     /// Interpolate in linear sRGB space.
     fn in_linear_rgb(self) -> Self {
-        self.in_color_space(InterpolationColorSpace::LinearRgb)
+        self.in_color_space(InterpolationColorSpace::LinearRgba)
     }
 }
 
