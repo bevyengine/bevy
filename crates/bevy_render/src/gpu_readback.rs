@@ -79,7 +79,7 @@ pub enum Readback {
     Texture(Handle<Image>),
     Buffer {
         buffer: Handle<ShaderStorageBuffer>,
-        start_size: Option<(u64, u64)>,
+        start_and_size: Option<(u64, u64)>,
     },
 }
 
@@ -93,7 +93,7 @@ impl Readback {
     pub fn buffer(buffer: Handle<ShaderStorageBuffer>) -> Self {
         Self::Buffer {
             buffer,
-            start_size: None,
+            start_and_size: None,
         }
     }
 
@@ -102,7 +102,7 @@ impl Readback {
     pub fn buffer_range(buffer: Handle<ShaderStorageBuffer>, start: u64, size: u64) -> Self {
         Self::Buffer {
             buffer,
-            start_size: Some((start, size)),
+            start_and_size: Some((start, size)),
         }
     }
 }
@@ -209,7 +209,7 @@ enum ReadbackSource {
     },
     Buffer {
         buffer: Buffer,
-        start_size: Option<(u64, u64)>,
+        start_and_size: Option<(u64, u64)>,
     },
 }
 
@@ -280,17 +280,30 @@ fn prepare_buffers(
                     });
                 }
             }
-            Readback::Buffer { buffer, start_size } => {
+            Readback::Buffer {
+                buffer,
+                start_and_size,
+            } => {
                 if let Some(ssbo) = ssbos.get(buffer) {
-                    let size = start_size
-                        .map(|(_, size)| size.min(ssbo.buffer.size()))
-                        .unwrap_or(ssbo.buffer.size());
+                    let full_size = ssbo.buffer.size();
+                    let size = start_and_size
+                        .map(|(start, size)| {
+                            let end = start + size;
+                            if end > full_size {
+                                panic!(
+                                    "Tried to read past the end of the buffer (start: {start}, \
+                                    size: {size}, buffer size: {full_size})."
+                                );
+                            }
+                            size
+                        })
+                        .unwrap_or(full_size);
                     let buffer = buffer_pool.get(&render_device, size);
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {
                         entity: entity.id(),
                         src: ReadbackSource::Buffer {
-                            start_size: *start_size,
+                            start_and_size: *start_and_size,
                             buffer: ssbo.buffer.clone(),
                         },
                         buffer,
@@ -321,8 +334,11 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
                     *size,
                 );
             }
-            ReadbackSource::Buffer { buffer, start_size } => {
-                let (src_start, size) = start_size.unwrap_or((0, buffer.size()));
+            ReadbackSource::Buffer {
+                buffer,
+                start_and_size,
+            } => {
+                let (src_start, size) = start_and_size.unwrap_or((0, buffer.size()));
                 command_encoder.copy_buffer_to_buffer(buffer, src_start, &readback.buffer, 0, size);
             }
         }
