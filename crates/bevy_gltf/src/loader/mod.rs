@@ -151,20 +151,17 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
-    /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
-    /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
-    /// such that objects looking forward in glTF will also look forward in Bevy.
+    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global unit transforms,
+    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
+    /// - When set to `false`
+    ///   - glTF cameras and glTF lights: global -Z,
+    ///   - glTF models: global +Z.
+    /// - When set to `true`
+    ///   - glTF cameras and glTF lights: global +Z,
+    ///   - glTF models: global -Z.
     ///
-    /// The exact coordinate system conversion is as follows:
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
-    pub default_convert_coordinates: bool,
+    /// The default is `false`.
+    pub default_favor_model_coordinates: bool,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -206,23 +203,17 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
-    /// Overrides the default glTF coordinate conversion setting.
+    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global unit transforms,
+    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
+    /// - When set to `false`
+    ///   - glTF cameras and glTF lights: global -Z,
+    ///   - glTF models: global +Z.
+    /// - When set to `true`
+    ///   - glTF cameras and glTF lights: global +Z,
+    ///   - glTF models: global -Z.
     ///
-    /// If set to `Some(true)`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
-    /// such that objects looking forward in glTF will also look forward in Bevy.
-    ///
-    /// The exact coordinate system conversion is as follows:
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
-    ///
-    /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
-    pub convert_coordinates: Option<bool>,
+    /// If `None`, uses the global default set by [`GltfPlugin::favor_model_coordinates`](crate::GltfPlugin::favor_model_coordinates).
+    pub favor_model_coordinates: Option<bool>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -235,7 +226,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
-            convert_coordinates: None,
+            favor_model_coordinates: None,
         }
     }
 }
@@ -295,9 +286,9 @@ async fn load_gltf<'a, 'b, 'c>(
         paths
     };
 
-    let convert_coordinates = match settings.convert_coordinates {
+    let convert_coordinates = match settings.favor_model_coordinates {
         Some(convert_coordinates) => convert_coordinates,
-        None => loader.default_convert_coordinates,
+        None => loader.default_favor_model_coordinates,
     };
 
     #[cfg(feature = "bevy_animation")]
