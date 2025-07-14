@@ -275,12 +275,12 @@ impl BundleInfo {
     /// For example, if the original archetype already has `ComponentA` and `T` also has `ComponentA`, the status
     /// should be `Existing`. If the original archetype does not have `ComponentA`, the status should be `Added`.
     ///
-    /// When "inserting" a bundle into an existing entity, [`ArchetypeAfterBundleInsert`]
+    /// When "inserting" a bundle into an existing entity, [`ArchetypeAfterBundleInsert`](crate::archetype::SpawnBundleStatus)
     /// should be used, which will report `Added` vs `Existing` status based on the current archetype's structure.
     ///
-    /// When spawning a bundle, [`SpawnBundleStatus`] can be used instead, which removes the need
-    /// to look up the [`ArchetypeAfterBundleInsert`] in the archetype graph, which requires
-    /// ownership of the entity's current archetype.
+    /// When spawning a bundle, [`SpawnBundleStatus`](crate::archetype::SpawnBundleStatus) can be used instead,
+    /// which removes the need to look up the [`ArchetypeAfterBundleInsert`](crate::archetype::ArchetypeAfterBundleInsert)
+    /// in the archetype graph, which requires ownership of the entity's current archetype.
     ///
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
