@@ -12,8 +12,8 @@ If you're loading a glTF, you will be greeted by the following deprecation warni
 > If you want to continue using the old behavior going forward (even when the default changes in 0.18), manually set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`.
 > See the migration guide for more details.
 
-As the warning says, this means that from now on, glTF scenes will be rotated by 180 degrees around the Y axis. To understand why this is desirable,
-we need to take a look at coordinate systems.
+As the warning says, this means that from now on glTF scenes will imported with a 180 degree rotation around the Y axis when compared to the old behavior.
+To understand why this is desirable, we need to take a look at coordinate systems.
 
 Bevy uses the following coordinate system:
 
