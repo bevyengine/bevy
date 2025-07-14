@@ -1,7 +1,7 @@
 ---
 title: Allow importing glTFs with corrected model forward semantics
 authors: ["@janhohenheim"]
-pull_requests: [19633, 19685, 19816]
+pull_requests: [19633, 19685, 19816, 20131]
 ---
 
 Bevy uses the following coordinate system for all worldspace entities that have a `Transform`:
