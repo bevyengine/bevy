@@ -843,19 +843,20 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         match &option {
             ComponentSelector::All => {
                 // Add all reflectable components present on the entity (as Option<&T>)
-                let all_optionals =
-                    entity_ref
-                        .archetype()
-                        .components()
-                        .filter_map(|component_id| {
-                            let info = world.components().get_info(component_id)?;
-                            let type_id = info.type_id()?;
-                            // Skip required components (already included)
-                            if required.iter().any(|(_, cid)| cid == &component_id) {
-                                return None;
-                            }
-                            Some((type_id, Some(component_id)))
-                        });
+                let all_optionals = entity_ref
+                    .archetype()
+                    .map(bevy_ecs::archetype::Archetype::components)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|component_id| {
+                        let info = world.components().get_info(component_id)?;
+                        let type_id = info.type_id()?;
+                        // Skip required components (already included)
+                        if required.iter().any(|(_, cid)| cid == &component_id) {
+                            return None;
+                        }
+                        Some((type_id, Some(component_id)))
+                    });
                 components_map.extend(serialize_components(
                     entity_ref,
                     &type_registry,
@@ -1253,7 +1254,11 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
     // If `Some`, return all components of the provided entity.
     if let Some(BrpListParams { entity }) = params.map(parse).transpose()? {
         let entity = get_entity(world, entity)?;
-        for component_id in entity.archetype().components() {
+        for component_id in entity
+            .archetype()
+            .iter()
+            .flat_map(|archetype| archetype.components())
+        {
             let Some(component_info) = world.components().get_info(component_id) else {
                 continue;
             };
@@ -1307,7 +1312,11 @@ pub fn process_remote_list_watching_request(
     let entity_ref = get_entity(world, entity)?;
     let mut response = BrpListWatchingResponse::default();
 
-    for component_id in entity_ref.archetype().components() {
+    for component_id in entity_ref
+        .archetype()
+        .iter()
+        .flat_map(|archetype| archetype.components())
+    {
         let ticks = entity_ref
             .get_change_ticks_by_id(component_id)
             .ok_or(BrpError::internal("Failed to get ticks"))?;
