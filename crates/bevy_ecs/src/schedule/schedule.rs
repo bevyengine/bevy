@@ -15,6 +15,7 @@ use bevy_utils::{default, prelude::DebugName, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
+    ops::Range,
 };
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
@@ -658,29 +659,6 @@ impl Dag {
     }
 }
 
-/// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
-struct SystemSetNode {
-    inner: InternedSystemSet,
-}
-
-impl SystemSetNode {
-    pub fn new(set: InternedSystemSet) -> Self {
-        Self { inner: set }
-    }
-
-    pub fn name(&self) -> String {
-        format!("{:?}", &self.inner)
-    }
-
-    pub fn is_system_type(&self) -> bool {
-        self.inner.system_type().is_some()
-    }
-
-    pub fn is_anonymous(&self) -> bool {
-        self.inner.is_anonymous()
-    }
-}
-
 /// A [`SystemWithAccess`] stored in a [`ScheduleGraph`].
 pub struct SystemNode {
     inner: Option<SystemWithAccess>,
@@ -752,11 +730,31 @@ new_key_type! {
     pub struct SystemSetKey;
 }
 
+/// A node in a [`ScheduleGraph`] with a system or conditions that have not been
+/// initialized yet.
+///
+/// We have to defer initialization of nodes in the graph until we have
+/// `&mut World` access, so we store these in a list ([`ScheduleGraph::uninit`])
+/// until then. In most cases, initialization occurs upon the first run of the
+/// schedule.
 enum UninitializedId {
+    /// A system and its conditions that have not been initialized yet.
     System(SystemKey),
+    /// A system set's conditions that have not been initialized yet.
     Set {
         key: SystemSetKey,
-        first_uninit_condition: usize,
+        /// The range of indices in [`SystemSets::conditions`] that correspond
+        /// to conditions that have not been initialized yet.
+        ///
+        /// [`SystemSets::conditions`] for a given set may be appended to
+        /// multiple times (e.g. when `configure_sets` is called multiple with
+        /// the same set), so we need to track which conditions in that list
+        /// are newly added and not yet initialized.
+        ///
+        /// Systems don't need this tracking because each `add_systems` call
+        /// creates separate nodes in the graph with their own conditions,
+        /// so all conditions are initialized together.
+        uninitialized_conditions: Range<usize>,
     },
 }
 
@@ -764,7 +762,7 @@ enum UninitializedId {
 #[derive(Default)]
 struct SystemSets {
     /// List of system sets in the schedule
-    sets: SlotMap<SystemSetKey, SystemSetNode>,
+    sets: SlotMap<SystemSetKey, InternedSystemSet>,
     /// List of conditions for each system set, in the same order as `system_sets`
     conditions: SecondaryMap<SystemSetKey, Vec<ConditionWithAccess>>,
     /// Map from system set to node id
@@ -774,7 +772,7 @@ struct SystemSets {
 impl SystemSets {
     fn get_or_add_set(&mut self, set: InternedSystemSet) -> SystemSetKey {
         *self.ids.entry(set).or_insert_with(|| {
-            let key = self.sets.insert(SystemSetNode::new(set));
+            let key = self.sets.insert(set);
             self.conditions.insert(key, Vec::new());
             key
         })
@@ -793,8 +791,8 @@ pub struct ScheduleGraph {
     pub system_conditions: SecondaryMap<SystemKey, Vec<ConditionWithAccess>>,
     /// Data about system sets in the schedule
     system_sets: SystemSets,
-    /// Systems that have not been initialized yet; for system sets, we store the index of the first uninitialized condition
-    /// (all the conditions after that index still need to be initialized)
+    /// Systems, their conditions, and system set conditions that need to be
+    /// initialized before the schedule can be run.
     uninit: Vec<UninitializedId>,
     /// Directed acyclic graph of the hierarchy (which systems/sets are children of which sets)
     hierarchy: Dag,
@@ -807,7 +805,6 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-
     passes: BTreeMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
 }
 
@@ -855,7 +852,7 @@ impl ScheduleGraph {
 
     /// Returns the set at the given [`NodeId`], if it exists.
     pub fn get_set_at(&self, key: SystemSetKey) -> Option<&dyn SystemSet> {
-        self.system_sets.sets.get(key).map(|set| &*set.inner)
+        self.system_sets.sets.get(key).map(|set| &**set)
     }
 
     /// Returns the set at the given [`NodeId`].
@@ -897,10 +894,9 @@ impl ScheduleGraph {
     pub fn system_sets(
         &self,
     ) -> impl Iterator<Item = (SystemSetKey, &dyn SystemSet, &[ConditionWithAccess])> {
-        self.system_sets.sets.iter().filter_map(|(key, set_node)| {
-            let set = &*set_node.inner;
+        self.system_sets.sets.iter().filter_map(|(key, set)| {
             let conditions = self.system_sets.conditions.get(key)?.as_slice();
-            Some((key, set, conditions))
+            Some((key, &**set, conditions))
         })
     }
 
@@ -1101,9 +1097,10 @@ impl ScheduleGraph {
 
         // system init has to be deferred (need `&mut World`)
         let system_set_conditions = self.system_sets.conditions.entry(key).unwrap().or_default();
+        let start = system_set_conditions.len();
         self.uninit.push(UninitializedId::Set {
             key,
-            first_uninit_condition: system_set_conditions.len(),
+            uninitialized_conditions: start..(start + conditions.len()),
         });
         system_set_conditions.extend(conditions.into_iter().map(ConditionWithAccess::new));
 
@@ -1189,11 +1186,9 @@ impl ScheduleGraph {
                 }
                 UninitializedId::Set {
                     key,
-                    first_uninit_condition,
+                    uninitialized_conditions,
                 } => {
-                    for condition in self.system_sets.conditions[key]
-                        .iter_mut()
-                        .skip(first_uninit_condition)
+                    for condition in &mut self.system_sets.conditions[key][uninitialized_conditions]
                     {
                         condition.access = condition.condition.initialize(world);
                     }
@@ -1685,7 +1680,7 @@ impl ScheduleGraph {
                 if set.is_anonymous() {
                     self.anonymous_set_name(id)
                 } else {
-                    set.name()
+                    format!("{set:?}")
                 }
             }
         }
@@ -1908,7 +1903,7 @@ impl ScheduleGraph {
     ) -> Result<(), ScheduleBuildError> {
         for (&key, systems) in set_systems {
             let set = &self.system_sets.sets[key];
-            if set.is_system_type() {
+            if set.system_type().is_some() {
                 let instances = systems.len();
                 let ambiguous_with = self.ambiguous_with.edges(NodeId::Set(key));
                 let before = self
@@ -2014,7 +2009,7 @@ impl ScheduleGraph {
     fn names_of_sets_containing_node(&self, id: &NodeId) -> Vec<String> {
         let mut sets = <HashSet<_>>::default();
         self.traverse_sets_containing_node(*id, &mut |key| {
-            !self.system_sets.sets[key].is_system_type() && sets.insert(key)
+            self.system_sets.sets[key].system_type().is_none() && sets.insert(key)
         });
         let mut sets: Vec<_> = sets
             .into_iter()
