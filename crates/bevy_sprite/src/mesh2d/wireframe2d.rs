@@ -1,6 +1,6 @@
 use crate::{
-    DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances, SetMesh2dBindGroup,
-    SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
+    init_mesh_2d_pipeline, DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
@@ -129,7 +129,10 @@ impl Plugin for Wireframe2dPlugin {
                     Node2d::PostProcessing,
                 ),
             )
-            .add_systems(RenderStartup, init_wireframe_2d_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_wireframe_2d_pipeline.after(init_mesh_2d_pipeline),
+            )
             .add_systems(
                 ExtractSchedule,
                 (
