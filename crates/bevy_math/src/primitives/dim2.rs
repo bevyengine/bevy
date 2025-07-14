@@ -2349,15 +2349,15 @@ mod tests {
                 let closest = segment.closest_point(*point);
                 assert!(
                     point.distance_squared(closest) <= point.distance_squared(segment.point1()),
-                    "Closest point must always at be least as close as either vertex."
+                    "Closest point must always be at least as close as either vertex."
                 );
                 assert!(
                     point.distance_squared(closest) <= point.distance_squared(segment.point2()),
-                    "Closest point must always at be least as close as either vertex."
+                    "Closest point must always be at least as close as either vertex."
                 );
                 assert!(
                     point.distance_squared(closest) <= point.distance_squared(segment.center()),
-                    "Closest point must always at be least as close as the center."
+                    "Closest point must always be at least as close as the center."
                 );
                 let closest_to_closest = segment.closest_point(closest);
                 // Closest point must already be on the segment
