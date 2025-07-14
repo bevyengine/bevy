@@ -4361,6 +4361,17 @@ inherits = "release"
 lto = "fat"
 panic = "abort"
 
+# NOTE: This is a temporary workaround for macOS tahoe, and xcode 16.4+. 
+# Some requirement for FFI has changed, and macOS crashes because of a 
+# sign mismatch ("expected return to have type code 'q', but found 'Q'")
+# This workaround disables the problematic check entirely.
+# objc2 0.6+ has a better workaround that only disables sign conversion
+# checks, see https://github.com/madsmtm/objc2/issues/765#issuecomment-2996136843,
+# and new winit versions are enabling this by default: https://github.com/madsmtm/objc2/issues/765.
+# When that has landed and Bevy has updated to a new winit version this workaround should be removed.
+[profile.dev.package.objc2]
+debug-assertions = false
+
 [package.metadata.docs.rs]
 # This cfg is needed so that #[doc(fake_variadic)] is correctly propagated for
 # impls for re-exported traits. See https://github.com/rust-lang/cargo/issues/8811
