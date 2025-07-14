@@ -574,11 +574,6 @@ web = ["bevy_internal/web"]
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
 
-# Enable converting glTF coordinates to Bevy's coordinate system by default. This will be Bevy's default behavior starting in 0.18.
-gltf_convert_coordinates_default = [
-  "bevy_internal/gltf_convert_coordinates_default",
-]
-
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
 
