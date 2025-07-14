@@ -36,7 +36,7 @@ but cameras and lights loaded from glTFs use the following coordinate system:
 
 As you can see, this clashes with how Bevy assumes that everything in the world uses the same coordinate system.
 In the past, we have imported glTFs using the camera / light coordinate system for everything, as it is already aligned with Bevy.
-In other words, the glTF imported simply assumed that models used -Z as their forward direction, even though they use +Z.
+In other words, the glTF imported simply assumed that glTF models used -Z as their forward direction, even though they use +Z.
 
 But that meant that a glTF model's `Transform::forward()` would actually point backwards from the point of view of the glTF model,
 which is counterintuitive and very annoying when working across different art pipelines.
