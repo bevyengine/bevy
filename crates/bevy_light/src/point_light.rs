@@ -10,7 +10,7 @@ use bevy_math::Mat4;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use crate::{GlobalVisibleClusterableObjects, LightVisibilityClass};
+use crate::cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects};
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -44,7 +44,7 @@ use crate::{GlobalVisibleClusterableObjects, LightVisibilityClass};
     Visibility,
     VisibilityClass
 )]
-#[component(on_add = visibility::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct PointLight {
     /// The color of this light source.
     pub color: Color,
@@ -166,7 +166,7 @@ pub struct PointLightTexture {
 ///
 /// ```
 /// # use bevy_app::prelude::*;
-/// # use bevy_pbr::PointLightShadowMap;
+/// # use bevy_light::PointLightShadowMap;
 /// App::new()
 ///     .insert_resource(PointLightShadowMap { size: 2048 });
 /// ```

@@ -1865,7 +1865,7 @@ mod tests {
         app.update();
 
         // Sending one event
-        app.world_mut().send_event(TestEvent);
+        app.world_mut().write_event(TestEvent);
 
         let test_events = app.world().resource::<Events<TestEvent>>();
         assert_eq!(test_events.len(), 1);
@@ -1873,8 +1873,8 @@ mod tests {
         app.update();
 
         // Sending two events on the next frame
-        app.world_mut().send_event(TestEvent);
-        app.world_mut().send_event(TestEvent);
+        app.world_mut().write_event(TestEvent);
+        app.world_mut().write_event(TestEvent);
 
         let test_events = app.world().resource::<Events<TestEvent>>();
         assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3

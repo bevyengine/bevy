@@ -20,13 +20,9 @@ use tracing::warn;
 
 use super::{
     ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings,
-    GlobalVisibleClusterableObjects, ViewClusterBindings, VisibleClusterableObjects,
-    MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
+    GlobalVisibleClusterableObjects, VisibleClusterableObjects,
 };
-use crate::{
-    prelude::EnvironmentMapLight, ExtractedPointLight, LightProbe, PointLight, SpotLight,
-    VolumetricLight,
-};
+use crate::{EnvironmentMapLight, LightProbe, PointLight, SpotLight, VolumetricLight};
 
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
 const NDC_MAX: Vec2 = Vec2::ONE;
@@ -58,7 +54,7 @@ impl ClusterableObjectAssignmentData {
 /// Data needed to assign objects to clusters that's specific to the type of
 /// clusterable object.
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum ClusterableObjectType {
+pub enum ClusterableObjectType {
     /// Data needed to assign point lights to clusters.
     PointLight {
         /// Whether shadows are enabled for this point light.
@@ -106,7 +102,7 @@ impl ClusterableObjectType {
     /// Generally, we sort first by type, then, for lights, by whether shadows
     /// are enabled (enabled before disabled), and then whether volumetrics are
     /// enabled (enabled before disabled).
-    pub(crate) fn ordering(&self) -> (u8, bool, bool) {
+    pub fn ordering(&self) -> (u8, bool, bool) {
         match *self {
             ClusterableObjectType::PointLight {
                 shadows_enabled,
@@ -120,23 +116,6 @@ impl ClusterableObjectType {
             ClusterableObjectType::ReflectionProbe => (2, false, false),
             ClusterableObjectType::IrradianceVolume => (3, false, false),
             ClusterableObjectType::Decal => (4, false, false),
-        }
-    }
-
-    /// Creates the [`ClusterableObjectType`] data for a point or spot light.
-    pub(crate) fn from_point_or_spot_light(
-        point_light: &ExtractedPointLight,
-    ) -> ClusterableObjectType {
-        match point_light.spot_light_angles {
-            Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
-                outer_angle,
-                shadows_enabled: point_light.shadows_enabled,
-                volumetric: point_light.volumetric,
-            },
-            None => ClusterableObjectType::PointLight {
-                shadows_enabled: point_light.shadows_enabled,
-                volumetric: point_light.volumetric,
-            },
         }
     }
 }
@@ -263,7 +242,7 @@ pub(crate) fn assign_objects_to_clusters(
         }));
     }
 
-    if clusterable_objects.len() > MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
+    if clusterable_objects.len() > global_cluster_settings.max_uniform_buffer_clusterable_objects
         && !global_cluster_settings.supports_storage_buffers
     {
         clusterable_objects.sort_by_cached_key(|clusterable_object| {
@@ -282,7 +261,9 @@ pub(crate) fn assign_objects_to_clusters(
         let mut clusterable_objects_in_view_count = 0;
         clusterable_objects.retain(|clusterable_object| {
             // take one extra clusterable object to check if we should emit the warning
-            if clusterable_objects_in_view_count == MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS + 1 {
+            if clusterable_objects_in_view_count
+                == global_cluster_settings.max_uniform_buffer_clusterable_objects + 1
+            {
                 false
             } else {
                 let clusterable_object_sphere = clusterable_object.sphere();
@@ -298,17 +279,19 @@ pub(crate) fn assign_objects_to_clusters(
             }
         });
 
-        if clusterable_objects.len() > MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
+        if clusterable_objects.len()
+            > global_cluster_settings.max_uniform_buffer_clusterable_objects
             && !*max_clusterable_objects_warning_emitted
         {
             warn!(
-                "MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS ({}) exceeded",
-                MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
+                "max_uniform_buffer_clusterable_objects ({}) exceeded",
+                global_cluster_settings.max_uniform_buffer_clusterable_objects
             );
             *max_clusterable_objects_warning_emitted = true;
         }
 
-        clusterable_objects.truncate(MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS);
+        clusterable_objects
+            .truncate(global_cluster_settings.max_uniform_buffer_clusterable_objects);
     }
 
     for (
@@ -448,14 +431,17 @@ pub(crate) fn assign_objects_to_clusters(
                     (xy_count.x + x_overlap) * (xy_count.y + y_overlap) * z_count as f32;
             }
 
-            if cluster_index_estimate > ViewClusterBindings::MAX_INDICES as f32 {
+            if cluster_index_estimate
+                > global_cluster_settings.view_cluster_bindings_max_indices as f32
+            {
                 // scale x and y cluster count to be able to fit all our indices
 
                 // we take the ratio of the actual indices over the index estimate.
                 // this is not guaranteed to be small enough due to overlapped tiles, but
                 // the conservative estimate is more than sufficient to cover the
                 // difference
-                let index_ratio = ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate;
+                let index_ratio = global_cluster_settings.view_cluster_bindings_max_indices as f32
+                    / cluster_index_estimate;
                 let xy_ratio = index_ratio.sqrt();
 
                 requested_cluster_dimensions.x =

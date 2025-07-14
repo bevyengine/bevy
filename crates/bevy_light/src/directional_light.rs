@@ -10,7 +10,9 @@ use bevy_image::Image;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 
-use crate::{cascade::CascadeShadowConfig, light_consts, Cascades, LightVisibilityClass};
+use super::{
+    cascade::CascadeShadowConfig, cluster::ClusterVisibilityClass, light_consts, Cascades,
+};
 
 /// A Directional light.
 ///
@@ -63,7 +65,7 @@ use crate::{cascade::CascadeShadowConfig, light_consts, Cascades, LightVisibilit
     Visibility,
     VisibilityClass
 )]
-#[component(on_add = visibility::add_visibility_class::<LightVisibilityClass>)]
+#[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct DirectionalLight {
     /// The color of the light.
     ///
@@ -171,7 +173,7 @@ pub struct DirectionalLightTexture {
 ///
 /// ```
 /// # use bevy_app::prelude::*;
-/// # use bevy_pbr::DirectionalLightShadowMap;
+/// # use bevy_light::DirectionalLightShadowMap;
 /// App::new()
 ///     .insert_resource(DirectionalLightShadowMap { size: 4096 });
 /// ```

@@ -2,6 +2,7 @@ use core::num::NonZero;
 
 use bevy_camera::Camera;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_light::cluster::{ClusterableObjectCounts, Clusters, GlobalClusterSettings};
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
     render_resource::{
@@ -13,7 +14,7 @@ use bevy_render::{
 };
 use tracing::warn;
 
-use crate::{cluster::ClusterableObjectCounts, Clusters, GlobalClusterSettings, MeshPipeline};
+use crate::MeshPipeline;
 
 // NOTE: this must be kept in sync with the same constants in
 // `mesh_view_types.wgsl`.
@@ -46,6 +47,8 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
     GlobalClusterSettings {
         supports_storage_buffers,
         clustered_decals_are_usable,
+        max_uniform_buffer_clusterable_objects: MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
+        view_cluster_bindings_max_indices: ViewClusterBindings::MAX_INDICES,
     }
 }
 

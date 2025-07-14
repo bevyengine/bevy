@@ -229,12 +229,19 @@ pub fn trigger_targets(
     }
 }
 
-/// A [`Command`] that sends an arbitrary [`BufferedEvent`].
+/// A [`Command`] that writes an arbitrary [`BufferedEvent`].
 #[track_caller]
-pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
+pub fn write_event<E: BufferedEvent>(event: E) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
         let mut events = world.resource_mut::<Events<E>>();
-        events.send_with_caller(event, caller);
+        events.write_with_caller(event, caller);
     }
+}
+
+/// A [`Command`] that writes an arbitrary [`BufferedEvent`].
+#[track_caller]
+#[deprecated(since = "0.17.0", note = "Use `write_event` instead.")]
+pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
+    write_event(event)
 }

@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
@@ -10,29 +12,36 @@ use bevy_camera::{
 };
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::Vec3A;
+use bevy_mesh::Mesh3d;
 use bevy_reflect::prelude::*;
-use bevy_render::{extract_component::ExtractComponent, mesh::Mesh3d};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
 use core::ops::DerefMut;
 
-pub use crate::light::spot_light::{spot_light_clip_from_view, spot_light_world_from_view};
-use crate::{
-    add_clusters, assign_objects_to_clusters,
-    cascade::{build_directional_light_cascades, clear_directional_light_cascades},
-    CascadeShadowConfig, Cascades, VisibleClusterableObjects,
+pub mod cluster;
+pub use cluster::ClusteredDecal;
+use cluster::{
+    add_clusters, assign::assign_objects_to_clusters, ClusterConfig,
+    GlobalVisibleClusterableObjects, VisibleClusterableObjects,
 };
-
 mod ambient_light;
 pub use ambient_light::AmbientLight;
-
+mod probe;
+pub use probe::{EnvironmentMapLight, IrradianceVolume, LightProbe};
+mod volumetric;
+pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
 pub mod cascade;
+use cascade::{build_directional_light_cascades, clear_directional_light_cascades};
+pub use cascade::{CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades};
 mod point_light;
 pub use point_light::{
     update_point_light_frusta, PointLight, PointLightShadowMap, PointLightTexture,
 };
 mod spot_light;
-pub use spot_light::{update_spot_light_frusta, SpotLight, SpotLightTexture};
+pub use spot_light::{
+    spot_light_clip_from_view, spot_light_world_from_view, update_spot_light_frusta, SpotLight,
+    SpotLightTexture,
+};
 mod directional_light;
 pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
@@ -110,9 +119,16 @@ impl Plugin for LightPlugin {
             .register_type::<NotShadowCaster>()
             .register_type::<NotShadowReceiver>()
             .register_type::<PointLight>()
+            .register_type::<LightProbe>()
+            .register_type::<EnvironmentMapLight>()
+            .register_type::<IrradianceVolume>()
+            .register_type::<VolumetricFog>()
+            .register_type::<VolumetricLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
             .register_type::<ShadowFilteringMethod>()
+            .register_type::<ClusterConfig>()
+            .init_resource::<GlobalVisibleClusterableObjects>()
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
@@ -181,7 +197,7 @@ impl Plugin for LightPlugin {
 }
 
 /// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
-/// With<DirectionalLight>)>`, for use with [`bevy_render::view::VisibleEntities`].
+/// With<DirectionalLight>)>`, for use with [`bevy_camera::visibility::VisibleEntities`].
 pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Add this component to make a [`Mesh3d`] not cast shadows.
@@ -196,10 +212,10 @@ pub struct NotShadowCaster;
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh3d`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// Add this component to make a [`Mesh3d`] using a PBR material with `StandardMaterial::diffuse_transmission > 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
-/// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
+/// Not enabled by default, as it requires carefully setting up `StandardMaterial::thickness`
 /// (and potentially even baking a thickness texture!) to match the geometry of the mesh, in order to avoid self-shadow artifacts.
 ///
 /// **Note:** Using [`NotShadowReceiver`] overrides this component.
@@ -207,12 +223,12 @@ pub struct NotShadowReceiver;
 #[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 
-/// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
+/// Add this component to a [`Camera3d`](bevy_camera::Camera3d)
 /// to control how to anti-alias shadow edges.
 ///
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
-#[derive(Debug, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Component, Reflect, Clone, Copy, PartialEq, Eq, Default)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub enum ShadowFilteringMethod {
     /// Hardware 2x2.
@@ -242,11 +258,6 @@ pub enum ShadowFilteringMethod {
     /// [method by Jorge Jimenez for *Call of Duty: Advanced Warfare*]: https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
     Temporal,
 }
-
-/// The [`VisibilityClass`] used for all lights (point, directional, and spot).
-///
-/// [`VisibilityClass`]: bevy_camera::visibility::VisibilityClass
-pub struct LightVisibilityClass;
 
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
