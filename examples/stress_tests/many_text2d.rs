@@ -140,6 +140,7 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                     translation,
                     rotation,
                     scale,
+                    ..default()
                 },
             ));
         }

@@ -1,4 +1,4 @@
-//! Shows multiple transformations of objects.
+//! Shows the difference between Transform camera forward and model forward.
 
 use std::f32::consts::PI;
 
@@ -6,7 +6,7 @@ use bevy::{color::palettes::basic::YELLOW, prelude::*};
 
 // A struct for additional data of for a moving cube.
 #[derive(Component)]
-struct CubeState {
+struct OrbitState {
     start_pos: Vec3,
     move_speed: f32,
     turn_speed: f32,
@@ -28,8 +28,8 @@ fn main() {
         .add_systems(
             Update,
             (
-                move_cube,
-                rotate_cube,
+                move_orbiters,
+                rotate_orbiters,
                 scale_down_sphere_proportional_to_cube_travel_distance,
             )
                 .chain(),
@@ -37,11 +37,15 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
+struct Helmet;
+
 // Startup system to setup the scene and spawn all relevant entities.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // Add an object (sphere) for visualizing scaling.
     commands.spawn((
@@ -66,7 +70,7 @@ fn setup(
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::WHITE)),
         cube_spawn,
-        CubeState {
+        OrbitState {
             start_pos: cube_spawn.translation,
             move_speed: 2.0,
             turn_speed: 0.2,
@@ -84,22 +88,47 @@ fn setup(
         DirectionalLight::default(),
         Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+
+    // Add the helmet to visualize rotation and translation using the glTF model forward convention of +z.
+    // This helmet will circle around the center_sphere
+    // by changing its rotation each frame and moving forward along the model_forward direction.
+    // Define a start transform for an orbiting helmet, that's away from our central object (sphere)
+    // and rotate it so it will be able to move around the sphere and not towards it.
+    // Note that it orbits in the opposite direction to the cube due to the model_forward directions being
+    // flipped.
+    let mut helmet_spawn = Transform::from_translation(Vec3::Z * -10.0)
+        .with_rotation(Quat::from_rotation_y(PI / 2.))
+        .with_scale(Vec3::splat(2.0));
+    helmet_spawn.flip_model_forward = true;
+    commands.spawn((
+        helmet_spawn,
+        Visibility::default(),
+        OrbitState {
+            start_pos: helmet_spawn.translation,
+            move_speed: 2.0,
+            turn_speed: 0.2,
+        },
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+    ));
 }
 
-// This system will move the cube forward.
-fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time>) {
-    for (mut transform, cube) in &mut cubes {
-        // Move the cube forward smoothly at a given move_speed.
+// This system will move the orbiter forward.
+fn move_orbiters(mut orbiters: Query<(&mut Transform, &mut OrbitState)>, timer: Res<Time>) {
+    for (mut transform, orbiter) in &mut orbiters {
+        // Move the orbiter forward smoothly at a given move_speed.
         let forward = transform.model_forward();
-        transform.translation += forward * cube.move_speed * timer.delta_secs();
+        transform.translation += forward * orbiter.move_speed * timer.delta_secs();
     }
 }
 
-// This system will rotate the cube slightly towards the center_sphere.
+// This system will rotate the orbiter slightly towards the center_sphere.
 // Due to the forward movement the resulting movement
 // will be a circular motion around the center_sphere.
-fn rotate_cube(
-    mut cubes: Query<(&mut Transform, &mut CubeState), Without<Center>>,
+fn rotate_orbiters(
+    mut orbiters: Query<(&mut Transform, &mut OrbitState), Without<Center>>,
     center_spheres: Query<&Transform, With<Center>>,
     timer: Res<Time>,
 ) {
@@ -108,14 +137,14 @@ fn rotate_cube(
     for sphere in &center_spheres {
         center += sphere.translation;
     }
-    // Update the rotation of the cube(s).
-    for (mut transform, cube) in &mut cubes {
-        // Calculate the rotation of the cube if it would be looking at the sphere in the center.
+    // Update the rotation of the orbiter(s).
+    for (mut transform, orbiter) in &mut orbiters {
+        // Calculate the rotation of the orbiter if it would be looking at the sphere in the center.
         let look_at_sphere = transform.looking_at(center, *transform.local_y());
         // Interpolate between the current rotation and the fully turned rotation
         // when looking at the sphere, with a given turn speed to get a smooth motion.
         // With higher speed the curvature of the orbit would be smaller.
-        let incremental_turn_weight = cube.turn_speed * timer.delta_secs();
+        let incremental_turn_weight = orbiter.turn_speed * timer.delta_secs();
         let old_rotation = transform.rotation;
         transform.rotation = old_rotation.lerp(look_at_sphere.rotation, incremental_turn_weight);
     }
@@ -124,7 +153,7 @@ fn rotate_cube(
 // This system will scale down the sphere in the center of the scene
 // according to the traveling distance of the orbiting cube(s) from their start position(s).
 fn scale_down_sphere_proportional_to_cube_travel_distance(
-    cubes: Query<(&Transform, &CubeState), Without<Center>>,
+    cubes: Query<(&Transform, &OrbitState), Without<Center>>,
     mut centers: Query<(&mut Transform, &Center)>,
 ) {
     // First we need to calculate the length of between

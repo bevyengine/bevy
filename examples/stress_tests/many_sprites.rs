@@ -96,6 +96,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
                     translation,
                     rotation,
                     scale,
+                    ..default()
                 },
             ));
         }

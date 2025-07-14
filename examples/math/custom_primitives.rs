@@ -31,6 +31,7 @@ const TRANSFORM_2D: Transform = Transform {
     translation: Vec3::ZERO,
     rotation: Quat::IDENTITY,
     scale: Vec3::ONE,
+    flip_model_forward: false,
 };
 // The projection used for the camera in 2D
 const PROJECTION_2D: Projection = Projection::Orthographic(OrthographicProjection {
@@ -54,6 +55,7 @@ const TRANSFORM_3D: Transform = Transform {
     // The camera is pointing at the 3D shape
     rotation: Quat::from_xyzw(-0.14521316, -0.0, -0.0, 0.98940045),
     scale: Vec3::ONE,
+    flip_model_forward: false,
 };
 // The projection used for the camera in 3D
 const PROJECTION_3D: Projection = Projection::Perspective(PerspectiveProjection {

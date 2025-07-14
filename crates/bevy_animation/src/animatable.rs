@@ -136,6 +136,7 @@ impl Animatable for Transform {
             translation: Vec3::interpolate(&a.translation, &b.translation, t),
             rotation: Quat::interpolate(&a.rotation, &b.rotation, t),
             scale: Vec3::interpolate(&a.scale, &b.scale, t),
+            flip_model_forward: a.flip_model_forward,
         }
     }
 
@@ -143,8 +144,12 @@ impl Animatable for Transform {
         let mut translation = Vec3A::ZERO;
         let mut scale = Vec3A::ZERO;
         let mut rotation = Quat::IDENTITY;
+        let mut flip_model_forward = None;
 
         for input in inputs {
+            if flip_model_forward.is_none() {
+                flip_model_forward = Some(input.value.flip_model_forward);
+            }
             if input.additive {
                 translation += input.weight * Vec3A::from(input.value.translation);
                 scale += input.weight * Vec3A::from(input.value.scale);
@@ -165,6 +170,7 @@ impl Animatable for Transform {
             translation: Vec3::from(translation),
             rotation,
             scale: Vec3::from(scale),
+            flip_model_forward: flip_model_forward.unwrap_or_default(),
         }
     }
 }

@@ -143,6 +143,7 @@ fn random_transform(rng: &mut impl Rng) -> Transform {
         translation: random_translation(rng),
         rotation: random_rotation(rng),
         scale: random_scale(rng),
+        ..default()
     }
 }
 
@@ -216,5 +217,6 @@ fn interpolate_transforms(t1: Transform, t2: Transform, t: f32) -> Transform {
         translation,
         rotation,
         scale,
+        flip_model_forward: t1.flip_model_forward,
     }
 }

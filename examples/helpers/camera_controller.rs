@@ -216,7 +216,7 @@ fn run_camera_controller(
 
     // Apply movement update
     if controller.velocity != Vec3::ZERO {
-        let forward = *transform.forward();
+        let forward = *transform.camera_forward();
         let right = *transform.right();
         transform.translation += controller.velocity.x * dt * right
             + controller.velocity.y * dt * Vec3::Y

@@ -136,6 +136,7 @@ impl GlobalTransform {
             translation,
             rotation,
             scale,
+            ..Default::default()
         }
     }
 
@@ -193,6 +194,7 @@ impl GlobalTransform {
             translation,
             rotation,
             scale,
+            ..Default::default()
         }
     }
 
@@ -367,11 +369,13 @@ mod test {
             translation: Vec3::new(1034.0, 34.0, -1324.34),
             rotation: Quat::from_euler(XYZ, 1.0, 0.9, 2.1),
             scale: Vec3::new(1.0, 1.0, 1.0),
+            ..Default::default()
         });
         let t2 = GlobalTransform::from(Transform {
             translation: Vec3::new(0.0, -54.493, 324.34),
             rotation: Quat::from_euler(XYZ, 1.9, 0.3, 3.0),
             scale: Vec3::new(1.345, 1.345, 1.345),
+            ..Default::default()
         });
         let retransformed = reparent_to_same(t1, t2);
         assert!(
@@ -387,11 +391,13 @@ mod test {
             translation: Vec3::new(1034.0, 34.0, -1324.34),
             rotation: Quat::from_euler(XYZ, 0.8, 1.9, 2.1),
             scale: Vec3::new(10.9, 10.9, 10.9),
+            ..Default::default()
         });
         let t2 = GlobalTransform::from(Transform {
             translation: Vec3::new(28.0, -54.493, 324.34),
             rotation: Quat::from_euler(XYZ, 0.0, 3.1, 0.1),
             scale: Vec3::new(0.9, 0.9, 0.9),
+            ..Default::default()
         });
         // goal: find `X` such as `t2 * X = t1`
         let reparented = t1.reparented_to(&t2);

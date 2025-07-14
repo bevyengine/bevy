@@ -139,7 +139,7 @@ fn setup_color_gradient_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += *transform.forward();
+    transform.translation += *transform.camera_forward();
 
     commands.spawn((
         Mesh3d(meshes.add(Rectangle::new(0.7, 0.7))),
@@ -157,7 +157,7 @@ fn setup_image_viewer_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += *transform.forward();
+    transform.translation += *transform.camera_forward();
 
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((

@@ -3279,6 +3279,17 @@ category = "Transforms"
 wasm = true
 
 [[example]]
+name = "model_forward"
+path = "examples/transforms/model_forward.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.model_forward]
+name = "model_forward"
+description = "Illustrates when to use camera_forward vs model_forward, and different cases for model_forward"
+category = "Transforms"
+wasm = true
+
+[[example]]
 name = "scale"
 path = "examples/transforms/scale.rs"
 doc-scrape-examples = true

@@ -87,7 +87,7 @@ fn touch_camera(
     }
     // Rotation gestures only work on iOS
     for rotation in rotations.read() {
-        let forward = camera_transform.forward();
+        let forward = camera_transform.camera_forward();
         camera_transform.rotate_axis(forward, rotation.0 / 10.0);
     }
 }
