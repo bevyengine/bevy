@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let mut rng = ChaCha8Rng::seed_from_u64(42);
 
     let chunk_size = UVec2::splat(64);
-    let tile_display_size = UVec2::splat(16);
+    let tile_display_size = UVec2::splat(8);
     let tile_data: Vec<Option<TileData>> = (0..chunk_size.element_product())
         .map(|_| rng.gen_range(0..5))
         .map(|i| {
