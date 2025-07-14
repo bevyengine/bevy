@@ -249,9 +249,9 @@ fn rotate_camera(
     let delta = accumulated_mouse_motion.delta;
 
     if delta != Vec2::ZERO {
-        // Note that we are not multiplying by delta_time here.
+        // Note that we are not multiplying by delta time here.
         // The reason is that for mouse movement, we already get the full movement that happened since the last frame.
-        // This means that if we multiply by delta_time, we will get a smaller rotation than intended by the user.
+        // This means that if we multiply by delta time, we will get a smaller rotation than intended by the user.
         let delta_yaw = -delta.x * camera_sensitivity.x;
         let delta_pitch = -delta.y * camera_sensitivity.y;
 
