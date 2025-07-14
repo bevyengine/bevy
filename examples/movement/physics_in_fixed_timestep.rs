@@ -54,7 +54,8 @@
 //! If we decide to use a fixed timestep, our game logic should mostly go in the `FixedUpdate` schedule.
 //! One notable exception is the camera. Cameras should update as often as possible, or the player will very quickly
 //! notice choppy movement if it's only updated at the same rate as the physics simulation. So, we use a variable timestep for the camera,
-//! updating its transform every frame. The question now is which schedule to use. That depends on whether the physics simulation requires
+//! updating its transform every frame. The question now is which schedule to use. That depends on whether the camera data is required
+//! for the physics simulation to run or not. For example, in 3D games, the camera rotation often determines which direction the player moves when pressing "W",
 //! the camera data to run or not. For example, in 3D games, the camera rotation often determines which direction the player moves when pressing "W",
 //! so we need to rotate the camera *before* the fixed timestep. In contrast, the translation of the camera depends on what the physics simulation
 //! has calculated for the player's position. Therefore, we need to update the camera's translation *after* the fixed timestep. Fortunately,
