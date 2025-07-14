@@ -1,11 +1,11 @@
-use core::f32::consts::PI;
+use std::f32::consts::PI;
 
 use bevy_math::{Mat4, Quat, Vec3};
 use bevy_transform::components::Transform;
 
 pub(crate) trait ConvertCoordinates {
-    /// Converts the glTF coordinates to Bevy's coordinate system.
-    /// - glTF:
+    /// Converts the glTF model coordinates to Bevy's coordinate system.
+    /// - glTF (models):
     ///   - forward: Z
     ///   - up: Y
     ///   - right: -X
@@ -16,16 +16,6 @@ pub(crate) trait ConvertCoordinates {
     ///
     /// See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units>
     fn convert_coordinates(self) -> Self;
-}
-
-pub(crate) trait ConvertCameraCoordinates {
-    /// Like `convert_coordinates`, but uses the following for the lens rotation:
-    /// - forward: -Z
-    /// - up: Y
-    /// - right: X
-    ///
-    /// See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix>
-    fn convert_camera_coordinates(self) -> Self;
 }
 
 impl ConvertCoordinates for Vec3 {
@@ -66,15 +56,7 @@ impl ConvertCoordinates for Mat4 {
 impl ConvertCoordinates for Transform {
     fn convert_coordinates(mut self) -> Self {
         self.translation = self.translation.convert_coordinates();
-        self.rotation = self.rotation.convert_coordinates();
-        self
-    }
-}
-
-impl ConvertCameraCoordinates for Transform {
-    fn convert_camera_coordinates(mut self) -> Self {
-        self.translation = self.translation.convert_coordinates();
-        self.rotate_y(PI);
+        self.rotation *= Quat::from_rotation_y(PI);
         self
     }
 }

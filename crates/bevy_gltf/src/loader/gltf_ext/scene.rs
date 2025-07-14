@@ -10,10 +10,7 @@ use itertools::Itertools;
 #[cfg(feature = "bevy_animation")]
 use bevy_platform::collections::{HashMap, HashSet};
 
-use crate::{
-    convert_coordinates::{ConvertCameraCoordinates as _, ConvertCoordinates as _},
-    GltfError,
-};
+use crate::{convert_coordinates::ConvertCoordinates as _, GltfError};
 
 pub(crate) fn node_name(node: &Node) -> Name {
     let name = node
@@ -44,12 +41,8 @@ pub(crate) fn node_transform(node: &Node, convert_coordinates: bool) -> Transfor
             scale: Vec3::from(scale),
         },
     };
-    if convert_coordinates {
-        if node.camera().is_some() {
-            transform.convert_camera_coordinates()
-        } else {
-            transform.convert_coordinates()
-        }
+    if convert_coordinates && node.camera().is_none() && node.light().is_none() {
+        transform.convert_coordinates()
     } else {
         transform
     }
