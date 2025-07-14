@@ -256,34 +256,22 @@ macro_rules! impl_specialization_key_tuple {
 // TODO: How to we fake_variadics this?
 all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 
-pub type SpecializerFn<T, S> =
-    fn(<S as Specializer<T>>::Key, &mut <T as Specializable>::Descriptor) -> Result<(), BevyError>;
-
 /// A cache for specializable resources. For a given key type the resulting
 /// resource will only be created if it is missing, retrieving it from the
 /// cache otherwise.
 pub struct SpecializedCache<T: Specializable, S: Specializer<T>> {
     specializer: S,
-    user_specializer: Option<SpecializerFn<T, S>>,
     base_descriptor: T::Descriptor,
     primary_cache: HashMap<S::Key, T::CachedId>,
     secondary_cache: HashMap<Canonical<S::Key>, T::CachedId>,
 }
 
 impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
-    /// Creates a new [`SpecializedCache`] from a [`Specializer`],
-    /// an optional "user specializer", and a base descriptor. The
-    /// user specializer is applied after the [`Specializer`], with
-    /// the same key.
+    /// Creates a new [`SpecializedCache`] from a [`Specializer`] and a base descriptor.
     #[inline]
-    pub fn new(
-        specializer: S,
-        user_specializer: Option<SpecializerFn<T, S>>,
-        base_descriptor: T::Descriptor,
-    ) -> Self {
+    pub fn new(specializer: S, base_descriptor: T::Descriptor) -> Self {
         Self {
             specializer,
-            user_specializer,
             base_descriptor,
             primary_cache: Default::default(),
             secondary_cache: Default::default(),
@@ -302,7 +290,6 @@ impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
             Entry::Occupied(entry) => Ok(entry.get().clone()),
             Entry::Vacant(entry) => Self::specialize_slow(
                 &self.specializer,
-                self.user_specializer,
                 self.base_descriptor.clone(),
                 pipeline_cache,
                 key,
@@ -315,7 +302,6 @@ impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
     #[cold]
     fn specialize_slow(
         specializer: &S,
-        user_specializer: Option<SpecializerFn<T, S>>,
         base_descriptor: T::Descriptor,
         pipeline_cache: &PipelineCache,
         key: S::Key,
@@ -324,10 +310,6 @@ impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
     ) -> Result<T::CachedId, BevyError> {
         let mut descriptor = base_descriptor.clone();
         let canonical_key = specializer.specialize(key.clone(), &mut descriptor)?;
-
-        if let Some(user_specializer) = user_specializer {
-            (user_specializer)(key, &mut descriptor)?;
-        }
 
         // if the whole key is canonical, the secondary cache isn't needed.
         if <S::Key as SpecializerKey>::IS_CANONICAL {
