@@ -1777,7 +1777,6 @@ mod tests {
         component::Component,
         entity_disabling::DefaultQueryFilters,
         prelude::*,
-        resource::IsResource,
         system::{QueryLens, RunSystemOnce},
         world::{FilteredEntityMut, FilteredEntityRef},
     };
@@ -2216,10 +2215,9 @@ mod tests {
         assert!(query.is_dense);
         assert_eq!(3, query.iter(&world).count());
 
-        let mut df = DefaultQueryFilters::empty();
-        df.register_disabling_component(world.register_component::<Sparse>());
+        let df = DefaultQueryFilters::from_world(&mut world);
         world.insert_resource(df);
-        world.register_disabling_component::<IsResource>();
+        world.register_disabling_component::<Sparse>();
 
         let mut query = QueryState::<()>::new(&mut world);
         // The query doesn't ask for sparse components, but the default filters adds
@@ -2227,10 +2225,9 @@ mod tests {
         assert!(!query.is_dense);
         assert_eq!(1, query.iter(&world).count());
 
-        let mut df = DefaultQueryFilters::empty();
-        df.register_disabling_component(world.register_component::<Table>());
+        let df = DefaultQueryFilters::from_world(&mut world);
         world.insert_resource(df);
-        world.register_disabling_component::<IsResource>();
+        world.register_disabling_component::<Table>();
 
         let mut query = QueryState::<()>::new(&mut world);
         // If the filter is instead a table components, the query can still be dense
