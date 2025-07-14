@@ -5,13 +5,25 @@ use core::time::Duration;
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
 ///
-/// Non repeating timers will stop tracking and stay in the finished state until reset.
-/// Repeating timers will only be in the finished state on each tick `duration` is reached or
+/// Note that in order to advance the timer [`tick`](Timer::tick) **MUST** be called.
+///
+/// # Timer modes
+///
+/// There are two timer modes ([`TimerMode`]):
+///
+/// - Non repeating timers will stop tracking and stay in the finished state until reset.
+/// - Repeating timers will only be in the finished state on each tick `duration` is reached or
 /// exceeded, and can still be reset at any given point.
 ///
-/// Paused timers will not have elapsed time increased.
+/// # Pausing timers
 ///
-/// Note that in order to advance the timer [`tick`](Timer::tick) **MUST** be called.
+/// You can pause a timer using [`Timer::pause`]. Paused timers will not have elapsed time increased.
+///
+/// # Elapsing multiple times a frame
+///
+/// Repeating timers might elapse multiple times per frame if the time is advanced by more than the timer duration.
+/// You can check how many times a timer elapsed each tick with [`Timer::times_finished_this_tick`].
+/// For non-repeating timers, this will always be 0 or 1.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(
