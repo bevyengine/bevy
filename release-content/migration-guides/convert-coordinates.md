@@ -4,34 +4,52 @@ authors: ["@janhohenheim"]
 pull_requests: [19633, 19685, 19816]
 ---
 
-glTF uses the following coordinate system:
+If you're loading a glTF, you will be greeted by the following deprecation warning:
 
-- forward: Z
-- up: Y
-- right: -X
+> Starting from Bevy 0.18, by default all imported glTF scenes will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system.
+> You are currently importing glTF scenes using the old behavior. Consider opting-in to the new import behavior by enabling the `gltf_convert_coordinates_default` feature.
+> If you encounter any issues please file a bug!
+> If you want to continue using the old behavior going forward (even when the default changes in 0.18), manually set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`.
+> See the migration guide for more details.
 
-and Bevy uses:
+As the warning says, this means that from now on, glTF scenes will be rotated by 180 degrees around the Y axis. To understand why this is desirable,
+we need to take a look at coordinate systems.
+
+Bevy uses the following coordinate system:
 
 - forward: -Z
 - up: Y
 - right: X
 
-This means that to correctly import glTFs into Bevy, vertex data should be rotated by 180 degrees around the Y axis.  
-For the longest time, Bevy has simply ignored this distinction. That caused issues when working across programs, as most software respects the
-glTF coordinate system when importing and exporting glTFs. Your scene might have looked correct in Blender, Maya, TrenchBroom, etc. but everything would be flipped when importing it into Bevy!
+Even though we never explicitly stated this anywhere, it was implicitly accepted that this coordinate system was used for all things that have a `Transform`,
+as indicated by e.g. `Transform::forward()` returning the local -Z direction. In contrast, glTF is a bit more complicated. Models loaded from glTF scenes use the following coordinate system:
 
-Long-term, we'd like to fix our glTF imports to use the correct coordinate system by default.
-But changing the import behavior would mean that *all* imported glTFs of *all* users would suddenly look different, breaking their scenes!
+- forward: Z
+- up: Y
+- right: -X
+
+but cameras and lights loaded from glTFs use the following coordinate system:
+
+- forward: -Z
+- up: Y
+- right: X
+
+As you can see, this clashes with how Bevy assumes that everything in the world uses the same coordinate system.
+In the past, we have imported glTFs using the camera / light coordinate system for everything, as it is already aligned with Bevy.
+In other words, the glTF imported simply assumed that models used -Z as their forward direction, even though they use +Z.
+
+But that meant that a glTF model's `Transform::forward()` would actually point backwards from the point of view of the glTF model,
+which is counterintuitive and very annoying when working across different art pipelines.
+
+To remedy this, we want to change the default glTF import behavior to instead load the scene so that the coordinate system of models is aligned with Bevy.
+In practice, this means rotating the scene as described above.
+The downside is that glTF cameras that have an identity transform in glTF will now look to +Z instead of -Z in Bevy. In practice, this should not be a problem,
+as the whole scene rotated anyways, so the end result on your screen will look the exact same.
+
+But changing the import behavior right now in one swoop would mean that *all* imported glTFs of *all* users would suddenly look different, breaking their scenes!
 Not to mention that any bugs in the conversion code would be incredibly frustating for users.
 
-This is why we are now gradually rolling out support for corrected glTF imports. You will now be greeted by the following warning when using the old behavior:
-
-> Starting from Bevy 0.18, by default all imported glTF models will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system.
-> You are currently importing glTF files using the old behavior. Consider opting-in to the new import behavior by enabling the `gltf_convert_coordinates_default` feature.
-> If you encounter any issues please file a bug!
-> If you want to continue using the old behavior going forward (even when the default changes in 0.18), manually set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`.
-> See the migration guide for more details.
-
+This is why we are now gradually rolling out support for corrected glTF imports.
 As the warning says, you can opt into the new behavior by enabling the `gltf_convert_coordinates_default` feature in your `Cargo.toml`:
 
 ```toml
@@ -79,10 +97,9 @@ let handle = asset_server.load_with_settings(
 );
 ```
 
-After opting into the new behavior, your scene will be oriented such that your modeling software's forward direction correctly corresponds to Bevy's forward direction.
+After opting into the new behavior, your scene will be oriented such that other software's model forward direction correctly corresponds to Bevy's forward direction.
 
-For example, Blender assumes -Y to be forward, so exporting the following model to glTF and loading it in Bevy with the new settings will ensure everything is
-oriented the right way across all programs in your pipeline:
+For example, Blender assumes -Y to be forward for models, so exporting the following model to glTF and loading it in Bevy with the new settings will ensure that the fox looks to -Z in Bevy:
 
 <!-- TODO: Add png from PR description -->
 ![Blender Coordinate System](blender-coords.png)
