@@ -11,8 +11,7 @@ use bevy_render::{
     view::ViewUniform,
 };
 use bevy_utils::default;
-use core::num::NonZero;
-use std::result::Result;
+use core::{num::NonZero, result::Result};
 
 #[derive(Resource)]
 pub struct AutoExposurePipeline {
