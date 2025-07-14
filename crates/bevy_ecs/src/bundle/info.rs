@@ -9,7 +9,8 @@ use crate::{
     bundle::{Bundle, DynamicBundle},
     change_detection::MaybeLocation,
     component::{
-        ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor, RequiredComponents, RequiredComponentsError, StorageType, Tick
+        ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
+        RequiredComponents, RequiredComponentsError, StorageType, Tick,
     },
     entity::Entity,
     query::DebugCheckedUnwrap as _,
@@ -451,7 +452,7 @@ impl Bundles {
     pub fn iter(&self) -> impl Iterator<Item = &BundleInfo> {
         self.bundle_infos.iter()
     }
-    
+
     /// Iterate over [`BundleInfo`] containing `component`, either explicitly or as required.
     pub fn iter_containing(&self, component: ComponentId) -> impl Iterator<Item = &BundleInfo> {
         self.components_in_bundles
@@ -623,7 +624,7 @@ impl Bundles {
             });
         *bundle_id
     }
-    
+
     /// Updates the required components of bundles that contain `requiree`.
     ///
     /// # Safety
