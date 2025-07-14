@@ -46,7 +46,7 @@ In practice, this means rotating the scene as described above.
 The downside is that glTF cameras that have an identity transform in glTF will now look to +Z instead of -Z in Bevy.
 This should not be a problem, as the whole scene rotated anyways, so the end result on your screen will look the exact same.
 
-But changing the import behavior right now in one swoop would mean that *all* imported glTFs of *all* users would suddenly look different, breaking their scenes!
+But changing the import behavior right now in one swoop would mean that *almost all* imported glTFs of users would suddenly look different, breaking their scenes!
 Not to mention that any bugs in the conversion code would be incredibly frustating for users.
 
 This is why we are now gradually rolling out support for corrected glTF imports.
