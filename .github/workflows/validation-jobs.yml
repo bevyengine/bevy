@@ -34,6 +34,7 @@ jobs:
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generted
           restore-keys: |
             ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-stable-aarch64-apple-ios-sim-
@@ -69,6 +70,7 @@ jobs:
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-aarch64-linux-android-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generted
           restore-keys: |
             ${{ runner.os }}-stable-aarch64-linux-android-${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-stable-aarch64-linux-android-
@@ -106,6 +108,7 @@ jobs:
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generted
           restore-keys: |
             ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-stable-wasm32-unknown-unknown-
@@ -189,6 +192,7 @@ jobs:
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generted
           restore-keys: |
             ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--
@@ -216,6 +220,7 @@ jobs:
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generted
           restore-keys: |
             ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
             ${{ runner.os }}-stable--
