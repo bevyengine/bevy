@@ -162,13 +162,13 @@ impl ViewNode for SolariLightingNode {
         pass.dispatch_workgroups(dx, dy, 1);
 
         pass.set_pipeline(di_spatial_and_shade_pipeline);
-        pass.dispatch_workgroups(dy, dy, 1);
+        pass.dispatch_workgroups(dx, dy, 1);
 
         pass.set_pipeline(gi_initial_and_temporal_pipeline);
-        pass.dispatch_workgroups(dy, dy, 1);
+        pass.dispatch_workgroups(dx, dy, 1);
 
         pass.set_pipeline(gi_spatial_and_shade_pipeline);
-        pass.dispatch_workgroups(dy, dy, 1);
+        pass.dispatch_workgroups(dx, dy, 1);
 
         pass_span.end(&mut pass);
         drop(pass);
