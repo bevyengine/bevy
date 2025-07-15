@@ -220,7 +220,7 @@ impl Timer {
         self.duration = duration;
     }
 
-    /// Finishes the timer
+    /// Finishes the timer.
     ///
     /// # Examples
     /// ```
