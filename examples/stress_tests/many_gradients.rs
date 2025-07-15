@@ -1,5 +1,5 @@
 //! Stress test demonstrating gradient performance improvements.
-//! 
+//!
 //! This example creates many UI nodes with gradients to measure the performance
 //! impact of pre-converting colors to the target color space on the CPU.
 
@@ -8,7 +8,10 @@ use bevy::{
     color::palettes::css::*,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    ui::{BackgroundGradient, LinearGradient, ColorStop, Gradient, RepeatedGridTrack, Display, InterpolationColorSpace},
+    ui::{
+        BackgroundGradient, ColorStop, Display, Gradient, InterpolationColorSpace, LinearGradient,
+        RepeatedGridTrack,
+    },
     window::{PresentMode, WindowResolution},
 };
 
@@ -26,7 +29,7 @@ struct Args {
     animate: bool,
 
     /// use sRGB interpolation
-    #[argh(switch)] 
+    #[argh(switch)]
     srgb: bool,
 
     /// use HSL interpolation
@@ -37,15 +40,18 @@ struct Args {
 fn main() {
     let args: Args = argh::from_env();
     let total_gradients = args.gradient_count;
-    
+
     println!("Gradient stress test with {} gradients", total_gradients);
-    println!("Color space: {}", if args.srgb { 
-        "sRGB" 
-    } else if args.hsl { 
-        "HSL" 
-    } else { 
-        "OkLab (default)" 
-    });
+    println!(
+        "Color space: {}",
+        if args.srgb {
+            "sRGB"
+        } else if args.hsl {
+            "HSL"
+        } else {
+            "OkLab (default)"
+        }
+    );
 
     App::new()
         .add_plugins((
@@ -85,17 +91,20 @@ fn setup(mut commands: Commands, args: Res<Args>) {
         .with_children(|parent| {
             for i in 0..args.gradient_count {
                 let angle = (i as f32 * 10.0) % 360.0;
-                
-                let mut gradient = LinearGradient::new(angle, vec![
-                    ColorStop::new(RED, Val::Percent(0.0)),
-                    ColorStop::new(BLUE, Val::Percent(100.0)),
-                    ColorStop::new(GREEN, Val::Percent(20.0)),
-                    ColorStop::new(YELLOW, Val::Percent(40.0)),
-                    ColorStop::new(ORANGE, Val::Percent(60.0)),
-                    ColorStop::new(LIME, Val::Percent(80.0)),
-                    ColorStop::new(DARK_CYAN, Val::Percent(90.0)),
-                ]);
-                
+
+                let mut gradient = LinearGradient::new(
+                    angle,
+                    vec![
+                        ColorStop::new(RED, Val::Percent(0.0)),
+                        ColorStop::new(BLUE, Val::Percent(100.0)),
+                        ColorStop::new(GREEN, Val::Percent(20.0)),
+                        ColorStop::new(YELLOW, Val::Percent(40.0)),
+                        ColorStop::new(ORANGE, Val::Percent(60.0)),
+                        ColorStop::new(LIME, Val::Percent(80.0)),
+                        ColorStop::new(DARK_CYAN, Val::Percent(90.0)),
+                    ],
+                );
+
                 gradient.color_space = if args.srgb {
                     InterpolationColorSpace::Srgb
                 } else if args.hsl {
@@ -132,23 +141,38 @@ fn animate_gradients(
     }
 
     let t = time.elapsed_secs();
-    
+
     for (mut bg_gradient, node) in &mut gradients {
         let offset = node.index as f32 * 0.01;
         let hue_shift = (t + offset).sin() * 0.5 + 0.5;
-        
+
         if let Some(Gradient::Linear(gradient)) = bg_gradient.0.get_mut(0) {
             let color1 = Color::hsl(hue_shift * 360.0, 1.0, 0.5);
             let color2 = Color::hsl((hue_shift + 0.3) * 360.0 % 360.0, 1.0, 0.5);
-            
+
             gradient.stops = vec![
                 ColorStop::new(color1, Val::Percent(0.0)),
                 ColorStop::new(color2, Val::Percent(100.0)),
-                ColorStop::new(Color::hsl((hue_shift + 0.1) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(20.0)),
-                ColorStop::new(Color::hsl((hue_shift + 0.15) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(40.0)),
-                ColorStop::new(Color::hsl((hue_shift + 0.2) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(60.0)),
-                ColorStop::new(Color::hsl((hue_shift + 0.25) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(80.0)),
-                ColorStop::new(Color::hsl((hue_shift + 0.28) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(90.0)),
+                ColorStop::new(
+                    Color::hsl((hue_shift + 0.1) * 360.0 % 360.0, 1.0, 0.5),
+                    Val::Percent(20.0),
+                ),
+                ColorStop::new(
+                    Color::hsl((hue_shift + 0.15) * 360.0 % 360.0, 1.0, 0.5),
+                    Val::Percent(40.0),
+                ),
+                ColorStop::new(
+                    Color::hsl((hue_shift + 0.2) * 360.0 % 360.0, 1.0, 0.5),
+                    Val::Percent(60.0),
+                ),
+                ColorStop::new(
+                    Color::hsl((hue_shift + 0.25) * 360.0 % 360.0, 1.0, 0.5),
+                    Val::Percent(80.0),
+                ),
+                ColorStop::new(
+                    Color::hsl((hue_shift + 0.28) * 360.0 % 360.0, 1.0, 0.5),
+                    Val::Percent(90.0),
+                ),
             ];
         }
     }
