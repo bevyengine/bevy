@@ -11,6 +11,7 @@ on:
   schedule:
     - cron: "0 1 * * *"
 
+# Environment variables must be kept in sync with all workflows that defines them.
 env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_TEST_DEBUG: 0

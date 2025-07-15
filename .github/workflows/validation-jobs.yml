@@ -11,6 +11,7 @@ concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
+# Environment variables must be kept in sync with all workflows that defines them.
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0

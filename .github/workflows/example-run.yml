@@ -8,6 +8,7 @@ on:
     branches:
       - main
 
+# Environment variables must be kept in sync with all workflows that defines them.
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
