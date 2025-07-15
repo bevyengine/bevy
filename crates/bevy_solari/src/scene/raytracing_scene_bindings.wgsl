@@ -126,21 +126,38 @@ fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
     return resolve_triangle_data_full(ray_hit.instance_index, ray_hit.primitive_index, barycentrics);
 }
 
-fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
+fn load_vertices(instance_id: u32, triangle_id: u32) -> array<Vertex, 3> {
     let instance_geometry_ids = geometry_ids[instance_id];
-    let material_id = material_ids[instance_id];
-
     let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
     let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
-    let material = materials[material_id];
 
     let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
     let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + instance_geometry_ids.vertex_buffer_offset;
-    let vertices = array<Vertex, 3>(unpack_vertex((*vertex_buffer)[indices.x]), unpack_vertex((*vertex_buffer)[indices.y]), unpack_vertex((*vertex_buffer)[indices.z]));
 
+    return array<Vertex, 3>(
+        unpack_vertex((*vertex_buffer)[indices.x]),
+        unpack_vertex((*vertex_buffer)[indices.y]),
+        unpack_vertex((*vertex_buffer)[indices.z])
+    );
+}
+
+fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> array<vec3<f32>, 3> {
+    return array<vec3<f32>, 3>(
+        (transform * vec4(vertices[0].position, 1.0)).xyz,
+        (transform * vec4(vertices[1].position, 1.0)).xyz,
+        (transform * vec4(vertices[2].position, 1.0)).xyz
+    );
+}
+
+fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
+    let material_id = material_ids[instance_id];
+    let material = materials[material_id];
+
+    let vertices = load_vertices(instance_id, triangle_id);
     let transform = transforms[instance_id];
-    let local_position = mat3x3(vertices[0].position, vertices[1].position, vertices[2].position) * barycentrics;
-    let world_position = (transform * vec4(local_position, 1.0)).xyz;
+    let world_vertices = transform_positions(transform, vertices);
+
+    let world_position = mat3x3(world_vertices[0], world_vertices[1], world_vertices[2]) * barycentrics;
 
     let uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
 
@@ -157,11 +174,43 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         world_normal = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
     }
 
-    let triangle_edge0 = vertices[0].position - vertices[1].position;
-    let triangle_edge1 = vertices[0].position - vertices[2].position;
+    let triangle_edge0 = world_vertices[0] - world_vertices[1];
+    let triangle_edge1 = world_vertices[0] - world_vertices[2];
     let triangle_area = length(cross(triangle_edge0, triangle_edge1)) / 2.0;
 
     let resolved_material = resolve_material(material, uv);
 
     return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, uv, triangle_area, resolved_material);
+}
+
+struct ResolvedDISample {
+    world_position: vec3<f32>,
+    world_normal: vec3<f32>,
+    emissive: vec3<f32>,
+    triangle_area: f32,
+}
+
+fn resolve_triangle_for_di(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedDISample {
+    let material_id = material_ids[instance_id];
+    var emissive = materials[material_id].emissive.rgb;
+    let emissive_texture_id = materials[material_id].emissive_texture_id; 
+
+    let vertices = load_vertices(instance_id, triangle_id);
+    let transform = transforms[instance_id];
+    let world_vertices = transform_positions(transform, vertices);
+
+    let triangle_edge0 = world_vertices[0] - world_vertices[1];
+    let triangle_edge1 = world_vertices[0] - world_vertices[2];
+    let triangle_area = length(cross(triangle_edge0, triangle_edge1)) / 2.0;
+
+    let world_position = mat3x3(world_vertices[0], world_vertices[1], world_vertices[2]) * barycentrics;
+    let uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
+    let local_normal = mat3x3(vertices[0].normal, vertices[1].normal, vertices[2].normal) * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
+    let world_normal = normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_normal);
+
+    if emissive_texture_id != TEXTURE_MAP_NONE {
+        emissive *= sample_texture(emissive_texture_id, uv);
+    } 
+
+    return ResolvedDISample(world_position, world_normal, emissive, triangle_area);
 }
