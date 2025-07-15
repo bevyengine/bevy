@@ -153,6 +153,12 @@ pub struct FragmentState {
     pub targets: Vec<Option<ColorTargetState>>,
 }
 
+impl FragmentState {
+    pub fn set_target(&mut self, index: usize, target: ColorTargetState) {
+        filling_set_at(&mut self.targets, index, None, Some(target));
+    }
+}
+
 /// Describes a compute pipeline.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct ComputePipelineDescriptor {
