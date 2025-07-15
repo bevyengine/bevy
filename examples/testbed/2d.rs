@@ -221,7 +221,9 @@ mod text {
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 DespawnOnExitState(super::Scene::Text),
-                ShowAabbGizmo::default(),
+                ShowAabbGizmo {
+                    color: Some(palettes::tailwind::AMBER_400.into()),
+                },
                 children![
                     (
                         TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),
