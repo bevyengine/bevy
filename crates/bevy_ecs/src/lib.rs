@@ -60,7 +60,7 @@ pub mod world;
 pub use bevy_ptr as ptr;
 
 #[cfg(feature = "hotpatching")]
-use event::{BufferedEvent, Event};
+use event::BufferedEvent;
 
 /// The ECS prelude.
 ///
@@ -140,7 +140,7 @@ pub mod __macro_exports {
 ///
 /// Systems should refresh their inner pointers.
 #[cfg(feature = "hotpatching")]
-#[derive(Event, BufferedEvent, Default)]
+#[derive(BufferedEvent, Default)]
 pub struct HotPatched;
 
 #[cfg(test)]
@@ -2836,5 +2836,18 @@ mod tests {
         struct CloneFunction;
 
         fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
+    }
+
+    #[test]
+    fn queue_register_component_toctou() {
+        for _ in 0..1000 {
+            let w = World::new();
+
+            std::thread::scope(|s| {
+                let c1 = s.spawn(|| w.components_queue().queue_register_component::<A>());
+                let c2 = s.spawn(|| w.components_queue().queue_register_component::<A>());
+                assert_eq!(c1.join().unwrap(), c2.join().unwrap());
+            });
+        }
     }
 }

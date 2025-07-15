@@ -37,7 +37,7 @@ fn main() {
 }
 
 // This is our event that we will send and receive in systems
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct MyEvent {
     pub message: String,
     pub random_value: f32,
