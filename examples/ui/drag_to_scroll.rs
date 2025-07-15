@@ -1,4 +1,4 @@
-//! This example tests scale factor and scrolling
+//! This example tests scale factor, dragging and scrolling
 
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::RED;
