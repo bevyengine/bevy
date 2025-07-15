@@ -51,7 +51,7 @@ fn setup(mut commands: Commands) {
                 With<ScrollableNode>,
              >| {
                 if let Ok((mut scroll_position, start)) = scroll_position_query.single_mut() {
-                    scroll_position.0 = (start.0 - drag.distance / ui_scale.0).max(Vec2::ZERO);        
+                    scroll_position.0 = (start.0 - drag.distance / ui_scale.0).max(Vec2::ZERO);
                 }
             },
         )
@@ -81,12 +81,12 @@ fn setup(mut commands: Commands) {
                 grid_template_columns: RepeatedGridTrack::px(h as i32, 100.),
                 ..Default::default()
             })
-            .with_children(|commands| {                
+            .with_children(|commands| {
                 for y in 0..h {
                     for x in 0..w {
                         let tile_color = if (x + y) % 2 == 1 {
                             let hue = ((x as f32 / w as f32) * 270.0) + ((y as f32 / h as f32) * 90.0);
-                            Color::hsl(hue, 1., 0.5) 
+                            Color::hsl(hue, 1., 0.5)
                         } else {
                             Color::BLACK
                         };
@@ -116,6 +116,6 @@ fn setup(mut commands: Commands) {
                             });
                         }
                 }
-            });            
+            });
         });
 }
