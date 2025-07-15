@@ -421,7 +421,8 @@ impl SceneSpawner {
                     .trigger_targets(SceneInstanceReady { instance_id }, parent);
             } else {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world.commands().trigger(SceneInstanceReady { instance_id });
+                // TODO: Thinkies
+                // world.commands().trigger(SceneInstanceReady { instance_id });
             }
         }
     }
