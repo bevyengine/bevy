@@ -54,8 +54,8 @@ use crate::{
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
     event::{
-        BufferedEvent, EntityEvent, Event, EventCursor, EventId, EventIterator,
-        EventIteratorWithId, EventKey, Events,
+        BufferedEvent, EntityEvent, EventCursor, EventId, EventIterator, EventIteratorWithId,
+        EventKey, Events,
     },
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
