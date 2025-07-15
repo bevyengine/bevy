@@ -3833,6 +3833,17 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "drag_to_scroll"
+path = "examples/ui/drag_to_scroll.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.drag_to_scroll]
+name = "Drag to Scroll"
+description = "This example tests scale factor, dragging and scrolling"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_material"
 path = "examples/ui/ui_material.rs"
 doc-scrape-examples = true
