@@ -228,7 +228,7 @@ impl Timer {
     /// let mut timer = Timer::from_seconds(1.5, TimerMode::Once);
     /// timer.finish();
     /// assert_eq!(timer.remaining(), Duration::from_secs(0));
-    
+    /// ```
     #[inline]
     pub fn finish(&mut self) {
         let remaining = self.remaining();
