@@ -227,7 +227,7 @@ impl Timer {
     /// # use bevy_time::*;
     /// let mut timer = Timer::from_seconds(1.5, TimerMode::Once);
     /// timer.finish();
-    /// assert_eq!(timer.remaining(), Duration::from_secs(0));
+    /// assert!(timer.finished());
     /// ```
     #[inline]
     pub fn finish(&mut self) {
