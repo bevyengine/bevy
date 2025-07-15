@@ -36,7 +36,7 @@ impl Plugin for BlitPlugin {
 
 #[derive(Resource)]
 pub struct BlitPipeline {
-    pub texture_bind_group: BindGroupLayout,
+    pub layout: BindGroupLayout,
     pub sampler: Sampler,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
@@ -46,7 +46,7 @@ impl FromWorld for BlitPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let render_device = render_world.resource::<RenderDevice>();
 
-        let texture_bind_group = render_device.create_bind_group_layout(
+        let layout = render_device.create_bind_group_layout(
             "blit_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
@@ -60,11 +60,25 @@ impl FromWorld for BlitPipeline {
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
         BlitPipeline {
-            texture_bind_group,
+            layout,
             sampler,
             fullscreen_shader: render_world.resource::<FullscreenShader>().clone(),
             fragment_shader: load_embedded_asset!(render_world, "blit.wgsl"),
         }
+    }
+}
+
+impl BlitPipeline {
+    pub fn create_bind_group(
+        &self,
+        render_device: &RenderDevice,
+        src_texture: &TextureView,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            None,
+            &self.layout,
+            &BindGroupEntries::sequential((src_texture, &self.sampler)),
+        )
     }
 }
 
@@ -81,7 +95,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
-            layout: vec![self.texture_bind_group.clone()],
+            layout: vec![self.layout.clone()],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
