@@ -100,7 +100,7 @@ impl Node for AutoExposureNode {
 
         let compute_bind_group = render_context.render_device().create_bind_group(
             None,
-            &pipeline.histogram_layout,
+            &pipeline.layout,
             &BindGroupEntries::sequential((
                 &globals_buffer.buffer,
                 &auto_exposure_buffers.settings,
