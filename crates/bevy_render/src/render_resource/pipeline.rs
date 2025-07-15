@@ -7,7 +7,9 @@ use crate::{
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
 use bevy_utils::WgpuWrapper;
+use core::iter;
 use core::ops::Deref;
+use thiserror::Error;
 use wgpu::{
     ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
 };
@@ -166,4 +168,12 @@ pub struct ComputePipelineDescriptor {
     /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
     /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
     pub zero_initialize_workgroup_memory: bool,
+}
+
+// utility function to set a value at the specified index, extending with
+// a filler value if the index is out of bounds.
+fn filling_set_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T) {
+    let num_to_fill = (index + 1).saturating_sub(vec.len());
+    vec.extend(iter::repeat_n(filler, num_to_fill));
+    vec[index] = value;
 }
