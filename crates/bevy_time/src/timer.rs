@@ -220,6 +220,21 @@ impl Timer {
         self.duration = duration;
     }
 
+    /// Finishes the timer
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_time::*;
+    /// let mut timer = Timer::from_seconds(1.5, TimerMode::Once);
+    /// timer.finish();
+    /// assert_eq!(timer.remaining(), Duration::from_secs(0));
+    
+    #[inline]
+    pub fn finish(&mut self) {
+        let remaining = self.remaining();
+        self.tick(remaining);
+    }
+
     /// Returns the mode of the timer.
     ///
     /// # Examples
