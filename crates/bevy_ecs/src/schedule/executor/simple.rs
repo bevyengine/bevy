@@ -124,7 +124,7 @@ impl SystemExecutor for SimpleExecutor {
                 continue;
             }
 
-            if is_apply_deferred(system) {
+            if is_apply_deferred(&**system) {
                 continue;
             }
 

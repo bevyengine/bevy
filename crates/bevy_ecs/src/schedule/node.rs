@@ -1,16 +1,23 @@
 use alloc::{boxed::Box, vec::Vec};
-use core::ops::{Deref, DerefMut, Index, IndexMut, Range};
+use bevy_utils::prelude::DebugName;
+use core::{
+    any::TypeId,
+    ops::{Index, IndexMut, Range},
+};
 
 use bevy_platform::collections::HashMap;
 use slotmap::{new_key_type, SecondaryMap, SlotMap};
 
 use crate::{
-    component::ComponentId,
-    prelude::SystemSet,
+    component::{CheckChangeTicks, ComponentId, Tick},
+    prelude::{SystemIn, SystemSet},
     query::FilteredAccessSet,
     schedule::{BoxedCondition, InternedSystemSet},
-    system::{ReadOnlySystem, ScheduleSystem},
-    world::World,
+    system::{
+        ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemParamValidationError,
+        SystemStateFlags,
+    },
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
 /// A [`SystemWithAccess`] stored in a [`ScheduleGraph`](crate::schedule::ScheduleGraph).
@@ -18,11 +25,11 @@ pub(crate) struct SystemNode {
     pub(crate) inner: Option<SystemWithAccess>,
 }
 
-/// A [`ScheduleSystem`] stored alongside the access returned from [`System::initialize`](crate::system::System::initialize).
+/// A [`ScheduleSystem`] stored alongside the access returned from [`System::initialize`].
 pub struct SystemWithAccess {
     /// The system itself.
     pub system: ScheduleSystem,
-    /// The access returned by [`System::initialize`](crate::system::System::initialize).
+    /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
     pub access: FilteredAccessSet<ComponentId>,
 }
@@ -38,25 +45,91 @@ impl SystemWithAccess {
     }
 }
 
-impl Deref for SystemWithAccess {
-    type Target = ScheduleSystem;
+impl System for SystemWithAccess {
+    type In = ();
+    type Out = ();
 
-    fn deref(&self) -> &Self::Target {
-        &self.system
+    #[inline]
+    fn name(&self) -> DebugName {
+        self.system.name()
+    }
+
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        self.system.type_id()
+    }
+
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
+    }
+
+    #[inline]
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Result<Self::Out, RunSystemError> {
+        // SAFETY: Caller ensures the same safety requirements.
+        unsafe { self.system.run_unsafe(input, world) }
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
+    }
+
+    #[inline]
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.system.apply_deferred(world);
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, world: DeferredWorld) {
+        self.system.queue_deferred(world);
+    }
+
+    #[inline]
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        // SAFETY: Caller ensures the same safety requirements.
+        unsafe { self.system.validate_param_unsafe(world) }
+    }
+
+    #[inline]
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.system.initialize(world)
+    }
+
+    #[inline]
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
+    }
+
+    #[inline]
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        self.system.default_system_sets()
+    }
+
+    #[inline]
+    fn get_last_run(&self) -> Tick {
+        self.system.get_last_run()
+    }
+
+    #[inline]
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system.set_last_run(last_run);
     }
 }
 
-impl DerefMut for SystemWithAccess {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.system
-    }
-}
-
-/// A [`BoxedCondition`] stored alongside the access returned from [`System::initialize`](crate::system::System::initialize).
+/// A [`BoxedCondition`] stored alongside the access returned from [`System::initialize`].
 pub struct ConditionWithAccess {
     /// The condition itself.
     pub condition: BoxedCondition,
-    /// The access returned by [`System::initialize`](crate::system::System::initialize).
+    /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
     pub access: FilteredAccessSet<ComponentId>,
 }
@@ -72,17 +145,83 @@ impl ConditionWithAccess {
     }
 }
 
-impl Deref for ConditionWithAccess {
-    type Target = BoxedCondition;
+impl System for ConditionWithAccess {
+    type In = ();
+    type Out = bool;
 
-    fn deref(&self) -> &Self::Target {
-        &self.condition
+    #[inline]
+    fn name(&self) -> DebugName {
+        self.condition.name()
     }
-}
 
-impl DerefMut for ConditionWithAccess {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.condition
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        self.condition.type_id()
+    }
+
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.condition.flags()
+    }
+
+    #[inline]
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Result<Self::Out, RunSystemError> {
+        // SAFETY: Caller ensures the same safety requirements.
+        unsafe { self.condition.run_unsafe(input, world) }
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.condition.refresh_hotpatch();
+    }
+
+    #[inline]
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.condition.apply_deferred(world);
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, world: DeferredWorld) {
+        self.condition.queue_deferred(world);
+    }
+
+    #[inline]
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        // SAFETY: Caller ensures the same safety requirements.
+        unsafe { self.condition.validate_param_unsafe(world) }
+    }
+
+    #[inline]
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.condition.initialize(world)
+    }
+
+    #[inline]
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.condition.check_change_tick(check);
+    }
+
+    #[inline]
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        self.condition.default_system_sets()
+    }
+
+    #[inline]
+    fn get_last_run(&self) -> Tick {
+        self.condition.get_last_run()
+    }
+
+    #[inline]
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.condition.set_last_run(last_run);
     }
 }
 

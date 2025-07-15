@@ -4,7 +4,7 @@ use bevy_platform::collections::HashMap;
 
 use crate::{
     schedule::{SystemKey, SystemSetKey},
-    system::IntoSystem,
+    system::{IntoSystem, System},
     world::World,
 };
 

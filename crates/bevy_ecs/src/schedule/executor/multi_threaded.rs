@@ -712,7 +712,7 @@ impl ExecutorState {
         // Move the full context object into the new future.
         let context = *context;
 
-        if is_apply_deferred(system) {
+        if is_apply_deferred(&**system) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();

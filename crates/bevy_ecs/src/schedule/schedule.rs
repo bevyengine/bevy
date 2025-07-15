@@ -23,7 +23,7 @@ use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-use crate::component::CheckChangeTicks;
+use crate::{component::CheckChangeTicks, system::System};
 use crate::{
     component::{ComponentId, Components},
     prelude::Component,
@@ -549,21 +549,21 @@ impl Schedule {
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
     pub fn check_change_ticks(&mut self, check: CheckChangeTicks) {
-        for SystemWithAccess { system, .. } in &mut self.executable.systems {
+        for system in &mut self.executable.systems {
             if !is_apply_deferred(system) {
                 system.check_change_tick(check);
             }
         }
 
         for conditions in &mut self.executable.system_conditions {
-            for system in conditions {
-                system.condition.check_change_tick(check);
+            for condition in conditions {
+                condition.check_change_tick(check);
             }
         }
 
         for conditions in &mut self.executable.set_conditions {
-            for system in conditions {
-                system.condition.check_change_tick(check);
+            for condition in conditions {
+                condition.check_change_tick(check);
             }
         }
     }
