@@ -878,7 +878,9 @@ pub fn specialize_prepass_material_meshes(
             else {
                 continue;
             };
-            let Some(mesh_instance) = params.render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            let Some(mesh_instance) = params
+                .render_mesh_instances
+                .render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
