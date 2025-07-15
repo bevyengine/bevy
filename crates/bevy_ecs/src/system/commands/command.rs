@@ -9,7 +9,7 @@ use crate::{
     change_detection::MaybeLocation,
     entity::Entity,
     error::Result,
-    event::{BufferedEvent, EntityEvent, Event, Events},
+    event::{BroadcastEvent, BufferedEvent, EntityEvent, Events},
     observer::TriggerTargets,
     resource::Resource,
     schedule::ScheduleLabel,
@@ -208,9 +208,9 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
     }
 }
 
-/// A [`Command`] that sends a global [`Event`] without any targets.
+/// A [`Command`] that sends a [`BroadcastEvent`].
 #[track_caller]
-pub fn trigger(event: impl Event) -> impl Command {
+pub fn trigger(event: impl BroadcastEvent) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
         world.trigger_with_caller(event, caller);

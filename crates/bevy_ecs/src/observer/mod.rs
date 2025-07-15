@@ -145,6 +145,7 @@ pub use trigger_targets::*;
 use crate::{
     change_detection::MaybeLocation,
     component::ComponentId,
+    event::BroadcastEvent,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
@@ -186,17 +187,21 @@ impl World {
         self.spawn(Observer::new(system))
     }
 
-    /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
+    /// Triggers the given [`BroadcastEvent`], which will run any [`Observer`]s watching for it.
     ///
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
     #[track_caller]
-    pub fn trigger<E: Event>(&mut self, event: E) {
+    pub fn trigger<E: BroadcastEvent>(&mut self, event: E) {
         self.trigger_with_caller(event, MaybeLocation::caller());
     }
 
-    pub(crate) fn trigger_with_caller<E: Event>(&mut self, mut event: E, caller: MaybeLocation) {
+    pub(crate) fn trigger_with_caller<E: BroadcastEvent>(
+        &mut self,
+        mut event: E,
+        caller: MaybeLocation,
+    ) {
         let event_key = E::register_event_key(self);
         // SAFETY: We just registered `event_key` with the type of `event`
         unsafe {
@@ -204,18 +209,18 @@ impl World {
         }
     }
 
-    /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
+    /// Triggers the given [`BroadcastEvent`] as a mutable reference, which will run any [`Observer`]s watching for it.
     ///
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     #[track_caller]
-    pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
+    pub fn trigger_ref<E: BroadcastEvent>(&mut self, event: &mut E) {
         let event_key = E::register_event_key(self);
         // SAFETY: We just registered `event_key` with the type of `event`
         unsafe { self.trigger_dynamic_ref_with_caller(event_key, event, MaybeLocation::caller()) };
     }
 
-    unsafe fn trigger_dynamic_ref_with_caller<E: Event>(
+    unsafe fn trigger_dynamic_ref_with_caller<E: BroadcastEvent>(
         &mut self,
         event_key: EventKey,
         event_data: &mut E,
@@ -497,6 +502,7 @@ impl World {
 mod tests {
     use alloc::{vec, vec::Vec};
 
+    use bevy_ecs_macros::BroadcastEvent;
     use bevy_platform::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
@@ -522,10 +528,18 @@ mod tests {
     struct S;
 
     #[derive(EntityEvent)]
-    struct EventA;
+    struct EntityEventA;
+
+    #[derive(BroadcastEvent)]
+    struct BroadcastEventA;
 
     #[derive(EntityEvent)]
-    struct EventWithData {
+    struct EntityEventWithData {
+        counter: usize,
+    }
+
+    #[derive(BroadcastEvent)]
+    struct BroadcastEventWithData {
         counter: usize,
     }
 
@@ -681,14 +695,20 @@ mod tests {
     fn observer_trigger_ref() {
         let mut world = World::new();
 
-        world.add_observer(|mut trigger: On<EventWithData>| trigger.event_mut().counter += 1);
-        world.add_observer(|mut trigger: On<EventWithData>| trigger.event_mut().counter += 2);
-        world.add_observer(|mut trigger: On<EventWithData>| trigger.event_mut().counter += 4);
+        world.add_observer(|mut trigger: On<BroadcastEventWithData>| {
+            trigger.event_mut().counter += 1;
+        });
+        world.add_observer(|mut trigger: On<BroadcastEventWithData>| {
+            trigger.event_mut().counter += 2;
+        });
+        world.add_observer(|mut trigger: On<BroadcastEventWithData>| {
+            trigger.event_mut().counter += 4;
+        });
         // This flush is required for the last observer to be called when triggering the event,
         // due to `World::add_observer` returning `WorldEntityMut`.
         world.flush();
 
-        let mut event = EventWithData { counter: 0 };
+        let mut event = BroadcastEventWithData { counter: 0 };
         world.trigger_ref(&mut event);
         assert_eq!(7, event.counter);
     }
@@ -697,20 +717,20 @@ mod tests {
     fn observer_trigger_targets_ref() {
         let mut world = World::new();
 
-        world.add_observer(|mut trigger: On<EventWithData, A>| {
+        world.add_observer(|mut trigger: On<EntityEventWithData, A>| {
             trigger.event_mut().counter += 1;
         });
-        world.add_observer(|mut trigger: On<EventWithData, B>| {
+        world.add_observer(|mut trigger: On<EntityEventWithData, B>| {
             trigger.event_mut().counter += 2;
         });
-        world.add_observer(|mut trigger: On<EventWithData, A>| {
+        world.add_observer(|mut trigger: On<EntityEventWithData, A>| {
             trigger.event_mut().counter += 4;
         });
         // This flush is required for the last observer to be called when triggering the event,
         // due to `World::add_observer` returning `WorldEntityMut`.
         world.flush();
 
-        let mut event = EventWithData { counter: 0 };
+        let mut event = EntityEventWithData { counter: 0 };
         let component_a = world.register_component::<A>();
         world.trigger_targets_ref(&mut event, component_a);
         assert_eq!(5, event.counter);
@@ -820,42 +840,20 @@ mod tests {
     }
 
     #[test]
-    fn observer_no_target() {
-        let mut world = World::new();
-        world.init_resource::<Order>();
-
-        let system: fn(On<EventA>) = |_| {
-            panic!("Trigger routed to non-targeted entity.");
-        };
-        world.spawn_empty().observe(system);
-        world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), Entity::PLACEHOLDER);
-            res.observed("event_a");
-        });
-
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
-        world.trigger(EventA);
-        world.flush();
-        assert_eq!(vec!["event_a"], world.resource::<Order>().0);
-    }
-
-    #[test]
     fn observer_entity_routing() {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        let system: fn(On<EventA>) = |_| {
+        let system: fn(On<EntityEventA>) = |_| {
             panic!("Trigger routed to non-targeted entity.");
         };
 
         world.spawn_empty().observe(system);
         let entity = world
             .spawn_empty()
-            .observe(|_: On<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
+            .observe(|_: On<EntityEventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
-        world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
+        world.add_observer(move |obs: On<EntityEventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.target(), entity);
             res.observed("a_2");
         });
@@ -863,7 +861,7 @@ mod tests {
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventA, entity);
+        world.trigger_targets(EntityEventA, entity);
         world.flush();
         assert_eq!(vec!["a_2", "a_1"], world.resource::<Order>().0);
     }
@@ -881,26 +879,27 @@ mod tests {
         // targets (entity_1, A)
         let entity_1 = world
             .spawn_empty()
-            .observe(|_: On<EventA, A>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: On<EntityEventA, A>, mut res: ResMut<R>| res.0 += 1)
             .id();
         // targets (entity_2, B)
         let entity_2 = world
             .spawn_empty()
-            .observe(|_: On<EventA, B>, mut res: ResMut<R>| res.0 += 10)
+            .observe(|_: On<EntityEventA, B>, mut res: ResMut<R>| res.0 += 10)
             .id();
         // targets any entity or component
-        world.add_observer(|_: On<EventA>, mut res: ResMut<R>| res.0 += 100);
+        world.add_observer(|_: On<EntityEventA>, mut res: ResMut<R>| res.0 += 100);
         // targets any entity, and components A or B
-        world.add_observer(|_: On<EventA, (A, B)>, mut res: ResMut<R>| res.0 += 1000);
+        world.add_observer(|_: On<EntityEventA, (A, B)>, mut res: ResMut<R>| res.0 += 1000);
         // test all tuples
-        world.add_observer(|_: On<EventA, (A, B, (A, B))>, mut res: ResMut<R>| res.0 += 10000);
+        world
+            .add_observer(|_: On<EntityEventA, (A, B, (A, B))>, mut res: ResMut<R>| res.0 += 10000);
         world.add_observer(
-            |_: On<EventA, (A, B, (A, B), ((A, B), (A, B)))>, mut res: ResMut<R>| {
+            |_: On<EntityEventA, (A, B, (A, B), ((A, B), (A, B)))>, mut res: ResMut<R>| {
                 res.0 += 100000;
             },
         );
         world.add_observer(
-            |_: On<EventA, (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))>,
+            |_: On<EntityEventA, (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))>,
              mut res: ResMut<R>| res.0 += 1000000,
         );
 
@@ -908,21 +907,21 @@ mod tests {
         world.flush();
 
         // trigger for an entity and a component
-        world.trigger_targets(EventA, (entity_1, component_a));
+        world.trigger_targets(EntityEventA, (entity_1, component_a));
         world.flush();
         // only observer that doesn't trigger is the one only watching entity_2
         assert_eq!(1111101, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger for both entities, but no components: trigger once per entity target
-        world.trigger_targets(EventA, (entity_1, entity_2));
+        world.trigger_targets(EntityEventA, (entity_1, entity_2));
         world.flush();
         // only the observer that doesn't require components triggers - once per entity
         assert_eq!(200, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger for both components, but no entities: trigger once
-        world.trigger_targets(EventA, (component_a, component_b));
+        world.trigger_targets(EntityEventA, (component_a, component_b));
         world.flush();
         // all component observers trigger, entities are not observed
         assert_eq!(1111100, world.resource::<R>().0);
@@ -930,14 +929,17 @@ mod tests {
 
         // trigger for both entities and both components: trigger once per entity target
         // we only get 2222211 because a given observer can trigger only once per entity target
-        world.trigger_targets(EventA, ((component_a, component_b), (entity_1, entity_2)));
+        world.trigger_targets(
+            EntityEventA,
+            ((component_a, component_b), (entity_1, entity_2)),
+        );
         world.flush();
         assert_eq!(2222211, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger to test complex tuples: (A, B, (A, B))
         world.trigger_targets(
-            EventA,
+            EntityEventA,
             (component_a, component_b, (component_a, component_b)),
         );
         world.flush();
@@ -947,7 +949,7 @@ mod tests {
 
         // trigger to test complex tuples: (A, B, (A, B), ((A, B), (A, B)))
         world.trigger_targets(
-            EventA,
+            EntityEventA,
             (
                 component_a,
                 component_b,
@@ -962,7 +964,7 @@ mod tests {
 
         // trigger to test the most complex tuple: (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))
         world.trigger_targets(
-            EventA,
+            EntityEventA,
             (
                 component_a,
                 component_b,
@@ -999,7 +1001,7 @@ mod tests {
         });
         let entity = entity.flush();
 
-        world.trigger_targets(EventA, entity);
+        world.trigger_targets(EntityEventA, entity);
         world.flush();
         assert_eq!(vec!["event_a"], world.resource::<Order>().0);
     }
@@ -1021,7 +1023,7 @@ mod tests {
 
         world.commands().queue(move |world: &mut World| {
             // SAFETY: we registered `event_a` above and it matches the type of EventA
-            unsafe { world.trigger_targets_dynamic(event_a, EventA, ()) };
+            unsafe { world.trigger_targets_dynamic(event_a, EntityEventA, ()) };
         });
         world.flush();
         assert_eq!(vec!["event_a"], world.resource::<Order>().0);
@@ -1350,10 +1352,12 @@ mod tests {
 
         let mut world = World::new();
         // This fails because `ResA` is not present in the world
-        world.add_observer(|_: On<EventA>, _: Res<ResA>, mut commands: Commands| {
-            commands.insert_resource(ResB);
-        });
-        world.trigger(EventA);
+        world.add_observer(
+            |_: On<BroadcastEventA>, _: Res<ResA>, mut commands: Commands| {
+                commands.insert_resource(ResB);
+            },
+        );
+        world.trigger(BroadcastEventA);
     }
 
     #[test]
@@ -1363,14 +1367,14 @@ mod tests {
 
         let mut world = World::new();
         world.add_observer(
-            |_: On<EventA>, mut params: ParamSet<(Query<Entity>, Commands)>| {
+            |_: On<BroadcastEventA>, mut params: ParamSet<(Query<Entity>, Commands)>| {
                 params.p1().insert_resource(ResA);
             },
         );
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger(EventA);
+        world.trigger(BroadcastEventA);
         world.flush();
 
         assert!(world.get_resource::<ResA>().is_some());
@@ -1379,7 +1383,7 @@ mod tests {
     #[test]
     #[track_caller]
     fn observer_caller_location_event() {
-        #[derive(Event)]
+        #[derive(BroadcastEvent)]
         struct EventA;
 
         let caller = MaybeLocation::caller();
@@ -1419,7 +1423,7 @@ mod tests {
         let b_id = world.register_component::<B>();
 
         world.add_observer(
-            |trigger: On<EventA, (A, B)>, mut counter: ResMut<Counter>| {
+            |trigger: On<EntityEventA, (A, B)>, mut counter: ResMut<Counter>| {
                 for &component in trigger.components() {
                     *counter.0.entry(component).or_default() += 1;
                 }
@@ -1427,11 +1431,11 @@ mod tests {
         );
         world.flush();
 
-        world.trigger_targets(EventA, [a_id, b_id]);
-        world.trigger_targets(EventA, a_id);
-        world.trigger_targets(EventA, b_id);
-        world.trigger_targets(EventA, [a_id, b_id]);
-        world.trigger_targets(EventA, a_id);
+        world.trigger_targets(EntityEventA, [a_id, b_id]);
+        world.trigger_targets(EntityEventA, a_id);
+        world.trigger_targets(EntityEventA, b_id);
+        world.trigger_targets(EntityEventA, [a_id, b_id]);
+        world.trigger_targets(EntityEventA, a_id);
         world.flush();
 
         let counter = world.resource::<Counter>();

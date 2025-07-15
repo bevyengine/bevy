@@ -20,7 +20,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::{BufferedEvent, EntityEvent, Event},
+    event::{BroadcastEvent, BufferedEvent, EntityEvent, Event},
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -1083,11 +1083,11 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
-    /// Sends a global [`Event`] without any targets.
+    /// Sends a [`BroadcastEvent`].
     ///
-    /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
+    /// This will run any [`Observer`] of the given [`BroadcastEvent`] that isn't scoped to specific targets.
     #[track_caller]
-    pub fn trigger(&mut self, event: impl Event) {
+    pub fn trigger(&mut self, event: impl BroadcastEvent) {
         self.queue(command::trigger(event));
     }
 

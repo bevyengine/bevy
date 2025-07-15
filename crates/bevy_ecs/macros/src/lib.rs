@@ -547,10 +547,10 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_ecs")
 }
 
-/// Implement the `Event` trait.
-#[proc_macro_derive(Event)]
+/// Implement the `BroadcastEvent` trait.
+#[proc_macro_derive(BroadcastEvent)]
 pub fn derive_event(input: TokenStream) -> TokenStream {
-    component::derive_event(input)
+    component::derive_broadcast_event(input)
 }
 
 /// Cheat sheet for derive syntax,

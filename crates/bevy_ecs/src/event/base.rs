@@ -11,6 +11,7 @@ use core::{
     marker::PhantomData,
 };
 
+// TODO: Adjust these docs
 /// Something that "happens" and can be processed by app logic.
 ///
 /// Events can be triggered on a [`World`] using a method like [`trigger`](World::trigger),
@@ -89,9 +90,9 @@ use core::{
 /// [`EventReader`]: super::EventReader
 /// [`EventWriter`]: super::EventWriter
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an `Event`",
-    label = "invalid `Event`",
-    note = "consider annotating `{Self}` with `#[derive(Event)]`"
+    message = "`{Self}` is not an `ObserverEvent`",
+    label = "invalid `ObserverEvent`",
+    note = "consider annotating `{Self}` with `#[derive(BroadcastEvent)]` or `#[derive(EntityEvent)]`"
 )]
 pub trait Event: Send + Sync + 'static {
     /// Generates the [`EventKey`] for this event type.
@@ -127,6 +128,9 @@ pub trait Event: Send + Sync + 'static {
             .map(EventKey)
     }
 }
+
+/// A global [`Event`] without an entity target.
+pub trait BroadcastEvent: Event {}
 
 /// An [`Event`] that can be targeted at specific entities.
 ///
