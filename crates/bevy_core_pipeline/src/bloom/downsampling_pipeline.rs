@@ -1,13 +1,14 @@
+use core::ops::Deref;
+
 use crate::FullscreenShader;
 
 use super::{Bloom, BLOOM_TEXTURE_FORMAT};
-use bevy_asset::load_embedded_asset;
+use bevy_asset::{load_embedded_asset, AssetServer};
 use bevy_ecs::{
     error::BevyError,
     prelude::{Component, Entity},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_math::{Vec2, Vec4};
 use bevy_render::{
@@ -30,7 +31,7 @@ pub struct BloomDownsamplingPipeline {
     /// Layout with a texture, a sampler, and uniforms
     pub bind_group_layout: BindGroupLayout,
     pub sampler: Sampler,
-    pub specialized_cache: SpecializedCache<RenderPipeline, BloomDownsamplingSpecializer>,
+    pub variants: SpecializedCache<RenderPipeline, BloomDownsamplingSpecializer>,
 }
 
 pub struct BloomDownsamplingSpecializer;
@@ -53,61 +54,60 @@ pub struct BloomUniforms {
     pub aspect: f32,
 }
 
-impl FromWorld for BloomDownsamplingPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // Bind group layout
-        let bind_group_layout = render_device.create_bind_group_layout(
-            "bloom_downsampling_bind_group_layout_with_settings",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // Input texture binding
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Sampler binding
-                    sampler(SamplerBindingType::Filtering),
-                    // Downsampling settings binding
-                    uniform_buffer::<BloomUniforms>(true),
-                ),
+pub fn init_bloom_downsampling_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    // Bind group layout
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "bloom_downsampling_bind_group_layout_with_settings",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // Input texture binding
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Sampler binding
+                sampler(SamplerBindingType::Filtering),
+                // Downsampling settings binding
+                uniform_buffer::<BloomUniforms>(true),
             ),
-        );
+        ),
+    );
 
-        // Sampler
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            ..Default::default()
-        });
+    // Sampler
+    let sampler = render_device.create_sampler(&SamplerDescriptor {
+        min_filter: FilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        ..Default::default()
+    });
 
-        let fullscreen_shader = world.resource::<FullscreenShader>().clone();
-        let fragment_shader = load_embedded_asset!(world, "bloom.wgsl");
-        let base_descriptor = RenderPipelineDescriptor {
-            layout: vec![bind_group_layout.clone()],
-            vertex: fullscreen_shader.to_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: fragment_shader.clone(),
-                targets: vec![Some(ColorTargetState {
-                    format: BLOOM_TEXTURE_FORMAT,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-                ..default()
-            }),
+    let fragment_shader = load_embedded_asset!(asset_server.deref(), "bloom.wgsl");
+    let base_descriptor = RenderPipelineDescriptor {
+        layout: vec![bind_group_layout.clone()],
+        vertex: fullscreen_shader.to_vertex_state(),
+        fragment: Some(FragmentState {
+            shader: fragment_shader.clone(),
+            targets: vec![Some(ColorTargetState {
+                format: BLOOM_TEXTURE_FORMAT,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            })],
             ..default()
-        };
+        }),
+        ..default()
+    };
 
-        let specialized_cache =
-            SpecializedCache::new(BloomDownsamplingSpecializer, None, base_descriptor);
+    let variants = SpecializedCache::new(BloomDownsamplingSpecializer, None, base_descriptor);
 
-        BloomDownsamplingPipeline {
-            bind_group_layout,
-            sampler,
-            specialized_cache,
-        }
-    }
+    commands.insert_resource(BloomDownsamplingPipeline {
+        bind_group_layout,
+        sampler,
+        variants,
+    });
 }
 
 impl Specializer<RenderPipeline> for BloomDownsamplingSpecializer {
@@ -159,7 +159,7 @@ pub fn prepare_downsampling_pipeline(
     for (entity, bloom) in &views {
         let prefilter = bloom.prefilter.threshold > 0.0;
 
-        let pipeline_id = pipeline.specialized_cache.specialize(
+        let pipeline_id = pipeline.variants.specialize(
             &pipeline_cache,
             BloomDownsamplingKey {
                 prefilter,
@@ -168,7 +168,7 @@ pub fn prepare_downsampling_pipeline(
             },
         )?;
 
-        let pipeline_first_id = pipeline.specialized_cache.specialize(
+        let pipeline_first_id = pipeline.variants.specialize(
             &pipeline_cache,
             BloomDownsamplingKey {
                 prefilter,

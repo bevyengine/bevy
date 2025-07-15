@@ -1,15 +1,16 @@
+use core::ops::Deref;
+
 use crate::FullscreenShader;
 
 use super::{
     downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT,
 };
-use bevy_asset::load_embedded_asset;
+use bevy_asset::{load_embedded_asset, AssetServer};
 use bevy_ecs::{
     error::BevyError,
     prelude::{Component, Entity},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_render::{
     render_resource::{
@@ -30,50 +31,50 @@ pub struct UpsamplingPipelineIds {
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayout,
-    pub specialized_cache: SpecializedCache<RenderPipeline, BloomUpsamplingSpecializer>,
+    pub variants: SpecializedCache<RenderPipeline, BloomUpsamplingSpecializer>,
 }
 
-impl FromWorld for BloomUpsamplingPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let bind_group_layout = render_device.create_bind_group_layout(
-            "bloom_upsampling_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // Input texture
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Sampler
-                    sampler(SamplerBindingType::Filtering),
-                    // BloomUniforms
-                    uniform_buffer::<BloomUniforms>(true),
-                ),
+pub fn init_bloom_upscaling_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "bloom_upsampling_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // Input texture
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Sampler
+                sampler(SamplerBindingType::Filtering),
+                // BloomUniforms
+                uniform_buffer::<BloomUniforms>(true),
             ),
-        );
+        ),
+    );
 
-        let fullscreen_shader = world.resource::<FullscreenShader>().clone();
-        let fragment_shader = load_embedded_asset!(world, "bloom.wgsl");
-        let base_descriptor = RenderPipelineDescriptor {
-            label: Some("bloom_upsampling_pipeline".into()),
-            layout: vec![bind_group_layout.clone()],
-            vertex: fullscreen_shader.to_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: fragment_shader.clone(),
-                entry_point: Some("upsample".into()),
-                ..default()
-            }),
+    let fragment_shader = load_embedded_asset!(asset_server.deref(), "bloom.wgsl");
+    let base_descriptor = RenderPipelineDescriptor {
+        label: Some("bloom_upsampling_pipeline".into()),
+        layout: vec![bind_group_layout.clone()],
+        vertex: fullscreen_shader.to_vertex_state(),
+        fragment: Some(FragmentState {
+            shader: fragment_shader.clone(),
+            entry_point: Some("upsample".into()),
             ..default()
-        };
+        }),
+        ..default()
+    };
 
-        let specialized_cache =
-            SpecializedCache::new(BloomUpsamplingSpecializer, None, base_descriptor);
+    let specialized_cache =
+        SpecializedCache::new(BloomUpsamplingSpecializer, None, base_descriptor);
 
-        BloomUpsamplingPipeline {
-            bind_group_layout,
-            specialized_cache,
-        }
-    }
+    commands.insert_resource(BloomUpsamplingPipeline {
+        bind_group_layout,
+        variants: specialized_cache,
+    });
 }
 
 pub struct BloomUpsamplingSpecializer;
@@ -156,7 +157,7 @@ pub fn prepare_upsampling_pipeline(
     views: Query<(Entity, &Bloom)>,
 ) -> Result<(), BevyError> {
     for (entity, bloom) in &views {
-        let pipeline_id = pipeline.specialized_cache.specialize(
+        let pipeline_id = pipeline.variants.specialize(
             &pipeline_cache,
             BloomUpsamplingKey {
                 composite_mode: bloom.composite_mode,
@@ -164,7 +165,7 @@ pub fn prepare_upsampling_pipeline(
             },
         )?;
 
-        let pipeline_final_id = pipeline.specialized_cache.specialize(
+        let pipeline_final_id = pipeline.variants.specialize(
             &pipeline_cache,
             BloomUpsamplingKey {
                 composite_mode: bloom.composite_mode,

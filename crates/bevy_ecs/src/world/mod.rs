@@ -602,6 +602,7 @@ impl World {
     ///
     /// # See also
     ///
+    /// * [`ComponentIdFor`](crate::component::ComponentIdFor)
     /// * [`Components::component_id()`]
     /// * [`Components::get_id()`]
     #[inline]
@@ -704,7 +705,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::EntityHashSet)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -838,7 +839,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::EntityHashSet)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};

@@ -285,7 +285,7 @@ They can be sent using the `EventWriter` system parameter and received with `Eve
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct Message(String);
 
 fn writer(mut writer: EventWriter<Message>) {
@@ -333,7 +333,7 @@ If the event is an `EntityEvent`, it can also be triggered to target specific en
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(Event, EntityEvent)]
+#[derive(EntityEvent)]
 struct Explode;
 
 let mut world = World::new();

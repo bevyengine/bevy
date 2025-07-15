@@ -293,9 +293,6 @@ impl FromReflect for &'static str {
     }
 }
 
-#[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(&'static str);
-
 impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
     #[inline]
     fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
