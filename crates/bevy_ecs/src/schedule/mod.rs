@@ -14,6 +14,7 @@ pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
 pub use pass::ScheduleBuildPass;
 
 pub use self::graph::NodeId;
+pub use self::graph::GraphInfo;
 
 /// An implementation of a graph data structure.
 pub mod graph;
