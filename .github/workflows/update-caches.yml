@@ -92,6 +92,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: "bevyengine/bevy"
+          ref: "main"
 
       - name: Setup Rust
         id: rust
