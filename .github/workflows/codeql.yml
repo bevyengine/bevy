@@ -2,7 +2,7 @@ name: "CodeQL"
 
 on:
   push:
-    branches: ["main", "enable-codeql-analysis"]
+    branches: ["main"]
 # Commented for now to test
 #  pull_request:
 #    branches: [ "main" ]
