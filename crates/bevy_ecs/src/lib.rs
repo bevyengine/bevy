@@ -146,7 +146,7 @@ pub struct HotPatched;
 #[cfg(test)]
 mod tests {
     use crate::{
-        bundle::{Bundle, BundleId, BundleInfo},
+        bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::{Entity, EntityMapper},
@@ -2595,14 +2595,6 @@ mod tests {
         #[derive(Component, Default)]
         struct E;
 
-        fn bundle_containing(world: &World, component: ComponentId) -> Option<BundleId> {
-            world
-                .bundles()
-                .iter_containing(component)
-                .next()
-                .map(BundleInfo::id)
-        }
-
         let mut world = World::new();
 
         let a_id = world.register_component::<A>();
@@ -2621,12 +2613,6 @@ mod tests {
         assert!(!contributed.contains(&d_id));
         assert!(!contributed.contains(&e_id));
 
-        assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, c_id), None);
-        assert_eq!(bundle_containing(&world, d_id), None);
-        assert_eq!(bundle_containing(&world, e_id), None);
-
         // check if registration succeeds
         world.register_required_components::<B, C>();
         let bundle = world.bundles().get(bundle_id).unwrap();
@@ -2638,12 +2624,6 @@ mod tests {
         assert!(contributed.contains(&d_id));
         assert!(!contributed.contains(&e_id));
 
-        assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, c_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, d_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, e_id), None);
-
         // check if another registration can be associated to the bundle using the previously registered component
         world.register_required_components::<D, E>();
         let bundle = world.bundles().get(bundle_id).unwrap();
@@ -2654,12 +2634,6 @@ mod tests {
         assert!(contributed.contains(&c_id));
         assert!(contributed.contains(&d_id));
         assert!(contributed.contains(&e_id));
-
-        assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, c_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, d_id), Some(bundle_id));
-        assert_eq!(bundle_containing(&world, e_id), Some(bundle_id));
     }
 
     #[test]

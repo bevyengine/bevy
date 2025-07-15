@@ -166,8 +166,7 @@ impl BundleInfo {
             match component_to_containing_bundles.get_mut(component.index()) {
                 Some(bundles) => bundles.push(self.id),
                 None => {
-                    component_to_containing_bundles
-                        .resize_with(component.index() + 1, || Vec::new());
+                    component_to_containing_bundles.resize_with(component.index() + 1, Vec::new);
                     *component_to_containing_bundles.last_mut().unwrap() = vec![self.id];
                 }
             }
@@ -468,21 +467,6 @@ impl Bundles {
         self.bundle_infos.iter()
     }
 
-    /// Iterate over [`BundleInfo`] containing `component`, either explicitly or as required.
-    pub(crate) fn iter_containing(
-        &self,
-        component: ComponentId,
-    ) -> impl Iterator<Item = &BundleInfo> {
-        self.component_to_containing_bundles
-            .get(component.index())
-            .into_iter()
-            .flatten()
-            .map(|id| {
-                // SAFETY: component_to_containing_bundles contains only valid ids
-                unsafe { self.bundle_infos.get(id.index()).debug_checked_unwrap() }
-            })
-    }
-
     /// Gets the metadata associated with a specific type of bundle.
     /// Returns `None` if the bundle is not registered with the world.
     #[inline]
@@ -535,7 +519,7 @@ impl Bundles {
         if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
             id
         } else {
-            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            let explicit_bundle_id: BundleId = self.register_info::<T>(components, storages);
             // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {
