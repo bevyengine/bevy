@@ -57,12 +57,12 @@ commands.trigger(Speak {
 });
 ```
 
-To allow an event to be targeted at entities and even propagated further, you can also derive `EntityEvent`.
+To allow an event to be targeted at entities and even propagated further, you can instead derive `EntityEvent`.
 It supports optionally specifying some options for propagation using the `event` attribute:
 
 ```rust
 // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
-#[derive(Event, EntityEvent)]
+#[derive(EntityEvent)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct Damage {
     amount: f32,

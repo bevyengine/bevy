@@ -50,7 +50,7 @@ fn send_scroll_events(
 }
 
 /// UI scrolling event.
-#[derive(Event, EntityEvent, Debug)]
+#[derive(EntityEvent, Debug)]
 #[entity_event(auto_propagate, traversal = &'static ChildOf)]
 struct Scroll {
     /// Scroll delta in logical coordinates.
