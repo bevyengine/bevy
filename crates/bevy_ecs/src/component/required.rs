@@ -328,9 +328,7 @@ impl Components {
             required_by.insert(requiree);
         }
     }
-}
 
-impl Components {
     /// Registers the given component `R` and [required components] inherited from it as required by `T`.
     ///
     /// When `T` is added to an entity, `R` will also be added if it was not already provided.
