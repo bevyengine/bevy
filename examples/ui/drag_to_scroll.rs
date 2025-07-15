@@ -27,7 +27,7 @@ fn setup(mut commands: Commands) {
     let h = 40;
 
     commands.spawn(Camera2d);
-    //commands.insert_resource(UiScale(0.5));
+    commands.insert_resource(UiScale(0.5));
 
     commands
         .spawn((
