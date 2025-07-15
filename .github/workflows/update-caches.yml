@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       NIGHTLY_TOOLCHAIN: ${{ steps.env.outputs.NIGHTLY_TOOLCHAIN }}
-      MSRV: ${{ steps.env.outputs.MSRV }}
+      MSRV: ${{ steps.msrv.outputs.MSRV }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
