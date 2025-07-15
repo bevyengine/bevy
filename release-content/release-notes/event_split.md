@@ -1,7 +1,7 @@
 ---
 title: Event Split
-authors: ["@Jondolf"]
-pull_requests: [19647, 20101]
+authors: ["@Jondolf", "@tim-blackbird"]
+pull_requests: [19647, 20101, 20104]
 ---
 
 In past releases, all event types were defined by simply deriving the `Event` trait:
@@ -23,21 +23,25 @@ The first two are observer APIs, while the third is a fully separate "buffered" 
 All three patterns are fundamentally different in both the interface and usage. Despite the same event type being used everywhere,
 APIs are typically built to support only one of them.
 
-This has led to a lot of confusion and frustration for users. A common footgun was using a "buffered event" with an observer,
-or an observer event with `EventReader`, leaving the user wondering why the event is not being detected.
+This has led to a lot of confusion and frustration for users. Common footguns include:
+- Using a "buffered event" with an observer, or an observer event with `EventReader`, leaving the user wondering why the event is not being detected.
+- `On`(formerly `Trigger`) has a `target` getter which would return `Entity::PLACEHOLDER` for events sent via `trigger` rather than `trigger_targets`.
 
-**Bevy 0.17** aims to solve this ambiguity by splitting the event traits into `Event`, `EntityEvent`, and `BufferedEvent`.
+**Bevy 0.17** aims to solve this ambiguity by splitting the different kinds of events into multiple traits:
 
-- `Event`: A shared trait for observer events.
-- `EntityEvent`: An `Event` that additionally supports targeting specific entities and propagating the event from one entity to another.
-- `BufferedEvent`: An event that supports usage with `EventReader` and `EventWriter` for pull-based event handling.
+- `Event`: A supertrait for observer events.
+    - `BroadcastEvent`: An observer event without an entity target.
+    - `EntityEvent`: An observer event that targets specific entities and can propagate the event from one entity to another across relationships.
+- `BufferedEvent`: An event used with `EventReader` and `EventWriter` for pull-based event handling.
+
+Note: To fully prevent the footgun of `On::target` returning `Entity::PLACEHOLDER` the `BroadcastEvent` and `EntityEvent` traits were made mutually exclusive.
 
 ## Using Events
 
-A basic `Event` can be defined like before, by deriving the `Event` trait.
+Events without an entity target can be defined, by deriving the `BroadcastEvent` trait.
 
 ```rust
-#[derive(Event)]
+#[derive(BroadcastEvent)]
 struct Speak {
     message: String,
 }
@@ -57,8 +61,8 @@ commands.trigger(Speak {
 });
 ```
 
-To allow an event to be targeted at entities and even propagated further, you can instead derive `EntityEvent`.
-It supports optionally specifying some options for propagation using the `event` attribute:
+To make an event target entities and even be propagated further, you can instead derive `EntityEvent`.
+It supports optionally specifying some options for propagation using the `entity_event` attribute:
 
 ```rust
 // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
@@ -69,8 +73,7 @@ struct Damage {
 }
 ```
 
-Every `EntityEvent` is also an `Event`, so you can still use `trigger` to trigger them globally.
-However, entity events also support targeted observer APIs such as `trigger_targets` and `observe`:
+`EntityEvent`s can be used with targeted observer APIs such as `trigger_targets` and `observe`:
 
 ```rust
 // Spawn an enemy entity.
@@ -116,6 +119,6 @@ fn read_messages(mut reader: EventReader<Message>) {
 
 In summary:
 
-- Need a basic event you can trigger and observe? Derive `Event`!
+- Need an event you can trigger and observe? Derive `BroadcastEvent`!
 - Need the observer event to be targeted at an entity? Derive `EntityEvent`!
 - Need the event to be buffered and support the `EventReader`/`EventWriter` API? Derive `BufferedEvent`!
