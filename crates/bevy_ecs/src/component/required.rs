@@ -24,7 +24,8 @@ impl Components {
     ///
     /// # Safety
     ///
-    /// The given component IDs `required` and `requiree` must be valid.
+    /// - The given component IDs `required` and `requiree` must be valid
+    /// - [`crate::bundle::Bundles::verify_to_refresh_required_components`] returned `Ok` for `requiree`
     ///
     /// # Errors
     ///

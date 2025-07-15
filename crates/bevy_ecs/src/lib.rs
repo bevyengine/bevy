@@ -2586,7 +2586,14 @@ mod tests {
         struct B;
 
         #[derive(Component, Default)]
+        #[require(D)]
         struct C;
+
+        #[derive(Component, Default)]
+        struct D;
+
+        #[derive(Component, Default)]
+        struct E;
 
         fn bundle_containing(world: &World, component: ComponentId) -> Option<BundleId> {
             world
@@ -2601,6 +2608,8 @@ mod tests {
         let a_id = world.register_component::<A>();
         let b_id = world.register_component::<B>();
         let c_id = world.register_component::<C>();
+        let d_id = world.register_component::<D>();
+        let e_id = world.register_component::<E>();
 
         let bundle = world.register_bundle::<A>();
         let bundle_id = bundle.id();
@@ -2609,11 +2618,16 @@ mod tests {
         assert!(contributed.contains(&a_id));
         assert!(contributed.contains(&b_id));
         assert!(!contributed.contains(&c_id));
+        assert!(!contributed.contains(&d_id));
+        assert!(!contributed.contains(&e_id));
 
         assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
         assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
         assert_eq!(bundle_containing(&world, c_id), None);
+        assert_eq!(bundle_containing(&world, d_id), None);
+        assert_eq!(bundle_containing(&world, e_id), None);
 
+        // check if registration succeeds
         world.register_required_components::<B, C>();
         let bundle = world.bundles().get(bundle_id).unwrap();
         let contributed: HashSet<_> = bundle.contributed_components().iter().copied().collect();
@@ -2621,10 +2635,31 @@ mod tests {
         assert!(contributed.contains(&a_id));
         assert!(contributed.contains(&b_id));
         assert!(contributed.contains(&c_id));
+        assert!(contributed.contains(&d_id));
+        assert!(!contributed.contains(&e_id));
 
         assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
         assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
         assert_eq!(bundle_containing(&world, c_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, d_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, e_id), None);
+
+        // check if another registration can be associated to the bundle using the previously registered component
+        world.register_required_components::<D, E>();
+        let bundle = world.bundles().get(bundle_id).unwrap();
+        let contributed: HashSet<_> = bundle.contributed_components().iter().copied().collect();
+
+        assert!(contributed.contains(&a_id));
+        assert!(contributed.contains(&b_id));
+        assert!(contributed.contains(&c_id));
+        assert!(contributed.contains(&d_id));
+        assert!(contributed.contains(&e_id));
+
+        assert_eq!(bundle_containing(&world, a_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, b_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, c_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, d_id), Some(bundle_id));
+        assert_eq!(bundle_containing(&world, e_id), Some(bundle_id));
     }
 
     #[test]
