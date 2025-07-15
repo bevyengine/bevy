@@ -1,5 +1,6 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
+    ui_transform::{UiGlobalTransform, UiTransform},
     BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
     Outline, OverflowAxis, ScrollPosition,
 };
@@ -7,14 +8,14 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     hierarchy::{ChildOf, Children},
+    lifecycle::RemovedComponents,
     query::With,
-    removal_detection::RemovedComponents,
-    system::{Commands, Query, ResMut},
+    system::{Query, ResMut},
     world::Ref,
 };
-use bevy_math::Vec2;
+
+use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
 use thiserror::Error;
 use tracing::warn;
 use ui_surface::UiSurface;
@@ -70,7 +71,6 @@ pub enum LayoutError {
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    mut commands: Commands,
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     mut node_query: Query<(
@@ -81,9 +81,10 @@ pub fn ui_layout_system(
     )>,
     computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
-    mut node_transform_query: Query<(
+    mut node_update_query: Query<(
         &mut ComputedNode,
-        &mut Transform,
+        &UiTransform,
+        &mut UiGlobalTransform,
         &Node,
         Option<&LayoutConfig>,
         Option<&BorderRadius>,
@@ -170,12 +171,12 @@ with UI components as a child of an entity without UI components, your UI layout
         );
 
         update_uinode_geometry_recursive(
-            &mut commands,
             ui_root_entity,
             &mut ui_surface,
             true,
             computed_target.physical_size().as_vec2(),
-            &mut node_transform_query,
+            Affine2::IDENTITY,
+            &mut node_update_query,
             &ui_children,
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
@@ -185,14 +186,15 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
-        commands: &mut Commands,
         entity: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
         target_size: Vec2,
-        node_transform_query: &mut Query<(
+        mut inherited_transform: Affine2,
+        node_update_query: &mut Query<(
             &mut ComputedNode,
-            &mut Transform,
+            &UiTransform,
+            &mut UiGlobalTransform,
             &Node,
             Option<&LayoutConfig>,
             Option<&BorderRadius>,
@@ -206,13 +208,14 @@ with UI components as a child of an entity without UI components, your UI layout
     ) {
         if let Ok((
             mut node,
-            mut transform,
+            transform,
+            mut global_transform,
             style,
             maybe_layout_config,
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
-        )) = node_transform_query.get_mut(entity)
+        )) = node_update_query.get_mut(entity)
         {
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
@@ -224,10 +227,11 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let layout_size = Vec2::new(layout.size.width, layout.size.height);
 
+            // Taffy layout position of the top-left corner of the node, relative to its parent.
             let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
-            // The position of the center of the node, stored in the node's transform
-            let node_center =
+            // The position of the center of the node relative to its top-left corner.
+            let local_center =
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
@@ -252,6 +256,16 @@ with UI components as a child of an entity without UI components, your UI layout
 
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
+
+            // Computer the node's new global transform
+            let mut local_transform =
+                transform.compute_affine(inverse_target_scale_factor, layout_size, target_size);
+            local_transform.translation += local_center;
+            inherited_transform *= local_transform;
+
+            if inherited_transform != **global_transform {
+                *global_transform = inherited_transform.into();
+            }
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
@@ -290,20 +304,19 @@ with UI components as a child of an entity without UI components, your UI layout
                     .max(0.);
             }
 
-            if transform.translation.truncate() != node_center {
-                transform.translation = node_center.extend(0.);
-            }
+            node.bypass_change_detection().scrollbar_size =
+                Vec2::new(layout.scrollbar_size.width, layout.scrollbar_size.height);
 
             let scroll_position: Vec2 = maybe_scroll_position
                 .map(|scroll_pos| {
                     Vec2::new(
                         if style.overflow.x == OverflowAxis::Scroll {
-                            scroll_pos.offset_x
+                            scroll_pos.x * inverse_target_scale_factor.recip()
                         } else {
                             0.0
                         },
                         if style.overflow.y == OverflowAxis::Scroll {
-                            scroll_pos.offset_y
+                            scroll_pos.y * inverse_target_scale_factor.recip()
                         } else {
                             0.0
                         },
@@ -311,29 +324,22 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(
-                Vec2::ZERO,
-                max_possible_offset * inverse_target_scale_factor,
-            );
+            let max_possible_offset =
+                (content_size - layout_size + node.scrollbar_size).max(Vec2::ZERO);
+            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
-            if clamped_scroll_position != scroll_position {
-                commands
-                    .entity(entity)
-                    .insert(ScrollPosition::from(clamped_scroll_position));
-            }
+            let physical_scroll_position = clamped_scroll_position.floor();
 
-            let physical_scroll_position =
-                (clamped_scroll_position / inverse_target_scale_factor).round();
+            node.bypass_change_detection().scroll_position = physical_scroll_position;
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
-                    commands,
                     child_uinode,
                     ui_surface,
                     use_rounding,
                     target_size,
-                    node_transform_query,
+                    inherited_transform,
+                    node_update_query,
                     ui_children,
                     inverse_target_scale_factor,
                     layout_size,
@@ -354,12 +360,9 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
-    use bevy_render::{camera::ManualTextureViews, prelude::Camera};
+    use bevy_render::{prelude::Camera, texture::ManualTextureViews};
     use bevy_transform::systems::mark_dirty_trees;
-    use bevy_transform::{
-        prelude::GlobalTransform,
-        systems::{propagate_parent_transforms, sync_simple_transforms},
-    };
+    use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
     use bevy_window::{
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
@@ -684,23 +687,20 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<ChildOf>>()
+            .query_filtered::<(Entity, &ComputedNode, &UiGlobalTransform), Without<ChildOf>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
-                |option_rect, (entity, node, global_transform)| {
-                    let current_rect = Rect::from_center_size(
-                        global_transform.translation().truncate(),
-                        node.size(),
-                    );
+                |option_rect, (entity, node, transform)| {
+                    let current_rect = Rect::from_center_size(transform.translation, node.size());
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
                         "root ui node {entity} doesn't have a logical size"
                     );
                     assert_ne!(
-                        global_transform.affine(),
-                        GlobalTransform::default().affine(),
-                        "root ui node {entity} global transform is not populated"
+                        *transform,
+                        UiGlobalTransform::default(),
+                        "root ui node {entity} transform is not populated"
                     );
                     let Some((rect, is_overlapping)) = option_rect else {
                         return Some((current_rect, false));

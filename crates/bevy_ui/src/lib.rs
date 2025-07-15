@@ -1,8 +1,8 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
@@ -10,14 +10,15 @@
 //! Spawn UI elements with [`widget::Button`], [`ImageNode`], [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
+pub mod interaction_states;
 pub mod measurement;
-pub mod ui_material;
 pub mod update;
 pub mod widget;
 
 pub mod gradients;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
+pub mod ui_transform;
 
 use bevy_derive::{Deref, DerefMut};
 #[cfg(feature = "bevy_ui_picking_backend")]
@@ -30,18 +31,17 @@ pub mod experimental;
 mod focus;
 mod geometry;
 mod layout;
-mod render;
 mod stack;
 mod ui_node;
 
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
+pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
 pub use layout::*;
 pub use measurement::*;
-pub use render::*;
-pub use ui_material::*;
 pub use ui_node::*;
+pub use ui_transform::*;
 
 use widget::{ImageNode, ImageNodeSize, ViewportNode};
 
@@ -49,23 +49,20 @@ use widget::{ImageNode, ImageNodeSize, ViewportNode};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_ui_picking_backend")]
     #[doc(hidden)]
+    #[cfg(feature = "bevy_ui_picking_backend")]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
-    #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::render::UiDebugOptions;
-    #[doc(hidden)]
-    pub use crate::widget::{Text, TextUiReader, TextUiWriter};
+    pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{
             geometry::*,
             gradients::*,
-            ui_material::*,
             ui_node::*,
+            ui_transform::*,
             widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
-            Interaction, MaterialNode, UiMaterialPlugin, UiScale,
+            Interaction, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
@@ -76,7 +73,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, AnimationSystems};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
-use bevy_render::{camera::CameraUpdateSystems, RenderApp};
+use bevy_render::camera::CameraUpdateSystems;
 use bevy_transform::TransformSystems;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
@@ -84,19 +81,8 @@ pub use stack::UiStack;
 use update::{update_clipping_system, update_ui_context_system};
 
 /// The basic plugin for Bevy UI
-pub struct UiPlugin {
-    /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
-    /// The layout and interaction components will still be updated as normal.
-    pub enable_rendering: bool,
-}
-
-impl Default for UiPlugin {
-    fn default() -> Self {
-        Self {
-            enable_rendering: true,
-        }
-    }
-}
+#[derive(Default)]
+pub struct UiPlugin;
 
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -175,13 +161,11 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
+            .register_type::<GlobalZIndex>()
             .register_type::<Outline>()
-            .register_type::<BoxShadowSamples>()
-            .register_type::<UiAntiAlias>()
-            .register_type::<TextShadow>()
             .register_type::<ColorStop>()
             .register_type::<AngularColorStop>()
-            .register_type::<Position>()
+            .register_type::<UiPosition>()
             .register_type::<RadialGradientShape>()
             .register_type::<Gradient>()
             .register_type::<BackgroundGradient>()
@@ -251,38 +235,18 @@ impl Plugin for UiPlugin {
         );
 
         build_text_interop(app);
-
-        if !self.enable_rendering {
-            return;
-        }
-
-        #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
-
-        build_ui_render(app);
-    }
-
-    fn finish(&self, app: &mut App) {
-        if !self.enable_rendering {
-            return;
-        }
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<UiPipeline>();
     }
 }
 
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextNodeFlags;
     use bevy_text::TextLayoutInfo;
-    use widget::Text;
+    use widget::{Text, TextShadow};
 
     app.register_type::<TextLayoutInfo>()
         .register_type::<TextNodeFlags>()
-        .register_type::<Text>();
+        .register_type::<Text>()
+        .register_type::<TextShadow>();
 
     app.add_systems(
         PostUpdate,
@@ -314,6 +278,13 @@ fn build_text_interop(app: &mut App) {
     );
 
     app.add_plugins(accessibility::AccessibilityPlugin);
+
+    app.add_observer(interaction_states::on_add_disabled)
+        .add_observer(interaction_states::on_remove_disabled)
+        .add_observer(interaction_states::on_add_checkable)
+        .add_observer(interaction_states::on_remove_checkable)
+        .add_observer(interaction_states::on_add_checked)
+        .add_observer(interaction_states::on_remove_checked);
 
     app.configure_sets(
         PostUpdate,

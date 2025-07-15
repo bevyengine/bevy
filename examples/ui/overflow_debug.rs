@@ -4,7 +4,6 @@ use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget:
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
-const HALF_CONTAINER_SIZE: f32 = CONTAINER_SIZE / 2.0;
 const LOOP_LENGTH: f32 = 4.0;
 
 fn main() {
@@ -41,16 +40,16 @@ struct AnimationState {
 struct Container(u8);
 
 trait UpdateTransform {
-    fn update(&self, t: f32, transform: &mut Transform);
+    fn update(&self, t: f32, transform: &mut UiTransform);
 }
 
 #[derive(Component)]
 struct Move;
 
 impl UpdateTransform for Move {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.translation.x = ops::sin(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
-        transform.translation.y = -ops::cos(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.translation.x = Val::Percent(ops::sin(t * TAU - FRAC_PI_2) * 50.);
+        transform.translation.y = Val::Percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.);
     }
 }
 
@@ -58,7 +57,7 @@ impl UpdateTransform for Move {
 struct Scale;
 
 impl UpdateTransform for Scale {
-    fn update(&self, t: f32, transform: &mut Transform) {
+    fn update(&self, t: f32, transform: &mut UiTransform) {
         transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
         transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
     }
@@ -68,9 +67,8 @@ impl UpdateTransform for Scale {
 struct Rotate;
 
 impl UpdateTransform for Rotate {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.rotation =
-            Quat::from_axis_angle(Vec3::Z, (ops::cos(t * TAU) * 45.0).to_radians());
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.rotation = Rot2::radians(ops::cos(t * TAU) * 45.0);
     }
 }
 
@@ -175,10 +173,6 @@ fn spawn_container(
     update_transform: impl UpdateTransform + Component,
     spawn_children: impl FnOnce(&mut ChildSpawnerCommands),
 ) {
-    let mut transform = Transform::default();
-
-    update_transform.update(0.0, &mut transform);
-
     parent
         .spawn((
             Node {
@@ -198,11 +192,8 @@ fn spawn_container(
                     Node {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        top: Val::Px(transform.translation.x),
-                        left: Val::Px(transform.translation.y),
                         ..default()
                     },
-                    transform,
                     update_transform,
                 ))
                 .with_children(spawn_children);
@@ -233,13 +224,10 @@ fn update_animation(
 
 fn update_transform<T: UpdateTransform + Component>(
     animation: Res<AnimationState>,
-    mut containers: Query<(&mut Transform, &mut Node, &ComputedNode, &T)>,
+    mut containers: Query<(&mut UiTransform, &T)>,
 ) {
-    for (mut transform, mut node, computed_node, update_transform) in &mut containers {
+    for (mut transform, update_transform) in &mut containers {
         update_transform.update(animation.t, &mut transform);
-
-        node.left = Val::Px(transform.translation.x * computed_node.inverse_scale_factor());
-        node.top = Val::Px(transform.translation.y * computed_node.inverse_scale_factor());
     }
 }
 

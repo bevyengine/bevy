@@ -21,49 +21,32 @@ fn main() {
 
 fn draw_cursor(
     camera_query: Single<(&Camera, &GlobalTransform)>,
-    window: Query<&Window>,
+    window: Single<&Window>,
     mut gizmos: Gizmos,
 ) {
     let (camera, camera_transform) = *camera_query;
-    let Ok(window) = window.single() else {
-        return;
-    };
 
-    let Some(cursor_position) = window.cursor_position() else {
-        return;
-    };
-
-    // Calculate a world position based on the cursor's position.
-    let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
-        return;
-    };
-
-    // To test Camera::world_to_viewport, convert result back to viewport space and then back to world space.
-    let Ok(viewport_check) = camera.world_to_viewport(camera_transform, world_pos.extend(0.0))
-    else {
-        return;
-    };
-    let Ok(world_check) = camera.viewport_to_world_2d(camera_transform, viewport_check.xy()) else {
-        return;
-    };
-
-    gizmos.circle_2d(world_pos, 10., WHITE);
-    // Should be the same as world_pos
-    gizmos.circle_2d(world_check, 8., RED);
+    if let Some(cursor_position) = window.cursor_position()
+        // Calculate a world position based on the cursor's position.
+        && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
+        // To test Camera::world_to_viewport, convert result back to viewport space and then back to world space.
+        && let Ok(viewport_check) = camera.world_to_viewport(camera_transform, world_pos.extend(0.0))
+        && let Ok(world_check) = camera.viewport_to_world_2d(camera_transform, viewport_check.xy())
+    {
+        gizmos.circle_2d(world_pos, 10., WHITE);
+        // Should be the same as world_pos
+        gizmos.circle_2d(world_check, 8., RED);
+    }
 }
 
 fn controls(
-    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>,
-    window: Query<&Window>,
+    camera_query: Single<(&mut Camera, &mut Transform, &mut Projection)>,
+    window: Single<&Window>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time<Fixed>>,
 ) {
-    let Ok(window) = window.single() else {
-        return;
-    };
-    let Ok((mut camera, mut transform, mut projection)) = camera_query.single_mut() else {
-        return;
-    };
+    let (mut camera, mut transform, mut projection) = camera_query.into_inner();
+
     let fspeed = 600.0 * time.delta_secs();
     let uspeed = fspeed as u32;
     let window_size = window.resolution.physical_size();

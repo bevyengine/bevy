@@ -260,7 +260,7 @@ impl Val {
     /// and `physical_target_size` context values.
     ///
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
-    pub fn resolve(
+    pub const fn resolve(
         self,
         scale_factor: f32,
         physical_base_value: f32,
@@ -271,8 +271,12 @@ impl Val {
             Val::Px(value) => Ok(value * scale_factor),
             Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
             Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
-            Val::VMin(value) => Ok(physical_target_size.min_element() * value / 100.0),
-            Val::VMax(value) => Ok(physical_target_size.max_element() * value / 100.0),
+            Val::VMin(value) => {
+                Ok(physical_target_size.x.min(physical_target_size.y) * value / 100.0)
+            }
+            Val::VMax(value) => {
+                Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
+            }
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
         }
     }
@@ -691,7 +695,7 @@ impl Default for UiRect {
     reflect(Serialize, Deserialize)
 )]
 /// Responsive position relative to a UI node.
-pub struct Position {
+pub struct UiPosition {
     /// Normalized anchor point
     pub anchor: Vec2,
     /// Responsive horizontal position relative to the anchor point
@@ -700,13 +704,13 @@ pub struct Position {
     pub y: Val,
 }
 
-impl Default for Position {
+impl Default for UiPosition {
     fn default() -> Self {
         Self::CENTER
     }
 }
 
-impl Position {
+impl UiPosition {
     /// Position at the given normalized anchor point
     pub const fn anchor(anchor: Vec2) -> Self {
         Self {
@@ -844,13 +848,13 @@ impl Position {
     }
 }
 
-impl From<Val> for Position {
+impl From<Val> for UiPosition {
     fn from(x: Val) -> Self {
         Self { x, ..default() }
     }
 }
 
-impl From<(Val, Val)> for Position {
+impl From<(Val, Val)> for UiPosition {
     fn from((x, y): (Val, Val)) -> Self {
         Self { x, y, ..default() }
     }
