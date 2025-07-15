@@ -1,6 +1,6 @@
 ---
 title: Many render resources now initialized in `RenderStartup`
-pull_requests: [19841, 19926, 19885, 19886, 19897, 19898, 19901]
+pull_requests: [19841, 19926, 19885, 19886, 19897, 19898, 19901, 20002, 20147]
 ---
 
 Many render resources are **no longer present** during `Plugin::finish`. Instead they are
@@ -15,11 +15,32 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `FxaaPipeline`
 - `SmaaPipelines`
 - `TaaPipeline`
+- `AutoExposurePipeline`
+- `MotionBlurPipeline`
+- `SkyboxPrepassPipeline`
+- `BlitPipeline`
+- `DepthOfFieldGlobalBindGroupLayout`
+- `DepthPyramidDummyTexture`
+- `OitBuffers`
+- `PostProcessingPipeline`
+- `TonemappingPipeline`
 - `BoxShadowPipeline`
 - `GradientPipeline`
 - `UiPipeline`
 - `UiMaterialPipeline<M>`
 - `UiTextureSlicePipeline`
+- `VolumetricFogPipeline`
+- `DeferredLightingLayout`
+- `RenderLightmaps`
+- `PrepassPipeline`
+- `PrepassViewBindGroup`
+- `Wireframe3dPipeline`
+- `MaterialPipeline`
+- `Wireframe2dPipeline`
+- `Material2dPipeline`
+- `SpritePipeline`
+- `Mesh2dPipeline`
+- `BatchedInstanceBuffer<Mesh2dUniform>`
 
 The vast majority of cases for initializing render resources look like so (in Bevy 0.16):
 
