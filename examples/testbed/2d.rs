@@ -165,7 +165,7 @@ mod text {
                 &mut commands,
                 300. * Vec3::X + y * Vec3::Y,
                 justify,
-                Some(TextBounds::new(150., 55.)),
+                Some(TextBounds::new(150., 60.)),
             );
         }
 
