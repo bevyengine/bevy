@@ -11,7 +11,10 @@ mod update;
 mod writer;
 
 pub(crate) use base::EventInstance;
-pub use base::{BroadcastEvent, BufferedEvent, EntityEvent, Event, EventId, EventKey};
+pub use base::{
+    BroadcastEvent, BroadcastEventKind, BufferedEvent, EntityEvent, EntityEventKind, Event,
+    EventId, EventKey,
+};
 pub use bevy_ecs_macros::{BroadcastEvent, BufferedEvent, EntityEvent};
 #[expect(deprecated, reason = "`SendBatchIds` was renamed to `WriteBatchIds`.")]
 pub use collections::{Events, SendBatchIds, WriteBatchIds};

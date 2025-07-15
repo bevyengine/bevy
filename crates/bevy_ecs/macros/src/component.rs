@@ -30,8 +30,9 @@ pub fn derive_broadcast_event(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
-        impl #impl_generics #bevy_ecs_path::event::BroadcastEvent for #struct_name #type_generics #where_clause {}
+        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
+            type Kind = #bevy_ecs_path::event::BroadcastEventKind;
+        }
     })
 }
 
@@ -74,10 +75,8 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
-        impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
-            type Traversal = #traversal;
-            const AUTO_PROPAGATE: bool = #auto_propagate;
+        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
+            type Kind = #bevy_ecs_path::event::EntityEventKind<Self, #traversal, #auto_propagate>;
         }
     })
 }
