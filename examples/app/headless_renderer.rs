@@ -23,8 +23,7 @@ use bevy::{
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
-            PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
-            TextureUsages,
+            PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureFormat, TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         Extract, Render, RenderApp, RenderSystems,
