@@ -191,7 +191,7 @@ use bevy_ptr::OwningPtr;
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
-    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
+    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`](crate::component::Component)s
     fn component_ids(
         &self,
         components: &mut ComponentsRegistrator,
@@ -221,6 +221,8 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
 /// Manual implementations of this trait are unsupported.
 /// That is, there is no safe way to implement this trait, and you must not do so.
 /// If you want a type to implement [`StaticBundle`], you must use [`derive@Bundle`](derive@Bundle).
+///
+/// [`Component`]: crate::component::Component
 //
 // (bevy internal doc) Some safety points:
 // - [`StaticBundle::component_ids`] and [`StaticBundle::get_component_ids`] must match the behavior of [`Bundle::component_ids`]
