@@ -106,11 +106,11 @@ fn setup(mut commands: Commands, args: Res<Args>) {
                 );
 
                 gradient.color_space = if args.srgb {
-                    InterpolationColorSpace::Srgb
+                    InterpolationColorSpace::Srgba
                 } else if args.hsl {
-                    InterpolationColorSpace::Hsl
+                    InterpolationColorSpace::Hsla
                 } else {
-                    InterpolationColorSpace::OkLab
+                    InterpolationColorSpace::Oklaba
                 };
 
                 parent.spawn((
