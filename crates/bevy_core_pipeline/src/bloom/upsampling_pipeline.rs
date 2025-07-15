@@ -3,12 +3,11 @@ use crate::FullscreenShader;
 use super::{
     downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT,
 };
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_render::{
     render_resource::{
@@ -41,31 +40,32 @@ pub struct BloomUpsamplingPipelineKeys {
     final_pipeline: bool,
 }
 
-impl FromWorld for BloomUpsamplingPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let bind_group_layout = render_device.create_bind_group_layout(
-            "bloom_upsampling_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // Input texture
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Sampler
-                    sampler(SamplerBindingType::Filtering),
-                    // BloomUniforms
-                    uniform_buffer::<BloomUniforms>(true),
-                ),
+pub fn init_bloom_upscaling_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "bloom_upsampling_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // Input texture
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Sampler
+                sampler(SamplerBindingType::Filtering),
+                // BloomUniforms
+                uniform_buffer::<BloomUniforms>(true),
             ),
-        );
+        ),
+    );
 
-        BloomUpsamplingPipeline {
-            bind_group_layout,
-            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "bloom.wgsl"),
-        }
-    }
+    commands.insert_resource(BloomUpsamplingPipeline {
+        bind_group_layout,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
+    });
 }
 
 impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
