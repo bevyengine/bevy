@@ -95,7 +95,7 @@ use core::{
     note = "consider annotating `{Self}` with `#[derive(BroadcastEvent)]` or `#[derive(EntityEvent)]`"
 )]
 pub trait Event: Send + Sync + 'static {
-    ///
+    #[doc(hidden)]
     type Kind;
 
     /// Generates the [`EventKey`] for this event type.
