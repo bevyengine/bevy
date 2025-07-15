@@ -181,15 +181,15 @@ impl SpecializedRenderPipeline for GradientPipeline {
             ],
         );
         let color_space = match key.color_space {
-            InterpolationColorSpace::OkLab => "IN_OKLAB",
-            InterpolationColorSpace::OkLch => "IN_OKLCH",
-            InterpolationColorSpace::OkLchLong => "IN_OKLCH_LONG",
-            InterpolationColorSpace::Srgb => "IN_SRGB",
-            InterpolationColorSpace::LinearRgb => "IN_LINEAR_RGB",
-            InterpolationColorSpace::Hsl => "IN_HSL",
-            InterpolationColorSpace::HslLong => "IN_HSL_LONG",
-            InterpolationColorSpace::Hsv => "IN_HSV",
-            InterpolationColorSpace::HsvLong => "IN_HSV_LONG",
+            InterpolationColorSpace::Oklaba => "IN_OKLAB",
+            InterpolationColorSpace::Oklcha => "IN_OKLCH",
+            InterpolationColorSpace::OklchaLong => "IN_OKLCH_LONG",
+            InterpolationColorSpace::Srgba => "IN_SRGB",
+            InterpolationColorSpace::LinearRgba => "IN_LINEAR_RGB",
+            InterpolationColorSpace::Hsla => "IN_HSL",
+            InterpolationColorSpace::HslaLong => "IN_HSL_LONG",
+            InterpolationColorSpace::Hsva => "IN_HSV",
+            InterpolationColorSpace::HsvaLong => "IN_HSV_LONG",
         };
 
         let shader_defs = if key.anti_alias {

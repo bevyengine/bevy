@@ -1,13 +1,12 @@
 //! Adds motion vector support to skyboxes. See [`SkyboxPrepassPipeline`] for details.
 
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, With},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_render::{
     render_resource::{
@@ -59,25 +58,26 @@ pub struct RenderSkyboxPrepassPipeline(pub CachedRenderPipelineId);
 #[derive(Component)]
 pub struct SkyboxPrepassBindGroup(pub BindGroup);
 
-impl FromWorld for SkyboxPrepassPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        Self {
-            bind_group_layout: render_device.create_bind_group_layout(
-                "skybox_prepass_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::FRAGMENT,
-                    (
-                        uniform_buffer::<ViewUniform>(true),
-                        uniform_buffer::<PreviousViewData>(true),
-                    ),
+pub fn init_skybox_prepass_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(SkyboxPrepassPipeline {
+        bind_group_layout: render_device.create_bind_group_layout(
+            "skybox_prepass_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<PreviousViewData>(true),
                 ),
             ),
-            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "skybox_prepass.wgsl"),
-        }
-    }
+        ),
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "skybox_prepass.wgsl"),
+    });
 }
 
 impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
