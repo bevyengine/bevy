@@ -221,6 +221,7 @@ mod text {
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 DespawnOnExitState(super::Scene::Text),
+                ShowAabbGizmo::default(),
                 children![
                     (
                         TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),
