@@ -5374,6 +5374,19 @@ mod tests {
         }
     }
 
+    #[test]
+    fn entity_mut_except_registers_components() {
+        // Checks for a bug where `EntityMutExcept` would not register the component and
+        // would therefore not include an exception, causing it to conflict with the later query.
+        fn system1(_query: Query<EntityMutExcept<TestComponent>>, _: Query<&mut TestComponent>) {}
+        let mut world = World::new();
+        world.run_system_once(system1).unwrap();
+
+        fn system2(_: Query<&mut TestComponent>, _query: Query<EntityMutExcept<TestComponent>>) {}
+        let mut world = World::new();
+        world.run_system_once(system2).unwrap();
+    }
+
     #[derive(Component)]
     struct A;
 
