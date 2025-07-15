@@ -1,7 +1,7 @@
 ---
 title: Event Split
 authors: ["@Jondolf", "@tim-blackbird"]
-pull_requests: [19647, 20101, 20104]
+pull_requests: [19647, 20101, 20104, 20151]
 ---
 
 In past releases, all event types were defined by simply deriving the `Event` trait:
