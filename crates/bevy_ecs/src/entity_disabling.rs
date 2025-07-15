@@ -205,8 +205,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        prelude::World,
+        prelude::{EntityMut, EntityRef, World},
         query::{Has, With},
+        world::{EntityMutExcept, EntityRefExcept},
     };
     use alloc::{vec, vec::Vec};
 
@@ -278,30 +279,64 @@ mod tests {
         let mut world = World::new();
         world.register_disabling_component::<CustomDisabled>();
 
+        // Use powers of two so we can uniquely identify the set of matching archetypes from the count.
         world.spawn_empty();
-        world.spawn(Disabled);
-        world.spawn(CustomDisabled);
-        world.spawn((Disabled, CustomDisabled));
+        world.spawn_batch((0..2).map(|_| Disabled));
+        world.spawn_batch((0..4).map(|_| CustomDisabled));
+        world.spawn_batch((0..8).map(|_| (Disabled, CustomDisabled)));
 
         let mut query = world.query::<()>();
         assert_eq!(1, query.iter(&world).count());
 
-        let mut query = world.query_filtered::<(), With<Disabled>>();
+        let mut query = world.query::<EntityRef>();
         assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query::<EntityMut>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query::<EntityRefExcept<()>>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query::<EntityMutExcept<()>>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<(), With<Disabled>>();
+        assert_eq!(2, query.iter(&world).count());
 
         let mut query = world.query::<Has<Disabled>>();
-        assert_eq!(2, query.iter(&world).count());
+        assert_eq!(3, query.iter(&world).count());
+
+        let mut query = world.query::<EntityRefExcept<Disabled>>();
+        assert_eq!(3, query.iter(&world).count());
+
+        let mut query = world.query::<EntityMutExcept<Disabled>>();
+        assert_eq!(3, query.iter(&world).count());
 
         let mut query = world.query_filtered::<(), With<CustomDisabled>>();
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(4, query.iter(&world).count());
 
         let mut query = world.query::<Has<CustomDisabled>>();
-        assert_eq!(2, query.iter(&world).count());
+        assert_eq!(5, query.iter(&world).count());
 
         let mut query = world.query_filtered::<(), (With<Disabled>, With<CustomDisabled>)>();
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(8, query.iter(&world).count());
 
         let mut query = world.query::<(Has<Disabled>, Has<CustomDisabled>)>();
-        assert_eq!(4, query.iter(&world).count());
+        assert_eq!(15, query.iter(&world).count());
+
+        // Some edge cases:
+
+        // Ideally this would include entities with `Disabled`,
+        // but the access is indistinguishable from `EntityRef`.
+        let mut query = world.query::<(EntityRef, Option<&Disabled>)>();
+        assert_eq!(1, query.iter(&world).count());
+
+        // This is even true if the component is explicitly mentioned in `EntityMutExcept`.
+        let mut query = world.query::<(EntityMutExcept<Disabled>, Option<&Disabled>)>();
+        assert_eq!(1, query.iter(&world).count());
+
+        // But note that without `Option`, this adds a filter and does include disabled entities.
+        let mut query = world.query::<(EntityRef, &Disabled)>();
+        assert_eq!(2, query.iter(&world).count());
     }
 }

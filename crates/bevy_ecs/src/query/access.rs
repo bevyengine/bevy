@@ -272,6 +272,13 @@ impl<T: SparseSetIndex> Access<T> {
                 .contains(index.sparse_set_index())
     }
 
+    /// Returns `true` if this either has bounded access including this component
+    /// or unbounded access not including this component.
+    pub(crate) fn has_component_read_exception(&self, index: T) -> bool {
+        self.component_read_and_writes
+            .contains(index.sparse_set_index())
+    }
+
     /// Returns `true` if this can access any component.
     pub fn has_any_component_read(&self) -> bool {
         self.component_read_and_writes_inverted || !self.component_read_and_writes.is_clear()
@@ -1227,7 +1234,11 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Returns true if the index is used by this `FilteredAccess` in any way
     pub fn contains(&self, index: T) -> bool {
-        self.access().has_component_read(index.clone())
+        // Check whether this component is an exception.
+        // For normal queries, we want to treat access as a use,
+        // but for `EntityRefExcept<B>` and `EntityMutExcept<B>`,
+        // treat the exceptions as a use since they were mentioned explicitly.
+        self.access().has_component_read_exception(index.clone())
             || self.access().has_archetypal(index.clone())
             || self.filter_sets.iter().any(|f| {
                 f.with.contains(index.sparse_set_index())
