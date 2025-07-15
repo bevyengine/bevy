@@ -264,19 +264,8 @@ fn mix_oklcha_long(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
 }
 
 fn mix_hsla(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
-    let hue_diff = b.x - a.x;
-    var adjusted_hue = a.x;
-    if abs(hue_diff) > 0.5 {
-        if hue_diff > 0.0 {
-            adjusted_hue = a.x + (hue_diff - 1.0) * t;
-        } else {
-            adjusted_hue = a.x + (hue_diff + 1.0) * t;
-        }
-    } else {
-        adjusted_hue = a.x + hue_diff * t;
-    }
     return vec4(
-        fract(adjusted_hue),
+        fract(a.x + (fract(b.x - a.x + 0.5) - 0.5) * t),
         mix(a.y, b.y, t),
         mix(a.z, b.z, t),
         mix(a.w, b.w, t)
@@ -284,19 +273,9 @@ fn mix_hsla(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
 }
 
 fn mix_hsla_long(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
-    let hue_diff = b.x - a.x;
-    var adjusted_hue = a.x;
-    if abs(hue_diff) < 0.5 {
-        if hue_diff >= 0.0 {
-            adjusted_hue = a.x + (hue_diff - 1.0) * t;
-        } else {
-            adjusted_hue = a.x + (hue_diff + 1.0) * t;
-        }
-    } else {
-        adjusted_hue = a.x + hue_diff * t;
-    }
+    let d = fract(b.x - a.x + 0.5) - 0.5;
     return vec4(
-        fract(adjusted_hue),
+        fract(a.x + (d + select(1., -1., 0. < d)) * t),
         mix(a.y, b.y, t),
         mix(a.z, b.z, t),
         mix(a.w, b.w, t)
