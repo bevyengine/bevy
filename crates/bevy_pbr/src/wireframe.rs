@@ -117,7 +117,7 @@ impl Plugin for WireframePlugin {
         };
 
         render_app
-            .init_resource::<EntitySpecializationTicks<WireframeMaterial>>()
+            .init_resource::<WireframeEntitySpecializationTicks>()
             .init_resource::<SpecializedWireframePipelineCache>()
             .init_resource::<DrawFunctions<Wireframe3d>>()
             .add_render_command::<Wireframe3d, DrawWireframe3d>()
@@ -489,6 +489,11 @@ pub struct WireframeEntitiesNeedingSpecialization {
     pub entities: Vec<Entity>,
 }
 
+#[derive(Resource, Deref, DerefMut, Clone, Debug, Default)]
+pub struct WireframeEntitySpecializationTicks {
+    pub entities: MainEntityHashMap<Tick>,
+}
+
 /// Stores the [`SpecializedWireframeViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct SpecializedWireframePipelineCache {
@@ -684,7 +689,7 @@ fn extract_wireframe_3d_camera(
 
 pub fn extract_wireframe_entities_needing_specialization(
     entities_needing_specialization: Extract<Res<WireframeEntitiesNeedingSpecialization>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<WireframeMaterial>>,
+    mut entity_specialization_ticks: ResMut<WireframeEntitySpecializationTicks>,
     views: Query<&ExtractedView>,
     mut specialized_wireframe_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
@@ -725,7 +730,7 @@ pub fn check_wireframe_entities_needing_specialization(
 }
 
 pub fn specialize_wireframes(
-    params: SpecializeMeshParams<WireframeMaterial, RenderMeshInstances>,
+    params: SpecializeMeshParams<WireframeEntitySpecializationTicks, RenderMeshInstances>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,

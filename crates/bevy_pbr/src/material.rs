@@ -35,7 +35,7 @@ use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
-use bevy_render::render_asset::{prepare_assets, RenderAssets};
+use bevy_render::render_asset::prepare_assets;
 use bevy_render::renderer::RenderQueue;
 use bevy_render::RenderStartup;
 use bevy_render::{
@@ -822,6 +822,12 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
     }
 }
 
+#[derive(Resource, Deref, DerefMut, Default, Clone, Debug)]
+pub struct EntitySpecializationTicks {
+    #[deref]
+    pub entities: MainEntityHashMap<Tick>,
+}
+
 /// Stores the [`SpecializedMaterialViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct SpecializedMaterialPipelineCache {
@@ -867,7 +873,7 @@ pub fn check_entities_needing_specialization<M>(
 }
 
 pub fn specialize_material_meshes(
-    params: SpecializeMeshParams<M, RenderMeshInstances>,
+    params: SpecializeMeshParams<EntitySpecializationTicks, RenderMeshInstances>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,
@@ -921,7 +927,9 @@ pub fn specialize_material_meshes(
             else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            let Some(mesh_instance) = params
+                .render_mesh_instances
+                .render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
@@ -993,7 +1001,7 @@ pub fn specialize_material_meshes(
                 properties: material.properties.clone(),
             };
             let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
+                &params.pipeline_cache,
                 &material_pipeline_specializer,
                 erased_key,
                 &mesh.layout,

@@ -24,9 +24,7 @@ use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::extract_cameras;
 use bevy_render::render_phase::{DrawFunctionId, InputUniformIndex};
-use bevy_render::render_resource::{
-    CachedRenderPipelineId, EntitySpecializationTicks, SpecializeMeshParams,
-};
+use bevy_render::render_resource::{CachedRenderPipelineId, SpecializeMeshParams};
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderStartup;
 use bevy_render::{
@@ -596,6 +594,22 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
     }
 }
 
+#[derive(Clone, Resource, Deref, DerefMut, Debug)]
+pub struct EntitySpecializationTicks<M> {
+    #[deref]
+    pub entities: MainEntityHashMap<Tick>,
+    _marker: PhantomData<M>,
+}
+
+impl<M> Default for EntitySpecializationTicks<M> {
+    fn default() -> Self {
+        Self {
+            entities: MainEntityHashMap::default(),
+            _marker: Default::default(),
+        }
+    }
+}
+
 /// Stores the [`SpecializedMaterial2dViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedMaterial2dPipelineCache<M> {
@@ -661,7 +675,7 @@ pub fn check_entities_needing_specialization<M>(
 }
 
 pub fn specialize_material2d_meshes<M: Material2d>(
-    params: SpecializeMeshParams<M, RenderMesh2dInstances>,
+    params: SpecializeMeshParams<EntitySpecializationTicks<M>, RenderMesh2dInstances>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,

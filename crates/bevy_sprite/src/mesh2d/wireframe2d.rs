@@ -114,7 +114,7 @@ impl Plugin for Wireframe2dPlugin {
         };
 
         render_app
-            .init_resource::<EntitySpecializationTicks<Wireframe2dMaterial>>()
+            .init_resource::<WireframeEntitySpecializationTicks>()
             .init_resource::<SpecializedWireframePipelineCache>()
             .init_resource::<DrawFunctions<Wireframe2dPhaseItem>>()
             .add_render_command::<Wireframe2dPhaseItem, DrawWireframe2d>()
@@ -489,6 +489,11 @@ pub struct WireframeEntitiesNeedingSpecialization {
     pub entities: Vec<Entity>,
 }
 
+#[derive(Resource, Deref, DerefMut, Clone, Debug, Default)]
+pub struct WireframeEntitySpecializationTicks {
+    pub entities: MainEntityHashMap<Tick>,
+}
+
 /// Stores the [`SpecializedWireframeViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct SpecializedWireframePipelineCache {
@@ -677,7 +682,7 @@ fn extract_wireframe_2d_camera(
 
 pub fn extract_wireframe_entities_needing_specialization(
     entities_needing_specialization: Extract<Res<WireframeEntitiesNeedingSpecialization>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<Wireframe2dMaterial>>,
+    mut entity_specialization_ticks: ResMut<WireframeEntitySpecializationTicks>,
     views: Query<&ExtractedView>,
     mut specialized_wireframe_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh2d>>,
@@ -718,7 +723,7 @@ pub fn check_wireframe_entities_needing_specialization(
 }
 
 pub fn specialize_wireframes(
-    params: SpecializeMeshParams<Wireframe2dMaterial, RenderMesh2dInstances>,
+    params: SpecializeMeshParams<WireframeEntitySpecializationTicks, RenderMesh2dInstances>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,

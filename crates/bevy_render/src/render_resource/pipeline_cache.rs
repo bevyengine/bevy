@@ -3,14 +3,11 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
-    sync_world::MainEntityHashMap,
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Tick,
     event::EventReader,
     resource::Resource,
     system::{Res, ResMut, SystemChangeTick, SystemParam},
@@ -1087,27 +1084,15 @@ impl PipelineCache {
     }
 }
 
-#[derive(Resource, Deref, DerefMut, Clone, Debug)]
-pub struct EntitySpecializationTicks<M> {
-    #[deref]
-    pub entities: MainEntityHashMap<Tick>,
-    _marker: PhantomData<M>,
-}
-
-impl<M> Default for EntitySpecializationTicks<M> {
-    fn default() -> Self {
-        Self {
-            entities: MainEntityHashMap::default(),
-            _marker: Default::default(),
-        }
-    }
-}
-
 /// Parameters shared between mesh specialization systems.
 #[derive(SystemParam)]
-pub struct SpecializeMeshParams<'w, M: Send + Sync + 'static, RenderMeshInstances: Resource> {
+pub struct SpecializeMeshParams<
+    'w,
+    EntitySpecializationTicks: Resource,
+    RenderMeshInstances: Resource,
+> {
     pub pipeline_cache: Res<'w, PipelineCache>,
-    pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks<M>>,
+    pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks>,
     pub render_mesh_instances: Res<'w, RenderMeshInstances>,
     pub render_meshes: Res<'w, RenderAssets<RenderMesh>>,
     pub ticks: SystemChangeTick,
