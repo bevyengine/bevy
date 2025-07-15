@@ -3,28 +3,30 @@ use core::ops::RangeInclusive;
 use accesskit::{Orientation, Role};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
-use bevy_ecs::entity::Entity;
 use bevy_ecs::event::{EntityEvent, Event};
-use bevy_ecs::hierarchy::{ChildOf, Children};
+use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
-use bevy_ecs::system::{In, Res, ResMut};
+use bevy_ecs::system::{In, Res};
 use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::{
     component::Component,
     observer::On,
     query::With,
-    system::{Commands, Query, SystemId},
+    system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
+use bevy_input_focus::FocusedInput;
 use bevy_log::warn_once;
+use bevy_math::ops;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
 
+use crate::{Callback, Notify, ValueChange};
+
 /// Defines how the slider should behave when you click on the track (not the thumb).
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum TrackClick {
     /// Clicking on the track lets you drag to edit the value, just like clicking on the thumb.
     #[default]
@@ -37,7 +39,8 @@ pub enum TrackClick {
 
 /// A headless slider widget, which can be used to build custom sliders. Sliders have a value
 /// (represented by the [`SliderValue`] component) and a range (represented by [`SliderRange`]). An
-/// optional step size can be specified via [`SliderStep`].
+/// optional step size can be specified via [`SliderStep`], and you can control the rounding
+/// during dragging with [`SliderPrecision`].
 ///
 /// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
 /// can be useful in a console environment for controlling the value gamepad inputs.
@@ -73,8 +76,9 @@ pub enum TrackClick {
 )]
 pub struct CoreSlider {
     /// Callback which is called when the slider is dragged or the value is changed via other user
-    /// interaction. If this value is `None`, then the slider will self-update.
-    pub on_change: Option<SystemId<In<f32>>>,
+    /// interaction. If this value is `Callback::Ignore`, then the slider will update it's own
+    /// internal [`SliderValue`] state without notification.
+    pub on_change: Callback<In<ValueChange<f32>>>,
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,
     // TODO: Think about whether we want a "vertical" option.
@@ -93,7 +97,9 @@ pub struct SliderValue(pub f32);
 #[derive(Component, Debug, PartialEq, Clone, Copy)]
 #[component(immutable)]
 pub struct SliderRange {
+    /// The beginning of the allowed range for the slider value.
     start: f32,
+    /// The end of the allowed range for the slider value.
     end: f32,
 }
 
@@ -172,7 +178,7 @@ impl Default for SliderRange {
 }
 
 /// Defines the amount by which to increment or decrement the slider value when using keyboard
-/// shorctuts. Defaults to 1.0.
+/// shortcuts. Defaults to 1.0.
 #[derive(Component, Debug, PartialEq, Clone)]
 #[component(immutable)]
 pub struct SliderStep(pub f32);
@@ -180,6 +186,25 @@ pub struct SliderStep(pub f32);
 impl Default for SliderStep {
     fn default() -> Self {
         Self(1.0)
+    }
+}
+
+/// A component which controls the rounding of the slider value during dragging.
+///
+/// Stepping is not affected, although presumably the step size will be an integer multiple of the
+/// rounding factor. This also doesn't prevent the slider value from being set to non-rounded values
+/// by other means, such as manually entering digits via a numeric input field.
+///
+/// The value in this component represents the number of decimal places of desired precision, so a
+/// value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
+/// thousand.
+#[derive(Component, Debug, Default, Clone, Copy)]
+pub struct SliderPrecision(pub i32);
+
+impl SliderPrecision {
+    fn round(&self, value: f32) -> f32 {
+        let factor = ops::powf(10.0_f32, self.0 as f32);
+        (value * factor).round() / factor
     }
 }
 
@@ -200,6 +225,7 @@ pub(crate) fn slider_on_pointer_down(
         &SliderValue,
         &SliderRange,
         &SliderStep,
+        Option<&SliderPrecision>,
         &ComputedNode,
         &ComputedNodeTarget,
         &UiGlobalTransform,
@@ -207,42 +233,26 @@ pub(crate) fn slider_on_pointer_down(
     )>,
     q_thumb: Query<&ComputedNode, With<CoreSliderThumb>>,
     q_children: Query<&Children>,
-    q_parents: Query<&ChildOf>,
-    focus: Option<ResMut<InputFocus>>,
-    focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
     if q_thumb.contains(trigger.target()) {
         // Thumb click, stop propagation to prevent track click.
         trigger.propagate(false);
-
-        // Find the slider entity that's an ancestor of the thumb
-        if let Some(slider_entity) = q_parents
-            .iter_ancestors(trigger.target())
-            .find(|entity| q_slider.contains(*entity))
-        {
-            // Set focus to slider and hide focus ring
-            if let Some(mut focus) = focus {
-                focus.0 = Some(slider_entity);
-            }
-            if let Some(mut focus_visible) = focus_visible {
-                focus_visible.0 = false;
-            }
-        }
-    } else if let Ok((slider, value, range, step, node, node_target, transform, disabled)) =
-        q_slider.get(trigger.target())
+    } else if let Ok((
+        slider,
+        value,
+        range,
+        step,
+        precision,
+        node,
+        node_target,
+        transform,
+        disabled,
+    )) = q_slider.get(trigger.target())
     {
         // Track click
         trigger.propagate(false);
-
-        // Set focus to slider and hide focus ring
-        if let Some(mut focus) = focus {
-            focus.0 = (trigger.target() != Entity::PLACEHOLDER).then_some(trigger.target());
-        }
-        if let Some(mut focus_visible) = focus_visible {
-            focus_visible.0 = false;
-        }
 
         if disabled {
             return;
@@ -278,15 +288,23 @@ pub(crate) fn slider_on_pointer_down(
                     value.0 + step.0
                 }
             }
-            TrackClick::Snap => click_val,
+            TrackClick::Snap => precision
+                .map(|prec| prec.round(click_val))
+                .unwrap_or(click_val),
         });
 
-        if let Some(on_change) = slider.on_change {
-            commands.run_system_with(on_change, new_value);
-        } else {
+        if matches!(slider.on_change, Callback::Ignore) {
             commands
                 .entity(trigger.target())
                 .insert(SliderValue(new_value));
+        } else {
+            commands.notify_with(
+                &slider.on_change,
+                ValueChange {
+                    source: trigger.target(),
+                    value: new_value,
+                },
+            );
         }
     }
 }
@@ -317,6 +335,7 @@ pub(crate) fn slider_on_drag(
         &ComputedNode,
         &CoreSlider,
         &SliderRange,
+        Option<&SliderPrecision>,
         &UiGlobalTransform,
         &mut CoreSliderDragState,
         Has<InteractionDisabled>,
@@ -326,7 +345,8 @@ pub(crate) fn slider_on_drag(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((node, slider, range, transform, drag, disabled)) = q_slider.get_mut(trigger.target())
+    if let Ok((node, slider, range, precision, transform, drag, disabled)) =
+        q_slider.get_mut(trigger.target())
     {
         trigger.propagate(false);
         if drag.dragging && !disabled {
@@ -341,17 +361,28 @@ pub(crate) fn slider_on_drag(
             let slider_width = ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0);
             let span = range.span();
             let new_value = if span > 0. {
-                range.clamp(drag.offset + (distance.x * span) / slider_width)
+                drag.offset + (distance.x * span) / slider_width
             } else {
                 range.start() + span * 0.5
             };
+            let rounded_value = range.clamp(
+                precision
+                    .map(|prec| prec.round(new_value))
+                    .unwrap_or(new_value),
+            );
 
-            if let Some(on_change) = slider.on_change {
-                commands.run_system_with(on_change, new_value);
-            } else {
+            if matches!(slider.on_change, Callback::Ignore) {
                 commands
                     .entity(trigger.target())
-                    .insert(SliderValue(new_value));
+                    .insert(SliderValue(rounded_value));
+            } else {
+                commands.notify_with(
+                    &slider.on_change,
+                    ValueChange {
+                        source: trigger.target(),
+                        value: rounded_value,
+                    },
+                );
             }
         }
     }
@@ -393,12 +424,18 @@ fn slider_on_key_input(
                 }
             };
             trigger.propagate(false);
-            if let Some(on_change) = slider.on_change {
-                commands.run_system_with(on_change, new_value);
-            } else {
+            if matches!(slider.on_change, Callback::Ignore) {
                 commands
                     .entity(trigger.target())
                     .insert(SliderValue(new_value));
+            } else {
+                commands.notify_with(
+                    &slider.on_change,
+                    ValueChange {
+                        source: trigger.target(),
+                        value: new_value,
+                    },
+                );
             }
         }
     }
@@ -485,12 +522,18 @@ fn slider_on_set_value(
                 range.clamp(value.0 + *delta * step.map(|s| s.0).unwrap_or_default())
             }
         };
-        if let Some(on_change) = slider.on_change {
-            commands.run_system_with(on_change, new_value);
-        } else {
+        if matches!(slider.on_change, Callback::Ignore) {
             commands
                 .entity(trigger.target())
                 .insert(SliderValue(new_value));
+        } else {
+            commands.notify_with(
+                &slider.on_change,
+                ValueChange {
+                    source: trigger.target(),
+                    value: new_value,
+                },
+            );
         }
     }
 }
@@ -510,5 +553,26 @@ impl Plugin for CoreSliderPlugin {
             .add_observer(slider_on_insert_range)
             .add_observer(slider_on_insert_step)
             .add_observer(slider_on_set_value);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_slider_precision_rounding() {
+        // Test positive precision values (decimal places)
+        let precision_2dp = SliderPrecision(2);
+        assert_eq!(precision_2dp.round(1.234567), 1.23);
+        assert_eq!(precision_2dp.round(1.235), 1.24);
+
+        // Test zero precision (rounds to integers)
+        let precision_0dp = SliderPrecision(0);
+        assert_eq!(precision_0dp.round(1.4), 1.0);
+
+        // Test negative precision (rounds to tens, hundreds, etc.)
+        let precision_neg1 = SliderPrecision(-1);
+        assert_eq!(precision_neg1.round(14.0), 10.0);
     }
 }

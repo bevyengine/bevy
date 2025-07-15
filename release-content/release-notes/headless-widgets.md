@@ -1,7 +1,7 @@
 ---
 title: Headless Widgets
-authors: ["@viridia"]
-pull_requests: [19366, 19584, 19665]
+authors: ["@viridia", "@ickshonpe", "@alice-i-cecile"]
+pull_requests: [19366, 19584, 19665, 19778, 19803, 20032, 20036, 20086]
 ---
 
 Bevy's `Button` and `Interaction` components have been around for a long time. Unfortunately
@@ -34,9 +34,11 @@ sliders, checkboxes and radio buttons.
 
 - `CoreButton` is a push button. It emits an activation event when clicked.
 - `CoreSlider` is a standard slider, which lets you edit an `f32` value in a given range.
+- `CoreScrollbar` can be used to implement scrollbars.
 - `CoreCheckbox` can be used for checkboxes and toggle switches.
+- `CoreRadio` and `CoreRadioGroup` can be used for radio buttons.
 
-## Widget Interaction States
+## Widget Interaction Marker Components
 
 Many of the core widgets will define supplementary ECS components that are used to store the widget's
 state, similar to how the old `Interaction` component worked, but in a way that is more flexible.
@@ -63,12 +65,17 @@ Applications need a way to be notified when the user interacts with a widget. On
 is using Bevy observers. This approach is useful in cases where you want the widget notifications
 to bubble up the hierarchy.
 
-However, in UI work it's often desirable to connect widget interactions in ways that cut across the
-hierarchy. For these kinds of situations, the core widgets offer a different approach: one-shot
-systems. You can register a function as a one-shot system and get the resulting `SystemId`. This can
-then be passed as a parameter to the widget when it is constructed, so when the button subsequently
+However, in UI work it's often desirable to send notifications "point-to-point" in ways that cut
+across the hierarchy. For these kinds of situations, the core widgets offer a different
+approach: callbacks. The `Callback` enum allows different options for triggering a notification
+when a widget's state is updated. For example, you can pass in the `SystemId` of a registered
+one-shot system as a widget parameter when it is constructed. When the button subsequently
 gets clicked or the slider is dragged, the system gets run. Because it's an ECS system, it can
 inject any additional parameters it needs to update the Bevy world in response to the interaction.
+
+## State Management
+
+See the [Wikipedia Article on State Management](https://en.wikipedia.org/wiki/State_management).
 
 Most of the core widgets support "external state management" - something that is referred to in the
 React.js world as "controlled" widgets. This means that for widgets that edit a parameter value
@@ -84,9 +91,10 @@ interacting with that widget. Externalizing the state avoids the need for two-wa
 instead allows simpler one-way data binding that aligns well with the traditional "Model / View /
 Controller" (MVC) design pattern.
 
-That being said, the choice of internal or external state management is up to you: if the widget
-has an `on_change` callback that is not `None`, then the callback is used. If the callback
-is `None`, however, the widget will update its own state. (This is similar to how React.js does it.)
+That being said, the choice of internal or external state management is up to you: if the widget has
+an `on_change` callback that is not `Callback::Ignore`, then the callback is used. If the callback
+is `Callback::Ignore`, however, the widget will update its own state automatically. (This is similar
+to how React.js does it.)
 
 There are two exceptions to this rule about external state management. First, widgets which don't
 edit a value, but which merely trigger an event (such as buttons), don't fall under this rule.

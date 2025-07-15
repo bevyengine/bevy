@@ -1,7 +1,7 @@
 use core::ops::Range;
 
 use crate::{Anchor, ComputedTextureSlices, ScalingMode, Sprite};
-use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -14,7 +14,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
-    system::{lifetimeless::*, SystemParamItem, SystemState},
+    system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
@@ -40,6 +40,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -51,83 +52,74 @@ pub struct SpritePipeline {
     pub dummy_white_gpu_image: GpuImage,
 }
 
-impl FromWorld for SpritePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<DefaultImageSampler>,
-            Res<RenderQueue>,
-        )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
-
-        let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
-        let view_layout = render_device.create_bind_group_layout(
-            "sprite_view_layout",
-            &BindGroupLayoutEntries::with_indices(
-                ShaderStages::VERTEX_FRAGMENT,
-                (
-                    (0, uniform_buffer::<ViewUniform>(true)),
-                    (
-                        1,
-                        tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
-                    ),
-                    (
-                        2,
-                        tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
-                    ),
-                ),
+pub fn init_sprite_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    default_sampler: Res<DefaultImageSampler>,
+    render_queue: Res<RenderQueue>,
+    asset_server: Res<AssetServer>,
+) {
+    let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
+    let view_layout = render_device.create_bind_group_layout(
+        "sprite_view_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::VERTEX_FRAGMENT,
+            (
+                uniform_buffer::<ViewUniform>(true),
+                tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
             ),
-        );
+        ),
+    );
 
-        let material_layout = render_device.create_bind_group_layout(
-            "sprite_material_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                ),
+    let material_layout = render_device.create_bind_group_layout(
+        "sprite_material_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
             ),
-        );
-        let dummy_white_gpu_image = {
-            let image = Image::default();
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler {
-                ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(&descriptor.as_wgpu())
-                }
-            };
-
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                image.data.as_ref().expect("Image has no data"),
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
-            let texture_view = texture.create_view(&TextureViewDescriptor::default());
-            GpuImage {
-                texture,
-                texture_view,
-                texture_format: image.texture_descriptor.format,
-                sampler,
-                size: image.texture_descriptor.size,
-                mip_level_count: image.texture_descriptor.mip_level_count,
+        ),
+    );
+    let dummy_white_gpu_image = {
+        let image = Image::default();
+        let texture = render_device.create_texture(&image.texture_descriptor);
+        let sampler = match image.sampler {
+            ImageSampler::Default => (**default_sampler).clone(),
+            ImageSampler::Descriptor(ref descriptor) => {
+                render_device.create_sampler(&descriptor.as_wgpu())
             }
         };
 
-        SpritePipeline {
-            view_layout,
-            material_layout,
-            dummy_white_gpu_image,
-            shader: load_embedded_asset!(world, "sprite.wgsl"),
+        let format_size = image.texture_descriptor.format.pixel_size();
+        render_queue.write_texture(
+            texture.as_image_copy(),
+            image.data.as_ref().expect("Image has no data"),
+            TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(image.width() * format_size as u32),
+                rows_per_image: None,
+            },
+            image.texture_descriptor.size,
+        );
+        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        GpuImage {
+            texture,
+            texture_view,
+            texture_format: image.texture_descriptor.format,
+            sampler,
+            size: image.texture_descriptor.size,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         }
-    }
+    };
+
+    commands.insert_resource(SpritePipeline {
+        view_layout,
+        material_layout,
+        dummy_white_gpu_image,
+        shader: load_embedded_asset!(asset_server.as_ref(), "sprite.wgsl"),
+    });
 }
 
 bitflags::bitflags! {
@@ -270,30 +262,21 @@ impl SpecializedRenderPipeline for SpritePipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![instance_rate_vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout: vec![self.view_layout.clone(), self.material_layout.clone()],
-            primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-            },
             // Sprites are always alpha blended so they never need to write to depth.
             // They just need to read it in case an opaque mesh2d
             // that wrote to depth is present.
@@ -319,8 +302,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("sprite_pipeline".into()),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -636,11 +618,7 @@ pub fn prepare_sprite_view_bind_groups(
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &sprite_pipeline.view_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, lut_bindings.0),
-                (2, lut_bindings.1),
-            )),
+            &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
         );
 
         commands.entity(entity).insert(SpriteViewBindGroup {

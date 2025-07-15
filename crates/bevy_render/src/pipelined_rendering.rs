@@ -197,7 +197,7 @@ fn renderer_extract(app_world: &mut World, _world: &mut World) {
                 render_channels.send_blocking(render_app);
             } else {
                 // Renderer thread panicked
-                world.send_event(AppExit::error());
+                world.write_event(AppExit::error());
             }
         });
     });

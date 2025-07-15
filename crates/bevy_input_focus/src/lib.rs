@@ -147,6 +147,15 @@ pub struct FocusedInput<E: BufferedEvent + Clone> {
     window: Entity,
 }
 
+/// An event which is used to set input focus. Trigger this on an entity, and it will bubble
+/// until it finds a focusable entity, and then set focus to it.
+#[derive(Clone, Event, EntityEvent)]
+#[entity_event(traversal = WindowTraversal, auto_propagate)]
+pub struct AcquireFocus {
+    /// The primary window entity.
+    window: Entity,
+}
+
 #[derive(QueryData)]
 /// These are for accessing components defined on the targeted entity
 pub struct WindowTraversal {
@@ -156,6 +165,24 @@ pub struct WindowTraversal {
 
 impl<E: BufferedEvent + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
     fn traverse(item: Self::Item<'_, '_>, event: &FocusedInput<E>) -> Option<Entity> {
+        let WindowTraversalItem { child_of, window } = item;
+
+        // Send event to parent, if it has one.
+        if let Some(child_of) = child_of {
+            return Some(child_of.parent());
+        };
+
+        // Otherwise, send it to the window entity (unless this is a window entity).
+        if window.is_none() {
+            return Some(event.window);
+        }
+
+        None
+    }
+}
+
+impl Traversal<AcquireFocus> for WindowTraversal {
+    fn traverse(item: Self::Item<'_, '_>, event: &AcquireFocus) -> Option<Entity> {
         let WindowTraversalItem { child_of, window } = item;
 
         // Send event to parent, if it has one.
@@ -519,7 +546,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(child_of_b));
 
         // entity_a should receive this event
-        app.world_mut().send_event(key_a_event());
+        app.world_mut().write_event(key_a_event());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -532,7 +559,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(entity_a));
 
         // This event should be lost
-        app.world_mut().send_event(key_a_event());
+        app.world_mut().write_event(key_a_event());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -553,7 +580,7 @@ mod tests {
 
         // These events should be received by entity_b and child_of_b
         app.world_mut()
-            .send_event_batch(core::iter::repeat_n(key_a_event(), 4));
+            .write_event_batch(core::iter::repeat_n(key_a_event(), 4));
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");

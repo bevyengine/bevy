@@ -12,6 +12,9 @@ use bevy::prelude::*;
 use bevy::ui::ColorStop;
 use std::f32::consts::TAU;
 
+#[derive(Component)]
+struct CurrentColorSpaceLabel;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -87,6 +90,7 @@ fn setup(mut commands: Commands) {
                                                 BackgroundGradient::from(LinearGradient {
                                                     angle,
                                                     stops: stops.clone(),
+                                                    ..default()
                                                 }),
                                                 BorderGradient::from(LinearGradient {
                                                     angle: 3. * TAU / 8.,
@@ -95,6 +99,7 @@ fn setup(mut commands: Commands) {
                                                         Color::WHITE.into(),
                                                         ORANGE.into(),
                                                     ],
+                                                    ..default()
                                                 }),
                                             ));
                                         }
@@ -115,10 +120,12 @@ fn setup(mut commands: Commands) {
                             BackgroundGradient::from(LinearGradient {
                                 angle: 0.,
                                 stops: stops.clone(),
+                                ..default()
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
+                                ..default()
                             }),
                             AnimateMarker,
                         ));
@@ -136,10 +143,12 @@ fn setup(mut commands: Commands) {
                                 stops: stops.clone(),
                                 shape: RadialGradientShape::ClosestSide,
                                 position: UiPosition::CENTER,
+                                ..default()
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
+                                ..default()
                             }),
                             AnimateMarker,
                         ));
@@ -159,16 +168,119 @@ fn setup(mut commands: Commands) {
                                     .map(|stop| AngularColorStop::auto(stop.color))
                                     .collect(),
                                 position: UiPosition::CENTER,
+                                ..default()
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
+                                ..default()
                             }),
                             AnimateMarker,
                         ));
                     });
                 });
             }
+
+            let button = commands.spawn((
+                        Button,
+                        Node {
+                            border: UiRect::all(Val::Px(2.0)),
+                            padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BorderColor::all(Color::WHITE),
+                        BorderRadius::MAX,
+                        BackgroundColor(Color::BLACK),
+                        children![(
+                            Text::new("next color space"),
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                            TextShadow::default(),
+                        )]
+                )).observe(
+                    |_trigger: On<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+                    *border_query.single_mut().unwrap() = BorderColor::all(RED.into());
+
+
+                })
+                .observe(
+                    |_trigger: On<Pointer<Out>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+                    *border_query.single_mut().unwrap() = BorderColor::all(Color::WHITE);
+                })
+                .observe(
+                        |_trigger: On<Pointer<Click>>,
+                            mut gradients_query: Query<&mut BackgroundGradient>,
+                            mut label_query: Query<
+                            &mut Text,
+                            With<CurrentColorSpaceLabel>,
+                        >| {
+                            let mut current_space = InterpolationColorSpace::default();
+                            for mut gradients in gradients_query.iter_mut() {
+                                for gradient in gradients.0.iter_mut() {
+                                    let space = match gradient {
+                                        Gradient::Linear(linear_gradient) => {
+                                            &mut linear_gradient.color_space
+                                        }
+                                        Gradient::Radial(radial_gradient) => {
+                                            &mut radial_gradient.color_space
+                                        }
+                                        Gradient::Conic(conic_gradient) => {
+                                            &mut conic_gradient.color_space
+                                        }
+                                    };
+                                    *space = match *space {
+                                        InterpolationColorSpace::Oklaba => {
+                                            InterpolationColorSpace::Oklcha
+                                        }
+                                        InterpolationColorSpace::Oklcha => {
+                                            InterpolationColorSpace::OklchaLong
+                                        }
+                                        InterpolationColorSpace::OklchaLong => {
+                                            InterpolationColorSpace::Srgba
+                                        }
+                                        InterpolationColorSpace::Srgba => {
+                                            InterpolationColorSpace::LinearRgba
+                                        }
+                                        InterpolationColorSpace::LinearRgba => {
+                                            InterpolationColorSpace::Hsla
+                                        }
+                                        InterpolationColorSpace::Hsla => {
+                                            InterpolationColorSpace::HslaLong
+                                        }
+                                        InterpolationColorSpace::HslaLong => {
+                                            InterpolationColorSpace::Hsva
+                                        }
+                                        InterpolationColorSpace::Hsva => {
+                                            InterpolationColorSpace::HsvaLong
+                                        }
+                                        InterpolationColorSpace::HsvaLong => {
+                                            InterpolationColorSpace::Oklaba
+                                        }
+                                    };
+                                    current_space = *space;
+                                }
+                            }
+                            for mut label in label_query.iter_mut() {
+                                label.0 = format!("{current_space:?}");
+                            }
+                        }
+                    ).id();
+
+            commands.spawn(
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                }
+            ).with_children(|commands| {
+                commands.spawn((Text::new(format!("{:?}", InterpolationColorSpace::default())), TextFont { font_size: 25., ..default() }, CurrentColorSpaceLabel));
+
+            })
+            .add_child(button);
         });
 }
 
