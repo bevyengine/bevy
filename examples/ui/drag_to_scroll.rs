@@ -60,7 +60,6 @@ fn setup(mut commands: Commands) {
             on: On<Pointer<DragStart>>,
              mut scroll_position_query: Query<(
                 &ComputedNode,
-            
                 &mut ScrollStart),
                 With<ScrollableNode>,
             >| {
