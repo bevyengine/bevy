@@ -105,11 +105,10 @@ jobs:
         run: cargo update
 
       - name: Install Bevy dependencies
-        if: runner.os == 'linux'
-        run: |
-          sudo apt-get update;
-          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
-            libasound2-dev libudev-dev libxkbcommon-x11-0;
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
 
       - uses: actions/cache/restore@v4
         id: cache
