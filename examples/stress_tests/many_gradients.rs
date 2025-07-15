@@ -89,6 +89,11 @@ fn setup(mut commands: Commands, args: Res<Args>) {
                 let mut gradient = LinearGradient::new(angle, vec![
                     ColorStop::new(RED, Val::Percent(0.0)),
                     ColorStop::new(BLUE, Val::Percent(100.0)),
+                    ColorStop::new(GREEN, Val::Percent(20.0)),
+                    ColorStop::new(YELLOW, Val::Percent(40.0)),
+                    ColorStop::new(ORANGE, Val::Percent(60.0)),
+                    ColorStop::new(LIME, Val::Percent(80.0)),
+                    ColorStop::new(DARK_CYAN, Val::Percent(90.0)),
                 ]);
                 
                 gradient.color_space = if args.srgb {
@@ -139,6 +144,11 @@ fn animate_gradients(
             gradient.stops = vec![
                 ColorStop::new(color1, Val::Percent(0.0)),
                 ColorStop::new(color2, Val::Percent(100.0)),
+                ColorStop::new(Color::hsl((hue_shift + 0.1) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(20.0)),
+                ColorStop::new(Color::hsl((hue_shift + 0.15) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(40.0)),
+                ColorStop::new(Color::hsl((hue_shift + 0.2) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(60.0)),
+                ColorStop::new(Color::hsl((hue_shift + 0.25) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(80.0)),
+                ColorStop::new(Color::hsl((hue_shift + 0.28) * 360.0 % 360.0, 1.0, 0.5), Val::Percent(90.0)),
             ];
         }
     }

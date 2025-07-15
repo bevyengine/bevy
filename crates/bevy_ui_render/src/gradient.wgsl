@@ -354,10 +354,10 @@ fn interpolate_gradient(
 ) -> vec4<f32> {
     if start_distance == end_distance {
         if distance <= start_distance && enabled(flags, FILL_START) {
-            return start_color;
+            return convert_to_linear_rgba(start_color);
         }
         if start_distance <= distance && enabled(flags, FILL_END) {
-            return end_color;
+            return convert_to_linear_rgba(end_color);
         }
         return vec4(0.);
     }
@@ -366,14 +366,14 @@ fn interpolate_gradient(
 
     if t < 0.0 {
         if enabled(flags, FILL_START) {
-            return start_color;
+            return convert_to_linear_rgba(start_color);
         }
         return vec4(0.0);
     }
 
     if 1. < t {
         if enabled(flags, FILL_END) {
-            return end_color;
+            return convert_to_linear_rgba(end_color);
         }
         return vec4(0.0);
     }
@@ -383,24 +383,56 @@ fn interpolate_gradient(
     } else {
         t = 0.5 * (1 + (t - hint) / (1.0 - hint));
     }
+
+    return convert_to_linear_rgba(mix_colors(start_color, end_color, t));
+}
+
+// Mix the colors, choosing the appropriate interpolation method for the given color space
+fn mix_colors(
+    start_color: vec4<f32>,
+    end_color: vec4<f32>,
+    t: f32,
+) -> vec4<f32> {
 #ifdef IN_OKLCH
-    return oklcha_to_linear_rgba(mix_oklcha(start_color, end_color, t));
+    return mix_oklcha(start_color, end_color, t);
 #else ifdef IN_OKLCH_LONG
-    return oklcha_to_linear_rgba(mix_oklcha_long(start_color, end_color, t));
+    return mix_oklcha_long(start_color, end_color, t);
 #else ifdef IN_HSV
-    return hsva_to_linear_rgba(mix_hsva(start_color, end_color, t));
+    return mix_hsva(start_color, end_color, t);
 #else ifdef IN_HSV_LONG
-    return hsva_to_linear_rgba(mix_hsva_long(start_color, end_color, t));
+    return mix_hsva_long(start_color, end_color, t);
 #else ifdef IN_HSL
-    return hsla_to_linear_rgba(mix_hsla(start_color, end_color, t));
+    return mix_hsla(start_color, end_color, t);
 #else ifdef IN_HSL_LONG
-    return hsla_to_linear_rgba(mix_hsla_long(start_color, end_color, t));
-#else ifdef IN_OKLAB
-    return oklaba_to_linear_rgba(mix(start_color, end_color, t));
-#else ifdef IN_SRGB
-    let mixed_srgb = mix(start_color, end_color, t);
-    return vec4(pow(mixed_srgb.rgb, vec3(2.2)), mixed_srgb.a);
+    return mix_hsla_long(start_color, end_color, t);
 #else
+    // Just lerp in linear RGBA, OkLab and SRGBA spaces
     return mix(start_color, end_color, t);
+#endif
+}
+
+// Convert a color from the interpolation color space to linear rgba
+fn convert_to_linear_rgba(
+    color: vec4<f32>,
+) -> vec4<f32> {
+#ifdef IN_OKLCH
+    return oklcha_to_linear_rgba(color);
+#else ifdef IN_OKLCH_LONG
+    return oklcha_to_linear_rgba(color);
+#else ifdef IN_HSV
+    return hsva_to_linear_rgba(color);
+#else ifdef IN_HSV_LONG
+    return hsva_to_linear_rgba(color);
+#else ifdef IN_HSL
+    return hsla_to_linear_rgba(color);
+#else ifdef IN_HSL_LONG
+    return hsla_to_linear_rgba(color);
+#else ifdef IN_OKLAB
+    return oklaba_to_linear_rgba(color);
+#else ifdef IN_SRGB
+    return vec4(pow(color.rgb, vec3(2.2)), color.a);
+#else
+    // Color is already in linear rgba space
+    return color;
 #endif
 }
