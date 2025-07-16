@@ -252,21 +252,20 @@ mod tests {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
 
         // Orthogonal, and test that ray intersects only the front face
-        assert_eq!(
+        assert!(
             ray.intersect_plane(
                 Vec3::Z,
                 InfinitePlane3d::new(Vec3::Z),
                 PlaneIntersectionMode::FrontFaceOnly
-            ),
-            Some(1.0)
-        );
-        assert!(ray
+            )
+            .is_none());
+        assert_eq!(ray
             .intersect_plane(
                 Vec3::Z,
                 InfinitePlane3d::new(Vec3::NEG_Z),
                 PlaneIntersectionMode::FrontFaceOnly
-            )
-            .is_none());
+            ),
+            Some(1.0));
         assert!(ray
             .intersect_plane(
                 Vec3::NEG_Z,
@@ -277,7 +276,7 @@ mod tests {
         assert!(ray
             .intersect_plane(
                 Vec3::NEG_Z,
-                InfinitePlane3d::new(Vec3::Z),
+                InfinitePlane3d::new(Vec3::NEG_Z),
                 PlaneIntersectionMode::FrontFaceOnly
             )
             .is_none());
@@ -288,13 +287,6 @@ mod tests {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
 
         // Orthogonal, and test that ray intersects only the back face
-        assert!(ray
-            .intersect_plane(
-                Vec3::Z,
-                InfinitePlane3d::new(Vec3::Z),
-                PlaneIntersectionMode::BackFaceOnly
-            )
-            .is_none());
         assert_eq!(
             ray.intersect_plane(
                 Vec3::Z,
@@ -305,6 +297,13 @@ mod tests {
         );
         assert!(ray
             .intersect_plane(
+                Vec3::Z,
+                InfinitePlane3d::new(Vec3::NEG_Z),
+                PlaneIntersectionMode::BackFaceOnly
+            )
+            .is_none());
+        assert!(ray
+            .intersect_plane(
                 Vec3::NEG_Z,
                 InfinitePlane3d::new(Vec3::Z),
                 PlaneIntersectionMode::BackFaceOnly
@@ -313,7 +312,7 @@ mod tests {
         assert!(ray
             .intersect_plane(
                 Vec3::NEG_Z,
-                InfinitePlane3d::new(Vec3::Z),
+                InfinitePlane3d::new(Vec3::NEG_Z),
                 PlaneIntersectionMode::BackFaceOnly
             )
             .is_none());
