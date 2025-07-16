@@ -463,14 +463,6 @@
 //! typically require manual monomorphization (i.e. manually specifying the types the generic method can
 //! take).
 //!
-//! ## Manual Registration
-//!
-//! Since Rust doesn't provide built-in support for running initialization code before `main`,
-//! there is no way for `bevy_reflect` to automatically register types into the [type registry] by default
-//! (see `auto_register` feature if this functionality is required).
-//! This means types must manually be registered, including their desired monomorphized
-//! representations if generic.
-//!
 //! # Features
 //!
 //! ## `bevy`
@@ -520,14 +512,19 @@
 //! which enables capturing the type stack when serializing or deserializing a type
 //! and displaying it in error messages.
 //!
-//! ## `auto_register`
+//! ## `auto_register_inventory`/`auto_register_static`
 //!
 //! | Default | Dependencies                      |
 //! | :-----: | :-------------------------------: |
-//! | ❌      | [`bevy_reflect_derive/auto_register`] |
+//! | ✅      | [`bevy_reflect_derive/auto_register_inventory`] |
+//! | ❌      | [`bevy_reflect_derive/auto_register_static`] |
 //!
-//! This feature enables automatic registration of types that derive [`Reflect`]
-//! for supported platforms (Linux, macOS, iOS, FreeBSD, Android, Windows, WebAssembly) using the `inventory` crate.
+//! These features enable automatic registration of types that derive [`Reflect`].
+//!
+//! - `auto_register_inventory` uses `inventory` to collect types on supported platforms (Linux, macOS, iOS, FreeBSD, Android, Windows, WebAssembly).
+//! - `auto_register_static` uses platform-independent way to collect types, but requires additional setup and might
+//!   slow down compilation, so it should only be used on platforms not supported by `inventory`.
+//!   See documentation for [`load_type_registrations`] macro for more info
 //!
 //! When this feature is enabled `bevy_reflect` will automatically collects all types that derive [`Reflect`] on app startup,
 //! and [`TypeRegistry::register_derived_types`] can be used to register these types at any point in the program.

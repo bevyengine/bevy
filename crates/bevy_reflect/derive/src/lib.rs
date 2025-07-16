@@ -853,7 +853,8 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 }
 
 /// Collects and loads type registrations when using `auto_register_static` feature.
-/// The steps to using it correctly require the following:
+///
+/// Correctly using this macro requires following:
 /// 1. This macro must be called **last** during compilation. This can be achieved by putting your main function
 ///    in a separate crate or restructuring your project to be separated into `bin` and `lib`, and putting this macro in `bin`.
 ///    Any automatic type registrations using `#[derive(Reflect)]` within the same crate as this macro are not guaranteed to run.
