@@ -168,7 +168,8 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
         return None;
     };
 
-    if cfg!(feature = "auto_register_static") {
+    #[cfg(feature = "auto_register_static")]
+    {
         use std::{
             env, fs,
             io::Write,
@@ -222,7 +223,13 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
                 <#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register(registry);
             }
         })
-    } else {
+    }
+
+    #[cfg(all(
+        feature = "auto_register_inventory",
+        not(feature = "auto_register_static")
+    ))]
+    {
         Some(quote! {
             #bevy_reflect_path::__macro_exports::auto_register::inventory::submit!{
                 #bevy_reflect_path::__macro_exports::auto_register::AutomaticReflectRegistrations(
