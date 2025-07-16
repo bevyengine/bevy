@@ -68,8 +68,11 @@ impl Ray2d {
     reflect(Deserialize, Serialize)
 )]
 pub enum PlaneIntersectionMode {
+    /// Intersects only the front face of the plane.
     FrontFaceOnly,
+    /// Intersects only the back face of the plane.
     BackFaceOnly,
+    /// Intersects both faces of the plane.
     Both,
 }
 
