@@ -213,4 +213,44 @@ mod tests {
             )
             .is_none());
     }
+
+    #[test]
+    fn intersect_plane_3d_only_front() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
+
+        // Orthogonal, and test that ray intersects only the front face
+        assert_eq!(
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::Z), PlaneIntersectionMode::FrontFaceOnly),
+            Some(1.0)
+        );
+        assert!(ray
+            .intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::NEG_Z), PlaneIntersectionMode::FrontFaceOnly)
+            .is_none());
+        assert!(ray
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z), PlaneIntersectionMode::FrontFaceOnly)
+            .is_none());
+        assert!(ray
+                .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z), PlaneIntersectionMode::FrontFaceOnly)
+            .is_none());
+    }
+
+    #[test]
+    fn intersect_plane_3d_only_back() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
+
+        // Orthogonal, and test that ray intersects only the back face
+        assert!(ray
+            .intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::Z), PlaneIntersectionMode::BackFaceOnly)
+            .is_none());
+        assert_eq!(
+                ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::Z), PlaneIntersectionMode::BackFaceOnly),
+            Some(1.0)
+        );
+        assert!(ray
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z), PlaneIntersectionMode::BackFaceOnly)
+            .is_none());
+        assert!(ray
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z), PlaneIntersectionMode::BackFaceOnly)
+            .is_none());
+    }
 }
