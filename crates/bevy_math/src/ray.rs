@@ -111,7 +111,7 @@ impl Ray3d {
     }
 
     /// Get the distance to a plane if the ray intersects it
-    /// `plane_hit_mode` specifies which face of the plane the ray should hit
+    /// `plane_hit_mode` specifies which faces of the plane a ray can intersect
     #[inline]
     pub fn intersect_plane(
         &self,
