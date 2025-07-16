@@ -98,6 +98,11 @@ pub struct Transform {
     ///
     /// [`scale`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/scale.rs
     pub scale: Vec3,
+    /// Whether the model forward direction is flipped from -z to +z.
+    ///
+    /// glTF specifies that models have a forward direction of +z whereas cameras and lights have -z.
+    /// This option allows the glTF importer and other usages to make appropriate adjustments.
+    pub flip_model_forward: bool,
 }
 
 impl Transform {
@@ -106,6 +111,7 @@ impl Transform {
         translation: Vec3::ZERO,
         rotation: Quat::IDENTITY,
         scale: Vec3::ONE,
+        flip_model_forward: false,
     };
 
     /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
@@ -126,6 +132,7 @@ impl Transform {
             translation,
             rotation,
             scale,
+            flip_model_forward: false,
         }
     }
 
@@ -317,14 +324,42 @@ impl Transform {
 
     /// Equivalent to [`-local_z()`][Transform::local_z]
     #[inline]
-    pub fn forward(&self) -> Dir3 {
+    pub fn camera_forward(&self) -> Dir3 {
         -self.local_z()
     }
 
     /// Equivalent to [`local_z()`][Transform::local_z]
     #[inline]
-    pub fn back(&self) -> Dir3 {
+    pub fn camera_back(&self) -> Dir3 {
         self.local_z()
+    }
+
+    /// Equivalent to [`-local_z()`][Transform::local_z] if `flip_model_forward` is false,
+    /// else [`local_z()`][Transform::local_z]
+    ///
+    /// glTF has opposing forward directions for cameras and lights, and for models. Model
+    /// forward is +z, whereas camera and light forward is -z.
+    #[inline]
+    pub fn model_forward(&self) -> Dir3 {
+        if self.flip_model_forward {
+            self.local_z()
+        } else {
+            -self.local_z()
+        }
+    }
+
+    /// Equivalent to [`local_z()`][Transform::local_z] if `flip_model_forward` is false,
+    /// else [`-local_z()`][Transform::local_z]
+    ///
+    /// glTF has opposing forward directions for cameras and lights, and for models. Model
+    /// forward is +z, whereas camera and light forward is -z. Back is the opposite of this.
+    #[inline]
+    pub fn model_back(&self) -> Dir3 {
+        if self.flip_model_forward {
+            -self.local_z()
+        } else {
+            self.local_z()
+        }
     }
 
     /// Rotates this [`Transform`] by the given rotation.
@@ -469,7 +504,11 @@ impl Transform {
     /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     pub fn look_to(&mut self, direction: impl TryInto<Dir3>, up: impl TryInto<Dir3>) {
-        let back = -direction.try_into().unwrap_or(Dir3::NEG_Z);
+        let back = if self.flip_model_forward {
+            direction.try_into().unwrap_or(Dir3::NEG_Z)
+        } else {
+            -direction.try_into().unwrap_or(Dir3::NEG_Z)
+        };
         let up = up.try_into().unwrap_or(Dir3::Y);
         let right = up
             .cross(back.into())
@@ -572,6 +611,7 @@ impl Transform {
             translation,
             rotation,
             scale,
+            flip_model_forward: self.flip_model_forward,
         }
     }
 
