@@ -137,7 +137,7 @@ pub struct InputFocusVisible(pub bool);
 ///
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
-#[derive(Event, EntityEvent, Clone, Debug, Component)]
+#[derive(EntityEvent, Clone, Debug, Component)]
 #[entity_event(traversal = WindowTraversal, auto_propagate)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct FocusedInput<E: BufferedEvent + Clone> {
@@ -149,7 +149,7 @@ pub struct FocusedInput<E: BufferedEvent + Clone> {
 
 /// An event which is used to set input focus. Trigger this on an entity, and it will bubble
 /// until it finds a focusable entity, and then set focus to it.
-#[derive(Clone, Event, EntityEvent)]
+#[derive(Clone, EntityEvent)]
 #[entity_event(traversal = WindowTraversal, auto_propagate)]
 pub struct AcquireFocus {
     /// The primary window entity.
@@ -546,7 +546,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(child_of_b));
 
         // entity_a should receive this event
-        app.world_mut().send_event(key_a_event());
+        app.world_mut().write_event(key_a_event());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -559,7 +559,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(entity_a));
 
         // This event should be lost
-        app.world_mut().send_event(key_a_event());
+        app.world_mut().write_event(key_a_event());
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -580,7 +580,7 @@ mod tests {
 
         // These events should be received by entity_b and child_of_b
         app.world_mut()
-            .send_event_batch(core::iter::repeat_n(key_a_event(), 4));
+            .write_event_batch(core::iter::repeat_n(key_a_event(), 4));
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");

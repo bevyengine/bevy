@@ -232,27 +232,39 @@ fn setup(mut commands: Commands) {
                                         }
                                     };
                                     *space = match *space {
-                                        InterpolationColorSpace::OkLab => {
-                                            InterpolationColorSpace::OkLch
+                                        InterpolationColorSpace::Oklaba => {
+                                            InterpolationColorSpace::Oklcha
                                         }
-                                        InterpolationColorSpace::OkLch => {
-                                            InterpolationColorSpace::OkLchLong
+                                        InterpolationColorSpace::Oklcha => {
+                                            InterpolationColorSpace::OklchaLong
                                         }
-                                        InterpolationColorSpace::OkLchLong => {
-                                            InterpolationColorSpace::Srgb
+                                        InterpolationColorSpace::OklchaLong => {
+                                            InterpolationColorSpace::Srgba
                                         }
-                                        InterpolationColorSpace::Srgb => {
-                                            InterpolationColorSpace::LinearRgb
+                                        InterpolationColorSpace::Srgba => {
+                                            InterpolationColorSpace::LinearRgba
                                         }
-                                        InterpolationColorSpace::LinearRgb => {
-                                            InterpolationColorSpace::OkLab
+                                        InterpolationColorSpace::LinearRgba => {
+                                            InterpolationColorSpace::Hsla
+                                        }
+                                        InterpolationColorSpace::Hsla => {
+                                            InterpolationColorSpace::HslaLong
+                                        }
+                                        InterpolationColorSpace::HslaLong => {
+                                            InterpolationColorSpace::Hsva
+                                        }
+                                        InterpolationColorSpace::Hsva => {
+                                            InterpolationColorSpace::HsvaLong
+                                        }
+                                        InterpolationColorSpace::HsvaLong => {
+                                            InterpolationColorSpace::Oklaba
                                         }
                                     };
                                     current_space = *space;
                                 }
                             }
                             for mut label in label_query.iter_mut() {
-                                label.0 = format!("{:?}", current_space);
+                                label.0 = format!("{current_space:?}");
                             }
                         }
                     ).id();

@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::event::{BufferedEvent, Events, EventCursor};
 ///
-/// #[derive(Event, BufferedEvent, Clone, Debug)]
+/// #[derive(BufferedEvent, Clone, Debug)]
 /// struct MyEvent;
 ///
 /// /// A system that both sends and receives events using a [`Local`] [`EventCursor`].
@@ -41,7 +41,7 @@ use core::marker::PhantomData;
 ///     }
 ///
 ///     for event in events_to_resend {
-///         events.send(MyEvent);
+///         events.write(MyEvent);
 ///     }
 /// }
 ///

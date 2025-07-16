@@ -24,7 +24,7 @@ libm = { version = "0.2", optional = true }
 approx = { version = "0.5", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, optional = true }
 rand_distr = { version = "0.4.3", optional = true }
-smallvec = { version = "1.11" }
+smallvec = { version = "1", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, features = [
   "glam",
 ], optional = true }

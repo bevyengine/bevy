@@ -2,7 +2,7 @@ mod extract;
 mod node;
 mod prepare;
 
-use crate::SolariPlugin;
+use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_core_pipeline::{
@@ -13,8 +13,7 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoSc
 use bevy_pbr::DefaultOpaqueRendererMethod;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    load_shader_library,
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
     view::Hdr,
     ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -24,12 +23,16 @@ use node::SolariLightingNode;
 use prepare::prepare_solari_lighting_resources;
 use tracing::warn;
 
+/// Raytraced direct and indirect lighting.
+///
+/// When using this plugin, it's highly recommended to set `shadows_enabled: false` on all lights, as Solari replaces
+/// traditional shadow mapping.
 pub struct SolariLightingPlugin;
 
 impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "restir_di.wgsl");
-        load_shader_library!(app, "reservoir.wgsl");
+        embedded_asset!(app, "restir_gi.wgsl");
 
         app.register_type::<SolariLighting>()
             .insert_resource(DefaultOpaqueRendererMethod::deferred());
@@ -40,10 +43,10 @@ impl Plugin for SolariLightingPlugin {
 
         let render_device = render_app.world().resource::<RenderDevice>();
         let features = render_device.features();
-        if !features.contains(SolariPlugin::required_wgpu_features()) {
+        if !features.contains(SolariPlugins::required_wgpu_features()) {
             warn!(
                 "SolariLightingPlugin not loaded. GPU lacks support for required features: {:?}.",
-                SolariPlugin::required_wgpu_features().difference(features)
+                SolariPlugins::required_wgpu_features().difference(features)
             );
             return;
         }

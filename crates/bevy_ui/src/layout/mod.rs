@@ -10,7 +10,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::With,
-    system::{Commands, Query, ResMut},
+    system::{Query, ResMut},
     world::Ref,
 };
 
@@ -71,7 +71,6 @@ pub enum LayoutError {
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    mut commands: Commands,
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     mut node_query: Query<(
@@ -172,7 +171,6 @@ with UI components as a child of an entity without UI components, your UI layout
         );
 
         update_uinode_geometry_recursive(
-            &mut commands,
             ui_root_entity,
             &mut ui_surface,
             true,
@@ -188,7 +186,6 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
-        commands: &mut Commands,
         entity: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
@@ -307,16 +304,19 @@ with UI components as a child of an entity without UI components, your UI layout
                     .max(0.);
             }
 
+            node.bypass_change_detection().scrollbar_size =
+                Vec2::new(layout.scrollbar_size.width, layout.scrollbar_size.height);
+
             let scroll_position: Vec2 = maybe_scroll_position
                 .map(|scroll_pos| {
                     Vec2::new(
                         if style.overflow.x == OverflowAxis::Scroll {
-                            scroll_pos.offset_x
+                            scroll_pos.x * inverse_target_scale_factor.recip()
                         } else {
                             0.0
                         },
                         if style.overflow.y == OverflowAxis::Scroll {
-                            scroll_pos.offset_y
+                            scroll_pos.y * inverse_target_scale_factor.recip()
                         } else {
                             0.0
                         },
@@ -324,24 +324,16 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(
-                Vec2::ZERO,
-                max_possible_offset * inverse_target_scale_factor,
-            );
+            let max_possible_offset =
+                (content_size - layout_size + node.scrollbar_size).max(Vec2::ZERO);
+            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
-            if clamped_scroll_position != scroll_position {
-                commands
-                    .entity(entity)
-                    .insert(ScrollPosition::from(clamped_scroll_position));
-            }
+            let physical_scroll_position = clamped_scroll_position.floor();
 
-            let physical_scroll_position =
-                (clamped_scroll_position / inverse_target_scale_factor).round();
+            node.bypass_change_detection().scroll_position = physical_scroll_position;
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
-                    commands,
                     child_uinode,
                     ui_surface,
                     use_rounding,
@@ -368,7 +360,7 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
-    use bevy_render::{camera::ManualTextureViews, prelude::Camera};
+    use bevy_render::{prelude::Camera, texture::ManualTextureViews};
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;

@@ -24,7 +24,7 @@
 
 #![deny(missing_docs)]
 
-use crate::{prelude::*, ui_transform::UiGlobalTransform, UiStack};
+use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
@@ -109,7 +109,7 @@ pub fn ui_picking(
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: Query<&ChildOf>,
+    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
     // For each camera, the pointer and its position
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
@@ -140,6 +140,10 @@ pub fn ui_picking(
             let mut pointer_pos =
                 pointer_location.position * camera_data.target_scaling_factor().unwrap_or(1.);
             if let Some(viewport) = camera_data.physical_viewport_rect() {
+                if !viewport.as_rect().contains(pointer_pos) {
+                    // The pointer is outside the viewport, skip it
+                    continue;
+                }
                 pointer_pos -= viewport.min.as_vec2();
             }
             pointer_pos_by_camera
@@ -251,28 +255,4 @@ pub fn ui_picking(
 
         output.write(PointerHits::new(*pointer, picks, order));
     }
-}
-
-/// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
-pub fn clip_check_recursive(
-    point: Vec2,
-    entity: Entity,
-    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: &Query<&ChildOf>,
-) -> bool {
-    if let Ok(child_of) = child_of_query.get(entity) {
-        let parent = child_of.0;
-        if let Ok((computed_node, transform, node)) = clipping_query.get(parent) {
-            if !computed_node
-                .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
-                .contains(transform.inverse().transform_point2(point))
-            {
-                // The point is clipped and should be ignored by picking
-                return false;
-            }
-        }
-        return clip_check_recursive(point, parent, clipping_query, child_of_query);
-    }
-    // Reached root, point unclipped by all ancestors
-    true
 }

@@ -40,19 +40,26 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     let mut traversal: Type = parse_quote!(());
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
+    let mut processed_attrs = Vec::new();
+
     ast.generics
         .make_where_clause()
         .predicates
         .push(parse_quote! { Self: Send + Sync + 'static });
 
-    if let Some(attr) = ast.attrs.iter().find(|attr| attr.path().is_ident(EVENT)) {
+    for attr in ast.attrs.iter().filter(|attr| attr.path().is_ident(EVENT)) {
         if let Err(e) = attr.parse_nested_meta(|meta| match meta.path.get_ident() {
+            Some(ident) if processed_attrs.iter().any(|i| ident == i) => {
+                Err(meta.error(format!("duplicate attribute: {ident}")))
+            }
             Some(ident) if ident == AUTO_PROPAGATE => {
                 auto_propagate = true;
+                processed_attrs.push(AUTO_PROPAGATE);
                 Ok(())
             }
             Some(ident) if ident == TRAVERSAL => {
                 traversal = meta.value()?.parse()?;
+                processed_attrs.push(TRAVERSAL);
                 Ok(())
             }
             Some(ident) => Err(meta.error(format!("unsupported attribute: {ident}"))),
@@ -66,6 +73,7 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
         impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
             type Traversal = #traversal;
             const AUTO_PROPAGATE: bool = #auto_propagate;
@@ -108,6 +116,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Component derive syntax is documented on both the macro and the trait.
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
@@ -285,8 +294,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .then_some(quote! { #bevy_ecs_path::component::Immutable })
         .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
 
-    let clone_behavior = if relationship_target.is_some() {
-        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::Custom(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
+    let clone_behavior = if relationship_target.is_some() || relationship.is_some() {
+        quote!(
+            use #bevy_ecs_path::relationship::{
+                RelationshipCloneBehaviorBase, RelationshipCloneBehaviorViaClone, RelationshipCloneBehaviorViaReflect,
+                RelationshipTargetCloneBehaviorViaClone, RelationshipTargetCloneBehaviorViaReflect, RelationshipTargetCloneBehaviorHierarchy
+                };
+            (&&&&&&&#bevy_ecs_path::relationship::RelationshipCloneBehaviorSpecialization::<Self>::default()).default_clone_behavior()
+        )
     } else if let Some(behavior) = attrs.clone_behavior {
         quote!(#bevy_ecs_path::component::ComponentCloneBehavior::#behavior)
     } else {
@@ -446,7 +461,11 @@ pub const MAP_ENTITIES: &str = "map_entities";
 pub const IMMUTABLE: &str = "immutable";
 pub const CLONE_BEHAVIOR: &str = "clone_behavior";
 
-/// All allowed attribute value expression kinds for component hooks
+/// All allowed attribute value expression kinds for component hooks.
+/// This doesn't simply use general expressions because of conflicting needs:
+/// - we want to be able to use `Self` & generic parameters in paths
+/// - call expressions producing a closure need to be wrapped in a function
+///   to turn them into function pointers, which prevents access to the outer generic params
 #[derive(Debug)]
 enum HookAttributeKind {
     /// expressions like function or struct names

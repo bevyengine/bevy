@@ -3,8 +3,8 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        CoreButton, CoreCheckbox, CoreSlider, CoreSliderThumb, CoreWidgetsPlugin, SliderRange,
-        SliderValue,
+        Activate, Callback, CoreButton, CoreCheckbox, CoreSlider, CoreSliderThumb,
+        CoreWidgetsPlugins, SliderRange, SliderValue, ValueChange,
     },
     ecs::system::SystemId,
     input_focus::{
@@ -21,7 +21,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreWidgetsPlugin,
+            CoreWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
@@ -85,15 +85,15 @@ struct DemoWidgetStates {
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // System to print a value when the button is clicked.
-    let on_click = commands.register_system(|| {
+    let on_click = commands.register_system(|_: In<Activate>| {
         info!("Button clicked!");
     });
 
     // System to update a resource when the slider value changes. Note that we could have
     // updated the slider value directly, but we want to demonstrate externalizing the state.
     let on_change_value = commands.register_system(
-        |value: In<f32>, mut widget_states: ResMut<DemoWidgetStates>| {
-            widget_states.slider_value = *value;
+        |value: In<ValueChange<f32>>, mut widget_states: ResMut<DemoWidgetStates>| {
+            widget_states.slider_value = value.0.value;
         },
     );
 
@@ -104,8 +104,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
 fn demo_root(
     asset_server: &AssetServer,
-    on_click: SystemId,
-    on_change_value: SystemId<In<f32>>,
+    on_click: SystemId<In<Activate>>,
+    on_change_value: SystemId<In<ValueChange<f32>>>,
 ) -> impl Bundle {
     (
         Node {
@@ -120,15 +120,15 @@ fn demo_root(
         },
         TabGroup::default(),
         children![
-            button(asset_server, on_click),
-            slider(0.0, 100.0, 50.0, Some(on_change_value)),
-            checkbox(asset_server, "Checkbox", None),
+            button(asset_server, Callback::System(on_click)),
+            slider(0.0, 100.0, 50.0, Callback::System(on_change_value)),
+            checkbox(asset_server, "Checkbox", Callback::Ignore),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
 }
 
-fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
+fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl Bundle {
     (
         Node {
             width: Val::Px(150.0),
@@ -140,7 +140,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
         },
         DemoButton,
         CoreButton {
-            on_click: Some(on_click),
+            on_activate: on_click,
         },
         Hovered::default(),
         TabIndex(0),
@@ -351,7 +351,12 @@ fn set_button_style(
 }
 
 /// Create a demo slider
-fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) -> impl Bundle {
+fn slider(
+    min: f32,
+    max: f32,
+    value: f32,
+    on_change: Callback<In<ValueChange<f32>>>,
+) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -517,7 +522,7 @@ fn thumb_color(disabled: bool, hovered: bool) -> Color {
 fn checkbox(
     asset_server: &AssetServer,
     caption: &str,
-    on_change: Option<SystemId<In<bool>>>,
+    on_change: Callback<In<ValueChange<bool>>>,
 ) -> impl Bundle {
     (
         Node {

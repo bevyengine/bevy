@@ -390,7 +390,7 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
     let mut world = World::new();
     let mut system = IntoSystem::into_system(sys);
     system.initialize(&mut world);
-    system.run((), &mut world);
+    system.run((), &mut world).unwrap();
 }
 
 #[cfg(test)]
@@ -461,7 +461,7 @@ mod tests {
         world.spawn(A);
 
         system.initialize(&mut world);
-        system.run((), &mut world);
+        system.run((), &mut world).unwrap();
     }
 
     fn run_system<Marker, S: IntoScheduleConfigs<ScheduleSystem, Marker>>(
@@ -1192,11 +1192,11 @@ mod tests {
 
         let mut without_filter = IntoSystem::into_system(without_filter);
         without_filter.initialize(&mut world);
-        without_filter.run((), &mut world);
+        without_filter.run((), &mut world).unwrap();
 
         let mut with_filter = IntoSystem::into_system(with_filter);
         with_filter.initialize(&mut world);
-        with_filter.run((), &mut world);
+        with_filter.run((), &mut world).unwrap();
     }
 
     #[test]
@@ -1786,29 +1786,33 @@ mod tests {
         let mut sys = IntoSystem::into_system(first.pipe(second));
         sys.initialize(&mut world);
 
-        sys.run(default(), &mut world);
+        sys.run(default(), &mut world).unwrap();
 
         // The second system should observe a change made in the first system.
-        let info = sys.run(
-            Info {
-                do_first: true,
-                ..default()
-            },
-            &mut world,
-        );
+        let info = sys
+            .run(
+                Info {
+                    do_first: true,
+                    ..default()
+                },
+                &mut world,
+            )
+            .unwrap();
         assert!(!info.first_flag);
         assert!(info.second_flag);
 
         // When a change is made in the second system, the first system
         // should observe it the next time they are run.
-        let info1 = sys.run(
-            Info {
-                do_second: true,
-                ..default()
-            },
-            &mut world,
-        );
-        let info2 = sys.run(default(), &mut world);
+        let info1 = sys
+            .run(
+                Info {
+                    do_second: true,
+                    ..default()
+                },
+                &mut world,
+            )
+            .unwrap();
+        let info2 = sys.run(default(), &mut world).unwrap();
         assert!(!info1.first_flag);
         assert!(!info1.second_flag);
         assert!(info2.first_flag);
@@ -1845,9 +1849,25 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(
+        expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_system::sys`: error"
+    )]
     fn simple_fallible_system() {
         fn sys() -> Result {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_exclusive_system::sys`: error"
+    )]
+    fn simple_fallible_exclusive_system() {
+        fn sys(_world: &mut World) -> Result {
             Err("error")?;
             Ok(())
         }
@@ -1885,7 +1905,6 @@ mod tests {
         schedule.add_systems(sys);
         schedule.add_systems(|_query: Query<&Name>| {});
         schedule.add_systems(|_query: Query<&Name>| todo!());
-        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
 
         fn obs(_trigger: On<Add, Name>) {
@@ -1895,7 +1914,6 @@ mod tests {
         world.add_observer(obs);
         world.add_observer(|_trigger: On<Add, Name>| {});
         world.add_observer(|_trigger: On<Add, Name>| todo!());
-        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         world.add_observer(|_trigger: On<Add, Name>| -> () { todo!() });
 
         fn my_command(_world: &mut World) {
@@ -1905,7 +1923,6 @@ mod tests {
         world.commands().queue(my_command);
         world.commands().queue(|_world: &mut World| {});
         world.commands().queue(|_world: &mut World| todo!());
-        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
         world
             .commands()
             .queue(|_world: &mut World| -> () { todo!() });
@@ -1920,7 +1937,7 @@ mod tests {
         let mut world = World::new();
         let mut system = IntoSystem::into_system(sys.with_input(42));
         system.initialize(&mut world);
-        system.run((), &mut world);
+        system.run((), &mut world).unwrap();
         assert_eq!(*system.value(), 43);
     }
 
@@ -1943,7 +1960,7 @@ mod tests {
         assert!(system.value().is_none());
         system.initialize(&mut world);
         assert!(system.value().is_some());
-        system.run((), &mut world);
+        system.run((), &mut world).unwrap();
         assert_eq!(system.value().unwrap().0, 6);
     }
 }
