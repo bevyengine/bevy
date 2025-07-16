@@ -1550,6 +1550,11 @@ impl<'w> EntityWorldMut<'w> {
     /// Temporarily removes the requested resource from the [`World`], runs custom user code,
     /// then re-adds the resource before returning.
     ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`try_resource_scope`](Self::try_resource_scope) instead if you want to handle this case.
+    ///
     /// See [`World::resource_scope`] for further details.
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(
