@@ -36,9 +36,9 @@ pub struct SceneInstanceReady {
 
 /// Information about a scene instance.
 #[derive(Debug)]
-pub struct InstanceInfo {
+struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
-    pub entity_map: EntityHashMap<Entity>,
+    entity_map: EntityHashMap<Entity>,
 }
 
 /// Unique id identifying a scene instance.
@@ -78,7 +78,7 @@ impl InstanceId {
 pub struct SceneSpawner {
     pub(crate) spawned_scenes: HashMap<AssetId<Scene>, HashSet<InstanceId>>,
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
-    pub(crate) spawned_instances: HashMap<InstanceId, InstanceInfo>,
+    spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: EventCursor<AssetEvent<Scene>>,
     dynamic_scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId, Option<Entity>)>,
