@@ -21,7 +21,7 @@ pub trait ReflectCommandExt {
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
-    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
     ///
     /// # Note
     ///
@@ -91,11 +91,11 @@ pub trait ReflectCommandExt {
     ///
     /// # Panics
     ///
-    /// - If the given [`Resource`] is not present in the [`World`].
+    /// - If the given [`Resource`] is not present in the [`World`](crate::world::World).
     ///
     /// # Note
     ///
-    /// - The given [`Resource`] is removed from the [`World`] before the command is applied.
+    /// - The given [`Resource`] is removed from the [`World`](crate::world::World) before the command is applied.
     fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component: Box<dyn PartialReflect>,
@@ -213,7 +213,7 @@ impl<'w> EntityWorldMut<'w> {
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
-    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
     ///
     /// # Note
     ///
@@ -239,7 +239,7 @@ impl<'w> EntityWorldMut<'w> {
     /// - If the given [`Resource`] does not have the reflection data for the given
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
-    /// - If the given [`Resource`] is not present in the [`World`].
+    /// - If the given [`Resource`] is not present in the [`World`](crate::world::World).
     pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component: Box<dyn PartialReflect>,
@@ -264,7 +264,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
-    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
     ///
     /// # Note
     ///
@@ -292,7 +292,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
-    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
     pub fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component_type_path: Cow<'static, str>,
