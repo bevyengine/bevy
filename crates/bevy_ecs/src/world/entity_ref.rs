@@ -5003,6 +5003,46 @@ mod tests {
         assert!(entity.get_mut_by_id(invalid_component_id).is_err());
     }
 
+    #[derive(Resource)]
+    struct R(usize);
+
+    #[test]
+    fn entity_mut_resource_scope() {
+        // Keep in sync with the `resource_scope` test in lib.rs
+        let mut world = World::new();
+        let mut entity = world.spawn_empty();
+
+        assert!(entity.try_resource_scope::<R, _>(|_, _| {}).is_none());
+        entity.world_scope(|world| world.insert_resource(R(0)));
+        entity.resource_scope(|entity: &mut EntityWorldMut, mut value: Mut<R>| {
+            value.0 += 1;
+            assert!(!entity.world().contains_resource::<R>());
+        });
+        assert_eq!(entity.resource::<R>().0, 1);
+    }
+
+    #[test]
+    fn entity_mut_resource_scope_panic() {
+        let mut world = World::new();
+        world.insert_resource(R(0));
+
+        let mut entity = world.spawn_empty();
+        let old_location = entity.location();
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            entity.resource_scope(|entity: &mut EntityWorldMut, _: Mut<R>| {
+                // Change the entity's `EntityLocation`.
+                entity.insert(TestComponent(0));
+
+                // Ensure that the entity location still gets updated even in case of a panic.
+                panic!("this should get caught by the outer scope")
+            });
+        }));
+        assert!(result.is_err());
+
+        // Ensure that the location has been properly updated.
+        assert_ne!(entity.location(), old_location);
+    }
+
     // regression test for https://github.com/bevyengine/bevy/pull/7387
     #[test]
     fn entity_mut_world_scope_panic() {
@@ -5016,6 +5056,28 @@ mod tests {
                 // Change the entity's `EntityLocation`, which invalidates the original `EntityWorldMut`.
                 // This will get updated at the end of the scope.
                 w.entity_mut(id).insert(TestComponent(0));
+
+                // Ensure that the entity location still gets updated even in case of a panic.
+                panic!("this should get caught by the outer scope")
+            });
+        }));
+        assert!(res.is_err());
+
+        // Ensure that the location has been properly updated.
+        assert_ne!(entity.location(), old_location);
+    }
+
+    #[test]
+    fn entity_mut_reborrow_scope_panic() {
+        let mut world = World::new();
+
+        let mut entity = world.spawn_empty();
+        let old_location = entity.location();
+        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            entity.reborrow_scope(|mut entity| {
+                // Change the entity's `EntityLocation`, which invalidates the original `EntityWorldMut`.
+                // This will get updated at the end of the scope.
+                entity.insert(TestComponent(0));
 
                 // Ensure that the entity location still gets updated even in case of a panic.
                 panic!("this should get caught by the outer scope")
@@ -5463,9 +5525,6 @@ mod tests {
 
     #[derive(Component)]
     struct A;
-
-    #[derive(Resource)]
-    struct R;
 
     #[test]
     fn disjoint_access() {
