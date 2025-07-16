@@ -72,18 +72,14 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::EntityCloner,
-        event::{EntityEvent, Event},
-        observer::On,
-        resource::Resource,
-        system::ResMut,
+        entity::EntityCloner, event::EntityEvent, observer::On, resource::Resource, system::ResMut,
         world::World,
     };
 
     #[derive(Resource, Default)]
     struct Num(usize);
 
-    #[derive(Event, EntityEvent)]
+    #[derive(EntityEvent)]
     struct E;
 
     #[test]

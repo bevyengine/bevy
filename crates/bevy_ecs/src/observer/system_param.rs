@@ -83,7 +83,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     /// ```rust
     /// # use bevy_ecs::prelude::*;
     ///
-    /// #[derive(Event, EntityEvent)]  
+    /// #[derive(EntityEvent)]  
     /// struct AssertEvent;  
     ///
     /// fn assert_observer(trigger: On<AssertEvent>) {  
