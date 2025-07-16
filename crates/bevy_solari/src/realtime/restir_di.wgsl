@@ -8,7 +8,7 @@
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::sampling::{
-    LightSample, IndependentLightSample, generate_point_independent_sample, calculate_light_contribution_from_independent, calculate_light_contribution, 
+    LightSample, IndependentLightSample, sample_random_light_contribution, calculate_light_contribution, 
     trace_visibility, trace_light_visibility,
     sample_disk
 }
@@ -29,6 +29,7 @@
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
+const INITIAL_SAMPLES = 32u;
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 20.0;
 
@@ -47,8 +48,7 @@ fn compute_seed(global_id: vec3<u32>) -> u32 {
 }
 
 @compute @workgroup_size(8, 8, 1)
-fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>, 
-                        @builtin(local_invocation_index) local_id: u32) {
+fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.viewport.zw)) { return; }
 
     var rng = compute_seed(global_id);
@@ -66,7 +66,7 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>,
     let base_color = pow(unpack4x8unorm(gpixel.r).rgb, vec3(2.2));
     let diffuse_brdf = base_color / PI;
 
-    let initial_reservoir = generate_initial_reservoir(world_position, world_normal, diffuse_brdf, &rng, local_id);
+    let initial_reservoir = generate_initial_reservoir(world_position, world_normal, diffuse_brdf, &rng);
     let temporal_reservoir = load_temporal_reservoir(global_id.xy, depth, world_position, world_normal);
     let merge_result = merge_reservoirs(initial_reservoir, temporal_reservoir, world_position, world_normal, diffuse_brdf, &rng);
 
@@ -115,19 +115,14 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 }
 
-var<workgroup> position_independent_initial_samples: array<IndependentLightSample, 64u>;
-
-fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, rng: ptr<function, u32>, local_id: u32) -> Reservoir {
-    position_independent_initial_samples[local_id] = generate_point_independent_sample(rng);
-    workgroupBarrier();
-
+fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, rng: ptr<function, u32>) -> Reservoir {
     var reservoir = empty_reservoir();
     var reservoir_target_function = 0.0;
     var ray_direction = vec4<f32>(0.0);
-    for (var i = 0u; i < 64u; i++) {
-        let light_contribution = calculate_light_contribution_from_independent(position_independent_initial_samples[i], world_position, world_normal);
+    for (var i = 0u; i < INITIAL_SAMPLES; i++) {
+        let light_contribution = sample_random_light_contribution(rng, world_position, world_normal);
 
-        let mis_weight = 1.0 / 64.0;
+        let mis_weight = 1.0 / f32(INITIAL_SAMPLES);
         let target_function = luminance(light_contribution.radiance * diffuse_brdf);
         let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
 

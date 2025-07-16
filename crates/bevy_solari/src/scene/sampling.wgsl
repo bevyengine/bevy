@@ -58,8 +58,7 @@ struct SampleRandomLightResult {
 }
 
 fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> SampleRandomLightResult {
-    let pos_independent_sample = generate_point_independent_sample(rng);
-    let light_contribution = calculate_light_contribution_from_independent(pos_independent_sample, ray_origin, origin_world_normal);
+    let light_contribution = sample_random_light_contribution(rng, ray_origin, origin_world_normal);
     let visibility = trace_visibility(ray_origin, light_contribution.ray_direction);
     return SampleRandomLightResult(light_contribution.radiance * visibility, light_contribution.inverse_pdf);
 }
@@ -84,75 +83,22 @@ struct LightContribution {
     ray_direction: vec4<f32>,
 }
 
-fn generate_point_independent_sample(rng: ptr<function, u32>) -> IndependentLightSample {
+fn sample_random_light_contribution(rng: ptr<function, u32>, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
     let light_count = arrayLength(&light_sources);
     let light_id = rand_range_u(light_count, rng);
     let light_source = light_sources[light_id];
     var light_sample = LightSample(vec2(light_id, 0), rand_vec2f(rng));
 
-    var sample: IndependentLightSample;
+    var light_contribution: LightContribution;
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
-        sample = calculate_directional_light_independent_contribution(light_sample, light_source.id);
+        light_contribution = calculate_directional_light_contribution(light_sample, light_source.id, origin_world_normal);
     } else {
         let triangle_count = light_source.kind >> 1u;
-        light_sample.light_id.y = rand_range_u(triangle_count, rng);
-        sample = calculate_emissive_mesh_independent_contribution(light_sample, light_source.id, triangle_count);
+        light_contribution = calculate_emissive_mesh_contribution(light_sample, light_source.id, triangle_count, ray_origin, origin_world_normal);
     }
+    light_contribution.inverse_pdf *= f32(light_count);
 
-    sample.inverse_pdf *= f32(light_count); 
-    return sample;
-}
-
-fn calculate_directional_light_independent_contribution(light_sample: LightSample, directional_light_id: u32) -> IndependentLightSample {
-    let directional_light = directional_lights[directional_light_id];
-
-#ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
-    // Sample a random direction within a cone whose base is the sun approximated as a disk
-    // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
-    let cos_theta = (1.0 - light_sample.random.x) + light_sample.random.x * directional_light.cos_theta_max;
-    let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-    let phi = light_sample.random.y * PI_2;
-    let x = cos(phi) * sin_theta;
-    let y = sin(phi) * sin_theta;
-    var ray_direction = vec3(x, y, cos_theta);
-
-    // Rotate the ray so that the cone it was sampled from is aligned with the light direction
-    ray_direction = build_orthonormal_basis(directional_light.direction_to_light) * ray_direction;
-#else
-    let ray_direction = directional_light.direction_to_light;
-#endif
-    return IndependentLightSample(light_sample, directional_light.luminance, directional_light.inverse_pdf, vec4<f32>(ray_direction, 0.0), vec3<f32>(0.0));
-}
-
-fn calculate_emissive_mesh_independent_contribution(light_sample: LightSample, instance_id: u32, triangle_count: u32) -> IndependentLightSample {
-    let barycentrics = triangle_barycentrics(light_sample.random);
-    let triangle_id = light_sample.light_id.y;
-    let triangle_data = resolve_triangle_for_di(instance_id, triangle_id, barycentrics);
-    let inverse_pdf = f32(triangle_count) * triangle_data.triangle_area;
-    return IndependentLightSample(light_sample, triangle_data.emissive, inverse_pdf, vec4<f32>(triangle_data.world_position, 1.0), triangle_data.world_normal);
-}
-
-fn calculate_light_contribution_from_independent(sample: IndependentLightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
-    var radiance = vec3<f32>(0.0);
-    var ray_direction = vec4<f32>(0.0);
-    if sample.pos_or_direction.w == 0.0 {
-        // Directional light
-        ray_direction = vec4<f32>(sample.pos_or_direction.xyz, RAY_T_MAX);
-        let cos_theta_origin = saturate(dot(ray_direction.xyz, origin_world_normal));
-        radiance = sample.radiance * cos_theta_origin;
-    } else {
-        // Emissive mesh
-        let end_point = sample.pos_or_direction.xyz;
-        ray_direction = vec4<f32>(end_point - ray_origin, 0.0);
-        let light_distance_squared = dot(ray_direction.xyz, ray_direction.xyz);
-        ray_direction.w = sqrt(light_distance_squared);
-        ray_direction = vec4<f32>(ray_direction.xyz / ray_direction.w, ray_direction.w);
-        let cos_theta_origin = saturate(dot(ray_direction.xyz, origin_world_normal));
-        let cos_theta_light = saturate(dot(-ray_direction.xyz, sample.normal));
-
-        radiance = sample.radiance * cos_theta_origin * (cos_theta_light / light_distance_squared);
-    }
-    return LightContribution(sample.sample, radiance, sample.inverse_pdf, ray_direction);
+    return light_contribution;
 }
 
 fn calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
