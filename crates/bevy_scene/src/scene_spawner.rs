@@ -39,6 +39,8 @@ pub struct SceneInstanceReady {
 struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
     entity_map: EntityHashMap<Entity>,
+    /// The parent to attach this instance to.
+    parent: Option<Entity>,
 }
 
 /// Unique id identifying a scene instance.
@@ -86,7 +88,6 @@ pub struct SceneSpawner {
     scenes_to_despawn: Vec<AssetId<Scene>>,
     dynamic_scenes_to_despawn: Vec<AssetId<DynamicScene>>,
     instances_to_despawn: Vec<InstanceId>,
-    scenes_with_parent: Vec<(InstanceId, Entity)>,
     instances_ready: Vec<(InstanceId, Option<Entity>)>,
 }
 
@@ -162,7 +163,6 @@ impl SceneSpawner {
         let instance_id = InstanceId::new();
         self.dynamic_scenes_to_spawn
             .push((id.into(), instance_id, Some(parent)));
-        self.scenes_with_parent.push((instance_id, parent));
         instance_id
     }
 
@@ -178,7 +178,6 @@ impl SceneSpawner {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn
             .push((id.into(), instance_id, Some(parent)));
-        self.scenes_with_parent.push((instance_id, parent));
         instance_id
     }
 
@@ -261,10 +260,18 @@ impl SceneSpawner {
         let id = id.into();
         Self::spawn_dynamic_internal(world, id, &mut entity_map)?;
         let instance_id = InstanceId::new();
-        self.spawned_instances
-            .insert(instance_id, InstanceInfo { entity_map });
+        self.spawned_instances.insert(
+            instance_id,
+            InstanceInfo {
+                entity_map,
+                parent: None,
+            },
+        );
         let spawned = self.spawned_dynamic_scenes.entry(id).or_default();
         spawned.insert(instance_id);
+        // We trigger `SceneInstanceReady` events after processing all scenes
+        // SceneSpawner may not be available in the observer.
+        self.instances_ready.push((instance_id, None));
         Ok(instance_id)
     }
 
@@ -292,10 +299,18 @@ impl SceneSpawner {
         let id = id.into();
         Self::spawn_sync_internal(world, id, &mut entity_map)?;
         let instance_id = InstanceId::new();
-        self.spawned_instances
-            .insert(instance_id, InstanceInfo { entity_map });
+        self.spawned_instances.insert(
+            instance_id,
+            InstanceInfo {
+                entity_map,
+                parent: None,
+            },
+        );
         let spawned = self.spawned_scenes.entry(id).or_default();
         spawned.insert(instance_id);
+        // We trigger `SceneInstanceReady` events after processing all scenes
+        // SceneSpawner may not be available in the observer.
+        self.instances_ready.push((instance_id, None));
         Ok(instance_id)
     }
 
@@ -335,6 +350,7 @@ impl SceneSpawner {
                         // invalid state (e.g., invalid relationships).
                         Self::despawn_instance_internal(world, instance_info);
                         Self::spawn_sync_internal(world, *id, &mut instance_info.entity_map)?;
+                        Self::set_scene_instance_parent_sync(world, instance_info);
                     }
                 }
             }
@@ -360,6 +376,7 @@ impl SceneSpawner {
                         // invalid state (e.g., invalid relationships).
                         Self::despawn_instance_internal(world, instance_info);
                         Self::spawn_dynamic_internal(world, *id, &mut instance_info.entity_map)?;
+                        Self::set_scene_instance_parent_sync(world, instance_info);
                     }
                 }
             }
@@ -398,18 +415,15 @@ impl SceneSpawner {
 
             match Self::spawn_dynamic_internal(world, handle.id(), &mut entity_map) {
                 Ok(_) => {
-                    self.spawned_instances
-                        .insert(instance_id, InstanceInfo { entity_map });
+                    let instance_info = InstanceInfo { entity_map, parent };
+                    Self::set_scene_instance_parent_sync(world, &instance_info);
+
+                    self.spawned_instances.insert(instance_id, instance_info);
                     let spawned = self.spawned_dynamic_scenes.entry(handle.id()).or_default();
                     spawned.insert(instance_id);
-
-                    // Scenes with parents need more setup before they are ready.
-                    // See `set_scene_instance_parent_sync()`.
-                    if parent.is_none() {
-                        // We trigger `SceneInstanceReady` events after processing all scenes
-                        // SceneSpawner may not be available in the observer.
-                        self.instances_ready.push((instance_id, None));
-                    }
+                    // We trigger `SceneInstanceReady` events after processing all scenes
+                    // SceneSpawner may not be available in the observer.
+                    self.instances_ready.push((instance_id, parent));
                 }
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
                     self.dynamic_scenes_to_spawn
@@ -426,18 +440,16 @@ impl SceneSpawner {
 
             match Self::spawn_sync_internal(world, scene_handle.id(), &mut entity_map) {
                 Ok(_) => {
-                    self.spawned_instances
-                        .insert(instance_id, InstanceInfo { entity_map });
+                    let instance_info = InstanceInfo { entity_map, parent };
+                    Self::set_scene_instance_parent_sync(world, &instance_info);
+
+                    self.spawned_instances.insert(instance_id, instance_info);
                     let spawned = self.spawned_scenes.entry(scene_handle.id()).or_default();
                     spawned.insert(instance_id);
 
-                    // Scenes with parents need more setup before they are ready.
-                    // See `set_scene_instance_parent_sync()`.
-                    if parent.is_none() {
-                        // We trigger `SceneInstanceReady` events after processing all scenes
-                        // SceneSpawner may not be available in the observer.
-                        self.instances_ready.push((instance_id, None));
-                    }
+                    // We trigger `SceneInstanceReady` events after processing all scenes
+                    // SceneSpawner may not be available in the observer.
+                    self.instances_ready.push((instance_id, parent));
                 }
                 Err(SceneSpawnError::NonExistentRealScene { .. }) => {
                     self.scenes_to_spawn
@@ -450,32 +462,23 @@ impl SceneSpawner {
         Ok(())
     }
 
-    pub(crate) fn set_scene_instance_parent_sync(&mut self, world: &mut World) {
-        let scenes_with_parent = core::mem::take(&mut self.scenes_with_parent);
-
-        for (instance_id, parent) in scenes_with_parent {
-            if let Some(instance) = self.spawned_instances.get(&instance_id) {
-                for &entity in instance.entity_map.values() {
-                    // Add the `ChildOf` component to the scene root, and update the `Children` component of
-                    // the scene parent
-                    if !world
-                        .get_entity(entity)
-                        .ok()
-                        // This will filter only the scene root entity, as all other from the
-                        // scene have a parent
-                        // Entities that wouldn't exist anymore are also skipped
-                        // this case shouldn't happen anyway
-                        .is_none_or(|entity| entity.contains::<ChildOf>())
-                    {
-                        world.entity_mut(parent).add_child(entity);
-                    }
-                }
-
-                // We trigger `SceneInstanceReady` events after processing all scenes
-                // SceneSpawner may not be available in the observer.
-                self.instances_ready.push((instance_id, Some(parent)));
-            } else {
-                self.scenes_with_parent.push((instance_id, parent));
+    fn set_scene_instance_parent_sync(world: &mut World, instance: &InstanceInfo) {
+        let Some(parent) = instance.parent else {
+            return;
+        };
+        for &entity in instance.entity_map.values() {
+            // Add the `ChildOf` component to the scene root, and update the `Children` component of
+            // the scene parent
+            if !world
+                .get_entity(entity)
+                .ok()
+                // This will filter only the scene root entity, as all other from the
+                // scene have a parent
+                // Entities that wouldn't exist anymore are also skipped
+                // this case shouldn't happen anyway
+                .is_none_or(|entity| entity.contains::<ChildOf>())
+            {
+                world.entity_mut(parent).add_child(entity);
             }
         }
     }
@@ -520,24 +523,17 @@ impl SceneSpawner {
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
         // remove any loading instances where parent is deleted
-        let mut dead_instances = <HashSet<_>>::default();
-        scene_spawner
-            .scenes_with_parent
-            .retain(|(instance, parent)| {
-                let retain = world.get_entity(*parent).is_ok();
-
-                if !retain {
-                    dead_instances.insert(*instance);
-                }
-
-                retain
-            });
+        let is_parent_alive = |parent: &Option<Entity>| {
+            parent
+                .map(|parent| world.get_entity(parent).is_ok())
+                .unwrap_or(true) // If we don't have a parent, then consider the parent alive.
+        };
         scene_spawner
             .dynamic_scenes_to_spawn
-            .retain(|(_, instance, _)| !dead_instances.contains(instance));
+            .retain(|(_, _, parent)| is_parent_alive(parent));
         scene_spawner
             .scenes_to_spawn
-            .retain(|(_, instance, _)| !dead_instances.contains(instance));
+            .retain(|(_, _, parent)| is_parent_alive(parent));
 
         let scene_asset_events = world.resource::<Events<AssetEvent<Scene>>>();
         let dynamic_scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
@@ -577,7 +573,6 @@ pub fn scene_spawner_system(world: &mut World) {
         scene_spawner
             .update_spawned_dynamic_scenes(world, &updated_spawned_dynamic_scenes)
             .unwrap();
-        scene_spawner.set_scene_instance_parent_sync(world);
         scene_spawner.trigger_scene_ready_events(world);
     });
 }
