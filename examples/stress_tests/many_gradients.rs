@@ -7,6 +7,7 @@ use argh::FromArgs;
 use bevy::{
     color::palettes::css::*,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    math::ops::sin,
     prelude::*,
     ui::{
         BackgroundGradient, ColorStop, Display, Gradient, InterpolationColorSpace, LinearGradient,
@@ -41,7 +42,7 @@ fn main() {
     let args: Args = argh::from_env();
     let total_gradients = args.gradient_count;
 
-    println!("Gradient stress test with {} gradients", total_gradients);
+    println!("Gradient stress test with {total_gradients} gradients");
     println!(
         "Color space: {}",
         if args.srgb {
@@ -76,7 +77,7 @@ fn main() {
 fn setup(mut commands: Commands, args: Res<Args>) {
     commands.spawn(Camera2d);
 
-    let rows_to_spawn = (args.gradient_count + COLS - 1) / COLS;
+    let rows_to_spawn = args.gradient_count.div_ceil(COLS);
 
     // Create a grid of gradients
     commands
@@ -144,7 +145,7 @@ fn animate_gradients(
 
     for (mut bg_gradient, node) in &mut gradients {
         let offset = node.index as f32 * 0.01;
-        let hue_shift = (t + offset).sin() * 0.5 + 0.5;
+        let hue_shift = sin(t + offset) * 0.5 + 0.5;
 
         if let Some(Gradient::Linear(gradient)) = bg_gradient.0.get_mut(0) {
             let color1 = Color::hsl(hue_shift * 360.0, 1.0, 0.5);
