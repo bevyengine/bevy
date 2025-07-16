@@ -351,6 +351,10 @@ impl SceneSpawner {
                         Self::despawn_instance_internal(world, instance_info);
                         Self::spawn_sync_internal(world, *id, &mut instance_info.entity_map)?;
                         Self::set_scene_instance_parent_sync(world, instance_info);
+                        // We trigger `SceneInstanceReady` events after processing all scenes
+                        // SceneSpawner may not be available in the observer.
+                        self.instances_ready
+                            .push((*instance_id, instance_info.parent));
                     }
                 }
             }
@@ -377,6 +381,10 @@ impl SceneSpawner {
                         Self::despawn_instance_internal(world, instance_info);
                         Self::spawn_dynamic_internal(world, *id, &mut instance_info.entity_map)?;
                         Self::set_scene_instance_parent_sync(world, instance_info);
+                        // We trigger `SceneInstanceReady` events after processing all scenes
+                        // SceneSpawner may not be available in the observer.
+                        self.instances_ready
+                            .push((*instance_id, instance_info.parent));
                     }
                 }
             }
