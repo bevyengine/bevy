@@ -169,40 +169,67 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
     };
 
     if cfg!(feature = "auto_register_static") {
-        use std::{env, fs, io::Write, path::PathBuf, sync::LazyLock, sync::Mutex};
+        use core::hash::{Hash, Hasher};
+        use proc_macro::Span;
+        use std::{
+            env, fs,
+            hash::DefaultHasher,
+            io::Write,
+            path::PathBuf,
+            sync::{LazyLock, Mutex},
+        };
+
+        // Skip unless env var is set, otherwise this might slow down rust-analyzer
+        if env::var("BEVY_REFLECT_AUTO_REGISTER_STATIC").is_err() {
+            return None;
+        }
 
         // Names of registrations functions will be stored in this file.
         // To allow writing to this file from multiple threads during compilation it is protected by mutex.
         // This static is valid for the duration of compilation of one crate and we have one file per crate,
         // so it is enough to protect compilation threads from overwriting each other.
-        // This file is reset on every recompilation.
+        // This file is reset on every crate recompilation.
+        //
+        // It might make sense to replace the mutex with File::lock when file_lock feature becomes stable.
         static REGISTRATION_FNS_EXPORT: LazyLock<Mutex<fs::File>> = LazyLock::new(|| {
-            let path = PathBuf::from("target").join("type_registrations");
+            let path = PathBuf::from("target").join("bevy_reflect_type_registrations");
             fs::DirBuilder::new()
                 .recursive(true)
                 .create(&path)
-                .unwrap_or_else(|_| panic!("Failed to create {:?}", path));
-            let file_path = path.join(
-                env::var("CARGO_CRATE_NAME")
-                    .expect("Expected cargo to set CARGO_CRATE_NAME env var"),
-            );
+                .unwrap_or_else(|_| panic!("Failed to create {path:?}"));
+            let file_path = path.join(env::var("CARGO_CRATE_NAME").unwrap());
             let file = fs::OpenOptions::new()
                 .create(true)
                 .write(true)
                 .truncate(true)
                 .open(&file_path)
-                .unwrap_or_else(|_| panic!("Failed to create {:?}", file_path));
+                .unwrap_or_else(|_| panic!("Failed to create {file_path:?}"));
             Mutex::new(file)
         });
 
-        let export_name = format!("_bevy_reflect_register_{}", uuid::Uuid::new_v4().as_u128());
-        if env::var("BEVY_REFLECT_AUTO_REGISTER_STATIC").is_ok_and(|v| v != "0") {
+        let crate_name =
+            env::var("CARGO_CRATE_NAME").expect("Expected cargo to set CARGO_CRATE_NAME env var");
+        let span = Span::call_site();
+        let mut hasher = DefaultHasher::new();
+        span.file().hash(&mut hasher);
+        let file_path_hash = hasher.finish();
+
+        let export_name = format!(
+            "_bevy_reflect_register_{}_{}_{}_{}",
+            crate_name,
+            file_path_hash,
+            span.line(),
+            span.column(),
+        );
+
+        {
             let mut file = REGISTRATION_FNS_EXPORT.lock().unwrap();
-            writeln!(file, "{}", export_name)
-                .unwrap_or_else(|_| panic!("Failed to write registration function"));
-            // We must sync_data to ensure all content is written before releasing the mutex.
+            writeln!(file, "{export_name}")
+                .unwrap_or_else(|_| panic!("Failed to write registration function {export_name}"));
+            // We must sync_data to ensure all content is written before releasing the lock.
             file.sync_data().unwrap();
         };
+
         Some(quote! {
             /// # Safety
             /// This function must only be used by the `load_type_registrations` macro.
@@ -211,7 +238,7 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
                 <#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register(registry);
             }
         })
-    } else if cfg!(feature = "auto_register_inventory") {
+    } else {
         Some(quote! {
             #bevy_reflect_path::__macro_exports::auto_register::inventory::submit!{
                 #bevy_reflect_path::__macro_exports::auto_register::AutomaticReflectRegistrations(
@@ -219,7 +246,5 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
                 )
             }
         })
-    } else {
-        None
     }
 }

@@ -869,7 +869,8 @@ pub fn load_type_registrations(_input: TokenStream) -> TokenStream {
         return TokenStream::new();
     }
 
-    let Ok(dir) = fs::read_dir(PathBuf::from("target").join("type_registrations")) else {
+    let Ok(dir) = fs::read_dir(PathBuf::from("target").join("bevy_reflect_type_registrations"))
+    else {
         return TokenStream::new();
     };
     let mut str_buf = String::new();
@@ -893,9 +894,7 @@ pub fn load_type_registrations(_input: TokenStream) -> TokenStream {
                 unsafe extern "Rust" {
                     #( safe fn #registration_fns(registry_ptr: &mut #bevy_reflect_path::TypeRegistry); )*
                 };
-                unsafe {
-                    #( #bevy_reflect_path::__macro_exports::auto_register::push_registration_fn(#registration_fns); )*
-                };
+                #( #bevy_reflect_path::__macro_exports::auto_register::push_registration_fn(#registration_fns); )*
             }
             _register_types();
         }
