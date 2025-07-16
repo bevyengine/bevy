@@ -11,14 +11,20 @@ pub enum ReflectCloneError {
     ///
     /// [`PartialReflect::reflect_clone`]: crate::PartialReflect::reflect_clone
     #[error("`PartialReflect::reflect_clone` not implemented for `{type_path}`")]
-    NotImplemented { type_path: Cow<'static, str> },
+    NotImplemented {
+        /// The fully qualified path of the type that [`PartialReflect::reflect_clone`](crate::PartialReflect::reflect_clone) is not implemented for.
+        type_path: Cow<'static, str>,
+    },
     /// The type cannot be cloned via [`PartialReflect::reflect_clone`].
     ///
     /// This type should be returned when a type is intentionally opting out of reflection cloning.
     ///
     /// [`PartialReflect::reflect_clone`]: crate::PartialReflect::reflect_clone
     #[error("`{type_path}` cannot be made cloneable for `PartialReflect::reflect_clone`")]
-    NotCloneable { type_path: Cow<'static, str> },
+    NotCloneable {
+        /// The fully qualified path of the type that cannot be cloned via [`PartialReflect::reflect_clone`](crate::PartialReflect::reflect_clone).
+        type_path: Cow<'static, str>,
+    },
     /// The field cannot be cloned via [`PartialReflect::reflect_clone`].
     ///
     /// When [deriving `Reflect`], this usually means that a field marked with `#[reflect(ignore)]`
@@ -33,8 +39,11 @@ pub enum ReflectCloneError {
         full_path(.field, .variant.as_deref(), .container_type_path)
     )]
     FieldNotCloneable {
+        /// Struct field or enum variant field which cannot be cloned.
         field: FieldId,
+        /// Variant this field is part of if the container is an enum, otherwise [`None`].
         variant: Option<Cow<'static, str>>,
+        /// Fully qualified path of the type containing this field.
         container_type_path: Cow<'static, str>,
     },
     /// Could not downcast to the expected type.
@@ -44,7 +53,9 @@ pub enum ReflectCloneError {
     /// [`Reflect`]: crate::Reflect
     #[error("expected downcast to `{expected}`, but received `{received}`")]
     FailedDowncast {
+        /// The fully qualified path of the type that was expected.
         expected: Cow<'static, str>,
+        /// The fully qualified path of the type that was received.
         received: Cow<'static, str>,
     },
 }
@@ -55,7 +66,7 @@ fn full_path(
     container_type_path: &str,
 ) -> alloc::string::String {
     match variant {
-        Some(variant) => format!("{}::{}::{}", container_type_path, variant, field),
-        None => format!("{}::{}", container_type_path, field),
+        Some(variant) => format!("{container_type_path}::{variant}::{field}"),
+        None => format!("{container_type_path}::{field}"),
     }
 }

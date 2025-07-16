@@ -1,4 +1,7 @@
-use crate::{FocusPolicy, UiRect, Val};
+use crate::{
+    ui_transform::{UiGlobalTransform, UiTransform},
+    FocusPolicy, UiRect, Val,
+};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -7,10 +10,8 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     view::Visibility,
-    view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
@@ -41,6 +42,14 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub content_size: Vec2,
+    /// Space allocated for scrollbars.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scrollbar_size: Vec2,
+    /// Resolved offset of scrolled content
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scroll_position: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
@@ -162,8 +171,8 @@ impl ComputedNode {
         ResolvedBorderRadius {
             top_left: compute_radius(self.border_radius.top_left, outer_distance),
             top_right: compute_radius(self.border_radius.top_right, outer_distance),
-            bottom_left: compute_radius(self.border_radius.bottom_left, outer_distance),
             bottom_right: compute_radius(self.border_radius.bottom_right, outer_distance),
+            bottom_left: compute_radius(self.border_radius.bottom_left, outer_distance),
         }
     }
 
@@ -200,8 +209,8 @@ impl ComputedNode {
         ResolvedBorderRadius {
             top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
             top_right: clamp_corner(self.border_radius.top_right, s, b.zy()),
-            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
             bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
+            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
         }
     }
 
@@ -230,6 +239,73 @@ impl ComputedNode {
     pub const fn inverse_scale_factor(&self) -> f32 {
         self.inverse_scale_factor
     }
+
+    // Returns true if `point` within the node.
+    //
+    // Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
+    pub fn contains_point(&self, transform: UiGlobalTransform, point: Vec2) -> bool {
+        let Some(local_point) = transform
+            .try_inverse()
+            .map(|transform| transform.transform_point2(point))
+        else {
+            return false;
+        };
+        let [top, bottom] = if local_point.x < 0. {
+            [self.border_radius.top_left, self.border_radius.bottom_left]
+        } else {
+            [
+                self.border_radius.top_right,
+                self.border_radius.bottom_right,
+            ]
+        };
+        let r = if local_point.y < 0. { top } else { bottom };
+        let corner_to_point = local_point.abs() - 0.5 * self.size;
+        let q = corner_to_point + r;
+        let l = q.max(Vec2::ZERO).length();
+        let m = q.max_element().min(0.);
+        l + m - r < 0.
+    }
+
+    /// Transform a point to normalized node space with the center of the node at the origin and the corners at [+/-0.5, +/-0.5]
+    pub fn normalize_point(&self, transform: UiGlobalTransform, point: Vec2) -> Option<Vec2> {
+        self.size
+            .cmpgt(Vec2::ZERO)
+            .all()
+            .then(|| transform.try_inverse())
+            .flatten()
+            .map(|transform| transform.transform_point2(point) / self.size)
+    }
+
+    /// Resolve the node's clipping rect in local space
+    pub fn resolve_clip_rect(
+        &self,
+        overflow: Overflow,
+        overflow_clip_margin: OverflowClipMargin,
+    ) -> Rect {
+        let mut clip_rect = Rect::from_center_size(Vec2::ZERO, self.size);
+
+        let clip_inset = match overflow_clip_margin.visual_box {
+            OverflowClipBox::BorderBox => BorderRect::ZERO,
+            OverflowClipBox::ContentBox => self.content_inset(),
+            OverflowClipBox::PaddingBox => self.border(),
+        };
+
+        clip_rect.min.x += clip_inset.left;
+        clip_rect.min.y += clip_inset.top;
+        clip_rect.max.x -= clip_inset.right;
+        clip_rect.max.y -= clip_inset.bottom;
+
+        if overflow.x == OverflowAxis::Visible {
+            clip_rect.min.x = -f32::INFINITY;
+            clip_rect.max.x = f32::INFINITY;
+        }
+        if overflow.y == OverflowAxis::Visible {
+            clip_rect.min.y = -f32::INFINITY;
+            clip_rect.max.y = f32::INFINITY;
+        }
+
+        clip_rect
+    }
 }
 
 impl ComputedNode {
@@ -237,6 +313,8 @@ impl ComputedNode {
         stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
+        scrollbar_size: Vec2::ZERO,
+        scroll_position: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
@@ -253,45 +331,27 @@ impl Default for ComputedNode {
     }
 }
 
-/// The scroll position of the node.
+/// The scroll position of the node. Values are in logical pixels, increasing from top-left to bottom-right.
 ///
-/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
+/// Increasing the x-coordinate causes the scrolled content to visibly move left on the screen, while increasing the y-coordinate causes the scrolled content to move up.
+/// This might seem backwards, however what's really happening is that
+/// the scroll position is moving the visible "window" in the local coordinate system of the scrolled content -
+/// moving the window down causes the content to move up.
+///
+/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount in logical pixels.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
 /// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct ScrollPosition {
-    /// How far across the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to right)
-    pub offset_x: f32,
-    /// How far down the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to top)
-    pub offset_y: f32,
-}
+pub struct ScrollPosition(pub Vec2);
 
 impl ScrollPosition {
-    pub const DEFAULT: Self = Self {
-        offset_x: 0.0,
-        offset_y: 0.0,
-    };
-}
-
-impl Default for ScrollPosition {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl From<&ScrollPosition> for Vec2 {
-    fn from(scroll_pos: &ScrollPosition) -> Self {
-        Vec2::new(scroll_pos.offset_x, scroll_pos.offset_y)
-    }
+    pub const DEFAULT: Self = Self(Vec2::ZERO);
 }
 
 impl From<Vec2> for ScrollPosition {
-    fn from(vec: Vec2) -> Self {
-        ScrollPosition {
-            offset_x: vec.x,
-            offset_y: vec.y,
-        }
+    fn from(value: Vec2) -> Self {
+        Self(value)
     }
 }
 
@@ -324,14 +384,13 @@ impl From<Vec2> for ScrollPosition {
 #[require(
     ComputedNode,
     ComputedNodeTarget,
+    UiTransform,
     BackgroundColor,
     BorderColor,
     BorderRadius,
     FocusPolicy,
     ScrollPosition,
-    Transform,
     Visibility,
-    VisibilityClass,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
@@ -369,6 +428,9 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
+
+    /// How much space in logical pixels should be reserved for scrollbars when overflow is set to scroll or auto on an axis.
+    pub scrollbar_width: f32,
 
     /// How the bounds of clipped content should be determined
     ///
@@ -654,6 +716,7 @@ impl Node {
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
         overflow_clip_margin: OverflowClipMargin::DEFAULT,
+        scrollbar_width: 0.,
         row_gap: Val::ZERO,
         column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
@@ -976,9 +1039,11 @@ pub enum BoxSizing {
     /// Length styles like width and height refer to the "content box" size (size excluding padding and border)
     ContentBox,
 }
+
 impl BoxSizing {
     pub const DEFAULT: Self = Self::BorderBox;
 }
+
 impl Default for BoxSizing {
     fn default() -> Self {
         Self::DEFAULT
@@ -2063,6 +2128,16 @@ impl BorderColor {
         }
     }
 
+    /// Helper to set all border colors to a given color.
+    pub fn set_all(&mut self, color: impl Into<Color>) -> &mut Self {
+        let color: Color = color.into();
+        self.top = color;
+        self.bottom = color;
+        self.left = color;
+        self.right = color;
+        self
+    }
+
     /// Check if all contained border colors are transparent
     pub fn is_fully_transparent(&self) -> bool {
         self.top.is_fully_transparent()
@@ -2167,6 +2242,11 @@ pub struct CalculatedClip {
     pub clip: Rect,
 }
 
+/// UI node entities with this component will ignore any clipping rect they inherit,
+/// the node will not be clipped regardless of its ancestors' `Overflow` setting.
+#[derive(Component)]
+pub struct OverrideClip;
+
 /// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
 /// of sibling nodes with a lower z-index.
@@ -2240,8 +2320,8 @@ pub struct GlobalZIndex(pub i32);
 pub struct BorderRadius {
     pub top_left: Val,
     pub top_right: Val,
-    pub bottom_left: Val,
     pub bottom_right: Val,
+    pub bottom_left: Val,
 }
 
 impl Default for BorderRadius {
@@ -2453,27 +2533,28 @@ impl BorderRadius {
 
     /// Resolve the border radius for a single corner from the given context values.
     /// Returns the radius of the corner in physical pixels.
-    pub fn resolve_single_corner(
+    pub const fn resolve_single_corner(
         radius: Val,
         scale_factor: f32,
         min_length: f32,
         viewport_size: Vec2,
     ) -> f32 {
-        radius
-            .resolve(scale_factor, min_length, viewport_size)
-            .unwrap_or(0.)
-            .clamp(0., 0.5 * min_length)
+        if let Ok(radius) = radius.resolve(scale_factor, min_length, viewport_size) {
+            radius.clamp(0., 0.5 * min_length)
+        } else {
+            0.
+        }
     }
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
-    pub fn resolve(
+    pub const fn resolve(
         &self,
         scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
     ) -> ResolvedBorderRadius {
-        let length = node_size.min_element();
+        let length = node_size.x.min(node_size.y);
         ResolvedBorderRadius {
             top_left: Self::resolve_single_corner(
                 self.top_left,
@@ -2511,17 +2592,28 @@ impl BorderRadius {
 pub struct ResolvedBorderRadius {
     pub top_left: f32,
     pub top_right: f32,
-    pub bottom_left: f32,
     pub bottom_right: f32,
+    pub bottom_left: f32,
 }
 
 impl ResolvedBorderRadius {
     pub const ZERO: Self = Self {
         top_left: 0.,
         top_right: 0.,
-        bottom_left: 0.,
         bottom_right: 0.,
+        bottom_left: 0.,
     };
+}
+
+impl From<ResolvedBorderRadius> for [f32; 4] {
+    fn from(radius: ResolvedBorderRadius) -> Self {
+        [
+            radius.top_left,
+            radius.top_right,
+            radius.bottom_right,
+            radius.bottom_left,
+        ]
+    }
 }
 
 #[derive(Component, Clone, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
@@ -2704,61 +2796,6 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
     }
 }
 
-/// Marker for controlling whether Ui is rendered with or without anti-aliasing
-/// in a camera. By default, Ui is always anti-aliased.
-///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
-///
-/// ```
-/// use bevy_core_pipeline::prelude::*;
-/// use bevy_ecs::prelude::*;
-/// use bevy_ui::prelude::*;
-///
-/// fn spawn_camera(mut commands: Commands) {
-///     commands.spawn((
-///         Camera2d,
-///         // This will cause all Ui in this camera to be rendered without
-///         // anti-aliasing
-///         UiAntiAlias::Off,
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, PartialEq, Clone)]
-pub enum UiAntiAlias {
-    /// UI will render with anti-aliasing
-    #[default]
-    On,
-    /// UI will render without anti-aliasing
-    Off,
-}
-
-/// Number of shadow samples.
-/// A larger value will result in higher quality shadows.
-/// Default is 4, values higher than ~10 offer diminishing returns.
-///
-/// ```
-/// use bevy_core_pipeline::prelude::*;
-/// use bevy_ecs::prelude::*;
-/// use bevy_ui::prelude::*;
-///
-/// fn spawn_camera(mut commands: Commands) {
-///     commands.spawn((
-///         Camera2d,
-///         BoxShadowSamples(6),
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, PartialEq, Clone)]
-pub struct BoxShadowSamples(pub u32);
-
-impl Default for BoxShadowSamples {
-    fn default() -> Self {
-        Self(4)
-    }
-}
-
 /// Derived information about the camera target for this UI node.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, PartialEq, Clone)]
@@ -2793,26 +2830,6 @@ impl ComputedNodeTarget {
 
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
-    }
-}
-
-/// Adds a shadow behind text
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-pub struct TextShadow {
-    /// Shadow displacement in logical pixels
-    /// With a value of zero the shadow will be hidden directly behind the text
-    pub offset: Vec2,
-    /// Color of the shadow
-    pub color: Color,
-}
-
-impl Default for TextShadow {
-    fn default() -> Self {
-        Self {
-            offset: Vec2::splat(4.),
-            color: Color::linear_rgba(0., 0., 0., 0.75),
-        }
     }
 }
 

@@ -36,10 +36,10 @@
 #endif
 
 // The texture representing the color framebuffer.
-@group(1) @binding(0) var color_texture: texture_2d<f32>;
+@group(2) @binding(0) var color_texture: texture_2d<f32>;
 
 // The sampler that lets us sample from the color framebuffer.
-@group(1) @binding(1) var color_sampler: sampler;
+@group(2) @binding(1) var color_sampler: sampler;
 
 // Group 1, bindings 2 and 3 are in `raymarch.wgsl`.
 

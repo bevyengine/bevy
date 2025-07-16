@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -32,6 +32,7 @@ pub use conditional_send::*;
 /// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
 /// futures aren't Send.
 pub trait ConditionalSendFuture: Future + ConditionalSend {}
+
 impl<T: Future + ConditionalSend> ConditionalSendFuture for T {}
 
 use alloc::boxed::Box;

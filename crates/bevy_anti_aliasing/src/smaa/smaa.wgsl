@@ -146,10 +146,10 @@
  *         * (See SMAA_INCLUDE_VS and SMAA_INCLUDE_PS below).
  *
  *     And four presets:
- *         SMAA_PRESET_LOW          (%60 of the quality)
- *         SMAA_PRESET_MEDIUM       (%80 of the quality)
- *         SMAA_PRESET_HIGH         (%95 of the quality)
- *         SMAA_PRESET_ULTRA        (%99 of the quality)
+ *         SMAA_PRESET_LOW          (60% of the quality)
+ *         SMAA_PRESET_MEDIUM       (80% of the quality)
+ *         SMAA_PRESET_HIGH         (95% of the quality)
+ *         SMAA_PRESET_ULTRA        (99% of the quality)
  *
  *     For example:
  *         #define SMAA_RT_METRICS float4(1.0 / 1280.0, 1.0 / 720.0, 1280.0, 720.0)

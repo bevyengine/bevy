@@ -1,11 +1,11 @@
 use crate::{
-    DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances, SetMesh2dBindGroup,
-    SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
+    init_mesh_2d_pipeline, DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
-    load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp,
-    AssetEventSystems, AssetId, Assets, Handle, UntypedAssetId,
+    embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
+    AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::core_2d::{
@@ -36,7 +36,7 @@ use bevy_render::{
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, InputUniformIndex, PhaseItem,
@@ -49,13 +49,10 @@ use bevy_render::{
     view::{
         ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
+    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 use core::{hash::Hash, ops::Range};
 use tracing::error;
-
-pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("2d8a3853-2927-4de2-9dc7-3971e7e40970");
 
 /// A [`Plugin`] that draws wireframes for 2D meshes.
 ///
@@ -81,12 +78,7 @@ impl Wireframe2dPlugin {
 
 impl Plugin for Wireframe2dPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            WIREFRAME_2D_SHADER_HANDLE,
-            "wireframe2d.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "wireframe2d.wgsl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe2dPhaseItem, Mesh2dPipeline>::new(self.debug_flags),
@@ -138,6 +130,10 @@ impl Plugin for Wireframe2dPlugin {
                 ),
             )
             .add_systems(
+                RenderStartup,
+                init_wireframe_2d_pipeline.after(init_mesh_2d_pipeline),
+            )
+            .add_systems(
                 ExtractSchedule,
                 (
                     extract_wireframe_2d_camera,
@@ -157,13 +153,6 @@ impl Plugin for Wireframe2dPlugin {
                         .after(prepare_assets::<RenderWireframeMaterial>),
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<Wireframe2dPipeline>();
     }
 }
 
@@ -335,13 +324,15 @@ pub struct Wireframe2dPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for Wireframe2dPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        Wireframe2dPipeline {
-            mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
-            shader: WIREFRAME_2D_SHADER_HANDLE,
-        }
-    }
+pub fn init_wireframe_2d_pipeline(
+    mut commands: Commands,
+    mesh_2d_pipeline: Res<Mesh2dPipeline>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(Wireframe2dPipeline {
+        mesh_pipeline: mesh_2d_pipeline.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "wireframe2d.wgsl"),
+    });
 }
 
 impl SpecializedMeshPipeline for Wireframe2dPipeline {
@@ -380,7 +371,7 @@ impl ViewNode for Wireframe2dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(wireframe_phase) =
@@ -481,6 +472,7 @@ impl RenderAsset for RenderWireframeMaterial {
         source_asset: Self::SourceAsset,
         _asset_id: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
+        _previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         Ok(RenderWireframeMaterial {
             color: source_asset.color.to_linear().to_f32_array(),
