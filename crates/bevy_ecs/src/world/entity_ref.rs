@@ -1547,6 +1547,45 @@ impl<'w> EntityWorldMut<'w> {
         self.world.get_resource_mut()
     }
 
+    /// Temporarily removes the requested resource from the [`World`], runs custom user code,
+    /// then re-adds the resource before returning.
+    ///
+    /// See [`World::resource_scope`] for further details.
+    #[track_caller]
+    pub fn resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
+    ) -> U {
+        let id = self.id();
+        self.world_scope(|world| {
+            world.resource_scope(|world, res| {
+                // Acquiring a new EntityWorldMut here and using that instead of `self` is fine because
+                // the outer `world_scope` will handle updating our location if it gets changed by the user code
+                let mut this = world.entity_mut(id);
+                f(&mut this, res)
+            })
+        })
+    }
+
+    /// Temporarily removes the requested resource from the [`World`] if it exists, runs custom user code,
+    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in the [`World`].
+    ///
+    /// See [`World::try_resource_scope`] for further details.
+    pub fn try_resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
+    ) -> Option<U> {
+        let id = self.id();
+        self.world_scope(|world| {
+            world.try_resource_scope(|world, res| {
+                // Acquiring a new EntityWorldMut here and using that instead of `self` is fine because
+                // the outer `world_scope` will handle updating our location if it gets changed by the user code
+                let mut this = world.entity_mut(id);
+                f(&mut this, res)
+            })
+        })
+    }
+
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
