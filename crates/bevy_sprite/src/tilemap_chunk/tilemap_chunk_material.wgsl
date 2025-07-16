@@ -14,7 +14,7 @@ struct TileData {
     visible: bool,
 }
 
-fn getTileData(coord: vec2<u32>) -> TileData {
+fn get_tile_data(coord: vec2<u32>) -> TileData {
     let data = textureLoad(tile_data, coord, 0);
 
     let tileset_index = data.r;
@@ -37,7 +37,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let tile_uv = in.uv * vec2<f32>(chunk_size);
     let tile_coord = clamp(vec2<u32>(floor(tile_uv)), vec2<u32>(0), chunk_size - 1);
 
-    let tile = getTileData(tile_coord);
+    let tile = get_tile_data(tile_coord);
 
     if (tile.tileset_index == 0xffffu || !tile.visible) {
         discard;
