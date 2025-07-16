@@ -22,7 +22,7 @@ use bevy_input::{
 use bevy_math::Vec2;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
-use bevy_render::camera::RenderTarget;
+use bevy_render::camera::{RenderTarget, ToNormalizedRenderTarget as _};
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
 use tracing::debug;
 
@@ -39,24 +39,30 @@ pub mod prelude {
     pub use crate::input::PointerInputPlugin;
 }
 
-/// Adds mouse and touch inputs for picking pointers to your app. This is a default input plugin,
-/// that you can replace with your own plugin as needed.
-///
-/// [`crate::PickingPlugin::is_input_enabled`] can be used to toggle whether
-/// the core picking plugin processes the inputs sent by this, or other input plugins, in one place.
-///
-/// This plugin contains several settings, and is added to the world as a resource after initialization.
-/// You can configure pointer input settings at runtime by accessing the resource.
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
 #[reflect(Resource, Default, Clone)]
-pub struct PointerInputPlugin {
+/// Settings for enabling and disabling updating mouse and touch inputs for picking
+///
+/// ## Custom initialization
+/// ```
+/// # use bevy_app::App;
+/// # use bevy_picking::input::{PointerInputSettings,PointerInputPlugin};
+/// App::new()
+///     .insert_resource(PointerInputSettings {
+///         is_touch_enabled: false,
+///         is_mouse_enabled: true,
+///     })
+///     // or DefaultPlugins
+///     .add_plugins(PointerInputPlugin);
+/// ```
+pub struct PointerInputSettings {
     /// Should touch inputs be updated?
     pub is_touch_enabled: bool,
     /// Should mouse inputs be updated?
     pub is_mouse_enabled: bool,
 }
 
-impl PointerInputPlugin {
+impl PointerInputSettings {
     fn is_mouse_enabled(state: Res<Self>) -> bool {
         state.is_mouse_enabled
     }
@@ -66,7 +72,7 @@ impl PointerInputPlugin {
     }
 }
 
-impl Default for PointerInputPlugin {
+impl Default for PointerInputSettings {
     fn default() -> Self {
         Self {
             is_touch_enabled: true,
@@ -75,25 +81,35 @@ impl Default for PointerInputPlugin {
     }
 }
 
+/// Adds mouse and touch inputs for picking pointers to your app. This is a default input plugin,
+/// that you can replace with your own plugin as needed.
+///
+/// Toggling mouse input or touch input can be done at runtime by modifying
+/// [`PointerInputSettings`] resource.
+///
+/// [`PointerInputSettings`] can be initialized with custom values, but will be
+/// initialized with default values if it is not present at the moment this is
+/// added to the app.
+pub struct PointerInputPlugin;
+
 impl Plugin for PointerInputPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(*self)
+        app.init_resource::<PointerInputSettings>()
+            .register_type::<PointerInputSettings>()
             .add_systems(Startup, spawn_mouse_pointer)
             .add_systems(
                 First,
                 (
-                    mouse_pick_events.run_if(PointerInputPlugin::is_mouse_enabled),
-                    touch_pick_events.run_if(PointerInputPlugin::is_touch_enabled),
+                    mouse_pick_events.run_if(PointerInputSettings::is_mouse_enabled),
+                    touch_pick_events.run_if(PointerInputSettings::is_touch_enabled),
                 )
                     .chain()
                     .in_set(PickingSystems::Input),
             )
             .add_systems(
                 Last,
-                deactivate_touch_pointers.run_if(PointerInputPlugin::is_touch_enabled),
-            )
-            .register_type::<Self>()
-            .register_type::<PointerInputPlugin>();
+                deactivate_touch_pointers.run_if(PointerInputSettings::is_touch_enabled),
+            );
     }
 }
 

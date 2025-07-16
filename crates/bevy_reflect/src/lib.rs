@@ -1100,7 +1100,7 @@ mod tests {
     /// If we don't append the strings in the `TypePath` derive correctly (i.e. explicitly specifying the type),
     /// we'll get a compilation error saying that "`&String` cannot be added to `String`".
     ///
-    /// So this test just ensures that we do do that correctly.
+    /// So this test just ensures that we do that correctly.
     ///
     /// This problem is a known issue and is unexpectedly expected behavior:
     /// - <https://github.com/rust-lang/rust/issues/77143>
@@ -1682,7 +1682,6 @@ mod tests {
         foo.apply(&foo_patch);
 
         let mut hash_map = <HashMap<_, _>>::default();
-        hash_map.insert(1, 1);
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
@@ -2715,9 +2714,11 @@ bevy_reflect::tests::Test {
         #[reflect(where T: Default)]
         struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
 
+        #[expect(dead_code, reason = "Bar is never constructed")]
         #[derive(Default, TypePath)]
         struct Bar;
 
+        #[expect(dead_code, reason = "Baz is never constructed")]
         #[derive(TypePath)]
         struct Baz;
 
@@ -2731,6 +2732,7 @@ bevy_reflect::tests::Test {
         #[reflect(where)]
         struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
 
+        #[expect(dead_code, reason = "Bar is never constructed")]
         #[derive(TypePath)]
         struct Bar;
 
@@ -2765,6 +2767,7 @@ bevy_reflect::tests::Test {
         #[reflect(where T::Assoc: core::fmt::Display)]
         struct Foo<T: Trait>(T::Assoc);
 
+        #[expect(dead_code, reason = "Bar is never constructed")]
         #[derive(TypePath)]
         struct Bar;
 
@@ -2772,6 +2775,7 @@ bevy_reflect::tests::Test {
             type Assoc = usize;
         }
 
+        #[expect(dead_code, reason = "Baz is never constructed")]
         #[derive(TypePath)]
         struct Baz;
 

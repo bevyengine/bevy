@@ -240,7 +240,7 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: T) {
         self.user_event_received = true;
 
-        self.world_mut().send_event(event);
+        self.world_mut().write_event(event);
         self.redraw_requested = true;
     }
 
@@ -790,91 +790,91 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
         if !raw_winit_events.is_empty() {
             world
                 .resource_mut::<Events<RawWinitWindowEvent>>()
-                .send_batch(raw_winit_events);
+                .write_batch(raw_winit_events);
         }
 
         for winit_event in buffered_events.iter() {
             match winit_event.clone() {
                 BevyWindowEvent::AppLifecycle(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::CursorEntered(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::CursorLeft(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::CursorMoved(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::FileDragAndDrop(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::Ime(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::RequestRedraw(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowBackendScaleFactorChanged(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowCloseRequested(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowCreated(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowDestroyed(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowFocused(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowMoved(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowOccluded(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowResized(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowScaleFactorChanged(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::WindowThemeChanged(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::MouseButtonInput(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::MouseMotion(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::MouseWheel(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::PinchGesture(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::RotationGesture(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::DoubleTapGesture(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::PanGesture(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::TouchInput(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::KeyboardInput(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
                 BevyWindowEvent::KeyboardFocusLost(e) => {
-                    world.send_event(e);
+                    world.write_event(e);
                 }
             }
         }
@@ -882,7 +882,7 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
         if !buffered_events.is_empty() {
             world
                 .resource_mut::<Events<BevyWindowEvent>>()
-                .send_batch(buffered_events);
+                .write_batch(buffered_events);
         }
     }
 

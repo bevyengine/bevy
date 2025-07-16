@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect_derive"
-version = "0.16.0-dev"
+version = "0.17.0-dev"
 edition = "2024"
 description = "Derive implementations for bevy_reflect"
 homepage = "https://bevy.org"
@@ -26,11 +26,11 @@ auto_register_inventory = ["auto_register"]
 auto_register_static = ["auto_register"]
 
 [dependencies]
-bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.16.0-dev" }
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.17.0-dev" }
+indexmap = "2.0"
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2.0", features = ["full"] }
-uuid = { version = "1.13.1", features = ["v4"] }
+syn = { version = "2.0", features = ["full", "extra-traits"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.

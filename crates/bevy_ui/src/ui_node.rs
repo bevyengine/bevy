@@ -42,6 +42,14 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub content_size: Vec2,
+    /// Space allocated for scrollbars.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scrollbar_size: Vec2,
+    /// Resolved offset of scrolled content
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scroll_position: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
@@ -305,6 +313,8 @@ impl ComputedNode {
         stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
+        scrollbar_size: Vec2::ZERO,
+        scroll_position: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
@@ -321,45 +331,27 @@ impl Default for ComputedNode {
     }
 }
 
-/// The scroll position of the node.
+/// The scroll position of the node. Values are in logical pixels, increasing from top-left to bottom-right.
 ///
-/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
+/// Increasing the x-coordinate causes the scrolled content to visibly move left on the screen, while increasing the y-coordinate causes the scrolled content to move up.
+/// This might seem backwards, however what's really happening is that
+/// the scroll position is moving the visible "window" in the local coordinate system of the scrolled content -
+/// moving the window down causes the content to move up.
+///
+/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount in logical pixels.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
 /// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct ScrollPosition {
-    /// How far across the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to right)
-    pub offset_x: f32,
-    /// How far down the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to top)
-    pub offset_y: f32,
-}
+pub struct ScrollPosition(pub Vec2);
 
 impl ScrollPosition {
-    pub const DEFAULT: Self = Self {
-        offset_x: 0.0,
-        offset_y: 0.0,
-    };
-}
-
-impl Default for ScrollPosition {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl From<&ScrollPosition> for Vec2 {
-    fn from(scroll_pos: &ScrollPosition) -> Self {
-        Vec2::new(scroll_pos.offset_x, scroll_pos.offset_y)
-    }
+    pub const DEFAULT: Self = Self(Vec2::ZERO);
 }
 
 impl From<Vec2> for ScrollPosition {
-    fn from(vec: Vec2) -> Self {
-        ScrollPosition {
-            offset_x: vec.x,
-            offset_y: vec.y,
-        }
+    fn from(value: Vec2) -> Self {
+        Self(value)
     }
 }
 
@@ -436,6 +428,9 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
+
+    /// How much space in logical pixels should be reserved for scrollbars when overflow is set to scroll or auto on an axis.
+    pub scrollbar_width: f32,
 
     /// How the bounds of clipped content should be determined
     ///
@@ -721,6 +716,7 @@ impl Node {
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
         overflow_clip_margin: OverflowClipMargin::DEFAULT,
+        scrollbar_width: 0.,
         row_gap: Val::ZERO,
         column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
@@ -1043,9 +1039,11 @@ pub enum BoxSizing {
     /// Length styles like width and height refer to the "content box" size (size excluding padding and border)
     ContentBox,
 }
+
 impl BoxSizing {
     pub const DEFAULT: Self = Self::BorderBox;
 }
+
 impl Default for BoxSizing {
     fn default() -> Self {
         Self::DEFAULT
@@ -2244,6 +2242,11 @@ pub struct CalculatedClip {
     pub clip: Rect,
 }
 
+/// UI node entities with this component will ignore any clipping rect they inherit,
+/// the node will not be clipped regardless of its ancestors' `Overflow` setting.
+#[derive(Component)]
+pub struct OverrideClip;
+
 /// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
 /// of sibling nodes with a lower z-index.
@@ -2602,6 +2605,17 @@ impl ResolvedBorderRadius {
     };
 }
 
+impl From<ResolvedBorderRadius> for [f32; 4] {
+    fn from(radius: ResolvedBorderRadius) -> Self {
+        [
+            radius.top_left,
+            radius.top_right,
+            radius.bottom_right,
+            radius.bottom_left,
+        ]
+    }
+}
+
 #[derive(Component, Clone, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Default, Clone)]
 #[cfg_attr(
@@ -2782,61 +2796,6 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
     }
 }
 
-/// Marker for controlling whether Ui is rendered with or without anti-aliasing
-/// in a camera. By default, Ui is always anti-aliased.
-///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
-///
-/// ```
-/// use bevy_core_pipeline::prelude::*;
-/// use bevy_ecs::prelude::*;
-/// use bevy_ui::prelude::*;
-///
-/// fn spawn_camera(mut commands: Commands) {
-///     commands.spawn((
-///         Camera2d,
-///         // This will cause all Ui in this camera to be rendered without
-///         // anti-aliasing
-///         UiAntiAlias::Off,
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, PartialEq, Clone)]
-pub enum UiAntiAlias {
-    /// UI will render with anti-aliasing
-    #[default]
-    On,
-    /// UI will render without anti-aliasing
-    Off,
-}
-
-/// Number of shadow samples.
-/// A larger value will result in higher quality shadows.
-/// Default is 4, values higher than ~10 offer diminishing returns.
-///
-/// ```
-/// use bevy_core_pipeline::prelude::*;
-/// use bevy_ecs::prelude::*;
-/// use bevy_ui::prelude::*;
-///
-/// fn spawn_camera(mut commands: Commands) {
-///     commands.spawn((
-///         Camera2d,
-///         BoxShadowSamples(6),
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, PartialEq, Clone)]
-pub struct BoxShadowSamples(pub u32);
-
-impl Default for BoxShadowSamples {
-    fn default() -> Self {
-        Self(4)
-    }
-}
-
 /// Derived information about the camera target for this UI node.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, PartialEq, Clone)]
@@ -2871,28 +2830,6 @@ impl ComputedNodeTarget {
 
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
-    }
-}
-
-/// Adds a shadow behind text
-///
-/// Not supported by `Text2d`
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, Default, Debug, Clone, PartialEq)]
-pub struct TextShadow {
-    /// Shadow displacement in logical pixels
-    /// With a value of zero the shadow will be hidden directly behind the text
-    pub offset: Vec2,
-    /// Color of the shadow
-    pub color: Color,
-}
-
-impl Default for TextShadow {
-    fn default() -> Self {
-        Self {
-            offset: Vec2::splat(4.),
-            color: Color::linear_rgba(0., 0., 0., 0.75),
-        }
     }
 }
 
