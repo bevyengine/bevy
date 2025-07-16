@@ -125,7 +125,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            if is_apply_deferred(system) {
+            if is_apply_deferred(&**system) {
                 self.apply_deferred(schedule, world);
                 continue;
             }

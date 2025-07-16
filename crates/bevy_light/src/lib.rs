@@ -201,8 +201,8 @@ impl Plugin for LightPlugin {
 pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Add this component to make a [`Mesh3d`] not cast shadows.
-#[derive(Debug, Component, Reflect, Default)]
-#[reflect(Component, Default, Debug)]
+#[derive(Debug, Component, Reflect, Default, Clone, PartialEq)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh3d`] not receive shadows.
 ///

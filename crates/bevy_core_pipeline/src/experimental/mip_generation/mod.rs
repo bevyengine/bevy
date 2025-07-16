@@ -25,7 +25,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
-use bevy_render::batching::gpu_preprocessing::GpuPreprocessingSupport;
+use bevy_render::{batching::gpu_preprocessing::GpuPreprocessingSupport, RenderStartup};
 use bevy_render::{
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
@@ -100,6 +100,7 @@ impl Plugin for MipGenerationPlugin {
                     Node3d::EndMainPassPostProcessing,
                 ),
             )
+            .add_systems(RenderStartup, init_depth_pyramid_dummy_texture)
             .add_systems(
                 Render,
                 create_downsample_depth_pipelines.in_set(RenderSystems::Prepare),
@@ -115,13 +116,6 @@ impl Plugin for MipGenerationPlugin {
                     .run_if(resource_exists::<DownsampleDepthPipelines>)
                     .after(prepare_core_3d_depth_textures),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<DepthPyramidDummyTexture>();
     }
 }
 
@@ -523,16 +517,14 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
 #[derive(Resource, Deref, DerefMut)]
 pub struct DepthPyramidDummyTexture(TextureView);
 
-impl FromWorld for DepthPyramidDummyTexture {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        DepthPyramidDummyTexture(create_depth_pyramid_dummy_texture(
-            render_device,
+pub fn init_depth_pyramid_dummy_texture(mut commands: Commands, render_device: Res<RenderDevice>) {
+    commands.insert_resource(DepthPyramidDummyTexture(
+        create_depth_pyramid_dummy_texture(
+            &render_device,
             "depth pyramid dummy texture",
             "depth pyramid dummy texture view",
-        ))
-    }
+        ),
+    ));
 }
 
 /// Creates a placeholder texture that can be bound to a depth pyramid binding
