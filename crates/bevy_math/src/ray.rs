@@ -120,14 +120,14 @@ impl Ray3d {
         let denominator = plane.normal.dot(*self.direction);
         if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
-            if distance > f32::EPSILON {
-                if match plane_hit_mode {
+            if distance > f32::EPSILON
+                && match plane_hit_mode {
                     PlaneIntersectionMode::Both => true,
                     PlaneIntersectionMode::FrontFaceOnly => denominator < 0.0,
                     PlaneIntersectionMode::BackFaceOnly => denominator > 0.0,
-                } {
-                    return Some(distance);
                 }
+            {
+                return Some(distance);
             }
         }
         None
