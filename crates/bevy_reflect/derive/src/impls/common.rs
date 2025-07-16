@@ -169,11 +169,8 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
     };
 
     if cfg!(feature = "auto_register_static") {
-        use core::hash::{Hash, Hasher};
-        use proc_macro::Span;
         use std::{
             env, fs,
-            hash::DefaultHasher,
             io::Write,
             path::PathBuf,
             sync::{LazyLock, Mutex},
@@ -207,20 +204,7 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
             Mutex::new(file)
         });
 
-        let crate_name =
-            env::var("CARGO_CRATE_NAME").expect("Expected cargo to set CARGO_CRATE_NAME env var");
-        let span = Span::call_site();
-        let mut hasher = DefaultHasher::new();
-        span.file().hash(&mut hasher);
-        let file_path_hash = hasher.finish();
-
-        let export_name = format!(
-            "_bevy_reflect_register_{}_{}_{}_{}",
-            crate_name,
-            file_path_hash,
-            span.line(),
-            span.column(),
-        );
+        let export_name = format!("_bevy_reflect_register_{}", uuid::Uuid::new_v4().as_u128());
 
         {
             let mut file = REGISTRATION_FNS_EXPORT.lock().unwrap();
