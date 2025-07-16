@@ -252,20 +252,21 @@ mod tests {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
 
         // Orthogonal, and test that ray intersects only the front face
-        assert!(
-            ray.intersect_plane(
+        assert!(ray
+            .intersect_plane(
                 Vec3::Z,
                 InfinitePlane3d::new(Vec3::Z),
                 PlaneIntersectionMode::FrontFaceOnly
             )
             .is_none());
-        assert_eq!(ray
-            .intersect_plane(
+        assert_eq!(
+            ray.intersect_plane(
                 Vec3::Z,
                 InfinitePlane3d::new(Vec3::NEG_Z),
                 PlaneIntersectionMode::FrontFaceOnly
             ),
-            Some(1.0));
+            Some(1.0)
+        );
         assert!(ray
             .intersect_plane(
                 Vec3::NEG_Z,
