@@ -50,13 +50,7 @@ enum TintType {
 /// The entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Specular Tint Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .init_resource::<AppAssets>()
         .init_resource::<AppStatus>()
         .insert_resource(AmbientLight {

@@ -1,26 +1,29 @@
 //! This example illustrates how to override the window scale factor imposed by the
 //! operating system.
 
-use bevy::{prelude::*, window::WindowResolution};
+use bevy::{
+    prelude::*,
+    window::{PrimaryWindow, WindowResolution},
+};
 
 #[derive(Component)]
 struct CustomText;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: WindowResolution::new(500., 300.).with_scale_factor_override(1.0),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (display_override, toggle_override, change_scale_factor),
         )
         .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.resolution = WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0);
 }
 
 fn setup(mut commands: Commands) {

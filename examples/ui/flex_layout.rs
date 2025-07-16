@@ -7,13 +7,7 @@ const MARGIN: Val = Val::Px(12.);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Flex Layout Example".to_string(),
-                ..Default::default()
-            }),
-            ..Default::default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, spawn_layout)
         .run();
 }

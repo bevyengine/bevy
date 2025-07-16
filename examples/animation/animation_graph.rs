@@ -74,13 +74,7 @@ fn main() {
     let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Animation Graph Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
         .add_systems(Update, init_animations)
         .add_systems(

@@ -122,13 +122,7 @@ impl MaterialExtension for CustomDecalExtension {
 /// Entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Clustered Decals Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugin)
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, CustomDecalExtension>,
         >::default())

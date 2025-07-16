@@ -2,24 +2,26 @@
 //! If you build this, and hit 'P' it should toggle on/off the mouse's passthrough.
 //! Note: this example will not work on following platforms: iOS / Android / Web / X11. Window fall through is not supported there.
 
-use bevy::{prelude::*, window::CursorOptions};
+use bevy::{
+    prelude::*,
+    window::{CursorOptions, PrimaryWindow, WindowLevel},
+};
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::NONE)) // Use a transparent window, to make effects obvious.
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                // Set the window's parameters, note we're setting the window to always be on top.
-                transparent: true,
-                decorations: true,
-                window_level: bevy::window::WindowLevel::AlwaysOnTop,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(Update, toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
         .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.transparent = true;
+    window.decorations = true;
+    window.window_level = WindowLevel::AlwaysOnTop;
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

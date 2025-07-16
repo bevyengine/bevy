@@ -94,13 +94,7 @@ struct MaskGroupState {
 // The application entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Animation Masks Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_scene, setup_ui))
         .add_systems(Update, setup_animation_graph_once_loaded)
         .add_systems(Update, handle_button_toggles)
