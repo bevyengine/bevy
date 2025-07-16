@@ -55,6 +55,24 @@ impl Ray2d {
     }
 }
 
+/// Defines if the Ray3d should intersect the plane only on the front face, back face, or both.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Deserialize, Serialize)
+)]
+pub enum PlaneIntersectionMode {
+    FrontFaceOnly,
+    BackFaceOnly,
+    Both,
+}
+
 /// An infinite half-line starting at `origin` and going in `direction` in 3D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -88,13 +106,20 @@ impl Ray3d {
     }
 
     /// Get the distance to a plane if the ray intersects it
+    /// `plane_hit_mode` specifies which face of the plane the ray should hit
     #[inline]
-    pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
+    pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d, plane_hit_mode: PlaneIntersectionMode) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
         if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
             if distance > f32::EPSILON {
-                return Some(distance);
+                if match plane_hit_mode {
+                    PlaneIntersectionMode::Both => true,
+                    PlaneIntersectionMode::FrontFaceOnly => denominator < 0.0,
+                    PlaneIntersectionMode::BackFaceOnly => denominator > 0.0,
+                } {
+                    return Some(distance);
+                }
             }
         }
         None
@@ -146,44 +171,45 @@ mod tests {
     }
 
     #[test]
-    fn intersect_plane_3d() {
+    fn intersect_plane_3d_both() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
 
         // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(
-            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::Z)),
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::Z), PlaneIntersectionMode::Both),
             Some(1.0)
         );
         assert_eq!(
-            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::NEG_Z)),
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::NEG_Z), PlaneIntersectionMode::Both),
             Some(1.0)
         );
         assert!(ray
-            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z))
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z), PlaneIntersectionMode::Both)
             .is_none());
         assert!(ray
-            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::NEG_Z))
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::NEG_Z), PlaneIntersectionMode::Both)
             .is_none());
 
         // Diagonal
         assert_eq!(
-            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::ONE)),
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::ONE), PlaneIntersectionMode::Both),
             Some(1.0)
         );
         assert!(ray
-            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::ONE))
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::ONE), PlaneIntersectionMode::Both)
             .is_none());
 
         // Parallel
         assert!(ray
-            .intersect_plane(Vec3::X, InfinitePlane3d::new(Vec3::X))
+            .intersect_plane(Vec3::X, InfinitePlane3d::new(Vec3::X), PlaneIntersectionMode::Both)
             .is_none());
 
         // Parallel with simulated rounding error
         assert!(ray
             .intersect_plane(
                 Vec3::X,
-                InfinitePlane3d::new(Vec3::X + Vec3::Z * f32::EPSILON)
+                InfinitePlane3d::new(Vec3::X + Vec3::Z * f32::EPSILON),
+                PlaneIntersectionMode::Both
             )
             .is_none());
     }
