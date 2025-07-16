@@ -236,13 +236,19 @@ impl SceneSpawner {
 
     /// Immediately despawns a scene instance, removing all its entities from the world.
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
-        if let Some(instance) = self.spawned_instances.remove(instance_id) {
-            for &entity in instance.entity_map.values() {
-                if let Ok(entity_mut) = world.get_entity_mut(entity) {
-                    entity_mut.despawn();
-                };
-            }
+        if let Some(mut instance) = self.spawned_instances.remove(instance_id) {
+            Self::despawn_instance_internal(world, &mut instance);
         }
+    }
+
+    fn despawn_instance_internal(world: &mut World, instance: &mut InstanceInfo) {
+        for &entity in instance.entity_map.values() {
+            if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                entity_mut.despawn();
+            };
+        }
+        // Just make sure if we reuse `InstanceInfo` for something, we don't reuse the despawned entities.
+        instance.entity_map.clear();
     }
 
     /// Immediately spawns a new instance of the provided dynamic scene.
@@ -324,6 +330,10 @@ impl SceneSpawner {
             if let Some(spawned_instances) = self.spawned_scenes.get(id) {
                 for instance_id in spawned_instances {
                     if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
+                        // Despawn the scene before respawning it. This is a very heavy operation,
+                        // but otherwise, entities may be left behind, or be left in an otherwise
+                        // invalid state (e.g., invalid relationships).
+                        Self::despawn_instance_internal(world, instance_info);
                         Self::spawn_sync_internal(world, *id, &mut instance_info.entity_map)?;
                     }
                 }
@@ -345,6 +355,10 @@ impl SceneSpawner {
             if let Some(spawned_instances) = self.spawned_dynamic_scenes.get(id) {
                 for instance_id in spawned_instances {
                     if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
+                        // Despawn the scene before respawning it. This is a very heavy operation,
+                        // but otherwise, entities may be left behind, or be left in an otherwise
+                        // invalid state (e.g., invalid relationships).
+                        Self::despawn_instance_internal(world, instance_info);
                         Self::spawn_dynamic_internal(world, *id, &mut instance_info.entity_map)?;
                     }
                 }
