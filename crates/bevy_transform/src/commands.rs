@@ -46,13 +46,17 @@ impl BuildChildrenTransformExt for EntityWorldMut<'_> {
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
-            let parent_global = self
-                .world()
-                .get_entity(parent)
-                .ok()?
-                .get::<GlobalTransform>()?;
+            let child = self.id();
+            let parent_global = self.world_scope(|world| {
+                world
+                    .get_entity_mut(parent)
+                    .ok()?
+                    .add_child(child)
+                    .get::<GlobalTransform>()
+                    .copied()
+            })?;
             let child_global = self.get::<GlobalTransform>()?;
-            let new_child_local = child_global.reparented_to(parent_global);
+            let new_child_local = child_global.reparented_to(&parent_global);
             // TODO: Can this just be `self.insert(new_child_local)`? (does it matter if self doesn't already have `Transform`?)
             let mut child_local = self.get_mut::<Transform>()?;
             *child_local = new_child_local;
