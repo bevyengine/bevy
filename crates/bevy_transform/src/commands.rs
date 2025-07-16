@@ -57,7 +57,6 @@ impl BuildChildrenTransformExt for EntityWorldMut<'_> {
             })?;
             let child_global = self.get::<GlobalTransform>()?;
             let new_child_local = child_global.reparented_to(&parent_global);
-            // TODO: Can this just be `self.insert(new_child_local)`? (does it matter if self doesn't already have `Transform`?)
             let mut child_local = self.get_mut::<Transform>()?;
             *child_local = new_child_local;
             Some(())
@@ -72,7 +71,6 @@ impl BuildChildrenTransformExt for EntityWorldMut<'_> {
         let mut update_transform = || {
             let global = self.get::<GlobalTransform>()?;
             let new_local = global.compute_transform();
-            // TODO: Can this just be `self.insert(new_local)`? (does it matter if self doesn't already have `Transform`?)
             let mut local = self.get_mut::<Transform>()?;
             *local = new_local;
             Some(())
