@@ -13,20 +13,10 @@ pub(crate) fn impl_into_return(
 
     quote! {
         impl #impl_generics #bevy_reflect::func::IntoReturn for #type_path #ty_generics #where_reflect_clause {
-            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return> where Self: 'into_return {
+            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return>
+                where Self: 'into_return
+            {
                 #bevy_reflect::func::Return::Owned(#bevy_reflect::__macro_exports::alloc_utils::Box::new(self))
-            }
-        }
-
-        impl #impl_generics #bevy_reflect::func::IntoReturn for &#type_path #ty_generics #where_reflect_clause {
-            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return> where Self: 'into_return {
-                #bevy_reflect::func::Return::Ref(self)
-            }
-        }
-
-        impl #impl_generics #bevy_reflect::func::IntoReturn for &mut #type_path #ty_generics #where_reflect_clause {
-            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return> where Self: 'into_return {
-                #bevy_reflect::func::Return::Mut(self)
             }
         }
     }

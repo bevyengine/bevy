@@ -3,9 +3,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{
-        BindGroup, BindGroupEntries, PipelineCache, RenderPassDescriptor, TextureViewId,
-    },
+    render_resource::{BindGroup, PipelineCache, RenderPassDescriptor, TextureViewId},
     renderer::RenderContext,
     view::ViewTarget,
 };
@@ -30,9 +28,9 @@ impl ViewNode for UpscalingNode {
         (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
-        let blit_pipeline = world.get_resource::<BlitPipeline>().unwrap();
-        let clear_color_global = world.get_resource::<ClearColor>().unwrap();
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let blit_pipeline = world.resource::<BlitPipeline>();
+        let clear_color_global = world.resource::<ClearColor>();
 
         let clear_color = if let Some(camera) = camera {
             match camera.output_mode {
@@ -48,19 +46,18 @@ impl ViewNode for UpscalingNode {
             ClearColorConfig::None => None,
         };
         let converted_clear_color = clear_color.map(Into::into);
-        let upscaled_texture = target.main_texture_view();
+        // texture to be upscaled to the output texture
+        let main_texture_view = target.main_texture_view();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
-            Some((id, bind_group)) if upscaled_texture.id() == *id => bind_group,
+            Some((id, bind_group)) if main_texture_view.id() == *id => bind_group,
             cached_bind_group => {
-                let bind_group = render_context.render_device().create_bind_group(
-                    None,
-                    &blit_pipeline.texture_bind_group,
-                    &BindGroupEntries::sequential((upscaled_texture, &blit_pipeline.sampler)),
-                );
+                let bind_group = blit_pipeline
+                    .create_bind_group(render_context.render_device(), main_texture_view);
 
-                let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));
+                let (_, bind_group) =
+                    cached_bind_group.insert((main_texture_view.id(), bind_group));
                 bind_group
             }
         };

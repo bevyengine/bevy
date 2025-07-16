@@ -42,8 +42,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
@@ -57,7 +56,7 @@ use bevy_render::{
     sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
     view::ViewVisibility,
-    Extract, ExtractSchedule, RenderApp,
+    Extract, ExtractSchedule, RenderApp, RenderStartup,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
 use bevy_utils::default;
@@ -186,17 +185,16 @@ pub struct LightmapSlotIndex(pub(crate) NonMaxU16);
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "lightmap.wgsl");
-    }
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-        render_app.init_resource::<RenderLightmaps>().add_systems(
-            ExtractSchedule,
-            extract_lightmaps.after(MeshExtractionSystems),
-        );
+        render_app
+            .add_systems(RenderStartup, init_render_lightmaps)
+            .add_systems(
+                ExtractSchedule,
+                extract_lightmaps.after(MeshExtractionSystems),
+            );
     }
 }
 
@@ -334,21 +332,20 @@ impl Default for Lightmap {
     }
 }
 
-impl FromWorld for RenderLightmaps {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_adapter = world.resource::<RenderAdapter>();
+pub fn init_render_lightmaps(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+) {
+    let bindless_supported = binding_arrays_are_usable(&render_device, &render_adapter);
 
-        let bindless_supported = binding_arrays_are_usable(render_device, render_adapter);
-
-        RenderLightmaps {
-            render_lightmaps: default(),
-            slabs: vec![],
-            free_slabs: FixedBitSet::new(),
-            pending_lightmaps: default(),
-            bindless_supported,
-        }
-    }
+    commands.insert_resource(RenderLightmaps {
+        render_lightmaps: default(),
+        slabs: vec![],
+        free_slabs: FixedBitSet::new(),
+        pending_lightmaps: default(),
+        bindless_supported,
+    });
 }
 
 impl RenderLightmaps {

@@ -59,7 +59,7 @@ use crate::{
 ///
 /// The documentation for the [`pointer_events`] explains the events this module exposes and
 /// the order in which they fire.
-#[derive(Event, BufferedEvent, EntityEvent, Clone, PartialEq, Debug, Reflect, Component)]
+#[derive(BufferedEvent, EntityEvent, Clone, PartialEq, Debug, Reflect, Component)]
 #[entity_event(traversal = PointerTraversal, auto_propagate)]
 #[reflect(Component, Debug, Clone)]
 pub struct Pointer<E: Debug + Clone + Reflect> {

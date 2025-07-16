@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryItem, With},
@@ -25,13 +25,16 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 use prepass::SkyboxPrepassPipeline;
 
-use crate::{core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms};
+use crate::{
+    core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms,
+    skybox::prepass::init_skybox_prepass_pipeline,
+};
 
 pub mod prepass;
 
@@ -55,6 +58,10 @@ impl Plugin for SkyboxPlugin {
             .init_resource::<SpecializedRenderPipelines<SkyboxPrepassPipeline>>()
             .init_resource::<PreviousViewUniforms>()
             .add_systems(
+                RenderStartup,
+                (init_skybox_pipeline, init_skybox_prepass_pipeline),
+            )
+            .add_systems(
                 Render,
                 (
                     prepare_skybox_pipelines.in_set(RenderSystems::Prepare),
@@ -64,17 +71,6 @@ impl Plugin for SkyboxPlugin {
                         .in_set(RenderSystems::PrepareBindGroups),
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        let shader = load_embedded_asset!(render_app.world(), "skybox.wgsl");
-        let render_device = render_app.world().resource::<RenderDevice>().clone();
-        render_app
-            .insert_resource(SkyboxPipeline::new(&render_device, shader))
-            .init_resource::<SkyboxPrepassPipeline>();
     }
 }
 
@@ -177,6 +173,15 @@ impl SkyboxPipeline {
             shader,
         }
     }
+}
+
+fn init_skybox_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
+    let shader = load_embedded_asset!(asset_server.as_ref(), "skybox.wgsl");
+    commands.insert_resource(SkyboxPipeline::new(&render_device, shader));
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]

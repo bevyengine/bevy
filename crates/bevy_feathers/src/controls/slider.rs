@@ -99,7 +99,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
                 ColorStop::new(Color::NONE, Val::Percent(50.)),
                 ColorStop::new(Color::NONE, Val::Percent(100.)),
             ],
-            color_space: InterpolationColorSpace::Srgb,
+            color_space: InterpolationColorSpace::Srgba,
         })]),
         overrides,
         children![(
