@@ -7,8 +7,7 @@ use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
-use bevy::ui::widget::SingleLineTextInputNode;
-use bevy::ui::widget::TextInputNode;
+use bevy::ui::widget::LineInputNode;
 
 fn main() {
     App::new()
@@ -22,7 +21,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     let id = commands
         .spawn((
-            SingleLineTextInputNode::default(),
+            LineInputNode::default(),
             TabIndex(0),
             TextColor(RED.into()),
             TextFont {

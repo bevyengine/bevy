@@ -3469,12 +3469,12 @@ wasm = true
 
 
 [[example]]
-name = "single_line_text_input_node"
-path = "examples/ui/single_line_text_input_node.rs"
+name = "line_input_node"
+path = "examples/ui/line_input_node.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.single_line_text_input_node]
-name = "Text Input"
+[package.metadata.example.line_input_node]
+name = "Single Line Text Input"
 description = "Example demonstrating a single line text input"
 category = "UI (User Interface)"
 wasm = true

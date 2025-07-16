@@ -3,6 +3,7 @@
 mod button;
 mod image;
 mod label;
+mod line_input_node;
 mod text;
 mod text_input_node;
 mod viewport;
@@ -10,6 +11,7 @@ mod viewport;
 pub use button::*;
 pub use image::*;
 pub use label::*;
+pub use line_input_node::*;
 pub use text::*;
 pub use text_input_node::*;
 pub use viewport::*;

@@ -297,4 +297,5 @@ fn build_text_interop(app: &mut App) {
     );
 
     app.add_plugins(widget::TextInputNodePlugin);
+    app.add_plugins(widget::LineInputNodePlugin);
 }
