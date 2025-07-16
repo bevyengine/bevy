@@ -1407,13 +1407,13 @@ impl MeshDeserializer {
 /// Error that can occur when calling [`Mesh::merge`].
 #[derive(Error, Debug, Clone)]
 pub enum MeshMergeError {
-    #[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
+    #[error("Incompatible vertex attribute types: {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
     IncompatibleVertexAttributes {
         self_attribute: MeshVertexAttribute,
         other_attribute: Option<MeshVertexAttribute>,
     },
     #[error(
-        "Incompatible primitive topologies {:?} and {:?}",
+        "Incompatible primitive topologies: {:?} and {:?}",
         self_primitive_topology,
         other_primitive_topology
     )]
