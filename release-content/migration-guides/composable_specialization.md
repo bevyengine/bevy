@@ -150,7 +150,7 @@ pub struct MyPipeline {
     // explicit fields for them here. However, real-world cases
     // may still need to expose them as fields to create bind groups
     // from, for example.
-    specialized_cache: SpecializedCache<RenderPipeline, MySpecializer>,
+    variants: SpecializedCache<RenderPipeline, MySpecializer>,
 }
 
 pub struct MySpecializer {
@@ -187,20 +187,16 @@ impl FromWorld for MyPipeline {
             ..default()
         },
 
-        let specialized_cache = SpecializedCache::new(
+        let variants = SpecializedCache::new(
             MySpecializer {
                 layout: layout.clone(),
                 layout_msaa: layout_msaa.clone(),
             },
-            None,
             base_descriptor,
         );
         
         Self {
-            layout,
-            layout_msaa,
-            vertex,
-            fragment,
+            variants
         }
     }
 }
