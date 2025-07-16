@@ -8,6 +8,7 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::HookContext,
     query::Changed,
+    reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Query, ResMut},
     world::DeferredWorld,
@@ -15,6 +16,7 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_platform::collections::HashMap;
+use bevy_reflect::{prelude::*, Reflect};
 use bevy_render::mesh::{Mesh, Mesh2d};
 use bevy_utils::default;
 use tracing::warn;
@@ -29,42 +31,53 @@ pub struct TilemapChunkPlugin;
 
 impl Plugin for TilemapChunkPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<TilemapChunkMeshCache>()
+        app.register_type::<TilemapChunkMeshCache>()
+            .register_type::<TilemapChunk>()
+            .register_type::<TilemapChunkTileData>()
+            .init_resource::<TilemapChunkMeshCache>()
             .add_systems(Update, update_tilemap_chunk_indices);
     }
 }
 
 /// A resource storing the meshes for each tilemap chunk size.
-#[derive(Resource, Default, Deref, DerefMut)]
+#[derive(Resource, Default, Deref, DerefMut, Reflect)]
+#[reflect(Resource, Default)]
 pub struct TilemapChunkMeshCache(HashMap<UVec2, Handle<Mesh>>);
 
 /// A component representing a chunk of a tilemap.
 /// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
-#[derive(Component, Clone, Debug, Default)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Clone, Debug, Default)]
 #[component(immutable, on_insert = on_insert_tilemap_chunk)]
 pub struct TilemapChunk {
-    /// The size of the chunk in tiles
+    /// The size of the chunk in tiles.
     pub chunk_size: UVec2,
     /// The size to use for each tile, not to be confused with the size of a tile in the tileset image.
     /// The size of the tile in the tileset image is determined by the tileset image's dimensions.
     pub tile_display_size: UVec2,
-    /// Handle to the tileset image containing all tile textures
+    /// Handle to the tileset image containing all tile textures.
     pub tileset: Handle<Image>,
-    /// The alpha mode to use for the tilemap chunk
+    /// The alpha mode to use for the tilemap chunk.
     pub alpha_mode: AlphaMode2d,
 }
 
-#[derive(Clone, Copy, Debug)]
+/// Data for a single tile in the tilemap chunk.
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Clone, Debug, Default)]
 pub struct TileData {
+    /// The index of the tile in the corresponding tileset array texture.
     pub tileset_index: u16,
+    /// The color tint of the tile. White leaves the sampled texture color unchanged.
     pub color: Color,
+    /// The visibility of the tile.
     pub visible: bool,
 }
 
 impl TileData {
-    pub fn from_index(index: u16) -> Self {
+    /// Creates a new `TileData` with the given tileset index and default values.
+    pub fn from_tileset_index(tileset_index: u16) -> Self {
         Self {
-            tileset_index: index,
+            tileset_index,
             ..default()
         }
     }
@@ -80,9 +93,10 @@ impl Default for TileData {
     }
 }
 
-/// Component storing the indices of tiles within a chunk.
-/// Each index corresponds to a specific tile in the tileset.
-#[derive(Component, Clone, Debug, Deref, DerefMut)]
+/// Component storing the data of tiles within a chunk.
+/// Each index corresponds to a specific tile in the tileset. `None` indicates an empty tile.
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
+#[reflect(Component, Clone, Debug)]
 pub struct TilemapChunkTileData(pub Vec<Option<TileData>>);
 
 fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {

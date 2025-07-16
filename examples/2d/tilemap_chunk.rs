@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             if i == 0 {
                 None
             } else {
-                Some(TileData::from_index(i - 1))
+                Some(TileData::from_tileset_index(i - 1))
             }
         })
         .collect();
@@ -80,7 +80,7 @@ fn update_tilemap(
         if timer.just_finished() {
             for _ in 0..50 {
                 let index = rng.gen_range(0..tile_data.len());
-                tile_data[index] = Some(TileData::from_index(rng.gen_range(0..5)));
+                tile_data[index] = Some(TileData::from_tileset_index(rng.gen_range(0..5)));
             }
         }
     }
