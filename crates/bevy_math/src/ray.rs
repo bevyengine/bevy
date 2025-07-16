@@ -55,7 +55,7 @@ impl Ray2d {
     }
 }
 
-/// Defines if the Ray3d should intersect the plane only on the front face, back face, or both.
+/// Controls which faces of the plane a ray can intersect.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -68,9 +68,11 @@ impl Ray2d {
     reflect(Deserialize, Serialize)
 )]
 pub enum PlaneIntersectionMode {
-    /// Intersects only the front face of the plane.
+    /// Intersects only the front face of the plane
+    /// (the side from which the plane normal points towards the ray).
     FrontFaceOnly,
-    /// Intersects only the back face of the plane.
+    /// Intersects only the back face of the plane
+    /// (the side opposite to the normal).
     BackFaceOnly,
     /// Intersects both faces of the plane.
     Both,
