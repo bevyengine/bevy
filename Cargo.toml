@@ -3457,13 +3457,25 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "ui_text_input"
-path = "examples/ui/ui_text_input.rs"
+name = "text_input_node"
+path = "examples/ui/text_input_node.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.ui_text_input]
+[package.metadata.example.text_input_node]
 name = "Text Input"
 description = "Example demonstrating a text input"
+category = "UI (User Interface)"
+wasm = true
+
+
+[[example]]
+name = "single_line_text_input_node"
+path = "examples/ui/single_line_text_input_node.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.single_line_text_input_node]
+name = "Text Input"
+description = "Example demonstrating a single line text input"
 category = "UI (User Interface)"
 wasm = true
 
