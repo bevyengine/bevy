@@ -5861,7 +5861,7 @@ mod tests {
         assert_eq!((&mut X(8), &mut Y(9)), (x_component, y_component));
     }
 
-    #[derive(Event, EntityEvent)]
+    #[derive(EntityEvent)]
     struct TestEvent;
 
     #[test]
