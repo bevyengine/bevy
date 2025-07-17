@@ -19,7 +19,7 @@
 //! [single-pass down-sampling]: <SPD-paper-URL>
 //! [Lambertian convolution]: <reference-URL>
 //! [GGX convolution]: <reference-URL>
-use bevy_asset::{load_embedded_asset, uuid_handle, Assets, Handle};
+use bevy_asset::{load_embedded_asset, uuid_handle, AssetServer, Assets, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -53,7 +53,7 @@ use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
 use core::cmp::min;
 
 /// Handle for Spatio-Temporal Blue Noise texture
-pub const SBTN: Handle<Image> = uuid_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
+pub const STBN: Handle<Image> = uuid_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
 
 /// Labels for the environment map generation nodes
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
@@ -72,213 +72,10 @@ pub struct GeneratorBindGroupLayouts {
     pub copy: BindGroupLayout,
 }
 
-impl FromWorld for GeneratorBindGroupLayouts {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // SPD (Single Pass Downsampling) bind group layout
-        let spd = render_device.create_bind_group_layout(
-            "spd_bind_group_layout",
-            &BindGroupLayoutEntries::with_indices(
-                ShaderStages::COMPUTE,
-                (
-                    (
-                        0,
-                        texture_2d_array(TextureSampleType::Float { filterable: true }),
-                    ), // Source texture
-                    (
-                        1,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 1
-                    (
-                        2,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 2
-                    (
-                        3,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 3
-                    (
-                        4,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 4
-                    (
-                        5,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 5
-                    (
-                        6,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::ReadWrite,
-                        ),
-                    ), // Output mip 6
-                    (
-                        7,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 7
-                    (
-                        8,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 8
-                    (
-                        9,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 9
-                    (
-                        10,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 10
-                    (
-                        11,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 11
-                    (
-                        12,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output mip 12
-                    (13, sampler(SamplerBindingType::Filtering)), // Linear sampler
-                    (14, uniform_buffer::<SpdConstants>(false)),  // Uniforms
-                ),
-            ),
-        );
-
-        // Radiance map bind group layout
-        let radiance = render_device.create_bind_group_layout(
-            "radiance_bind_group_layout",
-            &BindGroupLayoutEntries::with_indices(
-                ShaderStages::COMPUTE,
-                (
-                    (
-                        0,
-                        texture_2d_array(TextureSampleType::Float { filterable: true }),
-                    ), // Source environment cubemap
-                    (1, sampler(SamplerBindingType::Filtering)), // Source sampler
-                    (
-                        2,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output specular map
-                    (3, uniform_buffer::<FilteringConstants>(false)), // Uniforms
-                    (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
-                ),
-            ),
-        );
-
-        // Irradiance convolution bind group layout
-        let irradiance = render_device.create_bind_group_layout(
-            "irradiance_bind_group_layout",
-            &BindGroupLayoutEntries::with_indices(
-                ShaderStages::COMPUTE,
-                (
-                    (
-                        0,
-                        texture_2d_array(TextureSampleType::Float { filterable: true }),
-                    ), // Source environment cubemap
-                    (1, sampler(SamplerBindingType::Filtering)), // Source sampler
-                    (
-                        2,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ), // Output irradiance map
-                    (3, uniform_buffer::<FilteringConstants>(false)), // Uniforms
-                    (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
-                ),
-            ),
-        );
-
-        // Copy bind group layout
-        let copy = render_device.create_bind_group_layout(
-            "copy_mip0_bind_group_layout",
-            &BindGroupLayoutEntries::with_indices(
-                ShaderStages::COMPUTE,
-                (
-                    // source cubemap
-                    (
-                        0,
-                        texture_2d_array(TextureSampleType::Float { filterable: true }),
-                    ),
-                    // destination mip0 storage of the intermediate texture
-                    (
-                        1,
-                        texture_storage_2d_array(
-                            TextureFormat::Rgba16Float,
-                            StorageTextureAccess::WriteOnly,
-                        ),
-                    ),
-                ),
-            ),
-        );
-
-        Self {
-            spd,
-            radiance,
-            irradiance,
-            copy,
-        }
-    }
-}
-
 /// Samplers for the environment map generation pipelines
 #[derive(Resource)]
 pub struct GeneratorSamplers {
     pub linear: Sampler,
-}
-
-impl FromWorld for GeneratorSamplers {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let linear = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("generator_linear_sampler"),
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Linear,
-            ..Default::default()
-        });
-
-        Self { linear }
-    }
 }
 
 /// Pipelines for the environment map generation pipelines
@@ -291,82 +88,280 @@ pub struct GeneratorPipelines {
     pub copy: CachedComputePipelineId,
 }
 
-impl FromWorld for GeneratorPipelines {
-    fn from_world(world: &mut World) -> Self {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let layouts = world.resource::<GeneratorBindGroupLayouts>();
+/// Initializes all render-world resources used by the environment-map generator once on
+/// [`bevy_render::RenderStartup`].
+pub fn init_generator_resources(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
+    asset_server: Res<AssetServer>,
+) {
+    // Bind group layouts
+    let spd = render_device.create_bind_group_layout(
+        "spd_bind_group_layout",
+        &BindGroupLayoutEntries::with_indices(
+            ShaderStages::COMPUTE,
+            (
+                (
+                    0,
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                ), // Source texture
+                (
+                    1,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 1
+                (
+                    2,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 2
+                (
+                    3,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 3
+                (
+                    4,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 4
+                (
+                    5,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 5
+                (
+                    6,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::ReadWrite,
+                    ),
+                ), // Output mip 6
+                (
+                    7,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 7
+                (
+                    8,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 8
+                (
+                    9,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 9
+                (
+                    10,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 10
+                (
+                    11,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 11
+                (
+                    12,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output mip 12
+                (13, sampler(SamplerBindingType::Filtering)), // Linear sampler
+                (14, uniform_buffer::<SpdConstants>(false)),  // Uniforms
+            ),
+        ),
+    );
 
-        let render_device = world.resource::<RenderDevice>();
-        let features = render_device.features();
-        let shader_defs = if features.contains(WgpuFeatures::SUBGROUP) {
-            vec![ShaderDefVal::Int("SUBGROUP_SUPPORT".into(), 1)]
-        } else {
-            vec![]
-        };
+    let radiance = render_device.create_bind_group_layout(
+        "radiance_bind_group_layout",
+        &BindGroupLayoutEntries::with_indices(
+            ShaderStages::COMPUTE,
+            (
+                (
+                    0,
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                ), // Source environment cubemap
+                (1, sampler(SamplerBindingType::Filtering)), // Source sampler
+                (
+                    2,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output specular map
+                (3, uniform_buffer::<FilteringConstants>(false)), // Uniforms
+                (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
+            ),
+        ),
+    );
 
-        // Single Pass Downsampling for Base Mip Levels (0-5)
-        let spd_first = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("spd_first_pipeline".into()),
-            layout: vec![layouts.spd.clone()],
-            push_constant_ranges: vec![],
-            shader: load_embedded_asset!(world, "spd.wgsl"),
-            shader_defs: shader_defs.clone(),
-            entry_point: Some("spd_downsample_first".into()),
-            zero_initialize_workgroup_memory: false,
-        });
+    let irradiance = render_device.create_bind_group_layout(
+        "irradiance_bind_group_layout",
+        &BindGroupLayoutEntries::with_indices(
+            ShaderStages::COMPUTE,
+            (
+                (
+                    0,
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                ), // Source environment cubemap
+                (1, sampler(SamplerBindingType::Filtering)), // Source sampler
+                (
+                    2,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Output irradiance map
+                (3, uniform_buffer::<FilteringConstants>(false)), // Uniforms
+                (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
+            ),
+        ),
+    );
 
-        // Single Pass Downsampling for Remaining Mip Levels (6-12)
-        let spd_second = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("spd_second_pipeline".into()),
-            layout: vec![layouts.spd.clone()],
-            push_constant_ranges: vec![],
-            shader: load_embedded_asset!(world, "spd.wgsl"),
-            shader_defs,
-            entry_point: Some("spd_downsample_second".into()),
-            zero_initialize_workgroup_memory: false,
-        });
+    let copy = render_device.create_bind_group_layout(
+        "copy_mip0_bind_group_layout",
+        &BindGroupLayoutEntries::with_indices(
+            ShaderStages::COMPUTE,
+            (
+                (
+                    0,
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                ), // Source cubemap
+                (
+                    1,
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::WriteOnly,
+                    ),
+                ), // Destination mip0
+            ),
+        ),
+    );
 
-        // Radiance map for Specular Environment Maps
-        let radiance = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("radiance_pipeline".into()),
-            layout: vec![layouts.radiance.clone()],
-            push_constant_ranges: vec![],
-            shader: load_embedded_asset!(world, "environment_filter.wgsl"),
-            shader_defs: vec![],
-            entry_point: Some("generate_radiance_map".into()),
-            zero_initialize_workgroup_memory: false,
-        });
+    let layouts = GeneratorBindGroupLayouts {
+        spd,
+        radiance,
+        irradiance,
+        copy,
+    };
 
-        // Irradiance map for Diffuse Environment Maps
-        let irradiance = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("irradiance_pipeline".into()),
-            layout: vec![layouts.irradiance.clone()],
-            push_constant_ranges: vec![],
-            shader: load_embedded_asset!(world, "environment_filter.wgsl"),
-            shader_defs: vec![],
-            entry_point: Some("generate_irradiance_map".into()),
-            zero_initialize_workgroup_memory: false,
-        });
+    // Samplers
+    let linear = render_device.create_sampler(&SamplerDescriptor {
+        label: Some("generator_linear_sampler"),
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mipmap_filter: FilterMode::Linear,
+        ..Default::default()
+    });
 
-        // Copy pipeline handles format conversion and populates mip0 when formats differ
-        let copy = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("copy_mip0_pipeline".into()),
-            layout: vec![layouts.copy.clone()],
-            push_constant_ranges: vec![],
-            shader: load_embedded_asset!(world, "copy_mip0.wgsl"),
-            shader_defs: vec![],
-            entry_point: Some("copy_mip0".into()),
-            zero_initialize_workgroup_memory: false,
-        });
+    let samplers = GeneratorSamplers { linear };
 
-        Self {
-            spd_first,
-            spd_second,
-            radiance,
-            irradiance,
-            copy,
-        }
-    }
+    // Pipelines
+    let features = render_device.features();
+    let shader_defs = if features.contains(WgpuFeatures::SUBGROUP) {
+        vec![ShaderDefVal::Int("SUBGROUP_SUPPORT".into(), 1)]
+    } else {
+        vec![]
+    };
+
+    let spd_shader = load_embedded_asset!(asset_server.as_ref(), "spd.wgsl");
+    let env_filter_shader = load_embedded_asset!(asset_server.as_ref(), "environment_filter.wgsl");
+    let copy_shader = load_embedded_asset!(asset_server.as_ref(), "copy_mip0.wgsl");
+
+    // Single Pass Downsampling for Base Mip Levels (0-5)
+    let spd_first = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+        label: Some("spd_first_pipeline".into()),
+        layout: vec![layouts.spd.clone()],
+        push_constant_ranges: vec![],
+        shader: spd_shader.clone(),
+        shader_defs: shader_defs.clone(),
+        entry_point: Some("spd_downsample_first".into()),
+        zero_initialize_workgroup_memory: false,
+    });
+
+    // Single Pass Downsampling for Remaining Mip Levels (6-12)
+    let spd_second = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+        label: Some("spd_second_pipeline".into()),
+        layout: vec![layouts.spd.clone()],
+        push_constant_ranges: vec![],
+        shader: spd_shader,
+        shader_defs: shader_defs.clone(),
+        entry_point: Some("spd_downsample_second".into()),
+        zero_initialize_workgroup_memory: false,
+    });
+
+    // Radiance map for Specular Environment Maps
+    let radiance = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+        label: Some("radiance_pipeline".into()),
+        layout: vec![layouts.radiance.clone()],
+        push_constant_ranges: vec![],
+        shader: env_filter_shader.clone(),
+        shader_defs: vec![],
+        entry_point: Some("generate_radiance_map".into()),
+        zero_initialize_workgroup_memory: false,
+    });
+
+    // Irradiance map for Diffuse Environment Maps
+    let irradiance = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+        label: Some("irradiance_pipeline".into()),
+        layout: vec![layouts.irradiance.clone()],
+        push_constant_ranges: vec![],
+        shader: env_filter_shader,
+        shader_defs: vec![],
+        entry_point: Some("generate_irradiance_map".into()),
+        zero_initialize_workgroup_memory: false,
+    });
+
+    // Copy pipeline handles format conversion and populates mip0 when formats differ
+    let copy_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+        label: Some("copy_mip0_pipeline".into()),
+        layout: vec![layouts.copy.clone()],
+        push_constant_ranges: vec![],
+        shader: copy_shader,
+        shader_defs: vec![],
+        entry_point: Some("copy_mip0".into()),
+        zero_initialize_workgroup_memory: false,
+    });
+
+    let pipelines = GeneratorPipelines {
+        spd_first,
+        spd_second,
+        radiance,
+        irradiance,
+        copy: copy_pipeline,
+    };
+
+    // Insert all resources into the render world
+    commands.insert_resource(layouts);
+    commands.insert_resource(samplers);
+    commands.insert_resource(pipelines);
 }
 
 pub fn extract_generator_entities(
@@ -516,7 +511,7 @@ pub fn prepare_generator_bind_groups(
     render_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
-    let stbn_texture = render_images.get(&SBTN).expect("STBN texture not loaded");
+    let stbn_texture = render_images.get(&STBN).expect("STBN texture not loaded");
     let texture_size = Vec2::new(
         stbn_texture.size.width as f32,
         stbn_texture.size.height as f32,

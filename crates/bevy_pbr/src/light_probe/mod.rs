@@ -32,7 +32,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
@@ -41,9 +41,10 @@ use core::{hash::Hash, ops::Deref};
 
 use crate::{
     generate::{
-        extract_generator_entities, generate_environment_map_light, prepare_generator_bind_groups,
-        prepare_intermediate_textures, GeneratorBindGroupLayouts, GeneratorNode,
-        GeneratorPipelines, GeneratorSamplers, IrradianceMapNode, RadianceMapNode, SpdNode, SBTN,
+        extract_generator_entities, generate_environment_map_light, init_generator_resources,
+        prepare_generator_bind_groups, prepare_intermediate_textures, GeneratorBindGroupLayouts,
+        GeneratorNode, GeneratorPipelines, GeneratorSamplers, IrradianceMapNode, RadianceMapNode,
+        SpdNode, STBN,
     },
     light_probe::environment_map::EnvironmentMapIds,
 };
@@ -305,7 +306,7 @@ impl Plugin for LightProbePlugin {
         embedded_asset!(app, "spd.wgsl");
         embedded_asset!(app, "copy_mip0.wgsl");
 
-        load_internal_binary_asset!(app, SBTN, "sbtn_vec2.png", |bytes, _: String| {
+        load_internal_binary_asset!(app, STBN, "stbn_vec2.png", |bytes, _: String| {
             Image::from_buffer(
                 bytes,
                 ImageType::Extension("png"),
@@ -328,9 +329,6 @@ impl Plugin for LightProbePlugin {
         render_app
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
-            .init_resource::<GeneratorBindGroupLayouts>()
-            .init_resource::<GeneratorSamplers>()
-            .init_resource::<GeneratorPipelines>()
             .add_render_graph_node::<SpdNode>(Core3d, GeneratorNode::Mipmap)
             .add_render_graph_node::<RadianceMapNode>(Core3d, GeneratorNode::Radiance)
             .add_render_graph_node::<IrradianceMapNode>(Core3d, GeneratorNode::Irradiance)
@@ -363,7 +361,8 @@ impl Plugin for LightProbePlugin {
                     prepare_intermediate_textures,
                 )
                     .in_set(RenderSystems::PrepareResources),
-            );
+            )
+            .add_systems(RenderStartup, init_generator_resources);
     }
 }
 
