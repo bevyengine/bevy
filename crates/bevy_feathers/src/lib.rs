@@ -25,7 +25,7 @@ use bevy_text::{TextColor, TextFont};
 
 use crate::{
     controls::ControlsPlugin,
-    cursor::{CursorIconPlugin, DefaultEntityCursor, EntityCursor},
+    cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
     theme::{ThemedText, UiTheme},
 };
 
@@ -60,7 +60,7 @@ impl Plugin for FeathersPlugin {
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::default(),
         ));
 
-        app.insert_resource(DefaultEntityCursor(EntityCursor::System(
+        app.insert_resource(DefaultCursor(EntityCursor::System(
             bevy_window::SystemCursorIcon::Default,
         )));
 
