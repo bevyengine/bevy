@@ -536,6 +536,36 @@ pub(super) fn enforce_no_required_components_recursion(
     }
 }
 
+/// This is a safe handle around `ComponentsRegistrator` and `RequiredComponents` to register required components.
+pub struct RequiredComponentsRegistrator<'a, 'w> {
+    components: &'a mut ComponentsRegistrator<'w>,
+    required_components: &'a mut RequiredComponents,
+}
+
+impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
+    /// # Safety
+    ///
+    /// All components in `required_components` must have been registered in `components`
+    pub(super) unsafe fn new(
+        components: &'a mut ComponentsRegistrator<'w>,
+        required_components: &'a mut RequiredComponents,
+    ) -> Self {
+        Self {
+            components,
+            required_components,
+        }
+    }
+
+    /// Register `C` as a required component.
+    pub fn register_required<C: Component>(&mut self, constructor: fn() -> C) {
+        // SAFETY:
+        unsafe {
+            self.required_components
+                .register(self.components, constructor);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::string::{String, ToString};

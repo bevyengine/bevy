@@ -245,8 +245,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 None => quote! { <#ident as Default>::default },
             };
             register_required.push(quote! {
-                // SAFETY: we registered all components with the same instance of components.
-                unsafe { required_components.register::<#ident>(components, #constructor) };
+                required_components.register_required::<#ident>(#constructor);
             });
         }
     }
@@ -287,10 +286,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
-            unsafe fn register_required_components(
+            fn register_required_components(
                 _requiree: #bevy_ecs_path::component::ComponentId,
-                components: &mut #bevy_ecs_path::component::ComponentsRegistrator,
-                required_components: &mut #bevy_ecs_path::component::RequiredComponents,
+                required_components: &mut #bevy_ecs_path::component::RequiredComponentsRegistrator,
             ) {
                 #(#register_required)*
             }

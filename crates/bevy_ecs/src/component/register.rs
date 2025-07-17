@@ -5,7 +5,7 @@ use core::any::Any;
 use core::ops::DerefMut;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
-use crate::component::enforce_no_required_components_recursion;
+use crate::component::{enforce_no_required_components_recursion, RequiredComponentsRegistrator};
 use crate::query::DebugCheckedUnwrap as _;
 use crate::{
     component::{
@@ -232,11 +232,12 @@ impl<'w> ComponentsRegistrator<'w> {
         self.recursion_check_stack.push(id);
         let mut required_components = RequiredComponents::default();
         // SAFETY: `required_components` is empty
-        unsafe { T::register_required_components(id, self, &mut required_components) };
+        let mut required_components_registrator =
+            unsafe { RequiredComponentsRegistrator::new(self, &mut required_components) };
+        T::register_required_components(id, &mut required_components_registrator);
         // SAFETY:
         // - `id` was just registered in `self`
-        // - `register_required_components` have been given `self` to register components in
-        //   (TODO: this is not really true... but the alternative would be making `Component` `unsafe`...)
+        // - RequiredComponentsRegistrator guarantees that only components from `self` are included in `required_components`.
         unsafe { self.register_required_by(id, &required_components) };
         self.recursion_check_stack.pop();
 
