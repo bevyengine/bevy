@@ -32,7 +32,7 @@ use bevy::{
         renderer::RenderDevice,
         sync_world::MainEntity,
         view::{ExtractedView, NoFrustumCulling, NoIndirectDrawing},
-        Render, RenderApp, RenderSystems,
+        Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
 use bytemuck::{Pod, Zeroable};
@@ -102,6 +102,7 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
+            .add_systems(RenderStartup, init_custom_pipeline)
             .add_systems(
                 Render,
                 (
@@ -109,10 +110,6 @@ impl Plugin for CustomMaterialPlugin {
                     prepare_instance_buffers.in_set(RenderSystems::PrepareResources),
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp).init_resource::<CustomPipeline>();
     }
 }
 
@@ -203,15 +200,15 @@ struct CustomPipeline {
     mesh_pipeline: MeshPipeline,
 }
 
-impl FromWorld for CustomPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let mesh_pipeline = world.resource::<MeshPipeline>();
-
-        CustomPipeline {
-            shader: world.load_asset(SHADER_ASSET_PATH),
-            mesh_pipeline: mesh_pipeline.clone(),
-        }
-    }
+fn init_custom_pipeline(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mesh_pipeline: Res<MeshPipeline>,
+) {
+    commands.insert_resource(CustomPipeline {
+        shader: asset_server.load(SHADER_ASSET_PATH),
+        mesh_pipeline: mesh_pipeline.clone(),
+    });
 }
 
 impl SpecializedMeshPipeline for CustomPipeline {

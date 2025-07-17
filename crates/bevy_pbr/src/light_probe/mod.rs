@@ -320,9 +320,7 @@ impl Plugin for LightProbePlugin {
         app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
             .add_systems(Update, generate_environment_map_light);
-    }
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
