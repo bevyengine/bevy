@@ -1,5 +1,5 @@
 use crate::{
-    blit::{BlitPipeline, BlitPipelineKey},
+    blit::{BlitKey, BlitPipeline},
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
@@ -119,22 +119,23 @@ pub struct MsaaWritebackBlitPipeline(CachedRenderPipelineId);
 fn prepare_msaa_writeback_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
-    blit_pipeline: Res<BlitPipeline>,
+    mut blit_pipeline: ResMut<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
-) {
+) -> Result<(), BevyError> {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,
         // as there is nothing to write back for the first camera.
         if msaa.samples() > 1 && camera.msaa_writeback && camera.sorted_camera_index_for_target > 0
         {
-            let key = BlitPipelineKey {
+            let key = BlitKey {
                 texture_format: view_target.main_texture_format(),
                 samples: msaa.samples(),
                 blend_state: None,
             };
 
-            let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
+            let pipeline = blit_pipeline
+                .specialized_cache
+                .specialize(&pipeline_cache, key)?;
             commands
                 .entity(entity)
                 .insert(MsaaWritebackBlitPipeline(pipeline));
@@ -146,4 +147,5 @@ fn prepare_msaa_writeback_pipelines(
                 .remove::<MsaaWritebackBlitPipeline>();
         }
     }
+    Ok(())
 }

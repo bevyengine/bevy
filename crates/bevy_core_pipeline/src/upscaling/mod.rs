@@ -1,4 +1,4 @@
-use crate::blit::{BlitPipeline, BlitPipelineKey};
+use crate::blit::{BlitKey, BlitPipeline};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_platform::collections::HashSet;
@@ -39,10 +39,9 @@ pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
     mut pipeline_cache: ResMut<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
-    blit_pipeline: Res<BlitPipeline>,
+    mut blit_pipeline: ResMut<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
-) {
+) -> Result<(), BevyError> {
     let mut output_textures = <HashSet<_>>::default();
     for (entity, view_target, camera) in view_targets.iter() {
         let out_texture_id = view_target.out_texture().id();
@@ -73,12 +72,14 @@ fn prepare_view_upscaling_pipelines(
             None
         };
 
-        let key = BlitPipelineKey {
+        let key = BlitKey {
             texture_format: view_target.out_texture_format(),
             blend_state,
             samples: 1,
         };
-        let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
+        let pipeline = blit_pipeline
+            .specialized_cache
+            .specialize(&pipeline_cache, key)?;
 
         // Ensure the pipeline is loaded before continuing the frame to prevent frames without any GPU work submitted
         pipeline_cache.block_on_render_pipeline(pipeline);
@@ -87,4 +88,6 @@ fn prepare_view_upscaling_pipelines(
             .entity(entity)
             .insert(ViewUpscalingPipeline(pipeline));
     }
+
+    Ok(())
 }

@@ -1,6 +1,8 @@
+use core::{ops::Deref, result::Result};
+
 use crate::FullscreenShader;
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::{
@@ -24,8 +26,7 @@ impl Plugin for BlitPlugin {
         };
 
         render_app
-            .allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>()
-            .init_resource::<SpecializedRenderPipelines<BlitPipeline>>()
+            .allow_ambiguous_resource::<BlitPipeline>()
             .add_systems(RenderStartup, init_blit_pipeline);
     }
 }
@@ -34,8 +35,7 @@ impl Plugin for BlitPlugin {
 pub struct BlitPipeline {
     pub layout: BindGroupLayout,
     pub sampler: Sampler,
-    pub fullscreen_shader: FullscreenShader,
-    pub fragment_shader: Handle<Shader>,
+    pub specialized_cache: SpecializedCache<RenderPipeline, BlitSpecializer>,
 }
 
 pub fn init_blit_pipeline(
@@ -57,11 +57,23 @@ pub fn init_blit_pipeline(
 
     let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
+    let base_descriptor = RenderPipelineDescriptor {
+        label: Some("blit pipeline".into()),
+        layout: vec![layout.clone()],
+        vertex: fullscreen_shader.to_vertex_state(),
+        fragment: Some(FragmentState {
+            shader: load_embedded_asset!(asset_server.deref(), "blit.wgsl"),
+            ..default()
+        }),
+        ..default()
+    };
+
+    let specialized_cache = SpecializedCache::new(BlitSpecializer, base_descriptor);
+
     commands.insert_resource(BlitPipeline {
         layout,
         sampler,
-        fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "blit.wgsl"),
+        specialized_cache,
     });
 }
 
@@ -79,35 +91,34 @@ impl BlitPipeline {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-pub struct BlitPipelineKey {
+pub struct BlitSpecializer;
+
+impl Specializer<RenderPipeline> for BlitSpecializer {
+    type Key = BlitKey;
+
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut <RenderPipeline as Specializable>::Descriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        descriptor.multisample.count = key.samples;
+
+        descriptor.fragment_mut()?.set_target(
+            0,
+            ColorTargetState {
+                format: key.texture_format,
+                blend: key.blend_state,
+                write_mask: ColorWrites::ALL,
+            },
+        );
+
+        Ok(key)
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy, SpecializerKey)]
+pub struct BlitKey {
     pub texture_format: TextureFormat,
     pub blend_state: Option<BlendState>,
     pub samples: u32,
-}
-
-impl SpecializedRenderPipeline for BlitPipeline {
-    type Key = BlitPipelineKey;
-
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        RenderPipelineDescriptor {
-            label: Some("blit pipeline".into()),
-            layout: vec![self.layout.clone()],
-            vertex: self.fullscreen_shader.to_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: self.fragment_shader.clone(),
-                targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
-                    blend: key.blend_state,
-                    write_mask: ColorWrites::ALL,
-                })],
-                ..default()
-            }),
-            multisample: MultisampleState {
-                count: key.samples,
-                ..default()
-            },
-            ..default()
-        }
-    }
 }
