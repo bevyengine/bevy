@@ -26,13 +26,13 @@ APIs are typically built to support only one of them.
 This has led to a lot of confusion and frustration for users. Common footguns include:
 
 - Using a "buffered event" with an observer, or an observer event with `EventReader`, leaving the user wondering why the event is not being detected.
-- `On`(formerly `Trigger`) has a `target` getter which would cause confusion for events only mean to be used with `trigger` where it returns `Entity::PLACEHOLDER`. 
+- `On`(formerly `Trigger`) has a `target` getter which would cause confusion for events only meant to be used with `trigger` where it returns `Entity::PLACEHOLDER`.
 
 **Bevy 0.17** aims to solve this ambiguity by splitting the different kinds of events into multiple traits:
 
 - `Event`: A supertrait for observer events.
-    - `BroadcastEvent`: An observer event without an entity target.
-    - `EntityEvent`: An observer event that targets specific entities and can propagate the event from one entity to another across relationships.
+  - `BroadcastEvent`: An observer event without an entity target.
+  - `EntityEvent`: An observer event that targets specific entities and can propagate the event from one entity to another across relationships.
 - `BufferedEvent`: An event used with `EventReader` and `EventWriter` for pull-based event handling.
 
 ## Using Events
