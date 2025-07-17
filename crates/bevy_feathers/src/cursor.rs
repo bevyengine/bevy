@@ -53,9 +53,10 @@ impl EntityCursor {
         match (self, cursor_icon) {
             #[cfg(feature = "custom_cursor")]
             (EntityCursor::Custom(custom), CursorIcon::Custom(other)) => custom == other,
-            (EntityCursor::System(system), cursor_icon) => {
-                CursorIcon::from(*system) == *cursor_icon
+            (EntityCursor::System(system), CursorIcon::System(cursor_icon)) => {
+                *system == *cursor_icon
             }
+            _ => false,
         }
     }
 }
@@ -68,7 +69,7 @@ impl Default for EntityCursor {
 
 /// System which updates the window cursor icon whenever the mouse hovers over an entity with
 /// a [`CursorIcon`] component. If no entity is hovered, the cursor icon is set to
-/// the cursor in the [`DefaultCursorIcon`] resource.
+/// the cursor in the [`DefaultEntityCursor`] resource.
 pub(crate) fn update_cursor(
     mut commands: Commands,
     hover_map: Option<Res<HoverMap>>,
