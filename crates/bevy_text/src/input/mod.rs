@@ -626,6 +626,8 @@ pub fn update_text_input_layouts(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
+                    layout_info.scroll =
+                        editor.with_buffer(|buffer| Vec2::new(buffer.scroll().horizontal, 0.));
                     layout_info.size.x = layout_info.size.x;
                     layout_info.size.y = layout_info.size.y;
                     editor.set_redraw(false);

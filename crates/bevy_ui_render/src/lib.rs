@@ -67,7 +67,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextInputBuffer,
+    TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1053,7 +1054,8 @@ pub fn extract_text_input_nodes(
                 .unwrap_or(node_rect),
         );
 
-        let transform = transform * Affine2::from_translation(-0.5 * uinode.size());
+        let transform =
+            transform * Affine2::from_translation(-0.5 * uinode.size() - text_layout_info.scroll);
         let color = color.to_linear();
 
         for (

@@ -1,6 +1,5 @@
 #![allow(missing_docs)]
 
-use crate::widget::update_cursor_visibility;
 use crate::widget::TextCursorBlinkTimer;
 use crate::widget::TextCursorStyle;
 use crate::widget::TextInputModifiers;
@@ -18,7 +17,6 @@ use crate::UiScale;
 use crate::UiSystems;
 use bevy_app::Plugin;
 use bevy_app::PostUpdate;
-use bevy_asset::Asset;
 use bevy_asset::Assets;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::change_detection::DetectChangesMut;
@@ -28,7 +26,6 @@ use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::observer::Observer;
 use bevy_ecs::observer::On;
 use bevy_ecs::query::With;
-use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;

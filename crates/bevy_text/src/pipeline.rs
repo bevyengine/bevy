@@ -460,6 +460,8 @@ pub struct TextLayoutInfo {
     pub size: Vec2,
     /// Cursor position and size
     pub cursor: Option<(Vec2, Vec2)>,
+    /// Offset for scrolled text
+    pub scroll: Vec2,
 }
 
 /// Size information for a corresponding [`ComputedTextBlock`] component.
