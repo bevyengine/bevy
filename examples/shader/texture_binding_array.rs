@@ -13,7 +13,7 @@ use bevy::{
         },
         renderer::RenderDevice,
         texture::{FallbackImage, GpuImage},
-        RenderApp,
+        RenderApp, RenderStartup,
     },
 };
 use std::{num::NonZero, process::exit};
@@ -40,28 +40,12 @@ const TILE_ID: [usize; 16] = [
 struct GpuFeatureSupportChecker;
 
 impl Plugin for GpuFeatureSupportChecker {
-    fn build(&self, _app: &mut App) {}
-
-    fn finish(&self, app: &mut App) {
+    fn build(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let render_device = render_app.world().resource::<RenderDevice>();
-
-        // Check if the device support the required feature. If not, exit the example.
-        // In a real application, you should setup a fallback for the missing feature
-        if !render_device
-            .features()
-            .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
-        {
-            error!(
-                "Render device doesn't support feature \
-SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING, \
-which is required for texture binding arrays"
-            );
-            exit(1);
-        }
+        render_app.add_systems(RenderStartup, verify_required_features);
     }
 }
 
@@ -87,6 +71,22 @@ fn setup(
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(BindlessMaterial { textures })),
     ));
+}
+
+fn verify_required_features(render_device: Res<RenderDevice>) {
+    // Check if the device support the required feature. If not, exit the example. In a real
+    // application, you should setup a fallback for the missing feature
+    if !render_device
+        .features()
+        .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
+    {
+        error!(
+            "Render device doesn't support feature \
+SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING, \
+which is required for texture binding arrays"
+        );
+        exit(1);
+    }
 }
 
 #[derive(Asset, TypePath, Debug, Clone)]

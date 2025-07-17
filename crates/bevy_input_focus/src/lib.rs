@@ -137,7 +137,7 @@ pub struct InputFocusVisible(pub bool);
 ///
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
-#[derive(Event, EntityEvent, Clone, Debug, Component)]
+#[derive(EntityEvent, Clone, Debug, Component)]
 #[entity_event(traversal = WindowTraversal, auto_propagate)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct FocusedInput<E: BufferedEvent + Clone> {
@@ -149,7 +149,7 @@ pub struct FocusedInput<E: BufferedEvent + Clone> {
 
 /// An event which is used to set input focus. Trigger this on an entity, and it will bubble
 /// until it finds a focusable entity, and then set focus to it.
-#[derive(Clone, Event, EntityEvent)]
+#[derive(Clone, EntityEvent)]
 #[entity_event(traversal = WindowTraversal, auto_propagate)]
 pub struct AcquireFocus {
     /// The primary window entity.

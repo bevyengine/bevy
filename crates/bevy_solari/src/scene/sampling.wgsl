@@ -48,11 +48,16 @@ fn sample_disk(disk_radius: f32, rng: ptr<function, u32>) -> vec2<f32> {
     return vec2(x, y);
 }
 
-fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
+struct SampleRandomLightResult {
+    radiance: vec3<f32>,
+    inverse_pdf: f32,
+}
+
+fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> SampleRandomLightResult {
     let light_sample = generate_random_light_sample(rng);
     let light_contribution = calculate_light_contribution(light_sample, ray_origin, origin_world_normal);
     let visibility = trace_light_visibility(light_sample, ray_origin);
-    return light_contribution.radiance * visibility * light_contribution.inverse_pdf;
+    return SampleRandomLightResult(light_contribution.radiance * visibility, light_contribution.inverse_pdf);
 }
 
 struct LightSample {
@@ -182,10 +187,15 @@ fn trace_emissive_mesh_visibility(light_sample: LightSample, instance_id: u32, r
 
     let triangle_data = resolve_triangle_data_full(instance_id, triangle_id, barycentrics);
 
-    let light_distance = distance(ray_origin, triangle_data.world_position);
-    let ray_direction = (triangle_data.world_position - ray_origin) / light_distance;
+    return trace_point_visibility(ray_origin, triangle_data.world_position);
+}
 
-    let ray_t_max = light_distance - RAY_T_MIN - RAY_T_MIN;
+fn trace_point_visibility(ray_origin: vec3<f32>, point: vec3<f32>) -> f32 {
+    let ray = point - ray_origin;
+    let dist = length(ray);
+    let ray_direction = ray / dist;
+
+    let ray_t_max = dist - RAY_T_MIN - RAY_T_MIN;
     if ray_t_max < RAY_T_MIN { return 0.0; }
 
     let ray_hit = trace_ray(ray_origin, ray_direction, RAY_T_MIN, ray_t_max, RAY_FLAG_TERMINATE_ON_FIRST_HIT);

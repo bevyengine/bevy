@@ -567,6 +567,30 @@ impl Camera {
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
+    /// # Example
+    /// ```no_run
+    /// # use bevy_window::Window;
+    /// # use bevy_ecs::prelude::{Single, IntoScheduleConfigs};
+    /// # use bevy_transform::prelude::{GlobalTransform, TransformSystems};
+    /// # use bevy_camera::Camera;
+    /// # use bevy_app::{App, PostUpdate};
+    /// #
+    /// fn system(camera_query: Single<(&Camera, &GlobalTransform)>, window: Single<&Window>) {
+    ///     let (camera, camera_transform) = *camera_query;
+    ///
+    ///     if let Some(cursor_position) = window.cursor_position()
+    ///         // Calculate a ray pointing from the camera into the world based on the cursor's position.
+    ///         && let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position)
+    ///     {
+    ///         println!("{ray:?}");
+    ///     }
+    /// }
+    ///
+    /// # let mut app = App::new();
+    /// // Run the system after transform propagation so the camera's global transform is up-to-date.
+    /// app.add_systems(PostUpdate, system.after(TransformSystems::Propagate));
+    /// ```
+    ///
     /// # Panics
     ///
     /// Will panic if the camera's projection matrix is invalid (has a determinant of 0) and
@@ -604,6 +628,30 @@ impl Camera {
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use bevy_window::Window;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_transform::prelude::{GlobalTransform, TransformSystems};
+    /// # use bevy_camera::Camera;
+    /// # use bevy_app::{App, PostUpdate};
+    /// #
+    /// fn system(camera_query: Single<(&Camera, &GlobalTransform)>, window: Single<&Window>) {
+    ///     let (camera, camera_transform) = *camera_query;
+    ///
+    ///     if let Some(cursor_position) = window.cursor_position()
+    ///         // Calculate a world position based on the cursor's position.
+    ///         && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
+    ///     {
+    ///         println!("World position: {world_pos:.2}");
+    ///     }
+    /// }
+    ///
+    /// # let mut app = App::new();
+    /// // Run the system after transform propagation so the camera's global transform is up-to-date.
+    /// app.add_systems(PostUpdate, system.after(TransformSystems::Propagate));
+    /// ```
     ///
     /// # Panics
     ///

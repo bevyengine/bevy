@@ -19,6 +19,7 @@ use crate::{
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
     relationship::RelationshipHookMode,
     resource::Resource,
+    storage::{SparseSets, Table},
     system::IntoObserverSystem,
     world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
 };
@@ -1546,6 +1547,50 @@ impl<'w> EntityWorldMut<'w> {
         self.world.get_resource_mut()
     }
 
+    /// Temporarily removes the requested resource from the [`World`], runs custom user code,
+    /// then re-adds the resource before returning.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`try_resource_scope`](Self::try_resource_scope) instead if you want to handle this case.
+    ///
+    /// See [`World::resource_scope`] for further details.
+    #[track_caller]
+    pub fn resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
+    ) -> U {
+        let id = self.id();
+        self.world_scope(|world| {
+            world.resource_scope(|world, res| {
+                // Acquiring a new EntityWorldMut here and using that instead of `self` is fine because
+                // the outer `world_scope` will handle updating our location if it gets changed by the user code
+                let mut this = world.entity_mut(id);
+                f(&mut this, res)
+            })
+        })
+    }
+
+    /// Temporarily removes the requested resource from the [`World`] if it exists, runs custom user code,
+    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in the [`World`].
+    ///
+    /// See [`World::try_resource_scope`] for further details.
+    pub fn try_resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
+    ) -> Option<U> {
+        let id = self.id();
+        self.world_scope(|world| {
+            world.try_resource_scope(|world, res| {
+                // Acquiring a new EntityWorldMut here and using that instead of `self` is fine because
+                // the outer `world_scope` will handle updating our location if it gets changed by the user code
+                let mut this = world.entity_mut(id);
+                f(&mut this, res)
+            })
+        })
+    }
+
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
@@ -2264,6 +2309,27 @@ impl<'w> EntityWorldMut<'w> {
     /// entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn remove_by_ids(&mut self, component_ids: &[ComponentId]) -> &mut Self {
+        self.remove_by_ids_with_caller(
+            component_ids,
+            MaybeLocation::caller(),
+            RelationshipHookMode::Run,
+            BundleRemover::empty_pre_remove,
+        )
+    }
+
+    #[inline]
+    pub(crate) fn remove_by_ids_with_caller<T: 'static>(
+        &mut self,
+        component_ids: &[ComponentId],
+        caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
+        pre_remove: impl FnOnce(
+            &mut SparseSets,
+            Option<&mut Table>,
+            &Components,
+            &[ComponentId],
+        ) -> (bool, T),
+    ) -> &mut Self {
         let location = self.location();
         let components = &mut self.world.components;
 
@@ -2279,16 +2345,9 @@ impl<'w> EntityWorldMut<'w> {
         }) else {
             return self;
         };
+        remover.relationship_hook_mode = relationship_hook_mode;
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
-        let new_location = unsafe {
-            remover.remove(
-                self.entity,
-                location,
-                MaybeLocation::caller(),
-                BundleRemover::empty_pre_remove,
-            )
-        }
-        .0;
+        let new_location = unsafe { remover.remove(self.entity, location, caller, pre_remove) }.0;
 
         self.location = Some(new_location);
         self.world.flush();
@@ -4944,6 +5003,46 @@ mod tests {
         assert!(entity.get_mut_by_id(invalid_component_id).is_err());
     }
 
+    #[derive(Resource)]
+    struct R(usize);
+
+    #[test]
+    fn entity_mut_resource_scope() {
+        // Keep in sync with the `resource_scope` test in lib.rs
+        let mut world = World::new();
+        let mut entity = world.spawn_empty();
+
+        assert!(entity.try_resource_scope::<R, _>(|_, _| {}).is_none());
+        entity.world_scope(|world| world.insert_resource(R(0)));
+        entity.resource_scope(|entity: &mut EntityWorldMut, mut value: Mut<R>| {
+            value.0 += 1;
+            assert!(!entity.world().contains_resource::<R>());
+        });
+        assert_eq!(entity.resource::<R>().0, 1);
+    }
+
+    #[test]
+    fn entity_mut_resource_scope_panic() {
+        let mut world = World::new();
+        world.insert_resource(R(0));
+
+        let mut entity = world.spawn_empty();
+        let old_location = entity.location();
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            entity.resource_scope(|entity: &mut EntityWorldMut, _: Mut<R>| {
+                // Change the entity's `EntityLocation`.
+                entity.insert(TestComponent(0));
+
+                // Ensure that the entity location still gets updated even in case of a panic.
+                panic!("this should get caught by the outer scope")
+            });
+        }));
+        assert!(result.is_err());
+
+        // Ensure that the location has been properly updated.
+        assert_ne!(entity.location(), old_location);
+    }
+
     // regression test for https://github.com/bevyengine/bevy/pull/7387
     #[test]
     fn entity_mut_world_scope_panic() {
@@ -4957,6 +5056,28 @@ mod tests {
                 // Change the entity's `EntityLocation`, which invalidates the original `EntityWorldMut`.
                 // This will get updated at the end of the scope.
                 w.entity_mut(id).insert(TestComponent(0));
+
+                // Ensure that the entity location still gets updated even in case of a panic.
+                panic!("this should get caught by the outer scope")
+            });
+        }));
+        assert!(res.is_err());
+
+        // Ensure that the location has been properly updated.
+        assert_ne!(entity.location(), old_location);
+    }
+
+    #[test]
+    fn entity_mut_reborrow_scope_panic() {
+        let mut world = World::new();
+
+        let mut entity = world.spawn_empty();
+        let old_location = entity.location();
+        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            entity.reborrow_scope(|mut entity| {
+                // Change the entity's `EntityLocation`, which invalidates the original `EntityWorldMut`.
+                // This will get updated at the end of the scope.
+                entity.insert(TestComponent(0));
 
                 // Ensure that the entity location still gets updated even in case of a panic.
                 panic!("this should get caught by the outer scope")
@@ -5405,9 +5526,6 @@ mod tests {
     #[derive(Component)]
     struct A;
 
-    #[derive(Resource)]
-    struct R;
-
     #[test]
     fn disjoint_access() {
         fn disjoint_readonly(_: Query<EntityMut, With<A>>, _: Query<EntityRef, Without<A>>) {}
@@ -5846,7 +5964,7 @@ mod tests {
         assert_eq!((&mut X(8), &mut Y(9)), (x_component, y_component));
     }
 
-    #[derive(Event, EntityEvent)]
+    #[derive(EntityEvent)]
     struct TestEvent;
 
     #[test]

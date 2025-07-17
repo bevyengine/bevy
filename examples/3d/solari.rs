@@ -10,7 +10,7 @@ use bevy::{
     scene::SceneInstanceReady,
     solari::{
         pathtracer::{Pathtracer, PathtracingPlugin},
-        prelude::{RaytracingMesh3d, SolariLighting, SolariPlugin},
+        prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
@@ -28,7 +28,7 @@ fn main() {
     let args: Args = argh::from_env();
 
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins, SolariPlugin, CameraControllerPlugin))
+    app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
         .insert_resource(args)
         .add_systems(Startup, setup);
 
