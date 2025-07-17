@@ -28,7 +28,7 @@ use bevy_winit::cursor::CursorIcon;
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
-    cursor::{CursorIconPlugin, DefaultCursorIcon},
+    cursor::{CursorIconPlugin, DefaultEntityCursor, EntityCursor},
     theme::{ThemedText, UiTheme},
 };
 
@@ -69,7 +69,7 @@ impl Plugin for FeathersPlugin {
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
         ));
 
-        app.insert_resource(DefaultCursorIcon(CursorIcon::System(
+        app.insert_resource(DefaultEntityCursor(EntityCursor::System(
             bevy_window::SystemCursorIcon::Default,
         )));
 
