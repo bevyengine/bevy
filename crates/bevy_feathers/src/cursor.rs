@@ -39,10 +39,10 @@ pub enum EntityCursor {
 impl EntityCursor {
     /// Convert the [`EntityCursor`] to a [`CursorIcon`] so that it can be inserted into a
     /// window.
-    pub fn as_cursor_icon(&self) -> CursorIcon {
+    pub fn to_cursor_icon(&self) -> CursorIcon {
         match self {
             #[cfg(feature = "custom_cursor")]
-            EntityCursor::Custom(custom_cursor) => CursorIcon::Custom(custom_cursor),
+            EntityCursor::Custom(custom_cursor) => CursorIcon::Custom(custom_cursor.clone()),
             EntityCursor::System(icon) => CursorIcon::from(*icon),
         }
     }
@@ -100,11 +100,11 @@ pub(crate) fn update_cursor(
     }
     windows_to_change.iter().for_each(|entity| {
         if let Some(cursor) = cursor {
-            commands.entity(*entity).insert(cursor.as_cursor_icon());
+            commands.entity(*entity).insert(cursor.to_cursor_icon());
         } else {
             commands
                 .entity(*entity)
-                .insert(r_default_cursor.0.as_cursor_icon());
+                .insert(r_default_cursor.0.to_cursor_icon());
         }
     });
 }
