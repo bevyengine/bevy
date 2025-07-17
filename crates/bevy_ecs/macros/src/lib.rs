@@ -549,7 +549,7 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 
 /// Implement the `BroadcastEvent` trait.
 #[proc_macro_derive(BroadcastEvent)]
-pub fn derive_event(input: TokenStream) -> TokenStream {
+pub fn derive_broadcast_event(input: TokenStream) -> TokenStream {
     component::derive_broadcast_event(input)
 }
 
