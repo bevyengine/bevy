@@ -2,14 +2,15 @@
 //!
 //! A *generated environment map* converts a single, high-resolution cubemap
 //! into the pair of diffuse and specular cubemaps required by the PBR
-//! shader.  Add [`bevy_light::GeneratedEnvironmentMapLight`] (together with
-//! [`bevy_light::LightProbe`]) to an entity and Bevy will, each frame:
+//! shader. Add [`bevy_light::GeneratedEnvironmentMapLight`] to a camera
+//! and Bevy will, each frame, generate the diffuse and specular cubemaps
+//! required by the PBR shader.
 //!
-//! 1. Copy the base mip (level 0) of the source cubemap into an
-//!    intermediate storage texture.
+//! 1. Copy the base mip (level 0) of the source cubemap into an intermediate
+//!    storage texture.
 //! 2. Generate mipmaps using single-pass down-sampling (SPD).
 //! 3. Convolve the mip chain twice:
-//!    * a Lambertian convolution for the 32 × 32 diffuse cubemap;
+//!    * a Lambertian convolution for the 32 × 32 diffuse cubemap
 //!    * a GGX convolution, once per mip level, for the specular cubemap.
 //!
 //! The filtered results are then consumed exactly like the textures supplied

@@ -152,18 +152,6 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     ));
 }
 
-fn spawn_generated_environment_map(commands: &mut Commands, cubemaps: &Cubemaps) {
-    commands.spawn((
-        LightProbe,
-        GeneratedEnvironmentMapLight {
-            environment_map: cubemaps.specular_environment_map.clone(),
-            intensity: 5000.0,
-            ..default()
-        },
-        Transform::from_scale(Vec3::splat(2.0)),
-    ));
-}
-
 // Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     // Create the text.
@@ -202,7 +190,6 @@ fn add_environment_map_to_camera(
 fn change_reflection_type(
     mut commands: Commands,
     light_probe_query: Query<Entity, With<LightProbe>>,
-    sky_box_query: Query<Entity, With<Skybox>>,
     camera_query: Query<Entity, With<Camera3d>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
@@ -217,34 +204,38 @@ fn change_reflection_type(
     app_status.reflection_mode =
         ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 3).unwrap();
 
-    // Add or remove the light probe.
+    // Remove light probes
     for light_probe in light_probe_query.iter() {
         commands.entity(light_probe).despawn();
-    }
-    for skybox in sky_box_query.iter() {
-        commands.entity(skybox).remove::<Skybox>();
     }
     match app_status.reflection_mode {
         ReflectionMode::EnvironmentMap => {}
         ReflectionMode::ReflectionProbe => spawn_reflection_probe(&mut commands, &cubemaps),
-        ReflectionMode::GeneratedEnvironmentMap => {
-            spawn_generated_environment_map(&mut commands, &cubemaps);
-        }
+        ReflectionMode::GeneratedEnvironmentMap => {}
     }
 
-    // Add or remove the environment map from the camera.
+    // Update the environment-map components on the camera entity/entities
     for camera in camera_query.iter() {
+        // Remove any existing environment-map components
+        commands
+            .entity(camera)
+            .remove::<(EnvironmentMapLight, GeneratedEnvironmentMapLight)>();
+
         match app_status.reflection_mode {
-            ReflectionMode::EnvironmentMap
-            | ReflectionMode::ReflectionProbe
-            | ReflectionMode::GeneratedEnvironmentMap => {
-                let image = cubemaps.specular_environment_map.clone();
+            // A baked or reflection-probe environment map
+            ReflectionMode::EnvironmentMap | ReflectionMode::ReflectionProbe => {
                 commands
                     .entity(camera)
-                    .insert(create_camera_environment_map_light(&cubemaps))
-                    .insert(Skybox {
-                        image,
-                        brightness: 5000.0,
+                    .insert(create_camera_environment_map_light(&cubemaps));
+            }
+
+            // GPU-filtered environment map generated at runtime
+            ReflectionMode::GeneratedEnvironmentMap => {
+                commands
+                    .entity(camera)
+                    .insert(GeneratedEnvironmentMapLight {
+                        environment_map: cubemaps.specular_environment_map.clone(),
+                        intensity: 5000.0,
                         ..default()
                     });
             }
