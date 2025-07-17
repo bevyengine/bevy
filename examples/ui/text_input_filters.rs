@@ -40,8 +40,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextFont {
                     font: font.clone(),
                     font_size: 30.,
+                    line_height: bevy::text::LineHeight::RelativeToFont(1.5),
                     ..Default::default()
                 },
+                TextColor(Color::WHITE),
             ));
             commands
                 .spawn((
@@ -82,8 +84,10 @@ fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>, font: Handle<Font
             TextFont {
                 font: font.clone(),
                 font_size: 30.,
+                line_height: bevy::text::LineHeight::RelativeToFont(1.5),
                 ..Default::default()
             },
+            TextColor(Color::WHITE),
             Node {
                 display: Display::Grid,
                 width: Val::Px(100.),
@@ -101,8 +105,11 @@ fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>, font: Handle<Font
             TextFont {
                 font: font.clone(),
                 font_size: 30.,
+                line_height: bevy::text::LineHeight::RelativeToFont(1.5),
                 ..Default::default()
             },
+            TextColor(Color::WHITE),
+            TabIndex(0),
             Node {
                 grid_row: GridPlacement::start(n as i16 + 1),
                 grid_column: GridPlacement::start(2),

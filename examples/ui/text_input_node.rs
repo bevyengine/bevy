@@ -19,6 +19,8 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
+
+    let tid = commands.spawn(Text::new("hello")).id();
     let id = commands
         .spawn((
             TextInputNode::default(),
@@ -49,7 +51,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             row_gap: Val::Px(10.),
             ..Default::default()
         })
-        .add_child(id);
+        .add_child(id)
+        .add_child(tid);
 
     commands.insert_resource(InputFocus(Some(id)));
 }
