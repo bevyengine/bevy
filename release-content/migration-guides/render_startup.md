@@ -41,6 +41,7 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `SpritePipeline`
 - `Mesh2dPipeline`
 - `BatchedInstanceBuffer<Mesh2dUniform>`
+- `OitResolvePipeline`
 
 The vast majority of cases for initializing render resources look like so (in Bevy 0.16):
 
