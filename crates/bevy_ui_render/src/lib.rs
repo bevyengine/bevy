@@ -64,7 +64,6 @@ use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
-use tracing::info;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{

@@ -429,15 +429,13 @@ fn measure_line(
             Ref<ComputedNodeTarget>,
             Ref<TextFont>,
             Mut<ContentSize>,
-            &TextLayoutInfo,
-            &ComputedNode,
         ),
         (With<Node>, With<LineInputNode>),
     >,
     mut _text_pipeline: ResMut<TextPipeline>,
     mut _font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (_entity, target, text_font, mut content_size, info, node) in query.iter_mut() {
+    for (_entity, target, text_font, mut content_size) in query.iter_mut() {
         if target.is_changed() || text_font.is_changed() {
             let line_height = match text_font.line_height {
                 bevy_text::LineHeight::Px(px) => px,
