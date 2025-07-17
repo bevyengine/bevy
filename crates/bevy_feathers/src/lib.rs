@@ -22,11 +22,10 @@ use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;
 use bevy_ecs::query::With;
 use bevy_text::{TextColor, TextFont};
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     controls::ControlsPlugin,
-    cursor::{CursorIconPlugin, DefaultCursorIcon},
+    cursor::{CursorIconPlugin, DefaultEntityCursor, EntityCursor},
     theme::{ThemedText, UiTheme},
 };
 
@@ -61,7 +60,7 @@ impl Plugin for FeathersPlugin {
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::default(),
         ));
 
-        app.insert_resource(DefaultCursorIcon(CursorIcon::System(
+        app.insert_resource(DefaultEntityCursor(EntityCursor::System(
             bevy_window::SystemCursorIcon::Default,
         )));
 
