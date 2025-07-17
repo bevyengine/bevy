@@ -42,9 +42,8 @@ use core::{hash::Hash, ops::Deref};
 use crate::{
     generate::{
         extract_generator_entities, generate_environment_map_light, init_generator_resources,
-        prepare_generator_bind_groups, prepare_intermediate_textures, GeneratorBindGroupLayouts,
-        GeneratorNode, GeneratorPipelines, GeneratorSamplers, IrradianceMapNode, RadianceMapNode,
-        SpdNode, STBN,
+        prepare_generator_bind_groups, prepare_intermediate_textures, GeneratorNode,
+        IrradianceMapNode, RadianceMapNode, SpdNode, STBN,
     },
     light_probe::environment_map::EnvironmentMapIds,
 };
