@@ -94,15 +94,9 @@ fn sample_environment(dir: vec3f, level: f32) -> vec4f {
 
 // Hammersley sequence for quasi-random points
 fn hammersley_2d(i: u32, n: u32) -> vec2f {
-    // Van der Corput sequence
-    var bits = i;
-    bits = (bits << 16u) | (bits >> 16u);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    let vdc = f32(bits) * 2.3283064365386963e-10; // 1 / 0x100000000
-    return vec2f(f32(i) / f32(n), vdc);
+    let inv_n = 1.0 / f32(n);
+    let vdc = f32(reverseBits(i)) * 2.3283064365386963e-10; // 1/2^32
+    return vec2f(f32(i) * inv_n, vdc);
 }
 
 // Blue noise randomization
