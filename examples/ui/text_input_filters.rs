@@ -1,6 +1,5 @@
 //! multiple text inputs example
 
-use bevy::color::palettes::css::GREEN;
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::YELLOW;
 use bevy::input_focus::tab_navigation::TabIndex;
@@ -15,16 +14,13 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, InputDispatchPlugin, TabNavigationPlugin))
         .add_systems(Startup, setup)
+        .insert_resource(UiScale(2.))
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/Orbitron-Medium.ttf");
-
+fn setup(mut commands: Commands) {
     // UI camera
     commands.spawn(Camera2d);
-
-    commands.spawn(Text::new("HELLO!"));
 
     commands
         .spawn(Node {
@@ -35,21 +31,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .with_children(|commands| {
-            commands.spawn((
-                Text::new("HELLO!"),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 30.,
-                    line_height: bevy::text::LineHeight::RelativeToFont(1.5),
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ));
             commands
                 .spawn((
                     Node {
                         display: Display::Grid,
-                        width: Val::Px(400.),
                         border: UiRect::all(Val::Px(5.)),
                         padding: UiRect::all(Val::Px(5.)),
                         row_gap: Val::Px(20.),
@@ -57,15 +42,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     BorderColor::all(YELLOW.into()),
-                    BackgroundColor(GREEN.into()),
+                    BackgroundColor(NAVY.into()),
                 ))
                 .with_children(|commands| {
-                    inputs_grid(commands, font.clone());
+                    inputs_grid(commands);
                 });
         });
 }
 
-fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>, font: Handle<Font>) {
+fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>) {
     for (n, (label, input_filter)) in [
         ("alphanumeric", TextInputFilter::Alphanumeric),
         ("decimal", TextInputFilter::Decimal),
@@ -80,21 +65,14 @@ fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>, font: Handle<Font
     .enumerate()
     {
         commands.spawn((
-            Text::new(label),
-            TextFont {
-                font: font.clone(),
-                font_size: 30.,
-                line_height: bevy::text::LineHeight::RelativeToFont(1.5),
-                ..Default::default()
-            },
-            TextColor(Color::WHITE),
             Node {
                 display: Display::Grid,
-                width: Val::Px(100.),
                 grid_row: GridPlacement::start(n as i16 + 1),
                 grid_column: GridPlacement::start(1),
+                justify_content: JustifyContent::End,
                 ..Default::default()
             },
+            children![(Text::new(label), TextColor(YELLOW.into()),)],
         ));
 
         commands.spawn((
@@ -102,19 +80,33 @@ fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>, font: Handle<Font
                 justify: Justify::Left,
             },
             input_filter,
-            TextFont {
-                font: font.clone(),
-                font_size: 30.,
-                line_height: bevy::text::LineHeight::RelativeToFont(1.5),
-                ..Default::default()
-            },
             TextColor(Color::WHITE),
             TabIndex(0),
             Node {
+                width: Val::Px(200.),
                 grid_row: GridPlacement::start(n as i16 + 1),
                 grid_column: GridPlacement::start(2),
                 ..Default::default()
             },
+            BackgroundColor(Color::BLACK),
+            Outline {
+                width: Val::Px(1.),
+                color: Color::WHITE,
+                ..Default::default()
+            },
+        ));
+
+        commands.spawn((
+            Node {
+                display: Display::Grid,
+                width: Val::Px(200.),
+                overflow: Overflow::clip(),
+                grid_row: GridPlacement::start(n as i16 + 1),
+                grid_column: GridPlacement::start(3),
+                justify_content: JustifyContent::End,
+                ..Default::default()
+            },
+            children![(Text::new(".."), TextColor(Color::WHITE),)],
         ));
     }
 }
