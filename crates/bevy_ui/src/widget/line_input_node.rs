@@ -20,6 +20,7 @@ use bevy_app::Plugin;
 use bevy_app::PostUpdate;
 use bevy_asset::Asset;
 use bevy_asset::Assets;
+use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
@@ -74,7 +75,7 @@ impl Plugin for LineInputNodePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PostUpdate,
-            measure_line
+            (update_line_input_attributes, measure_line)
                 .in_set(UiSystems::Content)
                 .before(UiSystems::Layout),
         );
@@ -428,26 +429,25 @@ fn measure_line(
             Ref<ComputedNodeTarget>,
             Ref<TextFont>,
             Mut<ContentSize>,
+            &TextLayoutInfo,
+            &ComputedNode,
         ),
-        With<Node>,
+        (With<Node>, With<LineInputNode>),
     >,
     mut _text_pipeline: ResMut<TextPipeline>,
     mut _font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (_entity, _target, text_font, mut content_size) in query.iter_mut() {
-        // println!(
-        //     "line height: {}",
-        //     match text_font.line_height {
-        //         bevy_text::LineHeight::Px(px) => px,
-        //         bevy_text::LineHeight::RelativeToFont(r) => r * text_font.font_size,
-        //     }
-        // );
-        content_size.set(crate::NodeMeasure::Custom(Box::new(LineHeightMeasure {
-            line_height: match text_font.line_height {
+    for (_entity, target, text_font, mut content_size, info, node) in query.iter_mut() {
+        if target.is_changed() || text_font.is_changed() {
+            let line_height = match text_font.line_height {
                 bevy_text::LineHeight::Px(px) => px,
                 bevy_text::LineHeight::RelativeToFont(r) => r * text_font.font_size,
-            },
-        })));
+            } * target.scale_factor;
+
+            content_size.set(crate::NodeMeasure::Custom(Box::new(LineHeightMeasure {
+                line_height,
+            })));
+        }
     }
 }
 
@@ -467,5 +467,21 @@ impl Measure for LineHeightMeasure {
                 }),
             self.line_height,
         )
+    }
+}
+
+fn update_line_input_attributes(
+    mut text_input_node_query: Query<(&TextFont, &LineInputNode, &mut TextInputAttributes)>,
+) {
+    for (font, line_input, mut attributes) in text_input_node_query.iter_mut() {
+        attributes.set_if_neq(TextInputAttributes {
+            font: font.font.clone(),
+            font_size: font.font_size,
+            font_smoothing: font.font_smoothing,
+            justify: line_input.justify,
+            line_break: bevy_text::LineBreak::NoWrap,
+            line_height: font.line_height,
+            max_chars: None,
+        });
     }
 }

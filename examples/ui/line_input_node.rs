@@ -1,4 +1,3 @@
-
 //! minimal text input example
 
 use bevy::color::palettes::css::NAVY;
@@ -8,11 +7,23 @@ use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
+use bevy::text::LineHeight;
 use bevy::ui::widget::LineInputNode;
+use bevy::window::WindowResolution;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, InputDispatchPlugin, TabNavigationPlugin))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: WindowResolution::new(500., 500.),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            InputDispatchPlugin,
+            TabNavigationPlugin,
+        ))
         .add_systems(Startup, setup)
         .run();
 }
@@ -28,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextFont {
                 font: asset_server.load("fonts/Orbitron-Medium.ttf"),
                 font_size: 30.,
-                line_height: bevy::text::LineHeight::RelativeToFont(2.),
+                line_height: LineHeight::Px(50.),
                 ..Default::default()
             },
             Node {

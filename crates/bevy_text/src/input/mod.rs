@@ -24,6 +24,7 @@ use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::query::Has;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::schedule::SystemSet;
@@ -380,6 +381,7 @@ pub fn update_text_input_buffers(
         &mut TextInputBuffer,
         Ref<TextInputTarget>,
         Ref<TextInputAttributes>,
+        Has<SingleLineTextInput>,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -388,18 +390,23 @@ pub fn update_text_input_buffers(
     info_once!(" update_text_input_buffers");
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
-    for (mut input_buffer, target, attributes) in text_input_query.iter_mut() {
+    for (mut input_buffer, target, attributes, is_single_line) in text_input_query.iter_mut() {
         let _ = input_buffer.editor.with_buffer_mut(|buffer| {
-            if target.is_changed() {
+            if target.is_changed() || attributes.is_changed() {
                 let line_height = attributes.line_height.eval(attributes.font_size);
                 let metrics =
                     Metrics::new(attributes.font_size, line_height).scale(target.scale_factor);
 
+                let height = if is_single_line {
+                    metrics.line_height
+                } else {
+                    target.size.y
+                };
                 buffer.set_metrics_and_size(
                     font_system,
                     metrics,
                     Some(target.size.x),
-                    Some(target.size.y),
+                    Some(height),
                 );
                 buffer.set_redraw(true);
             }

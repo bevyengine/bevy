@@ -965,7 +965,6 @@ pub fn extract_text_sections(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
-                info!("Nothing!");
                 let color = text_styles
                     .get(
                         computed_block
@@ -1023,7 +1022,7 @@ pub fn extract_text_input_nodes(
     for (
         entity,
         uinode,
-        transform,
+        global_transform,
         inherited_visibility,
         clip,
         camera,
@@ -1042,7 +1041,20 @@ pub fn extract_text_input_nodes(
             continue;
         };
 
-        let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
+        let transform: Affine2 = global_transform.into();
+        let scale = Vec2::new(
+            transform.matrix2.x_axis.length(),
+            transform.matrix2.y_axis.length(),
+        );
+
+        let node_rect = Rect::from_center_size(transform.translation, uinode.size() * scale);
+
+        let clip = Some(
+            clip.map(|clip| clip.clip.intersect(node_rect))
+                .unwrap_or(node_rect),
+        );
+
+        let transform = transform * Affine2::from_translation(-0.5 * uinode.size());
         let color = color.to_linear();
 
         for (
@@ -1073,7 +1085,7 @@ pub fn extract_text_input_nodes(
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     color,
                     image: atlas_info.texture,
-                    clip: clip.map(|clip| clip.clip),
+                    clip,
                     extracted_camera_entity,
                     rect,
                     item: ExtractedUiItem::Glyphs { range: start..end },
@@ -1100,7 +1112,7 @@ pub fn extract_text_input_nodes(
                     min: Vec2::ZERO,
                     max: size,
                 },
-                clip: clip.map(|clip| clip.clip),
+                clip,
                 image: AssetId::default(),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
