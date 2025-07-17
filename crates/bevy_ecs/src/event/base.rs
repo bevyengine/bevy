@@ -57,7 +57,7 @@ pub trait Event: Send + Sync + 'static {
 /// An [`Event`] without an entity target.
 ///
 /// [`BroadcastEvent`]s can be triggered on a [`World`] with the method [`trigger`](World::trigger),
-/// causing any [`Observer`] watching the event for those entities to run.
+/// causing any global [`Observer`]s for that event to run.
 ///
 /// # Usage
 ///
@@ -106,9 +106,6 @@ pub trait Event: Send + Sync + 'static {
 /// });
 /// ```
 ///
-/// For events that additionally need entity targeting or buffering, consider also deriving
-/// [`EntityEvent`] or [`BufferedEvent`], respectively.
-///
 /// [`Observer`]: crate::observer::Observer
 pub trait BroadcastEvent: Event {}
 
@@ -126,7 +123,7 @@ pub trait BroadcastEvent: Event {}
 ///
 /// # Usage
 ///
-/// The [`EntityEvent`] trait can be derived. The `event` attribute can be used to further configure
+/// The [`EntityEvent`] trait can be derived. The `entity_event` attribute can be used to further configure
 /// the propagation behavior: adding `auto_propagate` sets [`EntityEvent::AUTO_PROPAGATE`] to `true`,
 /// while adding `traversal = X` sets [`EntityEvent::Traversal`] to be of type `X`.
 ///

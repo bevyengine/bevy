@@ -1,11 +1,7 @@
 //! Events are things that "happen" and can be processed by app logic.
 //!
-//! [Event]s can be triggered on a [`World`](bevy_ecs::world::World) using a method like [`trigger`],
-//! causing any global [`Observer`] watching that event to run. This allows for push-based
-//! event handling where observers are immediately notified of events as they happen.
-//!
 //! - [`Event`]: A supertrait for push-based events that trigger global observers added via [`add_observer`].
-//!     - [`BroadcastEvent`]: An event without an entity target. Can be used via [`trigger`]
+//!     - [`BroadcastEvent`]: An event without an entity target. Can be used via [`trigger`].
 //!     - [`EntityEvent`]: An event targeting specific entities, triggering any observers watching those targets. Can be used via [`trigger_targets`].
 //!       They can trigger entity-specific observers added via [`observe`] and can be propagated from one entity to another.
 //! - [`BufferedEvent`]: Support a pull-based event handling system where events are written using an [`EventWriter`]
