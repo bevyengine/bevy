@@ -24,10 +24,7 @@ use crate::{
         ConditionWithAccess, InternedSystemSet, SystemKey, SystemSetKey, SystemTypeSet,
         SystemWithAccess,
     },
-    system::{
-        RunSystemError, ScheduleSystem, System, SystemIn, SystemParamValidationError,
-        SystemStateFlags,
-    },
+    system::{RunSystemError, System, SystemIn, SystemParamValidationError, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -157,7 +154,7 @@ impl SystemSchedule {
 pub struct ApplyDeferred;
 
 /// Returns `true` if the [`System`] is an instance of [`ApplyDeferred`].
-pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
+pub(super) fn is_apply_deferred(system: &dyn System<In = (), Out = ()>) -> bool {
     system.type_id() == TypeId::of::<ApplyDeferred>()
 }
 

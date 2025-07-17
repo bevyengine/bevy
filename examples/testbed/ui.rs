@@ -597,15 +597,15 @@ mod linear_gradient {
                     ],
                 ] {
                     for color_space in [
-                        InterpolationColorSpace::LinearRgb,
-                        InterpolationColorSpace::Srgb,
-                        InterpolationColorSpace::OkLab,
-                        InterpolationColorSpace::OkLch,
-                        InterpolationColorSpace::OkLchLong,
-                        InterpolationColorSpace::Hsl,
-                        InterpolationColorSpace::HslLong,
-                        InterpolationColorSpace::Hsv,
-                        InterpolationColorSpace::HsvLong,
+                        InterpolationColorSpace::LinearRgba,
+                        InterpolationColorSpace::Srgba,
+                        InterpolationColorSpace::Oklaba,
+                        InterpolationColorSpace::Oklcha,
+                        InterpolationColorSpace::OklchaLong,
+                        InterpolationColorSpace::Hsla,
+                        InterpolationColorSpace::HslaLong,
+                        InterpolationColorSpace::Hsva,
+                        InterpolationColorSpace::HsvaLong,
                     ] {
                         commands.spawn((
                             Node {

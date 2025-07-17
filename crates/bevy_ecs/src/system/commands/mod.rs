@@ -2284,15 +2284,20 @@ impl<'a> EntityCommands<'a> {
         self.queue(entity_command::clone_components::<B>(target))
     }
 
-    /// Clones the specified components of this entity and inserts them into another entity,
-    /// then removes the components from this entity.
+    /// Moves the specified components of this entity into another entity.
     ///
-    /// Components can only be cloned if they implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    /// Components with [`Ignore`] clone behavior will not be moved, while components that
+    /// have a [`Custom`] clone behavior will be cloned using it and then removed from the source entity.
+    /// All other components will be moved without any other special handling.
+    ///
+    /// Note that this will trigger `on_remove` hooks/observers on this entity and `on_insert`/`on_add` hooks/observers on the target entity.
     ///
     /// # Panics
     ///
     /// The command will panic when applied if the target entity does not exist.
+    ///
+    /// [`Ignore`]: crate::component::ComponentCloneBehavior::Ignore
+    /// [`Custom`]: crate::component::ComponentCloneBehavior::Custom
     pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
         self.queue(entity_command::move_components::<B>(target))
     }

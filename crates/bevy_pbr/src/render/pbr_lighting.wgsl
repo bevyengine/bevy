@@ -235,16 +235,13 @@ fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
 // Multiscattering approximation:
 // <https://google.github.io/filament/Filament.html#listing_energycompensationimpl>
 fn specular_multiscatter(
-    input: ptr<function, LightingInput>,
     D: f32,
     V: f32,
     F: vec3<f32>,
+    F0: vec3<f32>,
+    F_ab: vec2<f32>,
     specular_intensity: f32,
 ) -> vec3<f32> {
-    // Unpack.
-    let F0 = (*input).F0_;
-    let F_ab = (*input).F_ab;
-
     var Fr = (specular_intensity * D * V) * F;
     Fr *= 1.0 + F0 * (1.0 / F_ab.x - 1.0);
     return Fr;
@@ -329,7 +326,7 @@ fn specular(
     let F = fresnel(F0, LdotH);
 
     // Calculate the specular light.
-    let Fr = specular_multiscatter(input, D, V, F, specular_intensity);
+    let Fr = specular_multiscatter(D, V, F, F0, (*input).F_ab, specular_intensity);
     return Fr;
 }
 
@@ -397,7 +394,7 @@ fn specular_anisotropy(
     let Fa = fresnel(F0, LdotH);
 
     // Calculate the specular light.
-    let Fr = specular_multiscatter(input, Da, Va, Fa, specular_intensity);
+    let Fr = specular_multiscatter(Da, Va, Fa, F0, (*input).F_ab, specular_intensity);
     return Fr;
 }
 
@@ -482,7 +479,7 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
         ),
         max_axis != abs_direction.x
     );
-    
+
     var face_uv: vec2<f32>;
     var divisor: f32;
     var corner_uv: vec2<u32> = vec2(0, 0);
@@ -500,12 +497,12 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
     face_uv = (face_uv / divisor) * 0.5 + 0.5;
 
     switch cubemap_type {
-        case CUBEMAP_TYPE_CROSS_VERTICAL: { 
-            face_size = vec2(1.0/3.0, 1.0/4.0); 
+        case CUBEMAP_TYPE_CROSS_VERTICAL: {
+            face_size = vec2(1.0/3.0, 1.0/4.0);
             corner_uv = vec2<u32>((0x111102u >> (4 * face_index)) & 0xFu, (0x132011u >> (4 * face_index)) & 0xFu);
         }
-        case CUBEMAP_TYPE_CROSS_HORIZONTAL: { 
-            face_size = vec2(1.0/4.0, 1.0/3.0); 
+        case CUBEMAP_TYPE_CROSS_HORIZONTAL: {
+            face_size = vec2(1.0/4.0, 1.0/3.0);
             corner_uv = vec2<u32>((0x131102u >> (4 * face_index)) & 0xFu, (0x112011u >> (4 * face_index)) & 0xFu);
         }
         case CUBEMAP_TYPE_SEQUENCE_HORIZONTAL: {
@@ -765,7 +762,7 @@ fn directional_light(
                 view_bindings::clustered_decal_sampler,
                 decal_uv - floor(decal_uv),
                 0.0
-            ).r;                    
+            ).r;
         } else {
             texture_sample = 0f;
         }

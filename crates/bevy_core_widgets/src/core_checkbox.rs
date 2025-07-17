@@ -1,7 +1,7 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
-use bevy_ecs::event::{EntityEvent, Event};
+use bevy_ecs::event::EntityEvent;
 use bevy_ecs::query::{Has, Without};
 use bevy_ecs::system::{In, ResMut};
 use bevy_ecs::{
@@ -15,7 +15,7 @@ use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Click, Pointer};
 use bevy_ui::{Checkable, Checked, InteractionDisabled};
 
-use crate::{Callback, Notify as _};
+use crate::{Callback, Notify as _, ValueChange};
 
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
 /// state of the checkbox. The `on_change` field is an optional system id that will be run when the
@@ -34,7 +34,7 @@ pub struct CoreCheckbox {
     /// One-shot system that is run when the checkbox state needs to be changed. If this value is
     /// `Callback::Ignore`, then the checkbox will update it's own internal [`Checked`] state
     /// without notification.
-    pub on_change: Callback<In<bool>>,
+    pub on_change: Callback<In<ValueChange<bool>>>,
 }
 
 fn checkbox_on_key_input(
@@ -97,7 +97,7 @@ fn checkbox_on_pointer_click(
 ///     commands.trigger_targets(SetChecked(true), checkbox);
 /// }
 /// ```
-#[derive(Event, EntityEvent)]
+#[derive(EntityEvent)]
 pub struct SetChecked(pub bool);
 
 /// Event which can be triggered on a checkbox to toggle the checked state. This can be used to
@@ -119,7 +119,7 @@ pub struct SetChecked(pub bool);
 ///     commands.trigger_targets(ToggleChecked, checkbox);
 /// }
 /// ```
-#[derive(Event, EntityEvent)]
+#[derive(EntityEvent)]
 pub struct ToggleChecked;
 
 fn checkbox_on_set_checked(
@@ -162,7 +162,13 @@ fn set_checkbox_state(
     new_state: bool,
 ) {
     if !matches!(checkbox.on_change, Callback::Ignore) {
-        commands.notify_with(&checkbox.on_change, new_state);
+        commands.notify_with(
+            &checkbox.on_change,
+            ValueChange {
+                source: entity.into(),
+                value: new_state,
+            },
+        );
     } else if new_state {
         commands.entity(entity.into()).insert(Checked);
     } else {
