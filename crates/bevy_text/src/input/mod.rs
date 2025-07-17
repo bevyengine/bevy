@@ -192,6 +192,11 @@ impl TextInputFilter {
     pub fn custom(filter_fn: impl Fn(&str) -> bool + Send + Sync + 'static) -> Self {
         Self::Custom(Box::new(filter_fn))
     }
+
+    pub fn regex(regex: &str) -> Result<Self, regex::Error> {
+        let compiled_regex = Regex::new(regex)?;
+        Ok(Self::custom(move |text| compiled_regex.is_match(text)))
+    }
 }
 
 /// Add this component to hide the text input buffer contents
