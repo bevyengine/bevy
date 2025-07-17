@@ -1,3 +1,4 @@
+
 //! minimal text input example
 
 use bevy::color::palettes::css::NAVY;

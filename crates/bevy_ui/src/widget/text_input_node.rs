@@ -56,6 +56,7 @@ impl Plugin for TextInputNodePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<TextInputModifiers>()
             .init_resource::<TextInputOverwriteMode>()
+            .init_resource::<InputFocus>()
             .add_systems(
                 PostUpdate,
                 (update_targets, update_attributes, update_cursor_visibility)

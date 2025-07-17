@@ -435,13 +435,13 @@ fn measure_line(
     mut _font_system: ResMut<CosmicFontSystem>,
 ) {
     for (_entity, _target, text_font, mut content_size) in query.iter_mut() {
-        println!(
-            "line height: {}",
-            match text_font.line_height {
-                bevy_text::LineHeight::Px(px) => px,
-                bevy_text::LineHeight::RelativeToFont(r) => r * text_font.font_size,
-            }
-        );
+        // println!(
+        //     "line height: {}",
+        //     match text_font.line_height {
+        //         bevy_text::LineHeight::Px(px) => px,
+        //         bevy_text::LineHeight::RelativeToFont(r) => r * text_font.font_size,
+        //     }
+        // );
         content_size.set(crate::NodeMeasure::Custom(Box::new(LineHeightMeasure {
             line_height: match text_font.line_height {
                 bevy_text::LineHeight::Px(px) => px,

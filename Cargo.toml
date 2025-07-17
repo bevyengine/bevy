@@ -3468,12 +3468,12 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "line_inputs"
-path = "examples/ui/line_inputs.rs"
+name = "text_input_filters"
+path = "examples/ui/text_input_filters.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.line_inputs]
-name = "Line Inputs"
+[package.metadata.example.text_input_filters]
+name = "text_input_filters"
 description = "Example demonstrating multiple text inputs"
 category = "UI (User Interface)"
 wasm = true
