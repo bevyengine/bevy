@@ -16,7 +16,7 @@ use bevy_winit::cursor::CursorIcon;
 #[cfg(feature = "custom_cursor")]
 use bevy_winit::cursor::CustomCursor;
 
-/// A component that specifies the cursor icon to be used when the mouse is not hovering over
+/// A resource that specifies the cursor icon to be used when the mouse is not hovering over
 /// any other entity. This is used to set the default cursor icon for the window.
 #[derive(Resource, Debug, Clone, Default)]
 pub struct DefaultEntityCursor(pub EntityCursor);
