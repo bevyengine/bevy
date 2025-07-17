@@ -178,7 +178,7 @@ impl DefaultQueryFilters {
     }
 
     /// Get an iterator over all of the components which disable entities when present.
-    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> + use<'_> {
+    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> {
         self.disabling.iter().copied()
     }
 
