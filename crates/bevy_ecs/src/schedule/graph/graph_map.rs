@@ -11,10 +11,9 @@ use core::{
     hash::{BuildHasher, Hash},
 };
 use indexmap::IndexMap;
-use slotmap::{Key, KeyData};
 use smallvec::SmallVec;
 
-use super::NodeId;
+use crate::schedule::graph::node::{DirectedGraphNodeId, GraphNodeId, GraphNodeIdPair};
 
 use Direction::{Incoming, Outgoing};
 
@@ -22,13 +21,13 @@ use Direction::{Incoming, Outgoing};
 ///
 /// For example, an edge between *1* and *2* is equivalent to an edge between
 /// *2* and *1*.
-pub type UnGraph<S = FixedHasher> = Graph<false, S>;
+pub type UnGraph<N, S = FixedHasher> = Graph<false, N, S>;
 
 /// A `Graph` with directed edges.
 ///
 /// For example, an edge from *1* to *2* is distinct from an edge from *2* to
 /// *1*.
-pub type DiGraph<S = FixedHasher> = Graph<true, S>;
+pub type DiGraph<N, S = FixedHasher> = Graph<true, N, S>;
 
 /// `Graph<DIRECTED>` is a graph datastructure using an associative array
 /// of its node weights `NodeId`.
@@ -47,24 +46,21 @@ pub type DiGraph<S = FixedHasher> = Graph<true, S>;
 ///
 /// `Graph` does not allow parallel edges, but self loops are allowed.
 #[derive(Clone)]
-pub struct Graph<const DIRECTED: bool, S = FixedHasher>
+pub struct Graph<const DIRECTED: bool, N: GraphNodeId, S = FixedHasher>
 where
     S: BuildHasher,
 {
-    nodes: IndexMap<NodeId, Vec<CompactNodeIdAndDirection>, S>,
-    edges: HashSet<CompactNodeIdPair, S>,
+    nodes: IndexMap<N, Vec<N::Directed>, S>,
+    edges: HashSet<N::Pair, S>,
 }
 
-impl<const DIRECTED: bool, S: BuildHasher> fmt::Debug for Graph<DIRECTED, S> {
+impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> fmt::Debug for Graph<DIRECTED, N, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.nodes.fmt(f)
     }
 }
 
-impl<const DIRECTED: bool, S> Graph<DIRECTED, S>
-where
-    S: BuildHasher,
-{
+impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S> {
     /// Create a new `Graph` with estimated capacity.
     pub fn with_capacity(nodes: usize, edges: usize) -> Self
     where
@@ -78,10 +74,10 @@ where
 
     /// Use their natural order to map the node pair (a, b) to a canonical edge id.
     #[inline]
-    fn edge_key(a: NodeId, b: NodeId) -> CompactNodeIdPair {
+    fn edge_key(a: N, b: N) -> N::Pair {
         let (a, b) = if DIRECTED || a <= b { (a, b) } else { (b, a) };
 
-        CompactNodeIdPair::store(a, b)
+        N::Pair::new(a, b)
     }
 
     /// Return the number of nodes in the graph.
@@ -89,20 +85,25 @@ where
         self.nodes.len()
     }
 
+    /// Return the number of edges in the graph.
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
+
     /// Add node `n` to the graph.
-    pub fn add_node(&mut self, n: NodeId) {
+    pub fn add_node(&mut self, n: N) {
         self.nodes.entry(n).or_default();
     }
 
     /// Remove a node `n` from the graph.
     ///
     /// Computes in **O(N)** time, due to the removal of edges with other nodes.
-    pub fn remove_node(&mut self, n: NodeId) {
+    pub fn remove_node(&mut self, n: N) {
         let Some(links) = self.nodes.swap_remove(&n) else {
             return;
         };
 
-        let links = links.into_iter().map(CompactNodeIdAndDirection::load);
+        let links = links.into_iter().map(N::Directed::unwrap);
 
         for (succ, dir) in links {
             let edge = if dir == Outgoing {
@@ -118,7 +119,7 @@ where
     }
 
     /// Return `true` if the node is contained in the graph.
-    pub fn contains_node(&self, n: NodeId) -> bool {
+    pub fn contains_node(&self, n: N) -> bool {
         self.nodes.contains_key(&n)
     }
 
@@ -126,19 +127,19 @@ where
     /// For a directed graph, the edge is directed from `a` to `b`.
     ///
     /// Inserts nodes `a` and/or `b` if they aren't already part of the graph.
-    pub fn add_edge(&mut self, a: NodeId, b: NodeId) {
+    pub fn add_edge(&mut self, a: N, b: N) {
         if self.edges.insert(Self::edge_key(a, b)) {
             // insert in the adjacency list if it's a new edge
             self.nodes
                 .entry(a)
                 .or_insert_with(|| Vec::with_capacity(1))
-                .push(CompactNodeIdAndDirection::store(b, Outgoing));
+                .push(N::Directed::new(b, Outgoing));
             if a != b {
                 // self loops don't have the Incoming entry
                 self.nodes
                     .entry(b)
                     .or_insert_with(|| Vec::with_capacity(1))
-                    .push(CompactNodeIdAndDirection::store(a, Incoming));
+                    .push(N::Directed::new(a, Incoming));
             }
         }
     }
@@ -146,7 +147,7 @@ where
     /// Remove edge relation from a to b
     ///
     /// Return `true` if it did exist.
-    fn remove_single_edge(&mut self, a: NodeId, b: NodeId, dir: Direction) -> bool {
+    fn remove_single_edge(&mut self, a: N, b: N, dir: Direction) -> bool {
         let Some(sus) = self.nodes.get_mut(&a) else {
             return false;
         };
@@ -154,7 +155,7 @@ where
         let Some(index) = sus
             .iter()
             .copied()
-            .map(CompactNodeIdAndDirection::load)
+            .map(N::Directed::unwrap)
             .position(|elt| (DIRECTED && elt == (b, dir)) || (!DIRECTED && elt.0 == b))
         else {
             return false;
@@ -167,7 +168,7 @@ where
     /// Remove edge from `a` to `b` from the graph.
     ///
     /// Return `false` if the edge didn't exist.
-    pub fn remove_edge(&mut self, a: NodeId, b: NodeId) -> bool {
+    pub fn remove_edge(&mut self, a: N, b: N) -> bool {
         let exist1 = self.remove_single_edge(a, b, Outgoing);
         let exist2 = if a != b {
             self.remove_single_edge(b, a, Incoming)
@@ -180,26 +181,24 @@ where
     }
 
     /// Return `true` if the edge connecting `a` with `b` is contained in the graph.
-    pub fn contains_edge(&self, a: NodeId, b: NodeId) -> bool {
+    pub fn contains_edge(&self, a: N, b: N) -> bool {
         self.edges.contains(&Self::edge_key(a, b))
     }
 
     /// Return an iterator over the nodes of the graph.
-    pub fn nodes(
-        &self,
-    ) -> impl DoubleEndedIterator<Item = NodeId> + ExactSizeIterator<Item = NodeId> + '_ {
+    pub fn nodes(&self) -> impl DoubleEndedIterator<Item = N> + ExactSizeIterator<Item = N> + '_ {
         self.nodes.keys().copied()
     }
 
     /// Return an iterator of all nodes with an edge starting from `a`.
-    pub fn neighbors(&self, a: NodeId) -> impl DoubleEndedIterator<Item = NodeId> + '_ {
+    pub fn neighbors(&self, a: N) -> impl DoubleEndedIterator<Item = N> + '_ {
         let iter = match self.nodes.get(&a) {
             Some(neigh) => neigh.iter(),
             None => [].iter(),
         };
 
         iter.copied()
-            .map(CompactNodeIdAndDirection::load)
+            .map(N::Directed::unwrap)
             .filter_map(|(n, dir)| (!DIRECTED || dir == Outgoing).then_some(n))
     }
 
@@ -208,22 +207,22 @@ where
     /// If the graph's edges are undirected, this is equivalent to *.neighbors(a)*.
     pub fn neighbors_directed(
         &self,
-        a: NodeId,
+        a: N,
         dir: Direction,
-    ) -> impl DoubleEndedIterator<Item = NodeId> + '_ {
+    ) -> impl DoubleEndedIterator<Item = N> + '_ {
         let iter = match self.nodes.get(&a) {
             Some(neigh) => neigh.iter(),
             None => [].iter(),
         };
 
         iter.copied()
-            .map(CompactNodeIdAndDirection::load)
+            .map(N::Directed::unwrap)
             .filter_map(move |(n, d)| (!DIRECTED || d == dir || n == a).then_some(n))
     }
 
     /// Return an iterator of target nodes with an edge starting from `a`,
     /// paired with their respective edge weights.
-    pub fn edges(&self, a: NodeId) -> impl DoubleEndedIterator<Item = (NodeId, NodeId)> + '_ {
+    pub fn edges(&self, a: N) -> impl DoubleEndedIterator<Item = (N, N)> + '_ {
         self.neighbors(a)
             .map(move |b| match self.edges.get(&Self::edge_key(a, b)) {
                 None => unreachable!(),
@@ -235,9 +234,9 @@ where
     /// paired with their respective edge weights.
     pub fn edges_directed(
         &self,
-        a: NodeId,
+        a: N,
         dir: Direction,
-    ) -> impl DoubleEndedIterator<Item = (NodeId, NodeId)> + '_ {
+    ) -> impl DoubleEndedIterator<Item = (N, N)> + '_ {
         self.neighbors_directed(a, dir).map(move |b| {
             let (a, b) = if dir == Incoming { (b, a) } else { (a, b) };
 
@@ -249,18 +248,55 @@ where
     }
 
     /// Return an iterator over all edges of the graph with their weight in arbitrary order.
-    pub fn all_edges(&self) -> impl ExactSizeIterator<Item = (NodeId, NodeId)> + '_ {
-        self.edges.iter().copied().map(CompactNodeIdPair::load)
+    pub fn all_edges(&self) -> impl ExactSizeIterator<Item = (N, N)> + '_ {
+        self.edges.iter().copied().map(N::Pair::unwrap)
     }
 
-    pub(crate) fn to_index(&self, ix: NodeId) -> usize {
+    pub(crate) fn to_index(&self, ix: N) -> usize {
         self.nodes.get_index_of(&ix).unwrap()
+    }
+
+    /// Converts from one [`GraphNodeId`] type to another. If the conversion fails,
+    /// it returns the error from the target type's [`TryFrom`] implementation.
+    ///
+    /// # Errors
+    ///
+    /// If the conversion fails, it returns an error of type `T::Error`.
+    pub fn try_into<T: GraphNodeId + TryFrom<N>>(self) -> Result<Graph<DIRECTED, T, S>, T::Error>
+    where
+        S: Default,
+    {
+        let nodes = self
+            .nodes
+            .into_iter()
+            .map(|(k, v)| {
+                Ok((
+                    k.try_into()?,
+                    v.into_iter()
+                        .map(|v| {
+                            let (id, dir) = v.unwrap();
+                            Ok(T::Directed::new(id.try_into()?, dir))
+                        })
+                        .collect::<Result<Vec<T::Directed>, T::Error>>()?,
+                ))
+            })
+            .collect::<Result<IndexMap<T, Vec<T::Directed>, S>, T::Error>>()?;
+        let edges = self
+            .edges
+            .into_iter()
+            .map(|e| {
+                let (a, b) = e.unwrap();
+                Ok(T::Pair::new(a.try_into()?, b.try_into()?))
+            })
+            .collect::<Result<HashSet<T::Pair, S>, T::Error>>()?;
+        Ok(Graph { nodes, edges })
     }
 }
 
 /// Create a new empty `Graph`.
-impl<const DIRECTED: bool, S> Default for Graph<DIRECTED, S>
+impl<const DIRECTED: bool, N, S> Default for Graph<DIRECTED, N, S>
 where
+    N: GraphNodeId,
     S: BuildHasher + Default,
 {
     fn default() -> Self {
@@ -268,9 +304,9 @@ where
     }
 }
 
-impl<S: BuildHasher> DiGraph<S> {
+impl<N: GraphNodeId, S: BuildHasher> DiGraph<N, S> {
     /// Iterate over all *Strongly Connected Components* in this graph.
-    pub(crate) fn iter_sccs(&self) -> impl Iterator<Item = SmallVec<[NodeId; 4]>> + '_ {
+    pub(crate) fn iter_sccs(&self) -> impl Iterator<Item = SmallVec<[N; 4]>> + '_ {
         super::tarjan_scc::new_tarjan_scc(self)
     }
 }
@@ -296,113 +332,9 @@ impl Direction {
     }
 }
 
-/// Compact storage of a [`NodeId`] and a [`Direction`].
-#[derive(Clone, Copy)]
-struct CompactNodeIdAndDirection {
-    key: KeyData,
-    is_system: bool,
-    direction: Direction,
-}
-
-impl fmt::Debug for CompactNodeIdAndDirection {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.load().fmt(f)
-    }
-}
-
-impl CompactNodeIdAndDirection {
-    fn store(node: NodeId, direction: Direction) -> Self {
-        let key = match node {
-            NodeId::System(key) => key.data(),
-            NodeId::Set(key) => key.data(),
-        };
-        let is_system = node.is_system();
-
-        Self {
-            key,
-            is_system,
-            direction,
-        }
-    }
-
-    fn load(self) -> (NodeId, Direction) {
-        let Self {
-            key,
-            is_system,
-            direction,
-        } = self;
-
-        let node = match is_system {
-            true => NodeId::System(key.into()),
-            false => NodeId::Set(key.into()),
-        };
-
-        (node, direction)
-    }
-}
-
-/// Compact storage of a [`NodeId`] pair.
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-struct CompactNodeIdPair {
-    key_a: KeyData,
-    key_b: KeyData,
-    is_system_a: bool,
-    is_system_b: bool,
-}
-
-impl fmt::Debug for CompactNodeIdPair {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.load().fmt(f)
-    }
-}
-
-impl CompactNodeIdPair {
-    fn store(a: NodeId, b: NodeId) -> Self {
-        let key_a = match a {
-            NodeId::System(index) => index.data(),
-            NodeId::Set(index) => index.data(),
-        };
-        let is_system_a = a.is_system();
-
-        let key_b = match b {
-            NodeId::System(index) => index.data(),
-            NodeId::Set(index) => index.data(),
-        };
-        let is_system_b = b.is_system();
-
-        Self {
-            key_a,
-            key_b,
-            is_system_a,
-            is_system_b,
-        }
-    }
-
-    fn load(self) -> (NodeId, NodeId) {
-        let Self {
-            key_a,
-            key_b,
-            is_system_a,
-            is_system_b,
-        } = self;
-
-        let a = match is_system_a {
-            true => NodeId::System(key_a.into()),
-            false => NodeId::Set(key_a.into()),
-        };
-
-        let b = match is_system_b {
-            true => NodeId::System(key_b.into()),
-            false => NodeId::Set(key_b.into()),
-        };
-
-        (a, b)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::schedule::SystemKey;
+    use crate::schedule::{NodeId, SystemKey};
 
     use super::*;
     use alloc::vec;
@@ -416,7 +348,7 @@ mod tests {
         use NodeId::System;
 
         let mut slotmap = SlotMap::<SystemKey, ()>::with_key();
-        let mut graph = <DiGraph>::default();
+        let mut graph = DiGraph::<NodeId>::default();
 
         let sys1 = slotmap.insert(());
         let sys2 = slotmap.insert(());
@@ -464,7 +396,7 @@ mod tests {
         use NodeId::System;
 
         let mut slotmap = SlotMap::<SystemKey, ()>::with_key();
-        let mut graph = <DiGraph>::default();
+        let mut graph = DiGraph::<NodeId>::default();
 
         let sys1 = slotmap.insert(());
         let sys2 = slotmap.insert(());

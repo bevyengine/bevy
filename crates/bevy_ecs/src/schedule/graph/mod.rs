@@ -17,7 +17,7 @@ mod node;
 mod tarjan_scc;
 
 pub use graph_map::{DiGraph, Direction, UnGraph};
-pub use node::NodeId;
+pub use node::{DirectedGraphNodeId, GraphNodeId, GraphNodeIdPair};
 
 /// Specifies what kind of edge should be added to the dependency graph.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -82,24 +82,24 @@ pub(crate) fn row_col(index: usize, num_cols: usize) -> (usize, usize) {
 }
 
 /// Stores the results of the graph analysis.
-pub(crate) struct CheckGraphResults {
+pub(crate) struct CheckGraphResults<Id: GraphNodeId> {
     /// Boolean reachability matrix for the graph.
     pub(crate) reachable: FixedBitSet,
     /// Pairs of nodes that have a path connecting them.
-    pub(crate) connected: HashSet<(NodeId, NodeId)>,
+    pub(crate) connected: HashSet<(Id, Id)>,
     /// Pairs of nodes that don't have a path connecting them.
-    pub(crate) disconnected: Vec<(NodeId, NodeId)>,
+    pub(crate) disconnected: Vec<(Id, Id)>,
     /// Edges that are redundant because a longer path exists.
-    pub(crate) transitive_edges: Vec<(NodeId, NodeId)>,
+    pub(crate) transitive_edges: Vec<(Id, Id)>,
     /// Variant of the graph with no transitive edges.
-    pub(crate) transitive_reduction: DiGraph,
+    pub(crate) transitive_reduction: DiGraph<Id>,
     /// Variant of the graph with all possible transitive edges.
     // TODO: this will very likely be used by "if-needed" ordering
     #[expect(dead_code, reason = "See the TODO above this attribute.")]
-    pub(crate) transitive_closure: DiGraph,
+    pub(crate) transitive_closure: DiGraph<Id>,
 }
 
-impl Default for CheckGraphResults {
+impl<Id: GraphNodeId> Default for CheckGraphResults<Id> {
     fn default() -> Self {
         Self {
             reachable: FixedBitSet::new(),
@@ -123,7 +123,10 @@ impl Default for CheckGraphResults {
 /// ["On the calculation of transitive reduction-closure of orders"][1] by Habib, Morvan and Rampon.
 ///
 /// [1]: https://doi.org/10.1016/0012-365X(93)90164-O
-pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> CheckGraphResults {
+pub(crate) fn check_graph<Id: GraphNodeId>(
+    graph: &DiGraph<Id>,
+    topological_order: &[Id],
+) -> CheckGraphResults<Id> {
     if graph.node_count() == 0 {
         return CheckGraphResults::default();
     }
@@ -132,7 +135,7 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
 
     // build a copy of the graph where the nodes and edges appear in topsorted order
     let mut map = <HashMap<_, _>>::with_capacity_and_hasher(n, Default::default());
-    let mut topsorted = <DiGraph>::default();
+    let mut topsorted = DiGraph::<Id>::default();
     // iterate nodes in topological order
     for (i, &node) in topological_order.iter().enumerate() {
         map.insert(node, i);
@@ -228,13 +231,16 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
 /// ["Finding all the elementary circuits of a directed graph"][1] by D. B. Johnson.
 ///
 /// [1]: https://doi.org/10.1137/0204007
-pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<NodeId>> {
+pub fn simple_cycles_in_component<Id: GraphNodeId>(
+    graph: &DiGraph<Id>,
+    scc: &[Id],
+) -> Vec<Vec<Id>> {
     let mut cycles = vec![];
     let mut sccs = vec![SmallVec::from_slice(scc)];
 
     while let Some(mut scc) = sccs.pop() {
         // only look at nodes and edges in this strongly-connected component
-        let mut subgraph = <DiGraph>::default();
+        let mut subgraph = DiGraph::<Id>::default();
         for &node in &scc {
             subgraph.add_node(node);
         }
@@ -254,12 +260,12 @@ pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<No
             HashSet::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // connects nodes along path segments that can't be part of a cycle (given current root)
         // those nodes can be unblocked at the same time
-        let mut unblock_together: HashMap<NodeId, HashSet<NodeId>> =
+        let mut unblock_together: HashMap<Id, HashSet<Id>> =
             HashMap::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // stack for unblocking nodes
         let mut unblock_stack = Vec::with_capacity(subgraph.node_count());
         // nodes can be involved in multiple cycles
-        let mut maybe_in_more_cycles: HashSet<NodeId> =
+        let mut maybe_in_more_cycles: HashSet<Id> =
             HashSet::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // stack for DFS
         let mut stack = Vec::with_capacity(subgraph.node_count());

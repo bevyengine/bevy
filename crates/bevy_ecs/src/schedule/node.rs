@@ -2,17 +2,21 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::{
     any::TypeId,
+    fmt::{self, Debug},
     ops::{Index, IndexMut, Range},
 };
 
 use bevy_platform::collections::HashMap;
-use slotmap::{new_key_type, SecondaryMap, SlotMap};
+use slotmap::{new_key_type, Key, KeyData, SecondaryMap, SlotMap};
 
 use crate::{
     component::{CheckChangeTicks, ComponentId, Tick},
     prelude::{SystemIn, SystemSet},
     query::FilteredAccessSet,
-    schedule::{BoxedCondition, InternedSystemSet},
+    schedule::{
+        graph::{DirectedGraphNodeId, Direction, GraphNodeId, GraphNodeIdPair},
+        BoxedCondition, InternedSystemSet,
+    },
     system::{
         ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemParamValidationError,
         SystemStateFlags,
@@ -249,6 +253,197 @@ new_key_type! {
     pub struct SystemKey;
     /// A unique identifier for a system set in a [`ScheduleGraph`].
     pub struct SystemSetKey;
+}
+
+impl GraphNodeId for SystemKey {
+    type Directed = (SystemKey, Direction);
+    type Pair = (SystemKey, SystemKey);
+}
+
+impl TryFrom<NodeId> for SystemKey {
+    type Error = SystemSetKey;
+
+    fn try_from(value: NodeId) -> Result<Self, Self::Error> {
+        match value {
+            NodeId::System(key) => Ok(key),
+            NodeId::Set(key) => Err(key),
+        }
+    }
+}
+
+impl TryFrom<NodeId> for SystemSetKey {
+    type Error = SystemKey;
+
+    fn try_from(value: NodeId) -> Result<Self, Self::Error> {
+        match value {
+            NodeId::System(key) => Err(key),
+            NodeId::Set(key) => Ok(key),
+        }
+    }
+}
+
+/// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
+///
+/// [`ScheduleGraph`]: crate::schedule::ScheduleGraph
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NodeId {
+    /// Identifier for a system.
+    System(SystemKey),
+    /// Identifier for a system set.
+    Set(SystemSetKey),
+}
+
+impl NodeId {
+    /// Returns `true` if the identified node is a system.
+    pub const fn is_system(&self) -> bool {
+        matches!(self, NodeId::System(_))
+    }
+
+    /// Returns `true` if the identified node is a system set.
+    pub const fn is_set(&self) -> bool {
+        matches!(self, NodeId::Set(_))
+    }
+
+    /// Returns the system key if the node is a system, otherwise `None`.
+    pub const fn as_system(&self) -> Option<SystemKey> {
+        match self {
+            NodeId::System(system) => Some(*system),
+            NodeId::Set(_) => None,
+        }
+    }
+
+    /// Returns the system set key if the node is a system set, otherwise `None`.
+    pub const fn as_set(&self) -> Option<SystemSetKey> {
+        match self {
+            NodeId::System(_) => None,
+            NodeId::Set(set) => Some(*set),
+        }
+    }
+}
+
+impl GraphNodeId for NodeId {
+    type Directed = CompactNodeIdAndDirection;
+    type Pair = CompactNodeIdPair;
+}
+
+impl From<SystemKey> for NodeId {
+    fn from(system: SystemKey) -> Self {
+        NodeId::System(system)
+    }
+}
+
+impl From<SystemSetKey> for NodeId {
+    fn from(set: SystemSetKey) -> Self {
+        NodeId::Set(set)
+    }
+}
+
+/// Compact storage of a [`NodeId`] and a [`Direction`].
+#[derive(Clone, Copy)]
+pub struct CompactNodeIdAndDirection {
+    key: KeyData,
+    is_system: bool,
+    direction: Direction,
+}
+
+impl Debug for CompactNodeIdAndDirection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.unwrap().fmt(f)
+    }
+}
+
+impl DirectedGraphNodeId for CompactNodeIdAndDirection {
+    type Id = NodeId;
+
+    fn new(id: NodeId, direction: Direction) -> Self {
+        let key = match id {
+            NodeId::System(key) => key.data(),
+            NodeId::Set(key) => key.data(),
+        };
+        let is_system = id.is_system();
+
+        Self {
+            key,
+            is_system,
+            direction,
+        }
+    }
+
+    fn unwrap(self) -> (NodeId, Direction) {
+        let Self {
+            key,
+            is_system,
+            direction,
+        } = self;
+
+        let node = match is_system {
+            true => NodeId::System(key.into()),
+            false => NodeId::Set(key.into()),
+        };
+
+        (node, direction)
+    }
+}
+
+/// Compact storage of a [`NodeId`] pair.
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct CompactNodeIdPair {
+    key_a: KeyData,
+    key_b: KeyData,
+    is_system_a: bool,
+    is_system_b: bool,
+}
+
+impl Debug for CompactNodeIdPair {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.unwrap().fmt(f)
+    }
+}
+
+impl GraphNodeIdPair for CompactNodeIdPair {
+    type Id = NodeId;
+
+    fn new(a: NodeId, b: NodeId) -> Self {
+        let key_a = match a {
+            NodeId::System(index) => index.data(),
+            NodeId::Set(index) => index.data(),
+        };
+        let is_system_a = a.is_system();
+
+        let key_b = match b {
+            NodeId::System(index) => index.data(),
+            NodeId::Set(index) => index.data(),
+        };
+        let is_system_b = b.is_system();
+
+        Self {
+            key_a,
+            key_b,
+            is_system_a,
+            is_system_b,
+        }
+    }
+
+    fn unwrap(self) -> (NodeId, NodeId) {
+        let Self {
+            key_a,
+            key_b,
+            is_system_a,
+            is_system_b,
+        } = self;
+
+        let a = match is_system_a {
+            true => NodeId::System(key_a.into()),
+            false => NodeId::Set(key_a.into()),
+        };
+
+        let b = match is_system_b {
+            true => NodeId::System(key_b.into()),
+            false => NodeId::Set(key_b.into()),
+        };
+
+        (a, b)
+    }
 }
 
 /// Container for systems in a schedule.
