@@ -169,7 +169,7 @@ pub enum TextInputFilter {
     /// accepts only `0-9`, `a-z` and `A-Z`
     Alphanumeric,
     /// Custom filter
-    Custom(Regex),
+    Custom(Box<dyn Fn(&str) -> bool + Send + Sync>),
 }
 
 static INTEGER_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
@@ -179,14 +179,18 @@ static HEX_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[0-9A-Fa-f]*$
 static ALPHANUMERIC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[0-9A-Za-z]*$").unwrap());
 
 impl TextInputFilter {
-    pub fn regex(&self) -> &Regex {
+    pub fn is_match(&self, text: &str) -> bool {
         match self {
-            TextInputFilter::Integer => &*INTEGER_REGEX,
-            TextInputFilter::Decimal => &*DECIMAL_REGEX,
-            TextInputFilter::Hex => &*HEX_REGEX,
-            TextInputFilter::Alphanumeric => &*ALPHANUMERIC,
-            TextInputFilter::Custom(regex) => regex,
+            TextInputFilter::Integer => INTEGER_REGEX.is_match(text),
+            TextInputFilter::Decimal => DECIMAL_REGEX.is_match(text),
+            TextInputFilter::Hex => HEX_REGEX.is_match(text),
+            TextInputFilter::Alphanumeric => ALPHANUMERIC.is_match(text),
+            TextInputFilter::Custom(is_match) => is_match(text),
         }
+    }
+
+    pub fn custom(filter_fn: impl Fn(&str) -> bool + Send + Sync + 'static) -> Self {
+        Self::Custom(Box::new(filter_fn))
     }
 }
 
