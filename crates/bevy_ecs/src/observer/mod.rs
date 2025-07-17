@@ -528,6 +528,11 @@ mod tests {
     struct S;
 
     #[derive(EntityEvent)]
+    struct EventA;
+
+    impl BroadcastEvent for EventA {}
+
+    #[derive(EntityEvent)]
     struct EntityEventA;
 
     #[derive(BroadcastEvent)]
@@ -837,6 +842,28 @@ mod tests {
 
         world.spawn((A, B)).flush();
         assert_eq!(vec!["add_ab"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_no_target() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        let system: fn(On<EventA>) = |_| {
+            panic!("Trigger routed to non-targeted entity.");
+        };
+        world.spawn_empty().observe(system);
+        world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
+            assert_eq!(obs.target(), Entity::PLACEHOLDER);
+            res.observed("event_a");
+        });
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger(EventA);
+        world.flush();
+        assert_eq!(vec!["event_a"], world.resource::<Order>().0);
     }
 
     #[test]
