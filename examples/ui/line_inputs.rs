@@ -1,4 +1,4 @@
-//! minimal text input example
+//! multiple text inputs example
 
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::RED;
@@ -19,7 +19,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
-    let id = commands
+    commands
         .spawn((
             LineInputNode::default(),
             TabIndex(0),
@@ -32,7 +32,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             Node {
                 width: Val::Percent(50.),
-                height: Val::Percent(50.),
                 ..default()
             },
             BackgroundColor(NAVY.into()),
@@ -50,6 +49,4 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .add_child(id);
-
-    commands.insert_resource(InputFocus(Some(id)));
 }

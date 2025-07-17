@@ -71,7 +71,14 @@ use taffy::AvailableSpace;
 pub struct LineInputNodePlugin;
 
 impl Plugin for LineInputNodePlugin {
-    fn build(&self, app: &mut bevy_app::App) {}
+    fn build(&self, app: &mut bevy_app::App) {
+        app.add_systems(
+            PostUpdate,
+            measure_line
+                .in_set(UiSystems::Content)
+                .before(UiSystems::Layout),
+        );
+    }
 }
 
 /// Main single line text input component
@@ -414,7 +421,7 @@ fn on_focused_keyboard_input(
 }
 
 fn measure_line(
-    fonts: Res<Assets<Font>>,
+    _fonts: Res<Assets<Font>>,
     mut query: Query<
         (
             Entity,
@@ -424,10 +431,24 @@ fn measure_line(
         ),
         With<Node>,
     >,
-    mut text_pipeline: ResMut<TextPipeline>,
-    mut font_system: ResMut<CosmicFontSystem>,
+    mut _text_pipeline: ResMut<TextPipeline>,
+    mut _font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, text_font, target, content_size) in query.iter_mut() {}
+    for (_entity, _target, text_font, mut content_size) in query.iter_mut() {
+        println!(
+            "line height: {}",
+            match text_font.line_height {
+                bevy_text::LineHeight::Px(px) => px,
+                bevy_text::LineHeight::RelativeToFont(r) => r * text_font.font_size,
+            }
+        );
+        content_size.set(crate::NodeMeasure::Custom(Box::new(LineHeightMeasure {
+            line_height: match text_font.line_height {
+                bevy_text::LineHeight::Px(px) => px,
+                bevy_text::LineHeight::RelativeToFont(r) => r * text_font.font_size,
+            },
+        })));
+    }
 }
 
 struct LineHeightMeasure {

@@ -3467,6 +3467,16 @@ description = "Example demonstrating a text input"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "line_inputs"
+path = "examples/ui/line_inputs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.line_inputs]
+name = "Line Inputs"
+description = "Example demonstrating multiple text inputs"
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "line_input_node"

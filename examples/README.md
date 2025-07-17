@@ -569,7 +569,8 @@ Example | Description
 [Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
 [Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
-[Single Line Text Input](../examples/ui/line_input_node.rs) | An example demonstrating a text input
+[Single Line Text Input](ui/line_input.rs) | An example demonstrating a text input
+[Multiple Text Inputs](ui/line_input.rs) | An example demonstrating multiple text inputs
 [Text Input](../examples/ui/text_input_node.rs) | An example demonstrating a text input
 [Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
