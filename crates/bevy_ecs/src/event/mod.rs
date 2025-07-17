@@ -1,4 +1,24 @@
-//! Event handling types.
+//! Events are that "happens" and can be processed by app logic.
+//!
+//! [Event]s can be triggered on a [`World`](bevy_ecs::world::World) using a method like [`trigger`],
+//! causing any global [`Observer`] watching that event to run. This allows for push-based
+//! event handling where observers are immediately notified of events as they happen.
+//!
+//! Event handling behavior can be enabled by implementing the [`EntityEvent`]
+//! and [`BufferedEvent`] traits:
+//!
+//! - [`Event`]: A supertrait for observer events.
+//!     - [`BroadcastEvent`]: An observer event without an entity target.
+//!     - [`EntityEvent`]s support targeting specific entities, triggering any observers watching those targets.
+//!       They are useful for entity-specific event handlers and can even be propagated from one entity to another.
+//! - [`BufferedEvent`]s support a pull-based event handling system where events are written using an [`EventWriter`]
+//!   and read later using an [`EventReader`]. This is an alternative to observers that allows efficient batch processing
+//!   of events at fixed points in a schedule.
+//!
+//! [`World`]: crate::world::World
+//! [`trigger`]: crate::world::World::trigger
+//! [`Observer`]: crate::observer::Observer
+
 mod base;
 mod collections;
 mod event_cursor;

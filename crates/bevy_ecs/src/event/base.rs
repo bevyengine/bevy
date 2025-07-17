@@ -11,84 +11,9 @@ use core::{
     marker::PhantomData,
 };
 
-// TODO: These docs need to be moved around and adjusted
-/// Something that "happens" and can be processed by app logic.
-///
-/// Events can be triggered on a [`World`] using a method like [`trigger`](World::trigger),
-/// causing any global [`Observer`] watching that event to run. This allows for push-based
-/// event handling where observers are immediately notified of events as they happen.
-///
-/// Additional event handling behavior can be enabled by implementing the [`EntityEvent`]
-/// and [`BufferedEvent`] traits:
-///
-/// - [`EntityEvent`]s support targeting specific entities, triggering any observers watching those targets.
-///   They are useful for entity-specific event handlers and can even be propagated from one entity to another.
-/// - [`BufferedEvent`]s support a pull-based event handling system where events are written using an [`EventWriter`]
-///   and read later using an [`EventReader`]. This is an alternative to observers that allows efficient batch processing
-///   of events at fixed points in a schedule.
+/// Supertrait for the observer based [`BroadcastEvent`] and [`EntityEvent`].
 ///
 /// Events must be thread-safe.
-///
-/// # Usage
-///
-/// The [`Event`] trait can be derived:
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// #
-/// #[derive(BroadcastEvent)]
-/// struct Speak {
-///     message: String,
-/// }
-/// ```
-///
-/// An [`Observer`] can then be added to listen for this event type:
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// #
-/// # #[derive(BroadcastEvent)]
-/// # struct Speak {
-/// #     message: String,
-/// # }
-/// #
-/// # let mut world = World::new();
-/// #
-/// world.add_observer(|trigger: On<Speak>| {
-///     println!("{}", trigger.message);
-/// });
-/// ```
-///
-/// The event can be triggered on the [`World`] using the [`trigger`](World::trigger) method:
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// #
-/// # #[derive(BroadcastEvent)]
-/// # struct Speak {
-/// #     message: String,
-/// # }
-/// #
-/// # let mut world = World::new();
-/// #
-/// # world.add_observer(|trigger: On<Speak>| {
-/// #     println!("{}", trigger.message);
-/// # });
-/// #
-/// # world.flush();
-/// #
-/// world.trigger(Speak {
-///     message: "Hello!".to_string(),
-/// });
-/// ```
-///
-/// For events that additionally need entity targeting or buffering, consider also deriving
-/// [`EntityEvent`] or [`BufferedEvent`], respectively.
-///
-/// [`World`]: crate::world::World
-/// [`Observer`]: crate::observer::Observer
-/// [`EventReader`]: super::EventReader
-/// [`EventWriter`]: super::EventWriter
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Event`",
     label = "invalid `Event`",
@@ -129,7 +54,62 @@ pub trait Event: Send + Sync + 'static {
     }
 }
 
-/// A global [`Event`] without an entity target.
+/// An [`Event`] without an entity target.
+///
+/// [`BroadcastEvent`]s can be triggered on a [`World`] with the method [`trigger`](World::trigger),
+/// causing any [`Observer`] watching the event for those entities to run.
+///
+/// # Usage
+///
+/// The [`BroadcastEvent`] trait can be derived:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// #[derive(BroadcastEvent)]
+/// struct Speak {
+///     message: String,
+/// }
+/// ```
+///
+/// An [`Observer`] can then be added to listen for this event type:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(BroadcastEvent)]
+/// # struct Speak {
+/// #     message: String,
+/// # }
+/// #
+/// # let mut world = World::new();
+/// #
+/// world.add_observer(|trigger: On<Speak>| {
+///     println!("{}", trigger.message);
+/// });
+/// ```
+///
+/// The event can be triggered on the [`World`] using the [`trigger`](World::trigger) method:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(BroadcastEvent)]
+/// # struct Speak {
+/// #     message: String,
+/// # }
+/// #
+/// # let mut world = World::new();
+/// #
+/// world.trigger(Speak {
+///     message: "Hello!".to_string(),
+/// });
+/// ```
+///
+/// For events that additionally need entity targeting or buffering, consider also deriving
+/// [`EntityEvent`] or [`BufferedEvent`], respectively.
+///
+/// [`Observer`]: crate::observer::Observer
 pub trait BroadcastEvent: Event {}
 
 /// An [`Event`] that can be targeted at specific entities.
@@ -138,7 +118,7 @@ pub trait BroadcastEvent: Event {}
 /// like [`trigger_targets`](World::trigger_targets), causing any [`Observer`] watching the event
 /// for those entities to run.
 ///
-/// Unlike basic [`Event`]s, entity events can optionally be propagated from one entity target to another
+/// Unlike [`BroadcastEvent`]s, entity events can optionally be propagated from one entity target to another
 /// based on the [`EntityEvent::Traversal`] type associated with the event. This enables use cases
 /// such as bubbling events to parent entities for UI purposes.
 ///
@@ -237,12 +217,8 @@ pub trait BroadcastEvent: Event {}
 /// world.trigger_targets(Damage { amount: 10.0 }, armor_piece);
 /// ```
 ///
-/// [`World`]: crate::world::World
 /// [`TriggerTargets`]: crate::observer::TriggerTargets
 /// [`Observer`]: crate::observer::Observer
-/// [`Events<E>`]: super::Events
-/// [`EventReader`]: super::EventReader
-/// [`EventWriter`]: super::EventWriter
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `EntityEvent`",
     label = "invalid `EntityEvent`",

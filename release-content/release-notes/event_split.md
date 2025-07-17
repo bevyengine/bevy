@@ -24,6 +24,7 @@ All three patterns are fundamentally different in both the interface and usage. 
 APIs are typically built to support only one of them.
 
 This has led to a lot of confusion and frustration for users. Common footguns include:
+
 - Using a "buffered event" with an observer, or an observer event with `EventReader`, leaving the user wondering why the event is not being detected.
 - `On`(formerly `Trigger`) has a `target` getter which would cause confusion for events only mean to be used with `trigger` where it returns `Entity::PLACEHOLDER`. 
 

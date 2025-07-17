@@ -22,11 +22,13 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 
-/// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
+/// This [`Event`] is triggered when the [`SceneInstance`] becomes ready to use.
+/// If the scene has a parent the event will be triggered on that entity, otherwise the event has no target.
 ///
 /// See also [`On`], [`SceneSpawner::instance_is_ready`].
 ///
 /// [`On`]: bevy_ecs::observer::On
+/// [`Event`]: bevy_ecs::event::Event
 #[derive(Clone, Copy, Debug, Eq, PartialEq, EntityEvent, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
