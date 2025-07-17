@@ -61,10 +61,8 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if ray_t_min == 0.0 { radiance = ray_hit.material.emissive; }
 
             // Sample direct lighting
-            radiance += throughput * diffuse_brdf * sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
-
-            // Sample new ray direction from the material BRDF for next bounce
-            ray_direction = sample_cosine_hemisphere(ray_hit.world_normal, &rng);
+            // TODO: Wrong BRDF here when it comes to specular?
+            radiance += throughput * brdf * sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
 
             // Update other variables for next bounce
             ray_origin = ray_hit.world_position;
