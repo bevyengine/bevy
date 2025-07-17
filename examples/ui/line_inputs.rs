@@ -1,14 +1,11 @@
 //! multiple text inputs example
 
-use bevy::color::palettes::css::GRAY;
 use bevy::color::palettes::css::GREEN;
 use bevy::color::palettes::css::NAVY;
-use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
-use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::TextInputFilter;
 use bevy::ui::widget::LineInputNode;
