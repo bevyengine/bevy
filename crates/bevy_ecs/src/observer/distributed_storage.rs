@@ -211,7 +211,7 @@ pub struct Observer {
 }
 
 impl Observer {
-    /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
+    /// Creates a new [`Observer`], which defaults to a global observer. This means it will run whenever the event `E` is triggered
     /// for _any_ entity (or no entity).
     ///
     /// # Panics

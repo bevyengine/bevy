@@ -1,22 +1,22 @@
-//! Events are that "happens" and can be processed by app logic.
+//! Events are things that "happen" and can be processed by app logic.
 //!
 //! [Event]s can be triggered on a [`World`](bevy_ecs::world::World) using a method like [`trigger`],
 //! causing any global [`Observer`] watching that event to run. This allows for push-based
 //! event handling where observers are immediately notified of events as they happen.
 //!
-//! Event handling behavior can be enabled by implementing the [`EntityEvent`]
-//! and [`BufferedEvent`] traits:
-//!
-//! - [`Event`]: A supertrait for observer events.
-//!     - [`BroadcastEvent`]: An observer event without an entity target.
-//!     - [`EntityEvent`]s support targeting specific entities, triggering any observers watching those targets.
-//!       They are useful for entity-specific event handlers and can even be propagated from one entity to another.
-//! - [`BufferedEvent`]s support a pull-based event handling system where events are written using an [`EventWriter`]
+//! - [`Event`]: A supertrait for push-based events that trigger global observers added via [`add_observer`].
+//!     - [`BroadcastEvent`]: An event without an entity target. Can be used via [`trigger`]
+//!     - [`EntityEvent`]: An event targeting specific entities, triggering any observers watching those targets. Can be used via [`trigger_targets`].
+//!       They can trigger entity-specific observers added via [`observe`] and can be propagated from one entity to another.
+//! - [`BufferedEvent`]: Support a pull-based event handling system where events are written using an [`EventWriter`]
 //!   and read later using an [`EventReader`]. This is an alternative to observers that allows efficient batch processing
 //!   of events at fixed points in a schedule.
 //!
 //! [`World`]: crate::world::World
+//! [`add_observer`]: crate::world::World::add_observer
+//! [`observe`]: crate::world::EntityWorldMut::observe
 //! [`trigger`]: crate::world::World::trigger
+//! [`trigger_targets`]: crate::world::World::trigger_targets
 //! [`Observer`]: crate::observer::Observer
 
 mod base;
