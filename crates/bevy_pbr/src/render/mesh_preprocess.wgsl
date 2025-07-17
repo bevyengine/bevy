@@ -303,7 +303,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         // this frame.
         let output_work_item_index = atomicAdd(&late_preprocess_work_item_indirect_parameters[
             push_constants.late_preprocess_work_item_indirect_offset].work_item_count, 1u);
-        if (output_work_item_index % 64u == 0u) {
+        if ((output_work_item_index & 63u) == 0u) {
             // Our workgroup size is 64, and the indirect parameters for the
             // late mesh preprocessing phase are counted in workgroups, so if
             // we're the first thread in this workgroup, bump the workgroup

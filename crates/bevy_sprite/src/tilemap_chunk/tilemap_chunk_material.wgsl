@@ -32,7 +32,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     out.position = mesh_functions::mesh2d_position_world_to_clip(world_position);
     out.uv = vertex.uv;
-    out.tile_index = vertex.vertex_index / 4u;
+    out.tile_index = vertex.vertex_index >> 2u;
 
     return out;
 }
