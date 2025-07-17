@@ -95,9 +95,6 @@ use core::{
     note = "consider annotating `{Self}` with `#[derive(BroadcastEvent)]` or `#[derive(EntityEvent)]`"
 )]
 pub trait Event: Send + Sync + 'static {
-    #[doc(hidden)]
-    type Kind;
-
     /// Generates the [`EventKey`] for this event type.
     ///
     /// If this type has already been registered,
@@ -133,32 +130,7 @@ pub trait Event: Send + Sync + 'static {
 }
 
 /// A global [`Event`] without an entity target.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an `BroadcastEvent`",
-    label = "invalid `BroadcastEvent`",
-    note = "consider annotating `{Self}` with `#[derive(BroadcastEvent)]`"
-)]
-pub trait BroadcastEvent: Event + sealed_a::SealedA {}
-
-#[doc(hidden)]
-pub struct BroadcastEventKind;
-
-#[diagnostic::do_not_recommend]
-impl<T> BroadcastEvent for T where T: Event<Kind = BroadcastEventKind> {}
-
-pub(crate) mod sealed_a {
-    use super::*;
-
-    /// Seal for the [`BroadcastEvent`] trait.
-    #[diagnostic::on_unimplemented(
-        message = "manual implementations of `BroadcastEvent` are disallowed",
-        note = "consider annotating `{Self}` with `#[derive(BroadcastEvent)]` instead"
-    )]
-    pub trait SealedA {}
-
-    #[diagnostic::do_not_recommend]
-    impl<T> SealedA for T where T: Event<Kind = BroadcastEventKind> {}
-}
+pub trait BroadcastEvent: Event {}
 
 /// An [`Event`] that can be targeted at specific entities.
 ///
@@ -276,7 +248,7 @@ pub(crate) mod sealed_a {
     label = "invalid `EntityEvent`",
     note = "consider annotating `{Self}` with `#[derive(EntityEvent)]`"
 )]
-pub trait EntityEvent: Event + sealed_b::SealedB {
+pub trait EntityEvent: Event {
     /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
     ///
     /// [`Entity`]: crate::entity::Entity
@@ -289,37 +261,6 @@ pub trait EntityEvent: Event + sealed_b::SealedB {
     /// [triggered]: crate::system::Commands::trigger_targets
     /// [`On::propagate`]: crate::observer::On::propagate
     const AUTO_PROPAGATE: bool = false;
-}
-
-#[doc(hidden)]
-pub struct EntityEventKind<T: ?Sized, R: Traversal<T>, const A: bool> {
-    _t: PhantomData<T>,
-    _r: PhantomData<R>,
-}
-
-// Blanket impl for EntityEvent
-#[diagnostic::do_not_recommend]
-impl<T, R: Traversal<T>, const A: bool> EntityEvent for T
-where
-    T: Event<Kind = EntityEventKind<T, R, A>>,
-{
-    type Traversal = R;
-    const AUTO_PROPAGATE: bool = A;
-}
-
-pub(crate) mod sealed_b {
-    use super::*;
-
-    /// Seal for the [`EntityEvent`] trait.
-    #[diagnostic::on_unimplemented(
-        message = "manual implementations of `EntityEvent` are disallowed",
-        note = "consider annotating `{Self}` with `#[derive(EntityEvent)]` instead"
-    )]
-    pub trait SealedB {}
-
-    #[diagnostic::do_not_recommend]
-    impl<T, R: Traversal<T>, const A: bool> SealedB for T where T: Event<Kind = EntityEventKind<T, R, A>>
-    {}
 }
 
 /// A buffered event for pull-based event handling.

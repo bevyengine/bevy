@@ -2,7 +2,7 @@ use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
-    event::{EntityEvent, EventCursor, Events},
+    event::{BroadcastEvent, EntityEvent, EventCursor, Events},
     hierarchy::ChildOf,
     reflect::AppTypeRegistry,
     resource::Resource,
@@ -33,6 +33,8 @@ pub struct SceneInstanceReady {
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
 }
+
+impl BroadcastEvent for SceneInstanceReady {}
 
 /// Information about a scene instance.
 #[derive(Debug)]
@@ -421,8 +423,7 @@ impl SceneSpawner {
                     .trigger_targets(SceneInstanceReady { instance_id }, parent);
             } else {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                // TODO: Thinkies
-                // world.commands().trigger(SceneInstanceReady { instance_id });
+                world.commands().trigger(SceneInstanceReady { instance_id });
             }
         }
     }

@@ -110,15 +110,19 @@ impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
     ///
     /// Note that if event propagation is enabled, this may not be the same as the original target of the event,
     /// which can be accessed via [`On::original_target`].
+    ///
+    /// If the event is also a [`BroadcastEvent`] sent with [`trigger`](World::trigger), this will return [`Entity::PLACEHOLDER`].
     pub fn target(&self) -> Entity {
-        self.trigger.current_target.unwrap()
+        self.trigger.current_target.unwrap_or(Entity::PLACEHOLDER)
     }
 
     /// Returns the original [`Entity`] that the [`EntityEvent`] was targeted at when it was first triggered.
     ///
     /// If event propagation is not enabled, this will always return the same value as [`On::target`].
+    ///
+    /// If the event is also a [`BroadcastEvent`] sent with [`trigger`](World::trigger), this will return [`Entity::PLACEHOLDER`].
     pub fn original_target(&self) -> Entity {
-        self.trigger.original_target.unwrap()
+        self.trigger.original_target.unwrap_or(Entity::PLACEHOLDER)
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
@@ -181,11 +185,13 @@ pub struct ObserverTrigger {
     pub event_key: EventKey,
     /// The [`ComponentId`]s the trigger targeted.
     pub components: SmallVec<[ComponentId; 2]>,
-    /// For [`EntityEvent`]s this is the entity that the event targeted. Always `None` for [`BroadcastEvent`].
+    /// For [`EntityEvent`]s used with `trigger_targets` this is the entity that the event targeted.
+    /// Can only be `None` for [`BroadcastEvent`]s used with `trigger`.
     ///
     /// Note that if event propagation is enabled, this may not be the same as [`ObserverTrigger::original_target`].
     pub current_target: Option<Entity>,
-    /// For [`EntityEvent`]s this is the entity that the event was originally targeted at. Always `None` for [`BroadcastEvent`].
+    /// For [`EntityEvent`]s used with `trigger_targets` this is the entity that the event was originally targeted at.
+    /// Can only be `None` for [`BroadcastEvent`]s used with `trigger`.
     ///
     /// If event propagation is enabled, this will be the first entity that the event was targeted at,
     /// even if the event was propagated to other entities.
