@@ -849,7 +849,7 @@ unsafe fn evaluate_and_fold_conditions(
                     if let RunSystemError::Failed(err) = err {
                         error_handler(
                             err,
-                            ErrorContext::System {
+                            ErrorContext::RunCondition {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                             },
