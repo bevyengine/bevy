@@ -7,7 +7,7 @@ use crate::{
     bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::MaybeLocation,
     component::{ComponentsRegistrator, Tick},
-    entity::{Entities, Entity, EntityLocation},
+    entity::{EntitiesAllocator, Entity, EntityLocation},
     lifecycle::{ADD, INSERT},
     relationship::RelationshipHookMode,
     storage::Table,
@@ -85,7 +85,7 @@ impl<'w> BundleSpawner<'w> {
     /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
     #[inline]
     #[track_caller]
-    pub unsafe fn spawn_non_existent<T: DynamicBundle>(
+    pub unsafe fn construct<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         bundle: T,
@@ -116,8 +116,8 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.set(entity.index(), Some(location));
-            entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
+            entities.new_location(entity.row(), Some(location));
+            entities.mark_construct_or_destruct(entity.row(), caller, self.change_tick);
             (location, after_effect)
         };
 
@@ -170,16 +170,16 @@ impl<'w> BundleSpawner<'w> {
         bundle: T,
         caller: MaybeLocation,
     ) -> (Entity, T::Effect) {
-        let entity = self.entities().alloc();
+        let entity = self.allocator().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        let (_, after_effect) = unsafe { self.spawn_non_existent(entity, bundle, caller) };
+        let (_, after_effect) = unsafe { self.construct(entity, bundle, caller) };
         (entity, after_effect)
     }
 
     #[inline]
-    pub(crate) fn entities(&mut self) -> &mut Entities {
+    pub(crate) fn allocator(&mut self) -> &'w mut EntitiesAllocator {
         // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
-        unsafe { &mut self.world.world_mut().entities }
+        unsafe { &mut self.world.world_mut().allocator }
     }
 
     /// # Safety

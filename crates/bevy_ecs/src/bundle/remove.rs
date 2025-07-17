@@ -222,10 +222,10 @@ impl<'w> BundleRemover<'w> {
             .swap_remove(location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            let swapped_location = world.entities.get(swapped_entity).unwrap();
+            let swapped_location = world.entities.get_constructed(swapped_entity).unwrap();
 
-            world.entities.set(
-                swapped_entity.index(),
+            world.entities.update_location(
+                swapped_entity.row(),
                 Some(EntityLocation {
                     archetype_id: swapped_location.archetype_id,
                     archetype_row: location.archetype_row,
@@ -263,10 +263,10 @@ impl<'w> BundleRemover<'w> {
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
-                let swapped_location = world.entities.get(swapped_entity).unwrap();
+                let swapped_location = world.entities.get_constructed(swapped_entity).unwrap();
 
-                world.entities.set(
-                    swapped_entity.index(),
+                world.entities.update_location(
+                    swapped_entity.row(),
                     Some(EntityLocation {
                         archetype_id: swapped_location.archetype_id,
                         archetype_row: swapped_location.archetype_row,
@@ -288,7 +288,9 @@ impl<'w> BundleRemover<'w> {
 
         // SAFETY: The entity is valid and has been moved to the new location already.
         unsafe {
-            world.entities.set(entity.index(), Some(new_location));
+            world
+                .entities
+                .update_location(entity.row(), Some(new_location));
         }
 
         (new_location, pre_remove_result)

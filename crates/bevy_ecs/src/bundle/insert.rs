@@ -224,9 +224,9 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
-                    entities.set(
-                        swapped_entity.index(),
+                        unsafe { entities.get_constructed(swapped_entity).debug_checked_unwrap() };
+                    entities.update_location(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
@@ -236,7 +236,7 @@ impl<'w> BundleInserter<'w> {
                     );
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                entities.set(entity.index(), Some(new_location));
+                entities.update_location(entity.row(), Some(new_location));
                 let after_effect = bundle_info.write_components(
                     table,
                     sparse_sets,
@@ -273,9 +273,9 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
-                    entities.set(
-                        swapped_entity.index(),
+                        unsafe { entities.get_constructed(swapped_entity).debug_checked_unwrap() };
+                    entities.update_location(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
@@ -288,16 +288,16 @@ impl<'w> BundleInserter<'w> {
                 // redundant copies
                 let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                entities.set(entity.index(), Some(new_location));
+                entities.update_location(entity.row(), Some(new_location));
 
                 // If an entity was moved into this entity's table spot, update its table row.
                 if let Some(swapped_entity) = move_result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
+                        unsafe { entities.get_constructed(swapped_entity).debug_checked_unwrap() };
 
-                    entities.set(
-                        swapped_entity.index(),
+                    entities.update_location(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: swapped_location.archetype_row,
