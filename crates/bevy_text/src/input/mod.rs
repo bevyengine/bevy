@@ -348,6 +348,7 @@ pub fn apply_text_input_actions(
         Entity,
         &mut TextInputBuffer,
         &mut TextInputActions,
+        &TextInputFilter,
         &TextInputAttributes,
         Option<&mut TextInputHistory>,
         Has<SingleLineTextInput>,
@@ -357,6 +358,7 @@ pub fn apply_text_input_actions(
         _entity,
         mut buffer,
         mut text_input_actions,
+        filter,
         attribs,
         mut maybe_history,
         is_single_line_input,
@@ -781,4 +783,162 @@ pub fn update_text_input_layouts(
             }
         }
     }
+}
+
+fn apply_text_input_action(
+    mut editor: BorrowedWithFontSystem<'_, Editor<'static>>,
+    maybe_history: Option<&mut TextInputHistory>,
+    maybe_filter: Option<&dyn Fn(&str) -> bool>,
+    action: TextInputAction,
+) {
+    editor.start_change();
+
+    match action {
+        TextInputAction::Copy => {}
+        TextInputAction::Cut => {}
+        TextInputAction::Paste => {}
+        TextInputAction::Motion {
+            motion,
+            with_select,
+        } => {
+            apply_motion(&mut editor, with_select, motion);
+        }
+        TextInputAction::Insert(ch) => {
+            // else if max_chars
+            //     .is_none_or(|max_chars| editor.with_buffer(buffer_len) < max_chars)
+            editor.action(Action::Insert(ch));
+        }
+        TextInputAction::Overwrite(ch) => {
+            match editor.selection() {
+                Selection::None => {
+                    if !cursor_at_line_end(&mut editor) {
+                        editor.action(Action::Delete);
+                        editor.action(Action::Insert(ch));
+                    } else {
+                        // else if max_chars
+                        //     .is_none_or(|max_chars| editor.with_buffer(buffer_len) < max_chars)
+                        editor.action(Action::Insert(ch));
+                    }
+                }
+                _ => editor.action(Action::Insert(ch)),
+            }
+        }
+        TextInputAction::NewLine => {
+            editor.action(Action::Enter);
+        }
+        TextInputAction::Backspace => {
+            if editor.delete_selection() {
+                editor.set_redraw(true);
+            } else {
+                editor.action(Action::Backspace);
+            }
+        }
+        TextInputAction::Delete => {
+            if editor.delete_selection() {
+                editor.set_redraw(true);
+            } else {
+                editor.action(Action::Delete);
+            }
+        }
+        TextInputAction::Indent => {
+            editor.action(Action::Indent);
+        }
+        TextInputAction::Unindent => {
+            editor.action(Action::Unindent);
+        }
+        TextInputAction::Click(point) => {
+            editor.action(Action::Click {
+                x: point.x,
+                y: point.y,
+            });
+        }
+        TextInputAction::DoubleClick(point) => {
+            editor.action(Action::DoubleClick {
+                x: point.x,
+                y: point.y,
+            });
+        }
+        TextInputAction::TripleClick(point) => {
+            editor.action(Action::TripleClick {
+                x: point.x,
+                y: point.y,
+            });
+        }
+        TextInputAction::Drag(point) => {
+            editor.action(Action::Drag {
+                x: point.x,
+                y: point.y,
+            });
+        }
+        TextInputAction::Scroll { lines } => {
+            editor.action(Action::Scroll { lines });
+        }
+        TextInputAction::Undo => {
+            if let Some(history) = maybe_history {
+                for action in history.changes.undo() {
+                    apply_action(&mut editor, action)
+                }
+            }
+        }
+        TextInputAction::Redo => {
+            if let Some(history) = maybe_history {
+                for action in history.changes.redo() {
+                    apply_action(&mut editor, action)
+                }
+            }
+        }
+        TextInputAction::SelectAll => {
+            editor.action(Action::Motion(Motion::BufferStart));
+            let cursor = editor.cursor();
+            editor.set_selection(Selection::Normal(cursor));
+            editor.action(Action::Motion(Motion::BufferEnd));
+        }
+        TextInputAction::SelectLine => {
+            editor.action(Action::Motion(Motion::Home));
+            let cursor = editor.cursor();
+            editor.set_selection(Selection::Normal(cursor));
+            editor.action(Action::Motion(Motion::End));
+        }
+        TextInputAction::Escape => {
+            editor.set_selection(Selection::None);
+        }
+        TextInputAction::Clear => {
+            editor.action(Action::Motion(Motion::BufferStart));
+            let cursor = editor.cursor();
+            editor.set_selection(Selection::Normal(cursor));
+            editor.action(Action::Motion(Motion::BufferEnd));
+            editor.action(Action::Delete);
+        }
+        TextInputAction::SetText(text) => {
+            editor.action(Action::Motion(Motion::Home));
+            let cursor = editor.cursor();
+            editor.set_selection(Selection::Normal(cursor));
+            editor.action(Action::Motion(Motion::End));
+            editor.insert_string(&text, None);
+        }
+    }
+
+    let Some(mut change) = editor.finish_change() else {
+        return;
+    };
+
+    if change.items.is_empty() {
+        return;
+    }
+
+    if let Some(is_match) = maybe_filter {
+        let text = editor.with_buffer(get_cosmic_text_buffer_contents);
+        if !is_match(&text) {
+            change.reverse();
+            editor.apply_change(&change);
+            return;
+        }
+    }
+
+    if let Some(history) = maybe_history {
+        history.changes.push(change);
+    }
+
+    // Set redraw manually, sometimes the editor doesn't set it automatically.
+    editor.set_redraw(true);
 }
