@@ -1,6 +1,6 @@
 #define_import_path bevy_solari::sampling
 
-#import bevy_pbr::utils::{rand_f, rand_vec2f, rand_range_u}
+#import bevy_pbr::utils::{rand_f, rand_vec2f, rand_u, rand_range_u}
 #import bevy_render::maths::{PI, PI_2}
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full}
 
@@ -61,8 +61,8 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
 }
 
 struct LightSample {
-    light_id: vec2<u32>,
-    random: vec2<f32>,
+    light_id: u32,
+    seed: u32,
 }
 
 struct LightContribution {
@@ -73,21 +73,21 @@ struct LightContribution {
 fn generate_random_light_sample(rng: ptr<function, u32>) -> LightSample {
     let light_count = arrayLength(&light_sources);
     let light_id = rand_range_u(light_count, rng);
-    let random = rand_vec2f(rng);
+    let seed = rand_u(rng);
 
     let light_source = light_sources[light_id];
-    var triangle_id = 0u;
 
+    var triangle_id = 0u;
     if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {
         let triangle_count = light_source.kind >> 1u;
-        triangle_id = rand_range_u(triangle_count, rng);
+        triangle_id = seed % triangle_count;
     }
 
-    return LightSample(vec2(light_id, triangle_id), random);
+    return LightSample((light_id << 16u) | triangle_id, seed);
 }
 
 fn calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
-    let light_id = light_sample.light_id.x;
+    let light_id = light_sample.light_id >> 16u;
     let light_source = light_sources[light_id];
 
     var light_contribution: LightContribution;
@@ -110,9 +110,11 @@ fn calculate_directional_light_contribution(light_sample: LightSample, direction
 #ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
     // Sample a random direction within a cone whose base is the sun approximated as a disk
     // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
-    let cos_theta = (1.0 - light_sample.random.x) + light_sample.random.x * directional_light.cos_theta_max;
+    var rng = light_sample.seed;
+    let random = rand_vec2f(&rng);
+    let cos_theta = (1.0 - random.x) + random.x * directional_light.cos_theta_max;
     let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-    let phi = light_sample.random.y * PI_2;
+    let phi = random.y * PI_2;
     let x = cos(phi) * sin_theta;
     let y = sin(phi) * sin_theta;
     var ray_direction = vec3(x, y, cos_theta);
@@ -130,8 +132,8 @@ fn calculate_directional_light_contribution(light_sample: LightSample, direction
 }
 
 fn calculate_emissive_mesh_contribution(light_sample: LightSample, instance_id: u32, triangle_count: u32, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
-    let barycentrics = triangle_barycentrics(light_sample.random);
-    let triangle_id = light_sample.light_id.y;
+    let barycentrics = triangle_barycentrics(light_sample.seed);
+    let triangle_id = light_sample.light_id & 0xFFFFu;
 
     let triangle_data = resolve_triangle_data_full(instance_id, triangle_id, barycentrics);
 
@@ -148,7 +150,7 @@ fn calculate_emissive_mesh_contribution(light_sample: LightSample, instance_id: 
 }
 
 fn trace_light_visibility(light_sample: LightSample, ray_origin: vec3<f32>) -> f32 {
-    let light_id = light_sample.light_id.x;
+    let light_id = light_sample.light_id >> 16u;
     let light_source = light_sources[light_id];
 
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
@@ -164,9 +166,11 @@ fn trace_directional_light_visibility(light_sample: LightSample, directional_lig
 #ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
     // Sample a random direction within a cone whose base is the sun approximated as a disk
     // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
-    let cos_theta = (1.0 - light_sample.random.x) + light_sample.random.x * directional_light.cos_theta_max;
+    var rng = light_sample.seed;
+    let random = rand_vec2f(&rng);
+    let cos_theta = (1.0 - random.x) + random.x * directional_light.cos_theta_max;
     let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-    let phi = light_sample.random.y * PI_2;
+    let phi = random.y * PI_2;
     let x = cos(phi) * sin_theta;
     let y = sin(phi) * sin_theta;
     var ray_direction = vec3(x, y, cos_theta);
@@ -182,8 +186,8 @@ fn trace_directional_light_visibility(light_sample: LightSample, directional_lig
 }
 
 fn trace_emissive_mesh_visibility(light_sample: LightSample, instance_id: u32, ray_origin: vec3<f32>) -> f32 {
-    let barycentrics = triangle_barycentrics(light_sample.random);
-    let triangle_id = light_sample.light_id.y;
+    let barycentrics = triangle_barycentrics(light_sample.seed);
+    let triangle_id = light_sample.light_id & 0xFFFFu;
 
     let triangle_data = resolve_triangle_data_full(instance_id, triangle_id, barycentrics);
 
@@ -203,8 +207,9 @@ fn trace_point_visibility(ray_origin: vec3<f32>, point: vec3<f32>) -> f32 {
 }
 
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
-fn triangle_barycentrics(random: vec2<f32>) -> vec3<f32> {
-    var barycentrics = random;
+fn triangle_barycentrics(seed: u32) -> vec3<f32> {
+    var rng = seed;
+    var barycentrics = rand_vec2f(&rng);
     if barycentrics.x + barycentrics.y > 1.0 { barycentrics = 1.0 - barycentrics; }
     return vec3(1.0 - barycentrics.x - barycentrics.y, barycentrics);
 }
