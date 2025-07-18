@@ -88,10 +88,10 @@ impl Plugin for EditorPlugin {
 
 // Import UI marker components from our modular structure
 use crate::panels::{
-    EntityListItem, ComponentInspector, ComponentInspectorContent,
+    ComponentInspector, ComponentInspectorContent,
     EntityTree, EntityListArea
 };
-use crate::widgets::ExpansionButton;
+use crate::widgets::{ExpansionButton, EntityListItem};
 
 /// Component for status bar
 #[derive(Component)]
@@ -646,7 +646,7 @@ fn create_entity_list_item(parent: &mut ChildSpawnerCommands, remote_entity: &Re
             },
             BackgroundColor(bg_color),
             BorderColor::all(Color::srgb(0.3, 0.3, 0.3)),
-            EntityListItem { entity_id: remote_entity.id },
+            EntityListItem::from_remote_entity(&remote_entity),
         ))
         .with_children(|parent| {
             // Entity icon and name

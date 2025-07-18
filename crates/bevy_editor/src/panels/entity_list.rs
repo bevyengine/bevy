@@ -1,7 +1,7 @@
 //! Entity list panel for browsing world entities
 
 use bevy::prelude::*;
-use bevy::ui::{AlignItems, FlexDirection, UiRect, Val};
+use bevy::ui::{FlexDirection, UiRect, Val};
 use crate::{
     themes::DarkTheme,
     remote::types::{EditorState, RemoteEntity},
@@ -9,6 +9,10 @@ use crate::{
         simple_scrollable::ScrollableContainerPlugin,
         spawn_basic_panel,
         EditorTheme,
+        ListView,
+        ListViewPlugin,
+        spawn_list_view,
+        EntityListItem,
     },
 };
 
@@ -17,19 +21,13 @@ pub struct EntityListPlugin;
 
 impl Plugin for EntityListPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ScrollableContainerPlugin)
+        app.add_plugins((ScrollableContainerPlugin, ListViewPlugin))
             .add_systems(Update, (
                 handle_entity_selection,
                 update_entity_button_colors,
                 refresh_entity_list,
             ));
     }
-}
-
-/// Component for marking UI elements - kept for backward compatibility
-#[derive(Component)]
-pub struct EntityListItem {
-    pub entity_id: u32,
 }
 
 /// Component for marking UI areas - kept for backward compatibility
@@ -55,7 +53,7 @@ pub fn create_modern_entity_list_panel(
     spawn_basic_panel(commands, "Entities")
 }
 
-/// Handle entity selection in the UI - legacy system
+/// Handle entity selection in the UI - updated to work with ListView
 pub fn handle_entity_selection(
     mut interaction_query: Query<
         (&Interaction, &EntityListItem, &mut BackgroundColor), 
@@ -108,7 +106,7 @@ pub fn update_entity_button_colors(
     }
 }
 
-/// Refresh the entity list display - updated to work with both old and new systems
+/// Refresh the entity list display - updated to use generic ListView
 pub fn refresh_entity_list(
     editor_state: Res<EditorState>,
     mut commands: Commands,
@@ -131,9 +129,9 @@ pub fn refresh_entity_list(
     for list_area_entity in entity_list_area_query.iter() {
         commands.entity(list_area_entity).despawn_children();
         
-        commands.entity(list_area_entity).with_children(|parent| {
-            if editor_state.entities.is_empty() {
-                // Show empty state with themed styling
+        if editor_state.entities.is_empty() {
+            // Show empty state with themed styling
+            commands.entity(list_area_entity).with_children(|parent| {
                 parent.spawn((
                     Text::new("No entities connected.\nStart a bevy_remote server to see entities."),
                     TextFont {
@@ -146,60 +144,22 @@ pub fn refresh_entity_list(
                         ..default()
                     },
                 ));
-            } else {
-                // Add entity items using the legacy system for now
-                for remote_entity in &editor_state.entities {
-                    create_entity_list_item(parent, remote_entity, &editor_state);
-                }
-            }
-        });
-    }
-}
-
-/// Create a single entity list item - legacy implementation with theme integration
-fn create_entity_list_item(parent: &mut ChildSpawnerCommands, remote_entity: &RemoteEntity, editor_state: &EditorState) {
-    let bg_color = if Some(remote_entity.id) == editor_state.selected_entity_id {
-        Color::srgb(0.3, 0.4, 0.6) // Selection color
-    } else {
-        Color::srgb(0.15, 0.15, 0.15) // Background tertiary
-    };
-
-    parent
-        .spawn((
-            Button,
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Px(32.0),
-                align_items: AlignItems::Center,
-                padding: UiRect::all(Val::Px(10.0)),
-                margin: UiRect::bottom(Val::Px(2.0)),
-                border: UiRect::all(Val::Px(1.0)),
-                ..default()
-            },
-            BackgroundColor(bg_color),
-            BorderColor::all(Color::srgb(0.3, 0.3, 0.3)), // Border color
-            EntityListItem { entity_id: remote_entity.id },
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-            )).with_children(|parent| {
-                let display_name = format!("Entity {}", remote_entity.id);
-                
-                parent.spawn((
-                    Text::new(display_name),
-                    TextFont {
-                        font_size: 13.0,
-                        ..default()
-                    },
-                    TextColor(DarkTheme::TEXT_PRIMARY),
-                ));
             });
-        });
+        } else {
+            // Use the generic ListView system
+            let entity_items: Vec<EntityListItem> = editor_state.entities
+                .iter()
+                .map(EntityListItem::from_remote_entity)
+                .collect();
+                
+            let list_view = ListView::new(entity_items.clone())
+                .with_item_height(32.0)
+                .with_selection_highlight(true);
+                
+            let list_entity = spawn_list_view(&mut commands, entity_items, list_view);
+            commands.entity(list_area_entity).add_child(list_entity);
+        }
+    }
 }
 
 /// Helper function to create a modern entity list that could be extracted to bevy_feathers

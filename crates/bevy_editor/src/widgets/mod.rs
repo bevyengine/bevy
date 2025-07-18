@@ -42,7 +42,7 @@ pub mod scroll_view;
 // Temporarily disabled complex widgets that need more work to compile with current Bevy
 // pub mod scrollable_area;
 // pub mod panel;
-// pub mod list_view;
+pub mod list_view;
 // pub mod theme;
 
 pub use expansion_button::*;
@@ -50,6 +50,7 @@ pub use simple_scrollable::ScrollableContainer;
 pub use simple_panel::{BasicPanel, spawn_basic_panel};
 pub use core_scroll_area::*;
 pub use scroll_view::*;
+pub use list_view::*;
 
 // Basic theme support
 #[derive(Clone)]

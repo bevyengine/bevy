@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::ui::{Style, UiRect, Val, FlexDirection, AlignItems, JustifyContent};
+use bevy::ui::{UiRect, Val, FlexDirection, AlignItems, JustifyContent};
 
 /// A generic list widget for displaying collections of items
 #[derive(Component)]
@@ -83,7 +83,6 @@ pub struct ListItem {
 #[derive(Bundle)]
 pub struct ListViewBundle {
     pub node: Node,
-    pub style: Style,
     pub background_color: BackgroundColor,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -96,8 +95,7 @@ pub struct ListViewBundle {
 impl Default for ListViewBundle {
     fn default() -> Self {
         Self {
-            node: Node::default(),
-            style: Style {
+            node: Node {
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -127,7 +125,7 @@ impl Plugin for ListViewPlugin {
 /// System to handle list item selection
 fn handle_list_item_interaction(
     interaction_query: Query<(&Interaction, &ListItem), Changed<Interaction>>,
-    mut list_query: Query<&mut ListView<String>>, // Generic over String for now
+    mut list_query: Query<&mut ListView<EntityListItem>>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for (interaction, list_item) in &interaction_query {
@@ -167,7 +165,7 @@ fn handle_list_item_interaction(
 
 /// System to update list item visual styles based on selection state
 fn update_list_item_styles(
-    list_query: Query<&ListView<String>, Changed<ListView<String>>>,
+    list_query: Query<&ListView<EntityListItem>, Changed<ListView<EntityListItem>>>,
     mut item_query: Query<(&ListItem, &mut BackgroundColor)>,
 ) {
     for list_view in &list_query {
@@ -279,6 +277,17 @@ pub struct EntityListItem {
     pub name: String,
     pub components: Vec<String>,
     pub children_count: usize,
+}
+
+impl EntityListItem {
+    pub fn from_remote_entity(remote_entity: &crate::remote::types::RemoteEntity) -> Self {
+        Self {
+            entity_id: remote_entity.id,
+            name: format!("Entity {}", remote_entity.id),
+            components: remote_entity.components.clone(),
+            children_count: 0,
+        }
+    }
 }
 
 impl ListDisplayable for EntityListItem {
