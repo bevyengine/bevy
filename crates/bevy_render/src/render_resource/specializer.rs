@@ -347,7 +347,7 @@ impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
     }
 }
 
-pub use dyn_specializer::{DynSpecializer, DynSpecializerKey};
+pub use dyn_specializer::{ErasedSpecializer, ErasedSpecializerKey};
 
 mod dyn_specializer {
     use core::{
@@ -363,43 +363,43 @@ mod dyn_specializer {
 
     use super::{Canonical, Specializable, Specializer, SpecializerKey};
 
-    pub trait DynSpecializerTrait<T: Specializable>: Any + Send + Sync + 'static {
+    pub trait DynSpecializer<T: Specializable>: Any + Send + Sync + 'static {
         fn dyn_specialize(
             &self,
-            key: DynSpecializerKey,
+            key: ErasedSpecializerKey,
             descriptor: &mut T::Descriptor,
-        ) -> Result<DynSpecializerKey, BevyError>;
+        ) -> Result<ErasedSpecializerKey, BevyError>;
     }
 
     #[derive(Error, Debug)]
     #[error("Incorrect key type passed to a DynSpecializer")]
     struct IncorrectKeyTypeError;
 
-    impl<T: Specializable, S: Specializer<T>> DynSpecializerTrait<T> for S {
+    impl<T: Specializable, S: Specializer<T>> DynSpecializer<T> for S {
         fn dyn_specialize(
             &self,
-            key: DynSpecializerKey,
+            key: ErasedSpecializerKey,
             descriptor: &mut T::Descriptor,
-        ) -> Result<DynSpecializerKey, BevyError> {
+        ) -> Result<ErasedSpecializerKey, BevyError> {
             let real_key = (&key.0 as &dyn Any)
                 .downcast_ref::<S::Key>()
                 .ok_or(IncorrectKeyTypeError)?
                 .clone();
             let canonical_key = self.specialize(real_key, descriptor)?;
-            Ok(DynSpecializerKey::new(canonical_key))
+            Ok(ErasedSpecializerKey::new(canonical_key))
         }
     }
 
-    pub struct DynSpecializer<T: Specializable>(Box<dyn DynSpecializerTrait<T>>);
+    pub struct ErasedSpecializer<T: Specializable>(Box<dyn DynSpecializer<T>>);
 
-    impl<T: Specializable> DynSpecializer<T> {
+    impl<T: Specializable> ErasedSpecializer<T> {
         pub fn new(specializer: impl Specializer<T>) -> Self {
             Self(Box::new(specializer))
         }
     }
 
-    impl<T: Specializable> Specializer<T> for DynSpecializer<T> {
-        type Key = DynSpecializerKey;
+    impl<T: Specializable> Specializer<T> for ErasedSpecializer<T> {
+        type Key = ErasedSpecializerKey;
 
         #[inline]
         fn specialize(
@@ -411,62 +411,62 @@ mod dyn_specializer {
         }
     }
 
-    pub trait DynSpecializerKeyTrait: Send + Sync + DynEq + DynHash {
-        fn dyn_clone(&self) -> Box<dyn DynSpecializerKeyTrait>;
+    pub trait DynSpecializerKey: Send + Sync + DynEq + DynHash {
+        fn dyn_clone(&self) -> Box<dyn DynSpecializerKey>;
     }
 
-    impl Clone for Box<dyn DynSpecializerKeyTrait> {
+    impl Clone for Box<dyn DynSpecializerKey> {
         fn clone(&self) -> Self {
             self.dyn_clone()
         }
     }
 
-    impl PartialEq for dyn DynSpecializerKeyTrait {
+    impl PartialEq for dyn DynSpecializerKey {
         fn eq(&self, other: &Self) -> bool {
             self.dyn_eq(other)
         }
     }
 
-    impl Eq for dyn DynSpecializerKeyTrait {}
+    impl Eq for dyn DynSpecializerKey {}
 
-    impl Hash for dyn DynSpecializerKeyTrait {
+    impl Hash for dyn DynSpecializerKey {
         fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
             self.dyn_hash(state);
         }
     }
 
-    impl<T: SpecializerKey> DynSpecializerKeyTrait for T {
-        fn dyn_clone(&self) -> Box<dyn DynSpecializerKeyTrait> {
+    impl<T: SpecializerKey> DynSpecializerKey for T {
+        fn dyn_clone(&self) -> Box<dyn DynSpecializerKey> {
             Box::new(self.clone())
         }
     }
 
     #[derive(Clone)]
-    pub struct DynSpecializerKey(Box<dyn DynSpecializerKeyTrait>);
+    pub struct ErasedSpecializerKey(Box<dyn DynSpecializerKey>);
 
-    impl Eq for DynSpecializerKey {}
+    impl Eq for ErasedSpecializerKey {}
 
-    impl Hash for DynSpecializerKey {
+    impl Hash for ErasedSpecializerKey {
         fn hash<H: Hasher>(&self, state: &mut H) {
             self.0.hash(state);
         }
     }
 
-    impl PartialEq for DynSpecializerKey {
+    impl PartialEq for ErasedSpecializerKey {
         fn eq(&self, other: &Self) -> bool {
             self.0.dyn_eq(&other.0)
         }
     }
 
-    impl DynSpecializerKey {
+    impl ErasedSpecializerKey {
         pub fn new(key: impl SpecializerKey) -> Self {
             Self(Box::new(key))
         }
     }
 
-    impl SpecializerKey for DynSpecializerKey {
+    impl SpecializerKey for ErasedSpecializerKey {
         const IS_CANONICAL: bool = false;
 
-        type Canonical = DynSpecializerKey;
+        type Canonical = ErasedSpecializerKey;
     }
 }
