@@ -99,7 +99,7 @@ fn fetch_spot_shadow(
         + ((*light).shadow_depth_bias * normalize(surface_to_light))
         + (surface_normal.xyz * (*light).shadow_normal_bias) * distance_to_light;
 
-    var light_inv_rot = spot_light_world_from_view(fwd);
+    let light_inv_rot = spot_light_world_from_view(fwd);
 
     // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
     // the product of the transpose with a vector we can just post-multiply instead of pre-multiplying.
