@@ -148,7 +148,6 @@ pub struct TextInputAttributes {
     pub justify: Justify,
     pub font_smoothing: FontSmoothing,
     pub max_chars: Option<usize>,
-    pub cursor_size: Vec2,
 }
 
 impl Default for TextInputAttributes {
@@ -161,7 +160,6 @@ impl Default for TextInputAttributes {
             justify: Default::default(),
             line_break: Default::default(),
             max_chars: None,
-            cursor_size: Vec2 { x: 0.2, y: 1. },
         }
     }
 }
@@ -543,12 +541,7 @@ pub fn update_text_input_layouts(
                 let box_size = buffer_dimensions(buffer);
                 if let Some((x, y)) = cursor_position {
                     let line_height = buffer.metrics().line_height;
-                    let size = Vec2::new(
-                        attributes.cursor_size.x * space_advance.0,
-                        attributes.cursor_size.y * line_height,
-                    );
-
-                    println!("cursor size = {}", size);
+                    let size = Vec2::new(space_advance.0, line_height);
 
                     layout_info.cursor = Some((IVec2::new(x, y).as_vec2() + 0.5 * size, size));
                 }
