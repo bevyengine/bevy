@@ -1,6 +1,6 @@
 //! The standard `bevy_feathers` dark theme.
 use crate::{palette, tokens};
-use bevy_color::{Alpha, Luminance};
+use bevy_color::{Alpha, Color, Luminance};
 use bevy_platform::collections::HashMap;
 
 use crate::theme::ThemeProps;
@@ -10,7 +10,7 @@ pub fn create_dark_theme() -> ThemeProps {
     ThemeProps {
         color: HashMap::from([
             (tokens::WINDOW_BG.into(), palette::GRAY_0),
-            // Button
+            // Button (normal)
             (tokens::BUTTON_BG.into(), palette::GRAY_3),
             (
                 tokens::BUTTON_BG_HOVER.into(),
@@ -21,6 +21,7 @@ pub fn create_dark_theme() -> ThemeProps {
                 palette::GRAY_3.lighter(0.1),
             ),
             (tokens::BUTTON_BG_DISABLED.into(), palette::GRAY_2),
+            // Button (primary)
             (tokens::BUTTON_PRIMARY_BG.into(), palette::ACCENT),
             (
                 tokens::BUTTON_PRIMARY_BG_HOVER.into(),
@@ -31,6 +32,23 @@ pub fn create_dark_theme() -> ThemeProps {
                 palette::ACCENT.lighter(0.1),
             ),
             (tokens::BUTTON_PRIMARY_BG_DISABLED.into(), palette::GRAY_2),
+            // Button (selected)
+            (tokens::BUTTON_SELECTED_BG.into(), palette::GRAY_3),
+            (
+                tokens::BUTTON_SELECTED_BG_HOVER.into(),
+                palette::GRAY_3.lighter(0.05),
+            ),
+            (
+                tokens::BUTTON_SELECTED_BG_PRESSED.into(),
+                palette::GRAY_3.lighter(0.1),
+            ),
+            (tokens::BUTTON_SELECTED_BG_DISABLED.into(), palette::GRAY_2),
+            // Button (plain)
+            (tokens::BUTTON_PLAIN_BG.into(), Color::NONE),
+            (tokens::BUTTON_PLAIN_BG_HOVER.into(), palette::GRAY_2),
+            (tokens::BUTTON_PLAIN_BG_PRESSED.into(), palette::GRAY_3),
+            (tokens::BUTTON_PLAIN_BG_DISABLED.into(), Color::NONE),
+            // Button text
             (tokens::BUTTON_TEXT.into(), palette::WHITE),
             (
                 tokens::BUTTON_TEXT_DISABLED.into(),
@@ -122,6 +140,17 @@ pub fn create_dark_theme() -> ThemeProps {
                 tokens::SWITCH_SLIDE_DISABLED.into(),
                 palette::LIGHT_GRAY_2.with_alpha(0.3),
             ),
+            // Pane
+            (tokens::PANE_HEADER_BG.into(), palette::GRAY_0),
+            (tokens::PANE_HEADER_BORDER.into(), palette::WARM_GRAY_1),
+            (tokens::PANE_HEADER_TEXT.into(), palette::LIGHT_GRAY_1),
+            (tokens::PANE_HEADER_DIVIDER.into(), palette::WARM_GRAY_1),
+            // Subpane
+            (tokens::SUBPANE_HEADER_BG.into(), palette::GRAY_2),
+            (tokens::SUBPANE_HEADER_BORDER.into(), palette::GRAY_3),
+            (tokens::SUBPANE_HEADER_TEXT.into(), palette::LIGHT_GRAY_1),
+            (tokens::SUBPANE_BODY_BG.into(), palette::GRAY_1),
+            (tokens::SUBPANE_BODY_BORDER.into(), palette::GRAY_2),
         ]),
     }
 }

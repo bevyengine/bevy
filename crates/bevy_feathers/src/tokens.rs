@@ -45,6 +45,28 @@ pub const BUTTON_PRIMARY_TEXT: &str = "feathers.button.primary.txt";
 /// Primary button text (disabled)
 pub const BUTTON_PRIMARY_TEXT_DISABLED: &str = "feathers.button.primary.txt.disabled";
 
+// Selected ("toggled") buttons
+
+/// Selected button background
+pub const BUTTON_SELECTED_BG: &str = "feathers.button.selected.bg";
+/// Selected button background (hovered)
+pub const BUTTON_SELECTED_BG_HOVER: &str = "feathers.button.selected.bg.hover";
+/// Selected button background (disabled)
+pub const BUTTON_SELECTED_BG_DISABLED: &str = "feathers.button.selected.bg.disabled";
+/// Selected button background (pressed)
+pub const BUTTON_SELECTED_BG_PRESSED: &str = "feathers.button.selected.bg.pressed";
+
+// Plain buttons (transparent background)
+
+/// Plain button background
+pub const BUTTON_PLAIN_BG: &str = "feathers.button.plain.bg";
+/// Plain button background (hovered)
+pub const BUTTON_PLAIN_BG_HOVER: &str = "feathers.button.plain.bg.hover";
+/// Plain button background (disabled)
+pub const BUTTON_PLAIN_BG_DISABLED: &str = "feathers.button.plain.bg.disabled";
+/// Plain button background (pressed)
+pub const BUTTON_PLAIN_BG_PRESSED: &str = "feathers.button.plain.bg.pressed";
+
 // Slider
 
 /// Background for slider
@@ -120,3 +142,27 @@ pub const SWITCH_BORDER_DISABLED: &str = "feathers.switch.border.disabled";
 pub const SWITCH_SLIDE: &str = "feathers.switch.slide";
 /// Switch slide (disabled)
 pub const SWITCH_SLIDE_DISABLED: &str = "feathers.switch.slide.disabled";
+
+// Pane
+
+/// Pane header background
+pub const PANE_HEADER_BG: &str = "feathers.pane.header.bg";
+/// Pane header border
+pub const PANE_HEADER_BORDER: &str = "feathers.pane.header.border";
+/// Pane header text color
+pub const PANE_HEADER_TEXT: &str = "feathers.pane.header.text";
+/// Pane header divider color
+pub const PANE_HEADER_DIVIDER: &str = "feathers.pane.header.divider";
+
+// Subpane
+
+/// Subpane background
+pub const SUBPANE_HEADER_BG: &str = "feathers.subpane.header.bg";
+/// Subpane header border
+pub const SUBPANE_HEADER_BORDER: &str = "feathers.subpane.header.border";
+/// Subpane header text color
+pub const SUBPANE_HEADER_TEXT: &str = "feathers.subpane.header.text";
+/// Subpane body background
+pub const SUBPANE_BODY_BG: &str = "feathers.subpane.body.bg";
+/// Subpane body border
+pub const SUBPANE_BODY_BORDER: &str = "feathers.subpane.body.border";

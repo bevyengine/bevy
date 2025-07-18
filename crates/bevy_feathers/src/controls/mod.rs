@@ -7,7 +7,7 @@ mod radio;
 mod slider;
 mod toggle_switch;
 
-pub use button::{button, ButtonPlugin, ButtonProps, ButtonVariant};
+pub use button::{button, tool_button, ButtonPlugin, ButtonProps, ButtonVariant};
 pub use checkbox::{checkbox, CheckboxPlugin, CheckboxProps};
 pub use radio::{radio, RadioPlugin};
 pub use slider::{slider, SliderPlugin, SliderProps};

@@ -1,14 +1,19 @@
 //! This example shows off the various Bevy Feathers widgets.
 
 use bevy::{
+    color::palettes,
     core_widgets::{
         callback, Activate, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
         SliderStep,
     },
     feathers::{
+        containers::{
+            flex_spacer, pane, pane_body, pane_header, pane_header_divider, subpane, subpane_body,
+            subpane_header,
+        },
         controls::{
-            button, checkbox, radio, slider, toggle_switch, ButtonProps, ButtonVariant,
-            CheckboxProps, SliderProps, ToggleSwitchProps,
+            button, checkbox, radio, slider, toggle_switch, tool_button, ButtonProps,
+            ButtonVariant, CheckboxProps, SliderProps, ToggleSwitchProps,
         },
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
@@ -55,8 +60,8 @@ fn demo_root() -> impl Scene {
             align_items: AlignItems::Start,
             justify_content: JustifyContent::Start,
             display: Display::Flex,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.0),
+            flex_direction: FlexDirection::Row,
+            column_gap: Val::Px(10.0),
         }
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
@@ -84,7 +89,7 @@ fn demo_root() -> impl Scene {
                                 info!("Normal button clicked!");
                             }),
                             ..default()
-                        }) [(Text::new("Normal") ThemedText)]
+                        }) [(Text("Normal") ThemedText)]
                     ),
                     (
                         :button(
@@ -96,7 +101,7 @@ fn demo_root() -> impl Scene {
                             },
                         )
                         InteractionDisabled::default()
-                        [(Text::new("Disabled") ThemedText)]
+                        [(Text("Disabled") ThemedText)]
                     ),
                     (
                         :button(
@@ -107,7 +112,7 @@ fn demo_root() -> impl Scene {
                                 variant: ButtonVariant::Primary,
                                 ..default()
                             },
-                        ) [(Text::new("Primary") ThemedText)]
+                        ) [(Text("Primary") ThemedText)]
                     ),
                 ],
                 Node {
@@ -124,7 +129,7 @@ fn demo_root() -> impl Scene {
                             }),
                             corners: RoundedCorners::Left,
                             ..default()
-                        }) [(Text::new("Left") ThemedText)]
+                        }) [(Text("Left") ThemedText)]
                     ),
                     (
                         :button(ButtonProps {
@@ -133,7 +138,7 @@ fn demo_root() -> impl Scene {
                             }),
                             corners: RoundedCorners::None,
                             ..default()
-                        }) [(Text::new("Center") ThemedText)]
+                        }) [(Text("Center") ThemedText)]
                     ),
                     (
                         :button(ButtonProps {
@@ -142,7 +147,7 @@ fn demo_root() -> impl Scene {
                             }),
                             variant: ButtonVariant::Primary,
                             corners: RoundedCorners::Right,
-                        }) [(Text::new("Right") ThemedText)]
+                        }) [(Text("Right") ThemedText)]
                     ),
                 ],
                 :button(
@@ -152,22 +157,22 @@ fn demo_root() -> impl Scene {
                         }),
                         ..default()
                     }
-                ) [(Text::new("Button") ThemedText)],
+                ) [(Text("Button") ThemedText)],
                 (
                     :checkbox(CheckboxProps::default())
                     Checked::default()
-                    [(Text::new("Checkbox") ThemedText)]
+                    [(Text("Checkbox") ThemedText)]
                 ),
                 (
                     :checkbox(CheckboxProps::default())
                     InteractionDisabled::default()
-                    [(Text::new("Disabled") ThemedText)]
+                    [(Text("Disabled") ThemedText)]
                 ),
                 (
                     :checkbox(CheckboxProps::default())
                     InteractionDisabled
                     Checked::default()
-                    [(Text::new("Disabled+Checked") ThemedText)]
+                    [(Text("Disabled+Checked") ThemedText)]
                 ),
                 (
                     Node {
@@ -190,10 +195,10 @@ fn demo_root() -> impl Scene {
                         ),
                     }
                     [
-                        :radio Checked::default() [(Text::new("One") ThemedText)],
-                        :radio [(Text::new("Two") ThemedText)],
-                        :radio [(Text::new("Three") ThemedText)],
-                        :radio InteractionDisabled::default() [(Text::new("Disabled") ThemedText)],
+                        :radio Checked::default() [(Text("One") ThemedText)],
+                        :radio [(Text("Two") ThemedText)],
+                        :radio [(Text("Three") ThemedText)],
+                        :radio InteractionDisabled::default() [(Text("Disabled") ThemedText)],
                     ]
                 ),
                 Node {
@@ -216,6 +221,82 @@ fn demo_root() -> impl Scene {
                     SliderStep(10.)
                     SliderPrecision(2)
                 ),
+            ],
+                        Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Stretch,
+                justify_content: JustifyContent::Start,
+                padding: UiRect::all(Val::Px(8.0)),
+                row_gap: Val::Px(8.0),
+                width: Val::Percent(30.),
+                min_width: Val::Px(200.),
+            } [
+                (
+                    :subpane [
+                        :subpane_header [
+                            (Text("Left") ThemedText),
+                            (Text("Center") ThemedText),
+                            (Text("Right") ThemedText)
+                        ],
+                        :subpane_body [
+                            (Text("Body") ThemedText),
+                        ],
+                    ]
+                ),
+                (
+                    :pane [
+                        :pane_header [
+                            :tool_button(ButtonProps {
+                                variant: ButtonVariant::Selected,
+                                ..default()
+                            }) [
+                                (Text("\u{0398}") ThemedText)
+                            ],
+                            :pane_header_divider,
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{00BC}") ThemedText)
+                            ],
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{00BD}") ThemedText)
+                            ],
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{00BE}") ThemedText)
+                            ],
+                            :pane_header_divider,
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{20AC}") ThemedText)
+                            ],
+                            :flex_spacer,
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{00D7}") ThemedText)
+                            ],
+                        ],
+                        (
+                            :pane_body [
+                                (Text("Some") ThemedText),
+                                (Text("Content") ThemedText),
+                                (Text("Here") ThemedText),
+                            ]
+                            BackgroundColor(palettes::tailwind::EMERALD_800)
+                        ),
+                    ]
+                )
             ]
         ]
     }

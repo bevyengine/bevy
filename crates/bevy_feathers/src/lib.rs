@@ -31,6 +31,7 @@ use crate::{
 };
 
 pub mod constants;
+pub mod containers;
 pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
