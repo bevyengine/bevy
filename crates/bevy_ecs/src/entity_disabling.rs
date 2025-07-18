@@ -105,6 +105,29 @@ use {
 // This component is registered as a disabling component during World::bootstrap
 pub struct Disabled;
 
+/// A marker component for internal entities.
+///
+/// This component is used to mark entities as being internal to the engine.
+/// Internal entities are hidden from queries using [`DefaultQueryFilters`].
+/// It is still possible to query them through a [`With<Internal>`] filter, [`EntityMutExcept`], or [`EntityRefExcept`].
+/// Methods like [`World::iter_entities`] and [`World::iter_entities_mut`] can also still access internal entities.
+/// However, we strongly advise against altering or removing entities tagged with this component in any way.
+///
+/// [`With<Internal>`]: crate::prelude::With
+/// [`EntityMutExcept`]: crate::world::EntityMutExcept
+/// [`EntityRefExcept`]: crate::world::EntityRefExcept
+/// [`World::iter_entities`]: crate::prelude::World::iter_entities
+/// [`World::iter_entities_mut`]: crate::prelude::World::iter_entities_mut
+#[derive(Component, Clone, Debug, Default)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component),
+    reflect(Debug, Clone, Default)
+)]
+// This component is registered as a disabling component during World::bootstrap
+pub struct Internal;
+
 /// Default query filters work by excluding entities with certain components from most queries.
 ///
 /// If a query does not explicitly mention a given disabling component, it will not include entities with that component.

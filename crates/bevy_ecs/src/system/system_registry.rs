@@ -3,6 +3,7 @@ use crate::reflect::ReflectComponent;
 use crate::{
     change_detection::Mut,
     entity::Entity,
+    entity_disabling::Internal,
     error::BevyError,
     system::{
         input::SystemInput, BoxedSystem, IntoSystem, RunSystemError, SystemParamValidationError,
@@ -18,7 +19,7 @@ use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-#[require(SystemIdMarker)]
+#[require(SystemIdMarker, Internal)]
 pub(crate) struct RegisteredSystem<I, O> {
     initialized: bool,
     system: BoxedSystem<I, O>,

@@ -12,8 +12,12 @@
 use core::any::Any;
 
 use crate::{
-    component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
+    component::{
+        ComponentCloneBehavior, ComponentId, ComponentsRegistrator, Mutable, RequiredComponents,
+        StorageType,
+    },
     entity::Entity,
+    entity_disabling::Internal,
     error::{ErrorContext, ErrorHandler},
     lifecycle::{ComponentHook, HookContext},
     observer::{observer_system_runner, ObserverRunner},
@@ -341,6 +345,21 @@ impl Component for Observer {
                 world.unregister_observer(entity, descriptor);
             });
         })
+    }
+
+    fn register_required_components(
+        _component_id: ComponentId,
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+        inheritance_depth: u16,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) {
+        components.register_required_components_manual::<Self, Internal>(
+            required_components,
+            Internal::default,
+            inheritance_depth,
+            recursion_check_stack,
+        );
     }
 }
 
