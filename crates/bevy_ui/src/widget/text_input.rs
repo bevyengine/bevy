@@ -5,6 +5,7 @@ use crate::widget::TextCursorStyle;
 use crate::widget::TextInputModifiers;
 use crate::widget::TextInputMultiClickCounter;
 use crate::widget::TextInputOverwriteMode;
+use crate::widget::TextUnderCursorColor;
 use crate::widget::MULTI_CLICK_PERIOD;
 use crate::ComputedNode;
 use crate::ComputedNodeTarget;
@@ -97,6 +98,7 @@ impl Plugin for TextInputPlugin {
     TextInputHistory,
     SpaceAdvance,
     SingleLineTextInput,
+    TextUnderCursorColor,
     ContentSize
 )]
 #[component(

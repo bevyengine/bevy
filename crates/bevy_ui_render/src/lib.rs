@@ -21,7 +21,8 @@ mod debug_overlay;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_ui::widget::{
-    ImageNode, TextCursorBlinkTimer, TextCursorStyle, TextInputModifiers, TextShadow, ViewportNode,
+    ImageNode, TextCursorBlinkTimer, TextCursorStyle, TextInputModifiers, TextShadow,
+    TextUnderCursorColor, ViewportNode,
 };
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
@@ -37,7 +38,6 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
-use bevy_log::info_once;
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
@@ -1012,6 +1012,7 @@ pub fn extract_text_input_nodes(
             &TextColor,
             &TextCursorStyle,
             &TextCursorBlinkTimer,
+            &TextUnderCursorColor,
             &SpaceAdvance,
         )>,
     >,
@@ -1033,6 +1034,7 @@ pub fn extract_text_input_nodes(
         color,
         cursor_style,
         blink_timer,
+        under_color,
         _space_advance,
     ) in &uinode_query
     {

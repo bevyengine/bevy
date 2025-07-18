@@ -98,6 +98,15 @@ fn update_attributes(
 #[derive(Resource, Default)]
 pub struct TextInputOverwriteMode(pub bool);
 
+#[derive(Component, Debug)]
+pub struct TextUnderCursorColor(pub Color);
+
+impl Default for TextUnderCursorColor {
+    fn default() -> Self {
+        Self(Color::BLACK)
+    }
+}
+
 /// Main text input component
 #[derive(Component, Debug, Default)]
 #[require(
@@ -114,6 +123,7 @@ pub struct TextInputOverwriteMode(pub bool);
     TextLayoutInfo,
     TextCursorBlinkTimer,
     TextInputHistory,
+    TextUnderCursorColor,
     SpaceAdvance
 )]
 #[component(

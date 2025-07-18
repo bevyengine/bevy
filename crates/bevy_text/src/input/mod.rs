@@ -404,18 +404,7 @@ pub fn update_text_input_buffers(
                 let line_height = attributes.line_height.eval(attributes.font_size);
                 let metrics =
                     Metrics::new(attributes.font_size, line_height).scale(target.scale_factor);
-
-                let height = if is_single_line {
-                    metrics.line_height
-                } else {
-                    target.size.y
-                };
-                buffer.set_metrics_and_size(
-                    font_system,
-                    metrics,
-                    Some(target.size.x - space_advance.0),
-                    Some(height),
-                );
+                buffer.set_metrics(font_system, metrics);
 
                 buffer.set_wrap(font_system, attributes.line_break.into());
 
@@ -469,6 +458,18 @@ pub fn update_text_input_buffers(
                     })
                     .unwrap_or(0.0)
                     * buffer.metrics().font_size;
+
+                let height = if is_single_line {
+                    metrics.line_height
+                } else {
+                    target.size.y
+                };
+
+                buffer.set_size(
+                    font_system,
+                    Some(target.size.x - space_advance.0),
+                    Some(height),
+                );
 
                 buffer.set_redraw(true);
             }
