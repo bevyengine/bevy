@@ -843,6 +843,58 @@ impl Image {
         Image::new(size, dimension, data, format, asset_usage)
     }
 
+    /// Create a new zero-filled image with a given size, which can be rendered to.
+    /// Useful for mirrors, UI, or exporting images for example.
+    /// This is primarily for use as a render target for a [`Camera`].
+    /// See [`RenderTarget::Image`].
+    ///
+    /// For Standard Dynamic Range (SDR) images you can use [`TextureFormat::Rgba8UnormSrgb`].
+    /// For High Dynamic Range (HDR) images you can use [`TextureFormat::Rgba16Float`].
+    ///
+    /// The default [`TextureUsages`] are
+    /// [`TEXTURE_BINDING`](TextureUsages::TEXTURE_BINDING),
+    /// [`COPY_DST`](TextureUsages::COPY_DST),
+    /// [`RENDER_ATTACHMENT`](TextureUsages::RENDER_ATTACHMENT).
+    ///
+    /// The default [`RenderAssetUsages`] is [`MAIN_WORLD | RENDER_WORLD`](RenderAssetUsages::default)
+    /// so that it is accessible from the CPU and GPU.
+    /// You can customize this by changing the [`asset_usage`](Image::asset_usage) field.
+    ///
+    /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
+    /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
+    pub fn new_target_texture(width: u32, height: u32, format: TextureFormat) -> Self {
+        let size = Extent3d {
+            width,
+            height,
+            ..Default::default()
+        };
+        // You need to set these texture usage flags in order to use the image as a render target
+        let usage = TextureUsages::TEXTURE_BINDING
+            | TextureUsages::COPY_DST
+            | TextureUsages::RENDER_ATTACHMENT;
+        // Fill with zeroes
+        let data = vec![0; format.pixel_size() * size.volume()];
+
+        Image {
+            data: Some(data),
+            data_order: TextureDataOrder::default(),
+            texture_descriptor: TextureDescriptor {
+                size,
+                format,
+                dimension: TextureDimension::D2,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
+            copy_on_resize: true,
+        }
+    }
+
     /// Returns the width of a 2D image.
     #[inline]
     pub fn width(&self) -> u32 {
