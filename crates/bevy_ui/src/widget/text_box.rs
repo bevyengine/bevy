@@ -152,7 +152,7 @@ impl Default for TextCursorStyle {
     fn default() -> Self {
         Self {
             color: GRAY_400.into(),
-            width: 0.1,
+            width: 0.2,
             height: 1.,
             blink_interval: 0.5,
         }
