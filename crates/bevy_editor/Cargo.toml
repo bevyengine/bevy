@@ -1,0 +1,13 @@
+[package]
+name = "bevy_editor"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bevy = { path = "../../", features = ["bevy_remote"] }
+bevy_core_widgets = { path = "../bevy_core_widgets" }
+rand = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ureq = { version = "2.10", features = ["json"] }
