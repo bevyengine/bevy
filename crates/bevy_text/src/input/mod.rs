@@ -393,7 +393,6 @@ pub fn update_text_input_buffers(
     mut text_pipeline: ResMut<TextPipeline>,
     fonts: Res<Assets<Font>>,
 ) {
-    info_once!(" update_text_input_buffers");
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
     for (mut input_buffer, mut space_advance, target, attributes, is_single_line) in
