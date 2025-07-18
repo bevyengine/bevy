@@ -1155,7 +1155,7 @@ pub fn extract_text_input_nodes(
             continue;
         }
 
-        if let Some((position, size, affinity)) = text_layout_info.cursor {
+        if let Some((position, size, _affinity)) = text_layout_info.cursor {
             let (cursor_size, cursor_position, cursor_z_offset) = if modifiers.overwrite {
                 (size * Vec2::new(1., cursor_style.height), position, -0.001)
             } else {
