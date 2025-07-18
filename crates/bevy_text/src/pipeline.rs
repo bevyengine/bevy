@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 
 use bevy_asset::{AssetId, Assets, Handle};
-use bevy_color::Color;
+use bevy_color::{Color, LinearRgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
@@ -459,7 +459,9 @@ pub struct TextLayoutInfo {
     /// The glyphs resulting size
     pub size: Vec2,
     /// Cursor position and size
-    pub cursor: Option<(Vec2, Vec2)>,
+    pub cursor: Option<(Vec2, Vec2, bool)>,
+    /// Index of glyph under the cursor
+    pub cursor_index: Option<usize>,
     /// Offset for scrolled text
     pub scroll: Vec2,
 }

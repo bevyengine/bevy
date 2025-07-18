@@ -1064,16 +1064,26 @@ pub fn extract_text_input_nodes(
             transform * Affine2::from_translation(-0.5 * uinode.size() - text_layout_info.scroll);
         let color = color.to_linear();
 
+        let blink = blink_timer
+            .0
+            .is_none_or(|t| cursor_style.blink_interval < t);
+
         for (
             i,
             PositionedGlyph {
                 position,
                 atlas_info,
-                span_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
+            if !blink
+                && modifiers.overwrite
+                && text_layout_info.cursor_index.is_some_and(|c| c == i)
+            {
+                continue;
+            }
+
             let rect = texture_atlases
                 .get(atlas_info.texture_atlas)
                 .unwrap()
@@ -1085,7 +1095,8 @@ pub fn extract_text_input_nodes(
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
+                info.atlas_info.texture != atlas_info.texture
+                    || text_layout_info.cursor_index.is_some_and(|j| j == i + 1)
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -1103,14 +1114,48 @@ pub fn extract_text_input_nodes(
             end += 1;
         }
 
-        if blink_timer
-            .0
-            .is_none_or(|t| cursor_style.blink_interval < t)
+        if let Some(index) = text_layout_info
+            .cursor_index
+            .filter(|_| modifiers.overwrite && !blink)
         {
+            if let Some(PositionedGlyph {
+                position,
+                atlas_info,
+                ..
+            }) = text_layout_info.glyphs.get(index)
+            {
+                let rect = texture_atlases
+                    .get(atlas_info.texture_atlas)
+                    .unwrap()
+                    .textures[atlas_info.location.glyph_index]
+                    .as_rect();
+                extracted_uinodes.glyphs.push(ExtractedGlyph {
+                    transform: transform * Affine2::from_translation(*position),
+                    rect,
+                });
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    color: under_color.0.into(),
+                    image: atlas_info.texture,
+                    clip,
+                    extracted_camera_entity,
+                    rect,
+                    item: ExtractedUiItem::Glyphs {
+                        range: start..start + 1,
+                    },
+                    main_entity: entity.into(),
+                });
+                start += 1;
+                end += 1;
+            }
+        }
+
+        if blink {
             continue;
         }
 
-        if let Some((position, size)) = text_layout_info.cursor {
+        if let Some((position, size, affinity)) = text_layout_info.cursor {
             let (cursor_size, cursor_position, cursor_z_offset) = if modifiers.overwrite {
                 (size * Vec2::new(1., cursor_style.height), position, -0.001)
             } else {

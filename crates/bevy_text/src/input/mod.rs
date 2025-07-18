@@ -535,15 +535,22 @@ pub fn update_text_input_layouts(
             layout_info.glyphs.clear();
             layout_info.section_rects.clear();
             layout_info.selection_rects.clear();
+            layout_info.cursor_index = None;
+            layout_info.cursor = None;
+
             let cursor_position = editor.cursor_position();
+            let cursor = editor.cursor();
 
             let result = editor.with_buffer_mut(|buffer| {
                 let box_size = buffer_dimensions(buffer);
                 if let Some((x, y)) = cursor_position {
                     let line_height = buffer.metrics().line_height;
                     let size = Vec2::new(space_advance.0, line_height);
-
-                    layout_info.cursor = Some((IVec2::new(x, y).as_vec2() + 0.5 * size, size));
+                    layout_info.cursor = Some((
+                        IVec2::new(x, y).as_vec2() + 0.5 * size,
+                        size,
+                        cursor.affinity.after(),
+                    ));
                 }
 
                 let result = buffer.layout_runs().try_for_each(|run| {
@@ -627,6 +634,10 @@ pub fn update_text_input_layouts(
                                 line_index: line_i,
                             };
                             layout_info.glyphs.push(pos_glyph);
+                            if cursor.line == line_i && cursor.index == layout_glyph.start {
+                                layout_info.cursor_index = Some(layout_info.glyphs.len() - 1);
+                            }
+
                             Ok(())
                         });
 
@@ -635,9 +646,6 @@ pub fn update_text_input_layouts(
 
                 // Check result.
                 result?;
-                if let Some(w) = layout_info.glyphs.get(0) {
-                    println!("width = {}", w.size.x);
-                }
                 layout_info.size = box_size;
                 Ok(())
             });
