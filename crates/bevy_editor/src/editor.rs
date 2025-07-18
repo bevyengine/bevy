@@ -35,13 +35,10 @@
 //! ```
 
 use bevy::prelude::*;
-use serde_json::Value;
 
-// Import our modular components
-use crate::remote::types::{EditorState, ComponentDisplayState, ComponentDataFetched, RemoteConnection, EntitiesFetched, ConnectionStatus, RemoteEntity, ComponentField};
-use crate::panels::{EntityListPlugin, ComponentInspectorPlugin, parse_component_fields};
+use crate::remote::{client, RemoteClientPlugin, types::{EditorState, ComponentDisplayState, ComponentDataFetched, RemoteConnection, EntitiesFetched, ConnectionStatus, RemoteEntity}};
+use crate::panels::{EntityListPlugin, ComponentInspectorPlugin};
 use crate::widgets::{WidgetsPlugin, ScrollViewBuilder, ScrollContent};
-use crate::formatting::{format_value_inline, format_simple_value, is_simple_value, all_numbers};
 
 /// Main plugin for the Bevy Editor that provides a comprehensive inspector interface.
 /// 
@@ -62,6 +59,7 @@ impl Plugin for EditorPlugin {
         app
             // Add sub-plugins for modular functionality  
             .add_plugins((
+                RemoteClientPlugin,
                 EntityListPlugin,
                 ComponentInspectorPlugin,
                 WidgetsPlugin,
@@ -91,7 +89,7 @@ use crate::panels::{
     ComponentInspector, ComponentInspectorContent,
     EntityTree, EntityListArea
 };
-use crate::widgets::{ExpansionButton, EntityListItem};
+use crate::widgets::EntityListItem;
 
 /// Component for status bar
 #[derive(Component)]
@@ -312,7 +310,7 @@ fn handle_component_inspection(
                 // Use the full component names for the API request
                 if !selected_entity.full_component_names.is_empty() {
                     info!("Using component names: {:?}", selected_entity.full_component_names);
-                    match remote_client::try_fetch_component_data_with_names(
+                    match client::try_fetch_component_data_with_names(
                         &remote_conn.base_url, 
                         selected_entity_id, 
                         selected_entity.full_component_names.clone()
@@ -387,8 +385,8 @@ fn handle_component_data_fetched(
                     TextColor(Color::srgb(0.65, 0.65, 0.65)),
                 ));
             } else {
-                // Build interactive component widgets
-                build_component_widgets(parent, event.entity_id, &event.component_data, &display_state);
+                // Use the modular component inspector implementation
+                crate::panels::component_inspector::build_component_widgets(parent, event.entity_id, &event.component_data, &display_state);
             }
         });
     }
@@ -412,7 +410,7 @@ fn update_remote_connection(
         }
         
         // Try to fetch entities using the remote client framework
-        match remote_client::try_fetch_entities(&remote_conn.base_url) {
+        match client::try_fetch_entities(&remote_conn.base_url) {
             Ok(entities) => {
                 info!("Successfully fetched {} entities from remote server", entities.len());
                 commands.trigger(EntitiesFetched { entities });
@@ -434,145 +432,6 @@ fn update_remote_connection(
         }
     }
 }
-
-/// TODO: Real bevy_remote integration framework
-/// This module will contain the actual HTTP client integration when implemented
-mod remote_client {
-    use super::*;
-    use bevy::remote::{
-        builtin_methods::{
-            BrpQuery, BrpQueryFilter, BrpQueryParams, ComponentSelector, BRP_QUERY_METHOD,
-        },
-        BrpRequest,
-    };
-    
-    /// Attempts to connect to a bevy_remote server and fetch entity data
-    pub fn try_fetch_entities(base_url: &str) -> Result<Vec<RemoteEntity>, String> {
-        // Create a query to get all entities with their components
-        let query_request = BrpRequest {
-            jsonrpc: "2.0".to_string(),
-            method: BRP_QUERY_METHOD.to_string(),
-            id: Some(serde_json::to_value(1).map_err(|e| format!("JSON error: {}", e))?),
-            params: Some(
-                serde_json::to_value(BrpQueryParams {
-                    data: BrpQuery {
-                        components: Vec::default(), // Get all components
-                        option: ComponentSelector::All,
-                        has: Vec::default(),
-                    },
-                    strict: false,
-                    filter: BrpQueryFilter::default(),
-                })
-                .map_err(|e| format!("Failed to serialize query params: {}", e))?,
-            ),
-        };
-        
-        // Make the HTTP request
-        let response = ureq::post(base_url)
-            .timeout(std::time::Duration::from_secs(2))
-            .send_json(&query_request)
-            .map_err(|e| format!("HTTP request failed: {}", e))?;
-        
-        // Parse the response as JSON first
-        let json_response: serde_json::Value = response
-            .into_json()
-            .map_err(|e| format!("Failed to parse response: {}", e))?;
-        
-        // Check if we have an error or result
-        if let Some(error) = json_response.get("error") {
-            return Err(format!("Server error: {}", error));
-        }
-        
-        if let Some(result) = json_response.get("result") {
-            parse_brp_entities(result.clone())
-        } else {
-            Err("No result or error in response".to_string())
-        }
-    }
-    
-    /// Fetch component data for a specific entity with explicit component names
-    pub fn try_fetch_component_data_with_names(base_url: &str, entity_id: u32, component_names: Vec<String>) -> Result<String, String> {
-        // Create a get request for specific entity with component names
-        let get_request = BrpRequest {
-            jsonrpc: "2.0".to_string(),
-            method: "bevy/get".to_string(),
-            id: Some(serde_json::to_value(2).map_err(|e| format!("JSON error: {}", e))?),
-            params: Some(
-                serde_json::json!({
-                    "entity": entity_id as u64,
-                    "components": component_names
-                })
-            ),
-        };
-        
-        let response = ureq::post(base_url)
-            .timeout(std::time::Duration::from_secs(2))
-            .send_json(&get_request)
-            .map_err(|e| format!("HTTP request failed: {}", e))?;
-        
-        let json_response: serde_json::Value = response
-            .into_json()
-            .map_err(|e| format!("Failed to parse response: {}", e))?;
-        
-        // Check if we have an error or result
-        if let Some(error) = json_response.get("error") {
-            return Err(format!("Server error: {}", error));
-        }
-        
-        if let Some(result) = json_response.get("result") {
-            Ok(serde_json::to_string_pretty(result)
-                .unwrap_or_else(|_| "Failed to format component data".to_string()))
-        } else {
-            Err("No result or error in response".to_string())
-        }
-    }
-    
-    /// Parse BRP query response into our RemoteEntity format
-    fn parse_brp_entities(result: serde_json::Value) -> Result<Vec<RemoteEntity>, String> {
-        let mut entities = Vec::new();
-        
-        if let Some(entity_array) = result.as_array() {
-            for entity_obj in entity_array {
-                if let Some(entity_data) = entity_obj.as_object() {
-                    // Get entity ID
-                    let entity_id = entity_data
-                        .get("entity")
-                        .and_then(|v| v.as_u64())
-                        .ok_or("Missing or invalid entity ID")?;
-                    
-                    // Extract component names
-                    let mut components = Vec::new();
-                    let mut full_component_names = Vec::new();
-                    if let Some(components_obj) = entity_data.get("components").and_then(|v| v.as_object()) {
-                        for component_name in components_obj.keys() {
-                            // Store the full name for API calls
-                            full_component_names.push(component_name.clone());
-                            // Clean up component names (remove module paths for readability)
-                            let clean_name = component_name
-                                .split("::")
-                                .last()
-                                .unwrap_or(component_name)
-                                .to_string();
-                            components.push(clean_name);
-                        }
-                    }
-                    
-                    entities.push(RemoteEntity {
-                        id: entity_id as u32,
-                        components,
-                        full_component_names,
-                    });
-                }
-            }
-        } else {
-            return Err("Expected array of entities in response".to_string());
-        }
-        
-        Ok(entities)
-    }
-}
-
-
 
 /// Refresh the entity list display
 fn refresh_entity_list(
@@ -799,7 +658,7 @@ fn handle_expansion_keyboard(
         if let Some(selected_entity_id) = editor_state.selected_entity_id {
             if let Some(selected_entity) = editor_state.entities.iter().find(|e| e.id == selected_entity_id) {
                 if !selected_entity.full_component_names.is_empty() {
-                    match remote_client::try_fetch_component_data_with_names(
+                    match client::try_fetch_component_data_with_names(
                         &remote_conn.base_url, 
                         selected_entity_id, 
                         selected_entity.full_component_names.clone()
@@ -824,432 +683,6 @@ fn handle_expansion_keyboard(
                     }
                 }
             }
-        }
-    }
-}
-
-/// Build component display as interactive widgets instead of just text
-fn build_component_widgets(
-    parent: &mut ChildSpawnerCommands,
-    entity_id: u32,
-    components_data: &str,
-    display_state: &ComponentDisplayState,
-) {
-    // Try to parse the JSON response
-    if let Ok(json_value) = serde_json::from_str::<Value>(components_data) {
-        if let Some(components_obj) = json_value.get("components").and_then(|v| v.as_object()) {
-            // Header
-            parent.spawn((
-                Text::new(format!("Entity {} - Components", entity_id)),
-                TextFont {
-                    font_size: 15.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                Node {
-                    margin: UiRect::bottom(Val::Px(12.0)),
-                    ..default()
-                },
-            ));
-            
-            for (component_name, component_data) in components_obj {
-                // Clean component name (remove module path)
-                let clean_name = component_name.split("::").last().unwrap_or(component_name);
-                build_component_widget(parent, clean_name, component_data, component_name, display_state);
-            }
-            return;
-        }
-    }
-    
-    // Fallback to simple text display if parsing fails
-    parent.spawn((
-        Text::new(format!("Entity {} - Component Data\n\n{}", entity_id, components_data)),
-        TextFont {
-            font_size: 13.0,
-            ..default()
-        },
-        TextColor(Color::srgb(0.8, 0.8, 0.8)),
-    ));
-}
-
-/// Extract package name from a full component type string
-fn extract_package_name(full_component_name: &str) -> String {
-    // Handle different patterns:
-    // bevy_transform::components::Transform -> bevy_transform
-    // bevy_ui::ui_node::Node -> bevy_ui  
-    // cube::server::SomeComponent -> cube
-    // std::collections::HashMap -> std
-    // MyComponent -> MyComponent (no package)
-    
-    if let Some(first_separator) = full_component_name.find("::") {
-        let package_part = &full_component_name[..first_separator];
-        
-        // Handle cases where the first part might be a crate prefix
-        // like "bevy_core" or just "bevy"
-        if package_part.contains('_') || package_part.len() <= 12 {
-            format!("[{}]", package_part)
-        } else {
-            // For very long first parts, just take first word
-            format!("[{}]", package_part.split('_').next().unwrap_or(package_part))
-        }
-    } else {
-        // No package separator, use the component name itself
-        format!("[{}]", full_component_name.split('<').next().unwrap_or(full_component_name))
-    }
-}
-
-/// Build a single component widget with expansion capabilities
-fn build_component_widget(
-    parent: &mut ChildSpawnerCommands,
-    clean_name: &str,
-    component_data: &Value,
-    full_component_name: &str,
-    display_state: &ComponentDisplayState,
-) {
-    // Component header container
-    parent.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            margin: UiRect::bottom(Val::Px(8.0)),
-            ..default()
-        },
-    )).with_children(|parent| {
-        // Component title with package name
-        let package_name = extract_package_name(full_component_name);
-        parent.spawn((
-            Text::new(format!("{} {}", package_name, clean_name)),
-            TextFont {
-                font_size: 14.0,
-                ..default()
-            },
-            TextColor(Color::srgb(0.95, 0.95, 0.95)),
-            Node {
-                margin: UiRect::bottom(Val::Px(4.0)),
-                ..default()
-            },
-        ));
-        
-        // Build component fields
-        let fields = parse_component_fields(full_component_name, component_data);
-        for field in fields {
-            build_field_widget(parent, &field, 1, &format!("{}.{}", clean_name, field.name), display_state);
-        }
-    });
-}
-
-/// Build a field widget with expansion button if needed
-fn build_field_widget(
-    parent: &mut ChildSpawnerCommands,
-    field: &ComponentField,
-    indent_level: usize,
-    path: &str,
-    display_state: &ComponentDisplayState,
-) {
-    let indent_px = (indent_level as f32) * 16.0;
-    
-    parent.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            margin: UiRect::left(Val::Px(indent_px)),
-            padding: UiRect::all(Val::Px(2.0)),
-            ..default()
-        },
-    )).with_children(|parent| {
-        if field.is_expandable {
-            let is_expanded = display_state.expanded_paths.contains(path);
-            
-            // Expansion button
-            parent.spawn((
-                Button,
-                Node {
-                    width: Val::Px(18.0),
-                    height: Val::Px(18.0),
-                    margin: UiRect::right(Val::Px(6.0)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    border: UiRect::all(Val::Px(1.0)),
-                    ..default()
-                },
-                BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                BorderColor::all(Color::srgb(0.5, 0.5, 0.5)),
-                ExpansionButton {
-                    path: path.to_string(),
-                    is_expanded,
-                },
-            )).with_children(|parent| {
-                parent.spawn((
-                    Text::new(if is_expanded { "-" } else { "+" }),
-                    TextFont {
-                        font_size: 12.0,
-                        ..default()
-                    },
-                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                ));
-            });
-            
-            // Field name and summary
-            let value_summary = format_value_inline(&field.value);
-            parent.spawn((
-                Text::new(format!("{}: {}", field.name, value_summary)),
-                TextFont {
-                    font_size: 12.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.8, 0.8, 0.8)),
-            ));
-        } else {
-            // No expansion button for simple values
-            parent.spawn((
-                Node {
-                    width: Val::Px(16.0),
-                    height: Val::Px(16.0),
-                    margin: UiRect::right(Val::Px(6.0)),
-                    ..default()
-                },
-            ));
-            
-            // Simple field display
-            let formatted_value = format_simple_value(&field.value);
-            parent.spawn((
-                Text::new(format!("{}: {}", field.name, formatted_value)),
-                TextFont {
-                    font_size: 12.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.8, 0.8, 0.8)),
-            ));
-        }
-    });
-    
-    // Show expanded children if the field is expanded
-    if field.is_expandable && display_state.expanded_paths.contains(path) {
-        if matches!(field.value, Value::Object(_)) {
-            build_expanded_object_widgets(parent, &field.value, indent_level + 1, path, display_state);
-        } else if matches!(field.value, Value::Array(_)) {
-            build_expanded_array_widgets(parent, &field.value, indent_level + 1);
-        }
-    }
-}
-
-/// Build widgets for expanded object fields
-fn build_expanded_object_widgets(
-    parent: &mut ChildSpawnerCommands,
-    value: &Value,
-    indent_level: usize,
-    path: &str,
-    display_state: &ComponentDisplayState,
-) {
-    let indent_px = (indent_level as f32) * 16.0;
-    
-    if let Some(obj) = value.as_object() {
-        // Check for common Bevy types (Vec3, Vec2, Color, etc.)
-        if let (Some(x), Some(y), Some(z)) = (obj.get("x"), obj.get("y"), obj.get("z")) {
-            if all_numbers(&[x, y, z]) {
-                for (component, val) in [("x", x), ("y", y), ("z", z)] {
-                    parent.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Row,
-                            margin: UiRect::left(Val::Px(indent_px)),
-                            padding: UiRect::all(Val::Px(2.0)),
-                            ..default()
-                        },
-                    )).with_children(|parent| {
-                        parent.spawn((
-                            Text::new(format!("{}: {:.3}", component, val.as_f64().unwrap_or(0.0))),
-                            TextFont {
-                                font_size: 12.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.7, 0.9, 0.7)),
-                        ));
-                    });
-                }
-                if let Some(w) = obj.get("w") {
-                    if w.is_number() {
-                        parent.spawn((
-                            Node {
-                                flex_direction: FlexDirection::Row,
-                                margin: UiRect::left(Val::Px(indent_px)),
-                                padding: UiRect::all(Val::Px(2.0)),
-                                ..default()
-                            },
-                        )).with_children(|parent| {
-                            parent.spawn((
-                                Text::new(format!("w: {:.3}", w.as_f64().unwrap_or(0.0))),
-                                TextFont {
-                                    font_size: 12.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgb(0.7, 0.9, 0.7)),
-                            ));
-                        });
-                    }
-                }
-                return;
-            }
-        } else if let (Some(x), Some(y)) = (obj.get("x"), obj.get("y")) {
-            if all_numbers(&[x, y]) {
-                for (component, val) in [("x", x), ("y", y)] {
-                    parent.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Row,
-                            margin: UiRect::left(Val::Px(indent_px)),
-                            padding: UiRect::all(Val::Px(2.0)),
-                            ..default()
-                        },
-                    )).with_children(|parent| {
-                        parent.spawn((
-                            Text::new(format!("{}: {:.3}", component, val.as_f64().unwrap_or(0.0))),
-                            TextFont {
-                                font_size: 12.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.7, 0.9, 0.7)),
-                        ));
-                    });
-                }
-                return;
-            }
-        }
-        
-        // Generic object handling
-        for (key, val) in obj {
-            let child_path = format!("{}.{}", path, key);
-            let is_simple = is_simple_value(val);
-            
-            parent.spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    margin: UiRect::left(Val::Px(indent_px)),
-                    padding: UiRect::all(Val::Px(2.0)),
-                    ..default()
-                },
-            )).with_children(|parent| {
-                if is_simple {
-                    parent.spawn((
-                        Text::new(format!("{}: {}", key, format_simple_value(val))),
-                        TextFont {
-                            font_size: 12.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.7, 0.7, 0.9)),
-                    ));
-                } else {
-                    let is_expanded = display_state.expanded_paths.contains(&child_path);
-                    parent.spawn((
-                        Text::new(format!("{}{}: {}", 
-                            if is_expanded { "[-] " } else { "[+] " },
-                            key, 
-                            format_value_inline(val)
-                        )),
-                        TextFont {
-                            font_size: 12.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.8, 0.8, 0.8)),
-                    ));
-                }
-            });
-        }
-    }
-}
-
-/// Build widgets for expanded array fields  
-fn build_expanded_array_widgets(
-    parent: &mut ChildSpawnerCommands,
-    value: &Value,
-    indent_level: usize,
-) {
-    let indent_px = (indent_level as f32) * 16.0;
-    
-    if let Some(arr) = value.as_array() {
-        if arr.len() <= 4 && arr.iter().all(|v| v.is_number()) {
-            // Small numeric arrays (Vec2, Vec3, Vec4, Quat components)
-            for (i, item) in arr.iter().enumerate() {
-                let comp_name = match i {
-                    0 => "x", 1 => "y", 2 => "z", 3 => "w",
-                    _ => &format!("[{}]", i),
-                };
-                parent.spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        margin: UiRect::left(Val::Px(indent_px)),
-                        padding: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
-                )).with_children(|parent| {
-                    parent.spawn((
-                        Text::new(format!("{}: {:.3}", comp_name, item.as_f64().unwrap_or(0.0))),
-                        TextFont {
-                            font_size: 12.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.7, 0.9, 0.7)),
-                    ));
-                });
-            }
-        } else if arr.len() <= 10 {
-            // Small arrays - show all items
-            for (i, item) in arr.iter().enumerate() {
-                parent.spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        margin: UiRect::left(Val::Px(indent_px)),
-                        padding: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
-                )).with_children(|parent| {
-                    parent.spawn((
-                        Text::new(format!("[{}]: {}", i, format_simple_value(item))),
-                        TextFont {
-                            font_size: 12.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.7, 0.7)),
-                    ));
-                });
-            }
-        } else {
-            // Large arrays - show first few items
-            for (i, item) in arr.iter().take(3).enumerate() {
-                parent.spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        margin: UiRect::left(Val::Px(indent_px)),
-                        padding: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
-                )).with_children(|parent| {
-                    parent.spawn((
-                        Text::new(format!("[{}]: {}", i, format_simple_value(item))),
-                        TextFont {
-                            font_size: 12.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.7, 0.7)),
-                    ));
-                });
-            }
-            parent.spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    margin: UiRect::left(Val::Px(indent_px)),
-                    padding: UiRect::all(Val::Px(2.0)),
-                    ..default()
-                },
-            )).with_children(|parent| {
-                parent.spawn((
-                    Text::new(format!("... ({} more items)", arr.len() - 3)),
-                    TextFont {
-                        font_size: 12.0,
-                        ..default()
-                    },
-                    TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                ));
-            });
         }
     }
 }

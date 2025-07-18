@@ -10,7 +10,7 @@
 //! - **CoreScrollArea**: Low-level scroll component for custom implementations  
 //! - **ExpansionButton**: Collapsible content with expand/collapse functionality
 //! - **BasicPanel**: Simple panel with header and content area
-//! - **ScrollableContainer**: Legacy scrollable container (simple implementation)
+//! - **ListView**: Generic list widget with selection support
 //!
 //! ## Integration
 //!
@@ -34,7 +34,6 @@
 //! ```
 
 pub mod expansion_button;
-pub mod simple_scrollable;
 pub mod simple_panel;
 pub mod core_scroll_area;
 pub mod scroll_view;
@@ -46,7 +45,6 @@ pub mod list_view;
 // pub mod theme;
 
 pub use expansion_button::*;
-pub use simple_scrollable::ScrollableContainer;
 pub use simple_panel::{BasicPanel, spawn_basic_panel};
 pub use core_scroll_area::*;
 pub use scroll_view::*;

@@ -6,7 +6,6 @@ use crate::{
     themes::DarkTheme,
     remote::types::{EditorState, RemoteEntity},
     widgets::{
-        simple_scrollable::ScrollableContainerPlugin,
         spawn_basic_panel,
         EditorTheme,
         ListView,
@@ -21,7 +20,7 @@ pub struct EntityListPlugin;
 
 impl Plugin for EntityListPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((ScrollableContainerPlugin, ListViewPlugin))
+        app.add_plugins(ListViewPlugin)
             .add_systems(Update, (
                 handle_entity_selection,
                 update_entity_button_colors,
