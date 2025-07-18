@@ -3089,6 +3089,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_gradients"
+path = "examples/stress_tests/many_gradients.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_gradients]
+name = "Many Gradients"
+description = "Stress test for gradient rendering performance"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cameras_lights"
 path = "examples/stress_tests/many_cameras_lights.rs"
 doc-scrape-examples = true

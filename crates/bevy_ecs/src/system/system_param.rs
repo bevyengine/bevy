@@ -55,6 +55,8 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct SomeComponent;
 /// # #[derive(Resource)]
 /// # struct SomeResource;
 /// # #[derive(BufferedEvent)]
@@ -66,6 +68,8 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # struct ParamsExample<'w, 's> {
 /// #    query:
 /// Query<'w, 's, Entity>,
+/// #    query2:
+/// Query<'w, 's, &'static SomeComponent>,
 /// #    res:
 /// Res<'w, SomeResource>,
 /// #    res_mut:
