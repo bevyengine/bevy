@@ -14,7 +14,7 @@ use crate::{
     prelude::{SystemIn, SystemSet},
     query::FilteredAccessSet,
     schedule::{
-        graph::{DirectedGraphNodeId, Direction, GraphNodeId, GraphNodeIdPair},
+        graph::{Direction, GraphNodeId},
         BoxedCondition, InternedSystemSet,
     },
     system::{
@@ -256,8 +256,8 @@ new_key_type! {
 }
 
 impl GraphNodeId for SystemKey {
-    type Directed = (SystemKey, Direction);
-    type Pair = (SystemKey, SystemKey);
+    type Adjacent = (SystemKey, Direction);
+    type Edge = (SystemKey, SystemKey);
 }
 
 impl TryFrom<NodeId> for SystemKey {
@@ -322,8 +322,8 @@ impl NodeId {
 }
 
 impl GraphNodeId for NodeId {
-    type Directed = CompactNodeIdAndDirection;
-    type Pair = CompactNodeIdPair;
+    type Adjacent = CompactNodeIdAndDirection;
+    type Edge = CompactNodeIdPair;
 }
 
 impl From<SystemKey> for NodeId {
@@ -348,14 +348,13 @@ pub struct CompactNodeIdAndDirection {
 
 impl Debug for CompactNodeIdAndDirection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.unwrap().fmt(f)
+        let tuple: (_, _) = (*self).into();
+        tuple.fmt(f)
     }
 }
 
-impl DirectedGraphNodeId for CompactNodeIdAndDirection {
-    type Id = NodeId;
-
-    fn new(id: NodeId, direction: Direction) -> Self {
+impl From<(NodeId, Direction)> for CompactNodeIdAndDirection {
+    fn from((id, direction): (NodeId, Direction)) -> Self {
         let key = match id {
             NodeId::System(key) => key.data(),
             NodeId::Set(key) => key.data(),
@@ -368,20 +367,16 @@ impl DirectedGraphNodeId for CompactNodeIdAndDirection {
             direction,
         }
     }
+}
 
-    fn unwrap(self) -> (NodeId, Direction) {
-        let Self {
-            key,
-            is_system,
-            direction,
-        } = self;
-
-        let node = match is_system {
-            true => NodeId::System(key.into()),
-            false => NodeId::Set(key.into()),
+impl From<CompactNodeIdAndDirection> for (NodeId, Direction) {
+    fn from(value: CompactNodeIdAndDirection) -> Self {
+        let node = match value.is_system {
+            true => NodeId::System(value.key.into()),
+            false => NodeId::Set(value.key.into()),
         };
 
-        (node, direction)
+        (node, value.direction)
     }
 }
 
@@ -396,14 +391,13 @@ pub struct CompactNodeIdPair {
 
 impl Debug for CompactNodeIdPair {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.unwrap().fmt(f)
+        let tuple: (_, _) = (*self).into();
+        tuple.fmt(f)
     }
 }
 
-impl GraphNodeIdPair for CompactNodeIdPair {
-    type Id = NodeId;
-
-    fn new(a: NodeId, b: NodeId) -> Self {
+impl From<(NodeId, NodeId)> for CompactNodeIdPair {
+    fn from((a, b): (NodeId, NodeId)) -> Self {
         let key_a = match a {
             NodeId::System(index) => index.data(),
             NodeId::Set(index) => index.data(),
@@ -423,23 +417,18 @@ impl GraphNodeIdPair for CompactNodeIdPair {
             is_system_b,
         }
     }
+}
 
-    fn unwrap(self) -> (NodeId, NodeId) {
-        let Self {
-            key_a,
-            key_b,
-            is_system_a,
-            is_system_b,
-        } = self;
-
-        let a = match is_system_a {
-            true => NodeId::System(key_a.into()),
-            false => NodeId::Set(key_a.into()),
+impl From<CompactNodeIdPair> for (NodeId, NodeId) {
+    fn from(value: CompactNodeIdPair) -> Self {
+        let a = match value.is_system_a {
+            true => NodeId::System(value.key_a.into()),
+            false => NodeId::Set(value.key_a.into()),
         };
 
-        let b = match is_system_b {
-            true => NodeId::System(key_b.into()),
-            false => NodeId::Set(key_b.into()),
+        let b = match value.is_system_b {
+            true => NodeId::System(value.key_b.into()),
+            false => NodeId::Set(value.key_b.into()),
         };
 
         (a, b)

@@ -13,24 +13,24 @@ use core::{
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 
-use crate::schedule::graph::node::{DirectedGraphNodeId, GraphNodeId, GraphNodeIdPair};
+use crate::schedule::graph::node::GraphNodeId;
 
 use Direction::{Incoming, Outgoing};
 
-/// A `Graph` with undirected edges.
+/// A `Graph` with undirected edges of some [`GraphNodeId`] `N`.
 ///
 /// For example, an edge between *1* and *2* is equivalent to an edge between
 /// *2* and *1*.
 pub type UnGraph<N, S = FixedHasher> = Graph<false, N, S>;
 
-/// A `Graph` with directed edges.
+/// A `Graph` with directed edges of some [`GraphNodeId`] `N`.
 ///
 /// For example, an edge from *1* to *2* is distinct from an edge from *2* to
 /// *1*.
 pub type DiGraph<N, S = FixedHasher> = Graph<true, N, S>;
 
 /// `Graph<DIRECTED>` is a graph datastructure using an associative array
-/// of its node weights `NodeId`.
+/// of its node weights of some [`GraphNodeId`].
 ///
 /// It uses a combined adjacency list and sparse adjacency matrix
 /// representation, using **O(|N| + |E|)** space, and allows testing for edge
@@ -40,6 +40,7 @@ pub type DiGraph<N, S = FixedHasher> = Graph<true, N, S>;
 ///
 /// - Constant generic bool `DIRECTED` determines whether the graph edges are directed or
 ///   undirected.
+/// - The `GraphNodeId` type `N`, which is used as the node weight.
 /// - The `BuildHasher` `S`.
 ///
 /// You can use the type aliases `UnGraph` and `DiGraph` for convenience.
@@ -50,8 +51,8 @@ pub struct Graph<const DIRECTED: bool, N: GraphNodeId, S = FixedHasher>
 where
     S: BuildHasher,
 {
-    nodes: IndexMap<N, Vec<N::Directed>, S>,
-    edges: HashSet<N::Pair, S>,
+    nodes: IndexMap<N, Vec<N::Adjacent>, S>,
+    edges: HashSet<N::Edge, S>,
 }
 
 impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> fmt::Debug for Graph<DIRECTED, N, S> {
@@ -74,10 +75,10 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
 
     /// Use their natural order to map the node pair (a, b) to a canonical edge id.
     #[inline]
-    fn edge_key(a: N, b: N) -> N::Pair {
+    fn edge_key(a: N, b: N) -> N::Edge {
         let (a, b) = if DIRECTED || a <= b { (a, b) } else { (b, a) };
 
-        N::Pair::new(a, b)
+        N::Edge::from((a, b))
     }
 
     /// Return the number of nodes in the graph.
@@ -103,7 +104,7 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
             return;
         };
 
-        let links = links.into_iter().map(N::Directed::unwrap);
+        let links = links.into_iter().map(N::Adjacent::into);
 
         for (succ, dir) in links {
             let edge = if dir == Outgoing {
@@ -133,18 +134,18 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
             self.nodes
                 .entry(a)
                 .or_insert_with(|| Vec::with_capacity(1))
-                .push(N::Directed::new(b, Outgoing));
+                .push(N::Adjacent::from((b, Outgoing)));
             if a != b {
                 // self loops don't have the Incoming entry
                 self.nodes
                     .entry(b)
                     .or_insert_with(|| Vec::with_capacity(1))
-                    .push(N::Directed::new(a, Incoming));
+                    .push(N::Adjacent::from((a, Incoming)));
             }
         }
     }
 
-    /// Remove edge relation from a to b
+    /// Remove edge relation from a to b.
     ///
     /// Return `true` if it did exist.
     fn remove_single_edge(&mut self, a: N, b: N, dir: Direction) -> bool {
@@ -155,7 +156,7 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
         let Some(index) = sus
             .iter()
             .copied()
-            .map(N::Directed::unwrap)
+            .map(N::Adjacent::into)
             .position(|elt| (DIRECTED && elt == (b, dir)) || (!DIRECTED && elt.0 == b))
         else {
             return false;
@@ -198,7 +199,7 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
         };
 
         iter.copied()
-            .map(N::Directed::unwrap)
+            .map(N::Adjacent::into)
             .filter_map(|(n, dir)| (!DIRECTED || dir == Outgoing).then_some(n))
     }
 
@@ -216,7 +217,7 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
         };
 
         iter.copied()
-            .map(N::Directed::unwrap)
+            .map(N::Adjacent::into)
             .filter_map(move |(n, d)| (!DIRECTED || d == dir || n == a).then_some(n))
     }
 
@@ -249,7 +250,7 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
 
     /// Return an iterator over all edges of the graph with their weight in arbitrary order.
     pub fn all_edges(&self) -> impl ExactSizeIterator<Item = (N, N)> + '_ {
-        self.edges.iter().copied().map(N::Pair::unwrap)
+        self.edges.iter().copied().map(N::Edge::into)
     }
 
     pub(crate) fn to_index(&self, ix: N) -> usize {
@@ -266,29 +267,38 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
     where
         S: Default,
     {
+        // Converts the node key and every adjacency list entry from `N` to `T`.
+        fn try_convert_node<N: GraphNodeId, T: GraphNodeId + TryFrom<N>>(
+            (key, adj): (N, Vec<N::Adjacent>),
+        ) -> Result<(T, Vec<T::Adjacent>), T::Error> {
+            let key = key.try_into()?;
+            let adj = adj
+                .into_iter()
+                .map(|node| {
+                    let (id, dir) = node.into();
+                    Ok(T::Adjacent::from((id.try_into()?, dir)))
+                })
+                .collect::<Result<_, T::Error>>()?;
+            Ok((key, adj))
+        }
+        // Unpacks the edge pair, converts the nodes from `N` to `T`, and repacks them.
+        fn try_convert_edge<N: GraphNodeId, T: GraphNodeId + TryFrom<N>>(
+            edge: N::Edge,
+        ) -> Result<T::Edge, T::Error> {
+            let (a, b) = edge.into();
+            Ok(T::Edge::from((a.try_into()?, b.try_into()?)))
+        }
+
         let nodes = self
             .nodes
             .into_iter()
-            .map(|(k, v)| {
-                Ok((
-                    k.try_into()?,
-                    v.into_iter()
-                        .map(|v| {
-                            let (id, dir) = v.unwrap();
-                            Ok(T::Directed::new(id.try_into()?, dir))
-                        })
-                        .collect::<Result<Vec<T::Directed>, T::Error>>()?,
-                ))
-            })
-            .collect::<Result<IndexMap<T, Vec<T::Directed>, S>, T::Error>>()?;
+            .map(try_convert_node::<N, T>)
+            .collect::<Result<_, T::Error>>()?;
         let edges = self
             .edges
             .into_iter()
-            .map(|e| {
-                let (a, b) = e.unwrap();
-                Ok(T::Pair::new(a.try_into()?, b.try_into()?))
-            })
-            .collect::<Result<HashSet<T::Pair, S>, T::Error>>()?;
+            .map(try_convert_edge::<N, T>)
+            .collect::<Result<_, T::Error>>()?;
         Ok(Graph { nodes, edges })
     }
 }

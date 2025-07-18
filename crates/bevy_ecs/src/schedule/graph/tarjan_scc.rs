@@ -17,9 +17,9 @@ use smallvec::SmallVec;
 /// Returns each strongly strongly connected component (scc).
 /// The order of node ids within each scc is arbitrary, but the order of
 /// the sccs is their postorder (reverse topological sort).
-pub(crate) fn new_tarjan_scc<Id: GraphNodeId, S: BuildHasher>(
-    graph: &DiGraph<Id, S>,
-) -> impl Iterator<Item = SmallVec<[Id; 4]>> + '_ {
+pub(crate) fn new_tarjan_scc<N: GraphNodeId, S: BuildHasher>(
+    graph: &DiGraph<N, S>,
+) -> impl Iterator<Item = SmallVec<[N; 4]>> + '_ {
     // Create a list of all nodes we need to visit.
     let unchecked_nodes = graph.nodes();
 
@@ -47,9 +47,9 @@ pub(crate) fn new_tarjan_scc<Id: GraphNodeId, S: BuildHasher>(
     }
 }
 
-struct NodeData<N: Iterator<Item: GraphNodeId>> {
+struct NodeData<Neighbors: Iterator<Item: GraphNodeId>> {
     root_index: Option<NonZeroUsize>,
-    neighbors: N,
+    neighbors: Neighbors,
 }
 
 /// A state for computing the *strongly connected components* using [Tarjan's algorithm][1].
@@ -59,15 +59,15 @@ struct NodeData<N: Iterator<Item: GraphNodeId>> {
 /// [1]: https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 /// [`petgraph`]: https://docs.rs/petgraph/0.6.5/petgraph/
 /// [`TarjanScc`]: https://docs.rs/petgraph/0.6.5/petgraph/algo/struct.TarjanScc.html
-struct TarjanScc<'graph, Id, Hasher, AllNodes, Neighbors>
+struct TarjanScc<'graph, N, Hasher, AllNodes, Neighbors>
 where
-    Id: GraphNodeId,
+    N: GraphNodeId,
     Hasher: BuildHasher,
-    AllNodes: Iterator<Item = Id>,
-    Neighbors: Iterator<Item = Id>,
+    AllNodes: Iterator<Item = N>,
+    Neighbors: Iterator<Item = N>,
 {
     /// Source of truth [`DiGraph`]
-    graph: &'graph DiGraph<Id, Hasher>,
+    graph: &'graph DiGraph<N, Hasher>,
     /// An [`Iterator`] of [`GraphNodeId`]s from the `graph` which may not have been visited yet.
     unchecked_nodes: AllNodes,
     /// The index of the next SCC
@@ -78,17 +78,22 @@ where
     /// [`Iterator`] of possibly unvisited neighbors.
     nodes: Vec<NodeData<Neighbors>>,
     /// A stack of [`GraphNodeId`]s where a SCC will be found starting at the top of the stack.
-    stack: Vec<Id>,
+    stack: Vec<N>,
     /// A stack of [`GraphNodeId`]s which need to be visited to determine which SCC they belong to.
-    visitation_stack: Vec<(Id, bool)>,
+    visitation_stack: Vec<(N, bool)>,
     /// An index into the `stack` indicating the starting point of a SCC.
     start: Option<usize>,
     /// An adjustment to the `index` which will be applied once the current SCC is found.
     index_adjustment: Option<usize>,
 }
 
-impl<'graph, Id: GraphNodeId, S: BuildHasher, A: Iterator<Item = Id>, N: Iterator<Item = Id>>
-    TarjanScc<'graph, Id, S, A, N>
+impl<
+        'graph,
+        N: GraphNodeId,
+        S: BuildHasher,
+        A: Iterator<Item = N>,
+        Neighbors: Iterator<Item = N>,
+    > TarjanScc<'graph, N, S, A, Neighbors>
 {
     /// Compute the next *strongly connected component* using Algorithm 3 in
     /// [A Space-Efficient Algorithm for Finding Strongly Connected Components][1] by David J. Pierce,
@@ -101,7 +106,7 @@ impl<'graph, Id: GraphNodeId, S: BuildHasher, A: Iterator<Item = Id>, N: Iterato
     /// Returns `Some` for each strongly strongly connected component (scc).
     /// The order of node ids within each scc is arbitrary, but the order of
     /// the sccs is their postorder (reverse topological sort).
-    fn next_scc(&mut self) -> Option<&[Id]> {
+    fn next_scc(&mut self) -> Option<&[N]> {
         // Cleanup from possible previous iteration
         if let (Some(start), Some(index_adjustment)) =
             (self.start.take(), self.index_adjustment.take())
@@ -141,7 +146,7 @@ impl<'graph, Id: GraphNodeId, S: BuildHasher, A: Iterator<Item = Id>, N: Iterato
     /// If a visitation is required, this will return `None` and mark the required neighbor and the
     /// current node as in need of visitation again.
     /// If no SCC can be found in the current visitation stack, returns `None`.
-    fn visit_once(&mut self, v: Id, mut v_is_local_root: bool) -> Option<usize> {
+    fn visit_once(&mut self, v: N, mut v_is_local_root: bool) -> Option<usize> {
         let node_v = &mut self.nodes[self.graph.to_index(v)];
 
         if node_v.root_index.is_none() {
@@ -205,13 +210,18 @@ impl<'graph, Id: GraphNodeId, S: BuildHasher, A: Iterator<Item = Id>, N: Iterato
     }
 }
 
-impl<'graph, Id: GraphNodeId, S: BuildHasher, A: Iterator<Item = Id>, N: Iterator<Item = Id>>
-    Iterator for TarjanScc<'graph, Id, S, A, N>
+impl<
+        'graph,
+        N: GraphNodeId,
+        S: BuildHasher,
+        A: Iterator<Item = N>,
+        Neighbors: Iterator<Item = N>,
+    > Iterator for TarjanScc<'graph, N, S, A, Neighbors>
 {
     // It is expected that the `DiGraph` is sparse, and as such wont have many large SCCs.
     // Returning a `SmallVec` allows this iterator to skip allocation in cases where that
     // assumption holds.
-    type Item = SmallVec<[Id; 4]>;
+    type Item = SmallVec<[N; 4]>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let next = SmallVec::from_slice(self.next_scc()?);
