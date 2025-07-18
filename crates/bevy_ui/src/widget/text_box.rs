@@ -348,6 +348,12 @@ fn on_focused_keyboard_input(
                 modifiers.command = keyboard_input.state == ButtonState::Pressed;
                 return;
             }
+            Key::Insert => {
+                if keyboard_input.state.is_pressed() && !keyboard_input.repeat {
+                    modifiers.overwrite = !modifiers.overwrite;
+                }
+                return;
+            }
             #[cfg(target_os = "macos")]
             Key::Super => {
                 modifiers.command = keyboard_input.state == ButtonState::Pressed;

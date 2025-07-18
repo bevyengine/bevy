@@ -263,6 +263,12 @@ fn on_focused_keyboard_input(
                 modifiers.command = keyboard_input.state == ButtonState::Pressed;
                 return;
             }
+            Key::Insert => {
+                if keyboard_input.state.is_pressed() && !keyboard_input.repeat {
+                    modifiers.overwrite = !modifiers.overwrite;
+                }
+                return;
+            }
             #[cfg(target_os = "macos")]
             Key::Super => {
                 modifiers.command = keyboard_input.state == ButtonState::Pressed;
@@ -468,14 +474,9 @@ impl Measure for LineHeightMeasure {
 }
 
 fn update_line_input_attributes(
-    mut text_input_node_query: Query<(
-        &TextFont,
-        &LineInputNode,
-        &mut TextInputAttributes,
-        &TextCursorStyle,
-    )>,
+    mut text_input_node_query: Query<(&TextFont, &LineInputNode, &mut TextInputAttributes)>,
 ) {
-    for (font, line_input, mut attributes, cursor_style) in text_input_node_query.iter_mut() {
+    for (font, line_input, mut attributes) in text_input_node_query.iter_mut() {
         attributes.set_if_neq(TextInputAttributes {
             font: font.font.clone(),
             font_size: font.font_size,
@@ -484,7 +485,6 @@ fn update_line_input_attributes(
             line_break: bevy_text::LineBreak::NoWrap,
             line_height: font.line_height,
             max_chars: None,
-            cursor_size: Vec2::new(cursor_style.width, cursor_style.height),
         });
     }
 }

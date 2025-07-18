@@ -31,10 +31,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: 35.,
                 ..Default::default()
             },
-            TextCursorStyle {
-                width: 1.,
-                ..Default::default()
-            },
             Node {
                 width: Val::Percent(50.),
                 height: Val::Percent(50.),

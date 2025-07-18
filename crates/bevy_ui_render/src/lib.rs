@@ -1015,7 +1015,7 @@ pub fn extract_text_input_nodes(
             &SpaceAdvance,
         )>,
     >,
-    overwrite_mode: Extract<ResMut<TextInputModifiers>>,
+    modifiers: Extract<Res<TextInputModifiers>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
@@ -1109,20 +1109,31 @@ pub fn extract_text_input_nodes(
         }
 
         if let Some((position, size)) = text_layout_info.cursor {
+            let (cursor_size, cursor_position, cursor_z_offset) = if modifiers.overwrite {
+                (size * Vec2::new(1., cursor_style.height), position, -0.001)
+            } else {
+                let cursor_size = size * Vec2::new(cursor_style.width, cursor_style.height);
+                (
+                    cursor_size,
+                    position - 0.5 * (size.x - cursor_size.x) * Vec2::X,
+                    0.,
+                )
+            };
+
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT + cursor_z_offset,
                 color: cursor_style.color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: size,
+                    max: cursor_size,
                 },
                 clip,
                 image: AssetId::default(),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
-                    transform: transform * Affine2::from_translation(position),
+                    transform: transform * Affine2::from_translation(cursor_position),
                     flip_x: false,
                     flip_y: false,
                     border: uinode.border(),
