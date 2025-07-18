@@ -1,24 +1,14 @@
 #![allow(missing_docs)]
 
-use crate::widget::TextCursorBlinkTimer;
-use crate::widget::TextCursorStyle;
-use crate::widget::TextInputModifiers;
-use crate::widget::TextInputMultiClickCounter;
-use crate::widget::TextInputOverwriteMode;
-use crate::widget::MULTI_CLICK_PERIOD;
 use crate::ComputedNode;
-use crate::ComputedNodeTarget;
-use crate::ContentSize;
-use crate::Measure;
-use crate::MeasureArgs;
 use crate::Node;
 use crate::UiGlobalTransform;
 use crate::UiScale;
 use crate::UiSystems;
 use bevy_app::Plugin;
 use bevy_app::PostUpdate;
-use bevy_asset::Assets;
-use bevy_ecs::change_detection::DetectChanges;
+use bevy_color::palettes::tailwind::GRAY_400;
+use bevy_color::Color;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
@@ -26,14 +16,13 @@ use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::observer::Observer;
 use bevy_ecs::observer::On;
 use bevy_ecs::query::With;
+use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
 use bevy_ecs::world::DeferredWorld;
-use bevy_ecs::world::Mut;
-use bevy_ecs::world::Ref;
 use bevy_input::keyboard::Key;
 use bevy_input::keyboard::KeyboardInput;
 use bevy_input::ButtonState;
@@ -41,18 +30,13 @@ use bevy_input_focus::FocusedInput;
 use bevy_input_focus::InputFocus;
 use bevy_math::IVec2;
 use bevy_math::Rect;
-use bevy_math::Vec2;
 use bevy_picking::events::Click;
 use bevy_picking::events::Drag;
 use bevy_picking::events::Move;
 use bevy_picking::events::Pointer;
 use bevy_picking::events::Press;
 use bevy_picking::pointer::PointerButton;
-use bevy_text::CosmicFontSystem;
-use bevy_text::Font;
-use bevy_text::Justify;
 use bevy_text::Motion;
-use bevy_text::SingleLineTextInput;
 use bevy_text::TextColor;
 use bevy_text::TextFont;
 use bevy_text::TextInputAction;
@@ -60,26 +44,60 @@ use bevy_text::TextInputActions;
 use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
 use bevy_text::TextInputHistory;
+use bevy_text::TextInputSystems;
 use bevy_text::TextInputTarget;
+use bevy_text::TextLayout;
 use bevy_text::TextLayoutInfo;
-use bevy_text::TextPipeline;
 use bevy_time::Time;
-use taffy::AvailableSpace;
 
-pub struct LineInputNodePlugin;
+pub struct TextBoxPlugin;
 
-impl Plugin for LineInputNodePlugin {
+impl Plugin for TextBoxPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_systems(
-            PostUpdate,
-            (update_line_input_attributes, measure_line)
-                .in_set(UiSystems::Content)
-                .before(UiSystems::Layout),
-        );
+        app.init_resource::<TextInputModifiers>()
+            .init_resource::<TextInputOverwriteMode>()
+            .init_resource::<InputFocus>()
+            .add_systems(
+                PostUpdate,
+                (update_targets, update_attributes, update_cursor_visibility)
+                    .after(UiSystems::Layout)
+                    .before(TextInputSystems)
+                    .before(bevy_text::update_text_input_buffers),
+            );
     }
 }
 
-/// Main single line text input component
+fn update_targets(mut text_input_node_query: Query<(&ComputedNode, &mut TextInputTarget)>) {
+    for (node, mut target) in text_input_node_query.iter_mut() {
+        let new_target = TextInputTarget {
+            size: node.size(),
+            scale_factor: node.inverse_scale_factor.recip(),
+        };
+
+        target.set_if_neq(new_target);
+    }
+}
+
+fn update_attributes(
+    mut text_input_node_query: Query<(&TextFont, &TextLayout, &mut TextInputAttributes)>,
+) {
+    for (font, layout, mut attributes) in text_input_node_query.iter_mut() {
+        attributes.set_if_neq(TextInputAttributes {
+            font: font.font.clone(),
+            font_size: font.font_size,
+            font_smoothing: font.font_smoothing,
+            justify: layout.justify,
+            line_break: layout.linebreak,
+            line_height: font.line_height,
+            max_chars: None,
+        });
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct TextInputOverwriteMode(pub bool);
+
+/// Main text input component
 #[derive(Component, Debug, Default)]
 #[require(
     Node,
@@ -88,22 +106,19 @@ impl Plugin for LineInputNodePlugin {
     TextInputMultiClickCounter,
     TextInputBuffer,
     TextInputTarget,
+    TextLayout,
     TextInputAttributes,
     TextInputActions,
     TextCursorStyle,
     TextLayoutInfo,
     TextCursorBlinkTimer,
-    TextInputHistory,
-    SingleLineTextInput,
-    ContentSize
+    TextInputHistory
 )]
 #[component(
     on_add = on_add_text_input_node,
     on_remove = on_remove_input_focus,
 )]
-pub struct LineInputNode {
-    pub justify: Justify,
-}
+pub struct TextBox {}
 
 fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
     for mut observer in [
@@ -123,6 +138,76 @@ fn on_remove_input_focus(mut world: DeferredWorld, context: HookContext) {
     if input_focus.0 == Some(context.entity) {
         input_focus.0 = None;
     }
+}
+
+#[derive(Component, Debug)]
+pub struct TextCursorStyle {
+    pub color: Color,
+    pub width: f32,
+    pub height: f32,
+    pub blink_interval: f32,
+}
+
+impl Default for TextCursorStyle {
+    fn default() -> Self {
+        Self {
+            color: GRAY_400.into(),
+            width: 0.1,
+            height: 1.,
+            blink_interval: 0.5,
+        }
+    }
+}
+
+/// Controls cursor blinking.
+/// If the value is none or greater than the `blink_interval` in `TextCursorStyle` then the cursor
+/// is not displayed.
+#[derive(Component, Debug, Default)]
+pub struct TextCursorBlinkTimer(pub Option<f32>);
+
+pub fn update_cursor_visibility(
+    time: Res<Time>,
+    input_focus: Res<InputFocus>,
+    mut query: Query<(
+        Entity,
+        &TextCursorStyle,
+        &TextInputActions,
+        &mut TextCursorBlinkTimer,
+    )>,
+) {
+    for (entity, style, actions, mut timer) in query.iter_mut() {
+        timer.0 = if input_focus
+            .0
+            .is_some_and(|focused_entity| focused_entity == entity)
+        {
+            Some(if actions.queue.is_empty() {
+                (timer.0.unwrap_or(0.) + time.delta_secs()).rem_euclid(style.blink_interval * 2.)
+            } else {
+                0.
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// Global text input modifiers
+#[derive(Resource, Debug, Default)]
+pub struct TextInputModifiers {
+    /// true if shift is held down
+    pub shift: bool,
+    /// true if ctrl or Command key is held down
+    pub command: bool,
+    /// If true typed glyphs overwrite the glyph at the current cursor position, instead of inserting before it.
+    pub overwrite: bool,
+}
+
+pub(crate) const MULTI_CLICK_PERIOD: f32 = 0.5; // seconds
+
+#[derive(Component, Default, Debug)]
+pub struct TextInputMultiClickCounter {
+    pub(crate) last_click_time: f32,
+    pub(crate) click_count: usize,
 }
 
 fn on_text_input_pressed(
@@ -246,7 +331,7 @@ fn on_move_clear_multi_click(move_event: On<Pointer<Move>>, mut commands: Comman
 
 fn on_focused_keyboard_input(
     trigger: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<&mut TextInputActions, With<LineInputNode>>,
+    mut query: Query<&mut TextInputActions, With<TextBox>>,
     mut modifiers: ResMut<TextInputModifiers>,
     mut overwrite_mode: ResMut<TextInputOverwriteMode>,
 ) {
@@ -322,10 +407,10 @@ fn on_focused_keyboard_input(
                         });
                     }
                     Key::ArrowUp => {
-                        // use for history
+                        actions.queue(TextInputAction::Scroll { lines: -1 });
                     }
                     Key::ArrowDown => {
-                        // use for history
+                        actions.queue(TextInputAction::Scroll { lines: 1 });
                     }
                     Key::Home => {
                         actions.queue(TextInputAction::motion(
@@ -357,7 +442,7 @@ fn on_focused_keyboard_input(
                         }
                     }
                     Key::Enter => {
-                        // use for submit
+                        actions.queue(TextInputAction::NewLine);
                     }
                     Key::Backspace => {
                         actions.queue(TextInputAction::Backspace);
@@ -415,68 +500,5 @@ fn on_focused_keyboard_input(
                 }
             }
         }
-    }
-}
-
-fn measure_line(
-    _fonts: Res<Assets<Font>>,
-    mut query: Query<
-        (
-            Entity,
-            Ref<ComputedNodeTarget>,
-            Ref<TextFont>,
-            Mut<ContentSize>,
-        ),
-        (With<Node>, With<LineInputNode>),
-    >,
-    mut _text_pipeline: ResMut<TextPipeline>,
-    mut _font_system: ResMut<CosmicFontSystem>,
-) {
-    for (_entity, target, text_font, mut content_size) in query.iter_mut() {
-        if target.is_changed() || text_font.is_changed() {
-            let line_height = match text_font.line_height {
-                bevy_text::LineHeight::Px(px) => px,
-                bevy_text::LineHeight::RelativeToFont(r) => r * text_font.font_size,
-            } * target.scale_factor;
-
-            content_size.set(crate::NodeMeasure::Custom(Box::new(LineHeightMeasure {
-                line_height,
-            })));
-        }
-    }
-}
-
-struct LineHeightMeasure {
-    line_height: f32,
-}
-
-impl Measure for LineHeightMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
-        Vec2::new(
-            measure_args
-                .width
-                .unwrap_or_else(|| match measure_args.available_width {
-                    AvailableSpace::Definite(x) => x,
-                    AvailableSpace::MinContent => 0.,
-                    AvailableSpace::MaxContent => 0.,
-                }),
-            self.line_height,
-        )
-    }
-}
-
-fn update_line_input_attributes(
-    mut text_input_node_query: Query<(&TextFont, &LineInputNode, &mut TextInputAttributes)>,
-) {
-    for (font, line_input, mut attributes) in text_input_node_query.iter_mut() {
-        attributes.set_if_neq(TextInputAttributes {
-            font: font.font.clone(),
-            font_size: font.font_size,
-            font_smoothing: font.font_smoothing,
-            justify: line_input.justify,
-            line_break: bevy_text::LineBreak::NoWrap,
-            line_height: font.line_height,
-            max_chars: None,
-        });
     }
 }

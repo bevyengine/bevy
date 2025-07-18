@@ -7,7 +7,7 @@ use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
-use bevy::ui::widget::TextInputNode;
+use bevy::ui::widget::TextBox;
 
 fn main() {
     App::new()
@@ -23,13 +23,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let tid = commands.spawn(Text::new("hello")).id();
     let id = commands
         .spawn((
-            TextInputNode::default(),
+            TextBox::default(),
             TabIndex(0),
             TextColor(RED.into()),
             TextFont {
-                font: asset_server.load("fonts/Orbitron-Medium.ttf"),
-                font_size: 30.,
-                line_height: bevy::text::LineHeight::RelativeToFont(2.),
+                font_size: 35.,
                 ..Default::default()
             },
             Node {
