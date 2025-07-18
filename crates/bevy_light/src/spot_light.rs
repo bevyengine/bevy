@@ -153,7 +153,9 @@ impl Default for SpotLight {
     }
 }
 
-// this method of constructing a basis from a vec3 is used by [`bevy_math::Vec3::any_orthonormal_pair`]
+/// Constructs a right-handed orthonormal basis from a given unit Z vector.
+///
+/// This method of constructing a basis from a [`Vec3`] is used by [`bevy_math::Vec3::any_orthonormal_pair`]
 // we will also construct it in the fragment shader and need our implementations to match exactly,
 // so we reproduce it here to avoid a mismatch if glam changes.
 // See bevy_render/maths.wgsl:orthonormalize
@@ -169,8 +171,10 @@ pub fn orthonormalize(z_basis: Dir3) -> Mat3 {
     let y_basis = Vec3::new(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
     Mat3::from_cols(x_basis, y_basis, z_basis.into())
 }
-// this is a handedness-inverted version of [`orthonormalize`] which also includes translation.
-// we mirror this construction in the fragment shader and need our implementations to match exactly.
+/// Constructs a left-handed orthonormal basis with translation, using only the forward direction and translation of a given [`GlobalTransform`].
+///
+/// This is a handedness-inverted version of [`orthonormalize`] which also includes translation.
+/// we mirror this construction in the fragment shader and need our implementations to match exactly.
 // See bevy_pbr/shadows.wgsl:spot_light_world_from_view
 pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())

@@ -62,10 +62,14 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id);
 }
 
+// Constructs a left-handed orthonormal basis from a given unit Z vector.
+//
+// NOTE: requires unit-length (normalized) input to function properly.
+//
 // this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
 // the construction of the orthonormal basis up and right vectors here needs to precisely mirror the code
 // in bevy_light/spot_light.rs:spot_light_world_from_view
-// so we use `bevy_math::orthonormalize` which matches the rust impl, but we also switch the handedness
+// so we use `bevy_math::orthonormalize` which matches the rust impl, but we also invert the handedness
 fn spot_light_world_from_view(z_basis: vec3<f32>) -> mat3x3<f32> {
     var basis = orthonormalize(z_basis);
     // handedness flip

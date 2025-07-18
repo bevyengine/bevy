@@ -69,7 +69,8 @@ fn copysign(a: f32, b: f32) -> f32 {
     return bitcast<f32>((bitcast<u32>(a) & 0x7FFFFFFF) | (bitcast<u32>(b) & 0x80000000));
 }
 
-// Creates an orthonormal basis given a unit Z vector.
+// Constructs a right-handed orthonormal basis from a given unit Z vector.
+//
 // NOTE: requires unit-length (normalized) input to function properly.
 //
 // https://jcgt.org/published/0006/01/01/paper.pdf
