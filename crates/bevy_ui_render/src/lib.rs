@@ -269,25 +269,27 @@ impl Plugin for UiRenderPlugin {
             );
 
         // Render graph
-        let ui_graph_2d = get_ui_graph(render_app);
-        let ui_graph_3d = get_ui_graph(render_app);
-        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
+        render_app
+            .world_mut()
+            .resource_scope(|world, mut graph: Mut<RenderGraph>| {
+                if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
+                    let ui_graph_2d = new_ui_graph(world);
+                    graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
+                    graph_2d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
+                    graph_2d.add_node_edge(Node2d::EndMainPass, NodeUi::UiPass);
+                    graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
+                    graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
+                }
 
-        if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
-            graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
-            graph_2d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
-            graph_2d.add_node_edge(Node2d::EndMainPass, NodeUi::UiPass);
-            graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
-            graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
-        }
-
-        if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
-            graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
-            graph_3d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
-            graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
-            graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
-            graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
-        }
+                if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
+                    let ui_graph_3d = new_ui_graph(world);
+                    graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
+                    graph_3d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
+                    graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
+                    graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
+                    graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
+                }
+            });
 
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);
@@ -295,8 +297,8 @@ impl Plugin for UiRenderPlugin {
     }
 }
 
-fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
-    let ui_pass_node = UiPassNode::new(render_app.world_mut());
+fn new_ui_graph(world: &mut World) -> RenderGraph {
+    let ui_pass_node = UiPassNode::new(world);
     let mut ui_graph = RenderGraph::default();
     ui_graph.add_node(NodeUi::UiPass, ui_pass_node);
     ui_graph
