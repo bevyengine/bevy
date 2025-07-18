@@ -260,6 +260,9 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
     /// Converts from one [`GraphNodeId`] type to another. If the conversion fails,
     /// it returns the error from the target type's [`TryFrom`] implementation.
     ///
+    /// Nodes must uniquely convert from `N` to `T` (i.e. no two `N` can convert
+    /// to the same `T`).
+    ///
     /// # Errors
     ///
     /// If the conversion fails, it returns an error of type `T::Error`.
