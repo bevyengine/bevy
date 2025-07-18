@@ -281,9 +281,27 @@ pub struct EntityListItem {
 
 impl EntityListItem {
     pub fn from_remote_entity(remote_entity: &crate::remote::types::RemoteEntity) -> Self {
+        // Use the smart naming system to generate a meaningful display name
+        let display_name = crate::remote::entity_naming::generate_entity_display_name(remote_entity, None);
+        
         Self {
             entity_id: remote_entity.id,
-            name: format!("Entity {}", remote_entity.id),
+            name: display_name,
+            components: remote_entity.components.clone(),
+            children_count: 0,
+        }
+    }
+    
+    /// Create EntityListItem with component data for better Name extraction
+    pub fn from_remote_entity_with_data(
+        remote_entity: &crate::remote::types::RemoteEntity, 
+        component_data: Option<&serde_json::Value>
+    ) -> Self {
+        let display_name = crate::remote::entity_naming::generate_entity_display_name(remote_entity, component_data);
+        
+        Self {
+            entity_id: remote_entity.id,
+            name: display_name,
             components: remote_entity.components.clone(),
             children_count: 0,
         }
@@ -292,7 +310,8 @@ impl EntityListItem {
 
 impl ListDisplayable for EntityListItem {
     fn display_text(&self) -> String {
-        format!("Entity {} ({})", self.entity_id, self.name)
+        // The name already contains the smart formatting (e.g., "#123 (Camera)")
+        self.name.clone()
     }
 }
 

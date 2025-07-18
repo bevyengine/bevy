@@ -36,7 +36,7 @@
 
 use bevy::prelude::*;
 
-use crate::remote::{client, RemoteClientPlugin, types::{EditorState, ComponentDisplayState, ComponentDataFetched, RemoteConnection, EntitiesFetched, ConnectionStatus, RemoteEntity}};
+use crate::remote::{client, RemoteClientPlugin, types::{EditorState, ComponentDisplayState, ComponentDataFetched, RemoteConnection, EntitiesFetched, ConnectionStatus}};
 use crate::panels::{EntityListPlugin, ComponentInspectorPlugin};
 use crate::widgets::{WidgetsPlugin, ScrollViewBuilder, ScrollContent};
 
@@ -71,7 +71,6 @@ impl Plugin for EditorPlugin {
             .add_systems(Startup, setup_editor_ui)
             .add_systems(Update, (
                 setup_scroll_content_markers,
-                refresh_entity_list,
                 handle_entity_selection,
                 update_entity_button_colors,
                 handle_component_inspection,
@@ -433,102 +432,7 @@ fn update_remote_connection(
     }
 }
 
-/// Refresh the entity list display
-fn refresh_entity_list(
-    editor_state: Res<EditorState>,
-    mut commands: Commands,
-    entity_list_area_query: Query<Entity, With<EntityListArea>>,
-    list_items_query: Query<Entity, With<EntityListItem>>,
-    mut local_entity_count: Local<usize>,
-) {
-    // Only refresh when the actual entity count changes, not on every state change
-    let current_count = editor_state.entities.len();
-    if *local_entity_count == current_count {
-        return;
-    }
-    *local_entity_count = current_count;
-
-    // Clear existing list items
-    for entity in &list_items_query {
-        commands.entity(entity).despawn();
-    }
-
-    // Find the entity list area and add new items
-    for list_area_entity in entity_list_area_query.iter() {
-        // Clear children by despawning them
-        commands.entity(list_area_entity).despawn_children();
-        
-        commands.entity(list_area_entity).with_children(|parent| {
-            if editor_state.entities.is_empty() {
-                // Show empty state
-                parent.spawn((
-                    Text::new("No entities connected.\nStart a bevy_remote server to see entities."),
-                    TextFont {
-                        font_size: 12.0,
-                        ..default()
-                    },
-                    TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                    Node {
-                        padding: UiRect::all(Val::Px(16.0)),
-                        ..default()
-                    },
-                ));
-            } else {
-                // Add entity items
-                for remote_entity in &editor_state.entities {
-                    create_entity_list_item(parent, remote_entity, &editor_state);
-                }
-            }
-        });
-    }
-}
-
-fn create_entity_list_item(parent: &mut ChildSpawnerCommands, remote_entity: &RemoteEntity, editor_state: &EditorState) {
-    // Determine the correct background color based on selection state
-    let bg_color = if Some(remote_entity.id) == editor_state.selected_entity_id {
-        Color::srgb(0.3, 0.4, 0.5) // Selected state
-    } else {
-        Color::srgb(0.2, 0.2, 0.2) // Default state
-    };
-
-    parent
-        .spawn((
-            Button,
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Px(32.0),
-                align_items: AlignItems::Center,
-                padding: UiRect::all(Val::Px(10.0)),
-                margin: UiRect::bottom(Val::Px(2.0)),
-                border: UiRect::all(Val::Px(1.0)),
-                ..default()
-            },
-            BackgroundColor(bg_color),
-            BorderColor::all(Color::srgb(0.3, 0.3, 0.3)),
-            EntityListItem::from_remote_entity(&remote_entity),
-        ))
-        .with_children(|parent| {
-            // Entity icon and name
-            parent.spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-            )).with_children(|parent| {
-                parent.spawn((
-                    Text::new(format!("Entity {}", remote_entity.id)),
-                    TextFont {
-                        font_size: 13.0,
-                        ..default()
-                    },
-                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                ));
-            });
-        });
-}
-
-/// Create status bar with connection info
+/// Update status bar with connection info
 fn update_status_bar(
     editor_state: Res<EditorState>,
     remote_conn: Res<RemoteConnection>,
