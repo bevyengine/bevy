@@ -167,7 +167,7 @@ pub fn orthonormalize(z_basis: Dir3) -> Mat3 {
         -sign * z_basis.x,
     );
     let y_basis = Vec3::new(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
-    return Mat3::from_cols(x_basis, y_basis, z_basis.into());
+    Mat3::from_cols(x_basis, y_basis, z_basis.into())
 }
 // this is a handedness-inverted version of [`orthonormalize`] which also includes translation.
 // we mirror this construction in the fragment shader and need our implementations to match exactly.
