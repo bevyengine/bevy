@@ -20,7 +20,9 @@ mod debug_overlay;
 
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_ui::widget::{ImageNode, TextCursorBlinkTimer, TextCursorStyle, TextShadow, ViewportNode};
+use bevy_ui::widget::{
+    ImageNode, TextCursorBlinkTimer, TextCursorStyle, TextInputModifiers, TextShadow, ViewportNode,
+};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
     Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -68,7 +70,7 @@ use gradient::GradientPlugin;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, PositionedGlyph, SpaceAdvance, TextBackgroundColor, TextColor,
-    TextInputBuffer, TextLayoutInfo,
+    TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1013,9 +1015,9 @@ pub fn extract_text_input_nodes(
             &SpaceAdvance,
         )>,
     >,
+    overwrite_mode: Extract<ResMut<TextInputModifiers>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    info_once!("extract text input!");
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
