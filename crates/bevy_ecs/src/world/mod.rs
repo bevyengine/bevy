@@ -602,6 +602,7 @@ impl World {
     ///
     /// # See also
     ///
+    /// * [`ComponentIdFor`](crate::component::ComponentIdFor)
     /// * [`Components::component_id()`]
     /// * [`Components::get_id()`]
     #[inline]
@@ -704,7 +705,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::EntityHashSet)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -838,7 +839,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::EntityHashSet)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -2550,6 +2551,11 @@ impl World {
     /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
     ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`try_resource_scope`](Self::try_resource_scope) instead if you want to handle this case.
+    ///
     /// # Example
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -2567,8 +2573,6 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    ///
-    /// See also [`try_resource_scope`](Self::try_resource_scope).
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
         self.try_resource_scope(f)

@@ -160,9 +160,6 @@ impl FromReflect for &'static Path {
     }
 }
 
-#[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(&'static Path);
-
 impl PartialReflect for Cow<'static, Path> {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())

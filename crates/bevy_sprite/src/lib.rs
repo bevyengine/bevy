@@ -56,7 +56,7 @@ use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::SpecializedRenderPipelines,
     view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 /// Adds support for 2D sprite rendering.
@@ -118,7 +118,9 @@ impl Plugin for SpritePlugin {
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<ExtractedSlices>()
                 .init_resource::<SpriteAssetEvents>()
+                .init_resource::<SpriteBatches>()
                 .add_render_command::<Transparent2d, DrawSprite>()
+                .add_systems(RenderStartup, init_sprite_pipeline)
                 .add_systems(
                     ExtractSchedule,
                     (
@@ -139,14 +141,6 @@ impl Plugin for SpritePlugin {
                     ),
                 );
         };
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<SpriteBatches>()
-                .init_resource::<SpritePipeline>();
-        }
     }
 }
 
