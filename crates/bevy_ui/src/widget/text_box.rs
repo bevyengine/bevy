@@ -30,6 +30,7 @@ use bevy_input_focus::FocusedInput;
 use bevy_input_focus::InputFocus;
 use bevy_math::IVec2;
 use bevy_math::Rect;
+use bevy_math::Vec2;
 use bevy_picking::events::Click;
 use bevy_picking::events::Drag;
 use bevy_picking::events::Move;
@@ -37,6 +38,7 @@ use bevy_picking::events::Pointer;
 use bevy_picking::events::Press;
 use bevy_picking::pointer::PointerButton;
 use bevy_text::Motion;
+use bevy_text::SpaceAdvance;
 use bevy_text::TextColor;
 use bevy_text::TextFont;
 use bevy_text::TextInputAction;
@@ -79,9 +81,14 @@ fn update_targets(mut text_input_node_query: Query<(&ComputedNode, &mut TextInpu
 }
 
 fn update_attributes(
-    mut text_input_node_query: Query<(&TextFont, &TextLayout, &mut TextInputAttributes)>,
+    mut text_input_node_query: Query<(
+        &TextFont,
+        &TextLayout,
+        &mut TextInputAttributes,
+        &TextCursorStyle,
+    )>,
 ) {
-    for (font, layout, mut attributes) in text_input_node_query.iter_mut() {
+    for (font, layout, mut attributes, cursor_style) in text_input_node_query.iter_mut() {
         attributes.set_if_neq(TextInputAttributes {
             font: font.font.clone(),
             font_size: font.font_size,
@@ -90,6 +97,7 @@ fn update_attributes(
             line_break: layout.linebreak,
             line_height: font.line_height,
             max_chars: None,
+            cursor_size: Vec2::new(cursor_style.width, cursor_style.height),
         });
     }
 }
@@ -112,7 +120,8 @@ pub struct TextInputOverwriteMode(pub bool);
     TextCursorStyle,
     TextLayoutInfo,
     TextCursorBlinkTimer,
-    TextInputHistory
+    TextInputHistory,
+    SpaceAdvance
 )]
 #[component(
     on_add = on_add_text_input_node,

@@ -67,8 +67,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextInputBuffer,
-    TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, SpaceAdvance, TextBackgroundColor, TextColor,
+    TextInputBuffer, TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1010,6 +1010,7 @@ pub fn extract_text_input_nodes(
             &TextColor,
             &TextCursorStyle,
             &TextCursorBlinkTimer,
+            &SpaceAdvance,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -1030,6 +1031,7 @@ pub fn extract_text_input_nodes(
         color,
         cursor_style,
         blink_timer,
+        _space_advance,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1118,7 +1120,7 @@ pub fn extract_text_input_nodes(
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
-                    transform: transform * Affine2::from_translation(position + 0.5 * size),
+                    transform: transform * Affine2::from_translation(position),
                     flip_x: false,
                     flip_y: false,
                     border: uinode.border(),

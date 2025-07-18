@@ -53,6 +53,7 @@ use bevy_text::Font;
 use bevy_text::Justify;
 use bevy_text::Motion;
 use bevy_text::SingleLineTextInput;
+use bevy_text::SpaceAdvance;
 use bevy_text::TextColor;
 use bevy_text::TextFont;
 use bevy_text::TextInputAction;
@@ -94,6 +95,7 @@ impl Plugin for TextInputPlugin {
     TextLayoutInfo,
     TextCursorBlinkTimer,
     TextInputHistory,
+    SpaceAdvance,
     SingleLineTextInput,
     ContentSize
 )]
@@ -466,9 +468,14 @@ impl Measure for LineHeightMeasure {
 }
 
 fn update_line_input_attributes(
-    mut text_input_node_query: Query<(&TextFont, &LineInputNode, &mut TextInputAttributes)>,
+    mut text_input_node_query: Query<(
+        &TextFont,
+        &LineInputNode,
+        &mut TextInputAttributes,
+        &TextCursorStyle,
+    )>,
 ) {
-    for (font, line_input, mut attributes) in text_input_node_query.iter_mut() {
+    for (font, line_input, mut attributes, cursor_style) in text_input_node_query.iter_mut() {
         attributes.set_if_neq(TextInputAttributes {
             font: font.font.clone(),
             font_size: font.font_size,
@@ -477,6 +484,7 @@ fn update_line_input_attributes(
             line_break: bevy_text::LineBreak::NoWrap,
             line_height: font.line_height,
             max_chars: None,
+            cursor_size: Vec2::new(cursor_style.width, cursor_style.height),
         });
     }
 }

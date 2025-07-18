@@ -8,6 +8,7 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::ui::widget::TextBox;
+use bevy::ui::widget::TextCursorStyle;
 
 fn main() {
     App::new()
@@ -28,6 +29,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextColor(RED.into()),
             TextFont {
                 font_size: 35.,
+                ..Default::default()
+            },
+            TextCursorStyle {
+                width: 1.,
                 ..Default::default()
             },
             Node {

@@ -20,6 +20,8 @@ use bevy_app::Plugin;
 use bevy_app::PostUpdate;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
+use bevy_derive::Deref;
+use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
@@ -133,6 +135,9 @@ pub struct TextInputTarget {
     pub scale_factor: f32,
 }
 
+#[derive(Component, PartialEq, Debug, Default, Deref, DerefMut)]
+pub struct SpaceAdvance(f32);
+
 /// Common text input attributes
 #[derive(Component, Debug, PartialEq)]
 pub struct TextInputAttributes {
@@ -143,6 +148,7 @@ pub struct TextInputAttributes {
     pub justify: Justify,
     pub font_smoothing: FontSmoothing,
     pub max_chars: Option<usize>,
+    pub cursor_size: Vec2,
 }
 
 impl Default for TextInputAttributes {
@@ -155,6 +161,7 @@ impl Default for TextInputAttributes {
             justify: Default::default(),
             line_break: Default::default(),
             max_chars: None,
+            cursor_size: Vec2 { x: 0.2, y: 1. },
         }
     }
 }
@@ -379,6 +386,7 @@ pub fn apply_text_input_actions(
 pub fn update_text_input_buffers(
     mut text_input_query: Query<(
         &mut TextInputBuffer,
+        &mut SpaceAdvance,
         Ref<TextInputTarget>,
         Ref<TextInputAttributes>,
         Has<SingleLineTextInput>,
@@ -390,7 +398,9 @@ pub fn update_text_input_buffers(
     info_once!(" update_text_input_buffers");
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
-    for (mut input_buffer, target, attributes, is_single_line) in text_input_query.iter_mut() {
+    for (mut input_buffer, mut space_advance, target, attributes, is_single_line) in
+        text_input_query.iter_mut()
+    {
         let _ = input_buffer.editor.with_buffer_mut(|buffer| {
             if target.is_changed() || attributes.is_changed() {
                 let line_height = attributes.line_height.eval(attributes.font_size);
@@ -405,13 +415,10 @@ pub fn update_text_input_buffers(
                 buffer.set_metrics_and_size(
                     font_system,
                     metrics,
-                    Some(target.size.x),
+                    Some(target.size.x - space_advance.0),
                     Some(height),
                 );
-                buffer.set_redraw(true);
-            }
 
-            if attributes.is_changed() {
                 buffer.set_wrap(font_system, attributes.line_break.into());
 
                 if !fonts.contains(attributes.font.id()) {
@@ -449,6 +456,21 @@ pub fn update_text_input_buffers(
                 for buffer_line in buffer.lines.iter_mut() {
                     buffer_line.set_align(align);
                 }
+
+                space_advance.0 = font_id_map
+                    .get(&attributes.font.id())
+                    .and_then(|(id, ..)| font_system.get_font(*id))
+                    .and_then(|font| {
+                        let face = font.rustybuzz();
+                        face.glyph_index(' ')
+                            .and_then(|gid| {
+                                let h = face.glyph_hor_advance(gid);
+                                h
+                            })
+                            .map(|advance| advance as f32 / face.units_per_em() as f32)
+                    })
+                    .unwrap_or(0.0)
+                    * buffer.metrics().font_size;
 
                 buffer.set_redraw(true);
             }
@@ -493,13 +515,15 @@ pub fn update_text_input_layouts(
         &mut TextInputBuffer,
         &mut TextInputAttributes,
         Option<&mut TextInputPasswordMask>,
+        &SpaceAdvance,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
 ) {
     let font_system = &mut font_system.0;
-    for (mut layout_info, mut buffer, attributes, mut maybe_password_mask) in text_query.iter_mut()
+    for (mut layout_info, mut buffer, attributes, mut maybe_password_mask, space_advance) in
+        text_query.iter_mut()
     {
         let editor = if let Some(password_mask) = maybe_password_mask.as_mut() {
             &mut password_mask.bypass_change_detection().editor
@@ -519,9 +543,14 @@ pub fn update_text_input_layouts(
                 let box_size = buffer_dimensions(buffer);
                 if let Some((x, y)) = cursor_position {
                     let line_height = buffer.metrics().line_height;
+                    let size = Vec2::new(
+                        attributes.cursor_size.x * space_advance.0,
+                        attributes.cursor_size.y * line_height,
+                    );
 
-                    layout_info.cursor =
-                        Some((IVec2::new(x, y).as_vec2(), Vec2::new(2., line_height)));
+                    println!("cursor size = {}", size);
+
+                    layout_info.cursor = Some((IVec2::new(x, y).as_vec2() + 0.5 * size, size));
                 }
 
                 let result = buffer.layout_runs().try_for_each(|run| {
@@ -613,7 +642,9 @@ pub fn update_text_input_layouts(
 
                 // Check result.
                 result?;
-
+                if let Some(w) = layout_info.glyphs.get(0) {
+                    println!("width = {}", w.size.x);
+                }
                 layout_info.size = box_size;
                 Ok(())
             });
