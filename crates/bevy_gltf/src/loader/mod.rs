@@ -574,10 +574,12 @@ async fn load_gltf<'a, 'b, 'c>(
                     );
                 }
             }
-            let handle = load_context.add_labeled_asset(
-                GltfAssetLabel::Animation(animation.index()).to_string(),
-                animation_clip,
-            );
+            let handle = load_context
+                .add_labeled_asset(
+                    GltfAssetLabel::Animation(animation.index()).to_string(),
+                    animation_clip,
+                )
+                .unwrap();
             if let Some(name) = animation.name() {
                 named_animations.insert(name.into(), handle.clone());
             }
@@ -731,7 +733,8 @@ async fn load_gltf<'a, 'b, 'c>(
                         RenderAssetUsages::default(),
                     )?;
                     let handle = load_context
-                        .add_labeled_asset(morph_targets_label.to_string(), morph_target_image.0);
+                        .add_labeled_asset(morph_targets_label.to_string(), morph_target_image.0)
+                        .unwrap();
 
                     mesh.set_morph_targets(handle);
                     let extras = gltf_mesh.extras().as_ref();
@@ -784,7 +787,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 });
             }
 
-            let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+            let mesh_handle = load_context
+                .add_labeled_asset(primitive_label.to_string(), mesh)
+                .unwrap();
             primitives.push(super::GltfPrimitive::new(
                 &gltf_mesh,
                 &primitive,
@@ -808,7 +813,9 @@ async fn load_gltf<'a, 'b, 'c>(
             gltf_mesh.extras().as_deref().map(GltfExtras::from),
         );
 
-        let handle = load_context.add_labeled_asset(mesh.asset_label().to_string(), mesh);
+        let handle = load_context
+            .add_labeled_asset(mesh.asset_label().to_string(), mesh)
+            .unwrap();
         if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.into(), handle.clone());
         }
@@ -836,10 +843,12 @@ async fn load_gltf<'a, 'b, 'c>(
                     core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
                 });
 
-            load_context.add_labeled_asset(
-                GltfAssetLabel::InverseBindMatrices(gltf_skin.index()).to_string(),
-                SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
-            )
+            load_context
+                .add_labeled_asset(
+                    GltfAssetLabel::InverseBindMatrices(gltf_skin.index()).to_string(),
+                    SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
+                )
+                .unwrap()
         })
         .collect();
 
@@ -888,7 +897,8 @@ async fn load_gltf<'a, 'b, 'c>(
                     );
 
                     let handle = load_context
-                        .add_labeled_asset(gltf_skin.asset_label().to_string(), gltf_skin);
+                        .add_labeled_asset(gltf_skin.asset_label().to_string(), gltf_skin)
+                        .unwrap();
 
                     if let Some(name) = skin.name() {
                         named_skins.insert(name.into(), handle.clone());
@@ -921,7 +931,9 @@ async fn load_gltf<'a, 'b, 'c>(
         #[cfg(feature = "bevy_animation")]
         let gltf_node = gltf_node.with_animation_root(animation_roots.contains(&node.index()));
 
-        let handle = load_context.add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node);
+        let handle = load_context
+            .add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node)
+            .unwrap();
         nodes.insert(node.index(), handle.clone());
         if let Some(name) = node.name() {
             named_nodes.insert(name.into(), handle);
@@ -1011,10 +1023,12 @@ async fn load_gltf<'a, 'b, 'c>(
             });
         }
         let loaded_scene = scene_load_context.finish(Scene::new(world));
-        let scene_handle = load_context.add_loaded_labeled_asset(
-            GltfAssetLabel::Scene(scene.index()).to_string(),
-            loaded_scene,
-        );
+        let scene_handle = load_context
+            .add_loaded_labeled_asset(
+                GltfAssetLabel::Scene(scene.index()).to_string(),
+                loaded_scene,
+            )
+            .unwrap();
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.into(), scene_handle.clone());
@@ -1786,9 +1800,9 @@ impl ImageOrPath {
         handles: &mut Vec<Handle<Image>>,
     ) {
         let handle = match self {
-            ImageOrPath::Image { label, image } => {
-                load_context.add_labeled_asset(label.to_string(), image)
-            }
+            ImageOrPath::Image { label, image } => load_context
+                .add_labeled_asset(label.to_string(), image)
+                .unwrap(),
             ImageOrPath::Path {
                 path,
                 is_srgb,
