@@ -23,7 +23,7 @@ fn draw_cursor(
         && let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position)
         // Calculate if and at what distance the ray is hitting the ground plane.
         && let Some(distance) =
-            ray.intersect_plane(ground.translation(), InfinitePlane3d::new(ground.up()))
+            ray.intersect_plane(ground.translation(), InfinitePlane3d::new(ground.up()), PlaneIntersectionMode::Both)
     {
         let point = ray.get_point(distance);
 
