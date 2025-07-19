@@ -1,4 +1,4 @@
-use bevy_ecs_macros::Event;
+use bevy_ecs_macros::BroadcastEvent;
 use bevy_ptr::UnsafeCellDeref;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -86,7 +86,7 @@ impl Tick {
     }
 }
 
-/// An observer [`Event`] that can be used to maintain [`Tick`]s in custom data structures, enabling to make
+/// A [`BroadcastEvent`] that can be used to maintain [`Tick`]s in custom data structures, enabling to make
 /// use of bevy's periodic checks that clamps ticks to a certain range, preventing overflows and thus
 /// keeping methods like [`Tick::is_newer_than`] reliably return `false` for ticks that got too old.
 ///
@@ -111,7 +111,7 @@ impl Tick {
 ///     schedule.0.check_change_ticks(*check);
 /// });
 /// ```
-#[derive(Debug, Clone, Copy, Event)]
+#[derive(Debug, Clone, Copy, BroadcastEvent)]
 pub struct CheckChangeTicks(pub(crate) Tick);
 
 impl CheckChangeTicks {

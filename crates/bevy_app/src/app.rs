@@ -1320,7 +1320,7 @@ impl App {
     /// #
     /// # let mut app = App::new();
     /// #
-    /// # #[derive(Event)]
+    /// # #[derive(BroadcastEvent)]
     /// # struct Party {
     /// #   friends_allowed: bool,
     /// # };

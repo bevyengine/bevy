@@ -93,11 +93,11 @@ mod tests {
     use super::*;
     use crate::{
         error::{ignore, DefaultErrorHandler},
-        event::Event,
+        event::BroadcastEvent,
         observer::On,
     };
 
-    #[derive(Event)]
+    #[derive(BroadcastEvent)]
     struct TriggerEvent;
 
     #[test]
