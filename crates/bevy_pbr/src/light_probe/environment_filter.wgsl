@@ -184,7 +184,7 @@ fn sample_visible_ggx(
     let c_std = vec3f(x, y, z);
 
     // Reflect the sample so that the normal aligns with +Z
-    let up = vec3f(0.0, 0.0, 1.000001);
+    let up = vec3f(0.0, 0.0, 1.0);
     let wr = n + up;
     let c = dot(wr, c_std) * wr / wr.z - c_std;
 
