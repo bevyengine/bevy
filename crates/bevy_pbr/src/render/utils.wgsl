@@ -68,16 +68,6 @@ fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
     return normalize(n);
 }
 
-// https://jcgt.org/published/0006/01/01/paper.pdf
-fn build_orthonormal_basis(normal: vec3<f32>) -> mat3x3<f32> {
-    let sign = select(-1.0, 1.0, normal.z >= 0.0);
-    let a = -1.0 / (sign + normal.z);
-    let b = normal.x * normal.y * a;
-    let tangent = vec3(1.0 + sign * normal.x * normal.x * a, sign * b, -sign * normal.x);
-    let bitangent = vec3(b, sign + normal.y * normal.y * a, -normal.y);
-    return mat3x3(tangent, bitangent, normal);
-}
-
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
 fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>, frame: u32) -> f32 {
     let xy = pixel_coordinates + 5.588238 * f32(frame % 64u);

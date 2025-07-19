@@ -1,5 +1,5 @@
-#import bevy_render::maths::{PI, PI_2};
-#import bevy_pbr::utils::{rand_f, build_orthonormal_basis};
+#import bevy_render::maths::{PI, PI_2, orthonormalize};
+#import bevy_pbr::utils::rand_f;
 
 struct FilteringConstants {
     mip_level: f32,
@@ -324,7 +324,7 @@ fn uniform_sample_sphere(i: u32, normal: vec3f) -> vec3f {
         z
     );
 
-    let tangent_frame = build_orthonormal_basis(normal);
+    let tangent_frame = orthonormalize(normal);
     return normalize(tangent_frame * dir_uniform);
 }
 
