@@ -39,8 +39,8 @@ pub use point_light::{
 };
 mod spot_light;
 pub use spot_light::{
-    spot_light_clip_from_view, spot_light_world_from_view, update_spot_light_frusta, SpotLight,
-    SpotLightTexture,
+    orthonormalize, spot_light_clip_from_view, spot_light_world_from_view,
+    update_spot_light_frusta, SpotLight, SpotLightTexture,
 };
 mod directional_light;
 pub use directional_light::{

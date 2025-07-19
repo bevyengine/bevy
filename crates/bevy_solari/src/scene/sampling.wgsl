@@ -1,7 +1,7 @@
 #define_import_path bevy_solari::sampling
 
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_range_u}
-#import bevy_render::maths::{PI, PI_2}
+#import bevy_render::maths::{PI, PI_2, orthonormalize}
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full}
 
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec28%3A303
@@ -23,7 +23,7 @@ fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3
     let x = sin_theta * cos(phi);
     let y = sin_theta * sin(phi);
     let z = cos_theta;
-    return build_orthonormal_basis(normal) * vec3(x, y, z);
+    return orthonormalize(normal) * vec3(x, y, z);
 }
 
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294
@@ -118,7 +118,7 @@ fn calculate_directional_light_contribution(light_sample: LightSample, direction
     var ray_direction = vec3(x, y, cos_theta);
 
     // Rotate the ray so that the cone it was sampled from is aligned with the light direction
-    ray_direction = build_orthonormal_basis(directional_light.direction_to_light) * ray_direction;
+    ray_direction = orthonormalize(directional_light.direction_to_light) * ray_direction;
 #else
     let ray_direction = directional_light.direction_to_light;
 #endif
@@ -172,7 +172,7 @@ fn trace_directional_light_visibility(light_sample: LightSample, directional_lig
     var ray_direction = vec3(x, y, cos_theta);
 
     // Rotate the ray so that the cone it was sampled from is aligned with the light direction
-    ray_direction = build_orthonormal_basis(directional_light.direction_to_light) * ray_direction;
+    ray_direction = orthonormalize(directional_light.direction_to_light) * ray_direction;
 #else
     let ray_direction = directional_light.direction_to_light;
 #endif
@@ -207,14 +207,4 @@ fn triangle_barycentrics(random: vec2<f32>) -> vec3<f32> {
     var barycentrics = random;
     if barycentrics.x + barycentrics.y > 1.0 { barycentrics = 1.0 - barycentrics; }
     return vec3(1.0 - barycentrics.x - barycentrics.y, barycentrics);
-}
-
-// https://jcgt.org/published/0006/01/01/paper.pdf
-fn build_orthonormal_basis(normal: vec3<f32>) -> mat3x3<f32> {
-    let sign = select(-1.0, 1.0, normal.z >= 0.0);
-    let a = -1.0 / (sign + normal.z);
-    let b = normal.x * normal.y * a;
-    let tangent = vec3(1.0 + sign * normal.x * normal.x * a, sign * b, -sign * normal.x);
-    let bitangent = vec3(b, sign + normal.y * normal.y * a, -normal.y);
-    return mat3x3(tangent, bitangent, normal);
 }
