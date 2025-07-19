@@ -258,6 +258,19 @@ new_key_type! {
 impl GraphNodeId for SystemKey {
     type Adjacent = (SystemKey, Direction);
     type Edge = (SystemKey, SystemKey);
+
+    fn kind(&self) -> &'static str {
+        "system"
+    }
+}
+
+impl GraphNodeId for SystemSetKey {
+    type Adjacent = (SystemSetKey, Direction);
+    type Edge = (SystemSetKey, SystemSetKey);
+
+    fn kind(&self) -> &'static str {
+        "system set"
+    }
 }
 
 impl TryFrom<NodeId> for SystemKey {
@@ -324,6 +337,13 @@ impl NodeId {
 impl GraphNodeId for NodeId {
     type Adjacent = CompactNodeIdAndDirection;
     type Edge = CompactNodeIdPair;
+
+    fn kind(&self) -> &'static str {
+        match self {
+            NodeId::System(_) => "system",
+            NodeId::Set(_) => "system set",
+        }
+    }
 }
 
 impl From<SystemKey> for NodeId {
