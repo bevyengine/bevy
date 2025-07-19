@@ -388,8 +388,11 @@ impl Components {
         // Store the old count of (all) required components. This will help determine which ones are new.
         let old_required_count = required_components.all.len();
 
-        // SAFETY: the caller guarantees that `requiree` and `required` are valid in `self`, with `required` valid for R.
-        unsafe { self.register_required_component_single(requiree, required, constructor) };
+        // SAFETY: the caller guarantees that `requiree` is valid in `self`.
+        self.required_components_scope(requiree, |this, required_components| {
+            // SAFETY: the caller guarantees that `required` is valid for type `R` in `self`
+            unsafe { required_components.register_by_id(required, this, constructor) };
+        });
 
         // Third step: update the required components and required_by of all the indirect requirements/requirees.
 
@@ -425,23 +428,12 @@ impl Components {
 
         // Update the inherited required components of all requiree components (directly or indirectly).
         for &indirect_requiree in &new_requiree_components {
-            // Extract the required components to avoid conflicting borrows. Remember to put this back before continuing!
-            // SAFETY: `indirect_requiree` comes from `self`, so it must be valid.
-            let mut required_components = core::mem::take(unsafe {
-                self.get_required_components_mut(indirect_requiree)
-                    .debug_checked_unwrap()
+            // SAFETY: `indirect_requiree` comes from `self` so it must be valid.
+            self.required_components_scope(indirect_requiree, |this, required_components| {
+                // Rebuild the inherited required components.
+                // SAFETY: `required_components` comes from `self`, so all its components must have be valid in `self`.
+                unsafe { required_components.rebuild_inherited_required_components(this) };
             });
-
-            // Rebuild the inherited required components.
-            // SAFETY: `required_components` comes from `self`, so all its components must have be valid in `self`.
-            unsafe { required_components.rebuild_inherited_required_components(self) };
-
-            // Let's not forget to put back `required_components`!
-            // SAFETY: `indirect_requiree` comes from `self`, so it must be valid.
-            *unsafe {
-                self.get_required_components_mut(indirect_requiree)
-                    .debug_checked_unwrap()
-            } = required_components;
         }
 
         // Update the `required_by` of all the components that were newly required (directly or indirectly).
@@ -460,35 +452,46 @@ impl Components {
         Ok(())
     }
 
-    /// Register the `required` as a required component in the [`RequiredComponents`] for `requiree`.
-    /// This function does not update any other metadata, such as required components of components requiring `requiree`.
+    /// Temporarily take out the [`RequiredComponents`] of the component with id `component_id`
+    /// and runs the given closure with mutable access to `self` and the given [`RequiredComponents`].
     ///
-    /// # Safety
+    /// SAFETY:
     ///
-    /// - `requiree` and `required` must be defined in `self`.
-    /// - `required` must be a valid component ID for the type `R`.
-    unsafe fn register_required_component_single<R: Component>(
+    /// `component_id` is valid in `self.components`
+    unsafe fn required_components_scope<R>(
         &mut self,
-        requiree: ComponentId,
-        required: ComponentId,
-        constructor: fn() -> R,
-    ) {
-        // Extract the required components to avoid conflicting borrows. Remember to put this back before returning!
-        // SAFETY: The caller ensures that the `requiree` is valid.
-        let mut required_components = core::mem::take(unsafe {
-            self.get_required_components_mut(requiree)
-                .debug_checked_unwrap()
-        });
+        component_id: ComponentId,
+        f: impl FnOnce(&mut Self, &mut RequiredComponents) -> R,
+    ) -> R {
+        struct DropGuard<'a> {
+            components: &'a mut Components,
+            component_id: ComponentId,
+            required_components: RequiredComponents,
+        }
 
-        // Register the required component for the requiree.
-        required_components.register_by_id(required, self, constructor);
+        impl Drop for DropGuard<'_> {
+            fn drop(&mut self) {
+                // SAFETY: The caller ensures that the `component_id` is valid.
+                let required_components = unsafe {
+                    self.components
+                        .get_required_components_mut(self.component_id)
+                        .debug_checked_unwrap()
+                };
+                *required_components = std::mem::take(&mut self.required_components);
+            }
+        }
 
-        // Let's not forget to put back `required_components`!
-        // SAFETY: The caller ensures that the `requiree` is valid.
-        *unsafe {
-            self.get_required_components_mut(requiree)
-                .debug_checked_unwrap()
-        } = required_components;
+        let mut guard = DropGuard {
+            component_id,
+            // SAFETY: The caller ensures that the `component_id` is valid.
+            required_components: core::mem::take(unsafe {
+                self.get_required_components_mut(component_id)
+                    .debug_checked_unwrap()
+            }),
+            components: self,
+        };
+
+        f(&mut guard.components, &mut guard.required_components)
     }
 }
 
