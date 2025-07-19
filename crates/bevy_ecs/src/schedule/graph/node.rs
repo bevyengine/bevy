@@ -1,42 +1,16 @@
-use core::fmt::Debug;
+use core::{fmt::Debug, hash::Hash};
 
-use crate::schedule::{SystemKey, SystemSetKey};
+use crate::schedule::graph::Direction;
 
-/// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
+/// Types that can be used as node identifiers in a [`DiGraph`]/[`UnGraph`].
 ///
-/// [`ScheduleGraph`]: crate::schedule::ScheduleGraph
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum NodeId {
-    /// Identifier for a system.
-    System(SystemKey),
-    /// Identifier for a system set.
-    Set(SystemSetKey),
-}
-
-impl NodeId {
-    /// Returns `true` if the identified node is a system.
-    pub const fn is_system(&self) -> bool {
-        matches!(self, NodeId::System(_))
-    }
-
-    /// Returns `true` if the identified node is a system set.
-    pub const fn is_set(&self) -> bool {
-        matches!(self, NodeId::Set(_))
-    }
-
-    /// Returns the system key if the node is a system, otherwise `None`.
-    pub const fn as_system(&self) -> Option<SystemKey> {
-        match self {
-            NodeId::System(system) => Some(*system),
-            NodeId::Set(_) => None,
-        }
-    }
-
-    /// Returns the system set key if the node is a system set, otherwise `None`.
-    pub const fn as_set(&self) -> Option<SystemSetKey> {
-        match self {
-            NodeId::System(_) => None,
-            NodeId::Set(set) => Some(*set),
-        }
-    }
+/// [`DiGraph`]: crate::schedule::graph::DiGraph
+/// [`UnGraph`]: crate::schedule::graph::UnGraph
+pub trait GraphNodeId: Copy + Eq + Hash + Ord + Debug {
+    /// The type that packs and unpacks this [`GraphNodeId`] with a [`Direction`].
+    /// This is used to save space in the graph's adjacency list.
+    type Adjacent: Copy + Debug + From<(Self, Direction)> + Into<(Self, Direction)>;
+    /// The type that packs and unpacks this [`GraphNodeId`] with another
+    /// [`GraphNodeId`]. This is used to save space in the graph's edge list.
+    type Edge: Copy + Eq + Hash + Debug + From<(Self, Self)> + Into<(Self, Self)>;
 }
