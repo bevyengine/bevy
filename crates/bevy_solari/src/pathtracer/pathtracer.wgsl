@@ -3,8 +3,8 @@
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_brdf
-#import bevy_solari::sampling::{sample_random_light, sample_uniform_hemisphere}
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
+#import bevy_solari::sampling::{sample_cosine_hemisphere, sample_ggx_vndf, ggx_vndf_pdf}
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
 @group(1) @binding(1) var view_output: texture_storage_2d<rgba16float, write>;
@@ -40,38 +40,23 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let ray_hit = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
         if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = resolve_ray_hit_full(ray_hit);
-
-            // Sample new ray direction for the next bounce
             let wo = -ray_direction;
-            let wi = sample_uniform_hemisphere(ray_hit.world_normal, &rng);
-            ray_direction = wi;
 
-            // Evaluate material BRDF
-            let brdf = evaluate_brdf(
-                ray_hit.world_normal,
-                wo,
-                wi,
-                ray_hit.material.base_color,
-                ray_hit.material.metallic,
-                ray_hit.material.reflectance,
-                ray_hit.material.perceptual_roughness,
-            );
+            // Calculate emissive contribution
+            radiance += throughput * ray_hit.material.emissive;
 
-            // Use emissive only on the first ray (coming from the camera)
-            if ray_t_min == 0.0 { radiance = ray_hit.material.emissive; }
-
-            // Sample direct lighting
-            // TODO: Wrong BRDF here when it comes to specular?
-            radiance += throughput * brdf * sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
-
-            // Update other variables for next bounce
+            // Sample new ray direction from the material BRDF for next bounce
+            let next_bounce = importance_sample_next_bounce(wo, ray_hit, &rng);
+            ray_direction = next_bounce.wi;
             ray_origin = ray_hit.world_position;
             ray_t_min = RAY_T_MIN;
 
+            // Evaluate material BRDF
+            let brdf = evaluate_brdf(ray_hit.world_normal, wo, next_bounce.wi, ray_hit.material);
+
             // Update throughput for next bounce
-            let cos_theta = dot(wi, ray_hit.world_normal);
-            let uniform_hemisphere_pdf = 1.0 / (2.0 * PI); // Weight for the next bounce because we importance sampled the diffuse BRDF for the next ray direction
-            throughput *= (brdf * cos_theta) / uniform_hemisphere_pdf;
+            let cos_theta = dot(next_bounce.wi, ray_hit.world_normal);
+            throughput *= (brdf * cos_theta) / next_bounce.pdf;
 
             // Russian roulette for early termination
             let p = luminance(throughput);
@@ -87,4 +72,28 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let new_color = mix(old_color.rgb, radiance, 1.0 / (old_color.a + 1.0));
     textureStore(accumulation_texture, global_id.xy, vec4(new_color, old_color.a + 1.0));
     textureStore(view_output, global_id.xy, vec4(new_color, 1.0));
+}
+
+struct NextBounce {
+    wi: vec3<f32>,
+    pdf: f32,
+}
+
+fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng: ptr<function, u32>) -> NextBounce {
+    let diffuse_weight = 1.0 - ray_hit.material.metallic;
+    let specular_weight = ray_hit.material.metallic;
+    let total_weight = diffuse_weight + specular_weight;
+
+    var wi: vec3<f32>;
+    if rand_f(rng) * total_weight < diffuse_weight {
+        wi = sample_cosine_hemisphere(ray_hit.world_normal, rng);
+    } else {
+        wi = sample_ggx_vndf(wo, ray_hit.material.roughness, rng);
+    }
+
+    let diffuse_pdf = dot(wi, ray_hit.world_normal) / PI;
+    let specular_pdf = ggx_vndf_pdf(wo, wi, ray_hit.world_normal, ray_hit.material.roughness);
+    let pdf = ((diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf)) / total_weight;
+
+    return NextBounce(wi, pdf);
 }

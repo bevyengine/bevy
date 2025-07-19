@@ -47,8 +47,9 @@ fn sample_ggx_vndf(i: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec
 }
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
-fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
-    let ndf = D_GGX(roughness, NdotH);
+fn ggx_vndf_pdf(i: vec3<f32>, o: vec3<f32>, world_normal: vec3<f32>, roughness: f32) -> f32 {
+    let m = normalize(i + o);
+    let ndf = D_GGX(roughness, saturate(dot(world_normal, m)));
     let ai = roughness * i.xy;
     let len2 = dot(ai, ai);
     let t = sqrt(len2 + i.z * i.z);

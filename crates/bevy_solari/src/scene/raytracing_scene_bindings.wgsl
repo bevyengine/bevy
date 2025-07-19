@@ -1,5 +1,7 @@
 #define_import_path bevy_solari::scene_bindings
 
+#import bevy_pbr::lighting::perceptualRoughnessToRoughness
+
 struct InstanceGeometryIds {
     vertex_buffer_id: u32,
     vertex_buffer_offset: u32,
@@ -101,6 +103,7 @@ struct ResolvedMaterial {
     emissive: vec3<f32>,
     reflectance: vec3<f32>,
     perceptual_roughness: f32,
+    roughness: f32,
     metallic: f32,
 }
 
@@ -135,6 +138,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
         m.perceptual_roughness *= metallic_roughness.g;
         m.metallic *= metallic_roughness.b;
     }
+    m.roughness = perceptualRoughnessToRoughness(m.perceptual_roughness);
 
     return m;
 }
