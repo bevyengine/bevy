@@ -1,6 +1,7 @@
 #define_import_path bevy_solari::scene_bindings
 
 #import bevy_pbr::lighting::perceptualRoughnessToRoughness
+#import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
 
 struct InstanceGeometryIds {
     vertex_buffer_id: u32,
@@ -111,6 +112,7 @@ struct ResolvedRayHitFull {
     world_position: vec3<f32>,
     world_normal: vec3<f32>,
     geometric_world_normal: vec3<f32>,
+    world_tangent: vec4<f32>,
     uv: vec2<f32>,
     triangle_area: f32,
     material: ResolvedMaterial,
@@ -166,15 +168,20 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 
     let uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
 
+    let local_tangent = mat3x3(vertices[0].tangent.xyz, vertices[1].tangent.xyz, vertices[2].tangent.xyz) * barycentrics;
+    let world_tangent = vec4(
+        normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_tangent),
+        vertices[0].tangent.w,
+    );
+
     let local_normal = mat3x3(vertices[0].normal, vertices[1].normal, vertices[2].normal) * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
     var world_normal = normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_normal);
     let geometric_world_normal = world_normal;
     if material.normal_map_texture_id != TEXTURE_MAP_NONE {
-        let local_tangent = mat3x3(vertices[0].tangent.xyz, vertices[1].tangent.xyz, vertices[2].tangent.xyz) * barycentrics;
-        let world_tangent = normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_tangent);
-        let N = world_normal;
-        let T = world_tangent;
-        let B = vertices[0].tangent.w * cross(N, T);
+        let TBN = calculate_tbn_mikktspace(world_normal, world_tangent);
+        let T = TBN[0];
+        let B = TBN[1];
+        let N = TBN[2];
         let Nt = sample_texture(material.normal_map_texture_id, uv);
         world_normal = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
     }
@@ -185,5 +192,5 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 
     let resolved_material = resolve_material(material, uv);
 
-    return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, uv, triangle_area, resolved_material);
+    return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, world_tangent, uv, triangle_area, resolved_material);
 }
