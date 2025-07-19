@@ -120,7 +120,10 @@ use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bevy_utils::WgpuWrapper;
 use bitflags::bitflags;
-use core::ops::{Deref, DerefMut};
+use core::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 use std::sync::Mutex;
 use tracing::debug;
 
@@ -658,4 +661,85 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
     }
 
     None
+}
+
+/// A utility function for conditionally running `system_set` based on `condition`.
+///
+/// All systems in the `render_app` that are in `system_set` will only run if `condition` returns
+/// true. The condition is only checked once at `RenderStartup`, where the `resource` is inserted
+/// depending on whether the condition is true. This function is focused on having the lowest
+/// overhead while executing.
+///
+/// Note: only systems in `RenderStartup`, `ExtractSchedule`, and `Render` will be disabled by the
+/// condition.
+///
+/// Consider making specific system sets / resources for use with this function. For example:
+///
+/// ```
+/// # use bevy_app::App;
+/// # use bevy_ecs::{
+/// #     system::Res,
+/// #     schedule::{IntoScheduleConfigs, SystemSet},
+/// # };
+/// # use bevy_render::{
+/// #     RenderApp, RenderStartup,
+/// #     conditional_render_set,
+/// #     renderer::RenderDevice,
+/// # };
+/// fn my_plugin(app: &mut App) {
+///     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+///         return;
+///     };
+///
+///     conditional_render_set(
+///         render_app,
+///         MySystemSet,
+///         my_system_set_condition);
+///
+///     render_app.add_systems(RenderStartup, init_my_pipeline.in_set(MySystemSet));
+/// }
+///
+/// #[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
+/// struct MySystemSet;
+///
+/// fn my_system_set_condition(render_device: Res<RenderDevice>) -> bool {
+///     todo!()
+/// }
+/// # fn init_my_pipeline() {}
+/// ```
+pub fn conditional_render_set<S: SystemSet + Clone, M>(
+    render_app: &mut SubApp,
+    system_set: S,
+    condition: impl SystemCondition<M>,
+) {
+    struct EnabledRenderSet<T>(PhantomData<fn() -> T>);
+    impl<T: 'static> Resource for EnabledRenderSet<T> {}
+
+    let mut resource = Some(EnabledRenderSet::<S>(PhantomData));
+    let condition = condition.pipe(move |In(condition): In<bool>, mut commands: Commands| {
+        let resource = resource
+            .take()
+            .expect("Resource has not been taken since this system only runs once");
+        if condition {
+            commands.insert_resource(resource);
+        }
+    });
+    render_app
+        .add_systems(RenderStartup, condition.before(system_set.clone()))
+        .configure_sets(
+            RenderStartup,
+            system_set
+                .clone()
+                .run_if(resource_exists::<EnabledRenderSet<S>>),
+        )
+        .configure_sets(
+            ExtractSchedule,
+            system_set
+                .clone()
+                .run_if(resource_exists::<EnabledRenderSet<S>>),
+        )
+        .configure_sets(
+            Render,
+            system_set.run_if(resource_exists::<EnabledRenderSet<S>>),
+        );
 }
