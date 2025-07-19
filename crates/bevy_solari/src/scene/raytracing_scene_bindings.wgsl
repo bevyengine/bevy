@@ -140,7 +140,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
         m.perceptual_roughness *= metallic_roughness.g;
         m.metallic *= metallic_roughness.b;
     }
-    m.roughness = perceptualRoughnessToRoughness(m.perceptual_roughness);
+    m.roughness = clamp(m.perceptual_roughness * m.perceptual_roughness, 0.001, 1.0);
 
     return m;
 }
