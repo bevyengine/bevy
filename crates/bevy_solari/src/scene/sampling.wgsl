@@ -33,7 +33,7 @@ fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32
     let rand = rand_vec2f(rng);
     let i_std = normalize(vec3(i.xy * roughness, i.z));
     let phi = 2.0 * PI * rand.x;
-    let a = saturate(roughness);
+    let a = roughness;
     let s = 1.0 + length(vec2(i.xy));
     let a2 = a * a;
     let s2 = s * s;
@@ -57,7 +57,7 @@ fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) ->
     let len2 = dot(ai, ai);
     let t = sqrt(len2 + i.z * i.z);
     if i.z >= 0.0 {
-        let a = saturate(roughness);
+        let a = roughness;
         let s = 1.0 + length(i.xy);
         let a2 = a * a;
         let s2 = s * s;
