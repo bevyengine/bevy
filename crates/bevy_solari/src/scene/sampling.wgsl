@@ -3,7 +3,8 @@
 #import bevy_pbr::lighting::D_GGX
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_range_u}
 #import bevy_render::maths::{PI, PI_2}
-#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full}
+#import bevy_solari::brdf::evaluate_brdf
+#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedMaterial}
 
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec28%3A303
 fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
@@ -94,9 +95,9 @@ struct SampleRandomLightResult {
     inverse_pdf: f32,
 }
 
-fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> SampleRandomLightResult {
+fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, rng: ptr<function, u32>) -> SampleRandomLightResult {
     let light_sample = generate_random_light_sample(rng);
-    let light_contribution = calculate_light_contribution(light_sample, ray_origin, origin_world_normal);
+    let light_contribution = calculate_light_contribution(light_sample, ray_origin, origin_world_normal, wo, material);
     let visibility = trace_light_visibility(light_sample, ray_origin);
     return SampleRandomLightResult(light_contribution.radiance * visibility, light_contribution.inverse_pdf);
 }
@@ -127,16 +128,16 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> LightSample {
     return LightSample(vec2(light_id, triangle_id), random);
 }
 
-fn calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
+fn calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial) -> LightContribution {
     let light_id = light_sample.light_id.x;
     let light_source = light_sources[light_id];
 
     var light_contribution: LightContribution;
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
-        light_contribution = calculate_directional_light_contribution(light_sample, light_source.id, origin_world_normal);
+        light_contribution = calculate_directional_light_contribution(light_sample, light_source.id, origin_world_normal, wo, material);
     } else {
         let triangle_count = light_source.kind >> 1u;
-        light_contribution = calculate_emissive_mesh_contribution(light_sample, light_source.id, triangle_count, ray_origin, origin_world_normal);
+        light_contribution = calculate_emissive_mesh_contribution(light_sample, light_source.id, triangle_count, ray_origin, origin_world_normal, wo, material);
     }
 
     let light_count = arrayLength(&light_sources);
@@ -145,7 +146,7 @@ fn calculate_light_contribution(light_sample: LightSample, ray_origin: vec3<f32>
     return light_contribution;
 }
 
-fn calculate_directional_light_contribution(light_sample: LightSample, directional_light_id: u32, origin_world_normal: vec3<f32>) -> LightContribution {
+fn calculate_directional_light_contribution(light_sample: LightSample, directional_light_id: u32, origin_world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial) -> LightContribution {
     let directional_light = directional_lights[directional_light_id];
 
 #ifdef DIRECTIONAL_LIGHT_SOFT_SHADOWS
@@ -167,10 +168,12 @@ fn calculate_directional_light_contribution(light_sample: LightSample, direction
     let cos_theta_origin = saturate(dot(ray_direction, origin_world_normal));
     let radiance = directional_light.luminance * cos_theta_origin;
 
-    return LightContribution(radiance, directional_light.inverse_pdf);
+    let brdf = evaluate_brdf(origin_world_normal, wo, ray_direction, material);
+
+    return LightContribution(radiance * brdf, directional_light.inverse_pdf);
 }
 
-fn calculate_emissive_mesh_contribution(light_sample: LightSample, instance_id: u32, triangle_count: u32, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
+fn calculate_emissive_mesh_contribution(light_sample: LightSample, instance_id: u32, triangle_count: u32, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial) -> LightContribution {
     let barycentrics = triangle_barycentrics(light_sample.random);
     let triangle_id = light_sample.light_id.y;
 
@@ -185,7 +188,9 @@ fn calculate_emissive_mesh_contribution(light_sample: LightSample, instance_id: 
     let radiance = triangle_data.material.emissive.rgb * cos_theta_origin * (cos_theta_light / light_distance_squared);
     let inverse_pdf = f32(triangle_count) * triangle_data.triangle_area;
 
-    return LightContribution(radiance, inverse_pdf);
+    let brdf = evaluate_brdf(origin_world_normal, wo, ray_direction, material);
+
+    return LightContribution(radiance * brdf, inverse_pdf);
 }
 
 fn trace_light_visibility(light_sample: LightSample, ray_origin: vec3<f32>) -> f32 {

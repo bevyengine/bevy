@@ -4,7 +4,7 @@
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_brdf
-#import bevy_solari::sampling::{sample_cosine_hemisphere, sample_ggx_vndf, ggx_vndf_pdf}
+#import bevy_solari::sampling::{sample_random_light, sample_cosine_hemisphere, sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
@@ -43,8 +43,12 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let ray_hit = resolve_ray_hit_full(ray_hit);
             let wo = -ray_direction;
 
-            // Calculate emissive contribution
-            radiance += throughput * ray_hit.material.emissive;
+            // Use emissive only on the first ray (coming from the camera)
+            if ray_t_min == 0.0 { radiance = ray_hit.material.emissive; }
+
+            // Sample direct lighting
+            let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, wo, ray_hit.material, &rng);
+            radiance += throughput * direct_lighting.radiance * direct_lighting.inverse_pdf;
 
             // Sample new ray direction from the material BRDF for next bounce
             let next_bounce = importance_sample_next_bounce(wo, ray_hit, &rng);
@@ -52,10 +56,8 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             ray_origin = ray_hit.world_position;
             ray_t_min = RAY_T_MIN;
 
-            // Evaluate material BRDF
-            let brdf = evaluate_brdf(ray_hit.world_normal, wo, next_bounce.wi, ray_hit.material);
-
             // Update throughput for next bounce
+            let brdf = evaluate_brdf(ray_hit.world_normal, wo, next_bounce.wi, ray_hit.material);
             let cos_theta = dot(next_bounce.wi, ray_hit.world_normal);
             throughput *= (brdf * cos_theta) / next_bounce.pdf;
 
