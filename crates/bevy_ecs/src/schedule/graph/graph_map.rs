@@ -5,17 +5,35 @@
 //! [`petgraph`]: https://docs.rs/petgraph/0.6.5/petgraph/
 
 use alloc::vec::Vec;
-use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use core::{
-    fmt,
+    fmt::{self, Debug},
     hash::{BuildHasher, Hash},
 };
+
+use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 
-use crate::schedule::graph::node::GraphNodeId;
-
 use Direction::{Incoming, Outgoing};
+
+/// Types that can be used as node identifiers in a [`DiGraph`]/[`UnGraph`].
+///
+/// [`DiGraph`]: crate::schedule::graph::DiGraph
+/// [`UnGraph`]: crate::schedule::graph::UnGraph
+pub trait GraphNodeId: Copy + Eq + Hash + Ord + Debug {
+    /// The type that packs and unpacks this [`GraphNodeId`] with a [`Direction`].
+    /// This is used to save space in the graph's adjacency list.
+    type Adjacent: Copy + Debug + From<(Self, Direction)> + Into<(Self, Direction)>;
+    /// The type that packs and unpacks this [`GraphNodeId`] with another
+    /// [`GraphNodeId`]. This is used to save space in the graph's edge list.
+    type Edge: Copy + Eq + Hash + Debug + From<(Self, Self)> + Into<(Self, Self)>;
+
+    /// Name of the kind of this node id.
+    ///
+    /// For structs, this should return a human-readable name of the struct.
+    /// For enums, this should return a human-readable name of the enum variant.
+    fn kind(&self) -> &'static str;
+}
 
 /// A `Graph` with undirected edges of some [`GraphNodeId`] `N`.
 ///
@@ -55,7 +73,7 @@ where
     edges: HashSet<N::Edge, S>,
 }
 
-impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> fmt::Debug for Graph<DIRECTED, N, S> {
+impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Debug for Graph<DIRECTED, N, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.nodes.fmt(f)
     }

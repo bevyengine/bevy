@@ -1443,13 +1443,6 @@ impl ScheduleGraph {
         )
     }
 
-    fn get_node_kind(&self, id: &NodeId) -> &'static str {
-        match id {
-            NodeId::System(_) => "system",
-            NodeId::Set(_) => "system set",
-        }
-    }
-
     /// If [`ScheduleBuildSettings::hierarchy_detection`] is [`LogLevel::Ignore`] this check
     /// is skipped.
     fn optionally_check_hierarchy_conflicts(
@@ -1481,7 +1474,7 @@ impl ScheduleGraph {
             writeln!(
                 message,
                 " -- {} `{}` cannot be child of set `{}`, longer path exists",
-                self.get_node_kind(child),
+                child.kind(),
                 self.get_node_name(child),
                 self.get_node_name(parent),
             )
@@ -1585,12 +1578,9 @@ impl ScheduleGraph {
     ) -> String {
         let mut message = format!("schedule has {} before/after cycle(s):\n", cycles.len());
         for (i, cycle) in cycles.iter().enumerate() {
-            let mut names = cycle.iter().map(|&id| {
-                (
-                    self.get_node_kind(&id.into()),
-                    self.get_node_name(&id.into()),
-                )
-            });
+            let mut names = cycle
+                .iter()
+                .map(|&id| (id.into().kind(), self.get_node_name(&id.into())));
             let (first_kind, first_name) = names.next().unwrap();
             writeln!(
                 message,
