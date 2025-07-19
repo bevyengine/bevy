@@ -472,7 +472,7 @@ impl Components {
                         .get_required_components_mut(self.component_id)
                         .debug_checked_unwrap()
                 };
-                *required_components = std::mem::take(&mut self.required_components);
+                *required_components = core::mem::take(&mut self.required_components);
             }
         }
 
@@ -486,7 +486,7 @@ impl Components {
             components: self,
         };
 
-        f(&mut guard.components, &mut guard.required_components)
+        f(guard.components, &mut guard.required_components)
     }
 }
 
@@ -586,7 +586,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
         unsafe {
             self.required_components.register_by_id::<C>(
                 component_id,
-                &self.components,
+                self.components,
                 constructor,
             );
         }
@@ -614,7 +614,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
         unsafe {
             self.required_components.register_dynamic_with(
                 component_id,
-                &self.components,
+                self.components,
                 constructor,
             );
         }
