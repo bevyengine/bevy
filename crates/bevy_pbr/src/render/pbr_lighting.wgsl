@@ -137,7 +137,7 @@ fn getDistanceAttenuation(distanceSquare: f32, inverseRangeSquared: f32) -> f32 
 
 // Simple implementation, has precision problems when using fp16 instead of fp32
 // see https://google.github.io/filament/Filament.html#listing_speculardfp16
-fn D_GGX(roughness: f32, NdotH: f32, h: vec3<f32>) -> f32 {
+fn D_GGX(roughness: f32, NdotH: f32) -> f32 {
     let oneMinusNdotHSquared = 1.0 - NdotH * NdotH;
     let a = NdotH * roughness;
     let k = roughness / (oneMinusNdotHSquared + a * a);
@@ -313,13 +313,12 @@ fn specular(
     let roughness = (*input).layers[LAYER_BASE].roughness;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F0 = (*input).F0_;
-    let H = (*derived_input).H;
     let NdotL = (*derived_input).NdotL;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
 
     // Calculate distribution.
-    let D = D_GGX(roughness, NdotH, H);
+    let D = D_GGX(roughness, NdotH);
     // Calculate visibility.
     let V = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
     // Calculate the Fresnel term.
@@ -343,12 +342,11 @@ fn specular_clearcoat(
 ) -> vec2<f32> {
     // Unpack.
     let roughness = (*input).layers[LAYER_CLEARCOAT].roughness;
-    let H = (*derived_input).H;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
 
     // Calculate distribution.
-    let Dc = D_GGX(roughness, NdotH, H);
+    let Dc = D_GGX(roughness, NdotH);
     // Calculate visibility.
     let Vc = V_Kelemen(LdotH);
     // Calculate the Fresnel term.
