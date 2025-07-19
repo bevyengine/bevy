@@ -19,10 +19,10 @@ use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, UiRect, Val,
 };
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
@@ -58,7 +58,7 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         },
         CoreRadio,
         Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         ThemeFontColor(tokens::RADIO_TEXT),
         InheritableFont {
