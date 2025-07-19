@@ -220,13 +220,13 @@ impl World {
     /// Retrieves the number of [`Entities`] in the world.
     ///
     /// This is helpful as a diagnostic, but it can also be used effectively in tests.
-    /// This function excludes internal entities. For more information look at the [`Internal`](crate::entity_disabling::Internal) documentation, or use [`internal_entity_count`].
+    /// This function excludes internal entities. For more information look at the [`Internal`] documentation, or use [`World::internal_entity_count`].
     #[inline]
     pub fn entity_count(&self) -> u32 {
         self.entities.len() - self.internal_entity_count()
     }
 
-    /// Counts the number of internal entities, entities marked by the [`Internal`](crate::entity_disabling::Internal) marker component.
+    /// Counts the number of internal entities, entities marked by the [`Internal`] marker component.
     pub fn internal_entity_count(&self) -> u32 {
         if let Some(internal_component_id) = self.components().component_id::<Internal>()
             && let Some(archetype_map) = self
