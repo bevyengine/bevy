@@ -253,7 +253,7 @@ macro_rules! impl_specialization_key_tuple {
     };
 }
 
-// TODO: How to we fake_variadics this?
+// TODO: How do we fake_variadics this?
 all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 
 /// A cache for specializable resources. For a given key type the resulting
@@ -363,6 +363,7 @@ mod dyn_specializer {
 
     use super::{Canonical, Specializable, Specializer, SpecializerKey};
 
+    /// A type-erased wrapper around a `Specializer`
     pub trait DynSpecializer<T: Specializable>: Any + Send + Sync + 'static {
         fn dyn_specialize(
             &self,
@@ -424,7 +425,7 @@ mod dyn_specializer {
     impl Eq for dyn DynSpecializerKey {}
 
     impl Hash for dyn DynSpecializerKey {
-        fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
+        fn hash<H: Hasher>(&self, state: &mut H) {
             self.dyn_hash(state);
         }
     }
@@ -435,6 +436,7 @@ mod dyn_specializer {
         }
     }
 
+    /// A type-erased wrapper around a `SpecializerKey`
     pub struct ErasedSpecializerKey(Box<dyn DynSpecializerKey>);
 
     impl Clone for ErasedSpecializerKey {
