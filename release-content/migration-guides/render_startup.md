@@ -24,6 +24,7 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `OitBuffers`
 - `PostProcessingPipeline`
 - `TonemappingPipeline`
+- `AtmosphereSamplers`
 - `BoxShadowPipeline`
 - `GradientPipeline`
 - `UiPipeline`
