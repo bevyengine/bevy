@@ -208,10 +208,10 @@ fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
 }
 
 // Smith geometric shadowing function
-fn G_Smith(NoV: f32, NoL: f32, roughness: f32) -> f32 {
+fn G_Smith(NdotV: f32, NdotL: f32, roughness: f32) -> f32 {
     let k = roughness / 2.0;
-    let GGXL = NoL / (NoL * (1.0 - k) + k);
-    let GGXV = NoV / (NoV * (1.0 - k) + k);
+    let GGXL = NdotL / (NdotL * (1.0 - k) + k);
+    let GGXV = NdotV / (NdotV * (1.0 - k) + k);
     return GGXL * GGXV;
 }
 
@@ -264,20 +264,19 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
         let light_dir = sample_visible_ggx(xi, roughness, normal, view);
         
         // Calculate weight (N·L)
-        let NoL = dot(normal, light_dir);
+        let NdotL = dot(normal, light_dir);
         
-        if (NoL > 0.0) {
+        if (NdotL > 0.0) {
             // Reconstruct the microfacet half-vector from view and light and compute PDF terms
             let half_vector = normalize(view + light_dir);
-            let NoH = dot(normal, half_vector);
-            let VoH = dot(view, half_vector);
-            let NoV = dot(normal, view);
+            let NdotH = dot(normal, half_vector);
+            let NdotV = dot(normal, view);
             
             // Get the geometric shadowing term
-            let G = G_Smith(NoV, NoL, roughness);
+            let G = G_Smith(NdotV, NdotL, roughness);
             
             // PDF that matches the bounded-VNDF sampling
-            let pdf = ggx_vndf_pdf(view, NoH, roughness);
+            let pdf = ggx_vndf_pdf(view, NdotH, roughness);
             
             // Calculate LOD using filtered importance sampling
             // This is crucial to avoid fireflies and improve quality
@@ -291,8 +290,8 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
             var sample_color = sample_environment(light_dir, source_mip).rgb;
             
             // Accumulate weighted sample, including geometric term
-            radiance += sample_color * NoL * G;
-            total_weight += NoL * G;
+            radiance += sample_color * NdotL * G;
+            total_weight += NdotL * G;
         }
     }
     
