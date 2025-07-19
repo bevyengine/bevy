@@ -230,7 +230,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        prelude::{Add, EntityMut, EntityRef, On World},
+        prelude::{Add, EntityMut, EntityRef, On, World},
         query::{Has, With},
     };
     use alloc::{vec, vec::Vec};
