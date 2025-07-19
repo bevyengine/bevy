@@ -40,9 +40,13 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
-    )));
+    commands.spawn((
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb")),
+        ),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
+    ));
 
     let mut camera = commands.spawn((
         Camera3d::default(),

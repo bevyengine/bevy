@@ -82,7 +82,9 @@ fn setup(
         ),
         // Note: the scale adjustment is purely an accident of our fox model, which renders
         // HUGE unless mitigated!
-        Transform::from_translation(Vec3::splat(0.0)).with_scale(Vec3::splat(0.025)),
+        Transform::from_translation(Vec3::splat(0.0))
+            .with_scale(Vec3::splat(0.025))
+            .looking_to(Vec3::Z, Vec3::Y),
     ));
 
     commands.spawn((

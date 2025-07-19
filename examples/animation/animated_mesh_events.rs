@@ -122,8 +122,9 @@ fn setup(
     ));
 
     // Fox
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
+    commands.spawn((
+        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
     ));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.

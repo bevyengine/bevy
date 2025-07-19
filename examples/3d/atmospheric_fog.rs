@@ -66,9 +66,12 @@ fn setup_terrain_scene(
     ));
 
     // Terrain
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf"),
-    )));
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf")),
+        ),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
+    ));
 
     // Sky
     commands.spawn((

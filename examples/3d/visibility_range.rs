@@ -114,6 +114,7 @@ fn setup(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
         MainModel::HighPoly,
     ));
 
@@ -124,6 +125,7 @@ fn setup(
                     .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
             ),
         ),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
         MainModel::LowPoly,
     ));
 

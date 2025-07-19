@@ -605,6 +605,10 @@ bevy_state = { path = "crates/bevy_state", version = "0.17.0-dev", default-featu
 bevy_asset = { path = "crates/bevy_asset", version = "0.17.0-dev", default-features = false }
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.17.0-dev", default-features = false }
 bevy_image = { path = "crates/bevy_image", version = "0.17.0-dev", default-features = false }
+# Opt into the new default glTF coordinate conversion that will be the default in 0.18.0
+bevy_gltf = { path = "crates/bevy_gltf", version = "0.17.0-dev", default-features = false, features = [
+  "gltf_convert_coordinates_default",
+] }
 bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.17.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
