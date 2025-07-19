@@ -340,8 +340,8 @@ impl GraphNodeId for NodeId {
 
     fn kind(&self) -> &'static str {
         match self {
-            NodeId::System(_) => "system",
-            NodeId::Set(_) => "system set",
+            NodeId::System(n) => n.kind(),
+            NodeId::Set(n) => n.kind(),
         }
     }
 }
