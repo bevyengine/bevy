@@ -1,4 +1,5 @@
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
+#import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
@@ -83,15 +84,25 @@ fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng
     let diffuse_weight = 1.0 - ray_hit.material.metallic;
     let specular_weight = ray_hit.material.metallic;
 
+    let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
+    let T = TBN[0];
+    let B = TBN[1];
+    let N = TBN[2];
+
+    let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
+
     var wi: vec3<f32>;
+    var wi_tangent: vec3<f32>;
     if rand_f(rng) < diffuse_weight {
         wi = sample_cosine_hemisphere(ray_hit.world_normal, rng);
+        wi_tangent = vec3(dot(wi, T), dot(wi, B), dot(wi, N));
     } else {
-        wi = sample_ggx_vndf(wo, ray_hit.material.roughness, rng);
+        wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
+        wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
     }
 
     let diffuse_pdf = dot(wi, ray_hit.world_normal) / PI;
-    let specular_pdf = ggx_vndf_pdf(wo, wi, ray_hit.world_normal, ray_hit.material.roughness);
+    let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
     let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
 
     return NextBounce(wi, pdf);

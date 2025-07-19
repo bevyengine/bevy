@@ -28,7 +28,8 @@ fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3
 }
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
-fn sample_ggx_vndf(i: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
+fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
+    let i = wi_tangent;
     let rand = rand_vec2f(rng);
     let i_std = normalize(vec3(i.xy * roughness, i.z));
     let phi = 2.0 * PI * rand.x;
@@ -47,9 +48,11 @@ fn sample_ggx_vndf(i: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec
 }
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
-fn ggx_vndf_pdf(i: vec3<f32>, o: vec3<f32>, world_normal: vec3<f32>, roughness: f32) -> f32 {
+fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
+    let i = wi_tangent;
+    let o = wo_tangent;
     let m = normalize(i + o);
-    let ndf = D_GGX(roughness, saturate(dot(world_normal, m)));
+    let ndf = D_GGX(roughness, saturate(m.z));
     let ai = roughness * i.xy;
     let len2 = dot(ai, ai);
     let t = sqrt(len2 + i.z * i.z);
