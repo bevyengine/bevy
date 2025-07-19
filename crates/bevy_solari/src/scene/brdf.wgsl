@@ -50,7 +50,7 @@ fn specular_brdf(
     let F_ab = F_AB(perceptual_roughness, NdotV);
     let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
-    let D = D_GGX(roughness, NdotH, H);
+    let D = D_GGX(roughness, NdotH);
     let Vs = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
     let F = fresnel(F0, LdotH);
     return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0);
