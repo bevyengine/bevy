@@ -1,3 +1,4 @@
+use bevy_camera::Viewport;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{ExtractedCamera, MainPassResolutionOverride},
@@ -63,8 +64,10 @@ impl ViewNode for OitResolveNode {
                 occlusion_query_set: None,
             });
 
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
+            if let Some(viewport) =
+                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+            {
+                render_pass.set_camera_viewport(&viewport);
             }
 
             render_pass.set_render_pipeline(pipeline);
