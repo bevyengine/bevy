@@ -1547,4 +1547,25 @@ mod tests {
             .get(&world, e)
             .is_ok());
     }
+
+    #[test]
+    fn runtime_required_components_cyclic() {
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        let mut world = World::new();
+
+        assert!(world.try_register_required_components::<B, C>().is_ok());
+        assert!(matches!(
+            world.try_register_required_components::<C, A>(),
+            Err(RequiredComponentsError::CyclicRequirement(_, _))
+        ));
+    }
 }
