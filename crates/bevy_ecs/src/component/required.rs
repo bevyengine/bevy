@@ -144,8 +144,7 @@ impl RequiredComponents {
     /// Registers the [`Component`] `C` as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, and `true` is returned.
-    /// Otherwise `false` is returned.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
     ///
     /// # Safety
     ///
@@ -154,19 +153,18 @@ impl RequiredComponents {
         &mut self,
         components: &mut ComponentsRegistrator<'_>,
         constructor: fn() -> C,
-    ) -> bool {
+    ) {
         let id = components.register_component::<C>();
         // SAFETY:
         // - `id` was just registered in `components`;
         // - the caller guarantees all other components were registered in `components`.
-        unsafe { self.register_by_id::<C>(id, components, constructor) }
+        unsafe { self.register_by_id::<C>(id, components, constructor) };
     }
 
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, and `true` is returned.
-    /// Otherwise `false` is returned.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
     ///
     /// # Safety
     ///
@@ -177,7 +175,7 @@ impl RequiredComponents {
         component_id: ComponentId,
         components: &Components,
         constructor: fn() -> C,
-    ) -> bool {
+    ) {
         // SAFETY: the caller guarantees that `component_id` is valid for the type `C`.
         let constructor =
             || unsafe { RequiredComponentConstructor::new(component_id, constructor) };
@@ -186,14 +184,13 @@ impl RequiredComponents {
         // - the caller guarantees that `component_id` is valid in `components`
         // - the caller guarantees all other components were registered in `components`;
         // - constructor is guaranteed to create a valid constructor for the component with id `component_id`.
-        unsafe { self.register_dynamic_with(component_id, components, constructor) }
+        unsafe { self.register_dynamic_with(component_id, components, constructor) };
     }
 
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, and `true` is returned.
-    /// Otherwise `false` is returned.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
     ///
     /// # Safety
     ///
@@ -206,11 +203,11 @@ impl RequiredComponents {
         component_id: ComponentId,
         components: &Components,
         constructor: impl FnOnce() -> RequiredComponentConstructor,
-    ) -> bool {
+    ) {
         // If already registered as a direct required component then bail.
         let entry = match self.direct.entry(component_id) {
             indexmap::map::Entry::Vacant(entry) => entry,
-            indexmap::map::Entry::Occupied(_) => return false,
+            indexmap::map::Entry::Occupied(_) => return,
         };
 
         // Insert into `direct`.
@@ -230,8 +227,6 @@ impl RequiredComponents {
                 components,
             );
         }
-
-        true
     }
 
     /// Rebuild the `all` list
@@ -562,22 +557,20 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
     /// Registers the [`Component`] `C` as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, and `true` is returned.
-    /// Otherwise `false` is returned.
-    pub fn register_required<C: Component>(&mut self, constructor: fn() -> C) -> bool {
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
+    pub fn register_required<C: Component>(&mut self, constructor: fn() -> C) {
         // SAFETY: we internally guarantee that all components in `required_components`
         // are registered in `components`
         unsafe {
             self.required_components
-                .register(self.components, constructor)
+                .register(self.components, constructor);
         }
     }
 
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, and `true` is returned.
-    /// Otherwise `false` is returned.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
     ///
     /// # Safety
     ///
@@ -586,7 +579,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
         &mut self,
         component_id: ComponentId,
         constructor: fn() -> C,
-    ) -> bool {
+    ) {
         // SAFETY:
         // - the caller guarnatees `component_id` is a valid component in `components` for `C`;
         // - we internally guarantee all other components in `required_components` are registered in `components`.
@@ -595,15 +588,14 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
                 component_id,
                 &self.components,
                 constructor,
-            )
+            );
         }
     }
 
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, and `true` is returned.
-    /// Otherwise `false` is returned.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
     ///
     /// # Safety
     ///
@@ -614,7 +606,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
         &mut self,
         component_id: ComponentId,
         constructor: impl FnOnce() -> RequiredComponentConstructor,
-    ) -> bool {
+    ) {
         // SAFETY:
         // - the caller guarantees `component_id` is valid in `components`;
         // - the caller guarantees `constructor` returns a valid constructor for `component_id`;
@@ -624,7 +616,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
                 component_id,
                 &self.components,
                 constructor,
-            )
+            );
         }
     }
 }
