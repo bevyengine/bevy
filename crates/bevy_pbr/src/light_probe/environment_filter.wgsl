@@ -310,7 +310,7 @@ fn uniform_sample_sphere(i: u32, normal: vec3f) -> vec3f {
     // Get stratified sample index
     let index = i % constants.sample_count;
     
-    let golden_angle = 2.4;
+    let golden_angle = 2.3999632;
     let full_sphere = f32(constants.sample_count) * 2.0;
     let z = 1.0 - (2.0 * f32(index) + 1.0) / full_sphere;
     let r = sqrt(1.0 - z * z);
@@ -360,7 +360,8 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     // Use uniform sampling on a hemisphere
     for (var i = 0u; i < constants.sample_count; i++) {
         // Build a deterministic RNG seed for this pixel / sample
-        var rng: u32 = (coords.x * 73856093u) ^ (coords.y * 19349663u) ^ (face * 83492791u) ^ i;
+        // 4 randomly chosen 32-bit primes
+        var rng: u32 = (coords.x * 2131358057u) ^ (coords.y * 3416869721u) ^ (face * 1199786941u) ^ (i * 566200673u);
 
         // Sample a direction from the upper hemisphere around the normal
         var sample_dir = sample_cosine_hemisphere(normal, &rng);
