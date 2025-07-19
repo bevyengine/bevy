@@ -123,8 +123,7 @@ fn D_GGX(roughness: f32, NdotH: f32) -> f32 {
     return d;
 }
 
-// Probability-density function that matches the bounded VNDF sampler
-// (Listing 2 in "Bounded VNDF Sampling for Smith-GGX Reflections", Eto & Tokuyoshi 2023).
+// Probability-density function that matches the bounded VNDF sampler (Listing 2)
 fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
     let ndf = D_GGX(roughness, NdotH);
 
