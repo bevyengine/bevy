@@ -14,6 +14,8 @@ extern crate alloc;
 
 /// Common run conditions
 pub mod common_conditions;
+pub mod delayed_commands;
+
 mod fixed;
 mod real;
 mod stopwatch;
@@ -85,6 +87,10 @@ impl Plugin for TimePlugin {
             time_system
                 .in_set(TimeSystems)
                 .ambiguous_with(event_update_system),
+        )
+        .add_systems(
+            First,
+            delayed_commands::tick_delayed_commands.after(TimeSystems),
         )
         .add_systems(
             RunFixedMainLoop,
