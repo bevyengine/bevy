@@ -415,12 +415,6 @@ mod dyn_specializer {
         fn dyn_clone(&self) -> Box<dyn DynSpecializerKey>;
     }
 
-    impl Clone for Box<dyn DynSpecializerKey> {
-        fn clone(&self) -> Self {
-            self.dyn_clone()
-        }
-    }
-
     impl PartialEq for dyn DynSpecializerKey {
         fn eq(&self, other: &Self) -> bool {
             self.dyn_eq(other)
@@ -441,8 +435,13 @@ mod dyn_specializer {
         }
     }
 
-    #[derive(Clone)]
     pub struct ErasedSpecializerKey(Box<dyn DynSpecializerKey>);
+
+    impl Clone for ErasedSpecializerKey {
+        fn clone(&self) -> Self {
+            Self(self.0.dyn_clone())
+        }
+    }
 
     impl Eq for ErasedSpecializerKey {}
 
