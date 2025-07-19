@@ -655,6 +655,12 @@ name = "bloom_2d"
 path = "examples/2d/bloom_2d.rs"
 doc-scrape-examples = true
 
+# Inspector
+[[example]]
+name = "inspector"
+path = "examples/bevy_editor/inspector.rs"
+doc-scrape-examples = true
+
 [package.metadata.example.bloom_2d]
 name = "2D Bloom"
 description = "Illustrates bloom post-processing in 2d"
