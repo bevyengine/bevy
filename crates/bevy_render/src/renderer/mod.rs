@@ -343,6 +343,15 @@ pub async fn initialize_renderer(
             max_non_sampler_bindings: limits
                 .max_non_sampler_bindings
                 .min(constrained_limits.max_non_sampler_bindings),
+            max_blas_primitive_count: limits
+                .max_blas_primitive_count
+                .min(constrained_limits.max_blas_primitive_count),
+            max_blas_geometry_count: limits
+                .max_blas_geometry_count
+                .min(constrained_limits.max_blas_geometry_count),
+            max_tlas_instance_count: limits
+                .max_tlas_instance_count
+                .min(constrained_limits.max_tlas_instance_count),
             max_color_attachments: limits
                 .max_color_attachments
                 .min(constrained_limits.max_color_attachments),
@@ -355,6 +364,7 @@ pub async fn initialize_renderer(
             max_subgroup_size: limits
                 .max_subgroup_size
                 .min(constrained_limits.max_subgroup_size),
+            max_acceleration_structures_per_shader_stage: 0,
         };
     }
 

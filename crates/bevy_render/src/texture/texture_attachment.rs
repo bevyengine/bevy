@@ -40,6 +40,7 @@ impl ColorAttachment {
 
             RenderPassColorAttachment {
                 view: &resolve_target.default_view,
+                depth_slice: None,
                 resolve_target: Some(&self.texture.default_view),
                 ops: Operations {
                     load: match (self.clear_color, first_call) {
@@ -63,6 +64,7 @@ impl ColorAttachment {
 
         RenderPassColorAttachment {
             view: &self.texture.default_view,
+            depth_slice: None,
             resolve_target: None,
             ops: Operations {
                 load: match (self.clear_color, first_call) {
@@ -146,6 +148,7 @@ impl OutputColorAttachment {
 
         RenderPassColorAttachment {
             view: &self.view,
+            depth_slice: None,
             resolve_target: None,
             ops: Operations {
                 load: match (clear_color, first_call) {
