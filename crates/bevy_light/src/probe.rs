@@ -127,14 +127,6 @@ pub struct GeneratedEnvironmentMapLight {
     /// Whether this light contributes diffuse lighting to meshes that already
     /// have baked lightmaps.
     pub affects_lightmapped_mesh_diffuse: bool,
-
-    /// White point applied during reverse tone-mapping.
-    ///
-    /// This value attenuates extremely bright texels in the source cubemap to
-    /// suppress *fireflies* introduced by HDR highlights. Increasing
-    /// `white_point` preserves more highlight energy; lowering it clamps
-    /// highlights more aggressively.
-    pub white_point: f32,
 }
 
 impl Default for GeneratedEnvironmentMapLight {
@@ -144,7 +136,6 @@ impl Default for GeneratedEnvironmentMapLight {
             intensity: 0.0,
             rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: true,
-            white_point: 1.0,
         }
     }
 }

@@ -1,12 +1,11 @@
 #import bevy_render::maths::{PI, PI_2};
-#import bevy_pbr::utils::{build_orthonormal_basis};
+#import bevy_pbr::utils::{rand_f, build_orthonormal_basis};
 
 struct FilteringConstants {
     mip_level: f32,
     sample_count: u32,
     roughness: f32,
     blue_noise_size: vec2f,
-    white_point: f32,
 }
 
 @group(0) @binding(0) var input_texture: texture_2d_array<f32>;
@@ -15,13 +14,11 @@ struct FilteringConstants {
 @group(0) @binding(3) var<uniform> constants: FilteringConstants;
 @group(0) @binding(4) var blue_noise_texture: texture_2d<f32>;
 
-// Tonemapping functions to reduce fireflies
-fn tonemap(color: vec3f) -> vec3f {
-    return color / (color + vec3(constants.white_point));
-}
-fn reverse_tonemap(color: vec3f) -> vec3f {
-    return constants.white_point * color / (vec3(1.0) - color);
-}
+// from bevy_anti_aliasing/src/taa/taa.wgsl
+fn rcp(x: f32) -> f32 { return 1.0 / x; }
+fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
+fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
+fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
 
 // Convert UV and face index to direction vector
 fn sample_cube_dir(uv: vec2f, face: u32) -> vec3f {
@@ -126,24 +123,82 @@ fn D_GGX(roughness: f32, NdotH: f32) -> f32 {
     return d;
 }
 
-// Importance sample GGX normal distribution function for a given roughness
-fn importance_sample_ggx(xi: vec2f, roughness: f32, normal: vec3f) -> vec3f {
-    // Sample in spherical coordinates
-    let phi = PI_2 * xi.x;
-    
-    // GGX mapping from uniform random to GGX distribution
-    let cos_theta = sqrt((1.0 - xi.y) / (1.0 + (roughness * roughness - 1.0) * xi.y));
-    let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-    
-    // Convert to cartesian
-    let h = vec3f(
-        sin_theta * cos(phi),
-        sin_theta * sin(phi),
-        cos_theta
-    );
-    
-    // Transform from tangent to world space
-    return build_orthonormal_basis(normal) * h;
+// Probability-density function that matches the bounded VNDF sampler
+// (Listing 2 in "Bounded VNDF Sampling for Smith-GGX Reflections", Eto & Tokuyoshi 2023).
+fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
+    let ndf = D_GGX(roughness, NdotH);
+
+    // Common terms
+    let ai = roughness * i.xy;
+    let len2 = dot(ai, ai);
+    let t = sqrt(len2 + i.z * i.z);
+
+    if (i.z >= 0.0) {
+        let a = clamp(roughness, 0.0, 1.0);
+        let s = 1.0 + length(i.xy);
+        let a2 = a * a;
+        let s2 = s * s;
+        let k = (1.0 - a2) * s2 / (s2 + a2 * i.z * i.z);
+        return ndf / (2.0 * (k * i.z + t));
+    }
+
+    // Backfacing case
+    return ndf * (t - i.z) / (2.0 * len2);
+}
+
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
+fn sample_visible_ggx(
+    xi: vec2<f32>,
+    roughness: f32,
+    normal: vec3<f32>,
+    view: vec3<f32>,
+) -> vec3<f32> {
+    let n = normal;
+    let alpha = roughness;
+
+    // Decompose view into components parallel/perpendicular to the normal
+    let wi_n = dot(view, n);
+    let wi_z = -n * wi_n;
+    let wi_xy = view + wi_z;
+
+    // Warp view vector to the unit-roughness configuration
+    let wi_std = -normalize(alpha * wi_xy + wi_z);
+
+    // Compute wi_std.z once for reuse
+    let wi_std_z = dot(wi_std, n);
+
+    // Bounded VNDF sampling
+    // Compute the bound parameter k (Eq. 5) and the scaled z–limit b (Eq. 6)
+    let s = 1.0 + length(wi_xy);
+    let a = clamp(alpha, 0.0, 1.0);
+    let a2 = a * a;
+    let s2 = s * s;
+    let k = (1.0 - a2) * s2 / (s2 + a2 * wi_n * wi_n);
+    let b = select(wi_std_z, k * wi_std_z, wi_n > 0.0);
+
+    // Sample a spherical cap in (-b, 1]
+    let z = 1.0 - xi.y * (1.0 + b);
+    let sin_theta = sqrt(max(0.0, 1.0 - z * z));
+    let phi = 2.0 * PI * xi.x - PI;
+    let x = sin_theta * cos(phi);
+    let y = sin_theta * sin(phi);
+    let c_std = vec3f(x, y, z);
+
+    // Reflect the sample so that the normal aligns with +Z
+    let up = vec3f(0.0, 0.0, 1.000001);
+    let wr = n + up;
+    let c = dot(wr, c_std) * wr / wr.z - c_std;
+
+    // Half-vector in the standard frame
+    let wm_std = c + wi_std;
+    let wm_std_z = n * dot(n, wm_std);
+    let wm_std_xy = wm_std_z - wm_std;
+
+    // Unwarp back to original roughness and compute microfacet normal
+    let H = normalize(alpha * wm_std_xy + wm_std_z);
+
+    // Reflect view to obtain the outgoing (light) direction
+    return reflect(-view, H);
 }
 
 // Calculate LOD for environment map lookup using filtered importance sampling
@@ -211,17 +266,15 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
         var xi = hammersley_2d(i, sample_count);
         xi = fract(xi + vector_noise.rg); // Apply Cranley-Patterson rotation
         
-        // Sample the GGX distribution to get a half vector
-        let half_vector = importance_sample_ggx(xi, roughness, normal);
-        
-        // Calculate reflection vector from half vector
-        let light_dir = reflect(-view, half_vector);
+        // Sample the GGX distribution with the spherical-cap VNDF method
+        let light_dir = sample_visible_ggx(xi, roughness, normal, view);
         
         // Calculate weight (N·L)
         let NoL = dot(normal, light_dir);
         
         if (NoL > 0.0) {
-            // Calculate values needed for PDF
+            // Reconstruct the microfacet half-vector from view and light and compute PDF terms
+            let half_vector = normalize(view + light_dir);
             let NoH = dot(normal, half_vector);
             let VoH = dot(view, half_vector);
             let NoV = dot(normal, view);
@@ -229,8 +282,8 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
             // Get the geometric shadowing term
             let G = G_Smith(NoV, NoL, roughness);
             
-            // Probability Distribution Function
-            let pdf = D_GGX(roughness, NoH) * NoH / (4.0 * VoH);
+            // PDF that matches the bounded-VNDF sampling
+            let pdf = ggx_vndf_pdf(view, NoH, roughness);
             
             // Calculate LOD using filtered importance sampling
             // This is crucial to avoid fireflies and improve quality
@@ -286,6 +339,16 @@ fn uniform_sample_sphere(i: u32, normal: vec3f) -> vec3f {
     return normalize(tangent_frame * dir_uniform);
 }
 
+// from bevy_solari/src/scene/sampling.wgsl
+fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
+    let cos_theta = 1.0 - 2.0 * rand_f(rng);
+    let phi = PI_2 * rand_f(rng);
+    let sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
+    let x = normal.x + sin_theta * cos(phi);
+    let y = normal.y + sin_theta * sin(phi);
+    let z = normal.z + cos_theta;
+    return vec3(x, y, z);
+}
 @compute
 @workgroup_size(8, 8, 1)
 fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
@@ -304,21 +367,15 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let normal = sample_cube_dir(uv, face);
     
     var irradiance = vec3f(0.0);
-    var total_weight = 0.0;
     
     // Use uniform sampling on a hemisphere
     for (var i = 0u; i < constants.sample_count; i++) {
-        // Get a uniform direction on unit sphere
-        var sample_dir = uniform_sample_sphere(i, normal);
-        
-        // Calculate the cosine weight (N·L)
-        let weight = max(dot(normal, sample_dir), 0.0);
-        
-        // Skip samples below horizon or at grazing angles
-        if (weight <= 0.001) {
-            continue;
-        }
-        
+        // Build a deterministic RNG seed for this pixel / sample
+        var rng: u32 = (coords.x * 73856093u) ^ (coords.y * 19349663u) ^ (face * 83492791u) ^ i;
+
+        // Sample a direction from the upper hemisphere around the normal
+        var sample_dir = sample_cosine_hemisphere(normal, &rng);
+
         // Sample environment with level 0 (no mip)
         var sample_color = sample_environment(sample_dir, 0.0).rgb;
         
@@ -326,13 +383,12 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
         sample_color = tonemap(sample_color);
         
         // Accumulate the contribution
-        irradiance += sample_color * weight;
-        total_weight += weight;
+        irradiance += sample_color;
     }
-    
-    // Normalize by total weight
-    irradiance = irradiance / total_weight;
-    
+
+    // Normalize by number of samples (cosine-weighted sampling already accounts for PDF)
+    irradiance = irradiance / f32(constants.sample_count);
+
     // Reverse tonemap to restore HDR range
     irradiance = reverse_tonemap(irradiance);
     

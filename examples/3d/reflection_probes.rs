@@ -8,7 +8,9 @@
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
 use bevy::{
+    camera::Exposure,
     core_pipeline::{tonemapping::Tonemapping, Skybox},
+    pbr::generate::generate_environment_map_light,
     prelude::*,
     render::{render_resource::TextureUsages, view::Hdr},
 };
@@ -67,7 +69,10 @@ fn main() {
         .init_resource::<Cubemaps>()
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, add_environment_map_to_camera)
-        .add_systems(Update, change_reflection_type)
+        .add_systems(
+            Update,
+            change_reflection_type.before(generate_environment_map_light),
+        )
         .add_systems(Update, toggle_rotation)
         .add_systems(Update, change_sphere_roughness)
         .add_systems(
@@ -86,11 +91,9 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
     app_status: Res<AppStatus>,
     cubemaps: Res<Cubemaps>,
 ) {
-    spawn_scene(&mut commands, &asset_server);
     spawn_camera(&mut commands);
     spawn_sphere(&mut commands, &mut meshes, &mut materials, &app_status);
     spawn_reflection_probe(&mut commands, &cubemaps);
@@ -99,8 +102,9 @@ fn setup(
 
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
+    commands.spawn((
+        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb"))),
+        CubesScene,
     ));
 }
 
@@ -109,8 +113,9 @@ fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
         Camera3d::default(),
         Hdr,
+        Exposure { ev100: 11.0 },
         Tonemapping::AcesFitted,
-        Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(-3.883, 0.325, 2.781).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -190,10 +195,12 @@ fn add_environment_map_to_camera(
 fn change_reflection_type(
     mut commands: Commands,
     light_probe_query: Query<Entity, With<LightProbe>>,
+    cubes_scene_query: Query<Entity, With<CubesScene>>,
     camera_query: Query<Entity, With<Camera3d>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
     cubemaps: Res<Cubemaps>,
+    asset_server: Res<AssetServer>,
 ) {
     // Only do anything if space was pressed.
     if !keyboard.just_pressed(KeyCode::Space) {
@@ -208,9 +215,16 @@ fn change_reflection_type(
     for light_probe in light_probe_query.iter() {
         commands.entity(light_probe).despawn();
     }
+    // Remove existing cube scenes
+    for scene_entity in cubes_scene_query.iter() {
+        commands.entity(scene_entity).despawn();
+    }
     match app_status.reflection_mode {
         ReflectionMode::EnvironmentMap => {}
-        ReflectionMode::ReflectionProbe => spawn_reflection_probe(&mut commands, &cubemaps),
+        ReflectionMode::ReflectionProbe => {
+            spawn_reflection_probe(&mut commands, &cubemaps);
+            spawn_scene(&mut commands, &asset_server);
+        }
         ReflectionMode::GeneratedEnvironmentMap => {}
     }
 
@@ -235,7 +249,9 @@ fn change_reflection_type(
                     .entity(camera)
                     .insert(GeneratedEnvironmentMapLight {
                         environment_map: cubemaps.specular_environment_map.clone(),
-                        intensity: 5000.0,
+                        // compensate for the energy loss of the reverse tonemapping
+                        // during filtering by using a higher intensity
+                        intensity: 6000.0,
                         ..default()
                     });
             }
@@ -362,14 +378,17 @@ impl Default for AppStatus {
     fn default() -> Self {
         Self {
             reflection_mode: ReflectionMode::ReflectionProbe,
-            rotating: true,
-            sphere_roughness: 0.0,
+            rotating: false,
+            sphere_roughness: 0.2,
         }
     }
 }
 
 #[derive(Component)]
 struct SphereMaterial;
+
+#[derive(Component)]
+struct CubesScene;
 
 // A system that changes the sphere's roughness with up/down arrow keys
 fn change_sphere_roughness(
