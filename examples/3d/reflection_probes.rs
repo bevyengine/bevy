@@ -220,12 +220,11 @@ fn change_reflection_type(
         commands.entity(scene_entity).despawn();
     }
     match app_status.reflection_mode {
-        ReflectionMode::EnvironmentMap => {}
+        ReflectionMode::EnvironmentMap | ReflectionMode::GeneratedEnvironmentMap => {}
         ReflectionMode::ReflectionProbe => {
             spawn_reflection_probe(&mut commands, &cubemaps);
             spawn_scene(&mut commands, &asset_server);
         }
-        ReflectionMode::GeneratedEnvironmentMap => {}
     }
 
     // Update the environment-map components on the camera entity/entities
