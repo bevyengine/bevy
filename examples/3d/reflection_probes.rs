@@ -250,7 +250,7 @@ fn change_reflection_type(
                         environment_map: cubemaps.specular_environment_map.clone(),
                         // compensate for the energy loss of the reverse tonemapping
                         // during filtering by using a higher intensity
-                        intensity: 6000.0,
+                        intensity: 5000.0,
                         ..default()
                     });
             }

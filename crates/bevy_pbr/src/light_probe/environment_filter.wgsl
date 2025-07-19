@@ -14,12 +14,6 @@ struct FilteringConstants {
 @group(0) @binding(3) var<uniform> constants: FilteringConstants;
 @group(0) @binding(4) var blue_noise_texture: texture_2d<f32>;
 
-// from bevy_anti_aliasing/src/taa/taa.wgsl
-fn rcp(x: f32) -> f32 { return 1.0 / x; }
-fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
-fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
-fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
-
 // Convert UV and face index to direction vector
 fn sample_cube_dir(uv: vec2f, face: u32) -> vec3f {
     // Convert from [0,1] to [-1,1]
@@ -294,7 +288,6 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
             
             // Sample environment map with the light direction
             var sample_color = sample_environment(light_dir, source_mip).rgb;
-            sample_color = tonemap(sample_color);
             
             // Accumulate weighted sample, including geometric term
             radiance += sample_color * NoL * G;
@@ -306,9 +299,6 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     if (total_weight > 0.0) {
         radiance = radiance / total_weight;
     }
-
-    // Reverse tonemap
-    radiance = reverse_tonemap(radiance);
     
     // Write result to output texture
     textureStore(output_texture, coords, face, vec4f(radiance, 1.0));
@@ -378,18 +368,12 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
         // Sample environment with level 0 (no mip)
         var sample_color = sample_environment(sample_dir, 0.0).rgb;
         
-        // Apply tonemapping to reduce fireflies
-        sample_color = tonemap(sample_color);
-        
         // Accumulate the contribution
         irradiance += sample_color;
     }
 
     // Normalize by number of samples (cosine-weighted sampling already accounts for PDF)
     irradiance = irradiance / f32(constants.sample_count);
-
-    // Reverse tonemap to restore HDR range
-    irradiance = reverse_tonemap(irradiance);
     
     // Write result to output texture
     textureStore(output_texture, coords, face, vec4f(irradiance, 1.0));
