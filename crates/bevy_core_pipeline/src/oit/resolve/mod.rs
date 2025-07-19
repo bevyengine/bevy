@@ -18,7 +18,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
 use tracing::warn;
@@ -34,30 +34,32 @@ pub struct OitResolvePlugin;
 impl Plugin for OitResolvePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         embedded_asset!(app, "oit_resolve.wgsl");
-    }
 
-    fn finish(&self, app: &mut bevy_app::App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        if !is_oit_supported(
-            render_app.world().resource::<RenderAdapter>(),
-            render_app.world().resource::<RenderDevice>(),
-            true,
-        ) {
-            return;
-        }
-
         render_app
+            .configure_sets(
+                RenderStartup,
+                OitSystems
+                    .after(check_is_oit_supported)
+                    .run_if(resource_exists::<OitSupported>),
+            )
+            .configure_sets(Render, OitSystems.run_if(resource_exists::<OitSupported>))
+            .add_systems(RenderStartup, check_is_oit_supported)
+            .add_systems(RenderStartup, init_oit_resolve_pipeline.in_set(OitSystems))
             .add_systems(
                 Render,
                 (
-                    queue_oit_resolve_pipeline.in_set(RenderSystems::Queue),
-                    prepare_oit_resolve_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                    queue_oit_resolve_pipeline
+                        .in_set(OitSystems)
+                        .in_set(RenderSystems::Queue),
+                    prepare_oit_resolve_bind_group
+                        .in_set(OitSystems)
+                        .in_set(RenderSystems::PrepareBindGroups),
                 ),
-            )
-            .init_resource::<OitResolvePipeline>();
+            );
     }
 }
 
@@ -89,6 +91,25 @@ pub fn is_oit_supported(adapter: &RenderAdapter, device: &RenderDevice, warn: bo
     true
 }
 
+/// System set for systems used for OIT.
+#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
+struct OitSystems;
+
+/// A resource to indicate that OIT is supported.
+#[derive(Resource)]
+struct OitSupported;
+
+/// A system to perform a one-time check for whether OIT is supported and insert a resource if so.
+fn check_is_oit_supported(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+) {
+    if is_oit_supported(&render_adapter, &render_device, true) {
+        commands.insert_resource(OitSupported);
+    }
+}
+
 /// Bind group for the OIT resolve pass.
 #[derive(Resource, Deref)]
 pub struct OitResolveBindGroup(pub BindGroup);
@@ -102,33 +123,29 @@ pub struct OitResolvePipeline {
     pub oit_depth_bind_group_layout: BindGroupLayout,
 }
 
-impl FromWorld for OitResolvePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let view_bind_group_layout = render_device.create_bind_group_layout(
-            "oit_resolve_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    uniform_buffer::<ViewUniform>(true),
-                    // layers
-                    storage_buffer_sized(false, None),
-                    // layer ids
-                    storage_buffer_sized(false, None),
-                ),
+pub fn init_oit_resolve_pipeline(mut commands: Commands, render_device: Res<RenderDevice>) {
+    let view_bind_group_layout = render_device.create_bind_group_layout(
+        "oit_resolve_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                uniform_buffer::<ViewUniform>(true),
+                // layers
+                storage_buffer_sized(false, None),
+                // layer ids
+                storage_buffer_sized(false, None),
             ),
-        );
+        ),
+    );
 
-        let oit_depth_bind_group_layout = render_device.create_bind_group_layout(
-            "oit_depth_bind_group_layout",
-            &BindGroupLayoutEntries::single(ShaderStages::FRAGMENT, texture_depth_2d()),
-        );
-        OitResolvePipeline {
-            view_bind_group_layout,
-            oit_depth_bind_group_layout,
-        }
-    }
+    let oit_depth_bind_group_layout = render_device.create_bind_group_layout(
+        "oit_depth_bind_group_layout",
+        &BindGroupLayoutEntries::single(ShaderStages::FRAGMENT, texture_depth_2d()),
+    );
+    commands.insert_resource(OitResolvePipeline {
+        view_bind_group_layout,
+        oit_depth_bind_group_layout,
+    });
 }
 
 #[derive(Component, Deref, Clone, Copy)]
