@@ -615,14 +615,14 @@ impl Schedule {
 }
 
 /// A directed acyclic graph structure.
-pub struct Dag<Id: GraphNodeId> {
+pub struct Dag<N: GraphNodeId> {
     /// A directed graph.
-    graph: DiGraph<Id>,
+    graph: DiGraph<N>,
     /// A cached topological ordering of the graph.
-    topsort: Vec<Id>,
+    topsort: Vec<N>,
 }
 
-impl<Id: GraphNodeId> Dag<Id> {
+impl<N: GraphNodeId> Dag<N> {
     fn new() -> Self {
         Self {
             graph: DiGraph::default(),
@@ -631,19 +631,19 @@ impl<Id: GraphNodeId> Dag<Id> {
     }
 
     /// The directed graph of the stored systems, connected by their ordering dependencies.
-    pub fn graph(&self) -> &DiGraph<Id> {
+    pub fn graph(&self) -> &DiGraph<N> {
         &self.graph
     }
 
     /// A cached topological ordering of the graph.
     ///
     /// The order is determined by the ordering dependencies between systems.
-    pub fn cached_topsort(&self) -> &[Id] {
+    pub fn cached_topsort(&self) -> &[N] {
         &self.topsort
     }
 }
 
-impl<Id: GraphNodeId> Default for Dag<Id> {
+impl<N: GraphNodeId> Default for Dag<N> {
     fn default() -> Self {
         Self {
             graph: Default::default(),
@@ -1163,7 +1163,7 @@ impl ScheduleGraph {
     ) -> Vec<(SystemKey, SystemKey, Vec<ComponentId>)> {
         let mut conflicting_systems = Vec::new();
         for &(a, b) in flat_results_disconnected {
-            if ambiguous_with_flattened.contains_edge(a.into(), b.into())
+            if ambiguous_with_flattened.contains_edge(NodeId::System(a), NodeId::System(b))
                 || self.ambiguous_with_all.contains(&NodeId::System(a))
                 || self.ambiguous_with_all.contains(&NodeId::System(b))
             {
@@ -1500,11 +1500,11 @@ impl ScheduleGraph {
     /// # Errors
     ///
     /// If the graph contain cycles, then an error is returned.
-    pub fn topsort_graph<Id: GraphNodeId + Into<NodeId>>(
+    pub fn topsort_graph<N: GraphNodeId + Into<NodeId>>(
         &self,
-        graph: &DiGraph<Id>,
+        graph: &DiGraph<N>,
         report: ReportCycles,
-    ) -> Result<Vec<Id>, ScheduleBuildError> {
+    ) -> Result<Vec<N>, ScheduleBuildError> {
         // Check explicitly for self-edges.
         // `iter_sccs` won't report them as cycles because they still form components of one node.
         if let Some((node, _)) = graph.all_edges().find(|(left, right)| left == right) {
@@ -1554,9 +1554,9 @@ impl ScheduleGraph {
     }
 
     /// Logs details of cycles in the hierarchy graph.
-    fn get_hierarchy_cycles_error_message<Id: GraphNodeId + Into<NodeId>>(
+    fn get_hierarchy_cycles_error_message<N: GraphNodeId + Into<NodeId>>(
         &self,
-        cycles: &[Vec<Id>],
+        cycles: &[Vec<N>],
     ) -> String {
         let mut message = format!("schedule has {} in_set cycle(s):\n", cycles.len());
         for (i, cycle) in cycles.iter().enumerate() {
@@ -1579,9 +1579,9 @@ impl ScheduleGraph {
     }
 
     /// Logs details of cycles in the dependency graph.
-    fn get_dependency_cycles_error_message<Id: GraphNodeId + Into<NodeId>>(
+    fn get_dependency_cycles_error_message<N: GraphNodeId + Into<NodeId>>(
         &self,
-        cycles: &[Vec<Id>],
+        cycles: &[Vec<N>],
     ) -> String {
         let mut message = format!("schedule has {} before/after cycle(s):\n", cycles.len());
         for (i, cycle) in cycles.iter().enumerate() {
