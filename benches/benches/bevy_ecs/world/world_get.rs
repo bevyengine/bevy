@@ -34,7 +34,6 @@ fn setup<T: Component + Default>(entity_count: u32) -> (World, Vec<Entity>) {
     let mut world = World::default();
     let entities: Vec<Entity> = world
         .spawn_batch((0..entity_count).map(|_| T::default()))
-        .into_iter()
         .collect();
     black_box((world, entities))
 }
@@ -45,7 +44,6 @@ fn setup_wide<T: Bundle<Effect: NoBundleEffect> + Default>(
     let mut world = World::default();
     let entities: Vec<Entity> = world
         .spawn_batch((0..entity_count).map(|_| T::default()))
-        .into_iter()
         .collect();
     black_box((world, entities))
 }
