@@ -581,7 +581,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
         constructor: fn() -> C,
     ) {
         // SAFETY:
-        // - the caller guarnatees `component_id` is a valid component in `components` for `C`;
+        // - the caller guarantees `component_id` is a valid component in `components` for `C`;
         // - we internally guarantee all other components in `required_components` are registered in `components`.
         unsafe {
             self.required_components.register_by_id::<C>(
