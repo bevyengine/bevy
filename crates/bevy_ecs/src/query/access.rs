@@ -165,6 +165,32 @@ impl<T: SparseSetIndex> Access<T> {
         }
     }
 
+    /// Creates an [`Access`] with read access to all components.
+    /// This is equivalent to calling `read_all()` on `Access::new()`,
+    /// but is available in a `const` context.
+    pub(crate) const fn new_read_all() -> Self {
+        let mut access = Self::new();
+        access.reads_all_resources = true;
+        // Note that we cannot use `read_all_components()`
+        // because `FixedBitSet::clear()` is not `const`.
+        access.component_read_and_writes_inverted = true;
+        access
+    }
+
+    /// Creates an [`Access`] with read access to all components.
+    /// This is equivalent to calling `read_all()` on `Access::new()`,
+    /// but is available in a `const` context.
+    pub(crate) const fn new_write_all() -> Self {
+        let mut access = Self::new();
+        access.reads_all_resources = true;
+        access.writes_all_resources = true;
+        // Note that we cannot use `write_all_components()`
+        // because `FixedBitSet::clear()` is not `const`.
+        access.component_read_and_writes_inverted = true;
+        access.component_writes_inverted = true;
+        access
+    }
+
     fn add_component_sparse_set_index_read(&mut self, index: usize) {
         if !self.component_read_and_writes_inverted {
             self.component_read_and_writes.grow_and_insert(index);

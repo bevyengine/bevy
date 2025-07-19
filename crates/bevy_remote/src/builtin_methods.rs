@@ -880,7 +880,7 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
 
         // The map of boolean-valued component presences:
         let has_map = build_has_map(
-            row.clone(),
+            row,
             has_paths_and_reflect_components.iter().copied(),
             &unregistered_in_has,
         );
@@ -1466,7 +1466,7 @@ fn build_has_map<'a>(
     let mut has_map = <HashMap<_, _>>::default();
 
     for (type_path, reflect_component) in paths_and_reflect_components {
-        let has = reflect_component.contains(entity_ref.clone());
+        let has = reflect_component.contains(entity_ref);
         has_map.insert(type_path.to_owned(), Value::Bool(has));
     }
     unregistered_components.iter().for_each(|component| {
