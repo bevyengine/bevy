@@ -131,7 +131,9 @@ impl Plugin for TextPlugin {
                     .in_set(Text2dUpdateSystems)
                     .after(AnimationSystems),
             )
-            .add_systems(Last, trim_cosmic_cache);
+            .add_systems(Last, trim_cosmic_cache)
+            .add_observer(enable_text_node_needs_rerender_detection::<TextSpan>)
+            .add_observer(enable_text_node_needs_rerender_detection::<Text2d>);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
