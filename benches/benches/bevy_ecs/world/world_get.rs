@@ -51,9 +51,10 @@ pub fn world_entity(criterion: &mut Criterion) {
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{entity_count}_entities"), |bencher| {
             let world = setup::<Table>(entity_count);
+            let offset = world.resource_count();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -74,9 +75,10 @@ pub fn world_get(criterion: &mut Criterion) {
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
             let world = setup::<Table>(entity_count);
+            let offset = world.resource_count();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -86,9 +88,10 @@ pub fn world_get(criterion: &mut Criterion) {
         });
         group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
             let world = setup::<Sparse>(entity_count);
+            let offset = world.resource_count();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -109,10 +112,11 @@ pub fn world_query_get(criterion: &mut Criterion) {
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
             let mut world = setup::<Table>(entity_count);
+            let offset = world.resource_count();
             let mut query = world.query::<&Table>();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -137,9 +141,10 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 &WideTable<4>,
                 &WideTable<5>,
             )>();
+            let offset = world.resource_count();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -149,10 +154,11 @@ pub fn world_query_get(criterion: &mut Criterion) {
         });
         group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
             let mut world = setup::<Sparse>(entity_count);
+            let offset = world.resource_count();
             let mut query = world.query::<&Sparse>();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     let entity =
                         // SAFETY: Range is exclusive.
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
@@ -177,9 +183,10 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 &WideSparse<4>,
                 &WideSparse<5>,
             )>();
+            let offset = world.resource_count();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
+                for i in offset..(entity_count + offset) {
                     // SAFETY: Range is exclusive.
                     let entity =
                         Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));

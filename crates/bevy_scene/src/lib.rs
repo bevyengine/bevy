@@ -49,7 +49,13 @@ pub mod prelude {
 use bevy_app::prelude::*;
 
 #[cfg(feature = "serialize")]
-use {bevy_asset::AssetApp, bevy_ecs::schedule::IntoScheduleConfigs};
+use {
+    bevy_asset::AssetApp,
+    bevy_ecs::schedule::IntoScheduleConfigs,
+    bevy_ecs::{
+        entity_disabling::DefaultQueryFilters, resource::IsResource, resource::ResourceEntity,
+    },
+};
 
 /// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]
@@ -64,6 +70,8 @@ impl Plugin for ScenePlugin {
             .init_resource::<SceneSpawner>()
             .register_type::<SceneRoot>()
             .register_type::<DynamicSceneRoot>()
+            .register_type::<IsResource>()
+            .register_type::<ResourceEntity<DefaultQueryFilters>>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 
         // Register component hooks for DynamicSceneRoot

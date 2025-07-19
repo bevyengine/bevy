@@ -70,6 +70,7 @@
 use crate::{
     component::{ComponentId, Components, StorageType},
     query::FilteredAccess,
+    resource::IsResource,
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::{Component, Resource};
@@ -143,6 +144,8 @@ impl FromWorld for DefaultQueryFilters {
         let mut filters = DefaultQueryFilters::empty();
         let disabled_component_id = world.register_component::<Disabled>();
         filters.register_disabling_component(disabled_component_id);
+        let is_resource_component_id = world.register_component::<IsResource>();
+        filters.register_disabling_component(is_resource_component_id);
         filters
     }
 }
