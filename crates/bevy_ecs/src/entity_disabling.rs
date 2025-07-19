@@ -166,6 +166,8 @@ impl FromWorld for DefaultQueryFilters {
         let mut filters = DefaultQueryFilters::empty();
         let disabled_component_id = world.register_component::<Disabled>();
         filters.register_disabling_component(disabled_component_id);
+        let internal_component_id = world.register_component::<Internal>();
+        filters.register_disabling_component(internal_component_id);
         filters
     }
 }
@@ -228,7 +230,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        prelude::World,
+        prelude::{Add, On, World},
         query::{Has, With},
     };
     use alloc::{vec, vec::Vec};
@@ -326,5 +328,29 @@ mod tests {
 
         let mut query = world.query::<(Has<Disabled>, Has<CustomDisabled>)>();
         assert_eq!(4, query.iter(&world).count());
+    }
+
+    #[test]
+    fn internal_entities() {
+        let mut world = World::default();
+        world.register_system(|| {});
+        assert_eq!(world.internal_entity_count(), 1);
+        assert_eq!(world.entity_count(), 0);
+
+        let mut query = world.query::<()>();
+        assert_eq!(query.iter(&world).count(), 0);
+        let mut query = world.query_filtered::<(), With<Internal>>();
+        assert_eq!(query.iter(&world).count(), 1);
+
+        #[derive(Component)]
+        struct A;
+        world.add_observer(|_: On<Add, A>| {});
+        assert_eq!(world.internal_entity_count(), 2);
+        assert_eq!(world.entity_count(), 0);
+
+        let mut query = world.query::<()>();
+        assert_eq!(query.iter(&world).count(), 0);
+        let mut query = world.query_filtered::<(), With<Internal>>();
+        assert_eq!(query.iter(&world).count(), 2);
     }
 }
