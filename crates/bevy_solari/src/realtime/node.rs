@@ -20,7 +20,7 @@ use bevy_render::{
         },
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
         ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, PushConstantRange,
-        ShaderStages, StorageTextureAccess, TextureSampleType,
+        ShaderStages, StorageTextureAccess, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -107,12 +107,10 @@ impl ViewNode for SolariLightingNode {
             &self.bind_group_layout,
             &BindGroupEntries::sequential((
                 view_target.get_unsampled_color_attachment().view,
-                solari_lighting_resources
-                    .di_reservoirs_a
-                    .as_entire_binding(),
-                solari_lighting_resources
-                    .di_reservoirs_b
-                    .as_entire_binding(),
+                &solari_lighting_resources.di_reservoirs_a.1,
+                &solari_lighting_resources.di_reservoirs_a.3,
+                &solari_lighting_resources.di_reservoirs_b.1,
+                &solari_lighting_resources.di_reservoirs_b.3,
                 solari_lighting_resources
                     .gi_reservoirs_a
                     .as_entire_binding(),
@@ -213,8 +211,10 @@ impl FromWorld for SolariLightingNode {
                         ViewTarget::TEXTURE_FORMAT_HDR,
                         StorageTextureAccess::ReadWrite,
                     ),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
+                    texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadWrite),
+                    texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadWrite),
+                    texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadWrite),
+                    texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadWrite),
                     storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
                     texture_2d(TextureSampleType::Uint),
