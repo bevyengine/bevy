@@ -30,7 +30,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::Image;
-use bevy_math::{Quat, Vec2};
+use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel},
@@ -484,7 +484,7 @@ pub struct FilteringConstants {
     mip_level: f32,
     sample_count: u32,
     roughness: f32,
-    blue_noise_size: Vec2,
+    noise_size_bits: UVec2,
 }
 
 /// Stores bind groups for the environment map generation pipelines
@@ -510,9 +510,11 @@ pub fn prepare_generator_bind_groups(
     mut commands: Commands,
 ) {
     let stbn_texture = render_images.get(&STBN).expect("STBN texture not loaded");
-    let texture_size = Vec2::new(
-        stbn_texture.size.width as f32,
-        stbn_texture.size.height as f32,
+    assert!(stbn_texture.size.width.is_power_of_two());
+    assert!(stbn_texture.size.height.is_power_of_two());
+    let noise_size_bits = UVec2::new(
+        stbn_texture.size.width.trailing_zeros(),
+        stbn_texture.size.height.trailing_zeros(),
     );
 
     for (entity, textures, env_map_light) in &light_probes {
@@ -662,7 +664,7 @@ pub fn prepare_generator_bind_groups(
                 mip_level: mip as f32,
                 sample_count,
                 roughness,
-                blue_noise_size: texture_size,
+                noise_size_bits,
             };
 
             let mut radiance_constants_buffer = UniformBuffer::from(radiance_constants);
@@ -694,7 +696,7 @@ pub fn prepare_generator_bind_groups(
             // 32 phi, 32 theta = 1024 samples total
             sample_count: 1024,
             roughness: 1.0,
-            blue_noise_size: texture_size,
+            noise_size_bits,
         };
 
         let mut irradiance_constants_buffer = UniformBuffer::from(irradiance_constants);

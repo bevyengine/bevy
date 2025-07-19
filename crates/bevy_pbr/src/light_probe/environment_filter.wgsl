@@ -5,7 +5,7 @@ struct FilteringConstants {
     mip_level: f32,
     sample_count: u32,
     roughness: f32,
-    blue_noise_size: vec2f,
+    noise_size_bits: vec2u,
 }
 
 @group(0) @binding(0) var input_texture: texture_2d_array<f32>;
@@ -92,9 +92,10 @@ fn hammersley_2d(i: u32, n: u32) -> vec2f {
 
 // Blue noise randomization
 fn sample_noise(pixel_coords: vec2u) -> vec4f {
-    let noise_size = vec2u(u32(constants.blue_noise_size.x), u32(constants.blue_noise_size.y));
-    let noise_coords = pixel_coords % noise_size;
-    let uv = vec2f(noise_coords) / constants.blue_noise_size;
+    let noise_size = vec2u(1) << constants.noise_size_bits;
+    let noise_size_mask = noise_size - vec2u(1u);
+    let noise_coords = pixel_coords & noise_size_mask;
+    let uv = vec2f(noise_coords) / vec2f(noise_size);
     return textureSampleLevel(blue_noise_texture, input_sampler, uv, 0.0);
 }
 
