@@ -135,3 +135,59 @@ system uses `Res<UiPipeline>`, you will need to add an ordering like:
 ```rust
 render_app.add_systems(RenderStartup, init_my_resource.after(init_ui_pipeline));
 ```
+
+In Bevy internal code prior to 0.17, we've had plugins that conditionally add systems if some
+feature is supported or not. To support this workflow, we've created
+`bevy_render::conditional_render_set` which streamlines the process of creating these conditional
+sets of systems. For example, if in Bevy 0.16, your code looked like:
+
+```rust
+impl Plugin for MyRenderingPlugin {
+    fn build(&self, app: &mut App) {
+        // Some other stuff, or even nothing!
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if render_device.limits().max_storage_textures_per_shader_stage < 5 {
+            return;
+        }
+
+        // This system isn't added to the schedule at all if the feature isn't supported.
+        render_app.add_systems(Render, prepare_something);
+    }
+}
+```
+
+In Bevy 0.17, it would look like this:
+
+```rust
+impl Plugin for MyRenderingPlugin {
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        conditional_render_set(render_app, SomethingSystems, check_something_supported);
+
+        // This system doesn't run unless check_something_supported returned true.
+        render_app.add_systems(Render, prepare_something.in_set(SomethingSystems));
+    }
+
+    // No more finish!
+}
+
+#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
+struct SomethingSystems;
+
+fn check_something_supported(render_device: Res<RenderDevice>) -> bool {
+    render_device.limits().max_storage_textures_per_shader_stage < 5
+}
+```
+
+There are **many** ways to achieve this effect, so feel free to skip using `conditional_render_set`!
+This is just a convenience for adding run conditions!
