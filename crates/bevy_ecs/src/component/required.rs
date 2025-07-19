@@ -1360,4 +1360,191 @@ mod tests {
         assert_eq!(w.spawn(B).get::<X>().unwrap().0, 1);
         assert_eq!(w.spawn(C).get::<X>().unwrap().0, 1);
     }
+
+    #[test]
+    fn required_components_depth_first_2v1() {
+        #[derive(Component)]
+        struct X(usize);
+
+        #[derive(Component)]
+        #[require(Left, Right)]
+        struct Root;
+
+        #[derive(Component, Default)]
+        #[require(LeftLeft)]
+        struct Left;
+
+        #[derive(Component, Default)]
+        #[require(X(0))] // This is at depth 2 but is more on the left of the tree
+        struct LeftLeft;
+
+        #[derive(Component, Default)]
+        #[require(X(1))] //. This is at depth 1 but is more on the right of the tree
+        struct Right;
+
+        let mut world = World::new();
+
+        // LeftLeft should have priority over Right
+        assert_eq!(world.spawn(Root).get::<X>().unwrap().0, 0);
+    }
+
+    #[test]
+    fn required_components_depth_first_3v1() {
+        #[derive(Component)]
+        struct X(usize);
+
+        #[derive(Component)]
+        #[require(Left, Right)]
+        struct Root;
+
+        #[derive(Component, Default)]
+        #[require(LeftLeft)]
+        struct Left;
+
+        #[derive(Component, Default)]
+        #[require(LeftLeftLeft)]
+        struct LeftLeft;
+
+        #[derive(Component, Default)]
+        #[require(X(0))] // This is at depth 3 but is more on the left of the tree
+        struct LeftLeftLeft;
+
+        #[derive(Component, Default)]
+        #[require(X(1))] //. This is at depth 1 but is more on the right of the tree
+        struct Right;
+
+        let mut world = World::new();
+
+        // LeftLeftLeft should have priority over Right
+        assert_eq!(world.spawn(Root).get::<X>().unwrap().0, 0);
+    }
+
+    #[test]
+    fn runtime_required_components_depth_first_2v1() {
+        #[derive(Component)]
+        struct X(usize);
+
+        #[derive(Component)]
+        struct Root;
+
+        #[derive(Component, Default)]
+        struct Left;
+
+        #[derive(Component, Default)]
+        struct LeftLeft;
+
+        #[derive(Component, Default)]
+        struct Right;
+
+        // Register bottom up: registering higher level components should pick up lower level ones.
+        let mut world = World::new();
+        world.register_required_components_with::<LeftLeft, X>(|| X(0));
+        world.register_required_components_with::<Right, X>(|| X(1));
+        world.register_required_components::<Left, LeftLeft>();
+        world.register_required_components::<Root, Left>();
+        world.register_required_components::<Root, Right>();
+        assert_eq!(world.spawn(Root).get::<X>().unwrap().0, 0);
+
+        // Register top down: registering lower components should propagate to higher ones
+        let mut world = World::new();
+        world.register_required_components::<Root, Left>(); // Note: still register Left before Right
+        world.register_required_components::<Root, Right>();
+        world.register_required_components::<Left, LeftLeft>();
+        world.register_required_components_with::<Right, X>(|| X(1));
+        world.register_required_components_with::<LeftLeft, X>(|| X(0));
+        assert_eq!(world.spawn(Root).get::<X>().unwrap().0, 0);
+
+        // Register top down again, but this time LeftLeft before Right
+        let mut world = World::new();
+        world.register_required_components::<Root, Left>();
+        world.register_required_components::<Root, Right>();
+        world.register_required_components::<Left, LeftLeft>();
+        world.register_required_components_with::<LeftLeft, X>(|| X(0));
+        world.register_required_components_with::<Right, X>(|| X(1));
+        assert_eq!(world.spawn(Root).get::<X>().unwrap().0, 0);
+    }
+
+    #[test]
+    fn runtime_required_components_propagate_metadata_alternate() {
+        #[derive(Component, Default)]
+        #[require(L1)]
+        struct L0;
+
+        #[derive(Component, Default)]
+        struct L1;
+
+        #[derive(Component, Default)]
+        #[require(L3)]
+        struct L2;
+
+        #[derive(Component, Default)]
+        struct L3;
+
+        #[derive(Component, Default)]
+        #[require(L5)]
+        struct L4;
+
+        #[derive(Component, Default)]
+        struct L5;
+
+        // Try to piece the 3 requirements together
+        let mut world = World::new();
+        world.register_required_components::<L1, L2>();
+        world.register_required_components::<L3, L4>();
+        let e = world.spawn(L0).id();
+        assert!(world
+            .query::<(&L0, &L1, &L2, &L3, &L4, &L5)>()
+            .get(&world, e)
+            .is_ok());
+
+        // Repeat but in the opposite order
+        let mut world = World::new();
+        world.register_required_components::<L3, L4>();
+        world.register_required_components::<L1, L2>();
+        let e = world.spawn(L0).id();
+        assert!(world
+            .query::<(&L0, &L1, &L2, &L3, &L4, &L5)>()
+            .get(&world, e)
+            .is_ok());
+    }
+
+    #[test]
+    fn runtime_required_components_propagate_metadata_chain() {
+        #[derive(Component, Default)]
+        #[require(L1)]
+        struct L0;
+
+        #[derive(Component, Default)]
+        struct L1;
+
+        #[derive(Component, Default)]
+        struct L2;
+
+        #[derive(Component, Default)]
+        #[require(L4)]
+        struct L3;
+
+        #[derive(Component, Default)]
+        struct L4;
+
+        // Try to piece the 3 requirements together
+        let mut world = World::new();
+        world.register_required_components::<L1, L2>();
+        world.register_required_components::<L2, L3>();
+        let e = world.spawn(L0).id();
+        assert!(world
+            .query::<(&L0, &L1, &L2, &L3, &L4)>()
+            .get(&world, e)
+            .is_ok());
+
+        // Repeat but in the opposite order
+        let mut world = World::new();
+        world.register_required_components::<L2, L3>();
+        world.register_required_components::<L1, L2>();
+        let e = world.spawn(L0).id();
+        assert!(world
+            .query::<(&L0, &L1, &L2, &L3, &L4)>()
+            .get(&world, e)
+            .is_ok());
+    }
 }
