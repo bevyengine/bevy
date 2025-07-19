@@ -1,6 +1,6 @@
 ---
 title: Schedule API Cleanup
-pull_requests: [19352, 20119]
+pull_requests: [19352, 20119, 20172]
 ---
 
 In order to support removing systems from schedules, `Vec`s storing `System`s and
@@ -9,9 +9,14 @@ reusing indices. The maps are respectively keyed by `SystemKey`s and `SystemSetK
 
 The following signatures were changed:
 
+- `DiGraph` and `UnGraph` now have an additional, required type parameter `N`, which
+  is a `GraphNodeId`. Use `DiGraph<NodeId>`/`UnGraph<NodeId>` for the equivalent to the previous type.
 - `NodeId::System`: Now stores a `SystemKey` instead of a plain `usize`
 - `NodeId::Set`: Now stores a `SystemSetKey` instead of a plain `usize`
-- `ScheduleBuildPass::collapse_set`: Now takes the type-specific keys. Wrap them back into a `NodeId` if necessary.
+- `ScheduleBuildPass::collapse_set`: Now takes the type-specific keys.
+  Wrap them back into a `NodeId` if necessary.
+- `ScheduleBuildPass::build`: Now takes a `DiGraph<SystemKey>` instead of `DiGraph<NodeId>`.
+  Re-wrap the keys back into `NodeId` if necessary.
 - The following functions now return the type-specific keys. Wrap them back into a `NodeId` if necessary.
   - `Schedule::systems`
   - `ScheduleGraph::conflicting_systems`
