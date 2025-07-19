@@ -1,5 +1,6 @@
 #define_import_path bevy_solari::sampling
 
+#import bevy_pbr::lighting::D_GGX
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_range_u}
 #import bevy_render::maths::{PI, PI_2}
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full}
@@ -24,6 +25,42 @@ fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3
     let y = sin_theta * sin(phi);
     let z = cos_theta;
     return build_orthonormal_basis(normal) * vec3(x, y, z);
+}
+
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
+fn sample_ggx_vndf(i: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
+    let rand = rand_vec2f(rng);
+    let i_std = normalize(vec3(i.xy * roughness, i.z));
+    let phi = 2.0 * PI * rand.x;
+    let a = saturate(roughness);
+    let s = 1.0 + length(vec2(i.xy));
+    let a2 = a * a;
+    let s2 = s * s;
+    let k = (1.0 - a2) * s2 / (s2 + a2 * i.z * i.z);
+    let b = select(i_std.z, k * i_std.z, i.z > 0.0);
+    let z = fma(1.0 - rand.y, 1.0 + b, -b);
+    let sin_theta = sqrt(saturate(1.0 - z * z));
+    let o_std = vec3(sin_theta * cos(phi), sin_theta * sin(phi), z);
+    let m_std = i_std + o_std;
+    let m = normalize(vec3(m_std.xy * roughness, m_std.z));
+    return 2.0 * dot(i, m) * m - i;
+}
+
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
+fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
+    let ndf = D_GGX(roughness, NdotH);
+    let ai = roughness * i.xy;
+    let len2 = dot(ai, ai);
+    let t = sqrt(len2 + i.z * i.z);
+    if i.z >= 0.0 {
+        let a = saturate(roughness);
+        let s = 1.0 + length(i.xy);
+        let a2 = a * a;
+        let s2 = s * s;
+        let k = (1.0 - a2) * s2 / (s2 + a2 * i.z * i.z);
+        return ndf / (2.0 * (k * i.z + t));
+    }
+    return ndf * (t - i.z) / (2.0 * len2);
 }
 
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294
