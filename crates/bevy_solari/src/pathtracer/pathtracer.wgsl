@@ -82,10 +82,9 @@ struct NextBounce {
 fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng: ptr<function, u32>) -> NextBounce {
     let diffuse_weight = 1.0 - ray_hit.material.metallic;
     let specular_weight = ray_hit.material.metallic;
-    let total_weight = diffuse_weight + specular_weight;
 
     var wi: vec3<f32>;
-    if rand_f(rng) * total_weight < diffuse_weight {
+    if rand_f(rng) < diffuse_weight {
         wi = sample_cosine_hemisphere(ray_hit.world_normal, rng);
     } else {
         wi = sample_ggx_vndf(wo, ray_hit.material.roughness, rng);
@@ -93,7 +92,7 @@ fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng
 
     let diffuse_pdf = dot(wi, ray_hit.world_normal) / PI;
     let specular_pdf = ggx_vndf_pdf(wo, wi, ray_hit.world_normal, ray_hit.material.roughness);
-    let pdf = ((diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf)) / total_weight;
+    let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
 
     return NextBounce(wi, pdf);
 }
