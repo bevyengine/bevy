@@ -242,7 +242,7 @@ impl World {
             }
             return total;
         }
-        return 0;
+        0
     }
 
     /// Retrieves this world's [`Archetypes`] collection.
