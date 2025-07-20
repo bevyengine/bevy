@@ -1,6 +1,6 @@
 # Bevy Editor
 
-A modern inspector and editor for Bevy applications, designed to provide real-time introspection and editing capabilities.
+A real-time inspector and editor for Bevy applications. Connect to any Bevy app and inspect entities, components, and systems as they run.
 
 ![Bevy Editor](https://img.shields.io/badge/status-in_development-yellow.svg)
 ![Bevy](https://img.shields.io/badge/bevy-0.15-blue.svg)
@@ -8,42 +8,42 @@ A modern inspector and editor for Bevy applications, designed to provide real-ti
 
 ## Features
 
-### Current (v0.1)
-- **Real-time Connection**: HTTP client integration with `bevy_remote` protocol
-- **Entity Inspection**: Browse and select entities in a clean, modern interface
-- **Component Viewing**: Structured component display with hierarchical field breakdown
-- **Smart Type Recognition**: Specialized formatting for Bevy types (Vec2/Vec3/Quat, Colors, Entity IDs)
-- **Connection Status**: Live connection monitoring with visual status indicators
-- **Modern UI**: Dark theme with professional styling and responsive design
-- **Event-driven Architecture**: Built on Bevy's observer system for optimal performance
-- **Expandable Structures**: Smart component exploration with keyboard shortcuts (E/T/C keys) for any component type
-- **Mouse Wheel Scrolling**: Smooth scrolling through entity lists with optimized sensitivity
-- **Dynamic Expansion**: Real-time [+]/[-] indicators based on current expansion state
+### What works right now
+- **Real-time Connection**: HTTP client that talks to `bevy_remote`
+- **Entity Inspection**: Click through entities and see what's attached
+- **Component Viewing**: Components show up as expandable trees instead of raw JSON
+- **Smart Type Recognition**: Vec3, Quat, Color, and other Bevy types get nice formatting
+- **Connection Status**: Shows if you're connected and when things break
+- **Dark Theme UI**: Easy on the eyes
+- **Event-driven**: Uses Bevy's observer system under the hood
+- **Expandable Structures**: Hit E/T/C keys to expand/collapse component fields
+- **Mouse Wheel Scrolling**: Scroll through entity lists (still has some bugs)
+- **Dynamic Expansion**: [+]/[-] buttons that actually reflect current state
 
-### In Development
-- **Component Editing**: Real-time component value modification
-- **Entity Management**: Create, delete, and clone entities
-- **Search & Filter**: Advanced filtering and search capabilities
-- **Hierarchical Views**: Tree-based entity and component organization
-- **System Inspector**: Monitor and control system execution
-- **Data Persistence**: Save and load entity configurations
+### Coming up
+- **Component Editing**: Actually change values, not just look at them
+- **Entity Management**: Create, delete, copy entities
+- **Search & Filter**: Find stuff without scrolling forever
+- **Hierarchical Views**: Group entities by type and other useful ways
+- **System Inspector**: See what systems are running and how long they take
+- **Data Persistence**: Save interesting configurations
 
 ## Quick Start
 
-### Prerequisites
-- Rust 1.70+ with Cargo
+### What you need
+- Rust 1.70+ 
 - Bevy 0.15+
-- A Bevy application with `bevy_remote` enabled
+- A Bevy app with `bevy_remote` enabled
 
-### Installation
+### Setup
 
-1. **Add to your Bevy project**:
+1. **Add to your project**:
 ```toml
 [dependencies]
 bevy_editor = { path = "path/to/bevy_editor" }
 ```
 
-2. **Enable bevy_remote in your target application**:
+2. **Add bevy_remote to the app you want to inspect**:
 ```rust
 use bevy::prelude::*;
 use bevy_remote::RemotePlugin;
@@ -56,32 +56,32 @@ fn main() {
 }
 ```
 
-3. **Run the inspector**:
+3. **Start the inspector**:
 ```bash
 cargo run --example inspector --package bevy_editor
 ```
 
-4. **Start your Bevy application** (the one you want to inspect)
+4. **Run your Bevy app**
 
-The inspector will automatically connect to `http://127.0.0.1:15702` and begin displaying entities.
+The inspector connects to `http://127.0.0.1:15702` automatically.
 
 ## Usage
 
-### Basic Workflow
-1. **Launch Inspector**: Run the editor example
-2. **Start Target App**: Launch your Bevy application with `bevy_remote` enabled
-3. **Browse Entities**: Click on entities in the left panel to view their components
-4. **Inspect Components**: View detailed component data in the right panel
-5. **Monitor Status**: Check the connection status in the top status bar
+### Basic workflow
+1. **Start the inspector** 
+2. **Run your Bevy app** with `bevy_remote` enabled
+3. **Click entities** in the left panel to see their components
+4. **Browse components** in the right panel
+5. **Check connection status** in the top bar if things aren't working
 
-### Connection Configuration
-The inspector connects to `bevy_remote` servers. The default endpoint is:
+### Connection details
+Connects to `bevy_remote` servers at:
 - **URL**: `http://127.0.0.1:15702`
 - **Protocol**: JSON-RPC 2.0 over HTTP
-- **Polling**: 1-second intervals
+- **Updates**: Every second
 
-### Component Display
-Components are displayed in a structured, hierarchical format:
+### How components look
+Instead of raw JSON, you get something readable:
 ```
 [Component] Transform
   [+] translation: (0.000, 0.000, 0.000)
@@ -102,197 +102,192 @@ Components are displayed in a structured, hierarchical format:
   inherited: true
 ```
 
-### Usage
+### Controls
 
-Once running, the editor provides:
+Right now:
 
-1. **Entity Selection**: Click on entities in the left panel to select them
-2. **Component Inspection**: Selected entity components appear in the right panel with hierarchical display
-3. **Interactive Expansion**: 
-   - Press `E` to expand common component fields automatically (translation, rotation, scale, position, velocity, color, etc.)
-   - Press `T` to toggle Transform component fields specifically
-   - Press `C` to collapse all expanded fields
-4. **Mouse Navigation**: Use mouse wheel to scroll through the entity list
-5. **Connection Status**: Monitor connection status in the top status bar
+1. **Click entities** to select them
+2. **Components show up** in the right panel with a tree view
+3. **Keyboard shortcuts**: 
+   - `E` to expand common fields (translation, rotation, scale, etc.)
+   - `T` to toggle Transform fields
+   - `C` to collapse everything
+4. **Mouse wheel** to scroll the entity list
+5. **Connection status** shows up top if something's wrong
 
 ## Development Roadmap
 
-### Widget System (✅ COMPLETED - v0.1)
-**Goal**: Create modular widget system for eventual bevy_feathers extraction
+### Widget System
+**Goal**: Build reusable widgets that could eventually be extracted to bevy_feathers
 
-- [x] **ScrollableContainer**: Basic scrollable container with mouse wheel support
-- [x] **BasicPanel**: Simple panel container with title and configuration
-- [x] **ExpansionButton**: Interactive expansion buttons for hierarchical content
-- [x] **Theme Integration**: Basic theme system with consistent styling
-- [x] **Plugin Architecture**: Each widget has its own plugin system
-- [x] **Documentation**: Comprehensive documentation for PR readiness
-- [x] **Clean Compilation**: All compilation errors resolved, minimal warnings
+- [x] **BasicPanel**: Simple panels with titles
+- [x] **ExpansionButton**: Clickable expand/collapse buttons
+- [x] **Theme Integration**: Consistent colors and styling
+- [x] **Plugin Architecture**: Each widget is its own plugin
 
-**Implementation Details**:
-- All widgets designed for bevy_feathers extraction
-- Minimal dependencies on core Bevy systems
-- Plugin-based architecture for modularity
-- Consistent API patterns across widgets
+**Details**:
+- Designed to be extracted to bevy_feathers later
+- Minimal dependencies on core Bevy stuff
+- Plugin-based so you can pick what you need
+- Consistent APIs across widgets
+- Theme system so everything looks coherent
 - Theme integration for styling consistency
 
-See `WIDGETS.md` for detailed widget system documentation.
 
-### Phase 1: Enhanced Component Display
-**Goal**: Transform raw JSON into structured, readable component fields
+### Phase 1: Better Component Display
+**Goal**: Make raw JSON actually readable
 
-- [x] **Structured Parsing**: Parse JSON into typed fields with proper formatting
-- [x] **Type-aware Display**: Specialized rendering for common Bevy types (Vec3, Quat, Color, etc.)
-- [x] **Expandable Structures**: Foundation with [+] indicators for collapsible nested objects and arrays
-- [x] **Value Formatting**: Human-readable formatting for different data types (Entity IDs, truncated strings, precision-controlled numbers)
-- [x] **Hierarchical Layout**: Proper indentation and nested structure display
-- [x] **Interactive Expansion**: Keyboard-based expansion system (E to expand, C to collapse) with state tracking
-- [x] **Mouse Wheel Scrolling**: Scrollable entity list with mouse wheel support
-- [ ] **Clickable Expansion**: Replace keyboard shortcuts with clickable [+]/[-] buttons
-- [ ] **Visual Polish**: Enhanced styling with consistent spacing and visual hierarchy
-- [ ] **Advanced Type Support**: Support for more complex Bevy types (Asset handles, Entity references, etc.)
+- [x] **Structured Parsing**: Turn JSON into proper typed fields
+- [x] **Type-aware Display**: Special handling for Vec3, Quat, Color, etc.
+- [x] **Expandable Structures**: [+] buttons for nested stuff
+- [x] **Value Formatting**: Entity IDs, truncated strings, sensible number precision
+- [x] **Hierarchical Layout**: Proper indentation and nesting
+- [x] **Interactive Expansion**: E/T/C keyboard shortcuts with state tracking
+- [ ] **Mouse Wheel Scrolling**: Scroll through entity lists
+- [ ] **Clickable Expansion**: Replace keyboard shortcuts with actual buttons
+- [ ] **Visual Polish**: Better spacing and visual hierarchy
+- [ ] **More Type Support**: Asset handles, Entity references, etc.
 
-#### Phase 1 - Remaining Implementation Details
+#### What's left in Phase 1
 
-**Interactive Expansion System** ( **IMPLEMENTED**):
--  Add expansion state tracking with `ComponentDisplayState` resource
--  Update `format_field_recursive()` to check expansion state before showing children
--  Dynamic [+]/[-] indicators based on expansion state
--  Smart keyboard shortcuts: 'E' for common fields, 'T' for Transform, 'C' to collapse all
--  Generic field detection for any component type (not just Transform)
-- **Next**: Replace keyboard shortcuts with clickable UI elements
+**Interactive Expansion** (mostly done):
+- Expansion state tracking works
+- Dynamic [+]/[-] indicators
+- Smart keyboard shortcuts for common fields
+- Works with any component type, not just Transform
 
-**Mouse Wheel Scrolling** ( **IMPLEMENTED**):
--  Added `ScrollableArea` component for marking scrollable UI elements  
--  Mouse wheel scroll handler for entity list navigation
--  Smooth scrolling with optimal sensitivity (5px per wheel unit)
+**Mouse Wheel Scrolling** (NOT WORKING):
+- ScrollableArea component marks what can scroll
+- Mouse wheel handler for entity list
+- Smooth scrolling at 5px per wheel tick
 
-**Visual Polish** (Next Priority):
-- Consistent color coding for different value types (numbers, strings, booleans)
-- Improved spacing and visual hierarchy
-- Better visual distinction between expandable and non-expandable items
-- Add subtle hover effects for better interactivity
+**Visual Polish** (next up):
+- Color coding for different value types
+- Better spacing between items
+- Visual distinction between expandable and regular items
+- Hover effects
 
-**Advanced Type Support**:
-- Asset handle detection and formatting (e.g., "Handle<Mesh>", "Handle<Image>")
-- Entity reference formatting with clickable navigation
-- Support for Bevy's built-in components (Camera, Mesh, Material handles)
-- Custom type registration system for user-defined components
+**More Type Support**:
+- Asset handle formatting ("Handle<Mesh>", etc.)
+- Entity reference formatting with clickable links
+- Better support for built-in Bevy components
+- Custom type registration for user components
 
-### Phase 2: Interactive Component Editing
-**Goal**: Enable real-time modification of component values
+### Phase 2: Component Editing
+**Goal**: Actually change values, not just look at them
 
-- [ ] **Input Fields**: Type-appropriate input controls (sliders, text fields, checkboxes)
-- [ ] **Real-time Updates**: Live synchronization with the target application
-- [ ] **Validation System**: Client-side validation before sending changes
-- [ ] **Error Handling**: Graceful handling of invalid values and server errors
-- [ ] **Undo/Redo**: Basic change history and rollback capabilities
+- [ ] **Input Fields**: Sliders, text boxes, checkboxes - whatever makes sense for the type
+- [ ] **Real-time Updates**: Changes get sent to the app immediately
+- [ ] **Validation**: Catch bad values before they break things
+- [ ] **Error Handling**: Deal with server errors gracefully
+- [ ] **Undo/Redo**: Basic history so you can back out of mistakes
 
 ### Phase 3: Entity Management
-**Goal**: Full CRUD operations for entities
+**Goal**: Create, delete, and mess with entities
 
-- [ ] **Entity Creation**: Spawn new entities with optional component templates
-- [ ] **Entity Deletion**: Remove entities with confirmation dialogs
-- [ ] **Entity Cloning**: Duplicate entities with all their components
-- [ ] **Bulk Operations**: Multi-select and batch operations
-- [ ] **Entity Search**: Filter entities by ID, components, or custom criteria
+- [ ] **Entity Creation**: Spawn new entities with component templates
+- [ ] **Entity Deletion**: Remove entities (with confirmation so you don't delete the wrong thing)
+- [ ] **Entity Cloning**: Copy entities with all their components
+- [ ] **Bulk Operations**: Select multiple entities and do things to all of them
+- [ ] **Entity Search**: Find entities by ID, components, or whatever
 
-### Phase 4: Advanced UI/UX
-**Goal**: Professional-grade interface matching industry standards
+### Phase 4: Better UI
+**Goal**: Make the interface not suck
 
-- [ ] **Tabbed Interface**: Separate views for Entities, Systems, Resources, and Settings
-- [ ] **Tree Views**: Hierarchical display with expand/collapse functionality
-- [ ] **Search System**: Global search across entities, components, and systems
-- [ ] **Filtering Engine**: Advanced filtering with multiple criteria
+- [ ] **Tabbed Interface**: Separate tabs for Entities, Systems, Resources, Settings
+- [ ] **Tree Views**: Hierarchical display with expand/collapse
+- [ ] **Search System**: Find stuff across entities, components, systems
+- [ ] **Filtering**: Filter by multiple criteria
 - [ ] **Property Grid**: Traditional property editor layout
-- [ ] **Toolbar Actions**: Quick access to common operations
-- [ ] **Keyboard Shortcuts**: Power-user keyboard navigation
+- [ ] **Toolbar**: Quick access to common stuff
+- [ ] **Keyboard Shortcuts**: Power-user navigation
 - [ ] **Themes**: Light/dark theme switching
 
 ### Phase 5: System Inspector
-**Goal**: Monitor and control Bevy systems
+**Goal**: See what systems are doing
 
-- [ ] **System Listing**: Display all registered systems in execution order
-- [ ] **Performance Metrics**: Execution time, frequency, and resource usage
-- [ ] **System Control**: Enable/disable systems at runtime
-- [ ] **Dependency Graph**: Visualize system dependencies and execution order
-- [ ] **Schedule Inspection**: View and modify system schedules
-- [ ] **Debugging Tools**: Breakpoints and step-through debugging
+- [ ] **System List**: Show all systems in execution order
+- [ ] **Performance Metrics**: How long systems take, how often they run
+- [ ] **System Control**: Turn systems on/off at runtime
+- [ ] **Dependency Graph**: Visualize how systems depend on each other
+- [ ] **Schedule Inspection**: See and modify system schedules
+- [ ] **Debugging**: Breakpoints and step-through debugging
 
 ### Phase 6: Resource Management
 **Goal**: Inspect and modify global resources
 
 - [ ] **Resource Browser**: List all registered resources
-- [ ] **Resource Editing**: Modify resource values in real-time
-- [ ] **Resource Monitoring**: Track resource changes over time
+- [ ] **Resource Editing**: Change resource values in real-time
+- [ ] **Resource Monitoring**: Track how resources change over time
 - [ ] **Custom Inspectors**: Plugin system for resource-specific editors
 
-### Phase 7: Advanced Features
-**Goal**: Professional development tools
+### Phase 7: Advanced Stuff
+**Goal**: Power user features
 
 - [ ] **Data Export/Import**: Save and load entity configurations
 - [ ] **Scene Management**: Import/export entire scenes
 - [ ] **Bookmarks**: Save frequently accessed entities and views
-- [ ] **History Tracking**: Complete change history with replay capability
+- [ ] **History Tracking**: Complete change history with replay
 - [ ] **Plugin Architecture**: Extension system for custom inspectors
-- [ ] **Remote Debugging**: Connect to applications on different machines
-- [ ] **Performance Profiler**: Built-in performance analysis tools
+- [ ] **Remote Debugging**: Connect to apps on different machines
+- [ ] **Performance Profiler**: Built-in performance analysis
 
-## Architecture
+## How it works
 
-### Core Components
-- **EditorPlugin**: Main plugin coordinating all editor functionality
-- **Remote Client**: HTTP client handling communication with `bevy_remote`
-- **UI Systems**: Bevy UI-based interface with modern styling
-- **Event System**: Observer-based architecture for reactive updates
-- **State Management**: Centralized state for entities, selection, and connection status
+### Core parts
+- **EditorPlugin**: Main plugin that coordinates everything
+- **Remote Client**: HTTP client that talks to `bevy_remote`
+- **UI Systems**: Bevy UI-based interface with custom styling
+- **Event System**: Uses Bevy's observer system for reactive updates
+- **State Management**: Keeps track of entities, selection, and connection status
 
-### Communication Flow
+### Communication
 ```
-Inspector ←→ HTTP/JSON-RPC ←→ bevy_remote ←→ Target Bevy App
+Inspector ←→ HTTP/JSON-RPC ←→ bevy_remote ←→ Your Bevy App
 ```
 
-### Key Technologies
-- **HTTP Client**: `ureq` for synchronous HTTP requests
+### Built with
+- **HTTP Client**: `ureq` for HTTP requests
 - **Serialization**: `serde` and `serde_json` for data handling
 - **UI Framework**: Native Bevy UI with custom styling
-- **Protocol**: JSON-RPC 2.0 following `bevy_remote` specifications
+- **Protocol**: JSON-RPC 2.0 (what `bevy_remote` uses)
 
 ## Development
 
-### Building from Source
+### Building
 ```bash
 git clone <repository>
 cd bevy_editor
 cargo build
 ```
 
-### Running Tests
+### Testing
 ```bash
 cargo test
 ```
 
-### Example Applications
+### Examples
 ```bash
 # Run the inspector
 cargo run --example inspector
 
-# Run a test application with bevy_remote
+# Run a test app with bevy_remote
 cargo run --example basic_app
 ```
 
 ### Contributing
-1. Fork the repository
+1. Fork the repo
 2. Create a feature branch
 3. Make your changes
-4. Add tests for new functionality
+4. Add tests if needed
 5. Submit a pull request
 
-## 📝 API Reference
+## API Reference
 
-### Core Types
+### Important types
 
 #### `EditorState`
-Central state management for the editor:
+Keeps track of what's happening in the editor:
 ```rust
 pub struct EditorState {
     pub selected_entity_id: Option<u32>,
@@ -303,7 +298,7 @@ pub struct EditorState {
 ```
 
 #### `RemoteEntity`
-Representation of entities from the remote server:
+What we know about entities from the remote server:
 ```rust
 pub struct RemoteEntity {
     pub id: u32,
@@ -313,7 +308,7 @@ pub struct RemoteEntity {
 ```
 
 #### `ComponentField`
-Structured component field data:
+Parsed component field data:
 ```rust
 pub struct ComponentField {
     pub name: String,
@@ -326,7 +321,7 @@ pub struct ComponentField {
 ### Events
 
 #### `EntitiesFetched`
-Triggered when entity data is received from the remote server:
+Fired when we get entity data from the remote server:
 ```rust
 pub struct EntitiesFetched {
     pub entities: Vec<RemoteEntity>,
@@ -334,7 +329,7 @@ pub struct EntitiesFetched {
 ```
 
 #### `ComponentDataFetched`
-Triggered when component data is received:
+Fired when we get component data:
 ```rust
 pub struct ComponentDataFetched {
     pub entity_id: u32,
@@ -344,8 +339,8 @@ pub struct ComponentDataFetched {
 
 ## Configuration
 
-### Connection Settings
-Default connection parameters can be modified:
+### Connection settings
+You can change the default connection if needed:
 ```rust
 impl Default for RemoteConnection {
     fn default() -> Self {
@@ -357,29 +352,29 @@ impl Default for RemoteConnection {
 }
 ```
 
-### UI Customization
-The interface uses a consistent color scheme that can be modified in the styling sections of each UI component.
+### Customizing the UI
+The interface uses a consistent color scheme. You can modify the styling in each UI component if you want different colors.
 
 ## Troubleshooting
 
-### Common Issues
+### Common problems
 
 **Inspector shows "Disconnected"**
-- Ensure your target Bevy application is running
-- Verify `bevy_remote` plugin is added to your app
-- Check that the application is listening on port 15702
+- Make sure your Bevy app is actually running
+- Check that you added the `bevy_remote` plugin to your app
+- Make sure it's listening on port 15702
 
-**Entities not appearing**
-- Confirm entities exist in your target application
-- Check the console for connection errors
-- Verify the `bevy_remote` server is responding
+**No entities showing up**
+- Check that your app actually has entities
+- Look at the console for connection errors
+- Make sure the `bevy_remote` server is responding
 
-**Component data shows as raw JSON**
-- This is expected in early versions
-- Phase 1 development will improve component display
+**Component data looks like raw JSON**
+- This is normal in early versions
+- Better component display is coming in Phase 1
 
-### Debug Mode
-Enable debug logging for detailed connection information:
+### Debug mode
+Turn on debug logging to see what's happening:
 ```bash
 RUST_LOG=bevy_editor=debug cargo run --example inspector
 ```
@@ -394,10 +389,10 @@ You may choose either license for your use.
 
 ## Acknowledgments
 
-- **Bevy Engine**: The amazing game engine this editor is built for
-- **Flecs Explorer**: Inspiration for the interface design and feature set
-- **bevy_remote**: The foundation that makes remote inspection possible
-- **Community**: All contributors and users helping shape this tool
+- **Bevy Engine**: The game engine this is built for
+- **Flecs Explorer**: Inspiration for the interface design
+- **bevy_remote**: Makes remote inspection possible
+- **Community**: Everyone who's contributed and given feedback
 
 ---
 

@@ -252,11 +252,6 @@ mod tests {
         let empty_group = groups.iter().find(|g| matches!(g.group_type, GroupType::Empty));
         assert!(empty_group.is_some());
         assert_eq!(empty_group.unwrap().entities.len(), 1);
-        
-        println!("Groups created: {}", groups.len());
-        for group in &groups {
-            println!("  {}: {} entities", group.group_name, group.entities.len());
-        }
     }
     
     #[test]

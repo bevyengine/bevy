@@ -84,46 +84,10 @@ pub struct TreeViewPlugin;
 
 impl Plugin for TreeViewPlugin {
     fn build(&self, app: &mut App) {
-        println!("DEBUG: TreeViewPlugin::build() called - adding tree view systems");
         app.add_systems(Update, (
             handle_tree_group_clicks,
             update_tree_view_display,
-            debug_tree_headers, // Debug system
-            debug_all_button_interactions, // Debug all button clicks
         ));
-    }
-}
-
-/// Debug system to see all button interactions
-fn debug_all_button_interactions(
-    button_query: Query<&Interaction, (Changed<Interaction>, With<Button>)>,
-    tree_header_query: Query<Entity, With<TreeGroupHeader>>,
-    entity_item_query: Query<Entity, With<EntityListItem>>,
-) {
-    for interaction in button_query.iter() {
-        if *interaction == Interaction::Pressed {
-            println!("DEBUG: Some button was pressed!");
-            
-            // Count different types of buttons
-            let tree_header_count = tree_header_query.iter().count();
-            let entity_item_count = entity_item_query.iter().count();
-            
-            println!("DEBUG: Found {} tree header buttons", tree_header_count);
-            println!("DEBUG: Found {} entity item buttons", entity_item_count);
-        }
-    }
-}
-
-/// Debug system to check if TreeGroupHeader entities exist
-fn debug_tree_headers(
-    header_query: Query<Entity, With<TreeGroupHeader>>,
-    button_query: Query<Entity, With<Button>>,
-    mut frame_count: Local<u32>,
-) {
-    *frame_count += 1;
-    if *frame_count % 120 == 0 { // Every 2 seconds at 60fps
-        println!("DEBUG: Found {} TreeGroupHeader entities", header_query.iter().count());
-        println!("DEBUG: Found {} Button entities total", button_query.iter().count());
     }
 }
 
@@ -134,21 +98,10 @@ fn handle_tree_group_clicks(
         (&Interaction, &TreeGroupHeader),
         (Changed<Interaction>, With<Button>),
     >,
-    mut frame_count: Local<u32>,
 ) {
-    *frame_count += 1;
-    if *frame_count % 60 == 0 {
-        println!("DEBUG: handle_tree_group_clicks system running... frame {}", *frame_count);
-        println!("DEBUG: Found {} tree group headers", interaction_query.iter().count());
-        println!("DEBUG: Found {} tree views", tree_query.iter().count());
-    }
-    
     for (interaction, header) in interaction_query.iter() {
-        println!("DEBUG: Tree group header interaction: {:?} for group '{}'", interaction, header.group_id);
         if *interaction == Interaction::Pressed {
-            println!("DEBUG: Tree group header '{}' clicked!", header.group_id);
             for mut tree_view in tree_query.iter_mut() {
-                println!("DEBUG: Toggling group '{}' in tree view", header.group_id);
                 tree_view.toggle_group(&header.group_id);
             }
         }
@@ -162,9 +115,6 @@ fn update_tree_view_display(
     item_query: Query<Entity, With<TreeViewItem>>,
 ) {
     for (tree_entity, tree_view) in tree_query.iter() {
-        println!("DEBUG: update_tree_view_display called for entity {} with {} groups", 
-                 tree_entity.index(), tree_view.groups.len());
-        
         // Clear existing items
         for item_entity in item_query.iter() {
             commands.entity(item_entity).despawn();
@@ -175,11 +125,7 @@ fn update_tree_view_display(
         commands.entity(tree_entity).with_children(|parent| {
             for group in &tree_view.groups {
                 // Inline tree group creation to avoid ChildBuilder type issues
-                let expansion_icon = if group.is_expanded { "−" } else { "+" };
-                let item_count = group.items.len();
-                
-                println!("DEBUG: Creating group header for '{}' with {} items (expanded: {})", 
-                         group.name, item_count, group.is_expanded);
+                let expansion_icon = if group.is_expanded { "-" } else { "+" };
                 
                 // Group header
                 parent.spawn((
@@ -214,7 +160,7 @@ fn update_tree_view_display(
                     
                     // Group name and count
                     header.spawn((
-                        Text::new(format!("{} ({})", group.name, item_count)),
+                        Text::new(format!("{} ({})", group.name, group.items.len())),
                         TextFont { 
                             font_size: 13.0,
                             ..default() 
@@ -229,7 +175,6 @@ fn update_tree_view_display(
                 
                 // Group items (only if expanded)
                 if group.is_expanded {
-                    println!("DEBUG: Creating {} expanded items for group '{}'", group.items.len(), group.name);
                     for (index, entity_item) in group.items.iter().enumerate() {
                         parent.spawn((
                             Button,
@@ -261,13 +206,9 @@ fn update_tree_view_display(
                             ));
                         });
                     }
-                } else {
-                    println!("DEBUG: Group '{}' is collapsed, not creating items", group.name);
                 }
             }
         });
-        
-        println!("DEBUG: Finished updating tree view display");
     }
 }
 
@@ -276,8 +217,6 @@ pub fn spawn_entity_tree_view(
     commands: &mut Commands,
     groups: Vec<EntityTreeGroup>,
 ) -> Entity {
-    println!("DEBUG: spawn_entity_tree_view called with {} groups", groups.len());
-    
     let entity = commands.spawn((
         Node {
             flex_direction: FlexDirection::Column,
@@ -295,11 +234,7 @@ pub fn spawn_entity_tree_view(
     // Manually trigger the display creation
     commands.entity(entity).with_children(|parent| {
         for group in &groups {
-            let expansion_icon = if group.is_expanded { "−" } else { "+" };
-            let item_count = group.items.len();
-            
-            println!("DEBUG: Manually creating group header for '{}' with {} items (expanded: {})", 
-                     group.name, item_count, group.is_expanded);
+            let expansion_icon = if group.is_expanded { "-" } else { "+" };
             
             // Group header
             parent.spawn((
@@ -334,7 +269,7 @@ pub fn spawn_entity_tree_view(
                 
                 // Group name and count
                 header.spawn((
-                    Text::new(format!("{} ({})", group.name, item_count)),
+                    Text::new(format!("{} ({})", group.name, group.items.len())),
                     TextFont { 
                         font_size: 13.0,
                         ..default() 
@@ -349,7 +284,6 @@ pub fn spawn_entity_tree_view(
             
             // Group items (only if expanded)
             if group.is_expanded {
-                println!("DEBUG: Manually creating {} expanded items for group '{}'", group.items.len(), group.name);
                 for (index, entity_item) in group.items.iter().enumerate() {
                     parent.spawn((
                         Button,
@@ -381,12 +315,9 @@ pub fn spawn_entity_tree_view(
                         ));
                     });
                 }
-            } else {
-                println!("DEBUG: Group '{}' is collapsed, not creating items", group.name);
             }
         }
     });
     
-    println!("DEBUG: Tree view entity {} created with manual display", entity.index());
     entity
 }

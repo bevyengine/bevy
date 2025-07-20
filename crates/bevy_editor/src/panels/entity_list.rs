@@ -24,14 +24,11 @@ pub struct EntityListPlugin;
 
 impl Plugin for EntityListPlugin {
     fn build(&self, app: &mut App) {
-        println!("DEBUG: EntityListPlugin::build() called - plugin is being registered");
         app.add_plugins((ListViewPlugin, TreeViewPlugin))
             .add_systems(Update, (
                 handle_entity_selection,
                 update_entity_button_colors,
                 refresh_entity_list,
-                debug_toggle_buttons, // Debug system
-                plugin_heartbeat, // Simple heartbeat system
             ));
     }
 }
@@ -62,14 +59,6 @@ pub enum EntityListViewMode {
 /// Component for the view mode toggle button
 #[derive(Component)]
 pub struct ViewModeToggle;
-
-/// Simple heartbeat system to verify EntityListPlugin systems are running
-fn plugin_heartbeat(mut frame_count: Local<u32>) {
-    *frame_count += 1;
-    if *frame_count % 180 == 0 { // Every 3 seconds at 60fps
-        println!("DEBUG: EntityListPlugin heartbeat - systems are running! Frame {}", *frame_count);
-    }
-}
 
 /// Creates the entity list panel using basic widgets
 pub fn create_modern_entity_list_panel(
@@ -185,45 +174,21 @@ pub fn update_entity_button_colors(
     }
 }
 
-/// Debug system to check if ViewModeToggle buttons exist
-fn debug_toggle_buttons(
-    toggle_query: Query<Entity, With<ViewModeToggle>>,
-    view_mode_query: Query<Entity, With<EntityListViewMode>>,
-    mut frame_count: Local<u32>,
-) {
-    *frame_count += 1;
-    if *frame_count % 120 == 0 { // Every 2 seconds at 60fps
-        println!("DEBUG: Found {} ViewModeToggle entities", toggle_query.iter().count());
-        println!("DEBUG: Found {} EntityListViewMode entities", view_mode_query.iter().count());
-    }
-}
-
 /// Handle view mode toggle button clicks
 pub fn handle_view_mode_toggle(
     interaction_query: Query<&Interaction, (Changed<Interaction>, With<ViewModeToggle>)>,
     mut view_mode_query: Query<&mut EntityListViewMode>,
     button_query: Query<&Children, With<ViewModeToggle>>,
     mut text_query: Query<&mut Text>,
-    mut frame_count: Local<u32>,
 ) {
-    *frame_count += 1;
-    if *frame_count % 60 == 0 {
-        println!("DEBUG: handle_view_mode_toggle system running... frame {}", *frame_count);
-        println!("DEBUG: Found {} ViewModeToggle buttons", interaction_query.iter().count());
-        println!("DEBUG: Found {} EntityListViewMode entities", view_mode_query.iter().count());
-    }
-    
     for interaction in interaction_query.iter() {
-        println!("DEBUG: Button interaction detected: {:?}", interaction);
         if *interaction == Interaction::Pressed {
-            println!("DEBUG: Button pressed, toggling view mode");
             for mut view_mode in view_mode_query.iter_mut() {
                 // Toggle between modes
                 *view_mode = match *view_mode {
                     EntityListViewMode::Flat => EntityListViewMode::Hierarchical,
                     EntityListViewMode::Hierarchical => EntityListViewMode::Flat,
                 };
-                println!("DEBUG: New view mode: {:?}", *view_mode);
                 
                 // Update button text - find the text child of the button
                 for children in button_query.iter() {
@@ -233,7 +198,6 @@ pub fn handle_view_mode_toggle(
                                 EntityListViewMode::Flat => "List".to_string(),
                                 EntityListViewMode::Hierarchical => "Tree".to_string(),
                             };
-                            println!("DEBUG: Updated button text to: {}", **text);
                         }
                     }
                 }
@@ -261,13 +225,8 @@ pub fn refresh_entity_list(
     
     *local_entity_count = current_count;
 
-    println!("DEBUG: refresh_entity_list called with {} entities (count_changed: {}, view_mode_changed: {})", 
-             current_count, count_changed, view_mode_changed);
-
     // Use all entity list areas (not just changed ones) for actual processing
     for (list_area_entity, view_mode) in all_entity_list_areas.iter() {
-        println!("DEBUG: Processing entity list area with view mode: {:?}", view_mode);
-        
         // Clear existing list items first
         for entity in &list_items_query {
             commands.entity(entity).despawn();
@@ -347,15 +306,8 @@ fn create_hierarchical_entity_list(
     list_area_entity: Entity,
     entities: &[RemoteEntity],
 ) {
-    println!("DEBUG: create_hierarchical_entity_list called with {} entities", entities.len());
-    
     // Group entities by component types
     let entity_groups = group_entities_by_component(entities);
-    println!("DEBUG: Generated {} entity groups", entity_groups.len());
-    
-    for (i, group) in entity_groups.iter().enumerate() {
-        println!("DEBUG: Group {}: {} with {} entities", i, group.group_name, group.entities.len());
-    }
     
     // Convert EntityGroups to EntityTreeGroups
     let tree_groups: Vec<EntityTreeGroup> = entity_groups
@@ -375,16 +327,9 @@ fn create_hierarchical_entity_list(
         })
         .collect();
     
-    println!("DEBUG: Created {} tree groups", tree_groups.len());
-    for (i, tree_group) in tree_groups.iter().enumerate() {
-        println!("DEBUG: Tree group {}: {} (expanded: {}) with {} items", 
-                 i, tree_group.name, tree_group.is_expanded, tree_group.items.len());
-    }
-    
     // Create the tree view
     let tree_view_entity = spawn_entity_tree_view(commands, tree_groups);
     commands.entity(list_area_entity).add_child(tree_view_entity);
-    println!("DEBUG: Tree view entity created and added to parent");
 }
 
 /// Helper function to create a modern entity list that could be extracted to bevy_feathers
