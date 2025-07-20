@@ -1,3 +1,5 @@
+// https://cwyman.org/papers/hpg21_rearchitectingReSTIR.pdf
+
 #define_import_path bevy_solari::presample_light_tiles
 
 #import bevy_pbr::rgb9e5::{vec3_to_rgb9e5_, rgb9e5_to_vec3_}
