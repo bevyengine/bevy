@@ -3,6 +3,7 @@
 mod auto_insert_apply_deferred;
 mod condition;
 mod config;
+mod error;
 mod executor;
 mod node;
 mod pass;
@@ -12,7 +13,7 @@ mod stepping;
 
 pub use self::graph::GraphInfo;
 use self::graph::*;
-pub use self::{condition::*, config::*, executor::*, node::*, schedule::*, set::*};
+pub use self::{condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*};
 pub use pass::ScheduleBuildPass;
 
 /// An implementation of a graph data structure.
@@ -1130,11 +1131,9 @@ mod tests {
             ));
 
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule.graph_mut().build_schedule(
-                &mut world,
-                TestSchedule.intern(),
-                &BTreeSet::new(),
-            );
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(&mut world, &BTreeSet::new());
 
             let ambiguities: Vec<_> = schedule
                 .graph()
@@ -1190,11 +1189,9 @@ mod tests {
 
             let mut world = World::new();
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule.graph_mut().build_schedule(
-                &mut world,
-                TestSchedule.intern(),
-                &BTreeSet::new(),
-            );
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(&mut world, &BTreeSet::new());
 
             let ambiguities: Vec<_> = schedule
                 .graph()

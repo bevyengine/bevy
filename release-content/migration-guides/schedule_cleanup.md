@@ -1,6 +1,6 @@
 ---
 title: Schedule API Cleanup
-pull_requests: [19352, 20119, 20172]
+pull_requests: [19352, 20119, 20172, 20256]
 ---
 
 In order to support removing systems from schedules, `Vec`s storing `System`s and
@@ -20,6 +20,10 @@ The following signatures were changed:
 - The following functions now return the type-specific keys. Wrap them back into a `NodeId` if necessary.
   - `Schedule::systems`
   - `ScheduleGraph::conflicting_systems`
+- `ScheduleBuildError` variants now contain `NodeId` or type-specific keys, rather than `String`s.
+  Use `ScheduleBuildError::to_string` to render the nodes' names and get the old error messages.
+- `ScheduleGraph::build_schedule` now returns a `Vec<ScheduleBuildWarning>` in addition to the built
+  `SystemSchedule`. Use standard `Result` functions to grab just the `SystemSchedule`, if needed.
 
 The following functions were replaced. Those that took or returned `NodeId` now
 take or return `SystemKey` or `SystemSetKey`. Wrap/unwrap them as necessary.
