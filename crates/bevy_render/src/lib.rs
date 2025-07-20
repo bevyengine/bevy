@@ -725,7 +725,12 @@ pub fn conditional_render_set<S: SystemSet + Clone, M>(
         }
     });
     render_app
-        .add_systems(RenderStartup, condition.before(system_set.clone()))
+        .add_systems(
+            RenderStartup,
+            condition
+                .in_set(ConditionalRenderSetCondition::<S>(PhantomData))
+                .before(system_set.clone()),
+        )
         .configure_sets(
             RenderStartup,
             system_set
@@ -742,4 +747,40 @@ pub fn conditional_render_set<S: SystemSet + Clone, M>(
             Render,
             system_set.run_if(resource_exists::<EnabledRenderSet<S>>),
         );
+}
+
+/// A system set for the condition used in `conditional_render_set`.
+///
+/// This allows the condition to be ordered after its dependencies for example.
+#[derive(SystemSet)]
+pub struct ConditionalRenderSetCondition<S: SystemSet>(pub PhantomData<fn() -> S>);
+
+// Manual impls of SystemSet required traits to prevent needing `S` to implement those traits.
+
+impl<S: SystemSet> Clone for ConditionalRenderSetCondition<S> {
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<S: SystemSet> core::fmt::Debug for ConditionalRenderSetCondition<S> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("ConditionalRenderSetCondition")
+            .field(&self.0)
+            .finish()
+    }
+}
+
+impl<S: SystemSet> core::hash::Hash for ConditionalRenderSetCondition<S> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
+impl<S: SystemSet> Eq for ConditionalRenderSetCondition<S> {}
+
+impl<S: SystemSet> PartialEq for ConditionalRenderSetCondition<S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
 }
