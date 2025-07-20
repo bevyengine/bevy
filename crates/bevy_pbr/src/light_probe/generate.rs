@@ -97,102 +97,36 @@ pub fn init_generator_resources(
     pipeline_cache: Res<PipelineCache>,
     asset_server: Res<AssetServer>,
 ) {
+    let mips =
+        texture_storage_2d_array(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly);
     // Bind group layouts
     let spd = render_device.create_bind_group_layout(
         "spd_bind_group_layout",
-        &BindGroupLayoutEntries::with_indices(
+        &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                (
-                    0,
-                    texture_2d_array(TextureSampleType::Float { filterable: true }),
-                ), // Source texture
-                (
-                    1,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 1
-                (
-                    2,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 2
-                (
-                    3,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 3
-                (
-                    4,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 4
-                (
-                    5,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 5
-                (
-                    6,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::ReadWrite,
-                    ),
-                ), // Output mip 6
-                (
-                    7,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 7
-                (
-                    8,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 8
-                (
-                    9,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 9
-                (
-                    10,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 10
-                (
-                    11,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 11
-                (
-                    12,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 12
-                (13, sampler(SamplerBindingType::Filtering)), // Linear sampler
-                (14, uniform_buffer::<SpdConstants>(false)),  // Uniforms
+                // Source texture
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                mips, // Output mip 1
+                mips, // Output mip 2
+                mips, // Output mip 3
+                mips, // Output mip 4
+                mips, // Output mip 5
+                // Output mip 6
+                texture_storage_2d_array(
+                    TextureFormat::Rgba16Float,
+                    StorageTextureAccess::ReadWrite,
+                ),
+                mips, // Output mip 7
+                mips, // Output mip 8
+                mips, // Output mip 9
+                mips, // Output mip 10
+                mips, // Output mip 11
+                mips, // Output mip 12
+                // Linear sampler
+                sampler(SamplerBindingType::Filtering),
+                // Uniforms
+                uniform_buffer::<SpdConstants>(false),
             ),
         ),
     );
