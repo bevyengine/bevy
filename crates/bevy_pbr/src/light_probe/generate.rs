@@ -464,111 +464,35 @@ pub fn prepare_generator_bind_groups(
                     ..Default::default()
                 });
 
+        let mip_storage = |level| {
+            create_storage_view(
+                &textures.environment_map.texture,
+                min(level, last_mip),
+                &render_device,
+            )
+        };
+
         let spd_bind_group = render_device.create_bind_group(
             "spd_bind_group",
             &layouts.spd,
-            &BindGroupEntries::with_indices((
+            &BindGroupEntries::sequential((
                 // Source mip0
-                (0, &input_env_map),
+                &input_env_map,
                 // Destination mips 1 – 12 (duplicate the last valid view if the chain is shorter)
-                (
-                    1,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(1, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    2,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(2, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    3,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(3, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    4,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(4, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    5,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(5, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    6,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(6, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    7,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(7, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    8,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(8, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    9,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(9, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    10,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(10, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    11,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(11, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    12,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(12, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (13, &samplers.linear),
-                (14, &spd_constants_buffer),
+                &mip_storage(1),
+                &mip_storage(2),
+                &mip_storage(3),
+                &mip_storage(4),
+                &mip_storage(5),
+                &mip_storage(6),
+                &mip_storage(7),
+                &mip_storage(8),
+                &mip_storage(9),
+                &mip_storage(10),
+                &mip_storage(11),
+                &mip_storage(12),
+                &samplers.linear,
+                &spd_constants_buffer,
             )),
         );
 
