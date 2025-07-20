@@ -29,6 +29,7 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `UiPipeline`
 - `UiMaterialPipeline<M>`
 - `UiTextureSlicePipeline`
+- `ScreenshotToScreenPipeline`
 - `VolumetricFogPipeline`
 - `DeferredLightingLayout`
 - `RenderLightmaps`
