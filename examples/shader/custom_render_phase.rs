@@ -55,7 +55,7 @@ use bevy::{
         renderer::RenderContext,
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
-        Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
+        Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
 use nonmax::NonMaxU32;
@@ -127,6 +127,7 @@ impl Plugin for MeshStencilPhasePlugin {
             .init_resource::<DrawFunctions<Stencil3d>>()
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
+            .add_systems(RenderStartup, init_stencil_pipeline)
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
@@ -143,16 +144,6 @@ impl Plugin for MeshStencilPhasePlugin {
             // Tell the node to run after the main pass
             .add_render_graph_edges(Core3d, (Node3d::MainOpaquePass, CustomDrawPassLabel));
     }
-
-    fn finish(&self, app: &mut App) {
-        // We need to get the render app from the main app
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        // The pipeline needs the RenderDevice to be created and it's only available once plugins
-        // are initialized
-        render_app.init_resource::<StencilPipeline>();
-    }
 }
 
 #[derive(Resource)]
@@ -167,13 +158,15 @@ struct StencilPipeline {
     shader_handle: Handle<Shader>,
 }
 
-impl FromWorld for StencilPipeline {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            mesh_pipeline: MeshPipeline::from_world(world),
-            shader_handle: world.resource::<AssetServer>().load(SHADER_ASSET_PATH),
-        }
-    }
+fn init_stencil_pipeline(
+    mut commands: Commands,
+    mesh_pipeline: Res<MeshPipeline>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(StencilPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        shader_handle: asset_server.load(SHADER_ASSET_PATH),
+    });
 }
 
 // For more information on how SpecializedMeshPipeline work, please look at the

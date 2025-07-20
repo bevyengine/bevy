@@ -10,16 +10,16 @@
 #import bevy_solari::sampling::{LightSample, generate_random_light_sample, calculate_light_contribution, trace_light_visibility, sample_disk}
 #import bevy_solari::scene_bindings::{previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
 
-@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, write>;
-@group(1) @binding(1) var<storage, read_write> reservoirs_a: array<Reservoir>;
-@group(1) @binding(2) var<storage, read_write> reservoirs_b: array<Reservoir>;
-@group(1) @binding(3) var gbuffer: texture_2d<u32>;
-@group(1) @binding(4) var depth_buffer: texture_depth_2d;
-@group(1) @binding(5) var motion_vectors: texture_2d<f32>;
-@group(1) @binding(6) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(7) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(8) var<uniform> view: View;
-@group(1) @binding(9) var<uniform> previous_view: PreviousViewUniforms;
+@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
+@group(1) @binding(1) var<storage, read_write> di_reservoirs_a: array<Reservoir>;
+@group(1) @binding(2) var<storage, read_write> di_reservoirs_b: array<Reservoir>;
+@group(1) @binding(5) var gbuffer: texture_2d<u32>;
+@group(1) @binding(6) var depth_buffer: texture_depth_2d;
+@group(1) @binding(7) var motion_vectors: texture_2d<f32>;
+@group(1) @binding(8) var previous_gbuffer: texture_2d<u32>;
+@group(1) @binding(9) var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(10) var<uniform> view: View;
+@group(1) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
@@ -38,7 +38,7 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
-        reservoirs_b[pixel_index] = empty_reservoir();
+        di_reservoirs_b[pixel_index] = empty_reservoir();
         return;
     }
     let gpixel = textureLoad(gbuffer, global_id.xy, 0);
@@ -49,9 +49,9 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let initial_reservoir = generate_initial_reservoir(world_position, world_normal, diffuse_brdf, &rng);
     let temporal_reservoir = load_temporal_reservoir(global_id.xy, depth, world_position, world_normal);
-    let combined_reservoir = merge_reservoirs(initial_reservoir, temporal_reservoir, world_position, world_normal, diffuse_brdf, &rng);
+    let merge_result = merge_reservoirs(initial_reservoir, temporal_reservoir, world_position, world_normal, diffuse_brdf, &rng);
 
-    reservoirs_b[pixel_index] = combined_reservoir.merged_reservoir;
+    di_reservoirs_b[pixel_index] = merge_result.merged_reservoir;
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -63,7 +63,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
-        reservoirs_a[pixel_index] = empty_reservoir();
+        di_reservoirs_a[pixel_index] = empty_reservoir();
         textureStore(view_output, global_id.xy, vec4(vec3(0.0), 1.0));
         return;
     }
@@ -74,12 +74,12 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let diffuse_brdf = base_color / PI;
     let emissive = rgb9e5_to_vec3_(gpixel.g);
 
-    let input_reservoir = reservoirs_b[pixel_index];
+    let input_reservoir = di_reservoirs_b[pixel_index];
     let spatial_reservoir = load_spatial_reservoir(global_id.xy, depth, world_position, world_normal, &rng);
     let merge_result = merge_reservoirs(input_reservoir, spatial_reservoir, world_position, world_normal, diffuse_brdf, &rng);
     let combined_reservoir = merge_result.merged_reservoir;
 
-    reservoirs_a[pixel_index] = combined_reservoir;
+    di_reservoirs_a[pixel_index] = combined_reservoir;
 
     var pixel_color = merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight * combined_reservoir.visibility;
     pixel_color *= view.exposure;
@@ -112,7 +112,6 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         reservoir.unbiased_contribution_weight = reservoir.weight_sum * inverse_target_function;
 
         reservoir.visibility = trace_light_visibility(reservoir.sample, world_position);
-        reservoir.unbiased_contribution_weight *= reservoir.visibility;
     }
 
     reservoir.confidence_weight = 1.0;
@@ -123,10 +122,14 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
     let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.viewport.zw));
     let temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
+
+    // Check if the current pixel was off screen during the previous frame (current pixel is newly visible),
+    // or if all temporal history should assumed to be invalid
     if any(temporal_pixel_id_float < vec2(0.0)) || any(temporal_pixel_id_float >= view.viewport.zw) || bool(constants.reset) {
         return empty_reservoir();
     }
 
+    // Check if the pixel features have changed heavily between the current and previous frame
     let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0);
     let temporal_gpixel = textureLoad(previous_gbuffer, temporal_pixel_id, 0);
     let temporal_world_position = reconstruct_previous_world_position(temporal_pixel_id, temporal_depth);
@@ -136,8 +139,9 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
     }
 
     let temporal_pixel_index = temporal_pixel_id.x + temporal_pixel_id.y * u32(view.viewport.z);
-    var temporal_reservoir = reservoirs_a[temporal_pixel_index];
+    var temporal_reservoir = di_reservoirs_a[temporal_pixel_index];
 
+    // Check if the light selected in the previous frame no longer exists in the current frame (e.g. entity despawned)
     temporal_reservoir.sample.light_id.x = previous_frame_light_id_translations[temporal_reservoir.sample.light_id.x];
     if temporal_reservoir.sample.light_id.x == LIGHT_NOT_PRESENT_THIS_FRAME {
         return empty_reservoir();
@@ -160,7 +164,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     }
 
     let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.viewport.z);
-    var spatial_reservoir = reservoirs_b[spatial_pixel_index];
+    var spatial_reservoir = di_reservoirs_b[spatial_pixel_index];
 
     if reservoir_valid(spatial_reservoir) {
         spatial_reservoir.visibility = trace_light_visibility(spatial_reservoir.sample, world_position);
@@ -170,8 +174,8 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
 }
 
 fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
-    var spatial_id = vec2<i32>(center_pixel_id) + vec2<i32>(sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng));
-    spatial_id = clamp(spatial_id, vec2(0i), vec2<i32>(view.viewport.zw) - 1i);
+    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng);
+    spatial_id = clamp(spatial_id, vec2(0.0), view.viewport.zw - 1.0);
     return vec2<u32>(spatial_id);
 }
 
@@ -209,7 +213,7 @@ fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 #endif
 }
 
-// Don't adjust the size of this struct without also adjusting RESERVOIR_STRUCT_SIZE.
+// Don't adjust the size of this struct without also adjusting DI_RESERVOIR_STRUCT_SIZE.
 struct Reservoir {
     sample: LightSample,
     weight_sum: f32,
@@ -283,7 +287,7 @@ fn merge_reservoirs(
 
 fn reservoir_target_function(reservoir: Reservoir, world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>) -> vec4<f32> {
     if !reservoir_valid(reservoir) { return vec4(0.0); }
-    let light_contribution = calculate_light_contribution(reservoir.sample, world_position, world_normal).radiance;
+    let light_contribution = calculate_light_contribution(reservoir.sample, world_position, world_normal).radiance * reservoir.visibility;
     let target_function = luminance(light_contribution * diffuse_brdf);
     return vec4(light_contribution, target_function);
 }

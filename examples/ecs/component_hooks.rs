@@ -45,7 +45,7 @@ impl Component for MyComponent {
 #[derive(Resource, Default, Debug, Deref, DerefMut)]
 struct MyComponentIndex(HashMap<KeyCode, Entity>);
 
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct MyEvent;
 
 fn main() {

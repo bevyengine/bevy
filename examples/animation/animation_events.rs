@@ -18,7 +18,7 @@ fn main() {
 #[derive(Component)]
 struct MessageText;
 
-#[derive(Event, EntityEvent, Clone)]
+#[derive(EntityEvent, Clone)]
 struct MessageEvent {
     value: String,
     color: Color,
