@@ -7,15 +7,15 @@
 
 @compute
 @workgroup_size(8, 8, 1)
-fn copy_mip0(@builtin(global_invocation_id) gid: vec3u) {
+fn copy_mip0(@builtin(global_invocation_id) global_id: vec3u) {
     let size = textureDimensions(src_cubemap).xy;
 
     // Bounds check
-    if (any(gid.xy >= size)) {
+    if (any(global_id.xy >= size)) {
         return;
     }
 
-    let color = textureLoad(src_cubemap, vec2u(gid.xy), gid.z, 0);
+    let color = textureLoad(src_cubemap, vec2u(global_id.xy), global_id.z, 0);
 
-    textureStore(dst_cubemap, vec2u(gid.xy), gid.z, vec4f(color.rgb, 1.0));
+    textureStore(dst_cubemap, vec2u(global_id.xy), global_id.z, vec4f(color.rgb, 1.0));
 } 
