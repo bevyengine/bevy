@@ -1,5 +1,8 @@
 #import bevy_render::maths::{PI, PI_2, orthonormalize};
-#import bevy_pbr::utils::rand_f;
+#import bevy_pbr::{
+    utils::rand_f,
+    lighting,
+};
 
 struct FilteringConstants {
     mip_level: f32,
@@ -97,15 +100,6 @@ fn sample_noise(pixel_coords: vec2u) -> vec4f {
     let noise_coords = pixel_coords & noise_size_mask;
     let uv = vec2f(noise_coords) / vec2f(noise_size);
     return textureSampleLevel(blue_noise_texture, input_sampler, uv, 0.0);
-}
-
-// from bevy_pbr/src/render/pbr_lighting.wgsl
-fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
-    // clamp perceptual roughness to prevent precision problems
-    // According to Filament design 0.089 is recommended for mobile
-    // Filament uses 0.045 for non-mobile
-    let clampedPerceptualRoughness = clamp(perceptualRoughness, 0.089, 1.0);
-    return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
 
 // GGX/Trowbridge-Reitz normal distribution function (D term)
@@ -237,7 +231,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     
     // Convert perceptual roughness to physical microfacet roughness
     let perceptual_roughness = constants.roughness;
-    let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
+    let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
     
     // Get blue noise offset for stratification
     let vector_noise = sample_noise(coords);
