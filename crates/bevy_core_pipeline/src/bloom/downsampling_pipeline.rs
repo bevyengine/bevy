@@ -1,8 +1,11 @@
+use core::ops::Deref;
+
 use crate::FullscreenShader;
 
 use super::{Bloom, BLOOM_TEXTURE_FORMAT};
-use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer};
 use bevy_ecs::{
+    error::BevyError,
     prelude::{Component, Entity},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
@@ -28,14 +31,13 @@ pub struct BloomDownsamplingPipeline {
     /// Layout with a texture, a sampler, and uniforms
     pub bind_group_layout: BindGroupLayout,
     pub sampler: Sampler,
-    /// The asset handle for the fullscreen vertex shader.
-    pub fullscreen_shader: FullscreenShader,
-    /// The fragment shader asset handle.
-    pub fragment_shader: Handle<Shader>,
+    pub variants: SpecializedCache<RenderPipeline, BloomDownsamplingSpecializer>,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub struct BloomDownsamplingPipelineKeys {
+pub struct BloomDownsamplingSpecializer;
+
+#[derive(PartialEq, Eq, Hash, Clone, SpecializerKey)]
+pub struct BloomDownsamplingKey {
     prefilter: bool,
     first_downsample: bool,
     uniform_scale: bool,
@@ -83,27 +85,54 @@ pub fn init_bloom_downsampling_pipeline(
         ..Default::default()
     });
 
+    let fragment_shader = load_embedded_asset!(asset_server.deref(), "bloom.wgsl");
+    let base_descriptor = RenderPipelineDescriptor {
+        layout: vec![bind_group_layout.clone()],
+        vertex: fullscreen_shader.to_vertex_state(),
+        fragment: Some(FragmentState {
+            shader: fragment_shader.clone(),
+            targets: vec![Some(ColorTargetState {
+                format: BLOOM_TEXTURE_FORMAT,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            })],
+            ..default()
+        }),
+        ..default()
+    };
+
+    let variants = SpecializedCache::new(BloomDownsamplingSpecializer, None, base_descriptor);
+
     commands.insert_resource(BloomDownsamplingPipeline {
         bind_group_layout,
         sampler,
-        fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
+        variants,
     });
 }
 
-impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
-    type Key = BloomDownsamplingPipelineKeys;
+impl Specializer<RenderPipeline> for BloomDownsamplingSpecializer {
+    type Key = BloomDownsamplingKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let layout = vec![self.bind_group_layout.clone()];
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        descriptor.label = Some(if key.first_downsample {
+            "bloom_downsampling_pipeline_first".into()
+        } else {
+            "bloom_downsampling_pipeline".into()
+        });
 
-        let entry_point = if key.first_downsample {
+        let fragment = descriptor.fragment_mut()?;
+
+        fragment.entry_point = Some(if key.first_downsample {
             "downsample_first".into()
         } else {
             "downsample".into()
-        };
+        });
 
-        let mut shader_defs = vec![];
+        let shader_defs = &mut fragment.shader_defs;
 
         if key.first_downsample {
             shader_defs.push("FIRST_DOWNSAMPLE".into());
@@ -117,61 +146,36 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
             shader_defs.push("UNIFORM_SCALE".into());
         }
 
-        RenderPipelineDescriptor {
-            label: Some(
-                if key.first_downsample {
-                    "bloom_downsampling_pipeline_first"
-                } else {
-                    "bloom_downsampling_pipeline"
-                }
-                .into(),
-            ),
-            layout,
-            vertex: self.fullscreen_shader.to_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: self.fragment_shader.clone(),
-                shader_defs,
-                entry_point: Some(entry_point),
-                targets: vec![Some(ColorTargetState {
-                    format: BLOOM_TEXTURE_FORMAT,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            ..default()
-        }
+        Ok(key)
     }
 }
 
 pub fn prepare_downsampling_pipeline(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BloomDownsamplingPipeline>>,
-    pipeline: Res<BloomDownsamplingPipeline>,
+    mut pipeline: ResMut<BloomDownsamplingPipeline>,
     views: Query<(Entity, &Bloom)>,
-) {
+) -> Result<(), BevyError> {
     for (entity, bloom) in &views {
         let prefilter = bloom.prefilter.threshold > 0.0;
 
-        let pipeline_id = pipelines.specialize(
+        let pipeline_id = pipeline.variants.specialize(
             &pipeline_cache,
-            &pipeline,
-            BloomDownsamplingPipelineKeys {
+            BloomDownsamplingKey {
                 prefilter,
                 first_downsample: false,
                 uniform_scale: bloom.scale == Vec2::ONE,
             },
-        );
+        )?;
 
-        let pipeline_first_id = pipelines.specialize(
+        let pipeline_first_id = pipeline.variants.specialize(
             &pipeline_cache,
-            &pipeline,
-            BloomDownsamplingPipelineKeys {
+            BloomDownsamplingKey {
                 prefilter,
                 first_downsample: true,
                 uniform_scale: bloom.scale == Vec2::ONE,
             },
-        );
+        )?;
 
         commands
             .entity(entity)
@@ -180,4 +184,5 @@ pub fn prepare_downsampling_pipeline(
                 main: pipeline_id,
             });
     }
+    Ok(())
 }
