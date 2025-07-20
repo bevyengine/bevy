@@ -32,6 +32,7 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel},
     render_resource::{
@@ -654,6 +655,8 @@ impl Node for SpdNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
             // Copy base mip using compute shader with pre-built bind group
             let Some(copy_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.copy) else {
@@ -665,9 +668,12 @@ impl Node for SpdNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("copy_mip0_pass"),
+                            label: Some("lightprobe_copy_mip0_pass"),
                             timestamp_writes: None,
                         });
+
+                let pass_span =
+                    diagnostics.pass_span(&mut compute_pass, "lightprobe_copy_mip0_pass");
 
                 compute_pass.set_pipeline(copy_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
@@ -676,6 +682,8 @@ impl Node for SpdNode {
                 let wg_x = (tex_size.width / 8).max(1);
                 let wg_y = (tex_size.height / 8).max(1);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
+
+                pass_span.end(&mut compute_pass);
             }
 
             // First pass - process mips 0-5
@@ -684,9 +692,12 @@ impl Node for SpdNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("spd_first_pass"),
+                            label: Some("lightprobe_spd_first_pass"),
                             timestamp_writes: None,
                         });
+
+                let pass_span =
+                    diagnostics.pass_span(&mut compute_pass, "lightprobe_spd_first_pass");
 
                 compute_pass.set_pipeline(spd_first_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
@@ -695,6 +706,8 @@ impl Node for SpdNode {
                 let wg_x = (tex_size.width / 64).max(1);
                 let wg_y = (tex_size.height / 64).max(1);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6); // 6 faces
+
+                pass_span.end(&mut compute_pass);
             }
 
             // Second pass - process mips 6-12
@@ -703,9 +716,12 @@ impl Node for SpdNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("spd_second_pass"),
+                            label: Some("lightprobe_spd_second_pass"),
                             timestamp_writes: None,
                         });
+
+                let pass_span =
+                    diagnostics.pass_span(&mut compute_pass, "lightprobe_spd_second_pass");
 
                 compute_pass.set_pipeline(spd_second_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
@@ -714,6 +730,8 @@ impl Node for SpdNode {
                 let wg_x = (tex_size.width / 256).max(1);
                 let wg_y = (tex_size.height / 256).max(1);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
+
+                pass_span.end(&mut compute_pass);
             }
         }
 
@@ -757,14 +775,19 @@ impl Node for RadianceMapNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
             let mut compute_pass =
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("radiance_map_pass"),
+                        label: Some("lightprobe_radiance_map_pass"),
                         timestamp_writes: None,
                     });
+
+            let pass_span =
+                diagnostics.pass_span(&mut compute_pass, "lightprobe_radiance_map_pass");
 
             compute_pass.set_pipeline(radiance_pipeline);
 
@@ -781,6 +804,7 @@ impl Node for RadianceMapNode {
                 // Dispatch for all 6 faces
                 compute_pass.dispatch_workgroups(workgroup_count, workgroup_count, 6);
             }
+            pass_span.end(&mut compute_pass);
         }
 
         Ok(())
@@ -819,20 +843,27 @@ impl Node for IrradianceMapNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         for (_, bind_groups) in self.query.iter_manual(world) {
             let mut compute_pass =
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("irradiance_map_pass"),
+                        label: Some("lightprobe_irradiance_map_pass"),
                         timestamp_writes: None,
                     });
+
+            let pass_span =
+                diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map_pass");
 
             compute_pass.set_pipeline(irradiance_pipeline);
             compute_pass.set_bind_group(0, &bind_groups.irradiance, &[]);
 
             // Dispatch workgroups - 32x32 texture with 8x8 workgroups
             compute_pass.dispatch_workgroups(4, 4, 6); // 6 faces
+
+            pass_span.end(&mut compute_pass);
         }
 
         Ok(())
