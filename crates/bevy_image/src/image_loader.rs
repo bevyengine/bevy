@@ -3,6 +3,7 @@ use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use thiserror::Error;
 
 use super::{CompressedImageFormats, ImageSampler};
+use bevy_ecs::intern::Internable;
 use serde::{Deserialize, Serialize};
 
 /// Loader for images that can be read by the `image` crate.
@@ -151,19 +152,20 @@ impl AssetLoader for ImageLoader {
         let image_type = match settings.format {
             ImageFormatSetting::FromExtension => {
                 // use the file extension for the image type
-                let ext = load_context.path().extension().unwrap().to_str().unwrap();
-                ImageType::Extension(ext)
+                let ext = Box::new(load_context.asset_path().get_full_extension().unwrap());
+                // TODO: this is a workaround. There is a better solution for this.
+                ImageType::Extension(ext.leak())
             }
             ImageFormatSetting::Format(format) => ImageType::Format(format),
             ImageFormatSetting::Guess => {
                 let format = image::guess_format(&bytes).map_err(|err| FileTextureError {
                     error: err.into(),
-                    path: format!("{}", load_context.path().display()),
+                    path: format!("{}", load_context.path()),
                 })?;
                 ImageType::Format(ImageFormat::from_image_crate_format(format).ok_or_else(
                     || FileTextureError {
                         error: TextureError::UnsupportedTextureFormat(format!("{format:?}")),
-                        path: format!("{}", load_context.path().display()),
+                        path: format!("{}", load_context.path()),
                     },
                 )?)
             }
@@ -178,7 +180,7 @@ impl AssetLoader for ImageLoader {
         )
         .map_err(|err| FileTextureError {
             error: err,
-            path: format!("{}", load_context.path().display()),
+            path: format!("{}", load_context.path()),
         })?)
     }
 

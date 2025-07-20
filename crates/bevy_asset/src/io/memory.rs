@@ -294,7 +294,9 @@ impl AssetReader for MemoryAssetReader {
                 data,
                 bytes_read: 0,
             })
-            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
+            .ok_or_else(|| {
+                AssetReaderError::NotFound(path.to_path_buf().to_str().unwrap().to_owned())
+            })
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
@@ -304,7 +306,9 @@ impl AssetReader for MemoryAssetReader {
                 data,
                 bytes_read: 0,
             })
-            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
+            .ok_or_else(|| {
+                AssetReaderError::NotFound(path.to_path_buf().to_str().unwrap().to_owned())
+            })
     }
 
     async fn read_directory<'a>(
@@ -317,7 +321,9 @@ impl AssetReader for MemoryAssetReader {
                 let stream: Box<PathStream> = Box::new(DirStream::new(dir));
                 stream
             })
-            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
+            .ok_or_else(|| {
+                AssetReaderError::NotFound(path.to_path_buf().to_str().unwrap().to_owned())
+            })
     }
 
     async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
