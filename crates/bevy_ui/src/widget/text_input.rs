@@ -105,7 +105,7 @@ impl Plugin for TextInputPlugin {
     on_add = on_add_text_input_node,
     on_remove = on_remove_input_focus,
 )]
-pub struct LineInputNode {
+pub struct TextInput {
     pub justify: Justify,
 }
 
@@ -250,7 +250,7 @@ fn on_move_clear_multi_click(move_event: On<Pointer<Move>>, mut commands: Comman
 
 fn on_focused_keyboard_input(
     trigger: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<&mut TextInputActions, With<LineInputNode>>,
+    mut query: Query<&mut TextInputActions, With<TextInput>>,
     mut modifiers: ResMut<TextInputModifiers>,
     mut overwrite_mode: ResMut<TextInputOverwriteMode>,
 ) {
@@ -437,7 +437,7 @@ fn measure_line(
             Ref<TextFont>,
             Mut<ContentSize>,
         ),
-        (With<Node>, With<LineInputNode>),
+        (With<Node>, With<TextInput>),
     >,
     mut _text_pipeline: ResMut<TextPipeline>,
     mut _font_system: ResMut<CosmicFontSystem>,
@@ -476,7 +476,7 @@ impl Measure for LineHeightMeasure {
 }
 
 fn update_line_input_attributes(
-    mut text_input_node_query: Query<(&TextFont, &LineInputNode, &mut TextInputAttributes)>,
+    mut text_input_node_query: Query<(&TextFont, &TextInput, &mut TextInputAttributes)>,
 ) {
     for (font, line_input, mut attributes) in text_input_node_query.iter_mut() {
         attributes.set_if_neq(TextInputAttributes {

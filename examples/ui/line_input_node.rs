@@ -8,7 +8,7 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::LineHeight;
-use bevy::ui::widget::LineInputNode;
+use bevy::ui::widget::TextInput;
 use bevy::window::WindowResolution;
 
 fn main() {
@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     let id = commands
         .spawn((
-            LineInputNode::default(),
+            TextInput::default(),
             TabIndex(0),
             TextColor(RED.into()),
             TextFont {

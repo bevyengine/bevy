@@ -7,7 +7,7 @@ use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
 use bevy::prelude::*;
 use bevy::text::TextInputFilter;
-use bevy::ui::widget::LineInputNode;
+use bevy::ui::widget::TextInput;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 
 fn main() {
@@ -76,7 +76,7 @@ fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>) {
         ));
 
         commands.spawn((
-            LineInputNode {
+            TextInput {
                 justify: Justify::Left,
             },
             input_filter,
