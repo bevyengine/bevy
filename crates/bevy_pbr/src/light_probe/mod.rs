@@ -44,8 +44,8 @@ use crate::{
         extract_generated_environment_map_entities, generate_environment_map_light,
         initialize_generated_environment_map_resources,
         prepare_generated_environment_map_bind_groups,
-        prepare_generated_environment_map_intermediate_textures, GeneratorNode, IrradianceMapNode,
-        RadianceMapNode, SpdNode, STBN,
+        prepare_generated_environment_map_intermediate_textures, DownsamplingNode, FilteringNode,
+        GeneratorNode, STBN,
     },
     light_probe::environment_map::EnvironmentMapIds,
 };
@@ -304,7 +304,7 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "irradiance_volume.wgsl");
 
         embedded_asset!(app, "environment_filter.wgsl");
-        embedded_asset!(app, "spd.wgsl");
+        embedded_asset!(app, "downsample.wgsl");
         embedded_asset!(app, "copy_mip0.wgsl");
 
         load_internal_binary_asset!(app, STBN, "stbn_vec2.png", |bytes, _: String| {
@@ -330,16 +330,14 @@ impl Plugin for LightProbePlugin {
         render_app
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
-            .add_render_graph_node::<SpdNode>(Core3d, GeneratorNode::Mipmap)
-            .add_render_graph_node::<RadianceMapNode>(Core3d, GeneratorNode::Radiance)
-            .add_render_graph_node::<IrradianceMapNode>(Core3d, GeneratorNode::Irradiance)
+            .add_render_graph_node::<DownsamplingNode>(Core3d, GeneratorNode::Downsampling)
+            .add_render_graph_node::<FilteringNode>(Core3d, GeneratorNode::Filtering)
             .add_render_graph_edges(
                 Core3d,
                 (
                     Node3d::EndPrepasses,
-                    GeneratorNode::Mipmap,
-                    GeneratorNode::Radiance,
-                    GeneratorNode::Irradiance,
+                    GeneratorNode::Downsampling,
+                    GeneratorNode::Filtering,
                     Node3d::StartMainPass,
                 ),
             )

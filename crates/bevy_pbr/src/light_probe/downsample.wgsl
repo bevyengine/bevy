@@ -1,3 +1,4 @@
+// Single pass downsampling shader for creating the mip chain for an array texture
 // Ported from https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/c16b1d286b5b438b75da159ab51ff426bacea3d1/sdk/include/FidelityFX/gpu/spd/ffx_spd.h
 
 @group(0) @binding(0) var mip_0: texture_2d_array<f32>;
@@ -24,7 +25,7 @@ var<workgroup> spd_intermediate_a: array<array<f32, 16>, 16>;
 
 @compute
 @workgroup_size(256, 1, 1)
-fn spd_downsample_first(
+fn downsample_first(
     @builtin(workgroup_id) workgroup_id: vec3u,
     @builtin(local_invocation_index) local_invocation_index: u32,
 #ifdef SUBGROUP_SUPPORT
@@ -47,7 +48,7 @@ fn spd_downsample_first(
 // TODO: Once wgpu supports globallycoherent buffers, make it actually a single pass
 @compute
 @workgroup_size(256, 1, 1)
-fn spd_downsample_second(
+fn downsample_second(
     @builtin(workgroup_id) workgroup_id: vec3u,
     @builtin(local_invocation_index) local_invocation_index: u32,
 #ifdef SUBGROUP_SUPPORT
