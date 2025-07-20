@@ -684,8 +684,8 @@ impl Node for SpdNode {
                 compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
 
                 let tex_size = env_map_light.environment_map.size;
-                let wg_x = (tex_size.width / 8).max(1);
-                let wg_y = (tex_size.height / 8).max(1);
+                let wg_x = tex_size.width.div_ceil(8);
+                let wg_y = tex_size.height.div_ceil(8);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
 
                 pass_span.end(&mut compute_pass);
@@ -708,8 +708,8 @@ impl Node for SpdNode {
                 compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
                 let tex_size = env_map_light.environment_map.size;
-                let wg_x = (tex_size.width / 64).max(1);
-                let wg_y = (tex_size.height / 64).max(1);
+                let wg_x = tex_size.width.div_ceil(64);
+                let wg_y = tex_size.height.div_ceil(64);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6); // 6 faces
 
                 pass_span.end(&mut compute_pass);
@@ -732,8 +732,8 @@ impl Node for SpdNode {
                 compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
                 let tex_size = env_map_light.environment_map.size;
-                let wg_x = (tex_size.width / 256).max(1);
-                let wg_y = (tex_size.height / 256).max(1);
+                let wg_x = tex_size.width.div_ceil(256);
+                let wg_y = tex_size.height.div_ceil(256);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
 
                 pass_span.end(&mut compute_pass);
@@ -804,7 +804,7 @@ impl Node for RadianceMapNode {
 
                 // Calculate dispatch size based on mip level
                 let mip_size = base_size >> mip;
-                let workgroup_count = mip_size.max(8) / 8;
+                let workgroup_count = mip_size.div_ceil(8);
 
                 // Dispatch for all 6 faces
                 compute_pass.dispatch_workgroups(workgroup_count, workgroup_count, 6);
