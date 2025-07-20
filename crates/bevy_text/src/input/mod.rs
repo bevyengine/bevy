@@ -36,7 +36,6 @@ use bevy_ecs::system::ResMut;
 use bevy_ecs::world::Ref;
 use bevy_image::Image;
 use bevy_image::TextureAtlasLayout;
-use bevy_log::info_once;
 use bevy_math::IVec2;
 use bevy_math::Rect;
 use bevy_math::UVec2;
@@ -504,6 +503,75 @@ pub fn update_password_masks(
     }
 }
 
+#[derive(Debug)]
+pub struct FixedLayoutRunIter<'b> {
+    buffer: &'b Buffer,
+    line_i: usize,
+    layout_i: usize,
+    total_height: f32,
+    line_top: f32,
+}
+
+impl<'b> FixedLayoutRunIter<'b> {
+    pub fn new(buffer: &'b Buffer) -> Self {
+        Self {
+            buffer,
+            line_i: buffer.scroll().line,
+            layout_i: 0,
+            total_height: 0.0,
+            line_top: 0.0,
+        }
+    }
+}
+
+impl<'b> Iterator for FixedLayoutRunIter<'b> {
+    type Item = cosmic_text::LayoutRun<'b>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(line) = self.buffer.lines.get(self.line_i) {
+            let shape = line.shape_opt()?;
+            let layout = line.layout_opt()?;
+            while let Some(layout_line) = layout.get(self.layout_i) {
+                self.layout_i += 1;
+
+                let line_height = layout_line
+                    .line_height_opt
+                    .unwrap_or(self.buffer.metrics().line_height);
+                self.total_height += line_height;
+
+                let line_top = self.line_top - self.buffer.scroll().vertical;
+                let glyph_height = layout_line.max_ascent + layout_line.max_descent;
+                let centering_offset = (line_height - glyph_height) / 2.0;
+                let line_y = line_top + centering_offset + layout_line.max_ascent;
+                if let Some(height) = self.buffer.size().1 {
+                    if line_y > height + line_height {
+                        return None;
+                    }
+                }
+                self.line_top += line_height;
+                if line_y < 0.0 {
+                    continue;
+                }
+
+                return Some(cosmic_text::LayoutRun {
+                    line_i: self.line_i,
+                    text: line.text(),
+                    rtl: shape.rtl,
+                    glyphs: &layout_line.glyphs,
+                    line_y,
+                    line_top,
+                    line_height,
+                    line_w: layout_line.w,
+                });
+            }
+            self.line_i += 1;
+            self.layout_i = 0;
+        }
+
+        None
+    }
+}
+
 /// Update text input buffers
 pub fn update_text_input_layouts(
     mut textures: ResMut<Assets<Image>>,
@@ -543,8 +611,8 @@ pub fn update_text_input_layouts(
 
             let result = editor.with_buffer_mut(|buffer| {
                 let box_size = buffer_dimensions(buffer);
+                let line_height = buffer.metrics().line_height;
                 if let Some((x, y)) = cursor_position {
-                    let line_height = buffer.metrics().line_height;
                     let size = Vec2::new(space_advance.0, line_height);
                     layout_info.cursor = Some((
                         IVec2::new(x, y).as_vec2() + 0.5 * size,
@@ -553,7 +621,7 @@ pub fn update_text_input_layouts(
                     ));
                 }
 
-                let result = buffer.layout_runs().try_for_each(|run| {
+                let result = FixedLayoutRunIter::new(buffer).try_for_each(|run| {
                     if let Some(selection) = selection {
                         if let Some((x0, w)) = run.highlight(selection.0, selection.1) {
                             let y0 = run.line_top;
@@ -660,6 +728,7 @@ pub fn update_text_input_layouts(
                 Ok(()) => {
                     layout_info.scroll =
                         editor.with_buffer(|buffer| Vec2::new(buffer.scroll().horizontal, 0.));
+
                     layout_info.size.x = layout_info.size.x;
                     layout_info.size.y = layout_info.size.y;
                     editor.set_redraw(false);
