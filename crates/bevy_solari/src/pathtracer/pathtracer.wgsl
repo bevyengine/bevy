@@ -2,7 +2,7 @@
 #import bevy_pbr::utils::{rand_f, rand_vec2f, sample_cosine_hemisphere}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
-#import bevy_solari::sampling::{sample_random_light}
+#import bevy_solari::sampling::sample_random_light
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
