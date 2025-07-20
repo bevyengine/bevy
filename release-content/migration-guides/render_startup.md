@@ -15,6 +15,9 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `FxaaPipeline`
 - `SmaaPipelines`
 - `TaaPipeline`
+- `ShadowSamplers`
+- `GlobalClusterableObjectMeta`
+- `FallbackBindlessResources`
 - `AutoExposurePipeline`
 - `MotionBlurPipeline`
 - `SkyboxPrepassPipeline`
