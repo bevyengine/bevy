@@ -410,9 +410,6 @@ vorbis = ["bevy_internal/vorbis"]
 # WAV audio format support
 wav = ["bevy_internal/wav"]
 
-# MP3 audio format support (through minimp3)
-minimp3 = ["bevy_internal/minimp3"]
-
 # AAC audio format support (through symphonia)
 symphonia-aac = ["bevy_internal/symphonia-aac"]
 
