@@ -524,12 +524,12 @@ pub fn prepare_generator_bind_groups(
             let bind_group = render_device.create_bind_group(
                 Some(format!("radiance_bind_group_mip_{mip}").as_str()),
                 &layouts.radiance,
-                &BindGroupEntries::with_indices((
-                    (0, &textures.environment_map.default_view),
-                    (1, &samplers.linear),
-                    (2, &mip_storage_view),
-                    (3, &radiance_constants_buffer),
-                    (4, &stbn_texture.texture_view),
+                &BindGroupEntries::sequential((
+                    &textures.environment_map.default_view,
+                    &samplers.linear,
+                    &mip_storage_view,
+                    &radiance_constants_buffer,
+                    &stbn_texture.texture_view,
                 )),
             );
 
@@ -561,12 +561,12 @@ pub fn prepare_generator_bind_groups(
         let irradiance_bind_group = render_device.create_bind_group(
             "irradiance_bind_group",
             &layouts.irradiance,
-            &BindGroupEntries::with_indices((
-                (0, &textures.environment_map.default_view),
-                (1, &samplers.linear),
-                (2, &irradiance_map),
-                (3, &irradiance_constants_buffer),
-                (4, &stbn_texture.texture_view),
+            &BindGroupEntries::sequential((
+                &textures.environment_map.default_view,
+                &samplers.linear,
+                &irradiance_map,
+                &irradiance_constants_buffer,
+                &stbn_texture.texture_view,
             )),
         );
 
