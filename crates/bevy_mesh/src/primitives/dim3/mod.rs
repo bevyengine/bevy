@@ -8,6 +8,7 @@ mod sphere;
 mod tetrahedron;
 mod torus;
 pub(crate) mod triangle3d;
+mod segment3d;
 
 pub use capsule::*;
 pub use cone::*;

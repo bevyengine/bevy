@@ -1245,6 +1245,15 @@ pub struct Segment2d {
 
 impl Primitive2d for Segment2d {}
 
+impl Default for Segment2d {
+    /// Returns the default [`Segment2d`] with endpoints at `(0.0, 0.0)` and `(1.0, 0.0)`.
+    fn default() -> Self {
+        Self {
+            vertices: [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)],
+        }
+    }
+}
+
 impl Segment2d {
     /// Create a new `Segment2d` from its endpoints.
     #[inline(always)]
