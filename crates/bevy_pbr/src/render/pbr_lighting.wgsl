@@ -201,7 +201,8 @@ fn V_GGX_anisotropic(
     return saturate(v);
 }
 
-// Probability-density function that matches the bounded VNDF sampler (Listing 2)
+// Probability-density function that matches the bounded VNDF sampler
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
 fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
     let ndf = D_GGX(roughness, NdotH);
 
@@ -209,9 +210,8 @@ fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
     let ai = roughness * i.xy;
     let len2 = dot(ai, ai);
     let t = sqrt(len2 + i.z * i.z);
-
-    if (i.z >= 0.0) {
-        let a = clamp(roughness, 0.0, 1.0);
+    if i.z >= 0.0 {
+        let a = roughness;
         let s = 1.0 + length(i.xy);
         let a2 = a * a;
         let s2 = s * s;
@@ -223,7 +223,7 @@ fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
     return ndf * (t - i.z) / (2.0 * len2);
 }
 
-// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
 fn sample_visible_ggx(
     xi: vec2<f32>,
     roughness: f32,
