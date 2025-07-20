@@ -1068,6 +1068,36 @@ pub fn extract_text_input_nodes(
             .0
             .is_none_or(|t| cursor_style.blink_interval < t);
 
+        for (i, rect) in text_layout_info.selection_rects.iter().enumerate() {
+            let size = if (1..text_layout_info.selection_rects.len()).contains(&i) {
+                rect.size() + Vec2::Y
+            } else {
+                rect.size()
+            } + 2. * Vec2::X;
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT - 0.002,
+                color: LinearRgba::from(bevy_color::palettes::css::GREEN),
+                image: AssetId::default(),
+                clip,
+                extracted_camera_entity,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: size,
+                },
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    border: BorderRect::ZERO,
+                    node_type: NodeType::Rect,
+                    transform: transform * Affine2::from_translation(rect.center()),
+                },
+                main_entity: entity.into(),
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            });
+        }
+
         for (
             i,
             PositionedGlyph {
@@ -1112,43 +1142,6 @@ pub fn extract_text_input_nodes(
                 start = end;
             }
             end += 1;
-        }
-
-        if let Some(index) = text_layout_info
-            .cursor_index
-            .filter(|_| modifiers.overwrite && !blink)
-        {
-            if let Some(PositionedGlyph {
-                position,
-                atlas_info,
-                ..
-            }) = text_layout_info.glyphs.get(index)
-            {
-                let rect = texture_atlases
-                    .get(atlas_info.texture_atlas)
-                    .unwrap()
-                    .textures[atlas_info.location.glyph_index]
-                    .as_rect();
-                extracted_uinodes.glyphs.push(ExtractedGlyph {
-                    transform: transform * Affine2::from_translation(*position),
-                    rect,
-                });
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                    color: under_color.0.into(),
-                    image: atlas_info.texture,
-                    clip,
-                    extracted_camera_entity,
-                    rect,
-                    item: ExtractedUiItem::Glyphs {
-                        range: start..start + 1,
-                    },
-                    main_entity: entity.into(),
-                });
-                start += 1;
-                end += 1;
-            }
         }
 
         if blink {
