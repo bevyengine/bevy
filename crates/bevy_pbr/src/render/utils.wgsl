@@ -56,8 +56,7 @@ fn octahedral_encode(v: vec3<f32>) -> vec2<f32> {
 // For decoding normals or unit direction vectors from octahedral coordinates.
 fn octahedral_decode(v: vec2<f32>) -> vec3<f32> {
     let f = v * 2.0 - 1.0;
-    var n = octahedral_decode_signed(f);
-    return normalize(n);
+    return octahedral_decode_signed(f);
 }
 
 // Like octahedral_decode, but for input in [-1, 1] instead of [0, 1].

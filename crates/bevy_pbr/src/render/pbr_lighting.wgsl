@@ -398,7 +398,6 @@ fn specular(
     let roughness = (*input).layers[LAYER_BASE].roughness;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F0 = (*input).F0_;
-    let H = (*derived_input).H;
     let NdotL = (*derived_input).NdotL;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
@@ -428,7 +427,6 @@ fn specular_clearcoat(
 ) -> vec2<f32> {
     // Unpack.
     let roughness = (*input).layers[LAYER_CLEARCOAT].roughness;
-    let H = (*derived_input).H;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
 

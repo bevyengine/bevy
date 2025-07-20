@@ -74,7 +74,7 @@ fn calculate_directional_light_contribution(light_sample: LightSample, direction
     var ray_direction = vec3(x, y, cos_theta);
 
     // Rotate the ray so that the cone it was sampled from is aligned with the light direction
-    ray_direction = build_orthonormal_basis(directional_light.direction_to_light) * ray_direction;
+    ray_direction = orthonormalize(directional_light.direction_to_light) * ray_direction;
 #else
     let ray_direction = directional_light.direction_to_light;
 #endif
@@ -128,7 +128,7 @@ fn trace_directional_light_visibility(light_sample: LightSample, directional_lig
     var ray_direction = vec3(x, y, cos_theta);
 
     // Rotate the ray so that the cone it was sampled from is aligned with the light direction
-    ray_direction = build_orthonormal_basis(directional_light.direction_to_light) * ray_direction;
+    ray_direction = orthonormalize(directional_light.direction_to_light) * ray_direction;
 #else
     let ray_direction = directional_light.direction_to_light;
 #endif
@@ -163,14 +163,4 @@ fn triangle_barycentrics(random: vec2<f32>) -> vec3<f32> {
     var barycentrics = random;
     if barycentrics.x + barycentrics.y > 1.0 { barycentrics = 1.0 - barycentrics; }
     return vec3(1.0 - barycentrics.x - barycentrics.y, barycentrics);
-}
-
-// https://jcgt.org/published/0006/01/01/paper.pdf
-fn build_orthonormal_basis(normal: vec3<f32>) -> mat3x3<f32> {
-    let sign = select(-1.0, 1.0, normal.z >= 0.0);
-    let a = -1.0 / (sign + normal.z);
-    let b = normal.x * normal.y * a;
-    let tangent = vec3(1.0 + sign * normal.x * normal.x * a, sign * b, -sign * normal.x);
-    let bitangent = vec3(b, sign + normal.y * normal.y * a, -normal.y);
-    return mat3x3(tangent, bitangent, normal);
 }
