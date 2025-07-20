@@ -102,19 +102,9 @@ fn sample_noise(pixel_coords: vec2u) -> vec4f {
     return textureSampleLevel(blue_noise_texture, input_sampler, uv, 0.0);
 }
 
-// GGX/Trowbridge-Reitz normal distribution function (D term)
-// from bevy_pbr/src/render/pbr_lighting.wgsl
-fn D_GGX(roughness: f32, NdotH: f32) -> f32 {
-    let oneMinusNdotHSquared = 1.0 - NdotH * NdotH;
-    let a = NdotH * roughness;
-    let k = roughness / (oneMinusNdotHSquared + a * a);
-    let d = k * k * (1.0 / PI);
-    return d;
-}
-
 // Probability-density function that matches the bounded VNDF sampler (Listing 2)
 fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
-    let ndf = D_GGX(roughness, NdotH);
+    let ndf = lighting::D_GGX(roughness, NdotH);
 
     // Common terms
     let ai = roughness * i.xy;
