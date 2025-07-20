@@ -1,14 +1,11 @@
 //! Decal rendering.
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use bevy::{
+    camera_controllers::free_cam::{CameraController, CameraControllerPlugin},
     core_pipeline::prepass::DepthPrepass,
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

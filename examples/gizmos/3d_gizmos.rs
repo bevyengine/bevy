@@ -1,10 +1,10 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
-use bevy::{color::palettes::css::*, prelude::*};
-use camera_controller::{CameraController, CameraControllerPlugin};
+use bevy::{
+    camera_controllers::free_cam::{CameraController, CameraControllerPlugin},
+    color::palettes::css::*,
+    prelude::*,
+};
 use std::f32::consts::PI;
 
 fn main() {

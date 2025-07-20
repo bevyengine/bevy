@@ -22,8 +22,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! // Be sure that this matches the version of `bevy` that you are using!
-//! bevy_camera_controllers = { version = "0.1", features = ["free_cam"] }
+//! bevy = { version = "0.X", features = ["free_cam"] }
 //! ```
 //!
 //! Once the correct feature is enabled,

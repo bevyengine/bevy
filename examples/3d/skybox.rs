@@ -1,9 +1,7 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use bevy::{
+    camera_controllers::free_cam::{CameraController, CameraControllerPlugin},
     core_pipeline::Skybox,
     image::CompressedImageFormats,
     prelude::*,
@@ -12,7 +10,6 @@ use bevy::{
         renderer::RenderDevice,
     },
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[

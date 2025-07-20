@@ -1,10 +1,8 @@
 //! Demonstrates realtime dynamic raytraced lighting using Bevy Solari.
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use argh::FromArgs;
 use bevy::{
+    camera_controllers::free_cam::{CameraController, CameraControllerPlugin},
     prelude::*,
     render::{camera::CameraMainTextureUsages, mesh::Indices, render_resource::TextureUsages},
     scene::SceneInstanceReady,
@@ -13,7 +11,6 @@ use bevy::{
         prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 /// `bevy_solari` demo.

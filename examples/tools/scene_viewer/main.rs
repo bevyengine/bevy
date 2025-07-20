@@ -11,6 +11,7 @@
 use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
+    camera_controllers::free_cam::{CameraController, CameraControllerPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
@@ -20,15 +21,11 @@ use bevy::{
     },
 };
 
-#[path = "../../helpers/camera_controller.rs"]
-mod camera_controller;
-
 #[cfg(feature = "animation")]
 mod animation_plugin;
 mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
-use camera_controller::{CameraController, CameraControllerPlugin};
 use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 

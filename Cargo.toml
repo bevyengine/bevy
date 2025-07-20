@@ -298,6 +298,10 @@ bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
+# Provides a collection of prebuilt camera controllers
+bevy_camera_controllers = ["bevy_internal/bevy_camera_controllers"]
+free_cam = ["bevy_internal/free_cam"]
+
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
@@ -1153,6 +1157,7 @@ wasm = true
 name = "decal"
 path = "examples/3d/decal.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.decal]
 name = "Decal"
@@ -1297,6 +1302,7 @@ wasm = true
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.shadow_biases]
 name = "Shadow Biases"
@@ -1319,6 +1325,7 @@ wasm = true
 name = "skybox"
 path = "examples/3d/skybox.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.skybox]
 name = "Skybox"
@@ -1330,7 +1337,7 @@ wasm = true
 name = "solari"
 path = "examples/3d/solari.rs"
 doc-scrape-examples = true
-required-features = ["bevy_solari"]
+required-features = ["bevy_solari", "free_cam"]
 
 [package.metadata.example.solari]
 name = "Solari"
@@ -1455,7 +1462,7 @@ wasm = false
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
 doc-scrape-examples = true
-required-features = ["meshlet"]
+required-features = ["meshlet", "free_cam"]
 
 [package.metadata.example.meshlet]
 name = "Meshlet"
@@ -3213,6 +3220,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -3945,6 +3953,7 @@ wasm = true
 name = "3d_gizmos"
 path = "examples/gizmos/3d_gizmos.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.3d_gizmos]
 name = "3D Gizmos"

@@ -1,10 +1,10 @@
 //! Demonstrates how shadow biases affect shadows in a 3d scene.
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
-use bevy::{pbr::ShadowFilteringMethod, prelude::*};
-use camera_controller::{CameraController, CameraControllerPlugin};
+use bevy::{
+    camera_controllers::free_cam::{CameraController, CameraControllerPlugin},
+    pbr::ShadowFilteringMethod,
+    prelude::*,
+};
 
 fn main() {
     App::new()
