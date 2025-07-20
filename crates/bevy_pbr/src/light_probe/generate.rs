@@ -1,25 +1,16 @@
-//! Generated environment map filtering.
+//! Realtime environment map filtering.
 //!
-//! A *generated environment map* converts a single, high-resolution cubemap
-//! into the pair of diffuse and specular cubemaps required by the PBR
-//! shader. Add [`bevy_light::GeneratedEnvironmentMapLight`] to a camera
-//! and Bevy will, each frame, generate the diffuse and specular cubemaps
-//! required by the PBR shader.
+//! An environment map needs to be processed to be able to support uses beyond a simple skybox,
+//! such as reflections, and ambient light contribution.
+//! This process is called filtering, and can either be done ahead of time (prefiltering), or
+//! in realtime, although at a reduced quality. Prefiltering is preferred, but not always possible:
+//! sometimes you only gain access to an environment map at runtime, for whatever reason.
+//! Typically this is from realtime reflection probes, but can also be from other sources.
 //!
-//! 1. Copy the base mip (level 0) of the source cubemap into an intermediate
-//!    storage texture.
-//! 2. Generate mipmaps using [single-pass down-sampling] (SPD).
-//! 3. Convolve the mip chain twice:
-//!    * a [Lambertian convolution] for the 32 × 32 diffuse cubemap
-//!    * a [GGX convolution], once per mip level, for the specular cubemap.
-//!
-//! The filtered results are then consumed exactly like the textures supplied
-//! by [`bevy_light::EnvironmentMapLight`]. This is useful when you only have a
-//! raw HDR environment map or when you need reflections generated at run time.
-//!
-//! [single-pass down-sampling]: https://gpuopen.com/fidelityfx-spd/
-//! [Lambertian convolution]: https://bruop.github.io/ibl/#:~:text=Lambertian%20Diffuse%20Component
-//! [GGX convolution]: https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
+//! In any case, Bevy supports both modes of filtering.
+//! This module provides realtime filtering via [`bevy_light::GeneratedEnvironmentMapLight`].
+//! For prefiltered environment maps, see [`bevy_light::EnvironmentMapLight`].
+//! These components are intended to be added to a camera.
 use bevy_asset::{load_embedded_asset, uuid_handle, AssetServer, Assets, Handle};
 use bevy_ecs::{
     component::Component,
@@ -50,6 +41,20 @@ use bevy_render::{
     texture::{CachedTexture, GpuImage, TextureCache},
     Extract,
 };
+
+// Implementation: generate diffuse and specular cubemaps required by PBR
+// from a given high-res cubemap by
+//
+// 1. Copying the base mip (level 0) of the source cubemap into an intermediate
+//    storage texture.
+// 2. Generating mipmaps using [single-pass down-sampling] (SPD).
+// 3. Convolving the mip chain twice:
+//    * a [Lambertian convolution] for the 32 × 32 diffuse cubemap
+//    * a [GGX convolution], once per mip level, for the specular cubemap.
+//
+// [single-pass down-sampling]: https://gpuopen.com/fidelityfx-spd/
+// [Lambertian convolution]: https://bruop.github.io/ibl/#:~:text=Lambertian%20Diffuse%20Component
+// [GGX convolution]: https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
 
 use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
 use core::cmp::min;
