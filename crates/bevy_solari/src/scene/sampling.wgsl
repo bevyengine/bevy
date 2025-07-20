@@ -86,16 +86,16 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
 fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
     let light_count = arrayLength(&light_sources);
     let light_id = rand_range_u(light_count, rng);
-    let seed = rand_u(rng);
 
     let light_source = light_sources[light_id];
 
     var triangle_id = 0u;
     if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {
         let triangle_count = light_source.kind >> 1u;
-        triangle_id = seed % triangle_count;
+        triangle_id = rand_range_u(triangle_count, rng);
     }
 
+    let seed = rand_u(rng);
     let light_sample = LightSample((light_id << 16u) | triangle_id, seed);
 
     var resolved_light_sample = resolve_light_sample(light_sample, light_source);
