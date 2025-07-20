@@ -8,8 +8,8 @@
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::presample_light_tiles::{ResolvedLightSamplePacked, unpack_resolved_light_sample}
-#import bevy_solari::sampling::{LightSample, calculate_light_contribution, trace_light_visibility, sample_disk}
-#import bevy_solari::scene_bindings::{previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
+#import bevy_solari::sampling::{LightSample, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, sample_disk}
+#import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSample>;
@@ -50,7 +50,7 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
     let base_color = pow(unpack4x8unorm(gpixel.r).rgb, vec3(2.2));
     let diffuse_brdf = base_color / PI;
 
-    let initial_reservoir = generate_initial_reservoir(world_position, world_normal, diffuse_brdf, &rng, workgroup_id.xy);
+    let initial_reservoir = generate_initial_reservoir(world_position, world_normal, diffuse_brdf, workgroup_id.xy, &rng);
     let temporal_reservoir = load_temporal_reservoir(global_id.xy, depth, world_position, world_normal);
     let merge_result = merge_reservoirs(initial_reservoir, temporal_reservoir, world_position, world_normal, diffuse_brdf, &rng);
 
@@ -91,34 +91,29 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 }
 
-fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, rng: ptr<function, u32>, workgroup_id: vec2<u32>) -> Reservoir{
+fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> Reservoir{
     var workgroup_rng = (workgroup_id.x * 5782582u) + workgroup_id.y;
     let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
 
     var reservoir = empty_reservoir();
     var reservoir_target_function = 0.0;
+    var light_sample_world_position = vec4(0.0);
     var weight_sum = 0.0;
     let mis_weight = 1.0 / f32(INITIAL_SAMPLES);
-    var start = light_tile_start + rand_range_u(1024u - INITIAL_SAMPLES + 1u, rng);
-    for (var i = start; i < start + INITIAL_SAMPLES; i++) {
-        let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[i], view.exposure);
+    for (var i = 0u; i < INITIAL_SAMPLES; i++) {
+        let tile_sample = light_tile_start + rand_range_u(1024u, rng);
+        let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
+        let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, world_position, world_normal);
 
-        let ray = resolved_light_sample.world_position.xyz - (resolved_light_sample.world_position.w * world_position);
-        let light_distance = length(ray);
-        let ray_direction = ray / light_distance;
-        let cos_theta_origin = saturate(dot(ray_direction, world_normal));
-        let cos_theta_light = saturate(dot(-ray_direction, resolved_light_sample.world_normal));
-        let light_distance_squared = light_distance * light_distance;
-        let radiance = resolved_light_sample.radiance * cos_theta_origin * (cos_theta_light / light_distance_squared);
-
-        let target_function = luminance(radiance * diffuse_brdf);
-        let resampling_weight = mis_weight * (target_function * resolved_light_sample.inverse_pdf);
+        let target_function = luminance(light_contribution.radiance * diffuse_brdf);
+        let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
 
         weight_sum += resampling_weight;
 
         if rand_f(rng) < resampling_weight / weight_sum {
-            reservoir.sample = light_tile_samples[i];
+            reservoir.sample = light_tile_samples[tile_sample];
             reservoir_target_function = target_function;
+            light_sample_world_position = resolved_light_sample.world_position;
         }
     }
 
@@ -126,7 +121,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         let inverse_target_function = select(0.0, 1.0 / reservoir_target_function, reservoir_target_function > 0.0);
         reservoir.unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        reservoir.unbiased_contribution_weight *= trace_light_visibility(reservoir.sample, world_position);
+        reservoir.unbiased_contribution_weight *= trace_light_visibility(world_position, light_sample_world_position);
     }
 
     reservoir.confidence_weight = 1.0;
@@ -185,7 +180,8 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     var spatial_reservoir = di_reservoirs_b[spatial_pixel_index];
 
     if reservoir_valid(spatial_reservoir) {
-        spatial_reservoir.unbiased_contribution_weight *= trace_light_visibility(spatial_reservoir.sample, world_position);
+        let resolved_light_sample = resolve_light_sample(spatial_reservoir.sample, light_sources[spatial_reservoir.sample.light_id >> 16u]);
+        spatial_reservoir.unbiased_contribution_weight *= trace_light_visibility(world_position, resolved_light_sample.world_position);
     }
 
     return spatial_reservoir;
@@ -296,9 +292,10 @@ fn merge_reservoirs(
     }
 }
 
+// TODO: Have input take ResolvedLightSample instead of reservoir.light_sample
 fn reservoir_target_function(reservoir: Reservoir, world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>) -> vec4<f32> {
     if !reservoir_valid(reservoir) { return vec4(0.0); }
-    let light_contribution = calculate_light_contribution(reservoir.sample, world_position, world_normal).radiance;
+    let light_contribution = resolve_and_calculate_light_contribution(reservoir.sample, world_position, world_normal).radiance;
     let target_function = luminance(light_contribution * diffuse_brdf);
     return vec4(light_contribution, target_function);
 }

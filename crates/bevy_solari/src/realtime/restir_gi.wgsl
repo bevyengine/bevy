@@ -7,7 +7,7 @@
 #import bevy_pbr::utils::{rand_f, octahedral_decode}
 #import bevy_render::maths::{PI, PI_2}
 #import bevy_render::view::View
-#import bevy_solari::sampling::{sample_uniform_hemisphere, sample_random_light, sample_disk, trace_point_visibility}
+#import bevy_solari::sampling::{sample_uniform_hemisphere, sample_random_light, trace_point_visibility, sample_disk}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
