@@ -17,16 +17,16 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 
-/// Size of the LightSample shader struct in bytes.
+/// Size of the `LightSample` shader struct in bytes.
 const LIGHT_SAMPLE_STRUCT_SIZE: u64 = 8;
 
-/// Size of the ResolvedLightSamplePacked shader struct in bytes.
+/// Size of the `ResolvedLightSamplePacked` shader struct in bytes.
 const RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE: u64 = 24;
 
-/// Size of the DI Reservoir shader struct in bytes.
+/// Size of the DI `Reservoir` shader struct in bytes.
 const DI_RESERVOIR_STRUCT_SIZE: u64 = 16;
 
-/// Size of the GI Reservoir shader struct in bytes.
+/// Size of the GI `Reservoir` shader struct in bytes.
 const GI_RESERVOIR_STRUCT_SIZE: u64 = 48;
 
 pub const LIGHT_TILE_BLOCKS: u64 = 128;
