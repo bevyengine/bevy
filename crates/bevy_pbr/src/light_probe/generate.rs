@@ -92,7 +92,7 @@ pub struct GeneratorPipelines {
 
 /// Initializes all render-world resources used by the environment-map generator once on
 /// [`bevy_render::RenderStartup`].
-pub fn init_generator_resources(
+pub fn initialize_generated_environment_map_resources(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
@@ -288,7 +288,7 @@ pub fn init_generator_resources(
     commands.insert_resource(pipelines);
 }
 
-pub fn extract_generator_entities(
+pub fn extract_generated_environment_map_entities(
     query: Extract<
         Query<(
             RenderEntity,
@@ -355,7 +355,7 @@ fn compute_mip_count(size: u32) -> u32 {
 }
 
 /// Prepares textures needed for single pass downsampling
-pub fn prepare_intermediate_textures(
+pub fn prepare_generated_environment_map_intermediate_textures(
     light_probes: Query<(Entity, &RenderEnvironmentMap)>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
@@ -420,7 +420,7 @@ pub struct GeneratorBindGroups {
 }
 
 /// Prepares bind groups for environment map generation pipelines
-pub fn prepare_generator_bind_groups(
+pub fn prepare_generated_environment_map_bind_groups(
     light_probes: Query<
         (Entity, &IntermediateTextures, &RenderEnvironmentMap),
         With<RenderEnvironmentMap>,

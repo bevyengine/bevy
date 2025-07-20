@@ -41,9 +41,11 @@ use core::{hash::Hash, ops::Deref};
 
 use crate::{
     generate::{
-        extract_generator_entities, generate_environment_map_light, init_generator_resources,
-        prepare_generator_bind_groups, prepare_intermediate_textures, GeneratorNode,
-        IrradianceMapNode, RadianceMapNode, SpdNode, STBN,
+        extract_generated_environment_map_entities, generate_environment_map_light,
+        initialize_generated_environment_map_resources,
+        prepare_generated_environment_map_bind_groups,
+        prepare_generated_environment_map_intermediate_textures, GeneratorNode, IrradianceMapNode,
+        RadianceMapNode, SpdNode, STBN,
     },
     light_probe::environment_map::EnvironmentMapIds,
 };
@@ -346,22 +348,26 @@ impl Plugin for LightProbePlugin {
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
                 ExtractSchedule,
-                extract_generator_entities.after(generate_environment_map_light),
+                extract_generated_environment_map_entities.after(generate_environment_map_light),
             )
             .add_systems(
                 Render,
-                prepare_generator_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                prepare_generated_environment_map_bind_groups
+                    .in_set(RenderSystems::PrepareBindGroups),
             )
             .add_systems(
                 Render,
                 (
                     upload_light_probes,
                     prepare_environment_uniform_buffer,
-                    prepare_intermediate_textures,
+                    prepare_generated_environment_map_intermediate_textures,
                 )
                     .in_set(RenderSystems::PrepareResources),
             )
-            .add_systems(RenderStartup, init_generator_resources);
+            .add_systems(
+                RenderStartup,
+                initialize_generated_environment_map_resources,
+            );
     }
 }
 
