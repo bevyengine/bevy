@@ -4,10 +4,10 @@
 #import bevy_pbr::pbr_deferred_types::unpack_24bit_normal
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::rgb9e5::rgb9e5_to_vec3_
-#import bevy_pbr::utils::{rand_f, octahedral_decode}
+#import bevy_pbr::utils::{rand_f, octahedral_decode, sample_disk}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
-#import bevy_solari::sampling::{LightSample, generate_random_light_sample, calculate_light_contribution, trace_light_visibility, sample_disk}
+#import bevy_solari::sampling::{LightSample, generate_random_light_sample, calculate_light_contribution, trace_light_visibility}
 #import bevy_solari::scene_bindings::{previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
