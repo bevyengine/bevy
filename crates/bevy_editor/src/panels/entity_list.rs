@@ -5,6 +5,7 @@ use bevy::ui::{FlexDirection, UiRect, Val};
 use crate::{
     themes::DarkTheme,
     remote::types::{EditorState, RemoteEntity},
+    remote::entity_grouping::group_entities_by_component,
     widgets::{
         spawn_basic_panel,
         EditorTheme,
@@ -12,6 +13,9 @@ use crate::{
         ListViewPlugin,
         spawn_list_view,
         EntityListItem,
+        EntityTreeGroup,
+        TreeViewPlugin,
+        spawn_entity_tree_view,
     },
 };
 
@@ -20,11 +24,14 @@ pub struct EntityListPlugin;
 
 impl Plugin for EntityListPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ListViewPlugin)
+        println!("DEBUG: EntityListPlugin::build() called - plugin is being registered");
+        app.add_plugins((ListViewPlugin, TreeViewPlugin))
             .add_systems(Update, (
                 handle_entity_selection,
                 update_entity_button_colors,
                 refresh_entity_list,
+                debug_toggle_buttons, // Debug system
+                plugin_heartbeat, // Simple heartbeat system
             ));
     }
 }
@@ -44,12 +51,85 @@ pub struct ScrollableArea;
 #[derive(Component)]
 pub struct EntityListScrollArea;
 
+/// Entity list view mode
+#[derive(Component, Default, PartialEq, Debug)]
+pub enum EntityListViewMode {
+    #[default]
+    Flat,
+    Hierarchical,
+}
+
+/// Component for the view mode toggle button
+#[derive(Component)]
+pub struct ViewModeToggle;
+
+/// Simple heartbeat system to verify EntityListPlugin systems are running
+fn plugin_heartbeat(mut frame_count: Local<u32>) {
+    *frame_count += 1;
+    if *frame_count % 180 == 0 { // Every 3 seconds at 60fps
+        println!("DEBUG: EntityListPlugin heartbeat - systems are running! Frame {}", *frame_count);
+    }
+}
+
 /// Creates the entity list panel using basic widgets
 pub fn create_modern_entity_list_panel(
     commands: &mut Commands,
     _theme: &EditorTheme,
 ) -> Entity {
-    spawn_basic_panel(commands, "Entities")
+    // Create the main panel
+    let panel_entity = spawn_basic_panel(commands, "Entities");
+    
+    // Add the view mode toggle button to the panel header
+    commands.entity(panel_entity).with_children(|parent| {
+        // Header with toggle button
+        parent.spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(30.0),
+                flex_direction: FlexDirection::Row,
+                align_items: bevy::ui::AlignItems::Center,
+                justify_content: bevy::ui::JustifyContent::SpaceBetween,
+                padding: UiRect::all(Val::Px(4.0)),
+                ..default()
+            },
+            BackgroundColor(DarkTheme::BACKGROUND_SECONDARY),
+        )).with_children(|header| {
+            // Toggle button
+            header.spawn((
+                Button,
+                Node {
+                    width: Val::Px(60.0),
+                    height: Val::Px(24.0),
+                    justify_content: bevy::ui::JustifyContent::Center,
+                    align_items: bevy::ui::AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(DarkTheme::BUTTON_DEFAULT),
+                ViewModeToggle,
+            )).with_children(|button| {
+                button.spawn((
+                    Text::new("List"),
+                    TextFont { font_size: 10.0, ..default() },
+                    TextColor(DarkTheme::TEXT_PRIMARY),
+                ));
+            });
+        });
+        
+        // Entity list area
+        parent.spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            BackgroundColor(DarkTheme::BACKGROUND_PRIMARY),
+            EntityListArea,
+            EntityListViewMode::default(),
+        ));
+    });
+    
+    panel_entity
 }
 
 /// Handle entity selection in the UI - updated to work with ListView
@@ -105,27 +185,95 @@ pub fn update_entity_button_colors(
     }
 }
 
+/// Debug system to check if ViewModeToggle buttons exist
+fn debug_toggle_buttons(
+    toggle_query: Query<Entity, With<ViewModeToggle>>,
+    view_mode_query: Query<Entity, With<EntityListViewMode>>,
+    mut frame_count: Local<u32>,
+) {
+    *frame_count += 1;
+    if *frame_count % 120 == 0 { // Every 2 seconds at 60fps
+        println!("DEBUG: Found {} ViewModeToggle entities", toggle_query.iter().count());
+        println!("DEBUG: Found {} EntityListViewMode entities", view_mode_query.iter().count());
+    }
+}
+
+/// Handle view mode toggle button clicks
+pub fn handle_view_mode_toggle(
+    interaction_query: Query<&Interaction, (Changed<Interaction>, With<ViewModeToggle>)>,
+    mut view_mode_query: Query<&mut EntityListViewMode>,
+    button_query: Query<&Children, With<ViewModeToggle>>,
+    mut text_query: Query<&mut Text>,
+    mut frame_count: Local<u32>,
+) {
+    *frame_count += 1;
+    if *frame_count % 60 == 0 {
+        println!("DEBUG: handle_view_mode_toggle system running... frame {}", *frame_count);
+        println!("DEBUG: Found {} ViewModeToggle buttons", interaction_query.iter().count());
+        println!("DEBUG: Found {} EntityListViewMode entities", view_mode_query.iter().count());
+    }
+    
+    for interaction in interaction_query.iter() {
+        println!("DEBUG: Button interaction detected: {:?}", interaction);
+        if *interaction == Interaction::Pressed {
+            println!("DEBUG: Button pressed, toggling view mode");
+            for mut view_mode in view_mode_query.iter_mut() {
+                // Toggle between modes
+                *view_mode = match *view_mode {
+                    EntityListViewMode::Flat => EntityListViewMode::Hierarchical,
+                    EntityListViewMode::Hierarchical => EntityListViewMode::Flat,
+                };
+                println!("DEBUG: New view mode: {:?}", *view_mode);
+                
+                // Update button text - find the text child of the button
+                for children in button_query.iter() {
+                    for child in children.iter() {
+                        if let Ok(mut text) = text_query.get_mut(child) {
+                            **text = match *view_mode {
+                                EntityListViewMode::Flat => "List".to_string(),
+                                EntityListViewMode::Hierarchical => "Tree".to_string(),
+                            };
+                            println!("DEBUG: Updated button text to: {}", **text);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Refresh the entity list display - updated to use generic ListView
 pub fn refresh_entity_list(
     editor_state: Res<EditorState>,
     mut commands: Commands,
-    entity_list_area_query: Query<Entity, With<EntityListArea>>,
+    entity_list_area_query: Query<(Entity, &EntityListViewMode), (With<EntityListArea>, Changed<EntityListViewMode>)>,
+    all_entity_list_areas: Query<(Entity, &EntityListViewMode), With<EntityListArea>>,
     list_items_query: Query<Entity, With<EntityListItem>>,
     mut local_entity_count: Local<usize>,
 ) {
     let current_count = editor_state.entities.len();
-    if *local_entity_count == current_count {
+    let count_changed = *local_entity_count != current_count;
+    let view_mode_changed = !entity_list_area_query.is_empty();
+    
+    if !count_changed && !view_mode_changed {
         return;
     }
+    
     *local_entity_count = current_count;
 
-    // Clear existing list items
-    for entity in &list_items_query {
-        commands.entity(entity).despawn();
-    }
+    println!("DEBUG: refresh_entity_list called with {} entities (count_changed: {}, view_mode_changed: {})", 
+             current_count, count_changed, view_mode_changed);
 
-    // Find the entity list area and add new items
-    for list_area_entity in entity_list_area_query.iter() {
+    // Use all entity list areas (not just changed ones) for actual processing
+    for (list_area_entity, view_mode) in all_entity_list_areas.iter() {
+        println!("DEBUG: Processing entity list area with view mode: {:?}", view_mode);
+        
+        // Clear existing list items first
+        for entity in &list_items_query {
+            commands.entity(entity).despawn();
+        }
+        
+        // Clear any existing children from the list area
         commands.entity(list_area_entity).despawn_children();
         
         if editor_state.entities.is_empty() {
@@ -145,20 +293,98 @@ pub fn refresh_entity_list(
                 ));
             });
         } else {
-            // Use the generic ListView system
-            let entity_items: Vec<EntityListItem> = editor_state.entities
+            match view_mode {
+                EntityListViewMode::Flat => {
+                    create_flat_entity_list(&mut commands, list_area_entity, &editor_state.entities);
+                }
+                EntityListViewMode::Hierarchical => {
+                    create_hierarchical_entity_list(&mut commands, list_area_entity, &editor_state.entities);
+                }
+            }
+        }
+    }
+}
+
+/// Create a flat entity list using the original ListView approach
+fn create_flat_entity_list(
+    commands: &mut Commands,
+    list_area_entity: Entity,
+    entities: &[RemoteEntity],
+) {
+    // Use the generic ListView system
+    let mut entities_sorted = entities.to_vec();
+    
+    // Sort entities: meaningful names first, then by entity ID
+    entities_sorted.sort_by(|a, b| {
+        use crate::remote::entity_naming::entity_has_meaningful_name;
+        
+        let a_has_name = entity_has_meaningful_name(a, None);
+        let b_has_name = entity_has_meaningful_name(b, None);
+        
+        match (a_has_name, b_has_name) {
+            (true, false) => std::cmp::Ordering::Less,    // a comes first
+            (false, true) => std::cmp::Ordering::Greater, // b comes first
+            _ => a.id.cmp(&b.id),                        // same category, sort by ID
+        }
+    });
+    
+    let entity_items: Vec<EntityListItem> = entities_sorted
+        .iter()
+        .map(EntityListItem::from_remote_entity)
+        .collect();
+        
+    let list_view = ListView::new(entity_items.clone())
+        .with_item_height(32.0)
+        .with_selection_highlight(true);
+        
+    let list_entity = spawn_list_view(commands, entity_items, list_view);
+    commands.entity(list_area_entity).add_child(list_entity);
+}
+
+/// Create a hierarchical entity list using the TreeView
+fn create_hierarchical_entity_list(
+    commands: &mut Commands,
+    list_area_entity: Entity,
+    entities: &[RemoteEntity],
+) {
+    println!("DEBUG: create_hierarchical_entity_list called with {} entities", entities.len());
+    
+    // Group entities by component types
+    let entity_groups = group_entities_by_component(entities);
+    println!("DEBUG: Generated {} entity groups", entity_groups.len());
+    
+    for (i, group) in entity_groups.iter().enumerate() {
+        println!("DEBUG: Group {}: {} with {} entities", i, group.group_name, group.entities.len());
+    }
+    
+    // Convert EntityGroups to EntityTreeGroups
+    let tree_groups: Vec<EntityTreeGroup> = entity_groups
+        .into_iter()
+        .map(|group| {
+            let items: Vec<EntityListItem> = group.entities
                 .iter()
                 .map(EntityListItem::from_remote_entity)
                 .collect();
                 
-            let list_view = ListView::new(entity_items.clone())
-                .with_item_height(32.0)
-                .with_selection_highlight(true);
-                
-            let list_entity = spawn_list_view(&mut commands, entity_items, list_view);
-            commands.entity(list_area_entity).add_child(list_entity);
-        }
+            EntityTreeGroup {
+                name: group.group_name.clone(),
+                is_expanded: group.is_expanded,
+                items,
+                group_id: format!("{:?}", group.group_type), // Use debug format as unique ID
+            }
+        })
+        .collect();
+    
+    println!("DEBUG: Created {} tree groups", tree_groups.len());
+    for (i, tree_group) in tree_groups.iter().enumerate() {
+        println!("DEBUG: Tree group {}: {} (expanded: {}) with {} items", 
+                 i, tree_group.name, tree_group.is_expanded, tree_group.items.len());
     }
+    
+    // Create the tree view
+    let tree_view_entity = spawn_entity_tree_view(commands, tree_groups);
+    commands.entity(list_area_entity).add_child(tree_view_entity);
+    println!("DEBUG: Tree view entity created and added to parent");
 }
 
 /// Helper function to create a modern entity list that could be extracted to bevy_feathers

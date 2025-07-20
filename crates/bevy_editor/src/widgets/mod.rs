@@ -42,6 +42,7 @@ pub mod scroll_view;
 // pub mod scrollable_area;
 // pub mod panel;
 pub mod list_view;
+pub mod tree_view;
 // pub mod theme;
 
 pub use expansion_button::*;
@@ -49,6 +50,7 @@ pub use simple_panel::{BasicPanel, spawn_basic_panel};
 pub use core_scroll_area::*;
 pub use scroll_view::*;
 pub use list_view::*;
+pub use tree_view::*;
 
 // Basic theme support
 #[derive(Clone)]

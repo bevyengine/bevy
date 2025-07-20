@@ -71,12 +71,12 @@ impl Plugin for EditorPlugin {
             .add_systems(Startup, setup_editor_ui)
             .add_systems(Update, (
                 setup_scroll_content_markers,
-                handle_entity_selection,
-                update_entity_button_colors,
-                handle_component_inspection,
-                handle_expansion_keyboard,
                 update_remote_connection,
                 update_status_bar,
+                handle_component_inspection,
+                handle_expansion_keyboard,
+                debug_button_interaction, // Debug system
+                handle_view_mode_toggle_direct, // Move toggle handling here
             ))
             .add_observer(handle_entities_fetched)
             .add_observer(handle_component_data_fetched);
@@ -86,7 +86,7 @@ impl Plugin for EditorPlugin {
 // Import UI marker components from our modular structure
 use crate::panels::{
     ComponentInspector, ComponentInspectorContent,
-    EntityTree, EntityListArea
+    EntityTree, EntityListArea, EntityListViewMode, ViewModeToggle
 };
 use crate::widgets::EntityListItem;
 
@@ -184,7 +184,9 @@ fn create_entity_panel(parent: &mut ChildSpawnerCommands) {
                 Node {
                     width: Val::Percent(100.0),
                     height: Val::Px(44.0),
+                    flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
                     padding: UiRect::all(Val::Px(12.0)),
                     border: UiRect::bottom(Val::Px(1.0)),
                     ..default()
@@ -192,6 +194,7 @@ fn create_entity_panel(parent: &mut ChildSpawnerCommands) {
                 BackgroundColor(Color::srgb(0.22, 0.22, 0.22)),
                 BorderColor::all(Color::srgb(0.4, 0.4, 0.4)),
             )).with_children(|parent| {
+                // Title
                 parent.spawn((
                     Text::new("Entities"),
                     TextFont {
@@ -200,6 +203,30 @@ fn create_entity_panel(parent: &mut ChildSpawnerCommands) {
                     },
                     TextColor(Color::srgb(0.95, 0.95, 0.95)),
                 ));
+                
+                // Toggle button
+                parent.spawn((
+                    Button,
+                    Node {
+                        width: Val::Px(60.0),
+                        height: Val::Px(28.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                    BorderColor::all(Color::srgb(0.5, 0.5, 0.5)),
+                    ViewModeToggle,
+                )).with_children(|button| {
+                    button.spawn((
+                        Text::new("List"),
+                        TextFont { font_size: 11.0, ..default() },
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    ));
+                });
+                
+                println!("DEBUG: ViewModeToggle button created in create_entity_panel");
             });
 
             // Scrollable entity list using the new ScrollView widget
@@ -607,12 +634,64 @@ fn setup_scroll_content_markers(
     
     if scroll_content_entities.len() >= 2 {
         // Mark the first ScrollContent as EntityListArea (entity panel is created first)
-        commands.entity(scroll_content_entities[0]).insert(EntityListArea);
+        commands.entity(scroll_content_entities[0]).insert((EntityListArea, EntityListViewMode::default()));
         
         // Mark the second ScrollContent as ComponentInspectorContent (component panel is created second)
         commands.entity(scroll_content_entities[1]).insert(ComponentInspectorContent);
         
         *has_run = true;
         info!("Added marker components to ScrollContent areas");
+    }
+}
+
+/// Debug system to test button interaction directly in editor.rs
+fn debug_button_interaction(
+    interaction_query: Query<&Interaction, (Changed<Interaction>, With<ViewModeToggle>)>,
+    toggle_buttons: Query<Entity, With<ViewModeToggle>>,
+    mut frame_count: Local<u32>,
+) {
+    *frame_count += 1;
+    if *frame_count % 120 == 0 {
+        println!("DEBUG (editor.rs): Found {} ViewModeToggle buttons", toggle_buttons.iter().count());
+    }
+    
+    for interaction in interaction_query.iter() {
+        println!("DEBUG (editor.rs): ViewModeToggle interaction: {:?}", interaction);
+    }
+}
+
+/// Handle view mode toggle button clicks - moved to editor.rs to avoid cross-plugin issues
+fn handle_view_mode_toggle_direct(
+    interaction_query: Query<&Interaction, (Changed<Interaction>, With<ViewModeToggle>)>,
+    mut view_mode_query: Query<&mut EntityListViewMode>,
+    button_query: Query<&Children, With<ViewModeToggle>>,
+    mut text_query: Query<&mut Text>,
+) {
+    for interaction in interaction_query.iter() {
+        println!("DEBUG (editor.rs): Toggle button interaction: {:?}", interaction);
+        if *interaction == Interaction::Pressed {
+            println!("DEBUG (editor.rs): Toggle button pressed!");
+            for mut view_mode in view_mode_query.iter_mut() {
+                // Toggle between modes
+                *view_mode = match *view_mode {
+                    EntityListViewMode::Flat => EntityListViewMode::Hierarchical,
+                    EntityListViewMode::Hierarchical => EntityListViewMode::Flat,
+                };
+                println!("DEBUG (editor.rs): New view mode: {:?}", *view_mode);
+                
+                // Update button text - find the text child of the button
+                for children in button_query.iter() {
+                    for child in children.iter() {
+                        if let Ok(mut text) = text_query.get_mut(child) {
+                            **text = match *view_mode {
+                                EntityListViewMode::Flat => "List".to_string(),
+                                EntityListViewMode::Hierarchical => "Tree".to_string(),
+                            };
+                            println!("DEBUG (editor.rs): Updated button text to: {}", **text);
+                        }
+                    }
+                }
+            }
+        }
     }
 }

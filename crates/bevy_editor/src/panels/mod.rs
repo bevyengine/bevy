@@ -44,20 +44,6 @@ pub use crate::remote::types::{EditorState, ComponentDisplayState, ComponentFiel
 
 use bevy::prelude::*;
 
-/// Plugin for entity list panel
-#[derive(Default)]
-pub struct EntityListPlugin;
-
-impl Plugin for EntityListPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, (
-            entity_list::refresh_entity_list,
-            entity_list::handle_entity_selection,
-            entity_list::update_entity_button_colors,
-        ));
-    }
-}
-
 /// Plugin for component inspector panel  
 #[derive(Default)]
 pub struct ComponentInspectorPlugin;

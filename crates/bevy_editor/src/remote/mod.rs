@@ -35,12 +35,14 @@ pub mod types;
 pub mod client;
 pub mod connection;
 pub mod entity_naming;
+pub mod entity_grouping;
 
 use bevy::prelude::*;
 pub use types::*;
 pub use client::*;
 pub use connection::*;
 pub use entity_naming::*;
+pub use entity_grouping::*;
 
 /// Plugin that handles remote connection functionality
 #[derive(Default)]

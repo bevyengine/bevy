@@ -11,7 +11,7 @@ use super::types::RemoteEntity;
 use serde_json::Value;
 
 /// Component precedence levels for naming
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 pub enum ComponentPrecedence {
     /// Built-in Name component - highest priority
     Name = 0,
@@ -34,17 +34,11 @@ pub struct NamingComponent {
 }
 
 /// Generate a smart display name for an entity based on its components
-pub fn generate_entity_display_name(entity: &RemoteEntity, component_data: Option<&Value>) -> String {
+pub fn generate_entity_display_name(entity: &RemoteEntity, _component_data: Option<&Value>) -> String {
     let mut best_naming: Option<NamingComponent> = None;
     
-    // First check if we have component data with actual Name values
-    if let Some(data) = component_data {
-        if let Some(name_value) = extract_name_from_component_data(data) {
-            return format!("#{} ({})", entity.id, name_value);
-        }
-    }
     
-    // Analyze available components to find the best naming option
+    // First check component names (short forms)
     for component_name in &entity.components {
         if let Some(naming) = analyze_component_for_naming(component_name) {
             if best_naming.is_none() || naming.precedence < best_naming.as_ref().unwrap().precedence {
@@ -53,7 +47,7 @@ pub fn generate_entity_display_name(entity: &RemoteEntity, component_data: Optio
         }
     }
     
-    // Also check full component names for more accurate detection
+    // Then check full component names if we haven't found anything good yet
     for full_component_name in &entity.full_component_names {
         if let Some(naming) = analyze_component_for_naming(full_component_name) {
             if best_naming.is_none() || naming.precedence < best_naming.as_ref().unwrap().precedence {
@@ -62,15 +56,22 @@ pub fn generate_entity_display_name(entity: &RemoteEntity, component_data: Optio
         }
     }
     
-    match best_naming {
+    let result = match best_naming {
         Some(naming) if naming.precedence != ComponentPrecedence::EntityId => {
             format!("#{} ({})", entity.id, naming.display_name)
         }
         _ => {
-            // Fallback to entity ID
-            format!("Entity {}", entity.id)
+            // Check if entity has no components at all
+            if entity.components.is_empty() && entity.full_component_names.is_empty() {
+                format!("#{} (EMPTY)", entity.id)
+            } else {
+                // Fallback to entity ID only
+                format!("#{}", entity.id)
+            }
         }
-    }
+    };
+    
+    result
 }
 
 /// Extract the actual name value from component data JSON
@@ -98,7 +99,7 @@ fn extract_name_from_component_data(component_data: &Value) -> Option<String> {
 }
 
 /// Analyze a component name to determine if it can provide entity naming
-fn analyze_component_for_naming(component_name: &str) -> Option<NamingComponent> {
+pub fn analyze_component_for_naming(component_name: &str) -> Option<NamingComponent> {
     // Remove module paths for analysis
     let clean_name = component_name
         .split("::")
@@ -151,6 +152,26 @@ fn analyze_component_for_naming(component_name: &str) -> Option<NamingComponent>
             precedence: ComponentPrecedence::PrimaryBevy,
             display_name: "Audio Source".to_string(),
         }),
+        "PointerId" => Some(NamingComponent {
+            name: component_name.to_string(),
+            precedence: ComponentPrecedence::PrimaryBevy,
+            display_name: "Pointer".to_string(),
+        }),
+        "PointerInteraction" => Some(NamingComponent {
+            name: component_name.to_string(),
+            precedence: ComponentPrecedence::PrimaryBevy,
+            display_name: "Pointer".to_string(),
+        }),
+        "PointerLocation" => Some(NamingComponent {
+            name: component_name.to_string(),
+            precedence: ComponentPrecedence::PrimaryBevy,
+            display_name: "Pointer".to_string(),
+        }),
+        "PointerPress" => Some(NamingComponent {
+            name: component_name.to_string(),
+            precedence: ComponentPrecedence::PrimaryBevy,
+            display_name: "Pointer".to_string(),
+        }),
         
         // Secondary Bevy components (lower priority)
         "Mesh3d" | "Mesh2d" => Some(NamingComponent {
@@ -189,6 +210,13 @@ fn analyze_component_for_naming(component_name: &str) -> Option<NamingComponent>
             display_name: "UI Node".to_string(),
         }),
         
+        // Geometry/Physics components that might be meaningful when standalone
+        "Aabb" => Some(NamingComponent {
+            name: component_name.to_string(),
+            precedence: ComponentPrecedence::SecondaryBevy,
+            display_name: "Aabb".to_string(),
+        }),
+        
         _ => {
             // Check if it's likely a user component (not starting with common Bevy prefixes)
             if !is_bevy_builtin_component(component_name) {
@@ -217,13 +245,44 @@ fn is_bevy_builtin_component(component_name: &str) -> bool {
     let has_bevy_prefix = bevy_prefixes.iter().any(|prefix| component_name.starts_with(prefix));
     let is_common_bevy = matches!(component_name.split("::").last().unwrap_or(""), 
         "Transform" | "GlobalTransform" | "Visibility" | "InheritedVisibility" | 
-        "ViewVisibility" | "ComputedVisibility" | "Parent" | "Children" | "Aabb" |
+        "ViewVisibility" | "ComputedVisibility" | "Parent" | "Children" |
         "TransformTreeChanged" | "Frustum" | "Projection" | "VisibleEntities" |
         "DebandDither" | "Tonemapping" | "ClusterConfig" | "RenderEntity" | 
-        "SyncToRenderWorld" | "Msaa" | "CubemapFrusta" | "CubemapVisibleEntities"
+        "SyncToRenderWorld" | "Msaa" | "CubemapFrusta" | "CubemapVisibleEntities" |
+        "PickingInteraction" | "CursorOptions" | "PrimaryWindow"
     );
     
     has_bevy_prefix || is_common_bevy
+}
+
+/// Check if an entity has meaningful naming (not just an ID fallback)
+pub fn entity_has_meaningful_name(entity: &RemoteEntity, component_data: Option<&Value>) -> bool {
+    // First check if we have component data with actual Name values
+    if let Some(data) = component_data {
+        if extract_name_from_component_data(data).is_some() {
+            return true;
+        }
+    }
+    
+    // Check if any component provides meaningful naming
+    for component_name in &entity.components {
+        if let Some(naming) = analyze_component_for_naming(component_name) {
+            if naming.precedence != ComponentPrecedence::EntityId {
+                return true;
+            }
+        }
+    }
+    
+    // Also check full component names
+    for full_component_name in &entity.full_component_names {
+        if let Some(naming) = analyze_component_for_naming(full_component_name) {
+            if naming.precedence != ComponentPrecedence::EntityId {
+                return true;
+            }
+        }
+    }
+    
+    false
 }
 
 #[cfg(test)]
@@ -282,7 +341,8 @@ mod tests {
         };
         
         let display_name = generate_entity_display_name(&entity, None);
-        assert_eq!(display_name, "Entity 789");
+        // These are common Bevy components with no meaningful naming, so fallback to ID
+        assert_eq!(display_name, "#789");
     }
     
     #[test]
@@ -310,5 +370,78 @@ mod tests {
         // User component "Cube" should take precedence over all Bevy components including Aabb
         assert_eq!(display_name, "#42 (Cube)");
         println!("Cube entity correctly named: {}", display_name);
+    }
+    
+    #[test]
+    fn test_entity_meaningful_name_detection() {
+        // Entity with meaningful name (user component)
+        let meaningful_entity = RemoteEntity {
+            id: 100,
+            components: vec!["Player".to_string(), "Transform".to_string()],
+            full_component_names: vec!["my_game::Player".to_string(), "bevy_transform::components::Transform".to_string()],
+        };
+        
+        // Entity without meaningful name (only Bevy builtins)
+        let generic_entity = RemoteEntity {
+            id: 200,
+            components: vec!["Transform".to_string(), "Visibility".to_string()],
+            full_component_names: vec!["bevy_transform::components::Transform".to_string(), "bevy_render::view::visibility::Visibility".to_string()],
+        };
+        
+        assert!(entity_has_meaningful_name(&meaningful_entity, None));
+        assert!(!entity_has_meaningful_name(&generic_entity, None));
+        
+        println!("Meaningful entity: {}", generate_entity_display_name(&meaningful_entity, None));
+        println!("Generic entity: {}", generate_entity_display_name(&generic_entity, None));
+    }
+    
+    #[test]
+    fn test_empty_entity_naming() {
+        // Entity with no components
+        let empty_entity = RemoteEntity {
+            id: 999,
+            components: vec![],
+            full_component_names: vec![],
+        };
+        
+        let display_name = generate_entity_display_name(&empty_entity, None);
+        assert_eq!(display_name, "#999 (EMPTY)");
+        println!("Empty entity: {}", display_name);
+    }
+    
+    #[test]
+    fn test_aabb_entity_naming() {
+        // Entity with mainly collision/geometry components
+        let aabb_entity = RemoteEntity {
+            id: 555,
+            components: vec!["Aabb".to_string(), "Transform".to_string(), "Visibility".to_string()],
+            full_component_names: vec![
+                "bevy_math::bounding::Aabb".to_string(),
+                "bevy_transform::components::Transform".to_string(),
+                "bevy_render::view::visibility::Visibility".to_string()
+            ],
+        };
+        
+        let display_name = generate_entity_display_name(&aabb_entity, None);
+        assert_eq!(display_name, "#555 (Aabb)");
+        println!("Aabb entity: {}", display_name);
+    }
+    
+    #[test]
+    fn test_window_precedence_over_picking() {
+        // Entity with Window and picking components - Window should win
+        let window_entity = RemoteEntity {
+            id: 777,
+            components: vec!["Window".to_string(), "PickingInteraction".to_string(), "CursorOptions".to_string()],
+            full_component_names: vec![
+                "bevy_window::window::Window".to_string(),
+                "bevy_picking::pointer::PickingInteraction".to_string(),
+                "bevy_window::window::CursorOptions".to_string()
+            ],
+        };
+        
+        let display_name = generate_entity_display_name(&window_entity, None);
+        assert_eq!(display_name, "#777 (Window)");
+        println!("Window entity: {}", display_name);
     }
 }
