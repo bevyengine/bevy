@@ -2,9 +2,9 @@
 //!
 //! Press Space to cycle through the reflection modes:
 //!
-//! 1. A pre-generated [EnvironmentMapLight] acting as a reflection probe, with both the skybox and cubes
-//! 2. A runtime-generated [GeneratedEnvironmentMapLight] acting as a reflection probe with just the skybox
-//! 3. A pre-generated [EnvironmentMapLight] with just the skybox
+//! 1. A pre-generated [`EnvironmentMapLight`] acting as a reflection probe, with both the skybox and cubes
+//! 2. A runtime-generated [`GeneratedEnvironmentMapLight`] acting as a reflection probe with just the skybox
+//! 3. A pre-generated [`EnvironmentMapLight`] with just the skybox
 //!
 //! Press Enter to pause or resume rotation.
 //!

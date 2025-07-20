@@ -1,4 +1,4 @@
-//! Realtime environment map filtering.
+//! Like [`EnvironmentMapLight`], but filtered in realtime from a cubemap.
 //!
 //! An environment map needs to be processed to be able to support uses beyond a simple skybox,
 //! such as reflections, and ambient light contribution.
