@@ -2,11 +2,7 @@ use super::{
     CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline, ComputePipelineDescriptor,
     PipelineCache, RenderPipeline, RenderPipelineDescriptor,
 };
-use bevy_ecs::{
-    error::BevyError,
-    resource::Resource,
-    world::{FromWorld, World},
-};
+use bevy_ecs::error::BevyError;
 use bevy_platform::{
     collections::{
         hash_map::{Entry, VacantEntry},
@@ -260,113 +256,22 @@ macro_rules! impl_specialization_key_tuple {
 // TODO: How to we fake_variadics this?
 all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 
-/// Defines a specializer that can also provide a "base descriptor".
-///
-/// In order to be composable, [`Specializer`] implementers don't create full
-/// descriptors, only transform them. However, [`SpecializedCache`]s need a
-/// "base descriptor" at creation time in order to have something for the
-/// [`Specializer`] to work off of. This trait allows [`SpecializedCache`]
-/// to impl [`FromWorld`] for [`Specializer`]s that also satisfy [`FromWorld`]
-/// and [`GetBaseDescriptor`].
-///
-/// This trait can be also derived with `#[derive(Specializer)]`, by marking
-/// a field with `#[base_descriptor]` to use its [`GetBaseDescriptor`] implementation.
-///
-/// Example:
-/// ```rust
-/// # use bevy_ecs::error::BevyError;
-/// # use bevy_render::render_resource::Specializer;
-/// # use bevy_render::render_resource::GetBaseDescriptor;
-/// # use bevy_render::render_resource::SpecializerKey;
-/// # use bevy_render::render_resource::RenderPipeline;
-/// # use bevy_render::render_resource::RenderPipelineDescriptor;
-/// struct A;
-/// struct B;
-///
-/// impl Specializer<RenderPipeline> for A {
-/// #   type Key = ();
-/// #
-/// #   fn specialize(
-/// #       &self,
-/// #       key: (),
-/// #       _descriptor: &mut RenderPipelineDescriptor
-/// #   ) -> Result<(), BevyError> {
-/// #       Ok(key)
-/// #   }
-///     // ...
-/// }
-///
-/// impl Specializer<RenderPipeline> for B {
-/// #   type Key = ();
-/// #
-/// #   fn specialize(
-/// #       &self,
-/// #       key: (),
-/// #       _descriptor: &mut RenderPipelineDescriptor
-/// #   ) -> Result<(), BevyError> {
-/// #       Ok(key)
-/// #   }
-///     // ...
-/// }
-///
-/// impl GetBaseDescriptor<RenderPipeline> for B {
-///     fn get_base_descriptor(&self) -> RenderPipelineDescriptor {
-/// #       todo!()
-///         // ...
-///     }
-/// }
-///
-///
-/// #[derive(Specializer)]
-/// #[specialize(RenderPipeline)]
-/// struct C {
-///     a: A,
-///     #[base_descriptor]
-///     b: B,
-/// }
-///
-/// /*
-/// The generated implementation:
-/// impl GetBaseDescriptor for C {
-///     fn get_base_descriptor(&self) -> RenderPipelineDescriptor {
-///         self.b.base_descriptor()
-///     }
-/// }
-/// */
-/// ```
-pub trait GetBaseDescriptor<T: Specializable>: Specializer<T> {
-    fn get_base_descriptor(&self) -> T::Descriptor;
-}
-
-pub type SpecializerFn<T, S> =
-    fn(<S as Specializer<T>>::Key, &mut <T as Specializable>::Descriptor) -> Result<(), BevyError>;
-
 /// A cache for specializable resources. For a given key type the resulting
 /// resource will only be created if it is missing, retrieving it from the
 /// cache otherwise.
-#[derive(Resource)]
 pub struct SpecializedCache<T: Specializable, S: Specializer<T>> {
     specializer: S,
-    user_specializer: Option<SpecializerFn<T, S>>,
     base_descriptor: T::Descriptor,
     primary_cache: HashMap<S::Key, T::CachedId>,
     secondary_cache: HashMap<Canonical<S::Key>, T::CachedId>,
 }
 
 impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
-    /// Creates a new [`SpecializedCache`] from a [`Specializer`],
-    /// an optional "user specializer", and a base descriptor. The
-    /// user specializer is applied after the [`Specializer`], with
-    /// the same key.
+    /// Creates a new [`SpecializedCache`] from a [`Specializer`] and a base descriptor.
     #[inline]
-    pub fn new(
-        specializer: S,
-        user_specializer: Option<SpecializerFn<T, S>>,
-        base_descriptor: T::Descriptor,
-    ) -> Self {
+    pub fn new(specializer: S, base_descriptor: T::Descriptor) -> Self {
         Self {
             specializer,
-            user_specializer,
             base_descriptor,
             primary_cache: Default::default(),
             secondary_cache: Default::default(),
@@ -385,7 +290,6 @@ impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
             Entry::Occupied(entry) => Ok(entry.get().clone()),
             Entry::Vacant(entry) => Self::specialize_slow(
                 &self.specializer,
-                self.user_specializer,
                 self.base_descriptor.clone(),
                 pipeline_cache,
                 key,
@@ -398,7 +302,6 @@ impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
     #[cold]
     fn specialize_slow(
         specializer: &S,
-        user_specializer: Option<SpecializerFn<T, S>>,
         base_descriptor: T::Descriptor,
         pipeline_cache: &PipelineCache,
         key: S::Key,
@@ -407,10 +310,6 @@ impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
     ) -> Result<T::CachedId, BevyError> {
         let mut descriptor = base_descriptor.clone();
         let canonical_key = specializer.specialize(key.clone(), &mut descriptor)?;
-
-        if let Some(user_specializer) = user_specializer {
-            (user_specializer)(key, &mut descriptor)?;
-        }
 
         // if the whole key is canonical, the secondary cache isn't needed.
         if <S::Key as SpecializerKey>::IS_CANONICAL {
@@ -445,21 +344,5 @@ impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
 
         primary_entry.insert(id.clone());
         Ok(id)
-    }
-}
-
-/// [`SpecializedCache`] implements [`FromWorld`] for [`Specializer`]s
-/// that also satisfy [`FromWorld`] and [`GetBaseDescriptor`]. This will
-/// create a [`SpecializedCache`] with no user specializer, and the base
-/// descriptor take from the specializer's [`GetBaseDescriptor`] implementation.
-impl<T, S> FromWorld for SpecializedCache<T, S>
-where
-    T: Specializable,
-    S: FromWorld + Specializer<T> + GetBaseDescriptor<T>,
-{
-    fn from_world(world: &mut World) -> Self {
-        let specializer = S::from_world(world);
-        let base_descriptor = specializer.get_base_descriptor();
-        Self::new(specializer, None, base_descriptor)
     }
 }
