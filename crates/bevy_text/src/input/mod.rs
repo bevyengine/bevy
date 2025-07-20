@@ -504,7 +504,7 @@ pub fn update_password_masks(
 }
 
 #[derive(Debug)]
-pub struct FixedLayoutRunIter<'b> {
+pub struct ScrollingLayoutRunIter<'b> {
     buffer: &'b Buffer,
     line_i: usize,
     layout_i: usize,
@@ -512,7 +512,7 @@ pub struct FixedLayoutRunIter<'b> {
     line_top: f32,
 }
 
-impl<'b> FixedLayoutRunIter<'b> {
+impl<'b> ScrollingLayoutRunIter<'b> {
     pub fn new(buffer: &'b Buffer) -> Self {
         Self {
             buffer,
@@ -524,7 +524,7 @@ impl<'b> FixedLayoutRunIter<'b> {
     }
 }
 
-impl<'b> Iterator for FixedLayoutRunIter<'b> {
+impl<'b> Iterator for ScrollingLayoutRunIter<'b> {
     type Item = cosmic_text::LayoutRun<'b>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -621,7 +621,7 @@ pub fn update_text_input_layouts(
                     ));
                 }
 
-                let result = FixedLayoutRunIter::new(buffer).try_for_each(|run| {
+                let result = ScrollingLayoutRunIter::new(buffer).try_for_each(|run| {
                     if let Some(selection) = selection {
                         if let Some((x0, w)) = run.highlight(selection.0, selection.1) {
                             let y0 = run.line_top;
