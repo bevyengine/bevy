@@ -68,8 +68,6 @@ impl RenderGraphRunner {
         render_device: RenderDevice,
         mut diagnostics_recorder: Option<DiagnosticsRecorder>,
         queue: &wgpu::Queue,
-        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        adapter: &wgpu::Adapter,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
     ) -> Result<Option<DiagnosticsRecorder>, RenderGraphRunnerError> {
@@ -79,8 +77,6 @@ impl RenderGraphRunner {
 
         let mut render_context = RenderContext::new(
             render_device,
-            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-            adapter.get_info(),
             diagnostics_recorder,
         );
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
