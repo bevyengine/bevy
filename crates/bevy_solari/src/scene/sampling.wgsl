@@ -1,52 +1,8 @@
 #define_import_path bevy_solari::sampling
 
-#import bevy_pbr::utils::{rand_f, rand_vec2f, rand_range_u, build_orthonormal_basis}
-#import bevy_render::maths::{PI, PI_2}
+#import bevy_pbr::utils::{rand_vec2f, rand_range_u}
+#import bevy_render::maths::PI_2
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full}
-
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec28%3A303
-fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
-    let cos_theta = 1.0 - 2.0 * rand_f(rng);
-    let phi = PI_2 * rand_f(rng);
-    let sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
-    let x = normal.x + sin_theta * cos(phi);
-    let y = normal.y + sin_theta * sin(phi);
-    let z = normal.z + cos_theta;
-    return vec3(x, y, z);
-}
-
-// https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#UniformlySamplingaHemisphere
-fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
-    let cos_theta = rand_f(rng);
-    let phi = PI_2 * rand_f(rng);
-    let sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
-    let x = sin_theta * cos(phi);
-    let y = sin_theta * sin(phi);
-    let z = cos_theta;
-    return build_orthonormal_basis(normal) * vec3(x, y, z);
-}
-
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294
-fn sample_disk(disk_radius: f32, rng: ptr<function, u32>) -> vec2<f32> {
-    let ab = 2.0 * rand_vec2f(rng) - 1.0;
-    let a = ab.x;
-    var b = ab.y;
-    if (b == 0.0) { b = 1.0; }
-
-    var phi: f32;
-    var r: f32;
-    if (a * a > b * b) {
-        r = disk_radius * a;
-        phi = (PI / 4.0) * (b / a);
-    } else {
-        r = disk_radius * b;
-        phi = (PI / 2.0) - (PI / 4.0) * (a / b);
-    }
-
-    let x = r * cos(phi);
-    let y = r * sin(phi);
-    return vec2(x, y);
-}
 
 struct SampleRandomLightResult {
     radiance: vec3<f32>,
@@ -207,4 +163,14 @@ fn triangle_barycentrics(random: vec2<f32>) -> vec3<f32> {
     var barycentrics = random;
     if barycentrics.x + barycentrics.y > 1.0 { barycentrics = 1.0 - barycentrics; }
     return vec3(1.0 - barycentrics.x - barycentrics.y, barycentrics);
+}
+
+// https://jcgt.org/published/0006/01/01/paper.pdf
+fn build_orthonormal_basis(normal: vec3<f32>) -> mat3x3<f32> {
+    let sign = select(-1.0, 1.0, normal.z >= 0.0);
+    let a = -1.0 / (sign + normal.z);
+    let b = normal.x * normal.y * a;
+    let tangent = vec3(1.0 + sign * normal.x * normal.x * a, sign * b, -sign * normal.x);
+    let bitangent = vec3(b, sign + normal.y * normal.y * a, -normal.y);
+    return mat3x3(tangent, bitangent, normal);
 }

@@ -1,9 +1,12 @@
 //! This example shows how to place reflection probes in the scene.
 //!
-//! Press Space to cycle through the reflection modes: an environment-map mode
-//! that shows only the skybox, a reflection-probe mode that reflects both the
-//! skybox and the cubes, and a generated environment map mode that filters an
-//! unfiltered cubemap on the GPU. Press Enter to pause or resume rotation.
+//! Press Space to cycle through the reflection modes:
+//!
+//! 1. A pre-generated [EnvironmentMapLight] acting as a reflection probe, with both the skybox and cubes
+//! 2. A runtime-generated [GeneratedEnvironmentMapLight] acting as a reflection probe with just the skybox
+//! 3. A pre-generated [EnvironmentMapLight] with just the skybox
+//!
+//! Press Enter to pause or resume rotation.
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
@@ -91,12 +94,14 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
     app_status: Res<AppStatus>,
     cubemaps: Res<Cubemaps>,
 ) {
     spawn_camera(&mut commands);
     spawn_sphere(&mut commands, &mut meshes, &mut materials, &app_status);
     spawn_reflection_probe(&mut commands, &cubemaps);
+    spawn_scene(&mut commands, &asset_server);
     spawn_text(&mut commands, &app_status);
 }
 
@@ -250,7 +255,7 @@ fn change_reflection_type(
                         environment_map: cubemaps.specular_environment_map.clone(),
                         // compensate for the energy loss of the reverse tonemapping
                         // during filtering by using a higher intensity
-                        intensity: 6000.0,
+                        intensity: 5000.0,
                         ..default()
                     });
             }

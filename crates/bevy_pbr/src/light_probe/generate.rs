@@ -1,25 +1,16 @@
-//! Generated environment map filtering.
+//! Realtime environment map filtering.
 //!
-//! A *generated environment map* converts a single, high-resolution cubemap
-//! into the pair of diffuse and specular cubemaps required by the PBR
-//! shader. Add [`bevy_light::GeneratedEnvironmentMapLight`] to a camera
-//! and Bevy will, each frame, generate the diffuse and specular cubemaps
-//! required by the PBR shader.
+//! An environment map needs to be processed to be able to support uses beyond a simple skybox,
+//! such as reflections, and ambient light contribution.
+//! This process is called filtering, and can either be done ahead of time (prefiltering), or
+//! in realtime, although at a reduced quality. Prefiltering is preferred, but not always possible:
+//! sometimes you only gain access to an environment map at runtime, for whatever reason.
+//! Typically this is from realtime reflection probes, but can also be from other sources.
 //!
-//! 1. Copy the base mip (level 0) of the source cubemap into an intermediate
-//!    storage texture.
-//! 2. Generate mipmaps using single-pass down-sampling (SPD).
-//! 3. Convolve the mip chain twice:
-//!    * a Lambertian convolution for the 32 × 32 diffuse cubemap
-//!    * a GGX convolution, once per mip level, for the specular cubemap.
-//!
-//! The filtered results are then consumed exactly like the textures supplied
-//! by [`bevy_light::EnvironmentMapLight`]. This is useful when you only have a
-//! raw HDR environment map or when you need reflections generated at run time.
-//!
-//! [single-pass down-sampling]: <SPD-paper-URL>
-//! [Lambertian convolution]: <reference-URL>
-//! [GGX convolution]: <reference-URL>
+//! In any case, Bevy supports both modes of filtering.
+//! This module provides realtime filtering via [`bevy_light::GeneratedEnvironmentMapLight`].
+//! For prefiltered environment maps, see [`bevy_light::EnvironmentMapLight`].
+//! These components are intended to be added to a camera.
 use bevy_asset::{load_embedded_asset, uuid_handle, AssetServer, Assets, Handle};
 use bevy_ecs::{
     component::Component,
@@ -30,8 +21,9 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::Image;
-use bevy_math::{Quat, Vec2};
+use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel},
     render_resource::{
@@ -49,6 +41,20 @@ use bevy_render::{
     texture::{CachedTexture, GpuImage, TextureCache},
     Extract,
 };
+
+// Implementation: generate diffuse and specular cubemaps required by PBR
+// from a given high-res cubemap by
+//
+// 1. Copying the base mip (level 0) of the source cubemap into an intermediate
+//    storage texture.
+// 2. Generating mipmaps using [single-pass down-sampling] (SPD).
+// 3. Convolving the mip chain twice:
+//    * a [Lambertian convolution] for the 32 × 32 diffuse cubemap
+//    * a [GGX convolution], once per mip level, for the specular cubemap.
+//
+// [single-pass down-sampling]: https://gpuopen.com/fidelityfx-spd/
+// [Lambertian convolution]: https://bruop.github.io/ibl/#:~:text=Lambertian%20Diffuse%20Component
+// [GGX convolution]: https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
 
 use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
 use core::cmp::min;
@@ -91,174 +97,96 @@ pub struct GeneratorPipelines {
 
 /// Initializes all render-world resources used by the environment-map generator once on
 /// [`bevy_render::RenderStartup`].
-pub fn init_generator_resources(
+pub fn initialize_generated_environment_map_resources(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     asset_server: Res<AssetServer>,
 ) {
+    let mips =
+        texture_storage_2d_array(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly);
     // Bind group layouts
     let spd = render_device.create_bind_group_layout(
         "spd_bind_group_layout",
-        &BindGroupLayoutEntries::with_indices(
+        &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                (
-                    0,
-                    texture_2d_array(TextureSampleType::Float { filterable: true }),
-                ), // Source texture
-                (
-                    1,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 1
-                (
-                    2,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 2
-                (
-                    3,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 3
-                (
-                    4,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 4
-                (
-                    5,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 5
-                (
-                    6,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::ReadWrite,
-                    ),
-                ), // Output mip 6
-                (
-                    7,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 7
-                (
-                    8,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 8
-                (
-                    9,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 9
-                (
-                    10,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 10
-                (
-                    11,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 11
-                (
-                    12,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output mip 12
-                (13, sampler(SamplerBindingType::Filtering)), // Linear sampler
-                (14, uniform_buffer::<SpdConstants>(false)),  // Uniforms
+                // Source texture
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                mips, // Output mip 1
+                mips, // Output mip 2
+                mips, // Output mip 3
+                mips, // Output mip 4
+                mips, // Output mip 5
+                // Output mip 6
+                texture_storage_2d_array(
+                    TextureFormat::Rgba16Float,
+                    StorageTextureAccess::ReadWrite,
+                ),
+                mips, // Output mip 7
+                mips, // Output mip 8
+                mips, // Output mip 9
+                mips, // Output mip 10
+                mips, // Output mip 11
+                mips, // Output mip 12
+                // Linear sampler
+                sampler(SamplerBindingType::Filtering),
+                // Uniforms
+                uniform_buffer::<SpdConstants>(false),
             ),
         ),
     );
 
     let radiance = render_device.create_bind_group_layout(
         "radiance_bind_group_layout",
-        &BindGroupLayoutEntries::with_indices(
+        &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                (
-                    0,
-                    texture_2d_array(TextureSampleType::Float { filterable: true }),
-                ), // Source environment cubemap
-                (1, sampler(SamplerBindingType::Filtering)), // Source sampler
-                (
-                    2,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output specular map
-                (3, uniform_buffer::<FilteringConstants>(false)), // Uniforms
-                (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
+                // Source environment cubemap
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering), // Source sampler
+                // Output specular map
+                texture_storage_2d_array(
+                    TextureFormat::Rgba16Float,
+                    StorageTextureAccess::WriteOnly,
+                ),
+                uniform_buffer::<FilteringConstants>(false), // Uniforms
+                texture_2d(TextureSampleType::Float { filterable: true }), // Blue noise texture
             ),
         ),
     );
 
     let irradiance = render_device.create_bind_group_layout(
         "irradiance_bind_group_layout",
-        &BindGroupLayoutEntries::with_indices(
+        &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                (
-                    0,
-                    texture_2d_array(TextureSampleType::Float { filterable: true }),
-                ), // Source environment cubemap
-                (1, sampler(SamplerBindingType::Filtering)), // Source sampler
-                (
-                    2,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output irradiance map
-                (3, uniform_buffer::<FilteringConstants>(false)), // Uniforms
-                (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
+                // Source environment cubemap
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering), // Source sampler
+                // Output irradiance map
+                texture_storage_2d_array(
+                    TextureFormat::Rgba16Float,
+                    StorageTextureAccess::WriteOnly,
+                ),
+                uniform_buffer::<FilteringConstants>(false), // Uniforms
+                texture_2d(TextureSampleType::Float { filterable: true }), // Blue noise texture
             ),
         ),
     );
 
     let copy = render_device.create_bind_group_layout(
         "copy_mip0_bind_group_layout",
-        &BindGroupLayoutEntries::with_indices(
+        &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                (
-                    0,
-                    texture_2d_array(TextureSampleType::Float { filterable: true }),
-                ), // Source cubemap
-                (
-                    1,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Destination mip0
+                // Source cubemap
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                // Destination mip0
+                texture_storage_2d_array(
+                    TextureFormat::Rgba16Float,
+                    StorageTextureAccess::WriteOnly,
+                ),
             ),
         ),
     );
@@ -365,7 +293,7 @@ pub fn init_generator_resources(
     commands.insert_resource(pipelines);
 }
 
-pub fn extract_generator_entities(
+pub fn extract_generated_environment_map_entities(
     query: Extract<
         Query<(
             RenderEntity,
@@ -432,7 +360,7 @@ fn compute_mip_count(size: u32) -> u32 {
 }
 
 /// Prepares textures needed for single pass downsampling
-pub fn prepare_intermediate_textures(
+pub fn prepare_generated_environment_map_intermediate_textures(
     light_probes: Query<(Entity, &RenderEnvironmentMap)>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
@@ -484,7 +412,7 @@ pub struct FilteringConstants {
     mip_level: f32,
     sample_count: u32,
     roughness: f32,
-    blue_noise_size: Vec2,
+    noise_size_bits: UVec2,
 }
 
 /// Stores bind groups for the environment map generation pipelines
@@ -497,7 +425,7 @@ pub struct GeneratorBindGroups {
 }
 
 /// Prepares bind groups for environment map generation pipelines
-pub fn prepare_generator_bind_groups(
+pub fn prepare_generated_environment_map_bind_groups(
     light_probes: Query<
         (Entity, &IntermediateTextures, &RenderEnvironmentMap),
         With<RenderEnvironmentMap>,
@@ -510,9 +438,11 @@ pub fn prepare_generator_bind_groups(
     mut commands: Commands,
 ) {
     let stbn_texture = render_images.get(&STBN).expect("STBN texture not loaded");
-    let texture_size = Vec2::new(
-        stbn_texture.size.width as f32,
-        stbn_texture.size.height as f32,
+    assert!(stbn_texture.size.width.is_power_of_two());
+    assert!(stbn_texture.size.height.is_power_of_two());
+    let noise_size_bits = UVec2::new(
+        stbn_texture.size.width.trailing_zeros(),
+        stbn_texture.size.height.trailing_zeros(),
     );
 
     for (entity, textures, env_map_light) in &light_probes {
@@ -540,111 +470,35 @@ pub fn prepare_generator_bind_groups(
                     ..Default::default()
                 });
 
+        let mip_storage = |level| {
+            create_storage_view(
+                &textures.environment_map.texture,
+                min(level, last_mip),
+                &render_device,
+            )
+        };
+
         let spd_bind_group = render_device.create_bind_group(
             "spd_bind_group",
             &layouts.spd,
-            &BindGroupEntries::with_indices((
+            &BindGroupEntries::sequential((
                 // Source mip0
-                (0, &input_env_map),
+                &input_env_map,
                 // Destination mips 1 – 12 (duplicate the last valid view if the chain is shorter)
-                (
-                    1,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(1, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    2,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(2, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    3,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(3, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    4,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(4, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    5,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(5, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    6,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(6, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    7,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(7, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    8,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(8, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    9,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(9, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    10,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(10, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    11,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(11, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (
-                    12,
-                    &create_storage_view(
-                        &textures.environment_map.texture,
-                        min(12, last_mip),
-                        &render_device,
-                    ),
-                ),
-                (13, &samplers.linear),
-                (14, &spd_constants_buffer),
+                &mip_storage(1),
+                &mip_storage(2),
+                &mip_storage(3),
+                &mip_storage(4),
+                &mip_storage(5),
+                &mip_storage(6),
+                &mip_storage(7),
+                &mip_storage(8),
+                &mip_storage(9),
+                &mip_storage(10),
+                &mip_storage(11),
+                &mip_storage(12),
+                &samplers.linear,
+                &spd_constants_buffer,
             )),
         );
 
@@ -662,7 +516,7 @@ pub fn prepare_generator_bind_groups(
                 mip_level: mip as f32,
                 sample_count,
                 roughness,
-                blue_noise_size: texture_size,
+                noise_size_bits,
             };
 
             let mut radiance_constants_buffer = UniformBuffer::from(radiance_constants);
@@ -676,12 +530,12 @@ pub fn prepare_generator_bind_groups(
             let bind_group = render_device.create_bind_group(
                 Some(format!("radiance_bind_group_mip_{mip}").as_str()),
                 &layouts.radiance,
-                &BindGroupEntries::with_indices((
-                    (0, &textures.environment_map.default_view),
-                    (1, &samplers.linear),
-                    (2, &mip_storage_view),
-                    (3, &radiance_constants_buffer),
-                    (4, &stbn_texture.texture_view),
+                &BindGroupEntries::sequential((
+                    &textures.environment_map.default_view,
+                    &samplers.linear,
+                    &mip_storage_view,
+                    &radiance_constants_buffer,
+                    &stbn_texture.texture_view,
                 )),
             );
 
@@ -694,7 +548,7 @@ pub fn prepare_generator_bind_groups(
             // 32 phi, 32 theta = 1024 samples total
             sample_count: 1024,
             roughness: 1.0,
-            blue_noise_size: texture_size,
+            noise_size_bits,
         };
 
         let mut irradiance_constants_buffer = UniformBuffer::from(irradiance_constants);
@@ -713,12 +567,12 @@ pub fn prepare_generator_bind_groups(
         let irradiance_bind_group = render_device.create_bind_group(
             "irradiance_bind_group",
             &layouts.irradiance,
-            &BindGroupEntries::with_indices((
-                (0, &textures.environment_map.default_view),
-                (1, &samplers.linear),
-                (2, &irradiance_map),
-                (3, &irradiance_constants_buffer),
-                (4, &stbn_texture.texture_view),
+            &BindGroupEntries::sequential((
+                &textures.environment_map.default_view,
+                &samplers.linear,
+                &irradiance_map,
+                &irradiance_constants_buffer,
+                &stbn_texture.texture_view,
             )),
         );
 
@@ -806,6 +660,8 @@ impl Node for SpdNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
             // Copy base mip using compute shader with pre-built bind group
             let Some(copy_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.copy) else {
@@ -817,17 +673,22 @@ impl Node for SpdNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("copy_mip0_pass"),
+                            label: Some("lightprobe_copy_mip0_pass"),
                             timestamp_writes: None,
                         });
+
+                let pass_span =
+                    diagnostics.pass_span(&mut compute_pass, "lightprobe_copy_mip0_pass");
 
                 compute_pass.set_pipeline(copy_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
 
                 let tex_size = env_map_light.environment_map.size;
-                let wg_x = (tex_size.width / 8).max(1);
-                let wg_y = (tex_size.height / 8).max(1);
+                let wg_x = tex_size.width.div_ceil(8);
+                let wg_y = tex_size.height.div_ceil(8);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
+
+                pass_span.end(&mut compute_pass);
             }
 
             // First pass - process mips 0-5
@@ -836,17 +697,22 @@ impl Node for SpdNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("spd_first_pass"),
+                            label: Some("lightprobe_spd_first_pass"),
                             timestamp_writes: None,
                         });
+
+                let pass_span =
+                    diagnostics.pass_span(&mut compute_pass, "lightprobe_spd_first_pass");
 
                 compute_pass.set_pipeline(spd_first_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
                 let tex_size = env_map_light.environment_map.size;
-                let wg_x = (tex_size.width / 64).max(1);
-                let wg_y = (tex_size.height / 64).max(1);
+                let wg_x = tex_size.width.div_ceil(64);
+                let wg_y = tex_size.height.div_ceil(64);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6); // 6 faces
+
+                pass_span.end(&mut compute_pass);
             }
 
             // Second pass - process mips 6-12
@@ -855,17 +721,22 @@ impl Node for SpdNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("spd_second_pass"),
+                            label: Some("lightprobe_spd_second_pass"),
                             timestamp_writes: None,
                         });
+
+                let pass_span =
+                    diagnostics.pass_span(&mut compute_pass, "lightprobe_spd_second_pass");
 
                 compute_pass.set_pipeline(spd_second_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
                 let tex_size = env_map_light.environment_map.size;
-                let wg_x = (tex_size.width / 256).max(1);
-                let wg_y = (tex_size.height / 256).max(1);
+                let wg_x = tex_size.width.div_ceil(256);
+                let wg_y = tex_size.height.div_ceil(256);
                 compute_pass.dispatch_workgroups(wg_x, wg_y, 6);
+
+                pass_span.end(&mut compute_pass);
             }
         }
 
@@ -909,14 +780,19 @@ impl Node for RadianceMapNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         for (_, bind_groups, env_map_light) in self.query.iter_manual(world) {
             let mut compute_pass =
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("radiance_map_pass"),
+                        label: Some("lightprobe_radiance_map_pass"),
                         timestamp_writes: None,
                     });
+
+            let pass_span =
+                diagnostics.pass_span(&mut compute_pass, "lightprobe_radiance_map_pass");
 
             compute_pass.set_pipeline(radiance_pipeline);
 
@@ -928,11 +804,12 @@ impl Node for RadianceMapNode {
 
                 // Calculate dispatch size based on mip level
                 let mip_size = base_size >> mip;
-                let workgroup_count = mip_size.max(8) / 8;
+                let workgroup_count = mip_size.div_ceil(8);
 
                 // Dispatch for all 6 faces
                 compute_pass.dispatch_workgroups(workgroup_count, workgroup_count, 6);
             }
+            pass_span.end(&mut compute_pass);
         }
 
         Ok(())
@@ -971,20 +848,27 @@ impl Node for IrradianceMapNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         for (_, bind_groups) in self.query.iter_manual(world) {
             let mut compute_pass =
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("irradiance_map_pass"),
+                        label: Some("lightprobe_irradiance_map_pass"),
                         timestamp_writes: None,
                     });
+
+            let pass_span =
+                diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map_pass");
 
             compute_pass.set_pipeline(irradiance_pipeline);
             compute_pass.set_bind_group(0, &bind_groups.irradiance, &[]);
 
             // Dispatch workgroups - 32x32 texture with 8x8 workgroups
             compute_pass.dispatch_workgroups(4, 4, 6); // 6 faces
+
+            pass_span.end(&mut compute_pass);
         }
 
         Ok(())
