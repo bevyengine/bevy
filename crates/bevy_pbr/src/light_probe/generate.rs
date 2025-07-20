@@ -133,23 +133,19 @@ pub fn init_generator_resources(
 
     let radiance = render_device.create_bind_group_layout(
         "radiance_bind_group_layout",
-        &BindGroupLayoutEntries::with_indices(
+        &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                (
-                    0,
-                    texture_2d_array(TextureSampleType::Float { filterable: true }),
-                ), // Source environment cubemap
-                (1, sampler(SamplerBindingType::Filtering)), // Source sampler
-                (
-                    2,
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::WriteOnly,
-                    ),
-                ), // Output specular map
-                (3, uniform_buffer::<FilteringConstants>(false)), // Uniforms
-                (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
+                // Source environment cubemap
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering), // Source sampler
+                // Output specular map
+                texture_storage_2d_array(
+                    TextureFormat::Rgba16Float,
+                    StorageTextureAccess::WriteOnly,
+                ),
+                uniform_buffer::<FilteringConstants>(false), // Uniforms
+                texture_2d(TextureSampleType::Float { filterable: true }), // Blue noise texture
             ),
         ),
     );
