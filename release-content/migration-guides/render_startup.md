@@ -36,6 +36,9 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `PrepassViewBindGroup`
 - `Wireframe3dPipeline`
 - `MaterialPipeline`
+- `MeshletPipelines`
+- `MeshletMeshManager`
+- `ResourceManager`
 - `Wireframe2dPipeline`
 - `Material2dPipeline`
 - `SpritePipeline`
