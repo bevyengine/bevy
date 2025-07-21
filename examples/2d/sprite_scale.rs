@@ -143,7 +143,6 @@ fn setup_texture_atlas(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    commands.spawn(Camera2d);
     let gabe = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let animation_indices_gabe = AnimationIndices { first: 0, last: 6 };
     let gabe_atlas = TextureAtlas {
