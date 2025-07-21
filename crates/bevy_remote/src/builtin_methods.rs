@@ -1407,7 +1407,7 @@ pub fn process_remote_list_components_watching_request(
     }
 }
 
-fn export_registry_types_typed(
+fn build_registry_json_schema(
     filter: BrpJsonSchemaQueryFilter,
     world: &World,
 ) -> Result<JsonSchemaBevyType, BrpError> {
@@ -1493,7 +1493,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
         None => Default::default(),
         Some(params) => parse(params)?,
     };
-    let result = export_registry_types_typed(filter, world)?;
+    let result = build_registry_json_schema(filter, world)?;
     serde_json::to_value(result).map_err(BrpError::internal)
 }
 
@@ -1819,7 +1819,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(atr.clone());
         world.insert_resource(SchemaTypesMetadata::default());
-        let response = export_registry_types_ext(BrpJsonSchemaQueryFilter::default(), &world);
+        let response = unwrap_registry_json_schema(BrpJsonSchemaQueryFilter::default(), &world);
         let schema_value = serde_json::to_value(response).expect("Failed to serialize schema");
         let type_registry = atr.read();
         let serializer = ReflectSerializer::new(&value, &type_registry);
@@ -1885,7 +1885,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(atr);
         world.insert_resource(SchemaTypesMetadata::default());
-        let response = export_registry_types_ext(BrpJsonSchemaQueryFilter::default(), &world);
+        let response = unwrap_registry_json_schema(BrpJsonSchemaQueryFilter::default(), &world);
         let schema_value = serde_json::to_value(&response).unwrap();
         _ = jsonschema::options()
             .with_draft(jsonschema::Draft::Draft202012)
@@ -1898,7 +1898,7 @@ mod tests {
             response.definitions.keys().len(),
             serde_json::to_string_pretty(&response).unwrap_or_default()
         );
-        let response = export_registry_types_ext(
+        let response = unwrap_registry_json_schema(
             BrpJsonSchemaQueryFilter {
                 with_crates: vec!["glam".to_string()],
                 ..Default::default()
@@ -1918,7 +1918,7 @@ mod tests {
             let first = response.definitions.iter().next().expect("Should have one");
             assert_eq!(first.0, &TypeReferenceId::from("glam::Vec3"));
         }
-        let response = export_registry_types_ext(
+        let response = unwrap_registry_json_schema(
             BrpJsonSchemaQueryFilter {
                 with_crates: vec!["bevy_remote".to_string()],
                 ..Default::default()
@@ -1932,7 +1932,7 @@ mod tests {
             response.definitions.len(),
             response.definitions.keys()
         );
-        let response = export_registry_types_ext(
+        let response = unwrap_registry_json_schema(
             BrpJsonSchemaQueryFilter {
                 type_limit: JsonSchemaTypeLimit {
                     with: vec!["Component".to_string()],
@@ -1951,10 +1951,10 @@ mod tests {
         );
     }
 
-    fn export_registry_types_ext(
+    fn unwrap_registry_json_schema(
         input: BrpJsonSchemaQueryFilter,
         world: &World,
     ) -> JsonSchemaBevyType {
-        export_registry_types_typed(input, world).expect("Failed to export registry types")
+        build_registry_json_schema(input, world).expect("Failed to export registry types")
     }
 }

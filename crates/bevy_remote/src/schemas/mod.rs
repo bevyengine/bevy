@@ -135,7 +135,8 @@ pub(crate) trait RegisterReflectJsonSchemas {
         let data =
             CustomInternalSchemaData(InternalSchemaType::FieldsHolder(FieldsInformation::new(
                 struct_info.iter(),
-                reflect_info::FieldType::ForceUnnamed(struct_info.ty().id()),
+                reflect_info::FieldType::UnnamedRecursive,
+                struct_info.ty().id(),
             )));
         self.register_data_type_by_value::<T, CustomInternalSchemaData>(data);
     }

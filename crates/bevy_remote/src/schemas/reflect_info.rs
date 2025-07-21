@@ -83,24 +83,24 @@ pub(super) static BASE_TYPES_INFO: LazyLock<HashMap<TypeId, PrimitiveTypeInfo>> 
             (
                 TypeId::of::<i8>(),
                 PrimitiveTypeInfo {
-                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i8::MIN as i128))),
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i8::MAX as i128))),
+                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i8::MIN as i64))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i8::MAX as i64))),
                     ..PRIMITIVE_INTEGER
                 },
             ),
             (
                 TypeId::of::<i16>(),
                 PrimitiveTypeInfo {
-                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i16::MIN as i128))),
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i16::MAX as i128))),
+                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i16::MIN as i64))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i16::MAX as i64))),
                     ..PRIMITIVE_INTEGER
                 },
             ),
             (
                 TypeId::of::<i32>(),
                 PrimitiveTypeInfo {
-                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i32::MIN as i128))),
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i32::MAX as i128))),
+                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i32::MIN as i64))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i32::MAX as i64))),
                     ..PRIMITIVE_INTEGER
                 },
             ),
@@ -111,21 +111,21 @@ pub(super) static BASE_TYPES_INFO: LazyLock<HashMap<TypeId, PrimitiveTypeInfo>> 
             (
                 TypeId::of::<u8>(),
                 PrimitiveTypeInfo {
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u8::MAX as i128))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u8::MAX as i64))),
                     ..PRIMITIVE_UNSIGNED_INTEGER
                 },
             ),
             (
                 TypeId::of::<u16>(),
                 PrimitiveTypeInfo {
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u16::MAX as i128))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u16::MAX as i64))),
                     ..PRIMITIVE_UNSIGNED_INTEGER
                 },
             ),
             (
                 TypeId::of::<u32>(),
                 PrimitiveTypeInfo {
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u32::MAX as i128))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u32::MAX as i64))),
                     ..PRIMITIVE_UNSIGNED_INTEGER
                 },
             ),
@@ -137,15 +137,15 @@ pub(super) static BASE_TYPES_INFO: LazyLock<HashMap<TypeId, PrimitiveTypeInfo>> 
                 PrimitiveTypeInfo {
                     schema_kind: SchemaKind::Struct,
                     min: Some(BoundValue::Exclusive(SchemaNumber::Int(0))),
-                    max: Some(BoundValue::Exclusive(SchemaNumber::Int(u32::MAX as i128))),
+                    max: Some(BoundValue::Exclusive(SchemaNumber::Int(u32::MAX as i64))),
                     ..PRIMITIVE_UNSIGNED_INTEGER
                 },
             ),
             (
                 TypeId::of::<NonZeroI8>(),
                 PrimitiveTypeInfo {
-                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i8::MIN as i128))),
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i8::MAX as i128))),
+                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i8::MIN as i64))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i8::MAX as i64))),
                     not: Some(SchemaNumber::Int(0)),
                     ..PRIMITIVE_INTEGER
                 },
@@ -153,8 +153,8 @@ pub(super) static BASE_TYPES_INFO: LazyLock<HashMap<TypeId, PrimitiveTypeInfo>> 
             (
                 TypeId::of::<NonZeroI16>(),
                 PrimitiveTypeInfo {
-                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i16::MIN as i128))),
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i16::MAX as i128))),
+                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i16::MIN as i64))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i16::MAX as i64))),
                     not: Some(SchemaNumber::Int(0)),
                     ..PRIMITIVE_INTEGER
                 },
@@ -162,8 +162,8 @@ pub(super) static BASE_TYPES_INFO: LazyLock<HashMap<TypeId, PrimitiveTypeInfo>> 
             (
                 TypeId::of::<NonZeroI32>(),
                 PrimitiveTypeInfo {
-                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i32::MIN as i128))),
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i32::MAX as i128))),
+                    min: Some(BoundValue::Inclusive(SchemaNumber::Int(i32::MIN as i64))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(i32::MAX as i64))),
                     not: Some(SchemaNumber::Int(0)),
                     ..PRIMITIVE_INTEGER
                 },
@@ -200,7 +200,7 @@ pub(super) static BASE_TYPES_INFO: LazyLock<HashMap<TypeId, PrimitiveTypeInfo>> 
                 TypeId::of::<NonZeroU8>(),
                 PrimitiveTypeInfo {
                     min: Some(BoundValue::Inclusive(SchemaNumber::Int(1))),
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u8::MAX as i128))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u8::MAX as i64))),
                     ..PRIMITIVE_UNSIGNED_INTEGER
                 },
             ),
@@ -208,7 +208,7 @@ pub(super) static BASE_TYPES_INFO: LazyLock<HashMap<TypeId, PrimitiveTypeInfo>> 
                 TypeId::of::<NonZeroU16>(),
                 PrimitiveTypeInfo {
                     min: Some(BoundValue::Inclusive(SchemaNumber::Int(1))),
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u16::MAX as i128))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u16::MAX as i64))),
                     ..PRIMITIVE_UNSIGNED_INTEGER
                 },
             ),
@@ -216,7 +216,7 @@ pub(super) static BASE_TYPES_INFO: LazyLock<HashMap<TypeId, PrimitiveTypeInfo>> 
                 TypeId::of::<NonZeroU32>(),
                 PrimitiveTypeInfo {
                     min: Some(BoundValue::Inclusive(SchemaNumber::Int(1))),
-                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u32::MAX as i128))),
+                    max: Some(BoundValue::Inclusive(SchemaNumber::Int(u32::MAX as i64))),
                     ..PRIMITIVE_UNSIGNED_INTEGER
                 },
             ),
@@ -302,35 +302,53 @@ pub enum FieldType {
     #[default]
     Unnamed,
     /// Named field type that is stored as unnamed. Example: glam Vec3.
-    ForceUnnamed(TypeId),
+    UnnamedRecursive,
 }
 
 /// Information about the attributes of a field.
-#[derive(Clone, Debug, Deref, DerefMut, Default, Reflect)]
+#[derive(Clone, Debug, Deref, DerefMut, Reflect)]
 pub struct FieldsInformation {
     /// Fields information.
     #[deref]
     fields: Vec<SchemaFieldData>,
     /// Field type information.
     fields_type: FieldType,
+    /// Field type id.
+    type_id: TypeId,
+}
+
+impl Default for FieldsInformation {
+    fn default() -> Self {
+        FieldsInformation {
+            fields: Vec::new(),
+            fields_type: FieldType::Unnamed,
+            type_id: TypeId::of::<()>(),
+        }
+    }
 }
 
 impl FieldsInformation {
     /// Creates a new instance of `FieldsInformation`.
-    pub fn new<'a, 'b, T>(iterator: Iter<'a, T>, fields_type: FieldType) -> Self
+    pub fn new<'a, 'b, T>(iterator: Iter<'a, T>, fields_type: FieldType, type_id: TypeId) -> Self
     where
         SchemaFieldData: From<&'a T>,
     {
         FieldsInformation {
             fields: get_fields_information(iterator),
             fields_type,
+            type_id,
         }
     }
     /// Creates a new instance of `FieldsInformation` with given fields.
-    pub fn with_fields(fields: Vec<SchemaFieldData>, fields_type: FieldType) -> Self {
+    pub fn with_fields(
+        fields: Vec<SchemaFieldData>,
+        fields_type: FieldType,
+        type_id: TypeId,
+    ) -> Self {
         FieldsInformation {
             fields,
             fields_type,
+            type_id,
         }
     }
     fn try_get_fields_recursively(
@@ -631,7 +649,7 @@ impl Display for ReferenceLocation {
 #[serde(untagged)]
 pub enum SchemaNumber {
     /// Integer value.
-    Int(i128),
+    Int(i64),
     /// Floating-point value.
     Float(f64),
 }
@@ -662,52 +680,52 @@ impl From<f64> for SchemaNumber {
 }
 impl From<u8> for SchemaNumber {
     fn from(value: u8) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 impl From<u16> for SchemaNumber {
     fn from(value: u16) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 impl From<u32> for SchemaNumber {
     fn from(value: u32) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 impl From<u64> for SchemaNumber {
     fn from(value: u64) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 impl From<usize> for SchemaNumber {
     fn from(value: usize) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 impl From<i8> for SchemaNumber {
     fn from(value: i8) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 impl From<i16> for SchemaNumber {
     fn from(value: i16) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 impl From<i32> for SchemaNumber {
     fn from(value: i32) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 impl From<i64> for SchemaNumber {
     fn from(value: i64) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 impl From<isize> for SchemaNumber {
     fn from(value: isize) -> Self {
-        SchemaNumber::Int(value as i128)
+        SchemaNumber::Int(value as i64)
     }
 }
 
@@ -790,7 +808,7 @@ impl From<&JsonSchemaBevyType> for MinMaxValues {
 }
 
 impl MinMaxValues {
-    /// Combines two [`MinMaxValues`] instances
+    /// Combines two [`MinMaxValues`] instances.
     pub fn with(self, other: MinMaxValues) -> MinMaxValues {
         let min = match (self.min, other.min) {
             (_, Some(other_min)) => Some(other_min),
@@ -977,6 +995,7 @@ impl InternalSchemaType {
                 InternalSchemaType::FieldsHolder(FieldsInformation {
                     fields,
                     fields_type: FieldType::Named,
+                    type_id: value.type_info().type_id(),
                 })
             }
             TypeInfo::TupleStruct(info) => {
@@ -998,12 +1017,14 @@ impl InternalSchemaType {
                     InternalSchemaType::FieldsHolder(FieldsInformation {
                         fields: get_fields_information(info.iter()),
                         fields_type: FieldType::Unnamed,
+                        type_id: info.type_id(),
                     })
                 }
             }
             TypeInfo::Tuple(info) => InternalSchemaType::FieldsHolder(FieldsInformation {
                 fields: get_fields_information(info.iter()),
                 fields_type: FieldType::Unnamed,
+                type_id: info.type_id(),
             }),
             TypeInfo::Enum(enum_info) => match enum_info.try_get_optional() {
                 Some(e) => InternalSchemaType::Optional {
@@ -1299,12 +1320,14 @@ fn get_enum_information<'a>(iterator: Iter<'a, VariantInfo>) -> Vec<EnumVariantI
                     SchemaEnumType::Fields(FieldsInformation {
                         fields: get_fields_information(struct_variant_info.iter()),
                         fields_type: FieldType::Named,
+                        type_id: variant.type_id(),
                     })
                 }
                 VariantInfo::Tuple(tuple_variant_info) => {
                     SchemaEnumType::Fields(FieldsInformation {
                         fields: get_fields_information(tuple_variant_info.iter()),
                         fields_type: FieldType::Unnamed,
+                        type_id: variant.type_id(),
                     })
                 }
                 VariantInfo::Unit(_) => SchemaEnumType::Const,
@@ -1441,10 +1464,10 @@ pub(crate) trait TypeDefinitionBuilder {
                     })
                     .collect();
             }
-            FieldType::ForceUnnamed(type_id) => {
+            FieldType::UnnamedRecursive => {
                 let fields = FieldsInformation::try_get_fields_recursively(
                     self.get_type_registry(),
-                    *type_id,
+                    info.type_id,
                     "",
                 )
                 .unwrap_or_default();
@@ -2382,6 +2405,71 @@ pub(super) mod tests {
             )],
             &[serde_json::json!({"json": 5})],
             &[serde_json::json!("json")],
+        );
+    }
+
+    #[test]
+    fn reflect_result_type() {
+        #[derive(Reflect, Deserialize, Serialize, Component, Default)]
+        /// A struct
+        pub struct ValidResult {
+            value: i8,
+        }
+        #[derive(Reflect, Deserialize, Serialize, Component)]
+        /// A struct
+        pub struct SomeStruct {
+            value: i8,
+            other_value: u16,
+            result: Result<ValidResult, String>,
+        }
+
+        impl Default for SomeStruct {
+            fn default() -> Self {
+                SomeStruct {
+                    value: 5,
+                    other_value: 50,
+                    result: Ok(ValidResult { value: 51 }),
+                }
+            }
+        }
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<SomeStruct>();
+        }
+        let types = atr.read();
+        let schema = types
+            .build_schema_for_type_id_with_definitions(
+                TypeId::of::<SomeStruct>(),
+                &Default::default(),
+                false,
+            )
+            .expect("");
+
+        validate::<SomeStruct>(
+            schema,
+            &[],
+            &[
+                serde_json::json!({
+                 "value": 14,
+                 "other_value": 4,
+                 "result": {"Ok":{"value":14}}
+                }),
+                serde_json::json!({
+                 "value": 14,
+                 "other_value": 4,
+                 "result": {"Err":"Some error"}
+                }),
+            ],
+            &[
+                serde_json::json!(0),
+                serde_json::Value::Null,
+                serde_json::json!({
+                 "value": 14,
+                 "other_value": 4,
+                 "result": {"Err":{"value":14}}
+                }),
+            ],
         );
     }
 
