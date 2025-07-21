@@ -673,8 +673,23 @@ doc-scrape-examples = true
 # Inspector
 [[example]]
 name = "inspector"
-path = "examples/bevy_editor/inspector.rs"
+path = "examples/dev_tools/inspector.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+# Standalone Editor
+[[example]]
+name = "standalone_editor"
+path = "examples/dev_tools/standalone_editor.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+# Local Editor
+[[example]]
+name = "local_editor"
+path = "examples/dev_tools/local_editor.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.bloom_2d]
 name = "2D Bloom"

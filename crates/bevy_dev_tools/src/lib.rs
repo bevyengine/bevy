@@ -15,6 +15,8 @@ pub mod ci_testing;
 
 pub mod fps_overlay;
 pub mod frame_time_graph;
+/// In-game inspector and editor tools for real-time debugging.
+pub mod inspector;
 
 pub mod picking_debug;
 
@@ -51,5 +53,8 @@ pub mod states;
 pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {
-    fn build(&self, _app: &mut App) {}
+    fn build(&self, _app: &mut App) {
+        // Dev tools plugins can be added here if we want them enabled by default
+        // For now, users should add inspector::InspectorPlugin manually when needed
+    }
 }
