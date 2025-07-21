@@ -254,6 +254,9 @@ pub fn set_initial_focus(
 
 /// System which dispatches bubbled input events to the focused entity, or to the primary window
 /// if no entity has focus.
+///
+/// If the currently focused entity no longer exists (has been despawned), this system will
+/// automatically clear the focus and dispatch events to the primary window instead.
 pub fn dispatch_focused_input<E: BufferedEvent + Clone>(
     mut key_events: EventReader<E>,
     mut focus: ResMut<InputFocus>,
