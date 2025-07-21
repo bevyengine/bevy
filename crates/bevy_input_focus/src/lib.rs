@@ -31,7 +31,9 @@ mod autofocus;
 pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PostStartup, PreUpdate};
-use bevy_ecs::{entity::Entities, prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
+use bevy_ecs::{
+    entity::Entities, prelude::*, query::QueryData, system::SystemParam, traversal::Traversal,
+};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
@@ -653,7 +655,8 @@ mod tests {
         app.update();
 
         let entity = app.world_mut().spawn_empty().id();
-        app.world_mut().insert_resource(InputFocus::from_entity(entity));
+        app.world_mut()
+            .insert_resource(InputFocus::from_entity(entity));
         app.world_mut().entity_mut(entity).despawn();
 
         assert_eq!(app.world().resource::<InputFocus>().0, Some(entity));
