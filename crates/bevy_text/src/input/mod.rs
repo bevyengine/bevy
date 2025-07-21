@@ -20,6 +20,7 @@ use bevy_app::Plugin;
 use bevy_app::PostUpdate;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
+use bevy_color::Color;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
@@ -29,6 +30,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EntityEvent;
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::lifecycle::HookContext;
+use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::query::Has;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -45,6 +47,8 @@ use bevy_math::IVec2;
 use bevy_math::Rect;
 use bevy_math::UVec2;
 use bevy_math::Vec2;
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 use cosmic_text::Action;
 use cosmic_text::BorrowedWithFontSystem;
 use cosmic_text::Buffer;
@@ -967,12 +971,28 @@ fn apply_text_input_action(
     editor.set_redraw(true);
 }
 
-#[derive(EntityEvent, Clone, Debug, Component)]
+pub(crate) fn is_buffer_empty(buffer: &Buffer) -> bool {
+    buffer.lines.len() == 0 || (buffer.lines.len() == 1 && buffer.lines[0].text().is_empty())
+}
+
+#[derive(EntityEvent, Clone, Debug, Component, Reflect)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
+#[reflect(Component, Clone)]
 pub struct TextInputSubmit {
     /// The submitted text
     pub text: String,
     /// The source text input input
     pub text_input: Entity,
+}
+
+/// Prompt displayed when the input is empty (including whitespace).
+/// Optional component.
+#[derive(Default, Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct TextInputPrompt {
+    /// Prompt's text
+    pub text: String,
+    /// The color of the prompt's text.
+    /// If none, the text input's `TextColor` is used.
+    pub color: Option<Color>,
 }
