@@ -72,7 +72,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(button(&assets));
 }
 
-fn button(asset_server: &AssetServer) -> impl Bundle + use<> {
+fn button(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
             width: Val::Percent(100.0),
