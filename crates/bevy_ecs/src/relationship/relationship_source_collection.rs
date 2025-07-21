@@ -345,14 +345,7 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
-        assert_eq!(
-            *self,
-            Entity::PLACEHOLDER,
-            "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
-            *self
-        );
         *self = entity;
-
         true
     }
 
@@ -389,12 +382,6 @@ impl RelationshipSourceCollection for Entity {
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
-            assert_eq!(
-                *self,
-                Entity::PLACEHOLDER,
-                "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
-                *self
-            );
             *self = entity;
         }
     }
@@ -724,7 +711,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn one_to_one_relationship_shared_target() {
         #[derive(Component)]
         #[relationship(relationship_target = Below)]
@@ -740,6 +726,22 @@ mod tests {
 
         world.entity_mut(a).insert(Above(c));
         world.entity_mut(b).insert(Above(c));
+
+        // The original relationship (a -> c) should be removed and the new relationship (b -> c) should be established
+        assert!(
+            world.get::<Above>(a).is_none(),
+            "Original relationship should be removed"
+        );
+        assert_eq!(
+            world.get::<Above>(b).unwrap().0,
+            c,
+            "New relationship should be established"
+        );
+        assert_eq!(
+            world.get::<Below>(c).unwrap().0,
+            b,
+            "Target should point to new source"
+        );
     }
 
     #[test]

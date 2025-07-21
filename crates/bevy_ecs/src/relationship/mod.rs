@@ -128,6 +128,32 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(entity).remove::<Self>();
             return;
         }
+        // For one-to-one relationships, remove existing relationship before adding new one
+        let mut current_source_to_remove: Option<Entity> = None;
+        if core::any::TypeId::of::<<Self::RelationshipTarget as RelationshipTarget>::Collection>()
+            == core::any::TypeId::of::<Entity>()
+        {
+            if let Ok(target_entity_ref) = world.get_entity(target_entity) {
+                if let Some(relationship_target) =
+                    target_entity_ref.get::<Self::RelationshipTarget>()
+                {
+                    // SAFETY: We just checked that the collection type is Entity
+                    let entity_collection = unsafe {
+                        &*(relationship_target.collection()
+                            as *const <Self::RelationshipTarget as RelationshipTarget>::Collection
+                            as *const Entity)
+                    };
+                    if *entity_collection != Entity::PLACEHOLDER {
+                        current_source_to_remove = Some(*entity_collection);
+                    }
+                }
+            }
+        }
+
+        if let Some(current_source) = current_source_to_remove {
+            world.commands().entity(current_source).try_remove::<Self>();
+        }
+
         if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
             // Deferring is necessary for batch mode
             entity_commands
