@@ -436,7 +436,12 @@ pub fn prepare_generated_environment_map_bind_groups(
     bluenoise: Res<Bluenoise>,
     mut commands: Commands,
 ) {
-    let stbn_texture = render_images.get(&bluenoise.texture).unwrap();
+    // Skip until the blue-noise texture is available to avoid panicking.
+    // The system will retry next frame once the asset has loaded.
+    let Some(stbn_texture) = render_images.get(&bluenoise.texture) else {
+        return;
+    };
+
     assert!(stbn_texture.size.width.is_power_of_two());
     assert!(stbn_texture.size.height.is_power_of_two());
     let noise_size_bits = UVec2::new(
