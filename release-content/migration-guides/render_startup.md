@@ -35,6 +35,7 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `ScreenshotToScreenPipeline`
 - `VolumetricFogPipeline`
 - `DeferredLightingLayout`
+- `CopyDeferredLightingIdPipeline`
 - `RenderLightmaps`
 - `PrepassPipeline`
 - `PrepassViewBindGroup`
