@@ -11,7 +11,7 @@
 use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
-    camera_controllers::free_cam::{CameraController, CameraControllerPlugin},
+    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
@@ -76,7 +76,7 @@ fn main() {
                 unapproved_path_mode: UnapprovedPathMode::Allow,
                 ..default()
             }),
-        CameraControllerPlugin,
+        FreeCamPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,
     ))
@@ -157,7 +157,7 @@ fn setup_scene_after_load(
         projection.far = projection.far.max(size * 10.0);
 
         let walk_speed = size * 3.0;
-        let camera_controller = CameraController {
+        let camera_controller = FreeCamController {
             walk_speed,
             run_speed: 3.0 * walk_speed,
             ..default()

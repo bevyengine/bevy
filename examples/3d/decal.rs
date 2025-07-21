@@ -1,7 +1,7 @@
 //! Decal rendering.
 
 use bevy::{
-    camera_controllers::free_cam::{CameraController, CameraControllerPlugin},
+    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     core_pipeline::prepass::DepthPrepass,
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
@@ -11,7 +11,7 @@ use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CameraControllerPlugin))
+        .add_plugins((DefaultPlugins, FreeCamPlugin))
         .add_systems(Startup, setup)
         .run();
 }
@@ -42,7 +42,7 @@ fn setup(
     commands.spawn((
         Name::new("Camera"),
         Camera3d::default(),
-        CameraController::default(),
+        FreeCamController::default(),
         DepthPrepass, // Must enable the depth prepass to render forward decals
         Transform::from_xyz(2.0, 9.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
     ));

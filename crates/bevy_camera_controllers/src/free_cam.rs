@@ -27,11 +27,14 @@ use bevy_window::{CursorGrabMode, CursorOptions, Window};
 use std::{f32::consts::*, fmt};
 
 /// A freecam-style camera controller plugin.
-pub struct CameraControllerPlugin;
+///
+/// Use [`FreeCamController`] to add a freecam controller to a camera entity,
+/// and change its values to customize the controls and change its behavior.
+pub struct FreeCamPlugin;
 
-impl Plugin for CameraControllerPlugin {
+impl Plugin for FreeCamPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, run_camera_controller);
+        app.add_systems(Update, run_freecam_controller);
     }
 }
 
@@ -40,12 +43,15 @@ impl Plugin for CameraControllerPlugin {
 /// it because it felt nice.
 pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
-/// Camera controller [`Component`].
+/// Freecam controller settings and state.
+///
+/// Add this component to a [`Camera`] entity and add [`FreeCamPlugin`]
+/// to your [`App`] to enable freecam controls.
 #[derive(Component)]
-pub struct CameraController {
-    /// Enables this [`CameraController`] when `true`.
+pub struct FreeCamController {
+    /// Enables this [`FreeCamController`] when `true`.
     pub enabled: bool,
-    /// Indicates if this controller has been initialized by the [`CameraControllerPlugin`].
+    /// Indicates if this controller has been initialized by the [`FreeCamControllerPlugin`].
     pub initialized: bool,
     /// Multiplier for pitch and yaw rotation speed.
     pub sensitivity: f32,
@@ -61,8 +67,8 @@ pub struct CameraController {
     pub key_up: KeyCode,
     /// [`KeyCode`] for down translation.
     pub key_down: KeyCode,
-    /// [`KeyCode`] to use [`run_speed`](CameraController::run_speed) instead of
-    /// [`walk_speed`](CameraController::walk_speed) for translation.
+    /// [`KeyCode`] to use [`run_speed`](FreeCamController::run_speed) instead of
+    /// [`walk_speed`](FreeCamController::walk_speed) for translation.
     pub key_run: KeyCode,
     /// [`MouseButton`] for grabbing the mouse focus.
     pub mouse_key_cursor_grab: MouseButton,
@@ -72,20 +78,20 @@ pub struct CameraController {
     pub walk_speed: f32,
     /// Multiplier for running translation speed.
     pub run_speed: f32,
-    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](CameraController::walk_speed)
-    /// and [`run_speed`](CameraController::run_speed).
+    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](FreeCamController::walk_speed)
+    /// and [`run_speed`](FreeCamController::run_speed).
     pub scroll_factor: f32,
-    /// Friction factor used to exponentially decay [`velocity`](CameraController::velocity) over time.
+    /// Friction factor used to exponentially decay [`velocity`](FreeCamController::velocity) over time.
     pub friction: f32,
-    /// This [`CameraController`]'s pitch rotation.
+    /// This [`FreeCamController`]'s pitch rotation.
     pub pitch: f32,
-    /// This [`CameraController`]'s yaw rotation.
+    /// This [`FreeCamController`]'s yaw rotation.
     pub yaw: f32,
-    /// This [`CameraController`]'s translation velocity.
+    /// This [`FreeCamController`]'s translation velocity.
     pub velocity: Vec3,
 }
 
-impl Default for CameraController {
+impl Default for FreeCamController {
     fn default() -> Self {
         Self {
             enabled: true,
@@ -111,7 +117,7 @@ impl Default for CameraController {
     }
 }
 
-impl fmt::Display for CameraController {
+impl fmt::Display for FreeCamController {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -138,7 +144,7 @@ Freecam Controls:
     }
 }
 
-fn run_camera_controller(
+fn run_freecam_controller(
     time: Res<Time>,
     mut windows: Query<(&Window, &mut CursorOptions)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
@@ -147,7 +153,7 @@ fn run_camera_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
     mut mouse_cursor_grab: Local<bool>,
-    mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
+    mut query: Query<(&mut Transform, &mut FreeCamController), With<Camera>>,
 ) {
     let dt = time.delta_secs();
 

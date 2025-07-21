@@ -2,7 +2,7 @@
 
 use argh::FromArgs;
 use bevy::{
-    camera_controllers::free_cam::{CameraController, CameraControllerPlugin},
+    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     prelude::*,
     render::{camera::CameraMainTextureUsages, mesh::Indices, render_resource::TextureUsages},
     scene::SceneInstanceReady,
@@ -25,7 +25,7 @@ fn main() {
     let args: Args = argh::from_env();
 
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
+    app.add_plugins((DefaultPlugins, SolariPlugins, FreeCamPlugin))
         .insert_resource(args)
         .add_systems(Startup, setup);
 
@@ -58,7 +58,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        CameraController {
+        FreeCamController {
             walk_speed: 500.0,
             run_speed: 1500.0,
             ..Default::default()
