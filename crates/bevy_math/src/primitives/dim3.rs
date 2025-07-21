@@ -377,6 +377,15 @@ pub struct Segment3d {
 
 impl Primitive3d for Segment3d {}
 
+impl Default for Segment3d {
+    /// Returns the default [`Segment3d`] with endpoints at `(0.0, 0.0, 0.0)` and `(1.0, 0.0, 0.0)`.
+    fn default() -> Self {
+        Self {
+            vertices: [Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)],
+        }
+    }
+}
+
 impl Segment3d {
     /// Create a new `Segment3d` from its endpoints.
     #[inline(always)]
