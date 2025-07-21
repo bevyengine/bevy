@@ -374,7 +374,7 @@ where
             }
 
             render_app
-                .add_systems(RenderStartup, setup_render_app::<M>)
+                .add_systems(RenderStartup, add_material_bind_group_allocator::<M>)
                 .add_systems(
                     ExtractSchedule,
                     (
@@ -389,7 +389,7 @@ where
     }
 }
 
-fn setup_render_app<M: Material>(
+fn add_material_bind_group_allocator<M: Material>(
     render_device: Res<RenderDevice>,
     mut bind_group_allocators: ResMut<MaterialBindGroupAllocators>,
 ) {

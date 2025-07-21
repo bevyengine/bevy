@@ -47,8 +47,9 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if ray_t_min == 0.0 { radiance = ray_hit.material.emissive; }
 
             // Sample direct lighting
-            let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, wo, ray_hit.material, &rng);
-            radiance += throughput * direct_lighting.radiance * direct_lighting.inverse_pdf;
+            let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
+            let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
+            radiance += throughput * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
 
             // Sample new ray direction from the material BRDF for next bounce
             let next_bounce = importance_sample_next_bounce(wo, ray_hit, &rng);
