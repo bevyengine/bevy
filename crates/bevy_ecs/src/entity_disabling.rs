@@ -108,16 +108,14 @@ pub struct Disabled;
 /// A marker component for internal entities.
 ///
 /// This component is used to mark entities as being internal to the engine.
+/// These entities should be hidden from the developer's view by default,
+/// as they are both noisy and expose confusing implementation details.
 /// Internal entities are hidden from queries using [`DefaultQueryFilters`].
-/// It is still possible to query them through a [`With<Internal>`] filter, [`EntityMutExcept`], or [`EntityRefExcept`].
-/// Methods like [`World::iter_entities`] and [`World::iter_entities_mut`] can also still access internal entities.
-/// However, we strongly advise against altering or removing entities tagged with this component in any way.
+/// For more information, see [the module docs].
+/// We strongly advise against altering, removing or relying on entities tagged with this component in any way.
+/// These are "internal implementation details", and may not be robust to these changes or stable across minor Bevy versions.
 ///
-/// [`With<Internal>`]: crate::prelude::With
-/// [`EntityMutExcept`]: crate::world::EntityMutExcept
-/// [`EntityRefExcept`]: crate::world::EntityRefExcept
-/// [`World::iter_entities`]: crate::prelude::World::iter_entities
-/// [`World::iter_entities_mut`]: crate::prelude::World::iter_entities_mut
+/// [the module docs]: crate::entity_disabling
 #[derive(Component, Clone, Debug, Default)]
 #[cfg_attr(
     feature = "bevy_reflect",

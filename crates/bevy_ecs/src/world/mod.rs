@@ -219,7 +219,6 @@ impl World {
     /// Retrieves the number of [`Entities`] in the world.
     ///
     /// This is helpful as a diagnostic, but it can also be used effectively in tests.
-    /// This function excludes internal entities. For more information look at the [`Internal`] documentation, or use [`World::internal_entity_count`].
     #[inline]
     pub fn entity_count(&self) -> u32 {
         self.entities.len()
