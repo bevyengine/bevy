@@ -379,7 +379,7 @@ impl World {
         };
         let descriptor = &observer_state.descriptor;
 
-        for &event_key in &descriptor.events {
+        for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
 
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
@@ -430,7 +430,7 @@ impl World {
         let archetypes = &mut self.archetypes;
         let observers = &mut self.observers;
 
-        for &event_key in &descriptor.events {
+        for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache.global_observers.remove(&entity);
@@ -741,7 +741,7 @@ mod tests {
                 Observer::new(|_: On<Add, A>, mut res: ResMut<Order>| {
                     res.observed("add/remove");
                 })
-                .with_event(on_remove)
+                .with_event_key(on_remove)
             },
         );
 
@@ -1015,7 +1015,7 @@ mod tests {
             Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
             })
-            .with_event(event_a)
+            .with_event_key(event_a)
         };
         world.spawn(observe);
 
