@@ -139,9 +139,10 @@ pub trait Relationship: Component + Sized {
                 {
                     // SAFETY: We just checked that the collection type is Entity
                     let entity_collection = unsafe {
-                        &*(relationship_target.collection()
-                            as *const <Self::RelationshipTarget as RelationshipTarget>::Collection
-                            as *const Entity)
+                        &*core::ptr::from_ref::<
+                            <Self::RelationshipTarget as RelationshipTarget>::Collection,
+                        >(relationship_target.collection())
+                        .cast::<Entity>()
                     };
                     if *entity_collection != Entity::PLACEHOLDER {
                         current_source_to_remove = Some(*entity_collection);
