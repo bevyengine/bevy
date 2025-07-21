@@ -145,6 +145,10 @@ impl TextInputValue {
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
+
+    pub fn get(&self) -> &str {
+        &self.0
+    }
 }
 
 fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
