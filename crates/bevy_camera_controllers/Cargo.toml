@@ -2,7 +2,7 @@
 name = "bevy_camera_controllers"
 version = "0.17.0-dev"
 edition = "2024"
-description = "Official premade camera controllers for Bevy"
+description = "Premade camera controllers for Bevy"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
