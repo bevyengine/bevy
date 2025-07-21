@@ -1,7 +1,7 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, load_internal_binary_asset, AssetId, RenderAssetUsages};
+use bevy_asset::{embedded_asset, AssetId};
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
     Camera3d,
@@ -15,7 +15,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_image::Image;
 use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight, LightProbe};
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
@@ -45,7 +45,7 @@ use crate::{
         initialize_generated_environment_map_resources,
         prepare_generated_environment_map_bind_groups,
         prepare_generated_environment_map_intermediate_textures, DownsamplingNode, FilteringNode,
-        GeneratorNode, STBN,
+        GeneratorNode,
     },
     light_probe::environment_map::EnvironmentMapIds,
 };
@@ -306,18 +306,6 @@ impl Plugin for LightProbePlugin {
         embedded_asset!(app, "environment_filter.wgsl");
         embedded_asset!(app, "downsample.wgsl");
         embedded_asset!(app, "copy_mip0.wgsl");
-
-        load_internal_binary_asset!(app, STBN, "stbn_vec2.png", |bytes, _: String| {
-            Image::from_buffer(
-                bytes,
-                ImageType::Extension("png"),
-                CompressedImageFormats::NONE,
-                false,
-                ImageSampler::Default,
-                RenderAssetUsages::RENDER_WORLD,
-            )
-            .expect("Failed to load spatio-temporal blue noise texture")
-        });
 
         app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())

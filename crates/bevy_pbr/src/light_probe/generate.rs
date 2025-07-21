@@ -11,7 +11,7 @@
 //! This module provides realtime filtering via [`bevy_light::GeneratedEnvironmentMapLight`].
 //! For prefiltered environment maps, see [`bevy_light::EnvironmentMapLight`].
 //! These components are intended to be added to a camera.
-use bevy_asset::{load_embedded_asset, uuid_handle, AssetServer, Assets, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Assets};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -59,8 +59,7 @@ use bevy_render::{
 use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
 use core::cmp::min;
 
-/// Handle for Spatio-Temporal Blue Noise texture
-pub const STBN: Handle<Image> = uuid_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
+use crate::Bluenoise;
 
 /// Labels for the environment map generation nodes
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
@@ -150,7 +149,7 @@ pub fn initialize_generated_environment_map_resources(
                     StorageTextureAccess::WriteOnly,
                 ),
                 uniform_buffer::<FilteringConstants>(false), // Uniforms
-                texture_2d(TextureSampleType::Float { filterable: true }), // Blue noise texture
+                texture_2d_array(TextureSampleType::Float { filterable: true }), // Blue noise texture
             ),
         ),
     );
@@ -169,7 +168,7 @@ pub fn initialize_generated_environment_map_resources(
                     StorageTextureAccess::WriteOnly,
                 ),
                 uniform_buffer::<FilteringConstants>(false), // Uniforms
-                texture_2d(TextureSampleType::Float { filterable: true }), // Blue noise texture
+                texture_2d_array(TextureSampleType::Float { filterable: true }), // Blue noise texture
             ),
         ),
     );
@@ -434,9 +433,10 @@ pub fn prepare_generated_environment_map_bind_groups(
     layouts: Res<GeneratorBindGroupLayouts>,
     samplers: Res<GeneratorSamplers>,
     render_images: Res<RenderAssets<GpuImage>>,
+    bluenoise: Res<Bluenoise>,
     mut commands: Commands,
 ) {
-    let stbn_texture = render_images.get(&STBN).expect("STBN texture not loaded");
+    let stbn_texture = render_images.get(&bluenoise.texture).unwrap();
     assert!(stbn_texture.size.width.is_power_of_two());
     assert!(stbn_texture.size.height.is_power_of_two());
     let noise_size_bits = UVec2::new(
