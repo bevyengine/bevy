@@ -366,9 +366,7 @@ fn on_focused_keyboard_input(
                             });
                         }
                     }
-                    Key::Enter => {
-                        // use for submit
-                    }
+                    Key::Enter => actions.queue(TextInputAction::Submit),
                     Key::Backspace => {
                         actions.queue(TextInputAction::Backspace);
                     }
@@ -405,13 +403,6 @@ fn on_focused_keyboard_input(
                     }
                     Key::Escape => {
                         actions.queue(TextInputAction::Escape);
-                    }
-                    Key::Tab => {
-                        if modifiers.shift {
-                            actions.queue(TextInputAction::Unindent);
-                        } else {
-                            actions.queue(TextInputAction::Indent);
-                        }
                     }
                     Key::Insert => {
                         if modifiers.shift {

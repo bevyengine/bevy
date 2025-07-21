@@ -25,11 +25,15 @@ use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
+use bevy_ecs::entity::Entity;
+use bevy_ecs::event::EntityEvent;
+use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::query::Has;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::schedule::SystemSet;
+use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
@@ -324,6 +328,8 @@ pub enum TextInputAction {
     Clear,
     /// Set the contents of the text input buffer. The existing contents is discarded.
     SetText(String),
+    /// Submit the contents of the text input buffer
+    Submit,
 }
 
 impl TextInputAction {
@@ -381,8 +387,10 @@ fn apply_action<'a>(
 }
 
 pub fn apply_text_input_actions(
+    mut commands: Commands,
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_input_query: Query<(
+        Entity,
         &mut TextInputBuffer,
         &mut TextInputActions,
         &TextInputAttributes,
@@ -393,6 +401,7 @@ pub fn apply_text_input_actions(
     mut clipboard: ResMut<Clipboard>,
 ) {
     for (
+        entity,
         mut buffer,
         mut text_input_actions,
         attribs,
@@ -402,14 +411,27 @@ pub fn apply_text_input_actions(
     ) in text_input_query.iter_mut()
     {
         for action in text_input_actions.queue.drain(..) {
-            apply_text_input_action(
-                buffer.editor.borrow_with(&mut font_system),
-                maybe_history.as_mut().map(|history| history.as_mut()),
-                maybe_filter,
-                attribs.max_chars,
-                &mut clipboard.0,
-                action,
-            );
+            match action {
+                TextInputAction::Submit => {
+                    commands.trigger_targets(
+                        TextInputSubmit {
+                            text: buffer.get_text(),
+                            text_input: entity,
+                        },
+                        entity,
+                    );
+                }
+                action => {
+                    apply_text_input_action(
+                        buffer.editor.borrow_with(&mut font_system),
+                        maybe_history.as_mut().map(|history| history.as_mut()),
+                        maybe_filter,
+                        attribs.max_chars,
+                        &mut clipboard.0,
+                        action,
+                    );
+                }
+            }
         }
 
         if let Some(mut value) = maybe_value {
@@ -915,6 +937,7 @@ fn apply_text_input_action(
             editor.action(Action::Motion(Motion::End));
             editor.insert_string(&text, None);
         }
+        TextInputAction::Submit => {}
     }
 
     let Some(mut change) = editor.finish_change() else {
@@ -942,4 +965,14 @@ fn apply_text_input_action(
 
     // Set redraw manually, sometimes the editor doesn't set it automatically.
     editor.set_redraw(true);
+}
+
+#[derive(EntityEvent, Clone, Debug, Component)]
+#[entity_event(traversal = &'static ChildOf, auto_propagate)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
+pub struct TextInputSubmit {
+    /// The submitted text
+    pub text: String,
+    /// The source text input input
+    pub text_input: Entity,
 }

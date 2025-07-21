@@ -9,13 +9,17 @@ use bevy::core_widgets::CoreRadio;
 use bevy::core_widgets::CoreRadioGroup;
 use bevy::core_widgets::CoreWidgetsPlugins;
 use bevy::core_widgets::TrackClick;
+use bevy::input_focus::tab_navigation::TabGroup;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
+use bevy::pbr::deferred::insert_deferred_lighting_pass_id_component;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::TextInputFilter;
 use bevy::text::TextInputPasswordMask;
+use bevy::text::TextInputSubmit;
+use bevy::text::TextInputValue;
 use bevy::ui::widget::TextInput;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 use bevy_ecs::system::command::spawn_batch;
@@ -29,6 +33,7 @@ fn main() {
             CoreWidgetsPlugins,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, update_targets)
         .run();
 }
 
@@ -44,6 +49,8 @@ const FONT_OPTIONS: [[&'static str; 2]; 3] = [
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
+
+    let last_submission = commands.spawn(Text::new("None")).id();
 
     commands
         .spawn(Node {
@@ -69,6 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     BorderColor::all(YELLOW.into()),
                     BackgroundColor(NAVY.into()),
+                    TabGroup::default(),
                 ))
                 .with_children(|commands| {
                     for (i, label) in ["Type", "Input", "Value", "Submission"]
@@ -89,6 +97,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     inputs_grid(commands);
                 });
             commands
+                .spawn((
+                    Node {
+                        border: UiRect::all(Val::Px(2.)),
+                        padding: UiRect::all(Val::Px(4.)),
+                        ..Default::default()
+                    },
+                    BorderColor::all(Color::WHITE),
+                    children![Text::new("Last submission: "),],
+                ))
+                .add_child(last_submission);
+
+            commands
                 .spawn((Node {
                     column_gap: Val::Px(20.),
                     ..Default::default()
@@ -99,7 +119,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         spawn_font_button(commands, font, label);
                     }
                 });
-        });
+        })
+        .observe(
+            move |on_submit: On<TextInputSubmit>, mut text_query: Query<&mut Text>| {
+                if let Ok(mut text) = text_query.get_mut(last_submission) {
+                    text.0 = on_submit.event().text.clone();
+                }
+            },
+        );
 }
 
 fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>) {
@@ -118,82 +145,13 @@ fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>) {
     .into_iter()
     .enumerate()
     {
-        let row = n as i16 * 2 + 2;
-        commands.spawn((
-            Node {
-                display: Display::Grid,
-                height: Val::Px(2.),
-                grid_column: GridPlacement::start_end(1, 5),
-                grid_row: GridPlacement::start(row),
-                ..default()
-            },
-            BackgroundColor(Color::WHITE),
-        ));
-
-        let row = row + 1;
-
-        commands.spawn((
-            Node {
-                display: Display::Grid,
-                grid_row: GridPlacement::start(row),
-                grid_column: GridPlacement::start(1),
-                justify_content: JustifyContent::End,
-                ..Default::default()
-            },
-            children![(Text::new(label), TextColor(YELLOW.into()),)],
-        ));
-
-        let mut input = commands.spawn((
-            TextInput {
-                justify: Justify::Left,
-            },
+        spawn_row(
+            commands,
+            GridPlacement::start(n as i16 + 2),
+            label,
             input_filter,
-            DemoInput,
-            TextColor(Color::WHITE),
-            TabIndex(0),
-            Node {
-                width: Val::Px(200.),
-                grid_row: GridPlacement::start(row),
-                grid_column: GridPlacement::start(2),
-                ..Default::default()
-            },
-            BackgroundColor(Color::BLACK),
-            Outline {
-                width: Val::Px(1.),
-                color: Color::WHITE,
-                ..Default::default()
-            },
-        ));
-
-        if password {
-            input.insert(TextInputPasswordMask::default());
-        }
-
-        commands.spawn((
-            Node {
-                display: Display::Grid,
-                width: Val::Px(200.),
-                overflow: Overflow::clip(),
-                grid_row: GridPlacement::start(row),
-                grid_column: GridPlacement::start(3),
-                justify_content: JustifyContent::End,
-                ..Default::default()
-            },
-            children![(Text::new(format!("..3, {row}")), TextColor(Color::WHITE),)],
-        ));
-
-        commands.spawn((
-            Node {
-                display: Display::Grid,
-                width: Val::Px(200.),
-                overflow: Overflow::clip(),
-                grid_row: GridPlacement::start(row),
-                grid_column: GridPlacement::start(4),
-                justify_content: JustifyContent::End,
-                ..Default::default()
-            },
-            children![(Text::new(format!("..4, {row}")), TextColor(Color::WHITE),)],
-        ));
+            password,
+        );
     }
 }
 
@@ -209,62 +167,97 @@ fn spawn_row(
             display: Display::Grid,
             grid_row,
             grid_column: GridPlacement::start(1),
-            justify_content: JustifyContent::End,
+            justify_content: JustifyContent::Center,
             ..Default::default()
         },
         children![(Text::new(label), TextColor(YELLOW.into()),)],
     ));
 
-    commands.spawn((
-        Node {
-            display: Display::Grid,
-            width: Val::Px(200.),
-            overflow: Overflow::clip(),
-            grid_row,
-            grid_column: GridPlacement::start(3),
-            justify_content: JustifyContent::End,
-            ..Default::default()
-        },
-        children![(Text::new(format!("contents")), TextColor(Color::WHITE),)],
-    ));
+    let update_target = commands
+        .spawn((Text::default(), TextColor(Color::WHITE)))
+        .id();
+
+    let submit_target = commands
+        .spawn((Text::default(), TextColor(Color::WHITE)))
+        .id();
+
+    commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                width: Val::Px(200.),
+                overflow: Overflow::clip(),
+                grid_row,
+                grid_column: GridPlacement::start(3),
+                justify_content: JustifyContent::Start,
+                padding: UiRect::all(Val::Px(4.)),
+                ..Default::default()
+            },
+            BackgroundColor(Color::BLACK),
+        ))
+        .add_child(update_target);
+
+    commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                width: Val::Px(200.),
+                overflow: Overflow::clip(),
+                grid_row,
+                grid_column: GridPlacement::start(4),
+                justify_content: JustifyContent::Start,
+                padding: UiRect::all(Val::Px(4.)),
+                ..Default::default()
+            },
+            BackgroundColor(Color::BLACK),
+        ))
+        .add_child(submit_target);
 
     let mut input = commands.spawn((
         TextInput {
             justify: Justify::Left,
         },
+        Node {
+            width: Val::Px(200.),
+            ..Default::default()
+        },
         input_filter,
         TextColor(Color::WHITE),
         TabIndex(0),
-        Node {
-            width: Val::Px(200.),
-            grid_row,
-            grid_column: GridPlacement::start(2),
-            ..Default::default()
-        },
         BackgroundColor(Color::BLACK),
         Outline {
             width: Val::Px(1.),
             color: Color::WHITE,
             ..Default::default()
         },
+        DemoInput,
+        TextInputValue::default(),
+        UpdateTarget(update_target),
     ));
+
+    input.observe(
+        move |on_submit: On<TextInputSubmit>, mut text_query: Query<&mut Text>| {
+            if let Ok(mut text) = text_query.get_mut(submit_target) {
+                text.0 = on_submit.event().text.clone();
+            }
+        },
+    );
 
     if is_password {
         input.insert(TextInputPasswordMask::default());
     }
 
-    commands.spawn((
-        Node {
-            display: Display::Grid,
+    let input_id = input.id();
+
+    commands
+        .spawn((Node {
             width: Val::Px(200.),
-            overflow: Overflow::clip(),
             grid_row,
-            grid_column: GridPlacement::start(4),
-            justify_content: JustifyContent::End,
+            grid_column: GridPlacement::start(2),
+            padding: UiRect::all(Val::Px(4.)),
             ..Default::default()
-        },
-        children![(Text::new(format!("sub")), TextColor(Color::WHITE),)],
-    ));
+        },))
+        .add_child(input_id);
 }
 
 fn spawn_font_button(
@@ -292,10 +285,23 @@ fn spawn_font_button(
             on_activate: Callback::System(on_activate),
         },
         Hovered::default(),
-        TabIndex(0),
         BorderColor::all(Color::BLACK),
         BorderRadius::MAX,
         BackgroundColor(NAVY.into()),
         children![(Text::new(label),)],
     ));
+}
+
+#[derive(Component)]
+struct UpdateTarget(Entity);
+
+fn update_targets(
+    values_query: Query<(&TextInputValue, &UpdateTarget), Changed<TextInputValue>>,
+    mut text_query: Query<&mut Text>,
+) {
+    for (value, target) in values_query.iter() {
+        if let Ok(mut text) = text_query.get_mut(target.0) {
+            text.0 = value.get().to_string();
+        }
+    }
 }
