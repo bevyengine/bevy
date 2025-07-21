@@ -3,11 +3,13 @@ use bevy_math::Vec2;
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 /// Find the size of the text when rendered with the given parameters.
+///
+/// Assumes fonts are already loaded.
 pub fn measure_text<'a>(
     font_system: &mut cosmic_text::FontSystem,
     scale_factor: f32,
     line_height: f32,
-    alignment: JustifyText,
+    alignment: Justify,
     width: Option<f32>,
     height: Option<f32>,
     linebreak: LineBreak,
@@ -21,6 +23,7 @@ pub fn measure_text<'a>(
         }
         .scale(scale_factor),
     );
+
     buffer.set_size(font_system, width, height);
     buffer.set_wrap(
         font_system,
