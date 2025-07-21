@@ -1,4 +1,4 @@
-//! This example shows how to send, mutate, and receive, events. As well as showing
+//! This example shows how to send, mutate, and receive, events. It also demonstrates
 //! how to control system ordering so that events are processed in a specific order.
 //! It does this by simulating a damage over time effect that you might find in a game.
 
