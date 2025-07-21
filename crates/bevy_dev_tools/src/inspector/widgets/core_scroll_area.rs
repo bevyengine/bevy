@@ -1,10 +1,16 @@
-use bevy::{
-    prelude::*,
-    ecs::event::BufferedEvent,
-    ui::{UiSystems, ScrollPosition, RelativeCursorPosition},
-    picking::hover::Hovered,
-};
+use bevy_app::{App, Plugin, Update};
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_ecs::event::BufferedEvent;
+use bevy_math::Vec2;
+use bevy_ui::prelude::*;
+use bevy_ui::{UiSystems, ScrollPosition, RelativeCursorPosition};
+use bevy_transform::components::{Transform, GlobalTransform};
+use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
+use bevy_picking::hover::Hovered;
 use bevy_core_widgets::{CoreScrollbar, CoreScrollbarThumb, ControlOrientation, CoreScrollbarDragState};
+use core::default::Default;
+use tracing::info;
 
 /// Core scroll area component that integrates with Bevy's standard ScrollPosition
 /// and bevy_core_widgets scrollbars. This provides a bridge between the editor's
@@ -55,7 +61,7 @@ impl Default for ScrollAreaBundle {
             relative_cursor_position: RelativeCursorPosition::default(),
             node: Node {
                 overflow: Overflow::scroll(),
-                ..default()
+                ..Default::default()
             },
             background_color: BackgroundColor::default(),
             border_color: BorderColor::default(),
@@ -153,7 +159,7 @@ fn spawn_scrollbars_for_scroll_areas(
                     top: Val::Px(0.0),
                     bottom: Val::Px(0.0),
                     width: Val::Px(16.0),
-                    ..default()
+                    ..Default::default()
                 },
                 BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8)),
             )).with_children(|parent| {
@@ -162,7 +168,7 @@ fn spawn_scrollbars_for_scroll_areas(
                     Node {
                         position_type: PositionType::Absolute,
                         width: Val::Percent(100.0),
-                        ..default()
+                        ..Default::default()
                     },
                     BackgroundColor(Color::srgba(0.5, 0.5, 0.5, 0.9)),
                     BorderRadius::all(Val::Px(4.0)),
@@ -219,7 +225,7 @@ impl CoreScrollArea {
     pub fn with_id(scroll_id: u32) -> Self {
         Self {
             scroll_id,
-            ..default()
+            ..Default::default()
         }
     }
     
@@ -227,7 +233,7 @@ impl CoreScrollArea {
     pub fn without_scrollbars() -> Self {
         Self {
             show_scrollbars: false,
-            ..default()
+            ..Default::default()
         }
     }
     

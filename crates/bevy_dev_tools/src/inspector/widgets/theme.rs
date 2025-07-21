@@ -1,5 +1,7 @@
-use bevy::prelude::*;
-use bevy::ui::{Style, UiRect, Val, FlexDirection, AlignItems, JustifyContent};
+use bevy_app::{App, Plugin};
+use bevy_ecs::prelude::*;
+use bevy_ui::prelude::*;
+use bevy_color::Color;
 
 /// Theme-aware colors and styling for widgets
 /// This is designed to be compatible with bevy_feathers theming system

@@ -1,8 +1,11 @@
 //! Entity list panel for browsing world entities
 
-use bevy::prelude::*;
-use bevy::ui::{FlexDirection, UiRect, Val};
-use crate::{
+use bevy_app::{App, Plugin, Update};
+use bevy_ecs::prelude::*;
+use bevy_ui::prelude::*;
+use bevy_text::{TextFont, TextColor};
+use core::default::Default;
+use crate::inspector::{
     themes::DarkTheme,
     remote::types::{EditorState, RemoteEntity},
     remote::entity_grouping::group_entities_by_component,
@@ -76,10 +79,10 @@ pub fn create_modern_entity_list_panel(
                 width: Val::Percent(100.0),
                 height: Val::Px(30.0),
                 flex_direction: FlexDirection::Row,
-                align_items: bevy::ui::AlignItems::Center,
-                justify_content: bevy::ui::JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
                 padding: UiRect::all(Val::Px(4.0)),
-                ..default()
+                ..Default::default()
             },
             BackgroundColor(DarkTheme::BACKGROUND_SECONDARY),
         )).with_children(|header| {
@@ -89,16 +92,16 @@ pub fn create_modern_entity_list_panel(
                 Node {
                     width: Val::Px(60.0),
                     height: Val::Px(24.0),
-                    justify_content: bevy::ui::JustifyContent::Center,
-                    align_items: bevy::ui::AlignItems::Center,
-                    ..default()
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
                 },
                 BackgroundColor(DarkTheme::BUTTON_DEFAULT),
                 ViewModeToggle,
             )).with_children(|button| {
                 button.spawn((
                     Text::new("List"),
-                    TextFont { font_size: 10.0, ..default() },
+                    TextFont { font_size: 10.0, ..Default::default() },
                     TextColor(DarkTheme::TEXT_PRIMARY),
                 ));
             });
@@ -110,7 +113,7 @@ pub fn create_modern_entity_list_panel(
                 width: Val::Percent(100.0),
                 flex_grow: 1.0,
                 flex_direction: FlexDirection::Column,
-                ..default()
+                ..Default::default()
             },
             BackgroundColor(DarkTheme::BACKGROUND_PRIMARY),
             EntityListArea,
@@ -242,12 +245,12 @@ pub fn refresh_entity_list(
                     Text::new("No entities connected.\nStart a bevy_remote server to see entities."),
                     TextFont {
                         font_size: 12.0,
-                        ..default()
+                        ..Default::default()
                     },
                     TextColor(DarkTheme::TEXT_MUTED),
                     Node {
                         padding: UiRect::all(Val::Px(16.0)),
-                        ..default()
+                        ..Default::default()
                     },
                 ));
             });
@@ -275,7 +278,7 @@ fn create_flat_entity_list(
     
     // Sort entities: meaningful names first, then by entity ID
     entities_sorted.sort_by(|a, b| {
-        use crate::remote::entity_naming::entity_has_meaningful_name;
+        use crate::inspector::remote::entity_naming::entity_has_meaningful_name;
         
         let a_has_name = entity_has_meaningful_name(a, None);
         let b_has_name = entity_has_meaningful_name(b, None);
@@ -345,7 +348,7 @@ pub fn spawn_modern_entity_list(
             Node {
                 flex_direction: FlexDirection::Column,
                 width: Val::Percent(100.0),
-                ..default()
+                ..Default::default()
             },
             BackgroundColor(DarkTheme::BACKGROUND_PRIMARY),
         ))
@@ -353,7 +356,7 @@ pub fn spawn_modern_entity_list(
             for entity in entities {
                 parent.spawn((
                     Text::new(format!("Entity {}", entity.id)),
-                    TextFont { font_size: 13.0, ..default() },
+                    TextFont { font_size: 13.0, ..Default::default() },
                     TextColor(DarkTheme::TEXT_PRIMARY),
                 ));
             }

@@ -25,17 +25,23 @@
 //! ```
 
 use bevy_app::{App, Plugin, Startup, Update};
-use bevy_core::Name;
-use bevy_core_pipeline::core_2d::Camera2d;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, name::Name};
 use bevy_input::{keyboard::KeyCode, ButtonInput};
 use bevy_render::camera::{Camera, RenderTarget};
-use bevy_text::{Text, TextColor, TextFont};
+use bevy_text::{TextColor, TextFont};
 use bevy_transform::prelude::Transform;
 use bevy_ui::prelude::*;
 use bevy_window::{Window, WindowRef};
 use bevy_color::Color;
+use bevy_time::Time;
+use core::default::Default;
 use tracing::info;
+
+use crate::inspector::{
+    panels::{ComponentDisplayState, ComponentInspectorPlugin, EditorState, EntityListPlugin}, 
+    widgets::WidgetsPlugin,
+    remote::types::{RemoteEntity, ComponentDataFetched, EntitiesFetched}
+};
 
 /// Configuration for the Live Editor Plugin
 #[derive(Resource, Clone)]
@@ -103,6 +109,9 @@ impl Plugin for LiveEditorPlugin {
         app
             .insert_resource(self.config.clone())
             .init_resource::<LiveEditorState>()
+            // Add the required events
+            .add_event::<EntitiesFetched>()
+            .add_event::<ComponentDataFetched>()
             // Add the editor panels and widgets but without the remote client
             .add_plugins((
                 EntityListPlugin,
@@ -196,18 +205,15 @@ fn setup_live_editor_window(
 /// This reuses the setup logic from EditorPlugin but targets our window
 fn setup_editor_ui_in_window(
     mut commands: Commands,
-    editor_state: Res<LiveEditorState>,
     window_query: Query<Entity, (With<LiveEditorWindow>, Added<Window>)>,
 ) {
     // Only setup UI when the window is first created
     for window_entity in window_query.iter() {
         // Create camera for the editor window
         let camera_entity = commands.spawn((
-            Camera2dBundle {
-                camera: Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window_entity)),
-                    ..Default::default()
-                },
+            Camera {
+                target: RenderTarget::Window(WindowRef::Entity(window_entity)),
+                ..Default::default()
             },
         )).id();
         
@@ -215,57 +221,43 @@ fn setup_editor_ui_in_window(
         // This mirrors the setup in EditorPlugin but targets our camera
         commands
             .spawn((
-                bevy_ui::NodeBundle {
-                    style: bevy_ui::Style {
-                        width: bevy_ui::Val::Percent(100.0),
-                        height: bevy_ui::Val::Percent(100.0),
-                        flex_direction: bevy_ui::FlexDirection::Column,
-                        ..Default::default()
-                    },
-                    background_color: bevy_color::Color::srgb(0.1, 0.1, 0.1).into(),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
                     ..Default::default()
                 },
-                bevy_ui::UiTargetCamera(camera_entity),
+                BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
+                UiTargetCamera(camera_entity),
             ))
             .with_children(|parent| {
                 // Create status bar
                 parent.spawn((
-                    bevy_ui::NodeBundle {
-                        style: bevy_ui::Style {
-                            width: bevy_ui::Val::Percent(100.0),
-                            height: bevy_ui::Val::Px(32.0),
-                            align_items: bevy_ui::AlignItems::Center,
-                            padding: bevy_ui::UiRect::horizontal(bevy_ui::Val::Px(12.0)),
-                            border: bevy_ui::UiRect::bottom(bevy_ui::Val::Px(1.0)),
-                            ..Default::default()
-                        },
-                        background_color: bevy_color::Color::srgb(0.15, 0.15, 0.15).into(),
-                        border_color: bevy_color::Color::srgb(0.3, 0.3, 0.3).into(),
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Px(32.0),
+                        align_items: AlignItems::Center,
+                        padding: UiRect::horizontal(Val::Px(12.0)),
+                        border: UiRect::bottom(Val::Px(1.0)),
                         ..Default::default()
                     },
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                    BorderColor::all(Color::srgb(0.3, 0.3, 0.3)),
                     super::editor::StatusBar,
                 )).with_children(|parent| {
                     parent.spawn((
-                        bevy_text::TextBundle::from_section(
-                            "Bevy Live Inspector - Direct World Access",
-                            bevy_text::TextStyle {
-                                font_size: 14.0,
-                                color: bevy_color::Color::srgb(0.8, 0.8, 0.8),
-                                ..Default::default()
-                            }
-                        ),
+                        Text::new("Bevy Live Inspector - Direct World Access"),
+                        TextFont { font_size: 14.0, ..Default::default() },
+                        TextColor(Color::srgb(0.8, 0.8, 0.8)),
                     ));
                 });
 
                 // Main content area with two panels
                 parent.spawn((
-                    bevy_ui::NodeBundle {
-                        style: bevy_ui::Style {
-                            width: bevy_ui::Val::Percent(100.0),
-                            height: bevy_ui::Val::Percent(100.0),
-                            flex_direction: bevy_ui::FlexDirection::Row,
-                            ..Default::default()
-                        },
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        flex_direction: FlexDirection::Row,
                         ..Default::default()
                     },
                 )).with_children(|parent| {
@@ -313,7 +305,7 @@ fn update_editor_visibility(
 fn provide_local_world_data(
     mut data_provider: ResMut<LocalWorldDataProvider>,
     time: Res<Time>,
-    mut editor_state: ResMut<EditorState>,
+    editor_state: ResMut<EditorState>,
     // Query all entities from the world
     all_entities: Query<Entity>,
     name_query: Query<&Name>,
@@ -321,7 +313,7 @@ fn provide_local_world_data(
     mut events: EventWriter<EntitiesFetched>,
     mut component_events: EventWriter<ComponentDataFetched>,
 ) {
-    let current_time = time.elapsed_seconds_f64();
+    let current_time = time.elapsed_secs_f64();
     
     // Throttle updates to avoid overwhelming the UI
     if current_time - data_provider.last_update < data_provider.update_frequency {
@@ -357,7 +349,7 @@ fn provide_local_world_data(
         .collect();
     
     // Send entities to the EditorPlugin
-    events.send(EntitiesFetched {
+    events.write(EntitiesFetched {
         entities: remote_entities,
     });
     
@@ -381,7 +373,7 @@ fn provide_local_world_data(
                 ));
             }
             
-            component_events.send(ComponentDataFetched {
+            component_events.write(ComponentDataFetched {
                 entity_id: selected_id,
                 component_data: component_data.join("\n\n"),
             });

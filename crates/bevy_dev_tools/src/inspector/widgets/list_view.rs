@@ -1,5 +1,14 @@
-use bevy::prelude::*;
-use bevy::ui::{UiRect, Val, FlexDirection, AlignItems, JustifyContent};
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::Handle;
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_image::Image;
+use bevy_input::{keyboard::KeyCode, ButtonInput};
+use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
+use bevy_text::{TextColor, TextFont};
+use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_ui::prelude::*;
+use core::default::Default;
 
 /// A generic list widget for displaying collections of items
 #[derive(Component)]
@@ -97,7 +106,7 @@ impl Default for ListViewBundle {
         Self {
             node: Node {
                 flex_direction: FlexDirection::Column,
-                ..default()
+                ..Default::default()
             },
             background_color: BackgroundColor(Color::NONE),
             transform: Transform::IDENTITY,
@@ -234,7 +243,7 @@ pub fn spawn_list_view<T: ListDisplayable + Clone + Component>(
                     padding: UiRect::all(Val::Px(4.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::FlexStart,
-                    ..default()
+                    ..Default::default()
                 },
                 BackgroundColor(Color::NONE),
             ))
@@ -247,7 +256,7 @@ pub fn spawn_list_view<T: ListDisplayable + Clone + Component>(
                             width: Val::Px(16.0),
                             height: Val::Px(16.0),
                             margin: UiRect::right(Val::Px(8.0)),
-                            ..default()
+                            ..Default::default()
                         },
                     ));
                 }
@@ -258,7 +267,7 @@ pub fn spawn_list_view<T: ListDisplayable + Clone + Component>(
                     TextColor(Color::WHITE),
                     TextFont {
                         font_size: 12.0,
-                        ..default()
+                        ..Default::default()
                     },
                 ));
             })
@@ -280,10 +289,10 @@ pub struct EntityListItem {
 }
 
 impl EntityListItem {
-    pub fn from_remote_entity(remote_entity: &crate::remote::types::RemoteEntity) -> Self {
+    pub fn from_remote_entity(remote_entity: &crate::inspector::remote::types::RemoteEntity) -> Self {
         // Use the smart naming system to generate a meaningful display name
-        let display_name = crate::remote::entity_naming::generate_entity_display_name(remote_entity, None);
-        
+        let display_name = crate::inspector::remote::entity_naming::generate_entity_display_name(remote_entity, None);
+
         Self {
             entity_id: remote_entity.id,
             name: display_name,
@@ -294,10 +303,10 @@ impl EntityListItem {
     
     /// Create EntityListItem with component data for better Name extraction
     pub fn from_remote_entity_with_data(
-        remote_entity: &crate::remote::types::RemoteEntity, 
+        remote_entity: &crate::inspector::remote::types::RemoteEntity, 
         component_data: Option<&serde_json::Value>
     ) -> Self {
-        let display_name = crate::remote::entity_naming::generate_entity_display_name(remote_entity, component_data);
+        let display_name = crate::inspector::remote::entity_naming::generate_entity_display_name(remote_entity, component_data);
         
         Self {
             entity_id: remote_entity.id,

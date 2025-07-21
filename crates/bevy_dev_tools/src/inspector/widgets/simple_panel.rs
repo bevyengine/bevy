@@ -29,13 +29,17 @@
 //!             flex_direction: FlexDirection::Column,
 //!             width: Val::Px(300.0),
 //!             height: Val::Px(400.0),
-//!             ..default()
+//!             ..Default::default()
 //!         },
 //!     ));
 //! }
 //! ```
 
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_ui::prelude::*;
+use bevy_color::Color;
+use bevy_text::{TextColor, TextFont};
+use core::default::Default;
 
 /// Basic panel container
 #[derive(Component, Clone)]
@@ -66,9 +70,9 @@ pub fn spawn_basic_panel(
         .spawn((
             BasicPanel::new(title.clone()),
             Node {
-                flex_direction: bevy::ui::FlexDirection::Column,
-                border: bevy::ui::UiRect::all(bevy::ui::Val::Px(1.0)),
-                ..default()
+                flex_direction: FlexDirection::Column,
+                border: UiRect::all(Val::Px(1.0)),
+                ..Default::default()
             },
             BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
             BorderColor::all(Color::srgb(0.3, 0.3, 0.3)),
@@ -80,13 +84,13 @@ pub fn spawn_basic_panel(
                 TextColor(Color::WHITE),
                 TextFont {
                     font_size: 14.0,
-                    ..default()
+                    ..Default::default()
                 },
                 Node {
-                    height: bevy::ui::Val::Px(30.0),
-                    padding: bevy::ui::UiRect::all(bevy::ui::Val::Px(8.0)),
-                    align_items: bevy::ui::AlignItems::Center,
-                    ..default()
+                    height: Val::Px(30.0),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    align_items: AlignItems::Center,
+                    ..Default::default()
                 },
                 BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
             ));

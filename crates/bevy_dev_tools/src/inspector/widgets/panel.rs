@@ -1,5 +1,8 @@
-use bevy::prelude::*;
-use bevy::ui::{UiRect, Val, FlexDirection, AlignItems, JustifyContent};
+use bevy_app::{App, Plugin};
+use bevy_ecs::prelude::*;
+use bevy_ui::prelude::*;
+use bevy_color::Color;
+use core::default::Default;
 use crate::widgets::scrollable_area::{ScrollableArea, ScrollableAreaBundle};
 
 /// A generic panel widget that provides common panel functionality

@@ -1,8 +1,10 @@
 //! Connection management and update systems
 
-use bevy::prelude::*;
-use crate::remote::types::{EditorState, RemoteConnection, ConnectionStatus, EntitiesFetched};
-use crate::remote::client;
+use bevy_ecs::prelude::*;
+use bevy_time::Time;
+use crate::inspector::remote::types::{EditorState, RemoteConnection, ConnectionStatus, EntitiesFetched};
+use crate::inspector::remote::client;
+use tracing::{info, warn};
 
 /// Update remote connection and fetch data periodically
 pub fn update_remote_connection(

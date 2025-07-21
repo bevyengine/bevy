@@ -1,10 +1,12 @@
-//! Component inspector panel for viewing/editing component data
+//! Component inspector panel for viewing entity component data
 
-use bevy::prelude::*;
-use bevy::ui::{AlignItems, JustifyContent};
-use crate::themes::DarkTheme;
-use crate::remote::types::{ComponentDisplayState, ComponentDataFetched, ComponentField};
-use crate::formatting::{format_value_inline, format_simple_value};
+use bevy_ecs::prelude::*;
+use bevy_ui::prelude::*;
+use bevy_text::{TextFont, TextColor};
+use bevy_color::Color;
+use crate::inspector::themes::DarkTheme;
+use crate::inspector::remote::types::{ComponentDisplayState, ComponentDataFetched, ComponentField};
+use crate::inspector::formatting::{format_value_inline, format_simple_value};
 use serde_json::Value;
 
 /// Component for marking UI elements
@@ -54,7 +56,7 @@ pub fn handle_component_data_fetched(
                 parent.spawn((
                     Text::new(format!("Entity {} - No Component Data\n\nNo component data received from server.", event.entity_id)),
                     TextFont {
-                        ..default()
+                        ..Default::default()
                     },
                     TextColor(DarkTheme::TEXT_MUTED),
                 ));
@@ -101,7 +103,7 @@ pub fn build_component_widgets(
         Text::new(format!("Entity {} - Component Data\n\n{}", entity_id, components_data)),
         TextFont {
             font_size: 13.0,
-            ..default()
+            ..Default::default()
         },
         TextColor(DarkTheme::TEXT_SECONDARY),
     ));
@@ -119,12 +121,12 @@ fn build_json_components(
         Text::new(format!("Entity {} - Components", entity_id)),
         TextFont {
             font_size: 15.0,
-            ..default()
+            ..Default::default()
         },
         TextColor(DarkTheme::TEXT_PRIMARY),
         Node {
             margin: UiRect::bottom(Val::Px(12.0)),
-            ..default()
+            ..Default::default()
         },
     ));
     
@@ -147,12 +149,12 @@ fn build_component_names_display(
         Text::new(format!("Entity {} - Components", entity_id)),
         TextFont {
             font_size: 15.0,
-            ..default()
+            ..Default::default()
         },
         TextColor(DarkTheme::TEXT_PRIMARY),
         Node {
             margin: UiRect::bottom(Val::Px(12.0)),
-            ..default()
+            ..Default::default()
         },
     ));
     
@@ -198,7 +200,7 @@ fn build_component_name_widget(
             flex_direction: FlexDirection::Column,
             margin: UiRect::bottom(Val::Px(4.0)),
             padding: UiRect::all(Val::Px(4.0)),
-            ..default()
+            ..Default::default()
         },
     )).with_children(|parent| {
         // Component title in original format: [package] ComponentName
@@ -211,7 +213,7 @@ fn build_component_name_widget(
             Text::new(display_text),
             TextFont {
                 font_size: 13.0,
-                ..default()
+                ..Default::default()
             },
             TextColor(DarkTheme::TEXT_SECONDARY),
         ));
@@ -252,7 +254,7 @@ pub fn build_component_widget(
             margin: UiRect::bottom(Val::Px(12.0)),
             padding: UiRect::all(Val::Px(8.0)),
             border: UiRect::all(Val::Px(1.0)),
-            ..default()
+            ..Default::default()
         },
         BorderColor::all(DarkTheme::BORDER_PRIMARY),
         BackgroundColor(DarkTheme::BACKGROUND_SECONDARY),
@@ -263,12 +265,12 @@ pub fn build_component_widget(
             Text::new(format!("{} {}", package_name, clean_name)),
             TextFont {
                 font_size: 14.0,
-                ..default()
+                ..Default::default()
             },
             TextColor(DarkTheme::TEXT_PRIMARY),
             Node {
                 margin: UiRect::bottom(Val::Px(6.0)),
-                ..default()
+                ..Default::default()
             },
         ));
         
@@ -373,7 +375,7 @@ pub fn build_field_widget(
             align_items: AlignItems::Center,
             margin: UiRect::left(Val::Px(indent_px)),
             padding: UiRect::vertical(Val::Px(2.0)),
-            ..default()
+            ..Default::default()
         },
     )).with_children(|parent| {
         if field.is_expandable {
@@ -382,7 +384,7 @@ pub fn build_field_widget(
             // Expansion button
             parent.spawn((
                 Button,
-                crate::widgets::ExpansionButton {
+                crate::inspector::widgets::ExpansionButton {
                     path: path.to_string(),
                     is_expanded,
                 },
@@ -392,7 +394,7 @@ pub fn build_field_widget(
                     margin: UiRect::right(Val::Px(6.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..Default::default()
                 },
                 BackgroundColor(DarkTheme::EXPANSION_BUTTON_DEFAULT),
                 BorderColor::all(DarkTheme::BORDER_PRIMARY),
@@ -401,7 +403,7 @@ pub fn build_field_widget(
                     Text::new(if is_expanded { "-" } else { "+" }),
                     TextFont {
                         font_size: 14.0, // Slightly larger for better visibility
-                        ..default()
+                        ..Default::default()
                     },
                     TextColor(DarkTheme::TEXT_PRIMARY),
                 ));
@@ -413,7 +415,7 @@ pub fn build_field_widget(
                 Text::new(format!("{}: {}", field.name, value_summary)),
                 TextFont {
                     font_size: 13.0,
-                    ..default()
+                    ..Default::default()
                 },
                 TextColor(DarkTheme::TEXT_SECONDARY),
             ));
@@ -423,7 +425,7 @@ pub fn build_field_widget(
                 Node {
                     width: Val::Px(26.0), // Space for button + margin
                     height: Val::Px(16.0),
-                    ..default()
+                    ..Default::default()
                 },
             ));
             
@@ -433,7 +435,7 @@ pub fn build_field_widget(
                 Text::new(format!("{}: {}", field.name, formatted_value)),
                 TextFont {
                     font_size: 13.0,
-                    ..default()
+                    ..Default::default()
                 },
                 TextColor(DarkTheme::TEXT_SECONDARY),
             ));
@@ -468,29 +470,29 @@ pub fn build_expanded_object_widgets(
                     Node {
                         flex_direction: FlexDirection::Column,
                         margin: UiRect::left(Val::Px(indent_px)),
-                        ..default()
+                        ..Default::default()
                     },
                 )).with_children(|parent| {
                     parent.spawn((
                         Text::new(format!("x: {:.3}", x.as_f64().unwrap_or(0.0))),
-                        TextFont { font_size: 12.0, ..default() },
+                        TextFont { font_size: 12.0, ..Default::default() },
                         TextColor(DarkTheme::TEXT_SECONDARY),
                     ));
                     parent.spawn((
                         Text::new(format!("y: {:.3}", y.as_f64().unwrap_or(0.0))),
-                        TextFont { font_size: 12.0, ..default() },
+                        TextFont { font_size: 12.0, ..Default::default() },
                         TextColor(DarkTheme::TEXT_SECONDARY),
                     ));
                     parent.spawn((
                         Text::new(format!("z: {:.3}", z.as_f64().unwrap_or(0.0))),
-                        TextFont { font_size: 12.0, ..default() },
+                        TextFont { font_size: 12.0, ..Default::default() },
                         TextColor(DarkTheme::TEXT_SECONDARY),
                     ));
                     if let Some(w) = obj.get("w") {
                         if w.is_number() {
                             parent.spawn((
                                 Text::new(format!("w: {:.3}", w.as_f64().unwrap_or(0.0))),
-                                TextFont { font_size: 12.0, ..default() },
+                                TextFont { font_size: 12.0, ..Default::default() },
                                 TextColor(DarkTheme::TEXT_SECONDARY),
                             ));
                         }
@@ -536,7 +538,7 @@ pub fn build_expanded_array_widgets(
             Node {
                 flex_direction: FlexDirection::Column,
                 margin: UiRect::left(Val::Px(indent_px)),
-                ..default()
+                ..Default::default()
             },
         )).with_children(|parent| {
             // Special handling for GlobalTransform matrix (12 elements)
@@ -550,7 +552,7 @@ pub fn build_expanded_array_widgets(
                 ) {
                     parent.spawn((
                         Text::new(format!("translation: ({:.3}, {:.3}, {:.3})", m30, m31, m32)),
-                        TextFont { font_size: 12.0, ..default() },
+                        TextFont { font_size: 12.0, ..Default::default() },
                         TextColor(DarkTheme::TEXT_SECONDARY),
                     ));
                 }
@@ -563,7 +565,7 @@ pub fn build_expanded_array_widgets(
                 ) {
                     parent.spawn((
                         Text::new(format!("scale: ({:.3}, {:.3}, {:.3})", m00, m11, m22)),
-                        TextFont { font_size: 12.0, ..default() },
+                        TextFont { font_size: 12.0, ..Default::default() },
                         TextColor(DarkTheme::TEXT_SECONDARY),
                     ));
                 }
@@ -571,7 +573,7 @@ pub fn build_expanded_array_widgets(
                 // Show raw matrix values for debugging
                 parent.spawn((
                     Text::new("raw matrix:".to_string()),
-                    TextFont { font_size: 12.0, ..default() },
+                    TextFont { font_size: 12.0, ..Default::default() },
                     TextColor(DarkTheme::TEXT_MUTED),
                 ));
                 
@@ -580,7 +582,7 @@ pub fn build_expanded_array_widgets(
                     let col = i % 3;
                     parent.spawn((
                         Text::new(format!("  [{}][{}]: {:.3}", row, col, item.as_f64().unwrap_or(0.0))),
-                        TextFont { font_size: 11.0, ..default() },
+                        TextFont { font_size: 11.0, ..Default::default() },
                         TextColor(DarkTheme::TEXT_MUTED),
                     ));
                 }
@@ -593,25 +595,25 @@ pub fn build_expanded_array_widgets(
                     };
                     parent.spawn((
                         Text::new(format!("{}: {:.3}", comp_name, item.as_f64().unwrap_or(0.0))),
-                        TextFont { font_size: 12.0, ..default() },
+                        TextFont { font_size: 12.0, ..Default::default() },
                         TextColor(DarkTheme::TEXT_SECONDARY),
                     ));
                 }
             } else if arr.len() <= 10 {
                 // Small arrays - show all items with proper names
                 for (i, item) in arr.iter().enumerate() {
-                    let formatted = crate::formatting::display::format_simple_value(item);
+                    let formatted = format_simple_value(item);
                     // Don't show array indices for single values, show the content directly
                     if arr.len() == 1 {
                         parent.spawn((
                             Text::new(formatted),
-                            TextFont { font_size: 12.0, ..default() },
+                            TextFont { font_size: 12.0, ..Default::default() },
                             TextColor(DarkTheme::TEXT_SECONDARY),
                         ));
                     } else {
                         parent.spawn((
                             Text::new(format!("[{}]: {}", i, formatted)),
-                            TextFont { font_size: 12.0, ..default() },
+                            TextFont { font_size: 12.0, ..Default::default() },
                             TextColor(DarkTheme::TEXT_SECONDARY),
                         ));
                     }
@@ -619,16 +621,16 @@ pub fn build_expanded_array_widgets(
             } else {
                 // Large arrays - show first few items
                 for (i, item) in arr.iter().take(3).enumerate() {
-                    let formatted = crate::formatting::display::format_simple_value(item);
+                    let formatted = format_simple_value(item);
                     parent.spawn((
                         Text::new(format!("[{}]: {}", i, formatted)),
-                        TextFont { font_size: 12.0, ..default() },
+                        TextFont { font_size: 12.0, ..Default::default() },
                         TextColor(DarkTheme::TEXT_SECONDARY),
                     ));
                 }
                 parent.spawn((
                     Text::new(format!("... ({} more items)", arr.len() - 3)),
-                    TextFont { font_size: 12.0, ..default() },
+                    TextFont { font_size: 12.0, ..Default::default() },
                     TextColor(DarkTheme::TEXT_MUTED),
                 ));
             }

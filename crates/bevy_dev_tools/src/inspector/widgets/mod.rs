@@ -55,20 +55,21 @@ pub use tree_view::*;
 // Basic theme support
 #[derive(Clone)]
 pub struct EditorTheme {
-    pub background_primary: bevy::prelude::Color,
-    pub text_primary: bevy::prelude::Color,
+    pub background_primary: Color,
+    pub text_primary: Color,
 }
 
 impl Default for EditorTheme {
     fn default() -> Self {
         Self {
-            background_primary: bevy::prelude::Color::srgb(0.1, 0.1, 0.1),
-            text_primary: bevy::prelude::Color::WHITE,
+            background_primary: Color::srgb(0.1, 0.1, 0.1),
+            text_primary: Color::WHITE,
         }
     }
 }
 
-use bevy::prelude::*;
+use bevy_app::{App, Plugin, Update};
+use bevy_color::Color;
 
 /// Plugin that provides reusable UI widgets
 #[derive(Default)]
@@ -78,8 +79,8 @@ impl Plugin for WidgetsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             ExpansionButtonPlugin,
-            core_scroll_area::CoreScrollAreaPlugin,
-            scroll_view::ScrollViewPlugin,
+            CoreScrollAreaPlugin,
+            ScrollViewPlugin,
         ));
     }
 }
@@ -90,6 +91,6 @@ pub struct ExpansionButtonPlugin;
 
 impl Plugin for ExpansionButtonPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, expansion_button::handle_expansion_clicks);
+        app.add_systems(Update, handle_expansion_clicks);
     }
 }

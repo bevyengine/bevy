@@ -1,9 +1,10 @@
 //! Expansion button widget for expandable UI elements
 
-use bevy::prelude::*;
-use crate::themes::DarkTheme;
-use crate::remote::types::{ComponentDataFetched, RemoteConnection};
-use crate::panels::{ComponentDisplayState, EditorState};
+use bevy_ecs::prelude::*;
+use bevy_ui::prelude::*;
+use crate::inspector::remote::types::ComponentDataFetched;
+use crate::inspector::panels::{ComponentDisplayState, EditorState};
+use crate::inspector::themes::DarkTheme;
 
 /// Component for expansion button widgets
 #[derive(Component)]
@@ -20,7 +21,6 @@ pub fn handle_expansion_clicks(
     >,
     mut display_state: ResMut<ComponentDisplayState>,
     editor_state: Res<EditorState>,
-    remote_conn: Res<RemoteConnection>,
     mut commands: Commands,
 ) {
     for (interaction, mut expansion_button, mut bg_color) in &mut interaction_query {
@@ -35,33 +35,20 @@ pub fn handle_expansion_clicks(
                     expansion_button.is_expanded = true;
                 }
                 
-                // Refresh the component display
+                // For local world data, we can trigger a refresh without remote calls
                 if let Some(selected_entity_id) = editor_state.selected_entity_id {
                     if let Some(selected_entity) = editor_state.entities.iter().find(|e| e.id == selected_entity_id) {
                         if !selected_entity.full_component_names.is_empty() {
-                            match crate::remote::client::try_fetch_component_data_with_names(
-                                &remote_conn.base_url, 
-                                selected_entity_id, 
-                                selected_entity.full_component_names.clone()
-                            ) {
-                                Ok(component_data) => {
-                                    commands.trigger(ComponentDataFetched {
-                                        entity_id: selected_entity_id,
-                                        component_data,
-                                    });
-                                }
-                                Err(_) => {
-                                    let fallback_data = format!(
-                                        "Component names for Entity {}:\n\n{}",
-                                        selected_entity_id,
-                                        selected_entity.components.join("\n")
-                                    );
-                                    commands.trigger(ComponentDataFetched {
-                                        entity_id: selected_entity_id,
-                                        component_data: fallback_data,
-                                    });
-                                }
-                            }
+                            // For local world, we'll use a simplified component display
+                            let component_data = format!(
+                                "Component names for Entity {}:\n\n{}",
+                                selected_entity_id,
+                                selected_entity.components.join("\n")
+                            );
+                            commands.trigger(ComponentDataFetched {
+                                entity_id: selected_entity_id,
+                                component_data,
+                            });
                         }
                     }
                 }

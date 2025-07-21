@@ -35,7 +35,7 @@
 //! }
 //! ```
 
-use bevy::prelude::*;
+use bevy_color::Color;
 
 /// Dark theme color scheme for the editor
 pub struct DarkTheme;

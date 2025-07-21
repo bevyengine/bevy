@@ -40,9 +40,9 @@ pub use component_inspector::{
 };
 
 // Re-export commonly used types
-pub use crate::remote::types::{EditorState, ComponentDisplayState, ComponentField};
+pub use crate::inspector::remote::types::{EditorState, ComponentDisplayState, ComponentField};
 
-use bevy::prelude::*;
+use bevy_app::{App, Plugin};
 
 /// Plugin for component inspector panel  
 #[derive(Default)]
@@ -50,7 +50,7 @@ pub struct ComponentInspectorPlugin;
 
 impl Plugin for ComponentInspectorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(component_inspector::handle_component_data_fetched)
+        app.add_observer(handle_component_data_fetched)
            .init_resource::<ComponentDisplayState>();
     }
 }

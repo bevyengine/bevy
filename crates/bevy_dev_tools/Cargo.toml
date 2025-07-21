@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_ci_testing = ["serde", "ron"]
+bevy_ci_testing = ["ron"]
 
 [dependencies]
 # bevy
@@ -18,8 +18,10 @@ bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
+bevy_core_widgets = { path = "../bevy_core_widgets", version = "0.17.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev" }
@@ -35,11 +37,12 @@ bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 bevy_state = { path = "../bevy_state", version = "0.17.0-dev" }
 
 # other
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 rand = { version = "0.8" }
 ron = { version = "0.10", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+ureq = { version = "2.0" }
 
 [lints]
 workspace = true

@@ -1,6 +1,6 @@
 //! Remote connection types and events
 
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Remote entity representation from bevy_remote
@@ -45,13 +45,13 @@ impl Default for RemoteConnection {
 }
 
 /// Event fired when entities are fetched from remote server
-#[derive(Event, Clone)]
+#[derive(Event, Clone, BufferedEvent)]
 pub struct EntitiesFetched {
     pub entities: Vec<RemoteEntity>,
 }
 
 /// Event fired when component data is fetched for a specific entity
-#[derive(Event, Clone)] 
+#[derive(Event, Clone, BufferedEvent)] 
 pub struct ComponentDataFetched {
     pub entity_id: u32,
     pub component_data: String,

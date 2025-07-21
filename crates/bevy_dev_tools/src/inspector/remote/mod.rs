@@ -37,7 +37,7 @@ pub mod connection;
 pub mod entity_naming;
 pub mod entity_grouping;
 
-use bevy::prelude::*;
+use bevy_app::{App, Plugin, Update};
 pub use types::*;
 pub use client::*;
 pub use connection::*;

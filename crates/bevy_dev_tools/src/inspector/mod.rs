@@ -66,25 +66,22 @@ pub mod prelude {
     //! Common imports for bevy_editor usage.
     
     // Main plugins
-    pub use crate::editor::EditorPlugin;
-    pub use crate::live_editor::LiveEditorPlugin;
+    pub use crate::inspector::editor::EditorPlugin;
+    pub use crate::inspector::live_editor::LiveEditorPlugin;
     
     // Individual plugins for modular usage
-    pub use crate::panels::{EntityListPlugin, ComponentInspectorPlugin};
-    pub use crate::widgets::WidgetsPlugin;
-    pub use crate::remote::RemoteClientPlugin;
-    
-    // Live editor plugin
-    pub use crate::live_editor::LiveEditorPlugin;
+    pub use crate::inspector::panels::{EntityListPlugin, ComponentInspectorPlugin};
+    pub use crate::inspector::widgets::WidgetsPlugin;
+    pub use crate::inspector::remote::RemoteClientPlugin;
     
     // Core types for remote connection
-    pub use crate::remote::types::{
+    pub use crate::inspector::remote::types::{
         RemoteEntity, ConnectionStatus, EntitiesFetched, ComponentDataFetched
     };
     
     // Widget builders for custom implementations
-    pub use crate::widgets::{ScrollViewBuilder, CoreScrollArea, ScrollContent};
+    pub use crate::inspector::widgets::{ScrollViewBuilder, CoreScrollArea, ScrollContent};
     
     // Theme system
-    pub use crate::widgets::EditorTheme;
+    pub use crate::inspector::widgets::EditorTheme;
 }

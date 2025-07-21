@@ -34,7 +34,16 @@
 //!     .run();
 //! ```
 
-use bevy::prelude::*;
+use bevy_app::{App, Plugin, Update, Startup};
+use bevy_ecs::prelude::*;
+use bevy_ui::prelude::*;
+use bevy_color::Color;
+use bevy_text::{TextFont, TextColor};
+use bevy_core_pipeline::core_2d::Camera2d;
+use bevy_time::Time;
+use bevy_input::{keyboard::KeyCode, ButtonInput};
+use core::default::Default;
+use tracing::{info, warn};
 
 use super::remote::{client, RemoteClientPlugin, types::{EditorState, ComponentDisplayState, ComponentDataFetched, RemoteConnection, EntitiesFetched, ConnectionStatus}};
 use super::panels::{EntityListPlugin, ComponentInspectorPlugin};
@@ -84,11 +93,11 @@ impl Plugin for EditorPlugin {
 }
 
 // Import UI marker components from our modular structure
-use crate::panels::{
+use crate::inspector::panels::{
     ComponentInspector, ComponentInspectorContent,
     EntityTree, EntityListArea, EntityListViewMode, ViewModeToggle
 };
-use crate::widgets::EntityListItem;
+use crate::inspector::widgets::EntityListItem;
 
 /// Component for status bar
 #[derive(Component)]
@@ -116,7 +125,7 @@ fn setup_editor_ui(mut commands: Commands) {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             flex_direction: FlexDirection::Column,
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             // Top status bar with gradient
@@ -129,7 +138,7 @@ fn setup_editor_ui(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         padding: UiRect::all(Val::Px(8.0)),
                         border: UiRect::bottom(Val::Px(1.0)),
-                        ..default()
+                        ..Default::default()
                     },
                     BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                     BorderColor::all(Color::srgb(0.45, 0.45, 0.45)),
@@ -139,7 +148,7 @@ fn setup_editor_ui(mut commands: Commands) {
                         Text::new("[!] Disconnected"),
                         TextFont {
                             font_size: 13.0,
-                            ..default()
+                            ..Default::default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         StatusBar,
@@ -152,7 +161,7 @@ fn setup_editor_ui(mut commands: Commands) {
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
                     flex_direction: FlexDirection::Row,
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     // Left panel: Entity hierarchy
@@ -172,7 +181,7 @@ pub fn create_entity_panel(parent: &mut ChildSpawnerCommands) {
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 border: UiRect::right(Val::Px(2.0)),
-                ..default()
+                ..Default::default()
             },
             BackgroundColor(Color::srgb(0.18, 0.18, 0.18)),
             BorderColor::all(Color::srgb(0.35, 0.35, 0.35)),
@@ -189,7 +198,7 @@ pub fn create_entity_panel(parent: &mut ChildSpawnerCommands) {
                     justify_content: JustifyContent::SpaceBetween,
                     padding: UiRect::all(Val::Px(12.0)),
                     border: UiRect::bottom(Val::Px(1.0)),
-                    ..default()
+                    ..Default::default()
                 },
                 BackgroundColor(Color::srgb(0.22, 0.22, 0.22)),
                 BorderColor::all(Color::srgb(0.4, 0.4, 0.4)),
@@ -199,7 +208,7 @@ pub fn create_entity_panel(parent: &mut ChildSpawnerCommands) {
                     Text::new("Entities"),
                     TextFont {
                         font_size: 15.0,
-                        ..default()
+                        ..Default::default()
                     },
                     TextColor(Color::srgb(0.95, 0.95, 0.95)),
                 ));
@@ -213,7 +222,7 @@ pub fn create_entity_panel(parent: &mut ChildSpawnerCommands) {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         border: UiRect::all(Val::Px(1.0)),
-                        ..default()
+                        ..Default::default()
                     },
                     BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
                     BorderColor::all(Color::srgb(0.5, 0.5, 0.5)),
@@ -221,7 +230,7 @@ pub fn create_entity_panel(parent: &mut ChildSpawnerCommands) {
                 )).with_children(|button| {
                     button.spawn((
                         Text::new("List"),
-                        TextFont { font_size: 11.0, ..default() },
+                        TextFont { font_size: 11.0, ..Default::default() },
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
                     ));
                 });
@@ -249,7 +258,7 @@ pub fn create_component_panel(parent: &mut ChildSpawnerCommands) {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
-                ..default()
+                ..Default::default()
             },
             BackgroundColor(Color::srgb(0.16, 0.16, 0.16)),
             ComponentInspector,
@@ -263,7 +272,7 @@ pub fn create_component_panel(parent: &mut ChildSpawnerCommands) {
                     align_items: AlignItems::Center,
                     padding: UiRect::all(Val::Px(12.0)),
                     border: UiRect::bottom(Val::Px(1.0)),
-                    ..default()
+                    ..Default::default()
                 },
                 BackgroundColor(Color::srgb(0.22, 0.22, 0.22)),
                 BorderColor::all(Color::srgb(0.4, 0.4, 0.4)),
@@ -272,7 +281,7 @@ pub fn create_component_panel(parent: &mut ChildSpawnerCommands) {
                     Text::new("Component Inspector"),
                     TextFont {
                         font_size: 15.0,
-                        ..default()
+                        ..Default::default()
                     },
                     TextColor(Color::srgb(0.95, 0.95, 0.95)),
                 ));
@@ -336,10 +345,9 @@ fn handle_component_inspection(
                 // Use the full component names for the API request
                 if !selected_entity.full_component_names.is_empty() {
                     info!("Using component names: {:?}", selected_entity.full_component_names);
-                    match client::try_fetch_component_data_with_names(
+                    match client::try_fetch_component_data(
                         &remote_conn.base_url, 
-                        selected_entity_id, 
-                        selected_entity.full_component_names.clone()
+                        selected_entity_id,
                     ) {
                         Ok(component_data) => {
                             info!("Successfully fetched component data for entity {}", selected_entity_id);
@@ -406,13 +414,13 @@ fn handle_component_data_fetched(
                     Text::new(format!("Entity {} - No Component Data\n\nNo component data received from server.", event.entity_id)),
                     TextFont {
                         font_size: 13.0,
-                        ..default()
+                        ..Default::default()
                     },
                     TextColor(Color::srgb(0.65, 0.65, 0.65)),
                 ));
             } else {
                 // Use the modular component inspector implementation
-                crate::panels::component_inspector::build_component_widgets(parent, event.entity_id, &event.component_data, &display_state);
+                crate::inspector::panels::component_inspector::build_component_widgets(parent, event.entity_id, &event.component_data, &display_state);
             }
         });
     }
@@ -589,10 +597,9 @@ fn handle_expansion_keyboard(
         if let Some(selected_entity_id) = editor_state.selected_entity_id {
             if let Some(selected_entity) = editor_state.entities.iter().find(|e| e.id == selected_entity_id) {
                 if !selected_entity.full_component_names.is_empty() {
-                    match client::try_fetch_component_data_with_names(
+                    match client::try_fetch_component_data(
                         &remote_conn.base_url, 
-                        selected_entity_id, 
-                        selected_entity.full_component_names.clone()
+                        selected_entity_id
                     ) {
                         Ok(component_data) => {
                             commands.trigger(ComponentDataFetched {

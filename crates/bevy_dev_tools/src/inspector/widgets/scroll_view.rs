@@ -1,7 +1,11 @@
-use bevy::prelude::*;
-use bevy::ui::{ScrollPosition, RelativeCursorPosition};
+use bevy_app::{App, Plugin};
+use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_ui::prelude::*;
+use bevy_ui::{ScrollPosition, RelativeCursorPosition};
 use bevy_core_widgets::{CoreScrollbar, CoreScrollbarThumb, ControlOrientation};
 use super::core_scroll_area::{CoreScrollArea, ScrollContent};
+use core::default::Default;
 
 /// A styled scroll view widget with built-in scrollbars, padding, and visual styling.
 /// This is the opinionated, high-level scroll widget that users will typically interact with.
@@ -119,7 +123,7 @@ impl ScrollViewBuilder {
                 height: Val::Percent(100.0),
                 position_type: PositionType::Relative,
                 border: UiRect::all(Val::Px(border_width)),
-                ..default()
+                ..Default::default()
             },
             BackgroundColor(background_color),
             BorderColor::all(border_color),
@@ -145,7 +149,7 @@ impl ScrollViewBuilder {
                         padding
                     },
                     overflow: Overflow::scroll(), // Key: use scroll instead of clip
-                    ..default()
+                    ..Default::default()
                 },
                 BackgroundColor(Color::NONE),
                 ScrollPosition::default(), // Key: Bevy's scroll position
@@ -165,7 +169,7 @@ impl ScrollViewBuilder {
                         top: Val::Px(border_width),
                         bottom: Val::Px(border_width),
                         width: Val::Px(scrollbar_width),
-                        ..default()
+                        ..Default::default()
                     },
                     BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8)),
                     CoreScrollbar::new(scroll_area_entity, ControlOrientation::Vertical, 20.0),
@@ -175,7 +179,7 @@ impl ScrollViewBuilder {
                         Node {
                             position_type: PositionType::Absolute,
                             width: Val::Percent(100.0),
-                            ..default()
+                            ..Default::default()
                         },
                         BackgroundColor(Color::srgba(0.4, 0.4, 0.4, 0.9)),
                         BorderRadius::all(Val::Px(2.0)),

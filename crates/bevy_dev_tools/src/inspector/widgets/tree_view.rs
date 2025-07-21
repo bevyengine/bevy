@@ -3,10 +3,12 @@
 //! This widget provides expandable/collapsible tree-like display suitable
 //! for hierarchical data like grouped entities.
 
-use bevy::prelude::*;
-use bevy::ui::{UiRect, Val, FlexDirection, AlignItems, JustifyContent};
-use crate::themes::DarkTheme;
-use crate::widgets::EntityListItem;
+use bevy_app::{App, Plugin, Update};
+use bevy_ecs::prelude::*;
+use bevy_ui::prelude::*;
+use bevy_text::{TextFont, TextColor};
+use crate::inspector::{themes::DarkTheme, widgets::EntityListItem};
+use core::default::Default;
 
 /// A tree view widget for displaying hierarchical data
 #[derive(Component, Clone)]
@@ -136,7 +138,7 @@ fn update_tree_view_display(
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         padding: UiRect::new(Val::Px(8.0), Val::Px(8.0), Val::Px(4.0), Val::Px(4.0)),
-                        ..default()
+                        ..Default::default()
                     },
                     BackgroundColor(DarkTheme::BACKGROUND_SECONDARY),
                     TreeGroupHeader { group_id: group.group_id.clone() },
@@ -149,12 +151,12 @@ fn update_tree_view_display(
                     // Expansion icon
                     header.spawn((
                         Text::new(expansion_icon),
-                        TextFont { font_size: 12.0, ..default() },
+                        TextFont { font_size: 12.0, ..Default::default() },
                         TextColor(DarkTheme::TEXT_SECONDARY),
                         Node {
                             width: Val::Px(16.0),
                             justify_content: JustifyContent::Center,
-                            ..default()
+                            ..Default::default()
                         },
                     ));
                     
@@ -163,12 +165,12 @@ fn update_tree_view_display(
                         Text::new(format!("{} ({})", group.name, group.items.len())),
                         TextFont { 
                             font_size: 13.0,
-                            ..default() 
+                            ..Default::default() 
                         },
                         TextColor(DarkTheme::TEXT_PRIMARY),
                         Node {
                             flex_grow: 1.0,
-                            ..default()
+                            ..Default::default()
                         },
                     ));
                 });
@@ -189,7 +191,7 @@ fn update_tree_view_display(
                                     Val::Px(2.0), 
                                     Val::Px(2.0)
                                 ),
-                                ..default()
+                                ..Default::default()
                             },
                             BackgroundColor(DarkTheme::BUTTON_DEFAULT),
                             TreeViewItem {
@@ -201,7 +203,7 @@ fn update_tree_view_display(
                         )).with_children(|item_parent| {
                             item_parent.spawn((
                                 Text::new(&entity_item.name),
-                                TextFont { font_size: 12.0, ..default() },
+                                TextFont { font_size: 12.0, ..Default::default() },
                                 TextColor(DarkTheme::TEXT_PRIMARY),
                             ));
                         });
@@ -222,7 +224,7 @@ pub fn spawn_entity_tree_view(
             flex_direction: FlexDirection::Column,
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            ..default()
+            ..Default::default()
         },
         BackgroundColor(DarkTheme::BACKGROUND_PRIMARY),
     )).id();
@@ -245,7 +247,7 @@ pub fn spawn_entity_tree_view(
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     padding: UiRect::new(Val::Px(8.0), Val::Px(8.0), Val::Px(4.0), Val::Px(4.0)),
-                    ..default()
+                    ..Default::default()
                 },
                 BackgroundColor(DarkTheme::BACKGROUND_SECONDARY),
                 TreeGroupHeader { group_id: group.group_id.clone() },
@@ -258,12 +260,12 @@ pub fn spawn_entity_tree_view(
                 // Expansion icon
                 header.spawn((
                     Text::new(expansion_icon),
-                    TextFont { font_size: 12.0, ..default() },
+                    TextFont { font_size: 12.0, ..Default::default() },
                     TextColor(DarkTheme::TEXT_SECONDARY),
                     Node {
                         width: Val::Px(16.0),
                         justify_content: JustifyContent::Center,
-                        ..default()
+                        ..Default::default()
                     },
                 ));
                 
@@ -272,12 +274,12 @@ pub fn spawn_entity_tree_view(
                     Text::new(format!("{} ({})", group.name, group.items.len())),
                     TextFont { 
                         font_size: 13.0,
-                        ..default() 
+                        ..Default::default() 
                     },
                     TextColor(DarkTheme::TEXT_PRIMARY),
                     Node {
                         flex_grow: 1.0,
-                        ..default()
+                        ..Default::default()
                     },
                 ));
             });
@@ -298,7 +300,7 @@ pub fn spawn_entity_tree_view(
                                 Val::Px(2.0), 
                                 Val::Px(2.0)
                             ),
-                            ..default()
+                            ..Default::default()
                         },
                         BackgroundColor(DarkTheme::BUTTON_DEFAULT),
                         TreeViewItem {
@@ -310,7 +312,7 @@ pub fn spawn_entity_tree_view(
                     )).with_children(|item_parent| {
                         item_parent.spawn((
                             Text::new(&entity_item.name),
-                            TextFont { font_size: 12.0, ..default() },
+                            TextFont { font_size: 12.0, ..Default::default() },
                             TextColor(DarkTheme::TEXT_PRIMARY),
                         ));
                     });
