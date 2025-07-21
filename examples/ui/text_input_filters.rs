@@ -14,7 +14,6 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, InputDispatchPlugin, TabNavigationPlugin))
         .add_systems(Startup, setup)
-        .insert_resource(UiScale(2.))
         .run();
 }
 
@@ -39,12 +38,24 @@ fn setup(mut commands: Commands) {
                         padding: UiRect::all(Val::Px(5.)),
                         row_gap: Val::Px(20.),
                         column_gap: Val::Px(20.),
+                        grid_template_columns: vec![GridTrack::fr(1.); 4],
+
                         ..default()
                     },
                     BorderColor::all(YELLOW.into()),
                     BackgroundColor(NAVY.into()),
                 ))
                 .with_children(|commands| {
+                    for label in ["Filter", "Field", "Value", "Submission"].into_iter() {
+                        commands.spawn((
+                            Text::new(label),
+                            Node {
+                                justify_self: JustifySelf::Center,
+                                ..Default::default()
+                            },
+                        ));
+                    }
+
                     inputs_grid(commands);
                 });
         });
@@ -64,10 +75,10 @@ fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>) {
     .into_iter()
     .enumerate()
     {
+        let row = n as i16 + 2;
         commands.spawn((
             Node {
                 display: Display::Grid,
-                grid_row: GridPlacement::start(n as i16 + 1),
                 grid_column: GridPlacement::start(1),
                 justify_content: JustifyContent::End,
                 ..Default::default()
@@ -84,7 +95,7 @@ fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>) {
             TabIndex(0),
             Node {
                 width: Val::Px(200.),
-                grid_row: GridPlacement::start(n as i16 + 1),
+                //grid_row: GridPlacement::start(row),
                 grid_column: GridPlacement::start(2),
                 ..Default::default()
             },
@@ -101,12 +112,37 @@ fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>) {
                 display: Display::Grid,
                 width: Val::Px(200.),
                 overflow: Overflow::clip(),
-                grid_row: GridPlacement::start(n as i16 + 1),
+                //grid_row: GridPlacement::start(row),
                 grid_column: GridPlacement::start(3),
                 justify_content: JustifyContent::End,
                 ..Default::default()
             },
-            children![(Text::new(".."), TextColor(Color::WHITE),)],
+            children![(Text::new(format!("..3, {row}")), TextColor(Color::WHITE),)],
         ));
+
+        commands.spawn((
+            Node {
+                display: Display::Grid,
+                width: Val::Px(200.),
+                overflow: Overflow::clip(),
+                //grid_row: GridPlacement::start(row),
+                grid_column: GridPlacement::start(4),
+                justify_content: JustifyContent::End,
+                ..Default::default()
+            },
+            children![(Text::new(format!("..4, {row}")), TextColor(Color::WHITE),)],
+        ));
+
+        // commands.spawn((
+        //     Node {
+        //         display: Display::Grid,
+        //         height: Val::Px(2.),
+        //         grid_column: GridPlacement::start_end(1, 4),
+        //         justify_content: JustifyContent::End,
+
+        //         ..Default::default()op
+        //     },
+        //     BackgroundColor(Color::WHITE),
+        // ));
     }
 }
