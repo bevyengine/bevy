@@ -3,7 +3,7 @@ use crate::{
     bundle::Bundle,
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
-    entity::{Entities, Entity, EntityLocation},
+    entity::{Entities, Entity, EntityEquivalent, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
@@ -340,6 +340,20 @@ pub unsafe trait QueryData: WorldQuery {
 /// This must only be implemented for read-only [`QueryData`]'s.
 pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 
+/// A [`QueryData`] type that produces a [`EntityEquivalent`] item
+/// equaling the `Entity` it is addressed by.
+///
+/// # Safety
+///
+/// [`<Self as QueryData>::fetch`](QueryData::fetch) must always return an item whose `Entity`
+/// equals the one the function was called with.
+/// I.e.: `Self::fetch(fetch, entity, table_row).entity() == entity` always holds.
+pub unsafe trait EntityEquivalentQueryData: QueryData
+where
+    for<'w, 's> Self: QueryData<Item<'w, 's>: EntityEquivalent>,
+{
+}
+
 /// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, 's, Q> = <Q as QueryData>::Item<'w, 's>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
@@ -434,6 +448,9 @@ unsafe impl QueryData for Entity {
 
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
+
+/// SAFETY: `entity()` returns `self`, and `fetch` returns `entity`
+unsafe impl EntityEquivalentQueryData for Entity {}
 
 impl ReleaseStateQueryData for Entity {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -814,6 +831,9 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl EntityEquivalentQueryData for EntityRef<'_> {}
+
 impl ReleaseStateQueryData for EntityRef<'_> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
@@ -913,6 +933,9 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         unsafe { EntityMut::new(cell) }
     }
 }
+
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl EntityEquivalentQueryData for EntityMut<'_> {}
 
 impl ReleaseStateQueryData for EntityMut<'_> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -1044,6 +1067,9 @@ unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
 /// SAFETY: Access is read-only.
 unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_> {}
 
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl EntityEquivalentQueryData for FilteredEntityRef<'_> {}
+
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     type Fetch<'w> = (EntityFetch<'w>, Access<ComponentId>);
@@ -1163,6 +1189,9 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
     }
 }
 
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl EntityEquivalentQueryData for FilteredEntityMut<'_> {}
+
 /// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
@@ -1273,6 +1302,9 @@ where
 /// components.
 unsafe impl<'a, B> ReadOnlyQueryData for EntityRefExcept<'a, B> where B: Bundle {}
 
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl<B: Bundle> EntityEquivalentQueryData for EntityRefExcept<'_, B> {}
+
 /// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
@@ -1379,6 +1411,9 @@ where
         EntityMutExcept::new(cell)
     }
 }
+
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl<B: Bundle> EntityEquivalentQueryData for EntityMutExcept<'_, B> {}
 
 /// SAFETY:
 /// `update_component_access` does nothing.
