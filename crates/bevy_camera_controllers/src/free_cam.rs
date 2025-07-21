@@ -51,7 +51,7 @@ pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 pub struct FreeCamController {
     /// Enables this [`FreeCamController`] when `true`.
     pub enabled: bool,
-    /// Indicates if this controller has been initialized by the [`FreeCamControllerPlugin`].
+    /// Indicates if this controller has been initialized by the [`FreeCamPlugin`].
     pub initialized: bool,
     /// Multiplier for pitch and yaw rotation speed.
     pub sensitivity: f32,
