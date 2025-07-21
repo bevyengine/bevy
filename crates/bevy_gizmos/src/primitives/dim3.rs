@@ -18,24 +18,50 @@ const DEFAULT_RESOLUTION: u32 = 5;
 const INFINITE_LEN: f32 = 10_000.0;
 
 /// A trait for rendering 3D geometric primitives (`P`) with [`GizmoBuffer`].
-pub trait GizmoPrimitive3d<P: Primitive3d> {
-    /// The output of `primitive_3d`. This is a builder to set non-default values.
+///
+/// This trait is used internally when calling [`gizmos.primitive_3d`].
+///
+/// If you want to implement gizmos support for a custom primitive you should
+/// implement this trait.
+pub trait GizmoPrimitive3d<Config, Clear>: Primitive3d
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// The output of `gizmos.primitive_3d` and `self.gizmos`. This is a builder to set non-default values.
     type Output<'a>
     where
         Self: 'a;
 
     /// Renders a 3D primitive with its associated details.
-    fn primitive_3d(
-        &mut self,
-        primitive: &P,
+    ///
+    /// This is identical to `gizmos.primitive_3d`.
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_>;
+    ) -> Self::Output<'a>;
+}
+impl<Config, Clear> GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Renders a 3D primitive with its associated details.
+    pub fn primitive_3d<'a, 'b: 'a, P: GizmoPrimitive3d<Config, Clear>>(
+        &'b mut self,
+        primitive: &'a P,
+        isometry: impl Into<Isometry3d>,
+        color: impl Into<Color>,
+    ) -> P::Output<'a> {
+        primitive.gizmos(self, isometry, color)
+    }
 }
 
 // direction 3d
 
-impl<Config, Clear> GizmoPrimitive3d<Dir3> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Dir3
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -45,22 +71,22 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Dir3,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'a> {
         let isometry = isometry.into();
         let start = Vec3::ZERO;
-        let end = primitive.as_vec3();
-        self.arrow(isometry * start, isometry * end, color);
+        let end = self.as_vec3();
+        gizmos.arrow(isometry * start, isometry * end, color);
     }
 }
 
 // sphere
 
-impl<Config, Clear> GizmoPrimitive3d<Sphere> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Sphere
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -70,13 +96,13 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Sphere,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        self.sphere(isometry, primitive.radius, color)
+    ) -> Self::Output<'a> {
+        gizmos.sphere(isometry, self.radius, color)
     }
 }
 
@@ -121,7 +147,7 @@ where
     }
 }
 
-impl<Config, Clear> GizmoPrimitive3d<Plane3d> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Plane3d
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -131,15 +157,15 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Plane3d,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'a> {
         Plane3dBuilder {
-            gizmos: self,
-            normal: primitive.normal,
+            gizmos,
+            normal: self.normal,
             isometry: isometry.into(),
             color: color.into(),
             cell_count: UVec2::splat(3),
@@ -173,7 +199,7 @@ where
 
 // line 3d
 
-impl<Config, Clear> GizmoPrimitive3d<Line3d> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Line3d
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -183,32 +209,32 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Line3d,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
+    ) -> Self::Output<'a> {
+        if !gizmos.enabled {
             return;
         }
 
         let isometry = isometry.into();
         let color = color.into();
-        let direction = primitive.direction.as_vec3();
-        self.arrow(isometry * Vec3::ZERO, isometry * direction, color);
+        let direction = self.direction.as_vec3();
+        gizmos.arrow(isometry * Vec3::ZERO, isometry * direction, color);
 
         let [start, end] = [1.0, -1.0]
             .map(|sign| sign * INFINITE_LEN)
-            .map(|length| primitive.direction * length)
+            .map(|length| self.direction * length)
             .map(|offset| isometry * offset);
-        self.line(start, end, color);
+        gizmos.line(start, end, color);
     }
 }
 
 // segment 3d
 
-impl<Config, Clear> GizmoPrimitive3d<Segment3d> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Segment3d
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -218,24 +244,24 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Segment3d,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
+    ) -> Self::Output<'a> {
+        if !gizmos.enabled {
             return;
         }
 
-        let transformed = primitive.transformed(isometry);
-        self.line(transformed.point1(), transformed.point2(), color);
+        let transformed = self.transformed(isometry);
+        gizmos.line(transformed.point1(), transformed.point2(), color);
     }
 }
 
 // polyline 3d
 
-impl<const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>> for GizmoBuffer<Config, Clear>
+impl<const N: usize, Config, Clear> GizmoPrimitive3d<Config, Clear> for Polyline3d<N>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -245,24 +271,24 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Polyline3d<N>,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
+    ) -> Self::Output<'a> {
+        if !gizmos.enabled {
             return;
         }
 
         let isometry = isometry.into();
-        self.linestrip(primitive.vertices.map(|vec3| isometry * vec3), color);
+        gizmos.linestrip(self.vertices.map(|vec3| isometry * vec3), color);
     }
 }
 
 // boxed polyline 3d
 
-impl<Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for BoxedPolyline3d
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -272,23 +298,19 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &BoxedPolyline3d,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
+    ) -> Self::Output<'a> {
+        if !gizmos.enabled {
             return;
         }
 
         let isometry = isometry.into();
-        self.linestrip(
-            primitive
-                .vertices
-                .iter()
-                .copied()
-                .map(|vec3| isometry * vec3),
+        gizmos.linestrip(
+            self.vertices.iter().copied().map(|vec3| isometry * vec3),
             color,
         );
     }
@@ -296,7 +318,7 @@ where
 
 // triangle 3d
 
-impl<Config, Clear> GizmoPrimitive3d<Triangle3d> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Triangle3d
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -306,25 +328,25 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Triangle3d,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
+    ) -> Self::Output<'a> {
+        if !gizmos.enabled {
             return;
         }
 
         let isometry = isometry.into();
-        let [a, b, c] = primitive.vertices;
-        self.linestrip([a, b, c, a].map(|vec3| isometry * vec3), color);
+        let [a, b, c] = self.vertices;
+        gizmos.linestrip([a, b, c, a].map(|vec3| isometry * vec3), color);
     }
 }
 
 // cuboid
 
-impl<Config, Clear> GizmoPrimitive3d<Cuboid> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Cuboid
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -334,13 +356,13 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Cuboid,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
+    ) -> Self::Output<'a> {
+        if !gizmos.enabled {
             return;
         }
 
@@ -358,7 +380,7 @@ where
             [1.0, -1.0, -1.0],
         ]
         .map(Vec3::from)
-        .map(|vec3| vec3 * primitive.half_size)
+        .map(|vec3| vec3 * self.half_size)
         .map(|vec3| isometry * vec3);
 
         // lines for the upper rectangle of the cuboid
@@ -379,7 +401,7 @@ where
             .chain(lower)
             .chain(connections)
             .for_each(|(start, end)| {
-                self.line(start, end, color);
+                gizmos.line(start, end, color);
             });
     }
 }
@@ -419,7 +441,7 @@ where
     }
 }
 
-impl<Config, Clear> GizmoPrimitive3d<Cylinder> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Cylinder
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -429,16 +451,16 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Cylinder,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'a> {
         Cylinder3dBuilder {
-            gizmos: self,
-            radius: primitive.radius,
-            half_height: primitive.half_height,
+            gizmos,
+            radius: self.radius,
+            half_height: self.half_height,
             isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_RESOLUTION,
@@ -505,7 +527,7 @@ where
     }
 }
 
-impl<Config, Clear> GizmoPrimitive3d<Capsule3d> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Capsule3d
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -515,16 +537,16 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Capsule3d,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'a> {
         Capsule3dBuilder {
-            gizmos: self,
-            radius: primitive.radius,
-            half_length: primitive.half_length,
+            gizmos,
+            radius: self.radius,
+            half_length: self.half_length,
             isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_RESOLUTION,
@@ -645,7 +667,7 @@ where
     }
 }
 
-impl<Config, Clear> GizmoPrimitive3d<Cone> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Cone
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -655,16 +677,16 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Cone,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'a> {
         Cone3dBuilder {
-            gizmos: self,
-            radius: primitive.radius,
-            height: primitive.height,
+            gizmos,
+            radius: self.radius,
+            height: self.height,
             isometry: isometry.into(),
             color: color.into(),
             base_resolution: DEFAULT_RESOLUTION,
@@ -747,7 +769,7 @@ where
     }
 }
 
-impl<Config, Clear> GizmoPrimitive3d<ConicalFrustum> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for ConicalFrustum
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -757,17 +779,17 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &ConicalFrustum,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'a> {
         ConicalFrustum3dBuilder {
-            gizmos: self,
-            radius_top: primitive.radius_top,
-            radius_bottom: primitive.radius_bottom,
-            height: primitive.height,
+            gizmos,
+            radius_top: self.radius_top,
+            radius_bottom: self.radius_bottom,
+            height: self.height,
             isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_RESOLUTION,
@@ -851,7 +873,7 @@ where
     }
 }
 
-impl<Config, Clear> GizmoPrimitive3d<Torus> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Torus
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -861,16 +883,16 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Torus,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'a> {
         Torus3dBuilder {
-            gizmos: self,
-            minor_radius: primitive.minor_radius,
-            major_radius: primitive.major_radius,
+            gizmos,
+            minor_radius: self.minor_radius,
+            major_radius: self.major_radius,
             isometry: isometry.into(),
             color: color.into(),
             minor_resolution: DEFAULT_RESOLUTION,
@@ -931,7 +953,7 @@ where
 
 // tetrahedron
 
-impl<Config, Clear> GizmoPrimitive3d<Tetrahedron> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Config, Clear> for Tetrahedron
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -941,25 +963,25 @@ where
     where
         Self: 'a;
 
-    fn primitive_3d(
-        &mut self,
-        primitive: &Tetrahedron,
+    fn gizmos<'a, 'b: 'a>(
+        &'a self,
+        gizmos: &'b mut GizmoBuffer<Config, Clear>,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
+    ) -> Self::Output<'a> {
+        if !gizmos.enabled {
             return;
         }
 
         let isometry = isometry.into();
 
-        let [a, b, c, d] = primitive.vertices.map(|vec3| isometry * vec3);
+        let [a, b, c, d] = self.vertices.map(|vec3| isometry * vec3);
 
         let lines = [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)];
 
         let color = color.into();
         lines.into_iter().for_each(|(start, end)| {
-            self.line(start, end, color);
+            gizmos.line(start, end, color);
         });
     }
 }
