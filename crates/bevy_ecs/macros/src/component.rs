@@ -17,7 +17,7 @@ pub const EVENT: &str = "entity_event";
 pub const AUTO_PROPAGATE: &str = "auto_propagate";
 pub const TRAVERSAL: &str = "traversal";
 
-pub fn derive_event(input: TokenStream) -> TokenStream {
+pub fn derive_broadcast_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
@@ -31,6 +31,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
+        impl #impl_generics #bevy_ecs_path::event::BroadcastEvent for #struct_name #type_generics #where_clause {}
     })
 }
 

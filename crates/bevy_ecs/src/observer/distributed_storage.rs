@@ -44,7 +44,7 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// #[derive(Event)]
+/// #[derive(BroadcastEvent)]
 /// struct Speak {
 ///     message: String,
 /// }
@@ -67,7 +67,7 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct Speak;
 /// // These are functionally the same:
 /// world.add_observer(|trigger: On<Speak>| {});
@@ -79,7 +79,7 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct PrintNames;
 /// # #[derive(Component, Debug)]
 /// # struct Name;
@@ -97,7 +97,7 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct SpawnThing;
 /// # #[derive(Component, Debug)]
 /// # struct Thing;
@@ -111,9 +111,9 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct A;
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct B;
 /// world.add_observer(|trigger: On<A>, mut commands: Commands| {
 ///     commands.trigger(B);
@@ -211,7 +211,7 @@ pub struct Observer {
 }
 
 impl Observer {
-    /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
+    /// Creates a new [`Observer`], which defaults to a global observer. This means it will run whenever the event `E` is triggered
     /// for _any_ entity (or no entity).
     ///
     /// # Panics

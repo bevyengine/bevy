@@ -53,13 +53,13 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        event::Event,
+        event::BroadcastEvent,
         observer::On,
         system::{In, IntoSystem},
         world::World,
     };
 
-    #[derive(Event)]
+    #[derive(BroadcastEvent)]
     struct TriggerEvent;
 
     #[test]
