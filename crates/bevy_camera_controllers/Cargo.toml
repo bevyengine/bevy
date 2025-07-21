@@ -6,7 +6,7 @@ description = "Premade camera controllers for Bevy"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
-keywords = ["bevy", "color"]
+keywords = ["bevy", "input", "camera", "control"]
 rust-version = "1.85.0"
 
 [dependencies]
