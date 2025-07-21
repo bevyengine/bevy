@@ -15,6 +15,9 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `FxaaPipeline`
 - `SmaaPipelines`
 - `TaaPipeline`
+- `ShadowSamplers`
+- `GlobalClusterableObjectMeta`
+- `FallbackBindlessResources`
 - `AutoExposurePipeline`
 - `MotionBlurPipeline`
 - `SkyboxPrepassPipeline`
@@ -29,6 +32,7 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `UiPipeline`
 - `UiMaterialPipeline<M>`
 - `UiTextureSlicePipeline`
+- `ScreenshotToScreenPipeline`
 - `VolumetricFogPipeline`
 - `DeferredLightingLayout`
 - `RenderLightmaps`
@@ -36,6 +40,9 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `PrepassViewBindGroup`
 - `Wireframe3dPipeline`
 - `MaterialPipeline`
+- `MeshletPipelines`
+- `MeshletMeshManager`
+- `ResourceManager`
 - `Wireframe2dPipeline`
 - `Material2dPipeline`
 - `SpritePipeline`

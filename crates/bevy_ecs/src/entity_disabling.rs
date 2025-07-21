@@ -178,7 +178,7 @@ impl DefaultQueryFilters {
     }
 
     /// Get an iterator over all of the components which disable entities when present.
-    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> + use<'_> {
+    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> {
         self.disabling.iter().copied()
     }
 
@@ -205,7 +205,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        prelude::World,
+        prelude::{EntityMut, EntityRef, World},
         query::{Has, With},
     };
     use alloc::{vec, vec::Vec};
@@ -278,30 +278,42 @@ mod tests {
         let mut world = World::new();
         world.register_disabling_component::<CustomDisabled>();
 
+        // Use powers of two so we can uniquely identify the set of matching archetypes from the count.
         world.spawn_empty();
-        world.spawn(Disabled);
-        world.spawn(CustomDisabled);
-        world.spawn((Disabled, CustomDisabled));
+        world.spawn_batch((0..2).map(|_| Disabled));
+        world.spawn_batch((0..4).map(|_| CustomDisabled));
+        world.spawn_batch((0..8).map(|_| (Disabled, CustomDisabled)));
 
         let mut query = world.query::<()>();
         assert_eq!(1, query.iter(&world).count());
 
-        let mut query = world.query_filtered::<(), With<Disabled>>();
+        let mut query = world.query::<EntityRef>();
         assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query::<EntityMut>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<(), With<Disabled>>();
+        assert_eq!(2, query.iter(&world).count());
 
         let mut query = world.query::<Has<Disabled>>();
-        assert_eq!(2, query.iter(&world).count());
+        assert_eq!(3, query.iter(&world).count());
 
         let mut query = world.query_filtered::<(), With<CustomDisabled>>();
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(4, query.iter(&world).count());
 
         let mut query = world.query::<Has<CustomDisabled>>();
-        assert_eq!(2, query.iter(&world).count());
+        assert_eq!(5, query.iter(&world).count());
 
         let mut query = world.query_filtered::<(), (With<Disabled>, With<CustomDisabled>)>();
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(8, query.iter(&world).count());
 
         let mut query = world.query::<(Has<Disabled>, Has<CustomDisabled>)>();
-        assert_eq!(4, query.iter(&world).count());
+        assert_eq!(15, query.iter(&world).count());
+
+        // This seems like it ought to count as a mention of `Disabled`, but it does not.
+        // We don't consider read access, since that would count `EntityRef` as a mention of *all* components.
+        let mut query = world.query::<Option<&Disabled>>();
+        assert_eq!(1, query.iter(&world).count());
     }
 }
