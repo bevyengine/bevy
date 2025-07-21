@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::prelude::*;
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::{self, Visibility, VisibilityClass};
@@ -51,7 +51,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, Text2d, TextLayout, TextFont, TextColor, TextSpan};
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -73,7 +73,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// // With text justification.
 /// world.spawn((
 ///     Text2d::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(JustifyText::Center)
+///     TextLayout::new_with_justify(Justify::Center)
 /// ));
 ///
 /// // With spans
@@ -186,6 +186,7 @@ pub fn extract_text2d_sprite(
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
         let transform =
             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
+
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
 
@@ -213,7 +214,7 @@ pub fn extract_text2d_sprite(
                 current_span = *span_index;
             }
             let rect = texture_atlases
-                .get(&atlas_info.texture_atlas)
+                .get(atlas_info.texture_atlas)
                 .unwrap()
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
@@ -232,7 +233,7 @@ pub fn extract_text2d_sprite(
                     render_entity,
                     transform,
                     color,
-                    image_handle_id: atlas_info.texture.id(),
+                    image_handle_id: atlas_info.texture,
                     flip_x: false,
                     flip_y: false,
                     kind: bevy_sprite::ExtractedSpriteKind::Slices {
@@ -366,22 +367,17 @@ pub fn calculate_bounds_text2d(
             text_bounds.width.unwrap_or(layout_info.size.x),
             text_bounds.height.unwrap_or(layout_info.size.y),
         );
-        let center = (-anchor.as_vec() * size + (size.y - layout_info.size.y) * Vec2::Y)
-            .extend(0.)
-            .into();
 
-        let half_extents = (0.5 * layout_info.size).extend(0.0).into();
+        let x1 = (Anchor::TOP_LEFT.0.x - anchor.as_vec().x) * size.x;
+        let x2 = (Anchor::TOP_LEFT.0.x - anchor.as_vec().x + 1.) * size.x;
+        let y1 = (Anchor::TOP_LEFT.0.y - anchor.as_vec().y - 1.) * size.y;
+        let y2 = (Anchor::TOP_LEFT.0.y - anchor.as_vec().y) * size.y;
+        let new_aabb = Aabb::from_min_max(Vec3::new(x1, y1, 0.), Vec3::new(x2, y2, 0.));
 
         if let Some(mut aabb) = aabb {
-            *aabb = Aabb {
-                center,
-                half_extents,
-            };
+            *aabb = new_aabb;
         } else {
-            commands.entity(entity).try_insert(Aabb {
-                center,
-                half_extents,
-            });
+            commands.entity(entity).try_insert(new_aabb);
         }
     }
 }

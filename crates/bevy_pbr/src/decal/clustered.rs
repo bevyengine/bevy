@@ -17,23 +17,23 @@
 use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
     entity::{Entity, EntityHashMap},
-    prelude::ReflectComponent,
     query::With,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{Query, Res, ResMut},
 };
 use bevy_image::Image;
+pub use bevy_light::cluster::ClusteredDecal;
+use bevy_light::{DirectionalLightTexture, PointLightTexture, SpotLightTexture};
 use bevy_math::Mat4;
 use bevy_platform::collections::HashMap;
-use bevy_reflect::Reflect;
+pub use bevy_render::primitives::CubemapLayout;
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_component::ExtractComponentPlugin,
     load_shader_library,
     render_asset::RenderAssets,
     render_resource::{
@@ -43,15 +43,13 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::{self, ViewVisibility, Visibility, VisibilityClass},
+    view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_transform::{components::GlobalTransform, prelude::Transform};
+use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{
-    binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta, LightVisibilityClass,
-};
+use crate::{binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta};
 
 /// The maximum number of decals that can be present in a view.
 ///
@@ -65,34 +63,6 @@ pub(crate) const MAX_VIEW_DECALS: usize = 8;
 /// In environments where bindless textures aren't available, clustered decals
 /// can still be added to a scene, but they won't project any decals.
 pub struct ClusteredDecalPlugin;
-
-/// An object that projects a decal onto surfaces within its bounds.
-///
-/// Conceptually, a clustered decal is a 1×1×1 cube centered on its origin. It
-/// projects the given [`Self::image`] onto surfaces in the +Z direction (thus
-/// you may find [`Transform::looking_at`] useful).
-///
-/// Clustered decals are the highest-quality types of decals that Bevy supports,
-/// but they require bindless textures. This means that they presently can't be
-/// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
-/// with forward or deferred rendering and don't require a prepass.
-#[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
-#[reflect(Component, Debug, Clone)]
-#[require(Transform, Visibility, VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
-pub struct ClusteredDecal {
-    /// The image that the clustered decal projects.
-    ///
-    /// This must be a 2D image. If it has an alpha channel, it'll be alpha
-    /// blended with the underlying surface and/or other decals. All decal
-    /// images in the scene must use the same sampler.
-    pub image: Handle<Image>,
-
-    /// An application-specific tag you can use for any purpose you want.
-    ///
-    /// See the `clustered_decals` example for an example of use.
-    pub tag: u32,
-}
 
 /// Stores information about all the clustered decals in the scene.
 #[derive(Resource, Default)]
@@ -120,6 +90,29 @@ impl RenderClusteredDecals {
         self.texture_to_binding_index.clear();
         self.decals.clear();
         self.entity_to_decal_index.clear();
+    }
+
+    pub fn insert_decal(
+        &mut self,
+        entity: Entity,
+        image: &AssetId<Image>,
+        local_from_world: Mat4,
+        tag: u32,
+    ) {
+        let image_index = self.get_or_insert_image(image);
+        let decal_index = self.decals.len();
+        self.decals.push(RenderClusteredDecal {
+            local_from_world,
+            image_index,
+            tag,
+            pad_a: 0,
+            pad_b: 0,
+        });
+        self.entity_to_decal_index.insert(entity, decal_index);
+    }
+
+    pub fn get(&self, entity: Entity) -> Option<usize> {
+        self.entity_to_decal_index.get(&entity).copied()
     }
 }
 
@@ -204,6 +197,30 @@ pub fn extract_decals(
             &ViewVisibility,
         )>,
     >,
+    spot_light_textures: Extract<
+        Query<(
+            RenderEntity,
+            &SpotLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    point_light_textures: Extract<
+        Query<(
+            RenderEntity,
+            &PointLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    directional_light_textures: Extract<
+        Query<(
+            RenderEntity,
+            &DirectionalLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
     mut render_decals: ResMut<RenderClusteredDecals>,
 ) {
     // Clear out the `RenderDecals` in preparation for a new frame.
@@ -216,22 +233,54 @@ pub fn extract_decals(
             continue;
         }
 
-        // Insert or add the image.
-        let image_index = render_decals.get_or_insert_image(&clustered_decal.image.id());
+        render_decals.insert_decal(
+            decal_entity,
+            &clustered_decal.image.id(),
+            global_transform.affine().inverse().into(),
+            clustered_decal.tag,
+        );
+    }
 
-        // Record the decal.
-        let decal_index = render_decals.decals.len();
-        render_decals
-            .entity_to_decal_index
-            .insert(decal_entity, decal_index);
+    for (decal_entity, texture, global_transform, view_visibility) in &spot_light_textures {
+        // If the decal is invisible, skip it.
+        if !view_visibility.get() {
+            continue;
+        }
 
-        render_decals.decals.push(RenderClusteredDecal {
-            local_from_world: global_transform.affine().inverse().into(),
-            image_index,
-            tag: clustered_decal.tag,
-            pad_a: 0,
-            pad_b: 0,
-        });
+        render_decals.insert_decal(
+            decal_entity,
+            &texture.image.id(),
+            global_transform.affine().inverse().into(),
+            0,
+        );
+    }
+
+    for (decal_entity, texture, global_transform, view_visibility) in &point_light_textures {
+        // If the decal is invisible, skip it.
+        if !view_visibility.get() {
+            continue;
+        }
+
+        render_decals.insert_decal(
+            decal_entity,
+            &texture.image.id(),
+            global_transform.affine().inverse().into(),
+            texture.cubemap_layout as u32,
+        );
+    }
+
+    for (decal_entity, texture, global_transform, view_visibility) in &directional_light_textures {
+        // If the decal is invisible, skip it.
+        if !view_visibility.get() {
+            continue;
+        }
+
+        render_decals.insert_decal(
+            decal_entity,
+            &texture.image.id(),
+            global_transform.affine().inverse().into(),
+            if texture.tiled { 1 } else { 0 },
+        );
     }
 }
 
@@ -377,4 +426,5 @@ pub fn clustered_decals_are_usable(
     // Re-enable this when `wgpu` has first-class bindless.
     binding_arrays_are_usable(render_device, render_adapter)
         && cfg!(not(any(target_os = "macos", target_os = "ios")))
+        && cfg!(feature = "pbr_clustered_decals")
 }

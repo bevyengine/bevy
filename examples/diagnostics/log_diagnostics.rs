@@ -33,7 +33,7 @@ fn main() {
             // Adds frame time, FPS and frame count diagnostics.
             FrameTimeDiagnosticsPlugin::default(),
             // Adds an entity count diagnostic.
-            EntityCountDiagnosticsPlugin,
+            EntityCountDiagnosticsPlugin::default(),
             // Adds cpu and memory usage diagnostics for systems and the entire game process.
             SystemInformationDiagnosticsPlugin,
             // Forwards various diagnostics from the render app to the main app.

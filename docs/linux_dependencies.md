@@ -91,7 +91,7 @@ Set the `PKG_CONFIG_PATH` env var to `/usr/lib/<target>/pkgconfig/`. For example
 export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
 ```
 
-## Arch / Manjaro
+## [Arch](https://archlinux.org/) / [Manjaro](https://manjaro.org/)
 
 ```bash
 sudo pacman -S libx11 pkgconf alsa-lib libxcursor libxrandr libxi
@@ -102,13 +102,87 @@ Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you a
 Depending on your graphics card, you may have to install one of the following:
 `vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
-## Void
+## [Void](https://voidlinux.org/)
 
 ```bash
 sudo xbps-install -S pkgconf alsa-lib-devel libX11-devel eudev-libudev-devel
 ```
 
 ## [Nix](https://nixos.org)
+
+### flake.nix
+
+Add a `flake.nix` file to the root of your GitHub repository containing:
+
+```nix
+{
+  description = "bevy flake";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    {
+      nixpkgs,
+      rust-overlay,
+      flake-utils,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs {
+          inherit system overlays;
+        };
+      in
+      {
+        devShells.default =
+          with pkgs;
+          mkShell {
+            buildInputs =
+              [
+                # Rust dependencies
+                (rust-bin.stable.latest.default.override { extensions = [ "rust-src" ]; })
+                pkg-config
+              ]
+              ++ lib.optionals (lib.strings.hasInfix "linux" system) [
+                # for Linux
+                # Audio (Linux only)
+                alsa-lib
+                # Cross Platform 3D Graphics API
+                vulkan-loader
+                # For debugging around vulkan
+                vulkan-tools
+                # Other dependencies
+                libudev-zero
+                xorg.libX11
+                xorg.libXcursor
+                xorg.libXi
+                xorg.libXrandr
+                libxkbcommon
+              ];
+            RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+            LD_LIBRARY_PATH = lib.makeLibraryPath [
+              vulkan-loader
+              xorg.libX11
+              xorg.libXi
+              xorg.libXcursor
+              libxkbcommon
+            ];
+          };
+      }
+    );
+}
+```
+
+> [!TIP]
+> We have confirmed that this flake.nix can be used successfully on NixOS and MacOS with Rust's edition set to 2021.
+
+### shell.nix
 
 Add a `shell.nix` file to the root of the project containing:
 
@@ -138,8 +212,8 @@ If running nix on a non NixOS system (such as ubuntu, arch etc.), [NixGL](https:
 to link graphics drivers into the context of software installed by nix:
 
 1. Install a system specific nixGL wrapper ([docs](https://github.com/nix-community/nixGL)).
-   * If you're running a nvidia GPU choose `nixVulkanNvidia`.
-   * Otherwise, choose another wrapper appropriate for your system.
+   - If you're running a nvidia GPU choose `nixVulkanNvidia`.
+   - Otherwise, choose another wrapper appropriate for your system.
 2. Run `nixVulkanNvidia-xxx.xxx.xx cargo run` to compile a bevy program, where `xxx-xxx-xx` denotes the graphics driver version `nixVulkanNvidia` was compiled with.
 
 This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
@@ -152,7 +226,7 @@ for more information about `devShells`.
 Note that this template does not add Rust to the environment because there are many ways to do it.
 For example, to use stable Rust from nixpkgs, you can add `cargo` and `rustc` to `nativeBuildInputs`.
 
-[Here]([https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ju/jumpy/package.nix](https://github.com/NixOS/nixpkgs/blob/0da3c44a9460a26d2025ec3ed2ec60a895eb1114/pkgs/games/jumpy/default.nix))
+[Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ju/jumpy/package.nix)
 is an example of packaging a Bevy program in nix.
 
 ## [OpenSUSE](https://www.opensuse.org/)
@@ -161,7 +235,7 @@ is an example of packaging a Bevy program in nix.
    sudo zypper install libudev-devel gcc-c++ alsa-lib-devel
 ```
 
-## Gentoo
+## [Gentoo](https://www.gentoo.org/)
 
 ```bash
    sudo emerge --ask libX11 pkgconf alsa-lib

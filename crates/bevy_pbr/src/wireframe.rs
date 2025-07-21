@@ -1,11 +1,12 @@
 use crate::{
     DrawMesh, MeshPipeline, MeshPipelineKey, RenderMeshInstanceFlags, RenderMeshInstances,
-    SetMeshBindGroup, SetMeshViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
+    SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
+    ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
-    AssetEventSystems, AssetId, Assets, Handle, UntypedAssetId,
+    AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::core_3d::{
@@ -24,7 +25,6 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::camera::extract_cameras;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::ExtractedCamera,
@@ -37,7 +37,7 @@ use bevy_render::{
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
@@ -53,6 +53,7 @@ use bevy_render::{
     },
     Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
+use bevy_render::{camera::extract_cameras, RenderStartup};
 use core::{hash::Hash, ops::Range};
 use tracing::error;
 
@@ -131,6 +132,7 @@ impl Plugin for WireframePlugin {
                     Node3d::PostProcessing,
                 ),
             )
+            .add_systems(RenderStartup, init_wireframe_3d_pipeline)
             .add_systems(
                 ExtractSchedule,
                 (
@@ -151,13 +153,6 @@ impl Plugin for WireframePlugin {
                         .after(prepare_assets::<RenderWireframeMaterial>),
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<Wireframe3dPipeline>();
     }
 }
 
@@ -318,7 +313,8 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
 pub type DrawWireframe3d = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
+    SetMeshViewBindingArrayBindGroup<1>,
+    SetMeshBindGroup<2>,
     SetWireframe3dPushConstants,
     DrawMesh,
 );
@@ -329,13 +325,15 @@ pub struct Wireframe3dPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for Wireframe3dPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        Wireframe3dPipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: load_embedded_asset!(render_world, "render/wireframe.wgsl"),
-        }
-    }
+pub fn init_wireframe_3d_pipeline(
+    mut commands: Commands,
+    mesh_pipeline: Res<MeshPipeline>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(Wireframe3dPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wgsl"),
+    });
 }
 
 impl SpecializedMeshPipeline for Wireframe3dPipeline {
@@ -374,7 +372,7 @@ impl ViewNode for Wireframe3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()
@@ -474,6 +472,7 @@ impl RenderAsset for RenderWireframeMaterial {
         source_asset: Self::SourceAsset,
         _asset_id: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
+        _previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         Ok(RenderWireframeMaterial {
             color: source_asset.color.to_linear().to_f32_array(),

@@ -1,12 +1,12 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
-//! Input functionality for the [Bevy game engine](https://bevyengine.org/).
+//! Input functionality for the [Bevy game engine](https://bevy.org/).
 //!
 //! # Supported input devices
 //!
@@ -49,7 +49,7 @@ use bevy_ecs::prelude::*;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use gestures::*;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardFocusLost, KeyboardInput};
+use keyboard::{keyboard_input_system, Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use mouse::{
     accumulate_mouse_motion_system, accumulate_mouse_scroll_system, mouse_button_input_system,
     AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseButtonInput, MouseMotion,
@@ -60,12 +60,13 @@ use touch::{touch_screen_input_system, TouchInput, Touches};
 #[cfg(feature = "bevy_reflect")]
 use gamepad::Gamepad;
 use gamepad::{
-    gamepad_connection_system, gamepad_event_processing_system, GamepadAxis,
-    GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
-    GamepadButtonStateChangedEvent, GamepadConnection, GamepadConnectionEvent, GamepadEvent,
-    GamepadInput, GamepadRumbleRequest, GamepadSettings, RawGamepadAxisChangedEvent,
-    RawGamepadButtonChangedEvent, RawGamepadEvent,
+    gamepad_connection_system, gamepad_event_processing_system, GamepadAxisChangedEvent,
+    GamepadButtonChangedEvent, GamepadButtonStateChangedEvent, GamepadConnectionEvent,
+    GamepadEvent, GamepadRumbleRequest, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+    RawGamepadEvent,
 };
+#[cfg(feature = "bevy_reflect")]
+use gamepad::{GamepadAxis, GamepadButton, GamepadConnection, GamepadInput, GamepadSettings};
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -89,6 +90,7 @@ impl Plugin for InputPlugin {
             .add_event::<KeyboardInput>()
             .add_event::<KeyboardFocusLost>()
             .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<Key>>()
             .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystems))
             // mouse
             .add_event::<MouseButtonInput>()

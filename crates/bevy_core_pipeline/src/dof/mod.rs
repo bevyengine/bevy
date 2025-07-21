@@ -25,7 +25,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::ops;
@@ -34,7 +34,7 @@ use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_graph::{
-        NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
+        NodeRunError, RenderGraphContext, RenderGraphExt as _, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{
@@ -55,7 +55,7 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::{default, once};
 use smallvec::SmallVec;
@@ -66,7 +66,7 @@ use crate::{
         graph::{Core3d, Node3d},
         Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    FullscreenShader,
 };
 
 /// A plugin that adds support for the depth of field effect to Bevy.
@@ -219,6 +219,7 @@ impl Plugin for DepthOfFieldPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
             .init_resource::<DepthOfFieldGlobalBindGroup>()
+            .add_systems(RenderStartup, init_dof_global_bind_group_layout)
             .add_systems(ExtractSchedule, extract_depth_of_field_settings)
             .add_systems(
                 Render,
@@ -247,14 +248,6 @@ impl Plugin for DepthOfFieldPlugin {
                 Core3d,
                 (Node3d::Bloom, Node3d::DepthOfField, Node3d::Tonemapping),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<DepthOfFieldGlobalBindGroupLayout>();
     }
 }
 
@@ -325,8 +318,10 @@ pub struct DepthOfFieldPipeline {
     /// The bind group layout shared among all invocations of the depth of field
     /// shader.
     global_bind_group_layout: BindGroupLayout,
-    /// The shader asset handle.
-    shader: Handle<Shader>,
+    /// The asset handle for the fullscreen vertex shader.
+    fullscreen_shader: FullscreenShader,
+    /// The fragment shader asset handle.
+    fragment_shader: Handle<Shader>,
 }
 
 impl ViewNode for DepthOfFieldNode {
@@ -352,7 +347,7 @@ impl ViewNode for DepthOfFieldNode {
             view_bind_group_layouts,
             depth_of_field_uniform_index,
             auxiliary_dof_texture,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -502,38 +497,34 @@ impl DepthOfField {
     }
 }
 
-impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // Create the bind group layout that will be shared among all instances
-        // of the depth of field shader.
-        let layout = render_device.create_bind_group_layout(
-            Some("depth of field global bind group layout"),
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // `dof_params`
-                    uniform_buffer::<DepthOfFieldUniform>(true),
-                    // `color_texture_sampler`
-                    sampler(SamplerBindingType::Filtering),
-                ),
+pub fn init_dof_global_bind_group_layout(mut commands: Commands, render_device: Res<RenderDevice>) {
+    // Create the bind group layout that will be shared among all instances
+    // of the depth of field shader.
+    let layout = render_device.create_bind_group_layout(
+        Some("depth of field global bind group layout"),
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // `dof_params`
+                uniform_buffer::<DepthOfFieldUniform>(true),
+                // `color_texture_sampler`
+                sampler(SamplerBindingType::Filtering),
             ),
-        );
+        ),
+    );
 
-        // Create the color texture sampler.
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("depth of field sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..default()
-        });
+    // Create the color texture sampler.
+    let sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: Some("depth of field sampler"),
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        ..default()
+    });
 
-        DepthOfFieldGlobalBindGroupLayout {
-            color_texture_sampler: sampler,
-            layout,
-        }
-    }
+    commands.insert_resource(DepthOfFieldGlobalBindGroupLayout {
+        color_texture_sampler: sampler,
+        layout,
+    });
 }
 
 /// Creates the bind group layouts for the depth of field effect that are
@@ -678,13 +669,15 @@ pub fn prepare_depth_of_field_pipelines(
         &ViewDepthOfFieldBindGroupLayouts,
         &Msaa,
     )>,
+    fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
     for (entity, view, depth_of_field, view_bind_group_layouts, msaa) in view_targets.iter() {
         let dof_pipeline = DepthOfFieldPipeline {
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
-            shader: load_embedded_asset!(asset_server.as_ref(), "dof.wgsl"),
+            fullscreen_shader: fullscreen_shader.clone(),
+            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wgsl"),
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
@@ -796,23 +789,19 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
         RenderPipelineDescriptor {
             label: Some("depth of field pipeline".into()),
             layout,
-            push_constant_ranges: vec![],
-            vertex: fullscreen_shader_vertex_state(),
-            primitive: default(),
-            depth_stencil: None,
-            multisample: default(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: match key.pass {
+                entry_point: Some(match key.pass {
                     DofPass::GaussianHorizontal => "gaussian_horizontal".into(),
                     DofPass::GaussianVertical => "gaussian_vertical".into(),
                     DofPass::BokehPass0 => "bokeh_pass_0".into(),
                     DofPass::BokehPass1 => "bokeh_pass_1".into(),
-                },
+                }),
                 targets,
             }),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

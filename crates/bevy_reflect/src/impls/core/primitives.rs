@@ -282,6 +282,7 @@ impl GetTypeRegistration for &'static str {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
         registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -291,9 +292,6 @@ impl FromReflect for &'static str {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
-
-#[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(&'static str);
 
 impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
     #[inline]

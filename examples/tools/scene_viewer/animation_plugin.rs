@@ -11,6 +11,7 @@ struct Clips {
     nodes: Vec<AnimationNodeIndex>,
     current: usize,
 }
+
 impl Clips {
     fn new(clips: Vec<AnimationNodeIndex>) -> Self {
         Clips {

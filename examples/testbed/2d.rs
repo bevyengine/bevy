@@ -151,10 +151,10 @@ mod text {
         commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Text)));
 
         for (i, justify) in [
-            JustifyText::Left,
-            JustifyText::Right,
-            JustifyText::Center,
-            JustifyText::Justified,
+            Justify::Left,
+            Justify::Right,
+            Justify::Center,
+            Justify::Justified,
         ]
         .into_iter()
         .enumerate()
@@ -165,7 +165,7 @@ mod text {
                 &mut commands,
                 300. * Vec3::X + y * Vec3::Y,
                 justify,
-                Some(TextBounds::new(150., 55.)),
+                Some(TextBounds::new(150., 60.)),
             );
         }
 
@@ -196,7 +196,7 @@ mod text {
     fn spawn_anchored_text(
         commands: &mut Commands,
         dest: Vec3,
-        justify: JustifyText,
+        justify: Justify,
         bounds: Option<TextBounds>,
     ) {
         commands.spawn((
@@ -221,6 +221,9 @@ mod text {
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 DespawnOnExitState(super::Scene::Text),
+                ShowAabbGizmo {
+                    color: Some(palettes::tailwind::AMBER_400.into()),
+                },
                 children![
                     (
                         TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),

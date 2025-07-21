@@ -38,6 +38,6 @@ The determining factor for what kind of work should go in each pool is latency r
 
 To enable `no_std` support in this crate, you will need to disable default features, and enable the `edge_executor` and `critical-section` features.
 
-[bevy]: https://bevyengine.org
+[bevy]: https://bevy.org
 [rayon]: https://github.com/rayon-rs/rayon
 [async-executor]: https://github.com/stjepang/async-executor

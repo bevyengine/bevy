@@ -695,7 +695,7 @@ impl Default for UiRect {
     reflect(Serialize, Deserialize)
 )]
 /// Responsive position relative to a UI node.
-pub struct Position {
+pub struct UiPosition {
     /// Normalized anchor point
     pub anchor: Vec2,
     /// Responsive horizontal position relative to the anchor point
@@ -704,13 +704,13 @@ pub struct Position {
     pub y: Val,
 }
 
-impl Default for Position {
+impl Default for UiPosition {
     fn default() -> Self {
         Self::CENTER
     }
 }
 
-impl Position {
+impl UiPosition {
     /// Position at the given normalized anchor point
     pub const fn anchor(anchor: Vec2) -> Self {
         Self {
@@ -848,13 +848,13 @@ impl Position {
     }
 }
 
-impl From<Val> for Position {
+impl From<Val> for UiPosition {
     fn from(x: Val) -> Self {
         Self { x, ..default() }
     }
 }
 
-impl From<(Val, Val)> for Position {
+impl From<(Val, Val)> for UiPosition {
     fn from((x, y): (Val, Val)) -> Self {
         Self { x, y, ..default() }
     }

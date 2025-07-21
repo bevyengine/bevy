@@ -11,7 +11,7 @@
 
 #import bevy_render::{
     color_operations::hsv_to_rgb,
-    maths::PI_2
+    maths::{orthonormalize, PI_2}
 }
 
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
@@ -62,6 +62,21 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id);
 }
 
+// Constructs a left-handed orthonormal basis from a given unit Z vector.
+//
+// NOTE: requires unit-length (normalized) input to function properly.
+//
+// this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
+// the construction of the orthonormal basis up and right vectors here needs to precisely mirror the code
+// in bevy_light/spot_light.rs:spot_light_world_from_view
+// so we use `bevy_math::orthonormalize` which matches the rust impl, but we also invert the handedness
+fn spot_light_world_from_view(z_basis: vec3<f32>) -> mat3x3<f32> {
+    var basis = orthonormalize(z_basis);
+    // handedness flip
+    basis[0] = -basis[0];
+    return basis;
+}
+
 fn fetch_spot_shadow(
     light_id: u32,
     frag_position: vec4<f32>,
@@ -88,17 +103,7 @@ fn fetch_spot_shadow(
         + ((*light).shadow_depth_bias * normalize(surface_to_light))
         + (surface_normal.xyz * (*light).shadow_normal_bias) * distance_to_light;
 
-    // the construction of the up and right vectors needs to precisely mirror the code
-    // in render/light.rs:spot_light_view_matrix
-    var sign = -1.0;
-    if (fwd.z >= 0.0) {
-        sign = 1.0;
-    }
-    let a = -1.0 / (fwd.z + sign);
-    let b = fwd.x * fwd.y * a;
-    let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
-    let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
-    let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+    let light_inv_rot = spot_light_world_from_view(fwd);
 
     // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
     // the product of the transpose with a vector we can just post-multiply instead of pre-multiplying.
