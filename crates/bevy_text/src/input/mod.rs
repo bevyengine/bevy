@@ -996,3 +996,6 @@ pub struct TextInputPrompt {
     /// If none, the text input's `TextColor` is used.
     pub color: Option<Color>,
 }
+
+#[derive(Default, Component)]
+pub struct TextInputPromptLayout(pub TextLayoutInfo);
