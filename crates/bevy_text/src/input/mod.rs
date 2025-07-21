@@ -25,7 +25,7 @@ use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
-use bevy_ecs::entity::Entity;
+use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::query::Has;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -33,6 +33,7 @@ use bevy_ecs::schedule::SystemSet;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
+use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::world::Ref;
 use bevy_image::Image;
 use bevy_image::TextureAtlasLayout;
@@ -132,6 +133,30 @@ impl TextInputBuffer {
 pub struct TextInputTarget {
     pub size: Vec2,
     pub scale_factor: f32,
+}
+
+#[derive(Component, PartialEq, Debug, Default, Deref)]
+#[component(
+    on_insert = on_insert_text_input_value,
+)]
+pub struct TextInputValue(String);
+
+impl TextInputValue {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+}
+
+fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
+    if let Some(value) = world.get::<TextInputValue>(context.entity) {
+        let value = value.0.clone();
+        if let Some(mut actions) = world
+            .entity_mut(context.entity)
+            .get_mut::<TextInputActions>()
+        {
+            actions.queue(TextInputAction::SetText(value));
+        }
+    }
 }
 
 #[derive(Component, PartialEq, Debug, Default, Deref, DerefMut)]
@@ -354,17 +379,23 @@ fn apply_action<'a>(
 pub fn apply_text_input_actions(
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_input_query: Query<(
-        Entity,
         &mut TextInputBuffer,
         &mut TextInputActions,
         &TextInputAttributes,
         Option<&TextInputFilter>,
         Option<&mut TextInputHistory>,
+        Option<&mut TextInputValue>,
     )>,
     mut clipboard: ResMut<Clipboard>,
 ) {
-    for (_entity, mut buffer, mut text_input_actions, attribs, maybe_filter, mut maybe_history) in
-        text_input_query.iter_mut()
+    for (
+        mut buffer,
+        mut text_input_actions,
+        attribs,
+        maybe_filter,
+        mut maybe_history,
+        maybe_value,
+    ) in text_input_query.iter_mut()
     {
         for action in text_input_actions.queue.drain(..) {
             apply_text_input_action(
@@ -375,6 +406,13 @@ pub fn apply_text_input_actions(
                 &mut clipboard.0,
                 action,
             );
+        }
+
+        if let Some(mut value) = maybe_value {
+            let contents = buffer.get_text();
+            if value.0 != contents {
+                value.0 = contents;
+            }
         }
     }
 }
@@ -620,7 +658,6 @@ pub fn update_text_input_layouts(
                         cursor.affinity.after(),
                     ));
                 }
-
                 let result = ScrollingLayoutRunIter::new(buffer).try_for_each(|run| {
                     if let Some(selection) = selection {
                         if let Some((x0, w)) = run.highlight(selection.0, selection.1) {
