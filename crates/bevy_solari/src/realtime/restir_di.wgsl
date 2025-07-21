@@ -97,10 +97,12 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
 
     var reservoir = empty_reservoir();
-    var reservoir_target_function = 0.0;
-    var light_sample_world_position = vec4(0.0);
     var weight_sum = 0.0;
     let mis_weight = 1.0 / f32(INITIAL_SAMPLES);
+
+    var reservoir_target_function = 0.0;
+    var light_sample_world_position = vec4(0.0);
+    var selected_tile_sample = 0u;
     for (var i = 0u; i < INITIAL_SAMPLES; i++) {
         let tile_sample = light_tile_start + rand_range_u(1024u, rng);
         let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
@@ -112,10 +114,14 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         weight_sum += resampling_weight;
 
         if rand_f(rng) < resampling_weight / weight_sum {
-            reservoir.sample = light_tile_samples[tile_sample];
             reservoir_target_function = target_function;
             light_sample_world_position = resolved_light_sample.world_position;
+            selected_tile_sample = tile_sample;
         }
+    }
+
+    if reservoir_target_function != 0.0 {
+        reservoir.sample = light_tile_samples[selected_tile_sample];
     }
 
     if reservoir_valid(reservoir) {
