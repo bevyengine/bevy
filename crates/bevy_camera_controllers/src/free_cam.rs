@@ -144,7 +144,11 @@ Freecam Controls:
     }
 }
 
-fn run_freecam_controller(
+/// Reads inputs and then moves the camera entity according
+/// to the [`FreeCamController`] settings.
+///
+/// This system is typically added via the [`FreeCamPlugin`].
+pub fn run_freecam_controller(
     time: Res<Time>,
     mut windows: Query<(&Window, &mut CursorOptions)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
