@@ -112,6 +112,22 @@ impl Default for TextInputBuffer {
     }
 }
 
+impl TextInputBuffer {
+    pub fn with_buffer_mut<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(&mut Buffer) -> T,
+    {
+        self.editor.with_buffer_mut(f)
+    }
+
+    pub fn with_buffer<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(&Buffer) -> T,
+    {
+        self.editor.with_buffer(f)
+    }
+}
+
 /// Marks a text input buffer as only supporting single line editing
 #[derive(Component, Default, Debug)]
 pub struct SingleLineTextInput;

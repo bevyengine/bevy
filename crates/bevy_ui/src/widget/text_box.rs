@@ -12,6 +12,7 @@ use bevy_color::Color;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::event::EventReader;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::observer::Observer;
 use bevy_ecs::observer::On;
@@ -25,6 +26,8 @@ use bevy_ecs::system::ResMut;
 use bevy_ecs::world::DeferredWorld;
 use bevy_input::keyboard::Key;
 use bevy_input::keyboard::KeyboardInput;
+use bevy_input::mouse::MouseScrollUnit;
+use bevy_input::mouse::MouseWheel;
 use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
 use bevy_input_focus::InputFocus;
@@ -35,6 +38,7 @@ use bevy_picking::events::Drag;
 use bevy_picking::events::Move;
 use bevy_picking::events::Pointer;
 use bevy_picking::events::Press;
+use bevy_picking::hover::HoverMap;
 use bevy_picking::pointer::PointerButton;
 use bevy_text::Motion;
 use bevy_text::SpaceAdvance;
@@ -60,7 +64,12 @@ impl Plugin for TextBoxPlugin {
             .init_resource::<InputFocus>()
             .add_systems(
                 PostUpdate,
-                (update_targets, update_attributes, update_cursor_visibility)
+                (
+                    mouse_wheel_scroll,
+                    update_targets,
+                    update_attributes,
+                    update_cursor_visibility,
+                )
                     .after(UiSystems::Layout)
                     .before(TextInputSystems)
                     .before(bevy_text::update_text_input_buffers),
@@ -338,6 +347,36 @@ fn on_multi_click_set_selection(
 fn on_move_clear_multi_click(move_event: On<Pointer<Move>>, mut commands: Commands) {
     if let Ok(mut entity) = commands.get_entity(move_event.target()) {
         entity.try_remove::<TextInputMultiClickCounter>();
+    }
+}
+
+/// Updates the scroll position of scrollable nodes in response to mouse input
+pub fn mouse_wheel_scroll(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    hover_map: Res<HoverMap>,
+    mut node_query: Query<(&mut TextInputBuffer, &mut TextInputActions)>,
+) {
+    for mouse_wheel_event in mouse_wheel_events.read() {
+        for (_, pointer_map) in hover_map.iter() {
+            for (entity, _) in pointer_map.iter() {
+                let Ok((mut buffer, mut actions)) = node_query.get_mut(*entity) else {
+                    continue;
+                };
+                if mouse_wheel_event.y == 0. {
+                    continue;
+                }
+                let lines = match mouse_wheel_event.unit {
+                    MouseScrollUnit::Line => mouse_wheel_event.y,
+                    MouseScrollUnit::Pixel => {
+                        let line_height = buffer.with_buffer(|buffer| buffer.metrics().line_height);
+                        line_height / mouse_wheel_event.y
+                    }
+                };
+                actions.queue(TextInputAction::Scroll {
+                    lines: -lines as i32,
+                });
+            }
+        }
     }
 }
 
