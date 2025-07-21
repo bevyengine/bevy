@@ -18,7 +18,6 @@ pub use crate::{
     world::command_queue::CommandQueue,
 };
 use crate::{
-    entity_disabling::Internal,
     error::{DefaultErrorHandler, ErrorHandler},
     event::BufferedEvent,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
@@ -223,26 +222,7 @@ impl World {
     /// This function excludes internal entities. For more information look at the [`Internal`] documentation, or use [`World::internal_entity_count`].
     #[inline]
     pub fn entity_count(&self) -> u32 {
-        self.entities.len() - self.internal_entity_count()
-    }
-
-    /// Counts the number of internal entities, entities marked by the [`Internal`] marker component.
-    pub fn internal_entity_count(&self) -> u32 {
-        if let Some(internal_component_id) = self.components().component_id::<Internal>()
-            && let Some(archetype_map) = self
-                .archetypes()
-                .component_index()
-                .get(&internal_component_id)
-        {
-            let mut total = 0;
-            for archetype_id in archetype_map.keys() {
-                if let Some(archetype) = self.archetypes().get(*archetype_id) {
-                    total += archetype.len();
-                }
-            }
-            return total;
-        }
-        0
+        self.entities.len()
     }
 
     /// Retrieves this world's [`Archetypes`] collection.

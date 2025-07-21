@@ -346,9 +346,6 @@ mod tests {
     fn internal_entities() {
         let mut world = World::default();
         world.register_system(|| {});
-        assert_eq!(world.internal_entity_count(), 1);
-        assert_eq!(world.entity_count(), 0);
-
         let mut query = world.query::<()>();
         assert_eq!(query.iter(&world).count(), 0);
         let mut query = world.query_filtered::<(), With<Internal>>();
@@ -357,9 +354,6 @@ mod tests {
         #[derive(Component)]
         struct A;
         world.add_observer(|_: On<Add, A>| {});
-        assert_eq!(world.internal_entity_count(), 2);
-        assert_eq!(world.entity_count(), 0);
-
         let mut query = world.query::<()>();
         assert_eq!(query.iter(&world).count(), 0);
         let mut query = world.query_filtered::<(), With<Internal>>();

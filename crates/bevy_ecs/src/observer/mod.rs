@@ -726,9 +726,8 @@ mod tests {
 
         world.spawn(A).flush();
         assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
-        // Our A entity and two observers
-        assert_eq!(world.entity_count(), 1);
-        assert_eq!(world.internal_entity_count(), 2);
+        // Our A entity plus our two observers
+        assert_eq!(world.entity_count(), 3);
     }
 
     #[test]
