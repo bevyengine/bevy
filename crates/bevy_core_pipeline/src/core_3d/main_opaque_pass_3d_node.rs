@@ -2,6 +2,7 @@ use crate::{
     core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
+use bevy_camera::Viewport;
 use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::{ExtractedCamera, MainPassResolutionOverride},
@@ -91,8 +92,10 @@ impl ViewNode for MainOpaquePass3dNode {
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
 
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
+            if let Some(viewport) =
+                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+            {
+                render_pass.set_camera_viewport(&viewport);
             }
 
             // Opaque draws

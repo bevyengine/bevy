@@ -3,6 +3,7 @@ pub mod window;
 
 use bevy_camera::{
     primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
+    MainPassResolutionOverride,
 };
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
@@ -901,6 +902,7 @@ pub fn prepare_view_uniforms(
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
+        Option<&MainPassResolutionOverride>,
     )>,
     frame_count: Res<FrameCount>,
 ) {
@@ -913,13 +915,23 @@ pub fn prepare_view_uniforms(
     else {
         return;
     };
-    for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
+    for (
+        entity,
+        extracted_camera,
+        extracted_view,
+        frustum,
+        temporal_jitter,
+        mip_bias,
+        resolution_override,
+    ) in &views
+    {
         let viewport = extracted_view.viewport.as_vec4();
         let unjittered_projection = extracted_view.clip_from_view;
         let mut clip_from_view = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
-            temporal_jitter.jitter_projection(&mut clip_from_view, viewport.zw());
+            let jitter_view_size = resolution_override.map_or(viewport.zw(), |v| v.0.as_vec2());
+            temporal_jitter.jitter_projection(&mut clip_from_view, jitter_view_size);
         }
 
         let view_from_clip = clip_from_view.inverse();
