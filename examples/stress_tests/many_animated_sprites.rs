@@ -92,6 +92,7 @@ fn setup(
                     translation,
                     rotation,
                     scale,
+                    ..default()
                 },
                 AnimationTimer(timer),
             ));
