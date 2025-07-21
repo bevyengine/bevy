@@ -24,7 +24,7 @@ use bevy_time::Time;
 use bevy_transform::prelude::Transform;
 use bevy_window::{CursorGrabMode, CursorOptions, Window};
 
-use std::{f32::consts::*, fmt};
+use core::{f32::consts::*, fmt};
 
 /// A freecam-style camera controller plugin.
 ///
