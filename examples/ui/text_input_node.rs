@@ -8,7 +8,6 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::ui::widget::TextBox;
-use bevy::ui::widget::TextCursorStyle;
 
 fn main() {
     App::new()
@@ -17,7 +16,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     // UI camera
     commands.spawn(Camera2d);
 
