@@ -167,7 +167,7 @@ impl AssetServer {
         fn sender<A: Asset>(world: &mut World, id: UntypedAssetId) {
             world
                 .resource_mut::<Events<AssetEvent<A>>>()
-                .send(AssetEvent::LoadedWithDependencies { id: id.typed() });
+                .write(AssetEvent::LoadedWithDependencies { id: id.typed() });
         }
         fn failed_sender<A: Asset>(
             world: &mut World,
@@ -177,7 +177,7 @@ impl AssetServer {
         ) {
             world
                 .resource_mut::<Events<AssetLoadFailedEvent<A>>>()
-                .send(AssetLoadFailedEvent {
+                .write(AssetLoadFailedEvent {
                     id: id.typed(),
                     path,
                     error,
@@ -1685,7 +1685,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
         }
 
         if !untyped_failures.is_empty() {
-            world.send_event_batch(untyped_failures);
+            world.write_event_batch(untyped_failures);
         }
 
         fn queue_ancestors(

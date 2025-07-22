@@ -49,7 +49,9 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
+mod wgpu_wrapper;
 pub use bevy_camera::primitives;
+#[cfg(feature = "bevy_light")]
 mod extract_impls;
 
 /// The render prelude.
@@ -117,11 +119,11 @@ use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bevy_utils::WgpuWrapper;
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
+use wgpu_wrapper::WgpuWrapper;
 
 /// Inline shader as an `embedded_asset` and load it permanently.
 ///

@@ -41,7 +41,7 @@ impl<'w, 's, E: BufferedEvent> EventReader<'w, 's, E> {
     /// # use bevy_ecs::prelude::*;
     /// # use std::sync::atomic::{AtomicUsize, Ordering};
     ///
-    /// #[derive(Event, BufferedEvent)]
+    /// #[derive(BufferedEvent)]
     /// struct MyEvent {
     ///     value: usize,
     /// }
@@ -61,7 +61,7 @@ impl<'w, 's, E: BufferedEvent> EventReader<'w, 's, E> {
     ///     });
     /// });
     /// for value in 0..100 {
-    ///     world.send_event(MyEvent { value });
+    ///     world.write_event(MyEvent { value });
     /// }
     /// schedule.run(&mut world);
     /// let Counter(counter) = world.remove_resource::<Counter>().unwrap();
@@ -88,7 +88,7 @@ impl<'w, 's, E: BufferedEvent> EventReader<'w, 's, E> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// #[derive(Event, BufferedEvent)]
+    /// #[derive(BufferedEvent)]
     /// struct CollisionEvent;
     ///
     /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {

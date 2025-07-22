@@ -151,7 +151,7 @@ fn setup(
     // Error out if clustered decals (and so light textures) aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         error!("Light textures aren't usable on this platform.");
-        commands.send_event(AppExit::error());
+        commands.write_event(AppExit::error());
     }
 
     spawn_cubes(&mut commands, &mut meshes, &mut materials);
@@ -540,14 +540,16 @@ fn process_scale_input(
 
     for (mut transform, selection) in &mut scale_selections {
         if app_status.selection == *selection {
-            transform.scale *= 1.0 + mouse_motion.delta.x * SCALE_SPEED;
+            transform.scale = (transform.scale * (1.0 + mouse_motion.delta.x * SCALE_SPEED))
+                .clamp(Vec3::splat(0.01), Vec3::splat(5.0));
         }
     }
 
     for (mut spotlight, selection) in &mut spotlight_selections {
         if app_status.selection == *selection {
-            spotlight.outer_angle =
-                (spotlight.outer_angle * (1.0 + mouse_motion.delta.x * SCALE_SPEED)).min(FRAC_PI_4);
+            spotlight.outer_angle = (spotlight.outer_angle
+                * (1.0 + mouse_motion.delta.x * SCALE_SPEED))
+                .clamp(0.01, FRAC_PI_4);
             spotlight.inner_angle = spotlight.outer_angle;
         }
     }

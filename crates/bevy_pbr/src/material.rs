@@ -267,6 +267,15 @@ impl Plugin for MaterialsPlugin {
                 .init_resource::<LightKeyCache>()
                 .init_resource::<LightSpecializationTicks>()
                 .init_resource::<SpecializedShadowMaterialPipelineCache>()
+                .init_resource::<DrawFunctions<Shadow>>()
+                .init_resource::<RenderMaterialInstances>()
+                .init_resource::<MaterialBindGroupAllocators>()
+                .add_render_command::<Shadow, DrawPrepass>()
+                .add_render_command::<Transmissive3d, DrawMaterial>()
+                .add_render_command::<Transparent3d, DrawMaterial>()
+                .add_render_command::<Opaque3d, DrawMaterial>()
+                .add_render_command::<AlphaMask3d, DrawMaterial>()
+                .add_systems(RenderStartup, init_material_pipeline)
                 .add_systems(
                     Render,
                     (
@@ -299,21 +308,6 @@ impl Plugin for MaterialsPlugin {
                         queue_shadows.in_set(RenderSystems::QueueMeshes),
                     ),
                 );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<DrawFunctions<Shadow>>()
-                .init_resource::<RenderMaterialInstances>()
-                .init_resource::<MaterialPipeline>()
-                .init_resource::<MaterialBindGroupAllocators>()
-                .add_render_command::<Shadow, DrawPrepass>()
-                .add_render_command::<Transmissive3d, DrawMaterial>()
-                .add_render_command::<Transparent3d, DrawMaterial>()
-                .add_render_command::<Opaque3d, DrawMaterial>()
-                .add_render_command::<AlphaMask3d, DrawMaterial>();
         }
     }
 }
@@ -380,7 +374,7 @@ where
             }
 
             render_app
-                .add_systems(RenderStartup, setup_render_app::<M>)
+                .add_systems(RenderStartup, add_material_bind_group_allocator::<M>)
                 .add_systems(
                     ExtractSchedule,
                     (
@@ -395,7 +389,7 @@ where
     }
 }
 
-fn setup_render_app<M: Material>(
+fn add_material_bind_group_allocator<M: Material>(
     render_device: Res<RenderDevice>,
     mut bind_group_allocators: ResMut<MaterialBindGroupAllocators>,
 ) {
@@ -485,12 +479,10 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
     }
 }
 
-impl FromWorld for MaterialPipeline {
-    fn from_world(world: &mut World) -> Self {
-        MaterialPipeline {
-            mesh_pipeline: world.resource::<MeshPipeline>().clone(),
-        }
-    }
+pub fn init_material_pipeline(mut commands: Commands, mesh_pipeline: Res<MeshPipeline>) {
+    commands.insert_resource(MaterialPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+    });
 }
 
 pub type DrawMaterial = (
@@ -746,11 +738,11 @@ fn early_sweep_material_instances<M>(
 /// preparation for a new frame.
 pub(crate) fn late_sweep_material_instances(
     mut material_instances: ResMut<RenderMaterialInstances>,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
+    mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
 ) {
     let last_change_tick = material_instances.current_change_tick;
 
-    for entity in removed_visibilities_query.read() {
+    for entity in removed_meshes_query.read() {
         if let Entry::Occupied(occupied_entry) = material_instances.instances.entry(entity.into()) {
             // Only sweep the entry if it wasn't updated this frame. It's
             // possible that a `ViewVisibility` component was removed and

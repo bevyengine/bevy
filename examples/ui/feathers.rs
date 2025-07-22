@@ -1,7 +1,10 @@
 //! This example shows off the various Bevy Feathers widgets.
 
 use bevy::{
-    core_widgets::{Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugin, SliderStep},
+    core_widgets::{
+        Activate, Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
+        SliderStep,
+    },
     feathers::{
         controls::{
             button, checkbox, radio, slider, toggle_switch, ButtonProps, ButtonVariant,
@@ -25,7 +28,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreWidgetsPlugin,
+            CoreWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
             FeathersPlugin,
@@ -47,9 +50,9 @@ fn setup(mut commands: Commands) {
 fn demo_root(commands: &mut Commands) -> impl Bundle {
     // Update radio button states based on notification from radio group.
     let radio_exclusion = commands.register_system(
-        |ent: In<Entity>, q_radio: Query<Entity, With<CoreRadio>>, mut commands: Commands| {
+        |ent: In<Activate>, q_radio: Query<Entity, With<CoreRadio>>, mut commands: Commands| {
             for radio in q_radio.iter() {
-                if radio == *ent {
+                if radio == ent.0 .0 {
                     commands.entity(radio).insert(Checked);
                 } else {
                     commands.entity(radio).remove::<Checked>();
@@ -96,9 +99,11 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     children![
                         button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(|| {
-                                    info!("Normal button clicked!");
-                                })),
+                                on_click: Callback::System(commands.register_system(
+                                    |_: In<Activate>| {
+                                        info!("Normal button clicked!");
+                                    }
+                                )),
                                 ..default()
                             },
                             (),
@@ -106,9 +111,11 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ),
                         button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(|| {
-                                    info!("Disabled button clicked!");
-                                })),
+                                on_click: Callback::System(commands.register_system(
+                                    |_: In<Activate>| {
+                                        info!("Disabled button clicked!");
+                                    }
+                                )),
                                 ..default()
                             },
                             InteractionDisabled,
@@ -116,9 +123,11 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ),
                         button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(|| {
-                                    info!("Primary button clicked!");
-                                })),
+                                on_click: Callback::System(commands.register_system(
+                                    |_: In<Activate>| {
+                                        info!("Primary button clicked!");
+                                    }
+                                )),
                                 variant: ButtonVariant::Primary,
                                 ..default()
                             },
@@ -139,9 +148,11 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     children![
                         button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(|| {
-                                    info!("Left button clicked!");
-                                })),
+                                on_click: Callback::System(commands.register_system(
+                                    |_: In<Activate>| {
+                                        info!("Left button clicked!");
+                                    }
+                                )),
                                 corners: RoundedCorners::Left,
                                 ..default()
                             },
@@ -150,9 +161,11 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ),
                         button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(|| {
-                                    info!("Center button clicked!");
-                                })),
+                                on_click: Callback::System(commands.register_system(
+                                    |_: In<Activate>| {
+                                        info!("Center button clicked!");
+                                    }
+                                )),
                                 corners: RoundedCorners::None,
                                 ..default()
                             },
@@ -161,9 +174,11 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ),
                         button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(|| {
-                                    info!("Right button clicked!");
-                                })),
+                                on_click: Callback::System(commands.register_system(
+                                    |_: In<Activate>| {
+                                        info!("Right button clicked!");
+                                    }
+                                )),
                                 variant: ButtonVariant::Primary,
                                 corners: RoundedCorners::Right,
                             },
@@ -174,7 +189,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 ),
                 button(
                     ButtonProps {
-                        on_click: Callback::System(commands.register_system(|| {
+                        on_click: Callback::System(commands.register_system(|_: In<Activate>| {
                             info!("Wide button clicked!");
                         })),
                         ..default()
@@ -259,7 +274,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         value: 20.0,
                         ..default()
                     },
-                    SliderStep(10.)
+                    (SliderStep(10.), SliderPrecision(2)),
                 ),
             ]
         ),],

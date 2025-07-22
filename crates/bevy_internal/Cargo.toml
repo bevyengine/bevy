@@ -78,7 +78,6 @@ flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
 vorbis = ["bevy_audio/vorbis"]
 wav = ["bevy_audio/wav"]
-minimp3 = ["bevy_audio/minimp3"]
 symphonia-aac = ["bevy_audio/symphonia-aac"]
 symphonia-all = ["bevy_audio/symphonia-all"]
 symphonia-flac = ["bevy_audio/symphonia-flac"]
@@ -199,6 +198,10 @@ bevy_ui = ["dep:bevy_ui", "bevy_image"]
 bevy_ui_render = ["dep:bevy_ui_render"]
 bevy_image = ["dep:bevy_image"]
 
+bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
+bevy_camera = ["dep:bevy_camera", "bevy_mesh"]
+bevy_light = ["dep:bevy_light", "bevy_camera"]
+
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
 
@@ -215,7 +218,7 @@ bevy_render = [
   "dep:bevy_render",
   "bevy_scene?/bevy_render",
   "bevy_gizmos?/bevy_render",
-  "bevy_image",
+  "bevy_camera",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
 ]
@@ -428,6 +431,9 @@ bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.17.0-dev"
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.17.0-dev" }
 bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.17.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", optional = true, version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", optional = true, version = "0.17.0-dev" }
+bevy_light = { path = "../bevy_light", optional = true, version = "0.17.0-dev" }
 bevy_input_focus = { path = "../bevy_input_focus", optional = true, version = "0.17.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }

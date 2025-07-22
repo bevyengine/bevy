@@ -4,16 +4,15 @@ mod auto_insert_apply_deferred;
 mod condition;
 mod config;
 mod executor;
+mod node;
 mod pass;
 mod schedule;
 mod set;
 mod stepping;
 
 use self::graph::*;
-pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
+pub use self::{condition::*, config::*, executor::*, node::*, schedule::*, set::*};
 pub use pass::ScheduleBuildPass;
-
-pub use self::graph::NodeId;
 
 /// An implementation of a graph data structure.
 pub mod graph;
@@ -563,10 +562,21 @@ mod tests {
         use super::*;
 
         #[test]
-        #[should_panic]
         fn dependency_loop() {
             let mut schedule = Schedule::default();
             schedule.configure_sets(TestSystems::X.after(TestSystems::X));
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Err(ScheduleBuildError::DependencyLoop(_))));
+        }
+
+        #[test]
+        fn dependency_loop_from_chain() {
+            let mut schedule = Schedule::default();
+            schedule.configure_sets((TestSystems::X, TestSystems::X).chain());
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Err(ScheduleBuildError::DependencyLoop(_))));
         }
 
         #[test]
@@ -598,10 +608,12 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
         fn hierarchy_loop() {
             let mut schedule = Schedule::default();
             schedule.configure_sets(TestSystems::X.in_set(TestSystems::X));
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Err(ScheduleBuildError::HierarchyLoop(_))));
         }
 
         #[test]
@@ -770,7 +782,7 @@ mod tests {
         #[derive(Component)]
         struct B;
 
-        #[derive(Event, BufferedEvent)]
+        #[derive(BufferedEvent)]
         struct E;
 
         #[derive(Resource, Component)]
