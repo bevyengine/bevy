@@ -65,6 +65,7 @@ use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
 use bevy_text::TextLayoutInfo;
 use bevy_text::TextPipeline;
+use bevy_text::TextSelectionBlockColor;
 use bevy_time::Time;
 use taffy::AvailableSpace;
 
@@ -87,6 +88,7 @@ impl Plugin for TextInputPlugin {
     Node,
     TextFont,
     TextColor,
+    TextSelectionBlockColor,
     TextInputMultiClickCounter,
     TextInputBuffer,
     TextInputTarget,
