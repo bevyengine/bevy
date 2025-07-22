@@ -385,6 +385,7 @@ pub enum ExtractedUiItem {
 }
 
 pub struct ExtractedGlyph {
+    pub color: LinearRgba,
     pub transform: Affine2,
     pub rect: Rect,
 }
@@ -907,6 +908,7 @@ pub fn extract_text_sections(
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
             &ComputedTextBlock,
+            &TextColor,
             &TextLayoutInfo,
         )>,
     >,
@@ -925,6 +927,7 @@ pub fn extract_text_sections(
         clip,
         camera,
         computed_block,
+        text_color,
         text_layout_info,
     ) in &uinode_query
     {
@@ -938,6 +941,8 @@ pub fn extract_text_sections(
         };
 
         let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
+
+        let mut color = text_color.0.to_linear();
 
         for (
             i,
@@ -955,6 +960,7 @@ pub fn extract_text_sections(
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
+                color,
                 transform: transform * Affine2::from_translation(*position),
                 rect,
             });
@@ -962,7 +968,7 @@ pub fn extract_text_sections(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
-                let color = text_styles
+                color = text_styles
                     .get(
                         computed_block
                             .entities()
@@ -1046,6 +1052,7 @@ pub fn extract_text_shadows(
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
+                color: shadow.color.into(),
                 transform: node_transform * Affine2::from_translation(*position),
                 rect,
             });
@@ -1545,8 +1552,8 @@ pub fn prepare_uinodes(
 
                             let atlas_extent = image.size_2d().as_vec2();
 
-                            let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {
+                                let color = glyph.color.to_f32_array();
                                 let glyph_rect = glyph.rect;
                                 let rect_size = glyph_rect.size();
 
