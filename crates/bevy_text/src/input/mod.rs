@@ -1052,13 +1052,22 @@ impl Prompt {
     }
 }
 
+/// The color of the prompt's text.
+/// If not present, the text input's `TextColor` is used.
+#[derive(Default, Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct PromptColor(pub Color);
+
+impl PromptColor {
+    pub fn new(color: impl Into<Color>) -> Self {
+        Self(color.into())
+    }
+}
+
 /// Prompt displayed when the input is empty (including whitespace).
 #[derive(Default, Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct PromptStyle {
-    /// The color of the prompt's text.
-    /// If none, the text input's `TextColor` is used.
-    pub color: Option<Color>,
     pub line_break: LineBreak,
     pub justify: Justify,
 }
@@ -1067,6 +1076,12 @@ pub struct PromptStyle {
 pub struct PromptLayout {
     buffer: Buffer,
     layout: TextLayoutInfo,
+}
+
+impl PromptLayout {
+    pub fn layout(&self) -> &TextLayoutInfo {
+        &self.layout
+    }
 }
 
 impl Default for PromptLayout {
