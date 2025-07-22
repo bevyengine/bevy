@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 
 use bevy_asset::{AssetId, Assets, Handle};
-use bevy_color::{Color, LinearRgba};
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
