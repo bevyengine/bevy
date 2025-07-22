@@ -461,7 +461,7 @@ mod tests {
 
     #[test]
     fn polyline() {
-        let polyline = Polyline3d::<4>::new([
+        let polyline = Polyline3d::new([
             Vec3::ONE,
             Vec3::new(-1.0, 1.0, 1.0),
             Vec3::NEG_ONE,
