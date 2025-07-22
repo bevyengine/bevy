@@ -13,6 +13,7 @@ use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
+use bevy::text::Clipboard;
 use bevy::text::Prompt;
 use bevy::text::PromptColor;
 use bevy::text::TextInputFilter;
@@ -31,7 +32,7 @@ fn main() {
             CoreWidgetsPlugins,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, update_targets)
+        .add_systems(Update, (update_targets, update_clipboard_display))
         .run();
 }
 
@@ -69,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         padding: UiRect::all(Val::Px(25.)),
                         row_gap: Val::Px(20.),
                         column_gap: Val::Px(20.),
-                        grid_template_columns: vec![GridTrack::fr(1.); 4],
+                        grid_template_columns: vec![GridTrack::fr(1.); 3],
                         ..default()
                     },
                     BorderColor::all(YELLOW.into()),
@@ -102,6 +103,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     children![Text::new("Last submission: "),],
                 ))
                 .add_child(last_submission);
+
+            commands.spawn((
+                Node {
+                    border: UiRect::all(Val::Px(2.)),
+                    padding: UiRect::all(Val::Px(4.)),
+                    ..Default::default()
+                },
+                BorderColor::all(Color::WHITE),
+                children![
+                    Text::new("Clipboard contents: "),
+                    (Text::default(), ClipboardMarker)
+                ],
+            ));
 
             commands
                 .spawn((Node {
@@ -282,6 +296,9 @@ fn spawn_font_button(
 #[derive(Component)]
 struct UpdateTarget(Entity);
 
+#[derive(Component)]
+struct ClipboardMarker;
+
 fn update_targets(
     values_query: Query<(&TextInputValue, &UpdateTarget), Changed<TextInputValue>>,
     mut text_query: Query<&mut Text>,
@@ -289,6 +306,17 @@ fn update_targets(
     for (value, target) in values_query.iter() {
         if let Ok(mut text) = text_query.get_mut(target.0) {
             text.0 = value.get().to_string();
+        }
+    }
+}
+
+fn update_clipboard_display(
+    clipboard: Res<Clipboard>,
+    mut text_query: Query<&mut Text, With<ClipboardMarker>>,
+) {
+    if clipboard.is_changed() {
+        for mut text in text_query.iter_mut() {
+            text.0 = clipboard.0.clone();
         }
     }
 }
