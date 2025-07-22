@@ -92,27 +92,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     inputs_grid(commands);
                 });
+
             commands
                 .spawn((
                     Node {
+                        width: Val::Px(600.),
                         border: UiRect::all(Val::Px(2.)),
                         padding: UiRect::all(Val::Px(4.)),
                         ..Default::default()
                     },
-                    BorderColor::all(Color::WHITE),
-                    children![Text::new("Last submission: "),],
+                    children![(Text::new("Last submission: "), TextColor(YELLOW.into()))],
                 ))
                 .add_child(last_submission);
 
             commands.spawn((
                 Node {
+                    width: Val::Px(600.),
                     border: UiRect::all(Val::Px(2.)),
                     padding: UiRect::all(Val::Px(4.)),
                     ..Default::default()
                 },
-                BorderColor::all(Color::WHITE),
                 children![
-                    Text::new("Clipboard contents: "),
+                    (Text::new("Clipboard contents: "), TextColor(YELLOW.into())),
                     (Text::default(), ClipboardMarker)
                 ],
             ));
