@@ -1055,7 +1055,6 @@ pub fn extract_text_shadows(
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color: shadow.color.into(),
-                //transform: node_transform * Affine2::from_translation(*position),
                 translation: *position,
                 rect,
             });
