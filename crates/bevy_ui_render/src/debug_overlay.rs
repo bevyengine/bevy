@@ -96,6 +96,7 @@ pub fn extract_debug_overlay(
                 .map(|clip| clip.clip),
             image: AssetId::default(),
             extracted_camera_entity,
+            transform: transform.into(),
             item: ExtractedUiItem::Node {
                 color: Hsla::sequential_dispersed(entity.index()).into(),
                 rect: Rect {
@@ -103,7 +104,6 @@ pub fn extract_debug_overlay(
                     max: uinode.size,
                 },
                 atlas_scaling: None,
-                transform: transform.into(),
                 flip_x: false,
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
