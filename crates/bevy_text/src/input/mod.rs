@@ -804,6 +804,15 @@ pub fn update_text_input_layouts(
                             layout_info.glyphs.push(pos_glyph);
                             if cursor.line == line_i && cursor.index == layout_glyph.start {
                                 layout_info.cursor_index = Some(layout_info.glyphs.len() - 1);
+                                if let Some((ref mut position, ref mut size, ..)) =
+                                    layout_info.cursor
+                                {
+                                    size.x = layout_glyph.w;
+                                    if let Some(cursor_position) = cursor_position {
+                                        *position =
+                                            IVec2::from(cursor_position).as_vec2() + 0.5 * *size;
+                                    }
+                                }
                             }
 
                             Ok(())
