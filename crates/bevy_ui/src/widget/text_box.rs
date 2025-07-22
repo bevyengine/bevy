@@ -315,10 +315,7 @@ fn on_multi_click_set_selection(
 
             let position =
                 click.pointer_location.position * node.inverse_scale_factor().recip() - rect.min;
-            // let mut editor = buffer
-            //     .editor
-            //     .borrow_with(&mut text_input_pipeline.font_system);
-            // let scroll = editor.with_buffer(|buffer| buffer.scroll());
+
             match multi_click_data.click_count {
                 1 => {
                     multi_click_data.click_count += 1;
