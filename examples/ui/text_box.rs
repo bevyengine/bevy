@@ -9,6 +9,7 @@ use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::Prompt;
 use bevy::text::PromptColor;
+use bevy::text::TextSelectionBlockColor;
 use bevy::ui::widget::TextBox;
 
 fn main() {
@@ -28,6 +29,7 @@ fn setup(mut commands: Commands) {
             TextBox::default(),
             Prompt::new("please type here.."),
             PromptColor::new(LIGHT_BLUE),
+            TextSelectionBlockColor::new(LIGHT_BLUE),
             TabIndex(0),
             TextColor(Color::WHITE),
             TextFont {

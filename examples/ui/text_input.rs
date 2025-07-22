@@ -1,9 +1,7 @@
 //! multiple text inputs example
 
-use bevy::color::palettes::css::DARK_SLATE_GREY;
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::YELLOW;
-use bevy::color::palettes::tailwind::GRAY_200;
 use bevy::color::palettes::tailwind::GRAY_600;
 use bevy::core_widgets::Activate;
 use bevy::core_widgets::Callback;

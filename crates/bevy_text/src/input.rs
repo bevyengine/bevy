@@ -480,7 +480,7 @@ pub fn apply_text_input_actions(
                         maybe_history.as_mut().map(|history| history.as_mut()),
                         maybe_filter,
                         attribs.max_chars,
-                        &mut clipboard.0,
+                        &mut clipboard,
                         action,
                     );
                 }
@@ -868,7 +868,7 @@ fn apply_text_input_action(
     mut maybe_history: Option<&mut TextInputUndoHistory>,
     maybe_filter: Option<&TextInputFilter>,
     max_chars: Option<usize>,
-    clipboard_contents: &mut String,
+    clipboard_contents: &mut ResMut<Clipboard>,
     action: TextInputAction,
 ) {
     editor.start_change();
@@ -876,19 +876,17 @@ fn apply_text_input_action(
     match action {
         TextInputAction::Copy => {
             if let Some(text) = editor.copy_selection() {
-                *clipboard_contents = text;
+                clipboard_contents.0 = text;
             }
         }
         TextInputAction::Cut => {
             if let Some(text) = editor.copy_selection() {
-                *clipboard_contents = text;
+                clipboard_contents.0 = text;
                 editor.delete_selection();
             }
         }
         TextInputAction::Paste => {
-            if let Some(text) = editor.copy_selection() {
-                editor.insert_string(&text, None);
-            }
+            editor.insert_string(&clipboard_contents.0, None);
         }
         TextInputAction::Motion {
             motion,
