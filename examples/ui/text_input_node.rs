@@ -1,12 +1,14 @@
 //! minimal text input example
 
+use bevy::color::palettes::css::LIGHT_BLUE;
 use bevy::color::palettes::css::NAVY;
-use bevy::color::palettes::css::RED;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
+use bevy::text::Prompt;
+use bevy::text::PromptColor;
 use bevy::ui::widget::TextBox;
 
 fn main() {
@@ -24,9 +26,10 @@ fn setup(mut commands: Commands) {
     let id = commands
         .spawn((
             TextBox::default(),
-            bevy::text::Prompt::new("Please type here.."),
+            Prompt::new("please type here.."),
+            PromptColor::new(LIGHT_BLUE),
             TabIndex(0),
-            TextColor(RED.into()),
+            TextColor(Color::WHITE),
             TextFont {
                 font_size: 35.,
                 ..Default::default()
