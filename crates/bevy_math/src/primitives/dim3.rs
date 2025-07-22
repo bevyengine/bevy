@@ -13,7 +13,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use glam::Quat;
 
 #[cfg(feature = "alloc")]
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -378,10 +378,9 @@ pub struct Segment3d {
 impl Primitive3d for Segment3d {}
 
 impl Default for Segment3d {
-    /// Returns the default [`Segment3d`] with endpoints at `(0.0, 0.0, 0.0)` and `(1.0, 0.0, 0.0)`.
     fn default() -> Self {
         Self {
-            vertices: [Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)],
+            vertices: [Vec3::new(-0.5, 0.0, 0.0), Vec3::new(0.5, 0.0, 0.0)],
         }
     }
 }
@@ -576,6 +575,7 @@ impl From<(Vec3, Vec3)> for Segment3d {
 /// A series of connected line segments in 3D space.
 ///
 /// For a version without generics: [`BoxedPolyline3d`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -587,62 +587,49 @@ impl From<(Vec3, Vec3)> for Segment3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Polyline3d<const N: usize> {
+pub struct Polyline3d {
     /// The vertices of the polyline
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec3; N],
+    pub vertices: Vec<Vec3>,
 }
 
-impl<const N: usize> Primitive3d for Polyline3d<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive3d for Polyline3d {}
 
-impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
+#[cfg(feature = "alloc")]
+impl FromIterator<Vec3> for Polyline3d {
     fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
-        let mut vertices: [Vec3; N] = [Vec3::ZERO; N];
-
-        for (index, i) in iter.into_iter().take(N).enumerate() {
-            vertices[index] = i;
+        Self {
+            vertices: iter.into_iter().collect(),
         }
-        Self { vertices }
     }
 }
 
-impl<const N: usize> Polyline3d<N> {
+#[cfg(feature = "alloc")]
+impl Default for Polyline3d {
+    fn default() -> Self {
+        Self::new([Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)])
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Polyline3d {
     /// Create a new `Polyline3d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
         Self::from_iter(vertices)
     }
-}
 
-/// A series of connected line segments in 3D space, allocated on the heap
-/// in a `Box<[Vec3]>`.
-///
-/// For a version without alloc: [`Polyline3d`]
-#[cfg(feature = "alloc")]
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct BoxedPolyline3d {
-    /// The vertices of the polyline
-    pub vertices: Box<[Vec3]>,
-}
-
-#[cfg(feature = "alloc")]
-impl Primitive3d for BoxedPolyline3d {}
-
-#[cfg(feature = "alloc")]
-impl FromIterator<Vec3> for BoxedPolyline3d {
-    fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
-        let vertices: Vec<Vec3> = iter.into_iter().collect();
-        Self {
-            vertices: vertices.into_boxed_slice(),
+    /// Create a new `Polyline3d` from two endpoints and a number of segments.
+    pub fn with_segment_count(start: Vec3, end: Vec3, segments: usize) -> Self {
+        if segments == 0 {
+            return Self::new(Vec::from([start, end]));
         }
-    }
-}
 
-#[cfg(feature = "alloc")]
-impl BoxedPolyline3d {
-    /// Create a new `BoxedPolyline3d` from its vertices
-    pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
-        Self::from_iter(vertices)
+        let step = (end - start) / segments as f32;
+        let mut vertices = Vec::with_capacity(segments + 1);
+        for i in 0..=segments {
+            vertices.push(start + step * i as f32);
+        }
+        Self { vertices }
     }
 }
 
