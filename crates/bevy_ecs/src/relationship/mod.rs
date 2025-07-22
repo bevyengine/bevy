@@ -129,27 +129,19 @@ pub trait Relationship: Component + Sized {
             return;
         }
         // For one-to-one relationships, remove existing relationship before adding new one
-        let mut current_source_to_remove: Option<Entity> = None;
-        if core::any::TypeId::of::<<Self::RelationshipTarget as RelationshipTarget>::Collection>()
-            == core::any::TypeId::of::<Entity>()
+        let current_source_to_remove = if let Ok(target_entity_ref) =
+            world.get_entity(target_entity)
         {
-            if let Ok(target_entity_ref) = world.get_entity(target_entity) {
-                if let Some(relationship_target) =
-                    target_entity_ref.get::<Self::RelationshipTarget>()
-                {
-                    // SAFETY: We just checked that the collection type is Entity
-                    let entity_collection = unsafe {
-                        &*core::ptr::from_ref::<
-                            <Self::RelationshipTarget as RelationshipTarget>::Collection,
-                        >(relationship_target.collection())
-                        .cast::<Entity>()
-                    };
-                    if *entity_collection != Entity::PLACEHOLDER {
-                        current_source_to_remove = Some(*entity_collection);
-                    }
-                }
+            if let Some(relationship_target) = target_entity_ref.get::<Self::RelationshipTarget>() {
+                relationship_target
+                    .collection()
+                    .source_to_remove_before_add()
+            } else {
+                None
             }
-        }
+        } else {
+            None
+        };
 
         if let Some(current_source) = current_source_to_remove {
             world.commands().entity(current_source).try_remove::<Self>();

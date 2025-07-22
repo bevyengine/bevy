@@ -69,6 +69,12 @@ pub trait RelationshipSourceCollection {
         self.len() == 0
     }
 
+    /// For one-to-one relationships, returns the entity that should be removed before adding a new one.
+    /// Returns `None` for one-to-many relationships or when no entity needs to be removed.
+    fn source_to_remove_before_add(&self) -> Option<Entity> {
+        None
+    }
+
     /// Add multiple entities to collection at once.
     ///
     /// May be faster than repeatedly calling [`Self::add`].
@@ -383,6 +389,14 @@ impl RelationshipSourceCollection for Entity {
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             *self = entity;
+        }
+    }
+
+    fn source_to_remove_before_add(&self) -> Option<Entity> {
+        if *self != Entity::PLACEHOLDER {
+            Some(*self)
+        } else {
+            None
         }
     }
 }
