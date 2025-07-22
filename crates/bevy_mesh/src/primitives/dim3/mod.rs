@@ -4,6 +4,7 @@ mod conical_frustum;
 mod cuboid;
 mod cylinder;
 mod plane;
+mod segment3d;
 mod sphere;
 mod tetrahedron;
 mod torus;

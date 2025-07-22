@@ -1,7 +1,7 @@
 use core::hint::black_box;
 
 use bevy_ecs::{
-    event::{EntityEvent, Event},
+    event::EntityEvent,
     observer::{On, TriggerTargets},
     world::World,
 };
@@ -13,7 +13,7 @@ fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }
 
-#[derive(Clone, Event, EntityEvent)]
+#[derive(Clone, EntityEvent)]
 struct EventBase;
 
 pub fn observe_simple(criterion: &mut Criterion) {
