@@ -41,10 +41,10 @@ pub(crate) struct AlphaPattern;
 /// in the template)
 fn on_add_alpha_pattern(
     ev: On<Add, AlphaPattern>,
-    mut q_swatch: Query<&mut MaterialNode<AlphaPatternMaterial>>,
+    mut q_material_node: Query<&mut MaterialNode<AlphaPatternMaterial>>,
     r_material: Res<AlphaPatternResource>,
 ) {
-    if let Ok(mut material) = q_swatch.get_mut(ev.target()) {
+    if let Ok(mut material) = q_material_node.get_mut(ev.target()) {
         material.0 = r_material.0.clone();
     }
 }
