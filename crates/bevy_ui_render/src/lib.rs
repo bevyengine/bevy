@@ -351,6 +351,7 @@ pub struct ExtractedUiNode {
     pub item: ExtractedUiItem,
     pub main_entity: MainEntity,
     pub render_entity: Entity,
+    pub transform: Affine2,
 }
 
 /// The type of UI node.
@@ -375,7 +376,6 @@ pub enum ExtractedUiItem {
         /// Ordering: left, top, right, bottom.
         border: BorderRect,
         node_type: NodeType,
-        transform: Affine2,
     },
     /// A contiguous sequence of text glyphs from the same section
     Glyphs {
@@ -386,7 +386,7 @@ pub enum ExtractedUiItem {
 
 pub struct ExtractedGlyph {
     pub color: LinearRgba,
-    pub transform: Affine2,
+    pub position: Vec2,
     pub rect: Rect,
 }
 
@@ -467,6 +467,7 @@ pub fn extract_uinode_background_colors(
             clip: clip.map(|clip| clip.clip),
             image: AssetId::default(),
             extracted_camera_entity,
+            transform: transform.into(),
             item: ExtractedUiItem::Node {
                 color: background_color.0.into(),
                 rect: Rect {
@@ -474,7 +475,6 @@ pub fn extract_uinode_background_colors(
                     max: uinode.size,
                 },
                 atlas_scaling: None,
-                transform: transform.into(),
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
@@ -554,11 +554,11 @@ pub fn extract_uinode_images(
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
             extracted_camera_entity,
+            transform: transform.into(),
             item: ExtractedUiItem::Node {
                 color: image.color.into(),
                 rect,
                 atlas_scaling,
-                transform: transform.into(),
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 border: uinode.border,
@@ -651,6 +651,7 @@ pub fn extract_uinode_borders(
                         image,
                         clip: maybe_clip.map(|clip| clip.clip),
                         extracted_camera_entity,
+                        transform: transform.into(),
                         item: ExtractedUiItem::Node {
                             color,
                             rect: Rect {
@@ -658,7 +659,6 @@ pub fn extract_uinode_borders(
                                 ..Default::default()
                             },
                             atlas_scaling: None,
-                            transform: transform.into(),
                             flip_x: false,
                             flip_y: false,
                             border: computed_node.border(),
@@ -685,13 +685,13 @@ pub fn extract_uinode_borders(
                 image,
                 clip: maybe_clip.map(|clip| clip.clip),
                 extracted_camera_entity,
+                transform: transform.into(),
                 item: ExtractedUiItem::Node {
                     color: outline.color.into(),
                     rect: Rect {
                         max: outline_size,
                         ..Default::default()
                     },
-                    transform: transform.into(),
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,
@@ -876,6 +876,7 @@ pub fn extract_viewport_nodes(
             clip: clip.map(|clip| clip.clip),
             image: image.id(),
             extracted_camera_entity,
+            transform: transform.into(),
             item: ExtractedUiItem::Node {
                 color: LinearRgba::WHITE,
                 rect: Rect {
@@ -883,7 +884,6 @@ pub fn extract_viewport_nodes(
                     max: uinode.size,
                 },
                 atlas_scaling: None,
-                transform: transform.into(),
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
@@ -961,7 +961,8 @@ pub fn extract_text_sections(
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color,
-                transform: transform * Affine2::from_translation(*position),
+                //transform: transform * Affine2::from_translation(*position),
+                position: *position,
                 rect,
             });
 
@@ -986,6 +987,7 @@ pub fn extract_text_sections(
                     extracted_camera_entity,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
+                    transform,
                 });
                 start = end;
             }
@@ -1051,7 +1053,8 @@ pub fn extract_text_shadows(
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color: shadow.color.into(),
-                transform: node_transform * Affine2::from_translation(*position),
+                //transform: node_transform * Affine2::from_translation(*position),
+                position: *position,
                 rect,
             });
 
@@ -1059,6 +1062,7 @@ pub fn extract_text_shadows(
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    transform: node_transform,
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
@@ -1119,6 +1123,7 @@ pub fn extract_text_background_colors(
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 extracted_camera_entity,
+                transform: transform * Affine2::from_translation(rect.center()),
                 item: ExtractedUiItem::Node {
                     color: text_background_color.0.to_linear(),
                     rect: Rect {
@@ -1126,7 +1131,6 @@ pub fn extract_text_background_colors(
                         max: rect.size(),
                     },
                     atlas_scaling: None,
-                    transform: transform * Affine2::from_translation(rect.center()),
                     flip_x: false,
                     flip_y: false,
                     border: uinode.border(),
@@ -1397,7 +1401,6 @@ pub fn prepare_uinodes(
                             border_radius,
                             border,
                             node_type,
-                            transform,
                             rect,
                             color,
                         } => {
@@ -1410,6 +1413,8 @@ pub fn prepare_uinodes(
                             let mut uinode_rect = *rect;
 
                             let rect_size = uinode_rect.size();
+
+                            let transform = extracted_uinode.transform;
 
                             // Specify the corners of the node
                             let positions = QUAD_VERTEX_POSITIONS
@@ -1557,9 +1562,9 @@ pub fn prepare_uinodes(
 
                                 // Specify the corners of the glyph
                                 let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                                    glyph
+                                    extracted_uinode
                                         .transform
-                                        .transform_point2(pos * glyph_rect.size())
+                                        .transform_point2(glyph.position + pos * glyph_rect.size())
                                         .extend(0.)
                                 });
 
@@ -1595,7 +1600,7 @@ pub fn prepare_uinodes(
 
                                 // cull nodes that are completely clipped
                                 let transformed_rect_size =
-                                    glyph.transform.transform_vector2(rect_size);
+                                    extracted_uinode.transform.transform_vector2(rect_size);
                                 if positions_diff[0].x - positions_diff[1].x
                                     >= transformed_rect_size.x.abs()
                                     || positions_diff[1].y - positions_diff[2].y

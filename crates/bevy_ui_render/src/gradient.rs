@@ -403,6 +403,7 @@ pub fn extract_gradients(
                         image: AssetId::default(),
                         clip: clip.map(|clip| clip.clip),
                         extracted_camera_entity,
+                        transform: transform.into(),
                         item: ExtractedUiItem::Node {
                             color: color.into(),
                             rect: Rect {
@@ -415,7 +416,6 @@ pub fn extract_gradients(
                             border_radius: uinode.border_radius,
                             border: uinode.border,
                             node_type,
-                            transform: transform.into(),
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
