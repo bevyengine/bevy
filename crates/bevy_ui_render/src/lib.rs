@@ -69,8 +69,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, PromptColor, PromptLayout, SpaceAdvance,
-    TextBackgroundColor, TextColor, TextInputBuffer, TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, PromptColor, PromptLayout, TextBackgroundColor, TextColor,
+    TextInputBuffer, TextLayoutInfo, TextSelectionBlockColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1010,6 +1010,7 @@ pub fn extract_text_input_nodes(
             &ComputedNodeTarget,
             &TextLayoutInfo,
             &TextColor,
+            &TextSelectionBlockColor,
             &TextCursorStyle,
             &TextCursorBlinkTimer,
             &TextUnderCursorColor,
@@ -1034,6 +1035,7 @@ pub fn extract_text_input_nodes(
         camera,
         text_layout_info,
         color,
+        block_color,
         cursor_style,
         blink_timer,
         _under_color,
@@ -1088,7 +1090,7 @@ pub fn extract_text_input_nodes(
             } + 2. * Vec2::X;
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT - 0.002,
-                color: LinearRgba::from(bevy_color::palettes::css::GREEN),
+                color: LinearRgba::from(block_color.0),
                 image: AssetId::default(),
                 clip,
                 extracted_camera_entity,

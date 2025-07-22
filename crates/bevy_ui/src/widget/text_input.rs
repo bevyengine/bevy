@@ -61,8 +61,8 @@ use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
 use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
-use bevy_text::TextInputHistory;
 use bevy_text::TextInputTarget;
+use bevy_text::TextInputUndoHistory;
 use bevy_text::TextLayoutInfo;
 use bevy_text::TextPipeline;
 use bevy_time::Time;
@@ -95,7 +95,7 @@ impl Plugin for TextInputPlugin {
     TextCursorStyle,
     TextLayoutInfo,
     TextCursorBlinkTimer,
-    TextInputHistory,
+    TextInputUndoHistory,
     SpaceAdvance,
     SingleLineTextInput,
     TextUnderCursorColor,
