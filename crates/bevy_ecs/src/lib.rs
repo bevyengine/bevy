@@ -97,7 +97,7 @@ pub mod prelude {
             common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
             Schedules, SystemCondition, SystemSet,
         },
-        spawn::{Spawn, SpawnRelated},
+        spawn::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated},
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
