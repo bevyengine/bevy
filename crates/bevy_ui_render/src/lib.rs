@@ -1107,13 +1107,6 @@ pub fn extract_text_input_nodes(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            if !blink
-                && modifiers.overwrite
-                && text_layout_info.cursor_index.is_some_and(|c| c == i)
-            {
-                continue;
-            }
-
             let rect = texture_atlases
                 .get(atlas_info.texture_atlas)
                 .unwrap()
