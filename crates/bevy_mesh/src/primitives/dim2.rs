@@ -745,6 +745,7 @@ impl Default for AnnulusMeshBuilder {
 
 impl AnnulusMeshBuilder {
     /// Create an [`AnnulusMeshBuilder`] with the given inner radius, outer radius, and angular vertex count.
+    #[inline]
     pub fn new(inner_radius: f32, outer_radius: f32, resolution: u32) -> Self {
         Self {
             annulus: Annulus::new(inner_radius, outer_radius),
