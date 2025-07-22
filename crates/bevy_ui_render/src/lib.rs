@@ -1096,22 +1096,22 @@ pub fn extract_text_input_nodes(
             } + 2. * Vec2::X;
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT - 0.002,
-                color: LinearRgba::from(block_color.0),
                 image: AssetId::default(),
                 clip,
                 extracted_camera_entity,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: size,
-                },
+                transform: transform * Affine2::from_translation(rect.center()),
                 item: ExtractedUiItem::Node {
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: size,
+                    },
+                    color: LinearRgba::from(block_color.0),
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,
                     border_radius: ResolvedBorderRadius::ZERO,
                     border: BorderRect::ZERO,
                     node_type: NodeType::Rect,
-                    transform: transform * Affine2::from_translation(rect.center()),
                 },
                 main_entity: entity.into(),
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -1133,7 +1133,8 @@ pub fn extract_text_input_nodes(
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
-                transform: transform * Affine2::from_translation(*position),
+                color,
+                translation: *position,
                 rect,
             });
 
@@ -1144,11 +1145,10 @@ pub fn extract_text_input_nodes(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                    color,
+                    transform,
                     image: atlas_info.texture,
                     clip,
                     extracted_camera_entity,
-                    rect,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
                 });
@@ -1176,17 +1176,17 @@ pub fn extract_text_input_nodes(
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT + cursor_z_offset,
-                color: cursor_style.color.into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: cursor_size,
-                },
                 clip,
                 image: AssetId::default(),
+                transform: transform * Affine2::from_translation(cursor_position),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
+                    color: cursor_style.color.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: cursor_size,
+                    },
                     atlas_scaling: None,
-                    transform: transform * Affine2::from_translation(cursor_position),
                     flip_x: false,
                     flip_y: false,
                     border: uinode.border(),
