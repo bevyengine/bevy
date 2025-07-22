@@ -400,15 +400,15 @@ pub fn extract_gradients(
                                 NodeType::Rect => stack_z_offsets::GRADIENT,
                                 NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                             },
-                        color: color.into(),
-                        rect: Rect {
-                            min: Vec2::ZERO,
-                            max: uinode.size,
-                        },
                         image: AssetId::default(),
                         clip: clip.map(|clip| clip.clip),
                         extracted_camera_entity,
                         item: ExtractedUiItem::Node {
+                            color: color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size,
+                            },
                             atlas_scaling: None,
                             flip_x: false,
                             flip_y: false,
