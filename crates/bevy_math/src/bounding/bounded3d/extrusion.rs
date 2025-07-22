@@ -131,7 +131,7 @@ impl BoundedExtrusion for Polygon {
         let isometry = isometry.into();
         let aabb = Aabb3d::from_point_cloud(
             isometry,
-            self.vertices.iter().map(|v| v.extend(0.)).into_iter(),
+            self.vertices.iter().map(|v| v.extend(0.)),
         );
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
 
