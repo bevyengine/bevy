@@ -8,6 +8,7 @@ on:
     branches:
       - main
 
+# Environment variables must be kept in sync with all workflows that defines them.
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
@@ -24,6 +25,20 @@ jobs:
       - name: Disable audio
         # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
         run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
+      - uses: actions/cache/restore@v4
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
@@ -84,16 +99,21 @@ jobs:
         run: |
           sudo add-apt-repository ppa:kisak/turtle -y
           sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
-      - uses: actions/cache@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache/restore@v4
         with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
@@ -143,6 +163,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache/restore@v4
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
       - name: Run examples
         shell: bash
         run: |
