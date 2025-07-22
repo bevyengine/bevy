@@ -344,8 +344,6 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
 
 pub struct ExtractedUiNode {
     pub z_order: f32,
-    pub color: LinearRgba,
-    pub rect: Rect,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
     /// Render world entity of the extracted camera corresponding to this node's target camera.
@@ -365,6 +363,8 @@ pub enum NodeType {
 
 pub enum ExtractedUiItem {
     Node {
+        color: LinearRgba,
+        rect: Rect,
         atlas_scaling: Option<Vec2>,
         flip_x: bool,
         flip_y: bool,
@@ -464,15 +464,15 @@ pub fn extract_uinode_background_colors(
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
-            color: background_color.0.into(),
-            rect: Rect {
-                min: Vec2::ZERO,
-                max: uinode.size,
-            },
             clip: clip.map(|clip| clip.clip),
             image: AssetId::default(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
+                color: background_color.0.into(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.size,
+                },
                 atlas_scaling: None,
                 transform: transform.into(),
                 flip_x: false,
@@ -551,12 +551,12 @@ pub fn extract_uinode_images(
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            color: image.color.into(),
-            rect,
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
+                color: image.color.into(),
+                rect,
                 atlas_scaling,
                 transform: transform.into(),
                 flip_x: image.flip_x,
@@ -648,15 +648,15 @@ pub fn extract_uinode_borders(
 
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
                         z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
-                        color,
-                        rect: Rect {
-                            max: computed_node.size(),
-                            ..Default::default()
-                        },
                         image,
                         clip: maybe_clip.map(|clip| clip.clip),
                         extracted_camera_entity,
                         item: ExtractedUiItem::Node {
+                            color,
+                            rect: Rect {
+                                max: computed_node.size(),
+                                ..Default::default()
+                            },
                             atlas_scaling: None,
                             transform: transform.into(),
                             flip_x: false,
@@ -682,15 +682,15 @@ pub fn extract_uinode_borders(
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                color: outline.color.into(),
-                rect: Rect {
-                    max: outline_size,
-                    ..Default::default()
-                },
                 image,
                 clip: maybe_clip.map(|clip| clip.clip),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
+                    color: outline.color.into(),
+                    rect: Rect {
+                        max: outline_size,
+                        ..Default::default()
+                    },
                     transform: transform.into(),
                     atlas_scaling: None,
                     flip_x: false,
@@ -873,15 +873,15 @@ pub fn extract_viewport_nodes(
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            color: LinearRgba::WHITE,
-            rect: Rect {
-                min: Vec2::ZERO,
-                max: uinode.size,
-            },
             clip: clip.map(|clip| clip.clip),
             image: image.id(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
+                color: LinearRgba::WHITE,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.size,
+                },
                 atlas_scaling: None,
                 transform: transform.into(),
                 flip_x: false,
@@ -981,11 +981,9 @@ pub fn extract_text_sections(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    color,
                     image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
                     extracted_camera_entity,
-                    rect,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
                 });
@@ -1063,11 +1061,9 @@ pub fn extract_text_shadows(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    color: shadow.color.into(),
                     image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
                     extracted_camera_entity,
-                    rect,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
                 });
@@ -1120,15 +1116,15 @@ pub fn extract_text_background_colors(
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                color: text_background_color.0.to_linear(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: rect.size(),
-                },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
+                    color: text_background_color.0.to_linear(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: rect.size(),
+                    },
                     atlas_scaling: None,
                     transform: transform * Affine2::from_translation(rect.center()),
                     flip_x: false,
@@ -1402,6 +1398,8 @@ pub fn prepare_uinodes(
                             border,
                             node_type,
                             transform,
+                            rect,
+                            color,
                         } => {
                             let mut flags = if extracted_uinode.image != AssetId::default() {
                                 shader_flags::TEXTURED
@@ -1409,7 +1407,7 @@ pub fn prepare_uinodes(
                                 shader_flags::UNTEXTURED
                             };
 
-                            let mut uinode_rect = extracted_uinode.rect;
+                            let mut uinode_rect = *rect;
 
                             let rect_size = uinode_rect.size();
 
@@ -1520,7 +1518,7 @@ pub fn prepare_uinodes(
                                 .map(|pos| pos / atlas_extent)
                             };
 
-                            let color = extracted_uinode.color.to_f32_array();
+                            let color = color.to_f32_array();
                             if let NodeType::Border(border_flags) = *node_type {
                                 flags |= border_flags;
                             }
