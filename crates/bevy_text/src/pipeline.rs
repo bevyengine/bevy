@@ -466,6 +466,19 @@ pub struct TextLayoutInfo {
     pub scroll: Vec2,
 }
 
+impl TextLayoutInfo {
+    /// Clear the text layout    
+    pub fn clear(&mut self) {
+        self.glyphs.clear();
+        self.section_rects.clear();
+        self.selection_rects.clear();
+        self.size = Vec2::ZERO;
+        self.cursor = None;
+        self.cursor_index = None;
+        self.scroll = Vec2::ZERO;
+    }
+}
+
 /// Size information for a corresponding [`ComputedTextBlock`] component.
 ///
 /// Generated via [`TextPipeline::create_text_measure`].
