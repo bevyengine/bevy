@@ -386,7 +386,7 @@ pub enum ExtractedUiItem {
 
 pub struct ExtractedGlyph {
     pub color: LinearRgba,
-    pub position: Vec2,
+    pub translation: Vec2,
     pub rect: Rect,
 }
 
@@ -962,7 +962,7 @@ pub fn extract_text_sections(
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color,
                 //transform: transform * Affine2::from_translation(*position),
-                position: *position,
+                translation: *position,
                 rect,
             });
 
@@ -1054,7 +1054,7 @@ pub fn extract_text_shadows(
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color: shadow.color.into(),
                 //transform: node_transform * Affine2::from_translation(*position),
-                position: *position,
+                translation: *position,
                 rect,
             });
 
@@ -1564,7 +1564,9 @@ pub fn prepare_uinodes(
                                 let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
                                     extracted_uinode
                                         .transform
-                                        .transform_point2(glyph.position + pos * glyph_rect.size())
+                                        .transform_point2(
+                                            glyph.translation + pos * glyph_rect.size(),
+                                        )
                                         .extend(0.)
                                 });
 
