@@ -1,8 +1,11 @@
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectComponent;
+#[cfg(feature = "hotpatching")]
+use crate::{change_detection::DetectChanges, HotPatchChanges};
 use crate::{
     change_detection::Mut,
     entity::Entity,
+    entity_disabling::Internal,
     error::BevyError,
     system::{
         input::SystemInput, BoxedSystem, IntoSystem, RunSystemError, SystemParamValidationError,
@@ -18,7 +21,7 @@ use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-#[require(SystemIdMarker)]
+#[require(SystemIdMarker, Internal)]
 pub(crate) struct RegisteredSystem<I, O> {
     initialized: bool,
     system: BoxedSystem<I, O>,
@@ -352,6 +355,17 @@ impl World {
         if !initialized {
             system.initialize(self);
             initialized = true;
+        }
+
+        // refresh hotpatches for stored systems
+        #[cfg(feature = "hotpatching")]
+        if self
+            .get_resource_ref::<HotPatchChanges>()
+            .map(|r| r.last_changed())
+            .unwrap_or_default()
+            .is_newer_than(system.get_last_run(), self.change_tick())
+        {
+            system.refresh_hotpatch();
         }
 
         // Wait to run the commands until the system is available again.
