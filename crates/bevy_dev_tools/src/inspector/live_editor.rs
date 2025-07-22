@@ -38,9 +38,10 @@ use core::default::Default;
 use tracing::info;
 
 use crate::inspector::{
-    panels::{ComponentDisplayState, ComponentInspectorPlugin, EditorState, EntityListPlugin}, 
-    widgets::WidgetsPlugin,
-    remote::types::{RemoteEntity, ComponentDataFetched, EntitiesFetched}
+    panels::{ComponentDisplayState, ComponentInspectorPlugin, EditorState, EntityListPlugin, EntityListArea, ComponentInspectorContent, EntityListViewMode}, 
+    widgets::{WidgetsPlugin, ScrollContent},
+    remote::types::{RemoteEntity, ComponentDataFetched, EntitiesFetched},
+    editor::{setup_scroll_content_markers, handle_entities_fetched}
 };
 
 /// Configuration for the Live Editor Plugin
@@ -127,9 +128,13 @@ impl Plugin for LiveEditorPlugin {
             .add_systems(Update, (
                 handle_toggle_input,
                 update_editor_visibility,
-                provide_local_world_data,
+                mark_inspector_ui_entities,
+                mark_new_ui_entities_when_live_editor_active,
+                provide_local_world_data.after(mark_inspector_ui_entities).after(mark_new_ui_entities_when_live_editor_active),
                 setup_editor_ui_in_window,
-            ));
+                setup_scroll_content_markers,
+            ))
+            .add_observer(handle_entities_fetched);
     }
 }
 
@@ -154,6 +159,10 @@ impl Default for LiveEditorState {
 /// Marker component for the live editor window
 #[derive(Component)]
 pub struct LiveEditorWindow;
+
+/// Marker component for inspector UI entities that should be excluded from inspection
+#[derive(Component)]
+pub struct InspectorUIEntity;
 
 /// Marker component for the local data provider
 #[derive(Component)]
@@ -215,6 +224,7 @@ fn setup_editor_ui_in_window(
                 target: RenderTarget::Window(WindowRef::Entity(window_entity)),
                 ..Default::default()
             },
+            InspectorUIEntity,
         )).id();
         
         // Create the root container and setup the editor UI structure
@@ -229,6 +239,7 @@ fn setup_editor_ui_in_window(
                 },
                 BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
                 UiTargetCamera(camera_entity),
+                InspectorUIEntity,
             ))
             .with_children(|parent| {
                 // Create status bar
@@ -244,11 +255,13 @@ fn setup_editor_ui_in_window(
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                     BorderColor::all(Color::srgb(0.3, 0.3, 0.3)),
                     super::editor::StatusBar,
+                    InspectorUIEntity,
                 )).with_children(|parent| {
                     parent.spawn((
                         Text::new("Bevy Live Inspector - Direct World Access"),
                         TextFont { font_size: 14.0, ..Default::default() },
                         TextColor(Color::srgb(0.8, 0.8, 0.8)),
+                        InspectorUIEntity,
                     ));
                 });
 
@@ -260,11 +273,13 @@ fn setup_editor_ui_in_window(
                         flex_direction: FlexDirection::Row,
                         ..Default::default()
                     },
+                    InspectorUIEntity,
                 )).with_children(|parent| {
-                    // Create entity panel using the existing function
+                    // Create entity panel and mark it as inspector UI
+                    let entity_panel_id = parent.target_entity();
                     super::editor::create_entity_panel(parent);
                     
-                    // Create component panel using the existing function  
+                    // Create component panel and mark it as inspector UI  
                     super::editor::create_component_panel(parent);
                 });
             });
@@ -305,13 +320,11 @@ fn update_editor_visibility(
 fn provide_local_world_data(
     mut data_provider: ResMut<LocalWorldDataProvider>,
     time: Res<Time>,
-    editor_state: ResMut<EditorState>,
-    // Query all entities from the world
-    all_entities: Query<Entity>,
+    // Query all entities EXCEPT inspector UI entities, cameras, and live editor windows
+    all_entities: Query<Entity, (Without<LiveEditorWindow>, Without<Camera>, Without<InspectorUIEntity>)>,
     name_query: Query<&Name>,
     transform_query: Query<&Transform>,
-    mut events: EventWriter<EntitiesFetched>,
-    mut component_events: EventWriter<ComponentDataFetched>,
+    mut commands: Commands,
 ) {
     let current_time = time.elapsed_secs_f64();
     
@@ -320,6 +333,15 @@ fn provide_local_world_data(
         return;
     }
     data_provider.last_update = current_time;
+    
+    // Safety check: limit the number of entities to prevent runaway growth
+    let entity_count = all_entities.iter().count();
+    if entity_count > 5000 {
+        info!("Entity count ({}) exceeds safety limit (5000), skipping update", entity_count);
+        return;
+    }
+    
+    info!("Entity filtering: {} entities passed filter (excluded LiveEditorWindow, Camera, InspectorUIEntity)", entity_count);
     
     // Convert local entities to the format expected by EditorPlugin
     let remote_entities: Vec<RemoteEntity> = all_entities
@@ -348,35 +370,81 @@ fn provide_local_world_data(
         })
         .collect();
     
-    // Send entities to the EditorPlugin
-    events.write(EntitiesFetched {
+    // Send entities using triggers instead of events
+    info!("Triggering EntitiesFetched with {} entities", remote_entities.len());
+    commands.trigger(EntitiesFetched {
         entities: remote_entities,
     });
+}
+
+/// Mark all UI entities in the live editor window as inspector UI entities
+/// This prevents them from being included in the entity inspection
+fn mark_inspector_ui_entities(
+    mut commands: Commands,
+    live_editor_windows: Query<Entity, With<LiveEditorWindow>>,
+    ui_target_cameras: Query<&UiTargetCamera>,
+    all_ui_entities: Query<Entity, (With<bevy_ui::Node>, Without<InspectorUIEntity>)>,
+    camera_entities: Query<(Entity, &Camera)>,
+    // Also check for entities that might be indirectly related to the live editor
+    all_components: Query<Entity, (Or<(With<crate::inspector::panels::EntityTree>, With<crate::inspector::panels::ComponentInspector>, With<super::editor::StatusBar>)>, Without<InspectorUIEntity>)>,
+) {
+    if live_editor_windows.is_empty() {
+        return; // No live editor windows, nothing to mark
+    }
     
-    // If there's a selected entity, provide its component data
-    if let Some(selected_id) = editor_state.selected_entity_id {
-        if let Some(entity) = all_entities.iter().find(|e| e.index() == selected_id) {
-            let mut component_data = Vec::new();
-            
-            // Add Name component data
-            if let Ok(name) = name_query.get(entity) {
-                component_data.push(format!("Name: {}", name.as_str()));
+    // Find cameras targeting live editor windows
+    let mut live_editor_cameras = Vec::new();
+    for (camera_entity, camera) in camera_entities.iter() {
+        if let RenderTarget::Window(WindowRef::Entity(window_entity)) = &camera.target {
+            if live_editor_windows.contains(*window_entity) {
+                live_editor_cameras.push(camera_entity);
             }
-            
-            // Add Transform component data
-            if let Ok(transform) = transform_query.get(entity) {
-                component_data.push(format!(
-                    "Transform:\n  Translation: {:.2}, {:.2}, {:.2}\n  Rotation: {:.2}, {:.2}, {:.2}, {:.2}\n  Scale: {:.2}, {:.2}, {:.2}",
-                    transform.translation.x, transform.translation.y, transform.translation.z,
-                    transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w,
-                    transform.scale.x, transform.scale.y, transform.scale.z
-                ));
-            }
-            
-            component_events.write(ComponentDataFetched {
-                entity_id: selected_id,
-                component_data: component_data.join("\n\n"),
-            });
         }
+    }
+    
+    let mut marked_count = 0;
+    
+    // Mark all UI entities that target live editor cameras
+    for ui_entity in all_ui_entities.iter() {
+        if let Ok(ui_target_camera) = ui_target_cameras.get(ui_entity) {
+            if live_editor_cameras.contains(&ui_target_camera.0) {
+                commands.entity(ui_entity).insert(InspectorUIEntity);
+                marked_count += 1;
+            }
+        }
+    }
+    
+    // Also mark entities with specific inspector components
+    for entity in all_components.iter() {
+        commands.entity(entity).insert(InspectorUIEntity);
+        marked_count += 1;
+    }
+    
+    if marked_count > 0 {
+        info!("Marked {} UI entities as InspectorUIEntity", marked_count);
+    }
+}
+
+/// Aggressively mark any new UI entities when live editor is active 
+/// This prevents runaway entity growth from UI generation
+fn mark_new_ui_entities_when_live_editor_active(
+    mut commands: Commands,
+    live_editor_state: Res<LiveEditorState>,
+    new_ui_entities: Query<Entity, (With<bevy_ui::Node>, Without<InspectorUIEntity>, Added<bevy_ui::Node>)>,
+) {
+    // Only run if live editor window is open
+    if !live_editor_state.window_open {
+        return;
+    }
+    
+    // Mark any newly created UI entities as inspector UI to prevent them from being inspected
+    let mut marked_count = 0;
+    for entity in new_ui_entities.iter() {
+        commands.entity(entity).insert(InspectorUIEntity);
+        marked_count += 1;
+    }
+    
+    if marked_count > 0 {
+        info!("Aggressively marked {} new UI entities as InspectorUIEntity", marked_count);
     }
 }

@@ -36,12 +36,14 @@
 
 use bevy_app::{App, Plugin, Update, Startup};
 use bevy_ecs::prelude::*;
+use bevy_render::camera::{Camera, RenderTarget};
 use bevy_ui::prelude::*;
 use bevy_color::Color;
 use bevy_text::{TextFont, TextColor};
 use bevy_core_pipeline::core_2d::Camera2d;
 use bevy_time::Time;
 use bevy_input::{keyboard::KeyCode, ButtonInput};
+use bevy_window::{Window, WindowRef};
 use core::default::Default;
 use tracing::{info, warn};
 
@@ -116,17 +118,36 @@ pub struct ExpansionButtonsContainer;
 
 /// Setup the main editor UI
 fn setup_editor_ui(mut commands: Commands) {
-    // Setup camera
-    commands.spawn(Camera2d);
-    
-    // Main container
-    commands
-        .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
+    // Spawn a new window entity for the editor
+    let editor_window_entity = commands.spawn((
+        Window {
+            title: "Bevy Inspector".to_string(),
+            resolution: (800.0, 600.0).into(),
+            visible: true,
             ..Default::default()
-        })
+        },
+    )).id();
+
+    // Setup camera targeting the new window
+    commands.spawn((
+        Camera2d,
+        Camera {
+            target: RenderTarget::Window(WindowRef::Entity(editor_window_entity)),
+            ..Default::default()
+        },
+    ));
+    
+    // Main container targeting the new window
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                ..Default::default()
+            },
+            UiTargetCamera(editor_window_entity), // Target the new window
+        ))
         .with_children(|parent| {
             // Top status bar with gradient
             parent
@@ -385,12 +406,29 @@ fn handle_component_inspection(
 
 
 /// Handle entities fetched event
-fn handle_entities_fetched(
+pub fn handle_entities_fetched(
     trigger: On<EntitiesFetched>,
     mut editor_state: ResMut<EditorState>,
 ) {
-    editor_state.entities = trigger.event().entities.clone();
-    editor_state.connection_status = ConnectionStatus::Connected;
+    let entities = &trigger.event().entities;
+    tracing::info!("handle_entities_fetched: Received {} entities", entities.len());
+    
+    // Debug: Print first few entity IDs to see what we're getting
+    for (i, entity) in entities.iter().take(3).enumerate() {
+        tracing::info!("  Entity {}: id={}, components={:?}", i, entity.id, entity.components);
+    }
+    
+    // Only update if the entity data actually changed
+    let entities_changed = editor_state.entities != *entities;
+    tracing::info!("handle_entities_fetched: Entities changed = {}", entities_changed);
+    
+    if entities_changed {
+        editor_state.entities = entities.clone();
+        editor_state.connection_status = ConnectionStatus::Connected;
+        tracing::info!("handle_entities_fetched: Updated EditorState with {} entities (data changed)", editor_state.entities.len());
+    } else {
+        tracing::debug!("handle_entities_fetched: Entity data unchanged, skipping update");
+    }
 }
 
 /// Handle component data fetched event  
@@ -627,7 +665,7 @@ fn handle_expansion_keyboard(
 
 /// System to setup marker components on ScrollContent areas
 /// This ensures the existing entity list and component inspector systems can find their target areas
-fn setup_scroll_content_markers(
+pub fn setup_scroll_content_markers(
     mut commands: Commands,
     scroll_content_query: Query<Entity, (With<ScrollContent>, Without<EntityListArea>, Without<ComponentInspectorContent>)>,
     mut has_run: Local<bool>,

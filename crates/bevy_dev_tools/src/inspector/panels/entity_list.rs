@@ -221,15 +221,24 @@ pub fn refresh_entity_list(
     let current_count = editor_state.entities.len();
     let count_changed = *local_entity_count != current_count;
     let view_mode_changed = !entity_list_area_query.is_empty();
+    let editor_state_changed = editor_state.is_changed();
     
-    if !count_changed && !view_mode_changed {
+    // Debug logging
+    tracing::info!("refresh_entity_list: current_count={}, local_count={}, count_changed={}, view_mode_changed={}, editor_state_changed={}, entity_list_areas={}", 
+        current_count, *local_entity_count, count_changed, view_mode_changed, editor_state_changed, all_entity_list_areas.iter().count());
+    
+    // Also trigger on EditorState changes, not just count changes
+    if !count_changed && !view_mode_changed && !editor_state_changed {
         return;
     }
     
     *local_entity_count = current_count;
+    tracing::info!("refresh_entity_list: Refreshing UI with {} entities", current_count);
 
     // Use all entity list areas (not just changed ones) for actual processing
     for (list_area_entity, view_mode) in all_entity_list_areas.iter() {
+        tracing::info!("refresh_entity_list: Processing entity list area {:?} with view mode {:?}", list_area_entity, view_mode);
+        
         // Clear existing list items first
         for entity in &list_items_query {
             commands.entity(entity).despawn();

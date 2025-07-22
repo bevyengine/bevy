@@ -1,11 +1,13 @@
 //! Showcase how to use the in-game inspector for debugging entities and components.
 
+use bevy::math::ops::cos;
 use bevy::{
+    input::common_conditions::input_just_pressed,
+    dev_tools::inspector::editor::EditorPlugin,
+    remote::{http::RemoteHttpPlugin, RemotePlugin},
     prelude::*,
-    dev_tools::inspector::live_editor::LiveEditorPlugin,
-
 };
-
+use serde::{Deserialize, Serialize};
 // Example component for demonstration
 #[derive(Component)]
 struct Player {
@@ -22,7 +24,9 @@ struct Position {
 fn main() {
     App::new()
     .add_plugins(DefaultPlugins)
-        .add_plugins(LiveEditorPlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
+        .add_plugins(RemotePlugin::default())
+        .add_plugins(EditorPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, remove.run_if(input_just_pressed(KeyCode::Space)))
         .add_systems(Update, move_cube)

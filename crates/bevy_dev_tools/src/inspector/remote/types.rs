@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Remote entity representation from bevy_remote
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct RemoteEntity {
     pub id: u32,
     pub components: Vec<String>, // Display names (cleaned)
