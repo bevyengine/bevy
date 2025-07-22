@@ -146,7 +146,7 @@ use bevy_render::{
     render_graph::RenderGraph,
     render_resource::ShaderRef,
     sync_component::SyncComponentPlugin,
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 
 use std::path::PathBuf;
@@ -294,6 +294,14 @@ impl Plugin for PbrPlugin {
                 texture: bluenoise_texture,
             })
             .add_systems(
+                RenderStartup,
+                (
+                    init_shadow_samplers,
+                    init_global_clusterable_object_meta,
+                    init_fallback_bindless_resources,
+                ),
+            )
+            .add_systems(
                 ExtractSchedule,
                 (
                     extract_clusters,
@@ -336,12 +344,6 @@ impl Plugin for PbrPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-        // Extract the required data from the main world
-        render_app
-            .init_resource::<ShadowSamplers>()
-            .init_resource::<GlobalClusterableObjectMeta>()
-            .init_resource::<FallbackBindlessResources>();
 
         let global_cluster_settings = make_global_cluster_settings(render_app.world());
         app.insert_resource(global_cluster_settings);

@@ -1,3 +1,4 @@
+use crate::WgpuWrapper;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
@@ -13,7 +14,6 @@ use bevy_ecs::{
 use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::default;
-use bevy_utils::WgpuWrapper;
 use core::{future::Future, hash::Hash, mem};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
