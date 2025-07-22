@@ -354,12 +354,12 @@ fn on_move_clear_multi_click(move_event: On<Pointer<Move>>, mut commands: Comman
 pub fn mouse_wheel_scroll(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     hover_map: Res<HoverMap>,
-    mut node_query: Query<(&mut TextInputBuffer, &mut TextInputActions)>,
+    mut node_query: Query<(&TextInputBuffer, &mut TextInputActions)>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {
         for (_, pointer_map) in hover_map.iter() {
             for (entity, _) in pointer_map.iter() {
-                let Ok((mut buffer, mut actions)) = node_query.get_mut(*entity) else {
+                let Ok((buffer, mut actions)) = node_query.get_mut(*entity) else {
                     continue;
                 };
                 if mouse_wheel_event.y == 0. {
