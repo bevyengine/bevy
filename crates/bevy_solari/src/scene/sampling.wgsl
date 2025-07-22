@@ -4,7 +4,14 @@
 #import bevy_render::maths::PI_2
 #import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full}
 
-struct SampleRandomLightResult {
+struct LightSample {
+    light_id: u32,
+    seed: u32,
+}
+
+struct ResolvedLightSample {
+    world_position: vec4<f32>,
+    world_normal: vec3<f32>,
     radiance: vec3<f32>,
     inverse_pdf: f32,
 }
