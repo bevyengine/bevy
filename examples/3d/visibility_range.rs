@@ -71,13 +71,7 @@ struct AppStatus {
 // Sets up the app.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Visibility Range Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .init_resource::<AppStatus>()
         .add_systems(Startup, setup)
         .add_systems(

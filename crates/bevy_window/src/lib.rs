@@ -19,6 +19,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
+use bevy_ecs::system::Commands;
 use bevy_platform::sync::Mutex;
 
 mod event;
@@ -56,8 +57,7 @@ use bevy_app::prelude::*;
 impl Default for WindowPlugin {
     fn default() -> Self {
         WindowPlugin {
-            primary_window: Some(Window::default()),
-            primary_cursor_options: Some(CursorOptions::default()),
+            spawn_primary_window: true,
             exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,
         }
@@ -66,23 +66,28 @@ impl Default for WindowPlugin {
 
 /// A [`Plugin`] that defines an interface for windowing support in Bevy.
 pub struct WindowPlugin {
-    /// Settings for the primary window.
+    /// Whether or not to spawn a [`PrimaryWindow`] and its associated required components.
+    /// If you want to customize the primary window when it spawns, you can use an observer:
     ///
-    /// `Some(custom_window)` will spawn an entity with `custom_window` and [`PrimaryWindow`] as components.
-    /// `None` will not spawn a primary window.
+    /// ```
+    /// # use bevy_window::{CursorOptions, PresentMode, PrimaryWindow, Window, PresentMode};
+    /// # use bevy_ecs::prelude::*;
+    /// fn configure_window(
+    ///     trigger: On<Add, PrimaryWindow>,
+    ///     mut window: Query<(&mut CursorOptions, &mut PresentMode)>,
+    /// ) {
+    ///     // This unwrap is guaranteed to succeed because the queried components are required on any [`Window`]
+    ///     let (mut cursor_options, mut present_mode) = window.get_mut(trigger.target()).unwrap();
+    ///     cursor_options.visible = false;
+    ///     present_mode = PresentMode::AutoNoVsync;
+    /// }
+    /// ```
     ///
-    /// Defaults to `Some(Window::default())`.
+    /// Defaults to `true`.
     ///
     /// Note that if there are no windows the App will exit (by default) due to
     /// [`exit_on_all_closed`].
-    pub primary_window: Option<Window>,
-
-    /// Settings for the cursor on the primary window.
-    ///
-    /// Defaults to `Some(CursorOptions::default())`.
-    ///
-    /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
-    pub primary_cursor_options: Option<CursorOptions>,
+    pub spawn_primary_window: bool,
 
     /// Whether to exit the app when there are no open windows.
     ///
@@ -129,15 +134,10 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowThemeChanged>()
             .add_event::<AppLifecycle>();
 
-        if let Some(primary_window) = &self.primary_window {
-            let mut entity_commands = app.world_mut().spawn(primary_window.clone());
-            entity_commands.insert((
-                PrimaryWindow,
-                RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
-            ));
-            if let Some(primary_cursor_options) = &self.primary_cursor_options {
-                entity_commands.insert(primary_cursor_options.clone());
-            }
+        if self.spawn_primary_window {
+            app.add_systems(PreStartup, |mut commands: Commands| {
+                commands.spawn(PrimaryWindow);
+            });
         }
 
         match self.exit_condition {

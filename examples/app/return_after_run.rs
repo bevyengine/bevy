@@ -5,21 +5,21 @@
 //! - `App::run()` will never return on iOS and Web.
 //! - It is not possible to recreate a window after the event loop has been terminated.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::PrimaryWindow};
 
 fn main() {
     println!("Running Bevy App");
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Close the window to return to the main function".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
+        .add_observer(configure_window)
         .add_systems(Update, system)
         .run();
     println!("Bevy App has exited. We are back in our main function.");
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.title = "Close the window to return to the main function".into();
 }
 
 fn system() {

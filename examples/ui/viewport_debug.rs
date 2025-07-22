@@ -4,7 +4,7 @@
 //! and then switches between them once per second using the `Display` style property.
 //! If there are no problems both layouts should be identical, except for the color of the margin changing which is used to signal that the displayed UI node tree has changed
 //! (red for viewport, yellow for pixel).
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::css::*, prelude::*, window::PrimaryWindow};
 
 const PALETTE: [Srgba; 10] = [
     RED, YELLOW, WHITE, BEIGE, AQUA, CRIMSON, NAVY, AZURE, LIME, BLACK,
@@ -20,20 +20,18 @@ enum Coords {
 fn main() {
     App::new()
         .insert_resource(UiScale(2.0))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Viewport Coordinates Debug".to_string(),
-                // This example relies on these specific viewport dimensions, so let's explicitly
-                // define them.
-                resolution: [1280., 720.].into(),
-                resizable: false,
-                ..Default::default()
-            }),
-            ..Default::default()
-        }))
+        .add_plugins(DefaultPlugins)
+        .add_observer(configure_window)
         .add_systems(Startup, setup)
         .add_systems(Update, update)
         .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.title = "Viewport Coordinates Debug".to_string();
+    window.resolution = [1280., 720.].into();
+    window.resizable = false;
 }
 
 fn update(

@@ -15,35 +15,16 @@ use bevy::{
 /// `main.rs`.
 pub fn main() {
     let mut app = App::new();
-    app.add_plugins(
-        DefaultPlugins
-            .set(LogPlugin {
-                // This will show some log events from Bevy to the native logger.
-                level: Level::DEBUG,
-                filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
-                ..Default::default()
-            })
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    resizable: false,
-                    mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
-                    // on iOS, gestures must be enabled.
-                    // This doesn't work on Android
-                    recognize_rotation_gesture: true,
-                    // Only has an effect on iOS
-                    prefers_home_indicator_hidden: true,
-                    // Only has an effect on iOS
-                    prefers_status_bar_hidden: true,
-                    // Only has an effect on iOS
-                    preferred_screen_edges_deferring_system_gestures: ScreenEdge::Bottom,
-                    ..default()
-                }),
-                ..default()
-            }),
-    )
+    app.add_plugins(DefaultPlugins.set(LogPlugin {
+        // This will show some log events from Bevy to the native logger.
+        level: Level::DEBUG,
+        filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+        ..Default::default()
+    }))
     // Make the winit loop wait more aggressively when no user input is received
     // This can help reduce cpu usage on mobile devices
     .insert_resource(WinitSettings::mobile())
+    .add_observer(configure_window)
     .add_systems(Startup, (setup_scene, setup_music))
     .add_systems(
         Update,
@@ -56,6 +37,22 @@ pub fn main() {
         ),
     )
     .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+
+    window.resizable = false;
+    window.mode = WindowMode::BorderlessFullscreen(MonitorSelection::Primary);
+    // on iOS, gestures must be enabled.
+    // This doesn't work on Android
+    window.recognize_rotation_gesture = true;
+    // Only has an effect on iOS
+    window.prefers_home_indicator_hidden = true;
+    // Only has an effect on iOS
+    window.prefers_status_bar_hidden = true;
+    // Only has an effect on iOS
+    window.preferred_screen_edges_deferring_system_gestures = ScreenEdge::Bottom;
 }
 
 fn touch_camera(
