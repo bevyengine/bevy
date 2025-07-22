@@ -97,7 +97,7 @@ jobs:
 
       - name: Setup Rust
         id: rust
-        uses: dtolnay/rust-toolchain@main
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
           target: ${{ matrix.target }}
