@@ -57,7 +57,6 @@ use cosmic_text::Editor;
 use cosmic_text::Metrics;
 pub use cosmic_text::Motion;
 use cosmic_text::Selection;
-use regex::Regex;
 
 pub struct TextInputPlugin;
 
@@ -218,6 +217,9 @@ impl Default for TextInputAttributes {
 
 #[derive(Component)]
 pub enum TextInputFilter {
+    /// Positive integer input
+    /// accepts only digits
+    PositiveInteger,
     /// Integer input
     /// accepts only digits and a leading sign
     Integer,
@@ -234,30 +236,45 @@ pub enum TextInputFilter {
     Custom(Box<dyn Fn(&str) -> bool + Send + Sync>),
 }
 
-static INTEGER_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
-static DECIMAL_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
-static HEX_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[0-9A-Fa-f]*$").unwrap());
-static ALPHANUMERIC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[0-9A-Za-z]*$").unwrap());
-
 impl TextInputFilter {
     pub fn is_match(&self, text: &str) -> bool {
+        if text.is_empty() {
+            return true;
+        }
+
         match self {
-            TextInputFilter::Integer => INTEGER_REGEX.is_match(text),
-            TextInputFilter::Decimal => DECIMAL_REGEX.is_match(text),
-            TextInputFilter::Hex => HEX_REGEX.is_match(text),
-            TextInputFilter::Alphanumeric => ALPHANUMERIC.is_match(text),
+            TextInputFilter::PositiveInteger => text.chars().all(|c| c.is_ascii_digit()),
+            TextInputFilter::Integer => {
+                let rest = if text.starts_with('-') {
+                    &text[1..]
+                } else {
+                    text
+                };
+                rest.chars().all(|c| c.is_ascii_digit())
+            }
+            TextInputFilter::Decimal => {
+                let rest = if text.starts_with('-') {
+                    &text[1..]
+                } else {
+                    text
+                };
+
+                rest.chars()
+                    .try_fold(true, |is_int, c| match c {
+                        '.' if is_int => Ok(false),
+                        c if c.is_ascii_digit() => Ok(is_int),
+                        _ => Err(()),
+                    })
+                    .is_ok()
+            }
+            TextInputFilter::Hex => text.chars().all(|c| c.is_ascii_hexdigit()),
+            TextInputFilter::Alphanumeric => text.chars().all(|c| c.is_ascii_alphanumeric()),
             TextInputFilter::Custom(is_match) => is_match(text),
         }
     }
 
     pub fn custom(filter_fn: impl Fn(&str) -> bool + Send + Sync + 'static) -> Self {
         Self::Custom(Box::new(filter_fn))
-    }
-
-    pub fn regex(regex: &str) -> Result<Self, regex::Error> {
-        let compiled_regex = Regex::new(regex)?;
-        Ok(Self::custom(move |text| compiled_regex.is_match(text)))
     }
 }
 

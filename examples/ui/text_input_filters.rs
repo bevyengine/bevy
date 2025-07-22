@@ -5,15 +5,11 @@ use bevy::color::palettes::css::YELLOW;
 use bevy::core_widgets::Activate;
 use bevy::core_widgets::Callback;
 use bevy::core_widgets::CoreButton;
-use bevy::core_widgets::CoreRadio;
-use bevy::core_widgets::CoreRadioGroup;
 use bevy::core_widgets::CoreWidgetsPlugins;
-use bevy::core_widgets::TrackClick;
 use bevy::input_focus::tab_navigation::TabGroup;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
-use bevy::pbr::deferred::insert_deferred_lighting_pass_id_component;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::TextInputFilter;
@@ -22,7 +18,6 @@ use bevy::text::TextInputSubmit;
 use bevy::text::TextInputValue;
 use bevy::ui::widget::TextInput;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
-use bevy_ecs::system::command::spawn_batch;
 
 fn main() {
     App::new()
@@ -131,16 +126,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>) {
     for (n, (label, input_filter, password)) in [
-        ("alphanumeric", TextInputFilter::Alphanumeric, false),
-        ("decimal", TextInputFilter::Decimal, false),
-        ("hex", TextInputFilter::Hex, false),
-        ("integer", TextInputFilter::Integer, false),
-        (
-            "not bevy",
-            TextInputFilter::custom(|text| !text.contains("bevy")),
-            false,
-        ),
-        ("password", TextInputFilter::Alphanumeric, true),
+        ("Normal", None, false),
+        ("alphanumeric", Some(TextInputFilter::Alphanumeric), false),
+        ("decimal", Some(TextInputFilter::Decimal), false),
+        ("hex", Some(TextInputFilter::Hex), false),
+        ("integer", Some(TextInputFilter::Integer), false),
+        ("password", Some(TextInputFilter::Alphanumeric), true),
     ]
     .into_iter()
     .enumerate()
@@ -159,7 +150,7 @@ fn spawn_row(
     commands: &mut RelatedSpawnerCommands<'_, ChildOf>,
     grid_row: GridPlacement,
     label: &str,
-    input_filter: TextInputFilter,
+    input_filter: Option<TextInputFilter>,
     is_password: bool,
 ) {
     commands.spawn((
@@ -221,7 +212,6 @@ fn spawn_row(
             width: Val::Px(200.),
             ..Default::default()
         },
-        input_filter,
         TextColor(Color::WHITE),
         TabIndex(0),
         BackgroundColor(Color::BLACK),
@@ -234,6 +224,10 @@ fn spawn_row(
         TextInputValue::default(),
         UpdateTarget(update_target),
     ));
+
+    if let Some(input_filter) = input_filter {
+        input.insert(input_filter);
+    }
 
     input.observe(
         move |on_submit: On<TextInputSubmit>, mut text_query: Query<&mut Text>| {
