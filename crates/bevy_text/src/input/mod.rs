@@ -1046,6 +1046,12 @@ pub struct TextInputSubmit {
 #[require(PromptStyle, PromptLayout)]
 pub struct Prompt(pub String);
 
+impl Prompt {
+    pub fn new(prompt: impl Into<String>) -> Self {
+        Self(prompt.into())
+    }
+}
+
 /// Prompt displayed when the input is empty (including whitespace).
 #[derive(Default, Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
