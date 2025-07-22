@@ -82,10 +82,11 @@ impl Plugin for TextInputPlugin {
     }
 }
 
-// Basic clipboard implementation that only works within the bevy app.
+/// Basic clipboard implementation that only works within the bevy app.
 #[derive(Resource, Default)]
 pub struct Clipboard(pub String);
 
+/// Get the text from th a cosmic text buffer
 fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
     buffer
         .lines
@@ -115,6 +116,7 @@ impl Default for TextInputBuffer {
 }
 
 impl TextInputBuffer {
+    /// Use the cosmic text buffer mutably
     pub fn with_buffer_mut<F, T>(&mut self, f: F) -> T
     where
         F: FnOnce(&mut Buffer) -> T,
@@ -122,6 +124,7 @@ impl TextInputBuffer {
         self.editor.with_buffer_mut(f)
     }
 
+    /// Use the cosmic text buffer
     pub fn with_buffer<F, T>(&self, f: F) -> T
     where
         F: FnOnce(&Buffer) -> T,
@@ -129,6 +132,7 @@ impl TextInputBuffer {
         self.editor.with_buffer(f)
     }
 
+    /// True if the buffer is empty
     pub fn is_empty(&self) -> bool {
         self.with_buffer(|buffer| {
             buffer.lines.len() == 0
@@ -157,14 +161,18 @@ impl TextInputUndoHistory {
 }
 
 impl TextInputBuffer {
+    /// Get the text contained in the text buffer
     pub fn get_text(&self) -> String {
         self.editor.with_buffer(get_cosmic_text_buffer_contents)
     }
 }
 
+/// Details of the target the text input will be rendered to
 #[derive(Component, PartialEq, Debug, Default)]
 pub struct TextInputTarget {
+    /// size of the target
     pub size: Vec2,
+    /// scale factor of the target
     pub scale_factor: f32,
 }
 
@@ -174,6 +182,8 @@ impl TextInputTarget {
     }
 }
 
+/// Contains the current text in the text input buffer
+/// If inserted, replaces the current text in the text buffer
 #[derive(Component, PartialEq, Debug, Default, Deref)]
 #[component(
     on_insert = on_insert_text_input_value,
@@ -181,15 +191,18 @@ impl TextInputTarget {
 pub struct TextInputValue(String);
 
 impl TextInputValue {
+    /// New text, when insert replaces the current text in the text buffer
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
 
+    /// Get the current text
     pub fn get(&self) -> &str {
         &self.0
     }
 }
 
+/// Set the text input with the text from the `TextInputValue` when inserted.
 fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
     if let Some(value) = world.get::<TextInputValue>(context.entity) {
         let value = value.0.clone();
@@ -202,6 +215,7 @@ fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
     }
 }
 
+/// Width of a space advance in pixels
 #[derive(Component, PartialEq, Debug, Default, Deref, DerefMut)]
 pub struct SpaceAdvance(f32);
 
@@ -231,6 +245,8 @@ impl Default for TextInputAttributes {
     }
 }
 
+/// Any actions that modify a text input's text have to pass this filter,
+/// otherwise the action will not be applied
 #[derive(Component)]
 pub enum TextInputFilter {
     /// Positive integer input
@@ -253,7 +269,9 @@ pub enum TextInputFilter {
 }
 
 impl TextInputFilter {
+    /// The text passes the filter
     pub fn is_match(&self, text: &str) -> bool {
+        /// Always passes if the input is empty, this could become optional
         if text.is_empty() {
             return true;
         }
@@ -289,6 +307,7 @@ impl TextInputFilter {
         }
     }
 
+    /// Create a custom filter
     pub fn custom(filter_fn: impl Fn(&str) -> bool + Send + Sync + 'static) -> Self {
         Self::Custom(Box::new(filter_fn))
     }
@@ -298,7 +317,9 @@ impl TextInputFilter {
 /// by replacing the characters with `mask_char`.
 #[derive(Component)]
 pub struct TextInputPasswordMask {
+    /// Char that will replace the masked input characters, by default `*`
     pub mask_char: char,
+    /// Buffer mirroring the actual text input buffer but only containing `mask_char`s
     editor: Editor<'static>,
 }
 
@@ -314,10 +335,12 @@ impl Default for TextInputPasswordMask {
 /// Text input commands queue
 #[derive(Component, Default)]
 pub struct TextInputActions {
+    /// Commands to be applied before the text input is updated
     pub queue: VecDeque<TextInputAction>,
 }
 
 impl TextInputActions {
+    /// queue an action
     pub fn queue(&mut self, command: TextInputAction) {
         self.queue.push_back(command);
     }
@@ -386,6 +409,8 @@ pub enum TextInputAction {
 }
 
 impl TextInputAction {
+    /// An action that moves the cursor.
+    /// If `with_select` is true, it selects as it moves
     pub fn motion(motion: Motion, with_select: bool) -> Self {
         Self::Motion {
             motion,
@@ -411,6 +436,7 @@ pub fn apply_motion<'a>(
     editor.action(Action::Motion(motion));
 }
 
+/// Returns true if the cursor is at the end of a line
 pub fn cursor_at_end_of_line(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bool {
     let cursor = editor.cursor();
     editor.with_buffer(|buffer| {
@@ -422,6 +448,7 @@ pub fn cursor_at_end_of_line(editor: &mut BorrowedWithFontSystem<Editor<'_>>) ->
     })
 }
 
+/// apply an action from the undo history to the  text input buffer
 fn apply_action<'a>(
     editor: &mut BorrowedWithFontSystem<Editor<'a>>,
     action: cosmic_undo_2::Action<&cosmic_text::Change>,
@@ -439,6 +466,8 @@ fn apply_action<'a>(
     editor.set_redraw(true);
 }
 
+/// Apply the queued actions for each text input, with special case for submit actions.
+/// Then update [`TextInputValue`]s
 pub fn apply_text_input_actions(
     mut commands: Commands,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -496,7 +525,9 @@ pub fn apply_text_input_actions(
     }
 }
 
-/// update editor
+/// update the text input buffer when a non-text edit change happens like
+/// the font or line height changing and the buffer's metrics and attributes need
+/// to be regenerated
 pub fn update_text_input_buffers(
     mut text_input_query: Query<(
         &mut TextInputBuffer,
@@ -594,6 +625,7 @@ pub fn update_text_input_buffers(
     }
 }
 
+/// Update password masks to mirror the underlying `TextInputBuffer`
 pub fn update_password_masks(
     mut text_input_query: Query<(&mut TextInputBuffer, &mut TextInputPasswordMask)>,
     mut cosmic_font_system: ResMut<CosmicFontSystem>,
@@ -620,6 +652,8 @@ pub fn update_password_masks(
     }
 }
 
+/// Based on `LayoutRunIter` from cosmic-text but doesn't crop the
+/// bottom line when scrolling up.
 #[derive(Debug)]
 pub struct ScrollingLayoutRunIter<'b> {
     buffer: &'b Buffer,
@@ -863,6 +897,7 @@ pub fn update_text_input_layouts(
     }
 }
 
+/// Apply a text input action to a text input
 fn apply_text_input_action(
     mut editor: BorrowedWithFontSystem<'_, Editor<'static>>,
     mut maybe_history: Option<&mut TextInputUndoHistory>,
@@ -1027,6 +1062,8 @@ fn apply_text_input_action(
     editor.set_redraw(true);
 }
 
+/// Event dispatched when a text input recieves the [`TextInputAction::Submit`] action.
+/// Contains a copy of the buffer contents at the time when when the action was applied.
 #[derive(EntityEvent, Clone, Debug, Component, Reflect)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 #[reflect(Component, Clone)]
@@ -1045,6 +1082,7 @@ pub struct TextInputSubmit {
 pub struct Prompt(pub String);
 
 impl Prompt {
+    /// A new prompt.
     pub fn new(prompt: impl Into<String>) -> Self {
         Self(prompt.into())
     }
@@ -1070,13 +1108,17 @@ pub struct PromptStyle {
     pub justify: Justify,
 }
 
+/// Layout for the prompt text
 #[derive(Component)]
 pub struct PromptLayout {
+    /// propmpt's cosmic-text buffer (not an Editor as isn't editable)
     buffer: Buffer,
+    /// prompt's text layout, displayed when the text input is empty
     layout: TextLayoutInfo,
 }
 
 impl PromptLayout {
+    /// Get the text layout
     pub fn layout(&self) -> &TextLayoutInfo {
         &self.layout
     }
@@ -1091,6 +1133,7 @@ impl Default for PromptLayout {
     }
 }
 
+/// Generate a new text prompt layout when the the prompt or its target has changed
 pub fn text_input_prompt_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,

@@ -1,6 +1,6 @@
 use crate::{Font, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
-use bevy_color::{palettes::css::WHITE_SMOKE, Color};
+use bevy_color::{palettes::css::DARK_GOLDENROD, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
@@ -408,7 +408,7 @@ pub struct TextSelectionBlockColor(pub Color);
 
 impl Default for TextSelectionBlockColor {
     fn default() -> Self {
-        Self::new(WHITE_SMOKE)
+        Self::new(DARK_GOLDENROD)
     }
 }
 
