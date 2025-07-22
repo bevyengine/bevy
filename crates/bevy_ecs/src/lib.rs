@@ -138,10 +138,22 @@ pub mod __macro_exports {
 
 /// Event sent when a hotpatch happens.
 ///
-/// Systems should refresh their inner pointers.
+/// Can be used for causing custom behavior on hot-patch.
 #[cfg(feature = "hotpatching")]
 #[derive(BufferedEvent, Default)]
 pub struct HotPatched;
+
+/// Resource which "changes" when a hotpatch happens.
+///
+/// Exists solely for change-detection, which allows systems to
+/// know whether a hotpatch happened even if they only run irregularily and would
+/// miss the event.
+///
+/// Used by Executors and other places which run systems
+/// [`System::refresh_hotpatch`](crate::system::System::refresh_hotpatch) only when necessary.
+#[cfg(feature = "hotpatching")]
+#[derive(resource::Resource, Default)]
+pub struct HotPatchChanges;
 
 #[cfg(test)]
 mod tests {
