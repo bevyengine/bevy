@@ -39,7 +39,7 @@ pub(crate) struct AlphaPattern;
 
 /// Observer to fill in the material handle (since we don't have access to the materials asset
 /// in the template)
-fn on_add_color_swatch(
+fn on_add_alpha_pattern(
     ev: On<Add, AlphaPattern>,
     mut q_swatch: Query<&mut MaterialNode<AlphaPatternMaterial>>,
     r_material: Res<AlphaPatternResource>,
@@ -54,6 +54,6 @@ pub struct AlphaPatternPlugin;
 
 impl Plugin for AlphaPatternPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_observer(on_add_color_swatch);
+        app.add_observer(on_add_alpha_pattern);
     }
 }
