@@ -20,10 +20,11 @@ fn setup(mut commands: Commands) {
     // UI camera
     commands.spawn(Camera2d);
 
-    let tid = commands.spawn(Text::new("hello")).id();
+    let tid = commands.spawn(Text::new("TextBox example")).id();
     let id = commands
         .spawn((
             TextBox::default(),
+            bevy::text::Prompt::new("Please type here.."),
             TabIndex(0),
             TextColor(RED.into()),
             TextFont {
@@ -49,8 +50,8 @@ fn setup(mut commands: Commands) {
             row_gap: Val::Px(10.),
             ..Default::default()
         })
-        .add_child(id)
-        .add_child(tid);
+        .add_child(tid)
+        .add_child(id);
 
     commands.insert_resource(InputFocus(Some(id)));
 }
