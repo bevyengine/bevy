@@ -129,10 +129,7 @@ impl BoundedExtrusion for Rectangle {
 impl BoundedExtrusion for Polygon {
     fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
         let isometry = isometry.into();
-        let aabb = Aabb3d::from_point_cloud(
-            isometry,
-            self.vertices.iter().map(|v| v.extend(0.)),
-        );
+        let aabb = Aabb3d::from_point_cloud(isometry, self.vertices.iter().map(|v| v.extend(0.)));
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
 
         aabb.grow(depth.abs())
