@@ -69,8 +69,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, SpaceAdvance, TextBackgroundColor, TextColor,
-    TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, PromptColor, PromptLayout, SpaceAdvance,
+    TextBackgroundColor, TextColor, TextInputBuffer, TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1013,7 +1013,9 @@ pub fn extract_text_input_nodes(
             &TextCursorStyle,
             &TextCursorBlinkTimer,
             &TextUnderCursorColor,
-            &SpaceAdvance,
+            &TextInputBuffer,
+            Option<&PromptLayout>,
+            Option<&PromptColor>,
         )>,
     >,
     modifiers: Extract<Res<TextInputModifiers>>,
@@ -1034,8 +1036,10 @@ pub fn extract_text_input_nodes(
         color,
         cursor_style,
         blink_timer,
-        under_color,
-        _space_advance,
+        _under_color,
+        buffer,
+        maybe_prompt_layout,
+        maybe_prompt_color,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1060,16 +1064,24 @@ pub fn extract_text_input_nodes(
                 .unwrap_or(node_rect),
         );
 
-        let transform =
-            transform * Affine2::from_translation(-0.5 * uinode.size() - text_layout_info.scroll);
+        let (layout, color) = if buffer.is_empty() && maybe_prompt_layout.is_some() {
+            (
+                maybe_prompt_layout.unwrap().layout(),
+                maybe_prompt_color.map(|pc| pc.0).unwrap_or(color.0),
+            )
+        } else {
+            (text_layout_info, color.0)
+        };
+
+        let transform = transform * Affine2::from_translation(-0.5 * uinode.size() - layout.scroll);
         let color = color.to_linear();
 
         let blink = blink_timer
             .0
             .is_none_or(|t| cursor_style.blink_interval < t);
 
-        for (i, rect) in text_layout_info.selection_rects.iter().enumerate() {
-            let size = if (1..text_layout_info.selection_rects.len()).contains(&i) {
+        for (i, rect) in layout.selection_rects.iter().enumerate() {
+            let size = if (1..layout.selection_rects.len()).contains(&i) {
                 rect.size() + Vec2::Y
             } else {
                 rect.size()
@@ -1105,7 +1117,7 @@ pub fn extract_text_input_nodes(
                 atlas_info,
                 ..
             },
-        ) in text_layout_info.glyphs.iter().enumerate()
+        ) in layout.glyphs.iter().enumerate()
         {
             let rect = texture_atlases
                 .get(atlas_info.texture_atlas)
@@ -1117,9 +1129,9 @@ pub fn extract_text_input_nodes(
                 rect,
             });
 
-            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+            if layout.glyphs.get(i + 1).is_none_or(|info| {
                 info.atlas_info.texture != atlas_info.texture
-                    || text_layout_info.cursor_index.is_some_and(|j| j == i + 1)
+                    || layout.cursor_index.is_some_and(|j| j == i + 1)
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
