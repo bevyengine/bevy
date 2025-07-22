@@ -38,7 +38,7 @@
 //!
 //! In any case, the [`Rng`] used as the source of randomness must be provided explicitly.
 
-use core::f32::consts::{PI, TAU};
+use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use crate::{ops, primitives::*, NormedVectorSpace, ScalarField, Vec2, Vec3};
 use rand::{
@@ -167,6 +167,31 @@ impl ShapeSample for Circle {
     }
 }
 
+impl ShapeSample for CircularSector {
+    type Output = Vec2;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
+        let theta = rng.gen_range(-self.half_angle()..=self.half_angle());
+        let r_squared = rng.gen_range(0.0..=(self.radius() * self.radius()));
+        let r = ops::sqrt(r_squared);
+        let (sin, cos) = ops::sin_cos(theta);
+        Vec2::new(r * sin, r * cos)
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
+        if rng.gen_range(0.0..=1.0) <= self.arc_length() / self.perimeter() {
+            // Sample on the arc
+            let theta = FRAC_PI_2 + rng.gen_range(-self.half_angle()..self.half_angle());
+            Vec2::from_angle(theta) * self.radius()
+        } else {
+            // Sample on the "inner" straight lines
+            let dir = self.radius() * Vec2::from_angle(FRAC_PI_2 + self.half_angle());
+            let r: f32 = rng.gen_range(-1.0..1.0);
+            (-r).clamp(0.0, 1.0) * dir + r.clamp(0.0, 1.0) * dir * Vec2::new(-1.0, 1.0)
+        }
+    }
+}
+
 /// Boundary sampling for unit-spheres
 #[inline]
 fn sample_unit_sphere_boundary<R: Rng + ?Sized>(rng: &mut R) -> Vec3 {
@@ -221,6 +246,26 @@ impl ShapeSample for Annulus {
         } else {
             self.outer_circle.sample_boundary(rng)
         }
+    }
+}
+
+impl ShapeSample for Rhombus {
+    type Output = Vec2;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
+        let x: f32 = rng.gen_range(0.0..=1.0);
+        let y: f32 = rng.gen_range(0.0..=1.0);
+
+        let unit_p = Vec2::NEG_X + x * Vec2::ONE + Vec2::new(y, -y);
+        unit_p * self.half_diagonals
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
+        let x: f32 = rng.gen_range(-1.0..=1.0);
+        let y_sign = if rng.r#gen() { -1.0 } else { 1.0 };
+
+        let y = (1.0 - ops::abs(x)) * y_sign;
+        Vec2::new(x, y) * self.half_diagonals
     }
 }
 

@@ -73,6 +73,7 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
         impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
             type Traversal = #traversal;
             const AUTO_PROPAGATE: bool = #auto_propagate;
@@ -268,8 +269,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .then_some(quote! { #bevy_ecs_path::component::Immutable })
         .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
 
-    let clone_behavior = if relationship_target.is_some() {
-        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::Custom(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
+    let clone_behavior = if relationship_target.is_some() || relationship.is_some() {
+        quote!(
+            use #bevy_ecs_path::relationship::{
+                RelationshipCloneBehaviorBase, RelationshipCloneBehaviorViaClone, RelationshipCloneBehaviorViaReflect,
+                RelationshipTargetCloneBehaviorViaClone, RelationshipTargetCloneBehaviorViaReflect, RelationshipTargetCloneBehaviorHierarchy
+                };
+            (&&&&&&&#bevy_ecs_path::relationship::RelationshipCloneBehaviorSpecialization::<Self>::default()).default_clone_behavior()
+        )
     } else if let Some(behavior) = attrs.clone_behavior {
         quote!(#bevy_ecs_path::component::ComponentCloneBehavior::#behavior)
     } else {
