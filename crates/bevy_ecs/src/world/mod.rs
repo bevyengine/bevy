@@ -49,7 +49,7 @@ use crate::{
         RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
-    entity_disabling::DefaultQueryFilters,
+    entity_disabling::{DefaultQueryFilters, Internal},
     event::{Event, EventId, Events, WriteBatchIds},
     lifecycle::RemovedComponentEvents,
     observer::Observers,
@@ -994,6 +994,7 @@ impl World {
                     // SAFETY: `&self` gives read access to the entire world.
                     unsafe { EntityRef::new(cell) }
                 })
+                .filter(|e| !e.contains::<Internal>())
         })
     }
 
@@ -1018,6 +1019,7 @@ impl World {
                     // so none will conflict with one another.
                     unsafe { EntityMut::new(cell) }
                 })
+                .filter(|e| !e.contains::<Internal>())
         })
     }
 
