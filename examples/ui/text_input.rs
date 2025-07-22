@@ -1,7 +1,10 @@
 //! multiple text inputs example
 
+use bevy::color::palettes::css::DARK_SLATE_GREY;
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::YELLOW;
+use bevy::color::palettes::tailwind::GRAY_200;
+use bevy::color::palettes::tailwind::GRAY_600;
 use bevy::core_widgets::Activate;
 use bevy::core_widgets::Callback;
 use bevy::core_widgets::CoreButton;
@@ -12,6 +15,8 @@ use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
+use bevy::text::Prompt;
+use bevy::text::PromptColor;
 use bevy::text::TextInputFilter;
 use bevy::text::TextInputPasswordMask;
 use bevy::text::TextInputSubmit;
@@ -74,10 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TabGroup::default(),
                 ))
                 .with_children(|commands| {
-                    for (i, label) in ["Type", "Input", "Value", "Submission"]
-                        .into_iter()
-                        .enumerate()
-                    {
+                    for (i, label) in ["Input", "Value", "Submission"].into_iter().enumerate() {
                         commands.spawn((
                             Text::new(label),
                             Node {
@@ -153,17 +155,6 @@ fn spawn_row(
     input_filter: Option<TextInputFilter>,
     is_password: bool,
 ) {
-    commands.spawn((
-        Node {
-            display: Display::Grid,
-            grid_row,
-            grid_column: GridPlacement::start(1),
-            justify_content: JustifyContent::Center,
-            ..Default::default()
-        },
-        children![(Text::new(label), TextColor(YELLOW.into()),)],
-    ));
-
     let update_target = commands
         .spawn((Text::default(), TextColor(Color::WHITE)))
         .id();
@@ -179,7 +170,7 @@ fn spawn_row(
                 width: Val::Px(200.),
                 overflow: Overflow::clip(),
                 grid_row,
-                grid_column: GridPlacement::start(3),
+                grid_column: GridPlacement::start(2),
                 justify_content: JustifyContent::Start,
                 padding: UiRect::all(Val::Px(4.)),
                 ..Default::default()
@@ -195,7 +186,7 @@ fn spawn_row(
                 width: Val::Px(200.),
                 overflow: Overflow::clip(),
                 grid_row,
-                grid_column: GridPlacement::start(4),
+                grid_column: GridPlacement::start(3),
                 justify_content: JustifyContent::Start,
                 padding: UiRect::all(Val::Px(4.)),
                 ..Default::default()
@@ -208,18 +199,14 @@ fn spawn_row(
         TextInput {
             justify: Justify::Left,
         },
+        Prompt::new(label),
+        PromptColor::new(GRAY_600),
         Node {
             width: Val::Px(200.),
             ..Default::default()
         },
         TextColor(Color::WHITE),
         TabIndex(0),
-        BackgroundColor(Color::BLACK),
-        Outline {
-            width: Val::Px(1.),
-            color: Color::WHITE,
-            ..Default::default()
-        },
         DemoInput,
         TextInputValue::default(),
         UpdateTarget(update_target),
@@ -244,13 +231,21 @@ fn spawn_row(
     let input_id = input.id();
 
     commands
-        .spawn((Node {
-            width: Val::Px(200.),
-            grid_row,
-            grid_column: GridPlacement::start(2),
-            padding: UiRect::all(Val::Px(4.)),
-            ..Default::default()
-        },))
+        .spawn((
+            Node {
+                width: Val::Px(200.),
+                grid_row,
+                grid_column: GridPlacement::start(1),
+                padding: UiRect::all(Val::Px(4.)),
+                ..Default::default()
+            },
+            BackgroundColor(Color::BLACK),
+            Outline {
+                width: Val::Px(1.),
+                color: Color::WHITE,
+                ..Default::default()
+            },
+        ))
         .add_child(input_id);
 }
 

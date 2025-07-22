@@ -2684,12 +2684,12 @@ category = "Input"
 wasm = false
 
 [[example]]
-name = "text_input"
-path = "examples/input/text_input.rs"
+name = "ime_text_input"
+path = "examples/input/ime_text_input.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.text_input]
-name = "Text Input"
+[package.metadata.example.ime_text_input]
+name = "IME Text Input"
 description = "Simple text input with IME support"
 category = "Input"
 wasm = false
@@ -3465,23 +3465,23 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "text_input_node"
-path = "examples/ui/text_input_node.rs"
+name = "text_box"
+path = "examples/ui/text_box.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.text_input_node]
-name = "Text Input"
-description = "Example demonstrating a text input"
+[package.metadata.example.text_box]
+name = "Text Box"
+description = "Example demonstrating a text input box"
 category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "text_input_filters"
-path = "examples/ui/text_input_filters.rs"
+name = "text_input"
+path = "examples/ui/text_input.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.text_input_filters]
-name = "text_input_filters"
+[package.metadata.example.ui_text_input]
+name = "text_input"
 description = "Example demonstrating multiple text inputs"
 category = "UI (User Interface)"
 wasm = true
