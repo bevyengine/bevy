@@ -390,7 +390,7 @@ mod tests {
 
     #[test]
     fn polygon() {
-        let polygon = Polygon::<4>::new([
+        let polygon = Polygon::new([
             Vec2::ONE,
             Vec2::new(-1.0, 1.0),
             Vec2::NEG_ONE,
