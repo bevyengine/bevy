@@ -152,6 +152,10 @@ impl Default for ForwardDecalMaterialExt {
 #[derive(Resource)]
 struct ForwardDecalMesh(Handle<Mesh>);
 
+// Note: We need to use a hook here instead of required components since we cannot access resources
+// with required components, and we can't otherwise get a handle to the asset from a required
+// component constructor, since the constructor must be a function pointer, and we intentionally do
+// not want to use `uuid_handle!`.
 fn forward_decal_set_mesh(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     let decal_mesh = world.resource::<ForwardDecalMesh>().0.clone();
     let mut entity = world.entity_mut(entity);
