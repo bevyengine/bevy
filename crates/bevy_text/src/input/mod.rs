@@ -11,6 +11,7 @@ use crate::LineBreak;
 use crate::LineHeight;
 use crate::PositionedGlyph;
 use crate::TextError;
+use crate::TextFont;
 use crate::TextLayoutInfo;
 use crate::TextPipeline;
 use bevy_app::Plugin;
@@ -28,7 +29,9 @@ use bevy_ecs::event::EntityEvent;
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::prelude::ReflectComponent;
+use bevy_ecs::query::Changed;
 use bevy_ecs::query::Has;
+use bevy_ecs::query::Or;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::schedule::SystemSet;
@@ -161,6 +164,12 @@ impl TextInputBuffer {
 pub struct TextInputTarget {
     pub size: Vec2,
     pub scale_factor: f32,
+}
+
+impl TextInputTarget {
+    pub fn is_empty(&self) -> bool {
+        (self.scale_factor * self.size).cmple(Vec2::ZERO).all()
+    }
 }
 
 #[derive(Component, PartialEq, Debug, Default, Deref)]
@@ -1040,5 +1049,43 @@ pub struct TextInputPrompt {
     pub color: Option<Color>,
 }
 
-#[derive(Default, Component)]
-pub struct TextInputPromptLayout(pub TextLayoutInfo);
+#[derive(Component)]
+pub struct TextInputPromptLayout {
+    buffer: Buffer,
+    layout: TextLayoutInfo,
+}
+
+impl Default for TextInputPromptLayout {
+    fn default() -> Self {
+        Self {
+            buffer: Buffer::new_empty(Metrics::new(20.0, 20.0)),
+            layout: Default::default(),
+        }
+    }
+}
+
+pub fn text_input_prompt_system(
+    mut textures: ResMut<Assets<Image>>,
+    fonts: Res<Assets<Font>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    mut text_input_pipeline: ResMut<TextPipeline>,
+    mut text_query: Query<
+        (
+            &TextInputPrompt,
+            &TextInputTarget,
+            &TextFont,
+            &mut TextInputPromptLayout,
+        ),
+        Or<(
+            Changed<TextInputPrompt>,
+            Changed<TextFont>,
+            Changed<TextInputPrompt>,
+        )>,
+    >,
+) {
+    for (prompt, target, font, mut prompt_layout) in text_query.iter_mut() {
+        if prompt.text.is_empty() || target.is_empty() {
+            prompt_layout.layout.clear();
+        }
+    }
+}
