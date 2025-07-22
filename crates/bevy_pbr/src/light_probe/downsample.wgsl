@@ -1,21 +1,30 @@
 // Single pass downsampling shader for creating the mip chain for an array texture
 // Ported from https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/c16b1d286b5b438b75da159ab51ff426bacea3d1/sdk/include/FidelityFX/gpu/spd/ffx_spd.h
 
+#ifdef FIRST_PASS
+// First pass bindings (mip0 -> mips 1-6)
 @group(0) @binding(0) var mip_0: texture_2d_array<f32>;
 @group(0) @binding(1) var mip_1: texture_storage_2d_array<rgba16float, write>;
 @group(0) @binding(2) var mip_2: texture_storage_2d_array<rgba16float, write>;
 @group(0) @binding(3) var mip_3: texture_storage_2d_array<rgba16float, write>;
 @group(0) @binding(4) var mip_4: texture_storage_2d_array<rgba16float, write>;
 @group(0) @binding(5) var mip_5: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(6) var mip_6: texture_storage_2d_array<rgba16float, read_write>;
-@group(0) @binding(7) var mip_7: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(8) var mip_8: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(9) var mip_9: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(10) var mip_10: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(11) var mip_11: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(12) var mip_12: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(13) var sampler_linear_clamp: sampler;
-@group(0) @binding(14) var<uniform> constants: Constants;
+@group(0) @binding(6) var mip_6: texture_storage_2d_array<rgba16float, write>;
+#endif
+
+#ifdef SECOND_PASS
+// Second pass bindings (mip6 -> mips 7-12)
+@group(0) @binding(0) var mip_6_in: texture_2d_array<f32>;
+@group(0) @binding(1) var mip_7: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(2) var mip_8: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(3) var mip_9: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(4) var mip_10: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(5) var mip_11: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(6) var mip_12: texture_storage_2d_array<rgba16float, write>;
+#endif
+@group(0) @binding(7) var sampler_linear_clamp: sampler;
+@group(0) @binding(8) var<uniform> constants: Constants;
+
 struct Constants { mips: u32, inverse_input_size: vec2f }
 
 var<workgroup> spd_intermediate_r: array<array<f32, 16>, 16>;
@@ -309,7 +318,11 @@ fn remap_for_wave_reduction(a: u32) -> vec2u {
 fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
     let texture_coord = (vec2f(uv) + 0.5) * constants.inverse_input_size;
     
+#ifdef FIRST_PASS
     let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, slice, 0.0);
+#else
+    let result = textureSampleLevel(mip_6_in, sampler_linear_clamp, texture_coord, slice, 0.0);
+#endif
 
 #ifdef SRGB_CONVERSION
     return vec4(
@@ -326,6 +339,7 @@ fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
 
 fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
     if mip >= constants.mips { return; }
+#ifdef FIRST_PASS
     switch mip {
         case 0u: { textureStore(mip_1, pix, slice, value); }
         case 1u: { textureStore(mip_2, pix, slice, value); }
@@ -333,6 +347,13 @@ fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
         case 3u: { textureStore(mip_4, pix, slice, value); }
         case 4u: { textureStore(mip_5, pix, slice, value); }
         case 5u: { textureStore(mip_6, pix, slice, value); }
+        default: {}
+    }
+#endif
+#ifdef SECOND_PASS
+    // In second pass, mip 6 is read-only, so we only write to mips 7-12
+    // Adjust mip level by 1 since we're not writing to mip 6
+    switch mip {
         case 6u: { textureStore(mip_7, pix, slice, value); }
         case 7u: { textureStore(mip_8, pix, slice, value); }
         case 8u: { textureStore(mip_9, pix, slice, value); }
@@ -341,6 +362,7 @@ fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
         case 11u: { textureStore(mip_12, pix, slice, value); }
         default: {}
     }
+#endif
 }
 
 fn spd_store_intermediate(x: u32, y: u32, value: vec4f) {
@@ -363,11 +385,16 @@ fn spd_reduce_intermediate(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u) -> vec4f 
 }
 
 fn spd_reduce_load_4(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u, slice: u32) -> vec4f {
-    let v0 = textureLoad(mip_6, i0, slice);
-    let v1 = textureLoad(mip_6, i1, slice);
-    let v2 = textureLoad(mip_6, i2, slice);
-    let v3 = textureLoad(mip_6, i3, slice);
+#ifdef SECOND_PASS
+    let v0 = textureLoad(mip_6_in, i0, slice, 0);
+    let v1 = textureLoad(mip_6_in, i1, slice, 0);
+    let v2 = textureLoad(mip_6_in, i2, slice, 0);
+    let v3 = textureLoad(mip_6_in, i3, slice, 0);
     return spd_reduce_4(v0, v1, v2, v3);
+#else
+    // Not used in first pass
+    return vec4(0.0);
+#endif
 }
 
 fn spd_reduce_4(v0: vec4f, v1: vec4f, v2: vec4f, v3: vec4f) -> vec4f {

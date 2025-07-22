@@ -71,7 +71,8 @@ pub enum GeneratorNode {
 /// Stores the bind group layouts for the environment map generation pipelines
 #[derive(Resource)]
 pub struct GeneratorBindGroupLayouts {
-    pub downsampling: BindGroupLayout,
+    pub downsampling_first: BindGroupLayout,
+    pub downsampling_second: BindGroupLayout,
     pub radiance: BindGroupLayout,
     pub irradiance: BindGroupLayout,
     pub copy: BindGroupLayout,
@@ -101,26 +102,39 @@ pub fn initialize_generated_environment_map_resources(
     pipeline_cache: Res<PipelineCache>,
     asset_server: Res<AssetServer>,
 ) {
+    // Output mips are write-only
     let mips =
         texture_storage_2d_array(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly);
+
     // Bind group layouts
-    let downsampling = render_device.create_bind_group_layout(
-        "downsampling_bind_group_layout",
+    let downsampling_first = render_device.create_bind_group_layout(
+        "downsampling_first_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                // Source texture
+                // Source mip0
                 texture_2d_array(TextureSampleType::Float { filterable: true }),
                 mips, // Output mip 1
                 mips, // Output mip 2
                 mips, // Output mip 3
                 mips, // Output mip 4
                 mips, // Output mip 5
-                // Output mip 6
-                texture_storage_2d_array(
-                    TextureFormat::Rgba16Float,
-                    StorageTextureAccess::ReadWrite,
-                ),
+                mips, // Output mip 6
+                // Linear sampler
+                sampler(SamplerBindingType::Filtering),
+                // Uniforms
+                uniform_buffer::<DownsamplingConstants>(false),
+            ),
+        ),
+    );
+
+    let downsampling_second = render_device.create_bind_group_layout(
+        "downsampling_second_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                // Input mip6 read-only
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
                 mips, // Output mip 7
                 mips, // Output mip 8
                 mips, // Output mip 9
@@ -174,7 +188,7 @@ pub fn initialize_generated_environment_map_resources(
     );
 
     let copy = render_device.create_bind_group_layout(
-        "copy_mip0_bind_group_layout",
+        "copy_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
@@ -190,7 +204,8 @@ pub fn initialize_generated_environment_map_resources(
     );
 
     let layouts = GeneratorBindGroupLayouts {
-        downsampling,
+        downsampling_first,
+        downsampling_second,
         radiance,
         irradiance,
         copy,
@@ -220,15 +235,19 @@ pub fn initialize_generated_environment_map_resources(
 
     let downsampling_shader = load_embedded_asset!(asset_server.as_ref(), "downsample.wgsl");
     let env_filter_shader = load_embedded_asset!(asset_server.as_ref(), "environment_filter.wgsl");
-    let copy_shader = load_embedded_asset!(asset_server.as_ref(), "copy_mip0.wgsl");
+    let copy_shader = load_embedded_asset!(asset_server.as_ref(), "copy.wgsl");
 
     // First pass for base mip Levels (0-5)
     let downsample_first = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("downsampling_first_pipeline".into()),
-        layout: vec![layouts.downsampling.clone()],
+        layout: vec![layouts.downsampling_first.clone()],
         push_constant_ranges: vec![],
         shader: downsampling_shader.clone(),
-        shader_defs: shader_defs.clone(),
+        shader_defs: {
+            let mut defs = shader_defs.clone();
+            defs.push(ShaderDefVal::Int("FIRST_PASS".into(), 1));
+            defs
+        },
         entry_point: Some("downsample_first".into()),
         zero_initialize_workgroup_memory: false,
     });
@@ -236,10 +255,14 @@ pub fn initialize_generated_environment_map_resources(
     // Second pass for remaining mip Levels (6-12)
     let downsample_second = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("downsampling_second_pipeline".into()),
-        layout: vec![layouts.downsampling.clone()],
+        layout: vec![layouts.downsampling_second.clone()],
         push_constant_ranges: vec![],
         shader: downsampling_shader,
-        shader_defs: shader_defs.clone(),
+        shader_defs: {
+            let mut defs = shader_defs.clone();
+            defs.push(ShaderDefVal::Int("SECOND_PASS".into(), 1));
+            defs
+        },
         entry_point: Some("downsample_second".into()),
         zero_initialize_workgroup_memory: false,
     });
@@ -268,12 +291,12 @@ pub fn initialize_generated_environment_map_resources(
 
     // Copy pipeline handles format conversion and populates mip0 when formats differ
     let copy_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("copy_mip0_pipeline".into()),
+        label: Some("copy_pipeline".into()),
         layout: vec![layouts.copy.clone()],
         push_constant_ranges: vec![],
         shader: copy_shader,
         shader_defs: vec![],
-        entry_point: Some("copy_mip0".into()),
+        entry_point: Some("copy".into()),
         zero_initialize_workgroup_memory: false,
     });
 
@@ -416,7 +439,8 @@ pub struct FilteringConstants {
 /// Stores bind groups for the environment map generation pipelines
 #[derive(Component)]
 pub struct GeneratorBindGroups {
-    pub downsampling: BindGroup,
+    pub downsampling_first: BindGroup,
+    pub downsampling_second: BindGroup,
     pub radiance: Vec<BindGroup>, // One per mip level
     pub irradiance: BindGroup,
     pub copy: BindGroup,
@@ -454,6 +478,7 @@ pub fn prepare_generated_environment_map_bind_groups(
         let base_size = env_map_light.environment_map.size.width;
         let mip_count = compute_mip_count(base_size);
         let last_mip = mip_count - 1;
+        let env_map_texture = env_map_light.environment_map.texture.clone();
 
         // Create downsampling constants
         let downsampling_constants = DownsamplingConstants {
@@ -465,36 +490,53 @@ pub fn prepare_generated_environment_map_bind_groups(
         let mut downsampling_constants_buffer = UniformBuffer::from(downsampling_constants);
         downsampling_constants_buffer.write_buffer(&render_device, &queue);
 
-        let input_env_map =
-            env_map_light
-                .environment_map
-                .texture
-                .create_view(&TextureViewDescriptor {
-                    dimension: Some(TextureViewDimension::D2Array),
-                    ..Default::default()
-                });
+        let input_env_map_first = env_map_texture.clone().create_view(&TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        });
 
-        let mip_storage = |level| {
-            create_storage_view(
-                &textures.environment_map.texture,
-                min(level, last_mip),
-                &render_device,
-            )
+        // Utility closure to get a unique storage view for a given mip level.
+        let mip_storage = |level: u32| {
+            if level <= last_mip {
+                create_storage_view(&textures.environment_map.texture, level, &render_device)
+            } else {
+                // Return a fresh 1×1 placeholder view so each binding has its own sub-resource and cannot alias.
+                create_placeholder_storage_view(&render_device)
+            }
         };
 
-        let downsampling_bind_group = render_device.create_bind_group(
-            "downsampling_bind_group",
-            &layouts.downsampling,
+        let downsampling_first_bind_group = render_device.create_bind_group(
+            "downsampling_first_bind_group",
+            &layouts.downsampling_first,
             &BindGroupEntries::sequential((
                 // Source mip0
-                &input_env_map,
-                // Destination mips 1 – 12 (duplicate the last valid view if the chain is shorter)
+                &input_env_map_first,
+                // Destination mips 1 – 6
                 &mip_storage(1),
                 &mip_storage(2),
                 &mip_storage(3),
                 &mip_storage(4),
                 &mip_storage(5),
                 &mip_storage(6),
+                &samplers.linear,
+                &downsampling_constants_buffer,
+            )),
+        );
+
+        let input_env_map_second = env_map_texture.create_view(&TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            base_mip_level: min(6, last_mip),
+            mip_level_count: Some(1),
+            ..Default::default()
+        });
+
+        let downsampling_second_bind_group = render_device.create_bind_group(
+            "downsampling_second_bind_group",
+            &layouts.downsampling_second,
+            &BindGroupEntries::sequential((
+                // Input mip6: read-only
+                &input_env_map_second,
+                // Destination mips 7 – 12
                 &mip_storage(7),
                 &mip_storage(8),
                 &mip_storage(9),
@@ -592,13 +634,14 @@ pub fn prepare_generated_environment_map_bind_groups(
         let dst_view = create_storage_view(&textures.environment_map.texture, 0, &render_device);
 
         let copy_bind_group = render_device.create_bind_group(
-            "copy_mip0_bind_group",
+            "copy_bind_group",
             &layouts.copy,
             &BindGroupEntries::with_indices(((0, &src_view), (1, &dst_view))),
         );
 
         commands.entity(entity).insert(GeneratorBindGroups {
-            downsampling: downsampling_bind_group,
+            downsampling_first: downsampling_first_bind_group,
+            downsampling_second: downsampling_second_bind_group,
             radiance: radiance_bind_groups,
             irradiance: irradiance_bind_group,
             copy: copy_bind_group,
@@ -619,6 +662,27 @@ fn create_storage_view(texture: &Texture, mip: u32, _render_device: &RenderDevic
         array_layer_count: Some(texture.depth_or_array_layers()),
         usage: Some(TextureUsages::STORAGE_BINDING),
     })
+}
+
+/// To ensure compatibility in web browsers, each call returns a unique resource so that multiple missing mip
+/// bindings in the same bind-group never alias.
+fn create_placeholder_storage_view(render_device: &RenderDevice) -> TextureView {
+    let tex = render_device.create_texture(&TextureDescriptor {
+        label: Some("lightprobe_placeholder"),
+        size: Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 6,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format: TextureFormat::Rgba16Float,
+        usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+        view_formats: &[],
+    });
+
+    tex.create_view(&TextureViewDescriptor::default())
 }
 
 /// Downsampling node implementation that handles all parts of the mip chain
@@ -652,14 +716,12 @@ impl Node for DownsamplingNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipelines = world.resource::<GeneratorPipelines>();
 
-        // First pass (mips 0-5)
         let Some(downsample_first_pipeline) =
             pipeline_cache.get_compute_pipeline(pipelines.downsample_first)
         else {
             return Ok(());
         };
 
-        // Second pass (mips 6-12)
         let Some(downsample_second_pipeline) =
             pipeline_cache.get_compute_pipeline(pipelines.downsample_second)
         else {
@@ -679,12 +741,11 @@ impl Node for DownsamplingNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("lightprobe_copy_mip0_pass"),
+                            label: Some("lightprobe_copy_pass"),
                             timestamp_writes: None,
                         });
 
-                let pass_span =
-                    diagnostics.pass_span(&mut compute_pass, "lightprobe_copy_mip0_pass");
+                let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_copy_pass");
 
                 compute_pass.set_pipeline(copy_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
@@ -711,7 +772,7 @@ impl Node for DownsamplingNode {
                     diagnostics.pass_span(&mut compute_pass, "lightprobe_downsampling_first_pass");
 
                 compute_pass.set_pipeline(downsample_first_pipeline);
-                compute_pass.set_bind_group(0, &bind_groups.downsampling, &[]);
+                compute_pass.set_bind_group(0, &bind_groups.downsampling_first, &[]);
 
                 let tex_size = env_map_light.environment_map.size;
                 let wg_x = tex_size.width.div_ceil(64);
@@ -735,7 +796,7 @@ impl Node for DownsamplingNode {
                     diagnostics.pass_span(&mut compute_pass, "lightprobe_downsampling_second_pass");
 
                 compute_pass.set_pipeline(downsample_second_pipeline);
-                compute_pass.set_bind_group(0, &bind_groups.downsampling, &[]);
+                compute_pass.set_bind_group(0, &bind_groups.downsampling_second, &[]);
 
                 let tex_size = env_map_light.environment_map.size;
                 let wg_x = tex_size.width.div_ceil(256);

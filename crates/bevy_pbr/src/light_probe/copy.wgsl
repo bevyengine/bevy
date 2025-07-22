@@ -7,7 +7,7 @@
 
 @compute
 @workgroup_size(8, 8, 1)
-fn copy_mip0(@builtin(global_invocation_id) global_id: vec3u) {
+fn copy(@builtin(global_invocation_id) global_id: vec3u) {
     let size = textureDimensions(src_cubemap).xy;
 
     // Bounds check
