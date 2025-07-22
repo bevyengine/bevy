@@ -1,8 +1,5 @@
 #![allow(missing_docs)]
 
-use std::collections::VecDeque;
-use std::sync::LazyLock;
-
 use crate::buffer_dimensions;
 use crate::load_font_to_fontdb;
 use crate::CosmicFontSystem;
@@ -57,6 +54,7 @@ use cosmic_text::Editor;
 use cosmic_text::Metrics;
 pub use cosmic_text::Motion;
 use cosmic_text::Selection;
+use std::collections::VecDeque;
 
 pub struct TextInputPlugin;
 
@@ -119,11 +117,18 @@ impl TextInputBuffer {
         self.editor.with_buffer_mut(f)
     }
 
-    pub fn with_buffer<F, T>(&mut self, f: F) -> T
+    pub fn with_buffer<F, T>(&self, f: F) -> T
     where
         F: FnOnce(&Buffer) -> T,
     {
         self.editor.with_buffer(f)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.with_buffer(|buffer| {
+            buffer.lines.len() == 0
+                || (buffer.lines.len() == 1 && buffer.lines[0].text().is_empty())
+        })
     }
 }
 
@@ -1011,10 +1016,6 @@ fn apply_text_input_action(
 
     // Set redraw manually, sometimes the editor doesn't set it automatically.
     editor.set_redraw(true);
-}
-
-pub(crate) fn is_buffer_empty(buffer: &Buffer) -> bool {
-    buffer.lines.len() == 0 || (buffer.lines.len() == 1 && buffer.lines[0].text().is_empty())
 }
 
 #[derive(EntityEvent, Clone, Debug, Component, Reflect)]
