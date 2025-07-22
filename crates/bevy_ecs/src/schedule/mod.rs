@@ -10,10 +10,10 @@ mod schedule;
 mod set;
 mod stepping;
 
+pub use self::graph::GraphInfo;
 use self::graph::*;
 pub use self::{condition::*, config::*, executor::*, node::*, schedule::*, set::*};
 pub use pass::ScheduleBuildPass;
-pub use self::graph::GraphInfo;
 
 /// An implementation of a graph data structure.
 pub mod graph;
