@@ -32,8 +32,7 @@ pub struct ComponentInfo {
     pub(super) hooks: ComponentHooks,
     pub(super) required_components: RequiredComponents,
     /// The set of components that require this components.
-    /// Invariant: this is stored in a depth-first order, that is components are stored after the components
-    /// that they depend on.
+    /// Invariant: components in this set always appear after the components that they require.
     pub(super) required_by: IndexSet<ComponentId, FixedHasher>,
 }
 
