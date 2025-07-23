@@ -6,7 +6,7 @@
 )]
 #![no_std]
 
-//! Accessibility for Bevy
+//! Reusable accessibility primitives
 //!
 //! As of Bevy version 0.15 `accesskit` is no longer re-exported from this crate.
 //!
